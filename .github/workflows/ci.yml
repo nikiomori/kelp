@@ -43,7 +43,7 @@ jobs:
             test: swift test $SWIFT_BUILD --skip-build
           - name: Daemon under Thread Sanitizer
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
-            build: for t in "--target DaemonTests" "--product kelp" "--product kelpd"; do swift build $SWIFT_BUILD --sanitize=thread $t; done
+            build: for p in DaemonTests kelp kelpd; do swift build $SWIFT_BUILD --sanitize=thread --product $p; done
             # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
             # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
             test: |
