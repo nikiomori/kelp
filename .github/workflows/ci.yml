@@ -38,25 +38,26 @@ jobs:
       matrix:
         include:
           - name: Build and test
-            build: swift build $SWIFT_BUILD
-            test: swift test $SWIFT_BUILD
+            # One compile: `swift build` then `swift test` built every module twice (tests need -enable-testing).
+            build: swift build $SWIFT_BUILD --build-tests
+            test: swift test $SWIFT_BUILD --skip-build
           - name: Daemon under Thread Sanitizer
-            build: swift build $SWIFT_BUILD --product kelp && swift build $SWIFT_BUILD --product kelpd   # the PTY tests run them
-            test: swift test $SWIFT_BUILD --sanitize=thread --scratch-path .build/tsan --filter DaemonTests
+            # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
+            build: for t in "--target DaemonTests" "--product kelp" "--product kelpd"; do swift build $SWIFT_BUILD --sanitize=thread $t; done
+            # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
+            # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
+            test: |
+              X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
+              B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
+              DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib) \
+                DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
+                $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
       - uses: actions/cache/restore@v4
         with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}", fail-on-cache-miss: true }
-      - name: Cache dependencies   # sources only: build products run to GBs and would crowd out libghostty
-        uses: actions/cache@v4
-        with:
-          path: |
-            .build/checkouts
-            .build/repositories
-            .build/artifacts
-          key: spm-${{ hashFiles('Package.resolved') }}
       - run: ${{ matrix.build }}
       - name: Link .build/debug   # Xcode 27's Swift Build makes it (the tests find kelp there); Xcode 26's doesn't
         run: '[ -e .build/debug ] || ln -s out/Products/Debug .build/debug'
