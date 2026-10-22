@@ -85,9 +85,9 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
         }
     }
     try click(lastRowOf: path)
-    #expect(tried.first == path)
+    #expect(tried.first == path, "\(rows)")
     try click(lastRowOf: link)
-    #expect(opened?.absoluteString == link)
+    #expect(opened?.absoluteString == link, "\(rows)")
 }
 
 /// The same command on screen, selected from its first character and copied with ⌘C: Ghostty's selection gives the column.

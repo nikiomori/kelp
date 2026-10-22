@@ -92,7 +92,9 @@ final class EventBox: @unchecked Sendable {
     func held() -> [String] {
         var all: Unmanaged<CFDictionary>?
         guard IOPMCopyAssertionsByProcess(&all) == kIOReturnSuccess, let byPID = all?.takeRetainedValue() as? [NSNumber: [[String: Any]]] else { return [] }
+        // Only the display's: other tests' daemons in this process hold system-sleep assertions while their agents work.
         return (byPID[NSNumber(value: getpid())] ?? []).compactMap { $0[kIOPMAssertionTypeKey] as? String }
+            .filter { $0 == kIOPMAssertPreventUserIdleDisplaySleep }
     }
     let root = tmp()
     let d = try Daemon(root: root)
