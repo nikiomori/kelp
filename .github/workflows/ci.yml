@@ -1,45 +1,60 @@
 name: CI
 on:
   pull_request:
+    paths-ignore: [README.md, CONTRIBUTING.md, SECURITY.md, 'docs/**']
   push:
     branches: [main]
+    paths-ignore: [README.md, CONTRIBUTING.md, SECURITY.md, 'docs/**']
+concurrency:   # a newer push to the same branch cancels the run it makes stale
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 env:
   # Xcode 26's SwiftPM skips asset catalogs (a dependency's Bundle.module goes missing) unless it builds with
   # Swift Build, the default from Xcode 27 on; drop the flag once runners have Xcode 27.
   XCODE: '26.6'
   SWIFT_BUILD: --build-system swiftbuild
 jobs:
-  build-test:
+  # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT), cached for the jobs below.
+  ghostty:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache/restore@v4
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}", lookup-only: true }
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo xcode-select -s /Applications/Xcode_$XCODE.app && scripts/build-ghostty.sh
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
+  test:
+    needs: ghostty
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Build and test
+            run: swift build $SWIFT_BUILD && swift test $SWIFT_BUILD
+          - name: Daemon under Thread Sanitizer
+            run: swift test $SWIFT_BUILD --sanitize=thread --filter DaemonTests
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
-      - name: Cache SwiftPM
+      - uses: actions/cache/restore@v4
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}", fail-on-cache-miss: true }
+      - name: Cache dependencies   # sources only: build products run to GBs and would crowd out libghostty
         uses: actions/cache@v4
         with:
-          path: .build
-          key: spm-xcode${{ env.XCODE }}-${{ hashFiles('Package.resolved') }}
-      # Restore and save apart: libghostty takes ~12 min and is kept even when a later step fails.
-      - name: Restore libghostty
-        id: ghostty
-        uses: actions/cache/restore@v4
-        with:
-          path: Vendor/GhosttyKit.xcframework
-          key: ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}   # the script pins GHOSTTY_COMMIT
-      - name: Build libghostty
-        if: steps.ghostty.outputs.cache-hit != 'true'
-        run: scripts/build-ghostty.sh
-      - name: Save libghostty
-        if: steps.ghostty.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: Vendor/GhosttyKit.xcframework
-          key: ${{ steps.ghostty.outputs.cache-primary-key }}
-      - name: Build
-        run: swift build $SWIFT_BUILD
-      - name: Test
-        run: swift test $SWIFT_BUILD
-      - name: Daemon under Thread Sanitizer
-        run: swift test $SWIFT_BUILD --sanitize=thread --scratch-path .build/tsan --filter DaemonTests
-      - name: Lint
-        run: brew install swiftlint && swiftlint --quiet
+          path: |
+            .build/checkouts
+            .build/repositories
+            .build/artifacts
+          key: spm-${{ hashFiles('Package.resolved') }}
+      - run: ${{ matrix.run }}
+  lint:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install swiftlint && swiftlint --quiet

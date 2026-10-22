@@ -78,8 +78,8 @@ extension SharedAppModel {
 @Test func theAgentWaitingForYouIsPulledToTheTopWhenThereAreSeveralWorkspaces() throws {
     let ask = Session(worktreeId: "w3", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Allow rm?", summary: "Needs permission")
     try withSidebar(repos: [project], worktrees: [desk("w1", "a"), desk("w2", "b"), desk("w3", "c")], sessions: [ask]) { _, o in
-        let r = rows(of: o)
-        #expect(r.first?.contains { $0.localizedCaseInsensitiveContains("needs you") } == true)   // the section comes first
+        let r = rows(of: o), top: [String] = r.first ?? []
+        #expect(top.contains { $0.localizedCaseInsensitiveContains("needs you") })   // the section comes first
         #expect(r.flatMap { $0 }.filter { $0 == "Allow rm?" }.count == 2)                          // under the section, and under its workspace
     }
 }
