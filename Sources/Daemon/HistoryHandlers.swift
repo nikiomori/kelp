@@ -24,10 +24,7 @@ extension UsageGet: Handled {
                                  block: d.agentUsage.usageIndex.currentBlock(roots: [r], now: now).map(AgentUsage.block)))
         }
         for r in roots.codex where FileManager.default.fileExists(atPath: r.path) {
-            guard let l = CodexUsage.latest(root: r) else { continue }
-            codex.append(Codex(observedAt: l.observedAt.timeIntervalSince1970, primaryUsedPercent: l.primaryUsedPercent,
-                               primaryResetsAt: l.primaryResetsAt?.timeIntervalSince1970, secondaryUsedPercent: l.secondaryUsedPercent,
-                               secondaryResetsAt: l.secondaryResetsAt?.timeIntervalSince1970))
+            if let l = CodexUsage.latest(root: r) { codex.append(AgentUsage.codex(l)) }
         }
         let v = Result(claude: claude, codex: codex)
         d.agentUsage.usageCache.withLock { $0 = (Date(), v) }

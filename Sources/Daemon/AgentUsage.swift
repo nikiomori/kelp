@@ -22,6 +22,8 @@ final class AgentUsage: Sendable {
     let claudeLimits = OSAllocatedUnfairLock<[String: (reading: ClaudeLimits.Reading, at: Date)]>(initialState: [:])
     /// From the agents' own /usage screens, by agent id (UsageProbe).
     let plans = OSAllocatedUnfairLock<[String: PlanState]>(initialState: [:])
+    /// Codex's limits as its app server last gave them, and when it was last asked (UsageProbe).
+    let codexLive = OSAllocatedUnfairLock<(limits: CodexLimits?, at: Date, running: Bool)>(initialState: (nil, .distantPast, false))
     /// The transcripts history.list read last, by the folders read. Its search field asks on every keystroke, and each read
     /// parses the head and tail of every conversation on disk: a search reuses the list read when the window opened (or a
     /// minute ago). Keyed by folders.
@@ -81,10 +83,21 @@ final class AgentUsage: Sendable {
                        cacheWrite: b.tokens.cacheWrite, cacheRead: b.tokens.cacheRead, cost: b.estimatedCostUSD, models: b.models)
     }
 
+    static func codex(_ l: CodexLimits) -> UsageGet.Codex {
+        UsageGet.Codex(observedAt: l.observedAt.timeIntervalSince1970, primaryUsedPercent: l.primaryUsedPercent,
+                       primaryResetsAt: l.primaryResetsAt?.timeIntervalSince1970, secondaryUsedPercent: l.secondaryUsedPercent,
+                       secondaryResetsAt: l.secondaryResetsAt?.timeIntervalSince1970)
+    }
+
     /// Claude's own percentages from the last 12 hours (they reset; older readings mislead).
     func withLimits(_ v: UsageGet.Result) -> UsageGet.Result {
         var o = v
         refreshPlansIfStale()
+        refreshCodexIfStale()
+        // The default account's (the first): its app server's reading, unless a session logged a newer one since.
+        if let live = codexLive.withLock({ $0.limits }), live.observedAt.timeIntervalSince1970 > o.codex.first?.observedAt ?? 0 {
+            if o.codex.isEmpty { o.codex = [Self.codex(live)] } else { o.codex[0] = Self.codex(live) }
+        }
         let plans = self.plans.withLock { $0 }
         o.plans = plans.filter { !$0.value.readings.isEmpty }.mapValues { s in
             s.readings.map { UsageGet.Limit(kind: $0.kind, percent: $0.percent, resets: $0.resets) }

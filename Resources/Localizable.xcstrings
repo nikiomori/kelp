@@ -5041,13 +5041,13 @@
         }
       }
     },
-    "Opens /usage of Claude Code (every 10 minutes), Grok and Antigravity (every 30) in the background and shows how much of each plan is used at the bottom of the sidebar. Uses no tokens.": {
+    "Opens /usage of Claude Code (every 10 minutes), Grok and Antigravity (every 30) in the background, asks Codex for its limits (every 10 minutes) and shows how much of each plan is used at the bottom of the sidebar. Uses no tokens.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открывает /usage у Claude Code (каждые 10 минут), Grok и Antigravity (каждые 30) в фоне и показывает внизу боковой панели, сколько израсходовано от каждого плана. Токены не тратит."
+            "value": "Открывает /usage у Claude Code (каждые 10 минут), Grok и Antigravity (каждые 30) в фоне, спрашивает лимиты у Codex (каждые 10 минут) и показывает внизу боковой панели, сколько израсходовано от каждого плана. Токены не тратит."
           }
         }
       }

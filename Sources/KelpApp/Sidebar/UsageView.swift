@@ -5,7 +5,7 @@ import Core
 /// window (or its fullest limit) with the week as a thin line under it, and when the 5 hours reset — and the details
 /// (each limit with its bar, when it resets) on hover.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity — the daemon reads them) and
-/// Codex's session logs; agents that don't report limits aren't listed.
+/// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
 struct UsageView: View {
     struct Line: Equatable { var label: String; var used: Double; var resets: String?; var session = false }   // used: 0...1
     struct Row: Identifiable, Equatable {

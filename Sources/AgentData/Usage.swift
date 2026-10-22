@@ -82,15 +82,20 @@ public enum CodexUsage {
         return JSONL.lines(data).reversed().lazy.filter { $0.range(of: marker) != nil }.compactMap { limits(JSONL.object($0)) }.first
     }
 
-    /// Handles `primary: {used_percent, resets_at | resets_in_seconds}` and the older flat `primary_used_percent` shape.
     static func limits(_ o: [String: Any]?) -> CodexLimits? {
-        guard let o, let p = o["payload"] as? [String: Any], p["type"] as? String == "token_count",
-              let rl = p["rate_limits"] as? [String: Any], let at = JSONL.date(o["timestamp"]) else { return nil }
+        guard let o, let p = o["payload"] as? [String: Any], p["type"] as? String == "token_count", let at = JSONL.date(o["timestamp"]) else { return nil }
+        return limits(rateLimits: p["rate_limits"], at: at)
+    }
+
+    /// A rollout's `rate_limits` (`primary: {used_percent, resets_at | resets_in_seconds}`, or the older flat
+    /// `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent, resetsAt}`), read at `at`.
+    public static func limits(rateLimits: Any?, at: Date) -> CodexLimits? {
+        guard let rl = rateLimits as? [String: Any] else { return nil }
         func window(_ k: String) -> (used: Double, resets: Date?)? {
             let w = rl[k] as? [String: Any]
                 ?? Dictionary(uniqueKeysWithValues: rl.compactMap { $0.key.hasPrefix(k + "_") ? (String($0.key.dropFirst(k.count + 1)), $0.value) : nil })
-            guard let used = (w["used_percent"] as? NSNumber)?.doubleValue else { return nil }
-            let resets = JSONL.date(w["resets_at"]) ?? (w["resets_in_seconds"] as? NSNumber).map { at + $0.doubleValue }
+            guard let used = ((w["used_percent"] ?? w["usedPercent"]) as? NSNumber)?.doubleValue else { return nil }
+            let resets = JSONL.date(w["resets_at"] ?? w["resetsAt"]) ?? (w["resets_in_seconds"] as? NSNumber).map { at + $0.doubleValue }
             return (used, resets)
         }
         let primary = window("primary"), secondary = window("secondary")

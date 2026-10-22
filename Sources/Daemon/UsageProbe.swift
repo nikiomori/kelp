@@ -3,6 +3,7 @@ import os
 import Core
 import Agents
 import GitKit
+import AgentData
 
 /// Plan limits as the agents themselves show them in `/usage` (Claude Code, Grok Build, Antigravity). A hidden copy of
 /// the agent opens that screen now and then and quits: no tokens are spent and Kelp never touches their credentials.
@@ -24,8 +25,11 @@ extension AgentUsage {
                   shown: { $0.contains("Weekly Limit Remaining") && $0.contains("%") }, parse: ClaudeLimits.parseAntigravityUsage)
     ]
 
+    /// Settings › Show plan limits.
+    var readsPlans: Bool { (settings["usage.readPlans"] ?? settings["usage.readClaudePlan"])?.bool != false }
+
     func refreshPlansIfStale() {
-        guard (settings["usage.readPlans"] ?? settings["usage.readClaudePlan"])?.bool != false else { return }
+        guard readsPlans else { return }
         for probe in Self.planProbes {
             let start: Bool = plans.withLock { plans in
                 let s = plans[probe.agent] ?? PlanState()
@@ -60,11 +64,56 @@ extension AgentUsage {
     /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
     /// (up to 10 minutes late for Claude). The UI's next `usage.get` starts the read.
     func planUsed(_ agent: String) {
+        if agent == "codex" { codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) } }
         guard let p = Self.planProbes.first(where: { $0.agent == agent }) else { return }
         plans.withLock { plans in
             guard let at = plans[agent]?.at else { return }
             plans[agent]?.at = min(at, Date().addingTimeInterval(30 - p.every))
         }
+    }
+
+    static let codexEvery: TimeInterval = 600
+
+    /// Codex's limits as its /status shows them, asked of `codex app-server` every 10 minutes (half a minute after a
+    /// turn): no tokens, and no TUI, so no startup question (trust this folder? these hooks?) stands in the way. Never
+    /// Codex's `/usage`: there it spends a limit reset.
+    /// Limit: the default account's only (CODEX_HOME); account profiles keep what their sessions logged.
+    func refreshCodexIfStale() {
+        guard readsPlans else { return }
+        let start: Bool = codexLive.withLock { s in
+            guard !s.running, Date().timeIntervalSince(s.at) > Self.codexEvery else { return false }
+            s.running = true; return true
+        }
+        guard start else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let l = (try? LoginPath.resolve("codex")).flatMap(Self.codexLimits)
+            self?.codexLive.withLock { s in
+                if let l { s.limits = l }
+                s.at = Date(); s.running = false
+            }
+        }
+    }
+
+    /// One `account/rateLimits/read`. The app server quits as soon as its input closes, before answering, so it gets a
+    /// terminal like the /usage probes and is stopped once it has answered.
+    static func codexLimits(path: String) -> CodexLimits? {
+        let out = ScreenBuffer()
+        let pty: PTY
+        do { pty = try PTY(argv: [path, "app-server"], cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value]) }
+        catch { Log.session.error("codex app-server didn't start: \(error)"); return nil }
+        pty.onOutput = { out.append($0) }
+        pty.start()
+        defer { pty.terminate() }
+        let ask = [#"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"kelp","version":"1"}}}"#, #"{"method":"initialized"}"#,
+                   #"{"id":2,"method":"account/rateLimits/read"}"#]
+        pty.write(Data((ask.joined(separator: "\n") + "\n").utf8))
+        var answer: [String: Any]?
+        _ = out.wait(20) { text in   // the terminal echoes the questions back: only an answer has a result or an error
+            answer = text.split(whereSeparator: \.isNewline).lazy.compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+                .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
+            return answer != nil
+        }
+        return CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
     }
 
     /// A folder the agent already works in, so it won't ask whether to trust it. Grok doesn't ask, but keeps a session
