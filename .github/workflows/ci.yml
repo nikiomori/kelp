@@ -49,7 +49,7 @@ jobs:
             test: |
               X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
               B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
-              DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib) \
+              DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
                 DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
                 $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
     runs-on: macos-26
