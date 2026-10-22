@@ -35,9 +35,11 @@ jobs:
       matrix:
         include:
           - name: Build and test
-            run: swift build $SWIFT_BUILD && swift test $SWIFT_BUILD
+            build: swift build $SWIFT_BUILD
+            test: swift test $SWIFT_BUILD
           - name: Daemon under Thread Sanitizer
-            run: swift test $SWIFT_BUILD --sanitize=thread --filter DaemonTests
+            build: swift build $SWIFT_BUILD --product kelp && swift build $SWIFT_BUILD --product kelpd   # the PTY tests run them
+            test: swift test $SWIFT_BUILD --sanitize=thread --scratch-path .build/tsan --filter DaemonTests
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +54,18 @@ jobs:
             .build/repositories
             .build/artifacts
           key: spm-${{ hashFiles('Package.resolved') }}
-      - run: ${{ matrix.run }}
+      - run: ${{ matrix.build }}
+      - name: Link .build/debug   # Xcode 27's Swift Build makes it (the tests find kelp there); Xcode 26's doesn't
+        run: '[ -e .build/debug ] || ln -s out/Products/Debug .build/debug'
+      - run: ${{ matrix.test }}
+      - name: Show the build layout
+        if: failure()
+        run: |
+          ls -la .build .build/out/Products/Debug | head -60
+          find .build -maxdepth 6 -name Sparkle.framework -not -path '*/checkouts/*' -not -path '*/artifacts/*'
+          for b in .build/out/Products/Debug/KelpAppTests.xctest .build/tsan/out/Products/Debug/KelpAppTests.xctest; do
+            [ -d "$b" ] && otool -l "$b/Contents/MacOS/KelpAppTests" | grep -A2 LC_RPATH | grep path
+          done || true
   lint:
     runs-on: macos-26
     steps:

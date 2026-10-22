@@ -70,7 +70,7 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     var tried: [String] = [], opened: URL?
     v.onOpenPath = { t, _ in tried.append(t); return t == path }
     v.onOpenURL = { opened = $0 }
-    let deadline = Date() + 5
+    let deadline = Date() + 15
     while !(v.visibleText.contains("DONE") && ghostty_surface_mouse_captured(surface)), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
     let rows = v.visibleText.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
@@ -102,7 +102,7 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 280, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
     w.contentView = v; w.orderFront(nil)
     defer { w.orderOut(nil) }
-    let deadline = Date() + 5
+    let deadline = Date() + 15   // a loaded CI runner can take seconds to start the shell
     while !v.visibleText.contains("DONE"), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
     try #require(s.columns == 32)
@@ -190,7 +190,7 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     defer { w.orderOut(nil) }
     var opened: URL?
     v.onOpenURL = { opened = $0 }
-    let deadline = Date() + 5
+    let deadline = Date() + 15
     while !(v.visibleText.contains("LINKTEXT") && ghostty_surface_mouse_captured(surface)), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
     let rows = v.visibleText.components(separatedBy: "\n")
     let row = try #require(rows.firstIndex { $0.contains("LINKTEXT") })
