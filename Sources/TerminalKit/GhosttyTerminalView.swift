@@ -378,6 +378,11 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         defer { ghostty_surface_free_text(surface, &t) }
         return String(cString: t.text)
     }
+    /// A text area to Accessibility, as in Ghostty: dictation apps (MacWhisper, Superwhisper…) paste only into a focused
+    /// text field or area, and VoiceOver reads the screen.
+    public override func isAccessibilityElement() -> Bool { true }
+    public override func accessibilityRole() -> NSAccessibility.Role? { .textArea }
+    public override func accessibilityValue() -> Any? { visibleText }
     /// Type text as if pasted by the user (used for drops into the prompt).
     public func insert(_ text: String) {
         guard let surface else { return }

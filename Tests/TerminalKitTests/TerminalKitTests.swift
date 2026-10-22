@@ -206,3 +206,15 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     v.mouseDown(with: try send(.leftMouseDown, .command)); v.mouseUp(with: try send(.leftMouseUp, .command))
     #expect(opened?.absoluteString == "https://example.com/a?b=c")
 }
+
+/// Dictation apps (MacWhisper) paste only into a focused text area: the terminal is one, its screen the value.
+@Test @MainActor func terminalIsATextAreaToAccessibility() async throws {
+    let v = GhosttyTerminalView(command: "echo SPOKEN; sleep 20", cwd: NSTemporaryDirectory())
+    let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
+    w.contentView = v; w.orderFront(nil)
+    defer { w.orderOut(nil) }
+    let deadline = Date() + 15
+    while !v.visibleText.contains("SPOKEN"), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(v.isAccessibilityElement() && v.accessibilityRole() == .textArea)
+    #expect((v.accessibilityValue() as? String)?.contains("SPOKEN") == true)
+}
