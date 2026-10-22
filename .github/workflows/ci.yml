@@ -10,9 +10,12 @@ concurrency:   # a newer push to the same branch cancels the run it makes stale
   cancel-in-progress: true
 env:
   # Xcode 26's SwiftPM skips asset catalogs (a dependency's Bundle.module goes missing) unless it builds with
-  # Swift Build, the default from Xcode 27 on; drop the flag once runners have Xcode 27.
+  # Swift Build, the default from Xcode 27 on; its test bundles also lack the rpath to Sparkle.framework beside them.
+  # Drop both once runners have Xcode 27.
   XCODE: '26.6'
-  SWIFT_BUILD: --build-system swiftbuild
+  SWIFT_BUILD: --build-system swiftbuild -Xlinker -rpath -Xlinker @loader_path/../../..
+  # Every test at once (each with its daemons, PTYs and git) starves a 3-core runner into timeouts.
+  SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH: 6
 jobs:
   # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT), cached for the jobs below.
   ghostty:
@@ -58,14 +61,6 @@ jobs:
       - name: Link .build/debug   # Xcode 27's Swift Build makes it (the tests find kelp there); Xcode 26's doesn't
         run: '[ -e .build/debug ] || ln -s out/Products/Debug .build/debug'
       - run: ${{ matrix.test }}
-      - name: Show the build layout
-        if: failure()
-        run: |
-          ls -la .build .build/out/Products/Debug | head -60
-          find .build -maxdepth 6 -name Sparkle.framework -not -path '*/checkouts/*' -not -path '*/artifacts/*'
-          for b in .build/out/Products/Debug/KelpAppTests.xctest .build/tsan/out/Products/Debug/KelpAppTests.xctest; do
-            [ -d "$b" ] && otool -l "$b/Contents/MacOS/KelpAppTests" | grep -A2 LC_RPATH | grep path
-          done || true
   lint:
     runs-on: macos-26
     steps:
