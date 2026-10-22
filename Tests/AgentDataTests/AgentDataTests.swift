@@ -177,6 +177,13 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 
     let flat = CodexUsage.limits(tokens("2026-10-18T09:05:00Z", ["primary_used_percent": 7, "secondary_used_percent": 3]))
     #expect(flat?.primaryUsedPercent == 7 && flat?.secondaryUsedPercent == 3)
+
+    // Conversations Codex Desktop imported from Claude Code: newer than the real ones, and without limits.
+    for i in 0..<12 {
+        let f = try write(root, "2026/10/20/rollout-2026-10-20T00-00-00-imported-\(i).jsonl", [tokens("2026-10-20T00:00:00.000Z", NSNull())])
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: f.path)
+    }
+    #expect(CodexUsage.latest(root: root)?.primaryUsedPercent == 50)
 }
 
 @Test func searchAndResume() throws {

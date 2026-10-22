@@ -63,11 +63,17 @@ public struct CodexLimits: Sendable, Equatable {
 }
 
 public enum CodexUsage {
-    /// Newest `rate_limits` snapshot from `token_count` events in the 10 most recently modified rollouts.
+    /// Newest `rate_limits` snapshot from `token_count` events in the 3 most recently modified rollouts that have one.
+    /// Rollouts without one are skipped: Codex Desktop imports Claude Code conversations as rollouts by the dozen, all
+    /// newer than the last real session and with `rate_limits: null`.
     public static func latest(root: URL = CodexHistory.defaultRoot) -> CodexLimits? {
         func mtime(_ u: URL) -> Date { (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
-        return CodexHistory.rollouts(root).map { ($0, mtime($0)) }.sorted { $0.1 > $1.1 }.prefix(10)
-            .compactMap { latest(in: $0.0) }.max { $0.observedAt < $1.observedAt }
+        var found: [CodexLimits] = []
+        // ponytail: reads up to 200 rollouts when none has limits (API-key sign-in); remember that if it gets slow.
+        for (u, _) in CodexHistory.rollouts(root).map({ ($0, mtime($0)) }).sorted(by: { $0.1 > $1.1 }).prefix(200) where found.count < 3 {
+            if let l = latest(in: u) { found.append(l) }
+        }
+        return found.max { $0.observedAt < $1.observedAt }
     }
 
     static func latest(in url: URL) -> CodexLimits? {

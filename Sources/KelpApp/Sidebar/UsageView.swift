@@ -139,7 +139,8 @@ struct UsageView: View {
             r.readAt = u.plansReadAt?[a.id].map { Date(timeIntervalSince1970: $0) }
             switch a.id {
             case "claude": r.lines = Self.claude(u)
-            case "codex": r.lines = Self.codex(u)
+            // Codex logs its limits only when it's used: an old reading is dimmed and says how old it is.
+            case "codex": r.lines = Self.codex(u); r.readAt = u.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
             default: r.lines = Self.lines(u.plans?[a.id] ?? [])
             }
             return r.lines.isEmpty ? nil : r
