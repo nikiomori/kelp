@@ -3,32 +3,43 @@ on:
   pull_request:
   push:
     branches: [main]
+env:
+  # Xcode 26's SwiftPM skips asset catalogs (a dependency's Bundle.module goes missing) unless it builds with
+  # Swift Build, the default from Xcode 27 on; drop the flag once runners have Xcode 27.
+  XCODE: '26.6'
+  SWIFT_BUILD: --build-system swiftbuild
 jobs:
   build-test:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with: { xcode-version: latest-stable }
+      - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
           path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
-      - name: Cache libghostty
+          key: spm-xcode${{ env.XCODE }}-${{ hashFiles('Package.resolved') }}
+      # Restore and save apart: libghostty takes ~12 min and is kept even when a later step fails.
+      - name: Restore libghostty
         id: ghostty
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: Vendor/GhosttyKit.xcframework
           key: ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}   # the script pins GHOSTTY_COMMIT
       - name: Build libghostty
         if: steps.ghostty.outputs.cache-hit != 'true'
         run: scripts/build-ghostty.sh
+      - name: Save libghostty
+        if: steps.ghostty.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: Vendor/GhosttyKit.xcframework
+          key: ${{ steps.ghostty.outputs.cache-primary-key }}
       - name: Build
-        run: swift build
+        run: swift build $SWIFT_BUILD
       - name: Test
-        run: swift test
+        run: swift test $SWIFT_BUILD
       - name: Daemon under Thread Sanitizer
-        run: swift test --sanitize=thread --scratch-path .build/tsan --filter DaemonTests
+        run: swift test $SWIFT_BUILD --sanitize=thread --scratch-path .build/tsan --filter DaemonTests
       - name: Lint
         run: brew install swiftlint && swiftlint --quiet
