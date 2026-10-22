@@ -206,10 +206,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func cloneNamesAndNewFoldersAreChecked() throws {
-    #expect(Forges.repoName("git@github.com:me/app.git") == "app")
-    #expect(Forges.repoName("https://gitlab.com/me/app/") == "app")
-    #expect(Forges.repoName("  https://x.org/me/tool.git \n") == "tool")
-    #expect(Forges.repoName("") == "")
+    #expect(RepoClone.folderName("git@github.com:me/app.git") == "app")
+    #expect(RepoClone.folderName("https://gitlab.com/me/app/") == "app")
+    #expect(RepoClone.folderName("  https://x.org/me/tool.git \n") == "tool")
+    #expect(RepoClone.folderName("") == "")
     let parent = tmp().path
     #expect(try Forges.newFolder("  proj ", in: parent) == parent + "/proj")
     for bad in ["", "a/b", ".hidden"] { #expect(throws: (any Error).self) { try Forges.newFolder(bad, in: parent) } }

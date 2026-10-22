@@ -4,9 +4,12 @@ import Core
 /// Clone a repository by URL, in a sheet that does the work in place: git's progress, its error in the sheet, and
 /// Cancel stops it and removes the half-made folder.
 @MainActor
-final class CloneSheet: SheetController, NSPathControlDelegate {
+final class CloneSheet: SheetController, NSTextFieldDelegate {
     private let field = NSTextField()
-    private let place = NSPathControl()
+    private let dest = NSTextField(), choose = NSButton()
+    /// The folder the destination goes in until one is typed; the name in it follows the URL until it's typed over.
+    private lazy var parent = lastParent
+    private var destEdited = false
     private let status = NSTextField(wrappingLabelWithString: "")
     private let bar = NSProgressIndicator()
     private let go = NSButton(), cancel = NSButton()
@@ -28,7 +31,7 @@ final class CloneSheet: SheetController, NSPathControlDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     /// Where clones go: the last place used, else next to the newest project, else ~/Developer or home.
-    private var parent: URL {
+    private var lastParent: URL {
         if let s = UserDefaults.standard.string(forKey: "newProject.parent"), FileManager.default.fileExists(atPath: s) { return URL(fileURLWithPath: s) }
         if let r = app.repos.last(where: { !$0.path.hasPrefix(Paths.root.path) }) { return URL(fileURLWithPath: r.path).deletingLastPathComponent() }
         let dev = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Developer")
@@ -39,10 +42,13 @@ final class CloneSheet: SheetController, NSPathControlDelegate {
         let title = NSTextField(labelWithString: String(localized: "Clone a Repository"))
         title.font = .boldSystemFont(ofSize: 13)
         field.placeholderString = "https://github.com/owner/repo or git@…"
-        field.widthAnchor.constraint(equalToConstant: 340).isActive = true
-        place.pathStyle = .popUp; place.url = parent; place.delegate = self; place.allowedTypes = ["public.folder"]
+        field.widthAnchor.constraint(equalToConstant: 340).isActive = true; field.delegate = self
+        dest.delegate = self; dest.setContentHuggingPriority(.defaultLow, for: .horizontal); fill()
+        choose.title = String(localized: "Choose…"); choose.bezelStyle = .push; choose.target = self; choose.action = #selector(pick)
+        let row = NSStackView(views: [dest, choose]); row.spacing = 8
         let grid = NSGridView(views: [[NSTextField(labelWithString: String(localized: "URL:")), field],
-                                      [NSTextField(labelWithString: String(localized: "Clone into:")), place]])
+                                      [NSTextField(labelWithString: String(localized: "Clone into:")), row]])
+        row.widthAnchor.constraint(equalTo: field.widthAnchor).isActive = true
         grid.column(at: 0).xPlacement = .trailing; grid.rowSpacing = 10; grid.columnSpacing = 8
         bar.style = .bar; bar.isIndeterminate = true; bar.isHidden = true; bar.minValue = 0; bar.maxValue = 100
         status.textColor = .secondaryLabelColor; status.font = .systemFont(ofSize: 11); status.isHidden = true
@@ -58,8 +64,33 @@ final class CloneSheet: SheetController, NSPathControlDelegate {
         window?.initialFirstResponder = field
     }
 
-    func pathControl(_ c: NSPathControl, willDisplay panel: NSOpenPanel) {
-        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+    func controlTextDidChange(_ n: Notification) {
+        if n.object as? NSTextField === dest { destEdited = !dest.stringValue.isEmpty } else { fill() }
+    }
+
+    /// "~/Developer/" + the URL's repository name, unless the destination was typed.
+    private func fill() {
+        guard !destEdited else { return }
+        let name = RepoClone.folderName(field.stringValue)
+        dest.stringValue = (parent.appendingPathComponent(name).path as NSString).abbreviatingWithTildeInPath + (name.isEmpty ? "/" : "")
+    }
+
+    /// A folder to clone into, in an open panel: anywhere up or down from the last one, or a new one.
+    @objc private func pick() {
+        guard let w = window else { return }
+        let p = NSOpenPanel(); p.canChooseDirectories = true; p.canChooseFiles = false; p.canCreateDirectories = true
+        p.prompt = String(localized: "Choose"); p.directoryURL = parent
+        p.beginSheetModal(for: w) { [self] r in
+            guard r == .OK, let u = p.url else { return }
+            parent = u; destEdited = false; fill()
+        }
+    }
+
+    /// The typed destination as a full path; one ending in "/" is the folder to go in, named after the repository.
+    private var destination: String? {
+        var p = (dest.stringValue.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+        if p.hasSuffix("/") { p += RepoClone.folderName(field.stringValue) }
+        return p.hasPrefix("/") ? (p as NSString).standardizingPath : nil
     }
 
     /// A line git printed while cloning (`event.clone`): shown if it's this sheet's clone.
@@ -74,19 +105,24 @@ final class CloneSheet: SheetController, NSPathControlDelegate {
     }
 
     private func busy(_ on: Bool) {
-        field.isEnabled = !on; place.isEnabled = !on; go.isEnabled = !on
+        field.isEnabled = !on; dest.isEnabled = !on; choose.isEnabled = !on; go.isEnabled = !on
         bar.isHidden = !on; if on { bar.isIndeterminate = true; bar.startAnimation(nil) } else { bar.stopAnimation(nil) }
     }
 
     @objc private func start() {
-        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), parent = place.url?.path ?? self.parent.path
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { NSSound.beep(); return }
+        guard let path = destination else {
+            status.isHidden = false; status.textColor = .systemRed
+            status.stringValue = String(localized: "Enter the full path to clone to, like ~/Developer/app."); return
+        }
+        let parent = (path as NSString).deletingLastPathComponent, folder = (path as NSString).lastPathComponent
         let id = UUID().uuidString
         running = id; busy(true)
         status.isHidden = false; status.textColor = .secondaryLabelColor
         status.stringValue = String(localized: "Connecting…")
         Task {
-            let r = await app.tryCall(RepoClone(url: text, parent: parent, id: id))
+            let r = await app.tryCall(RepoClone(url: text, parent: parent, folder: folder, id: id))
             running = nil; busy(false)
             if let e = r.error {
                 if e == "Clone cancelled." { close(); return }

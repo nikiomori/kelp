@@ -375,13 +375,15 @@ final class NoteBox: @unchecked Sendable {
     let (d, c, _) = try daemon(); defer { d.stop() }
     let src = try makeRepo(), parent = tmp().path
     try FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true)
-    #expect(Forges.repoName("git@github.com:me/app.git") == "app" && Forges.repoName("https://gitlab.com/me/tool/") == "tool")
+    #expect(RepoClone.folderName("git@github.com:me/app.git") == "app" && RepoClone.folderName("https://gitlab.com/me/tool/") == "tool")
     let r = try await c.call("repo.clone", .obj(["url": .string(src), "parent": .string(parent), "id": "a"]))
     let name = (src as NSString).lastPathComponent
     #expect(r["path"]?.string?.hasSuffix("/" + name) == true)
     await #expect(throws: (any Error).self) { try await c.call("repo.clone", .obj(["url": .string(src), "parent": .string(parent), "id": "b"])) }
     await #expect(throws: (any Error).self) { try await c.call("repo.clone", .obj(["url": .string(src + "-missing"), "parent": .string(parent), "id": "c"])) }
     #expect(!FileManager.default.fileExists(atPath: parent + "/" + name + "-missing"))
+    let named = try await c.call("repo.clone", .obj(["url": .string(src), "parent": .string(parent), "folder": "fork", "id": "d"]))
+    #expect(named["path"]?.string?.hasSuffix("/fork") == true)
     // Add Project's New Folder: an empty folder is asked about like any other outside git, then made a repository.
     try FileManager.default.createDirectory(atPath: parent + "/empty", withIntermediateDirectories: false)
     await #expect(throws: RepoAdd.notARepository) { try await c.call("repo.add", .obj(["path": .string(parent + "/empty")])) }

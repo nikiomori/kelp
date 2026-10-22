@@ -1117,6 +1117,16 @@
         }
       }
     },
+    "Choose…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать…"
+          }
+        }
+      }
+    },
     "Couldn't format %@: %@": {
       "localizations": {
         "ru": {
@@ -2497,6 +2507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Войти в полноэкранный режим"
+          }
+        }
+      }
+    },
+    "Enter the full path to clone to, like ~/Developer/app.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Укажите полный путь, например ~/Developer/app."
           }
         }
       }

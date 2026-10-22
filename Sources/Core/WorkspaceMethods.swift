@@ -166,11 +166,19 @@ public struct SessionTurn: RPCMethod {
 /// The agent's last message, from its transcript.
 public struct SessionLastReply: RPCMethod { public static let name = "session.lastReply"; public typealias Result = String?; public var id: String; public init(id: String) { self.id = id } }
 
-/// Clones `url` into a new folder in `parent` → the added project; progress comes as `event.clone` {id, line}.
+/// Clones `url` into a new folder in `parent` (`folder`, else named after the repository) → the added project; progress
+/// comes as `event.clone` {id, line}.
 public struct RepoClone: RPCMethod {
-    public static let name = "repo.clone"; public typealias Result = Repo; public var url: String, parent: String, id: String?
+    public static let name = "repo.clone"; public typealias Result = Repo; public var url: String, parent: String, folder: String?, id: String?
     public static var timeout: TimeInterval? { nil }   // a big repository takes as long as it takes; Cancel stops it
-    public init(url: String, parent: String, id: String? = nil) { self.url = url; self.parent = parent; self.id = id }
+    public init(url: String, parent: String, folder: String? = nil, id: String? = nil) { self.url = url; self.parent = parent; self.folder = folder; self.id = id }
+
+    /// "git@github.com:me/app.git", "https://gitlab.com/me/app" → "app".
+    public static func folderName(_ url: String) -> String {
+        var n = url.trimmingCharacters(in: .whitespacesAndNewlines).split(whereSeparator: { "/:".contains($0) }).last.map(String.init) ?? ""
+        if n.hasSuffix(".git") { n = String(n.dropLast(4)) }
+        return n
+    }
 }
 /// Stops clone `id` (its half-made folder is removed).
 public struct RepoCloneCancel: RPCMethod { public static let name = "repo.cloneCancel"; public typealias Result = Done; public var id: String; public init(id: String) { self.id = id } }

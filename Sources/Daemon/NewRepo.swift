@@ -6,13 +6,6 @@ import GitKit
 /// Add Project's other two ways in: clone by URL (progress as `event.clone`; a half-made folder is removed when it fails
 /// or is cancelled) and a new empty project (`git init`, like the scratch project).
 extension Forges {
-    /// "git@github.com:me/app.git", "https://gitlab.com/me/app" → "app".
-    static func repoName(_ url: String) -> String {
-        var n = url.trimmingCharacters(in: .whitespacesAndNewlines).split(whereSeparator: { "/:".contains($0) }).last.map(String.init) ?? ""
-        if n.hasSuffix(".git") { n = String(n.dropLast(4)) }
-        return n
-    }
-
     /// `parent/name`, checked: a real folder to go in, a plain name, nothing there yet.
     static func newFolder(_ name: String, in parent: String) throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -26,10 +19,10 @@ extension Forges {
         return dest
     }
 
-    func clone(_ url: String, into parent: String, id: String, conn: Int) async throws -> String {
+    func clone(_ url: String, into parent: String, folder: String? = nil, id: String, conn: Int) async throws -> String {
         let url = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !url.hasPrefix("-") else { throw RPCError.invalidParams("Enter the repository's URL.") }
-        let dest = try Self.newFolder(Self.repoName(url), in: parent)
+        let dest = try Self.newFolder(folder ?? RepoClone.folderName(url), in: parent)
         // Made here, atomically: two clones that pick the same name can't both get past this, so the cleanup below only
         // ever removes this clone's own folder (git clones into an empty folder that exists).
         guard Workspaces.claim(dest) else {
@@ -96,7 +89,7 @@ final class CloneLog: Sendable {
 extension RepoClone: AsyncHandled {
     func handle(_ work: ForgeWork) async throws -> Repo { try await handle(work, conn: -1) }
     func handle(_ work: ForgeWork, conn: Int) async throws -> Repo {
-        let dest = try await work.forges.clone(url, into: parent, id: id ?? UUID().uuidString, conn: conn)
+        let dest = try await work.forges.clone(url, into: parent, folder: folder, id: id ?? UUID().uuidString, conn: conn)
         return try await work.forges.offloads.run { try RepoAdd(path: dest).handle(work.workspaces) }   // runs git: off the cooperative pool
     }
 }
