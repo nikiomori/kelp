@@ -216,6 +216,22 @@ import TestSupport
     #expect(TerminalTitle.topic("crush ~/projects/shop", names: ["crush", "Crush", "shop"]) == nil)
 }
 
+/// Codex running a long command prints nothing but its title's spinner, once a second: it's still working.
+@Test func spinnerInTheTitleIsWork() throws {
+    let t0 = Date()
+    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    var d = StatusDetector(manifest: codex)
+    d.input()
+    d.output("• Ran docker compose exec backend python -m scripts.seed", at: t0)
+    for (i, frame) in ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴"].enumerated() {
+        let t = t0.addingTimeInterval(Double(i + 1))
+        d.output("\u{1B}]0;\(frame) Seed the catalog | shop\u{07}\u{1B}[?25l\u{1B}[?25h", at: t)
+        #expect(d.tick(at: t) == .working)
+    }
+    d.output("\u{1B}]0;Seed the catalog | shop\u{07}", at: t0.addingTimeInterval(7))   // the turn is over: no spinner
+    #expect(d.tick(at: t0.addingTimeInterval(10)) == .done)
+}
+
 /// A TUI redraws its input line on every key: that echo isn't work, and a pause to think isn't a finished turn.
 @Test func typingIsNotWork() throws {
     let t0 = Date()

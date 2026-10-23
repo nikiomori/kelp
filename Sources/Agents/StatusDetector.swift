@@ -34,8 +34,9 @@ public struct StatusDetector: Sendable {
         guard !hooked, !settled, manifest.quietSeconds < 1e8 else { return }
         let text = Self.stripANSI(chunk)
         tail = String((tail + text).suffix(600))
-        // Redraws with no words (spinners, timers, borders) aren't the agent doing anything.
-        guard active, Self.hasWords(text), now.timeIntervalSince(settledAt ?? .distantPast) > 4,
+        // Redraws with no words (spinners, timers, borders) aren't the agent doing anything; a spinner in front of the
+        // title is: Codex turns one there every second while it works ("⠋ Fix login | shop"), a long command printing nothing.
+        guard active, Self.hasWords(text) || Self.spinsTitle(chunk), now.timeIntervalSince(settledAt ?? .distantPast) > 4,
               now.timeIntervalSince(typedAt ?? .distantPast) > 2 else { return }
         lastOutput = now
         status = .working
@@ -44,6 +45,13 @@ public struct StatusDetector: Sendable {
     private static let letters = CharacterSet.letters
     static func hasWords(_ s: String) -> Bool {
         s.unicodeScalars.lazy.filter { letters.contains($0) }.prefix(3).count == 3
+    }
+
+    /// An OSC 0 / 2 title that starts with a braille spinner frame (⠋⠙⠹…).
+    private static let titleSpinner = try? NSRegularExpression(pattern: #"\x{1B}\][02];[\x{2801}-\x{28FF}]"#)
+    static func spinsTitle(_ s: String) -> Bool {
+        guard s.utf8.contains(0x1B), let titleSpinner else { return false }
+        return titleSpinner.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
     }
 
     /// Call periodically; returns the (possibly new) status.
