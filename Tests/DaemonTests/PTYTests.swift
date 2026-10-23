@@ -23,6 +23,14 @@ final class Box: @unchecked Sendable {
     var code: Int32? { l.lock(); defer { l.unlock() }; return c }
 }
 
+/// Text in a session is UTF-8 even when the daemon has no locale (launchd starts it without one): pbcopy reads it that way.
+@Test func aSessionGetsAUTF8LocaleWhenTheDaemonHasNone() {
+    #expect(PTY.environment(["HOME": "/u"], [:])["LANG"] == "en_US.UTF-8")
+    #expect(PTY.environment(["LANG": "ru_RU.UTF-8"], [:])["LANG"] == "ru_RU.UTF-8")   // the user's own stays
+    #expect(PTY.environment(["LC_ALL": "C"], [:])["LANG"] == nil)
+    #expect(PTY.environment([:], ["LC_CTYPE": "UTF-8"])["LANG"] == nil)
+}
+
 /// Agents must own the PTY as controlling terminal, or resizes (SIGWINCH) never reach them.
 @Test func resizeReachesChild() async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

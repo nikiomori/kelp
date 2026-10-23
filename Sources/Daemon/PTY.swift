@@ -105,9 +105,7 @@ public final class PTY: @unchecked Sendable {   // closed under io, reaped under
         posix_spawnattr_setsigmask(&attr, &none)
         posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
 
-        // Don't leak the environment of whatever started the daemon (e.g. an agent's session markers) into new sessions.
-        var e = ProcessInfo.processInfo.environment.filter { k, _ in !scrubbed.contains { k.hasPrefix($0) } }.merging(env) { $1 }
-        e["TERM"] = "xterm-256color"; e["COLORTERM"] = "truecolor"
+        let e = environment(ProcessInfo.processInfo.environment, env)
         let cargv = (argv.map { strdup($0) } + [nil]) as [UnsafeMutablePointer<CChar>?]
         let cenv = (e.map { strdup("\($0)=\($1)") } + [nil]) as [UnsafeMutablePointer<CChar>?]
         defer { cargv.forEach { free($0) }; cenv.forEach { free($0) } }
@@ -203,6 +201,17 @@ public final class PTY: @unchecked Sendable {   // closed under io, reaped under
     }()
 
     static let scrubbed = ["CLAUDECODE", "CLAUDE_CODE_", "CODEX_SANDBOX", "CODEX_THREAD", "KELP_SESSION", "TERM_PROGRAM", "ITERM_", "VSCODE_"]
+
+    /// A session's environment: the daemon's, without what doesn't belong to a new session, under the session's own.
+    static func environment(_ daemon: [String: String], _ env: [String: String]) -> [String: String] {
+        // Don't leak the environment of whatever started the daemon (e.g. an agent's session markers) into new sessions.
+        var e = daemon.filter { k, _ in !scrubbed.contains { k.hasPrefix($0) } }.merging(env) { $1 }
+        e["TERM"] = "xterm-256color"; e["COLORTERM"] = "truecolor"
+        // A daemon started by launchd has no locale, and without one pbcopy reads UTF-8 as Mac Roman: Grok's copies of
+        // Russian text came out as "–ü—è—Ç…". A locale the user set stays.
+        if !e.keys.contains(where: { ["LANG", "LC_ALL", "LC_CTYPE"].contains($0) }) { e["LANG"] = "en_US.UTF-8" }
+        return e
+    }
 
     /// Typing into the program; dropped once it has exited (the fd may be another terminal's by then).
     public func write(_ d: Data) {
