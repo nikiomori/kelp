@@ -111,7 +111,8 @@ public struct StatusDetector: Sendable {
 
     // TUIs often place words with cursor moves instead of spaces; keep a space there so text stays readable.
     private static let cursorMoves = try? NSRegularExpression(pattern: #"\x{1B}\[\d*[GC]"#)
-    private static let escapes = try? NSRegularExpression(pattern: #"\x{1B}\[[0-9;?<>=]*[ -/]*[@-~]|\x{1B}\][^\x{07}\x{1B}]*(\x{07}|\x{1B}\\)|\x{1B}[78=>]"#)
+    // ESC ( B too (a character set): Grok ends each redraw with it, and its "B"s read as words, a redraw as work.
+    private static let escapes = try? NSRegularExpression(pattern: #"\x{1B}\[[0-9;?<>=]*[ -/]*[@-~]|\x{1B}\][^\x{07}\x{1B}]*(\x{07}|\x{1B}\\)|\x{1B}[78=>]|\x{1B}[()][0-9A-Za-z]"#)
 
     /// Runs on every chunk of every session: compiled once, and text without an escape is returned as is.
     public static func stripANSI(_ s: String) -> String {

@@ -259,6 +259,29 @@ import TestSupport
     #expect(e.tick(at: t0.addingTimeInterval(5)) == .waiting)
 }
 
+/// Grok redraws its opt-in banner with the screen after a turn: "allow … to" there is no question; "Allow … ?" is.
+@Test func grokOptInBannerIsNotAQuestion() throws {
+    let t0 = Date()
+    let grok = try #require(AgentManifest.presets.first { $0.id == "grok" })
+    var d = StatusDetector(manifest: grok)
+    d.input(at: t0.addingTimeInterval(-10))
+    d.output("Help improve Grok [Opt out] [Opt in] Off by default. Opt-in to allow SpaceXAI to retain coding data, e.g., prompts, "
+        + "traces, & metrics, for training and debugging purposes. Change anytime via settings. Read Terms and Privacy Policy. "
+        + "Worked for 5m 15s. Что дальше?", at: t0)
+    #expect(d.tick(at: t0.addingTimeInterval(5)) == .done)
+    var e = StatusDetector(manifest: grok)
+    e.input(at: t0.addingTimeInterval(-10))
+    e.output("Allow write to Sources/main.swift? [Allow once] [Deny]", at: t0)
+    #expect(e.tick(at: t0.addingTimeInterval(5)) == .waiting)
+}
+
+/// A redraw of borders and a spinner, each ended by ESC ( B, has no words.
+@Test func characterSetSwitchesAreNotWords() {
+    let redraw = "\u{1B}[23;3H┃\u{1B}[2C◆\u{1B}[55;7H\u{1B}(B\u{1B}[m┃\u{1B}(B┃⠴\u{1B}(B"
+    #expect(StatusDetector.stripANSI(redraw) == "┃ ◆┃┃⠴")   // the cursor move keeps its gap
+    #expect(!StatusDetector.hasWords(StatusDetector.stripANSI(redraw)))
+}
+
 @Test func agentTrustIsReadFromEachAgentsOwnConfig() throws {
     let home = tmp().path
     let fm = FileManager.default
