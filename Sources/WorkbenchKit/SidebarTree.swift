@@ -31,6 +31,12 @@ public struct SidebarTree {
     public var hasPR: (Worktree) -> Bool = { _ in false }
     /// Puts "Needs You" rows in a stable order (see `StableOrder`).
     public var stableOrder: ([String]) -> [String] = { $0 }
+    /// An agent joins "Needs You" once it has needed you this long (since its `statusAt`): one that asks or stops and goes
+    /// on by itself a moment later doesn't land on top of the projects and leave again, moving them twice.
+    public var settle: TimeInterval = 0
+    public var now = Date()
+    /// When the next agent held back by `settle` joins: the list wants building again then.
+    public var settlesAt: Date? { attention.map { ($0.statusAt ?? $0.createdAt) + settle }.filter { $0 > now }.min() }
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session], attention: [Session]) {
         self.projects = projects; self.workspaces = workspaces; self.sessions = sessions; self.attention = attention
@@ -60,7 +66,9 @@ public struct SidebarTree {
         }
         let live = workspaces.filter { !$0.archived }
         var out: [SidebarItem] = []
-        let needs = attention.filter { s in live.contains { $0.id == s.worktreeId } && hit(s.title, s.agent ?? "", s.summary) }
+        let needs = attention.filter { s in
+            live.contains { $0.id == s.worktreeId } && hit(s.title, s.agent ?? "", s.summary) && (s.statusAt ?? s.createdAt) + settle <= now
+        }
         if !needs.isEmpty, filter == .all || filter == .needsYou, live.count > 2 {
             out.append(SidebarItem(kind: .section("Needs You"), children: stableOrder(needs.map(\.id)).map { SidebarItem(kind: .needs($0)) }))
         }

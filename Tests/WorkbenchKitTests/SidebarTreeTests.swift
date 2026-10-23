@@ -78,6 +78,18 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(!kinds(t.build()).contains(.section("Needs You")))
 }
 
+@Test func needsYouWaitsUntilAnAgentHasNeededYouAWhile() {
+    let t0 = Date(timeIntervalSince1970: 1000)
+    var a = agent("a1", in: "w1", .done, unread: true); a.statusAt = t0
+    var t = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b"), wt("w3", "r2", "c")], [a], attention: [a])
+    t.settle = 5; t.now = t0 + 2
+    #expect(kinds(t.build()) == [.project("r1"), .project("r2")])   // a blip: it may go on by itself
+    #expect(t.settlesAt == t0 + 5)                                   // when to look again
+    t.now = t0 + 5
+    #expect(t.build()[0].kind == .section("Needs You"))
+    #expect(t.settlesAt == nil)
+}
+
 @Test func stableOrderKeepsRowsStillUntilItIsTimeToSort() {
     var order = StableOrder()
     let t0 = Date(timeIntervalSince1970: 1000)

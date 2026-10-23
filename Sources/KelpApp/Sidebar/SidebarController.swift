@@ -176,6 +176,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     // MARK: model → tree
 
     private var needsOrder = StableOrder()
+    /// Builds the list again when an agent held back from "Needs You" (SidebarTree.settle) is due.
+    private var settleTimer: Timer?
 
     private func build() -> [Node] {
         let m = app
@@ -187,6 +189,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         tree.statusLabel = { $0.label }
         tree.hasPR = { [app] w in (app.rowBadges.folder(workspace: w.id) ?? app.rowBadges.folder(project: w.repoId)).map { [app] in app.rowBadges.prs[$0.id] != nil } ?? false }
         tree.stableOrder = { [unowned self] in needsOrder($0) }
+        tree.settle = 5
+        settleTimer?.invalidate(); settleTimer = nil
+        if let due = tree.settlesAt {
+            settleTimer = Timer.scheduledTimer(withTimeInterval: due.timeIntervalSinceNow, repeats: false) { [weak self] _ in   // main run loop
+                MainActor.assumeIsolated { self?.refresh() }
+            }
+        }
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)
             n.children = i.children.map(node)
