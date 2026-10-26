@@ -224,7 +224,7 @@ private final class Row: Pressable {
 
     func show(_ s: Session, app: AppModel, press: @escaping () -> Void) {
         let repo = app.repo(app.worktree(s.worktreeId)?.repoId)
-        if let repo { ProjectIcon.show(repo.path, in: project) } else { project.image = nil }
+        if let repo { ProjectIcon.show(repo.path, in: project, app: app) } else { project.image = nil }
         for v in [project, ago, mark] as [NSView] { v.isHidden = false }
         name.stringValue = app.catalog.displayName(s)
         name.font = .ui(13, weight: .semibold); name.textColor = .labelColor

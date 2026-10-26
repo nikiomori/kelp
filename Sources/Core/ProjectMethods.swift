@@ -84,6 +84,13 @@ public struct FilesWriteRemote: RPCMethod {
     public var path: String, text: String, base: String?
     public init(path: String, text: String, base: String?) { self.path = path; self.text = text; self.base = base }
 }
+/// A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's
+/// folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and
+/// looked for again in the background.
+public struct RepoIcon: RPCMethod {
+    public static let name = "repo.icon"; public typealias Result = String?; public var path: String
+    public init(path: String) { self.path = path }
+}
 
 /// All settings (settings.json's keys, flat and dotted).
 public struct SettingsGet: RPCMethod { public static let name = "settings.get"; public typealias Result = [String: JSONValue]; public init() {} }

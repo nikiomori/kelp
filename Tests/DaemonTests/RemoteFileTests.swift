@@ -50,3 +50,46 @@ import Core
     #expect((1...5).allSatisfy { i in diffs.first { $0.path == "new\(i).txt" }?.hunks.first?.lines.map(\.text) == ["file \(i)"] })
     #expect(reads() - before == 1)
 }
+
+/// A remote image or PDF is copied here for its preview (Quick Look and PDFKit read a file), byte for byte, binary or not.
+@Test func aRemoteImageIsCopiedHereForItsPreview() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(); defer { d.stop() }
+    let there = try makeRepo()
+    let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0xFF])
+    try png.write(to: URL(fileURLWithPath: there + "/shot.png"))
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let copy = try await c.call(FilesFetch(path: repo.path + "/shot.png"))
+    #expect(copy != there + "/shot.png" && copy.hasSuffix("/shot.png"))
+    #expect(try Data(contentsOf: URL(fileURLWithPath: copy)) == png)
+    await #expect(throws: (any Error).self) { _ = try await c.call(FilesFetch(path: repo.path + "/gone.png")) }
+}
+
+/// A remote project's icon is looked for on its host where a project here would be, and kept in its folder here: shown
+/// at once next time (without the host), looked for again behind it.
+@Test func aRemoteProjectsIconIsFoundOnItsHostAndKept() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(); defer { d.stop() }
+    let there = try makeRepo(), fm = FileManager.default
+    for dir in ["public", "docs", "App/Assets.xcassets/AppIcon.appiconset"] { try fm.createDirectory(atPath: there + "/" + dir, withIntermediateDirectories: true) }
+    let svg = Data(#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.utf8)
+    try svg.write(to: URL(fileURLWithPath: there + "/public/favicon.svg"))
+    try Data("png".utf8).write(to: URL(fileURLWithPath: there + "/docs/logo.png"))   // a worse name
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let kept = repo.path + "/.kelp-icon/favicon.svg"
+    #expect(try await c.call(RepoIcon(path: repo.path)) == kept)
+    #expect(try Data(contentsOf: URL(fileURLWithPath: kept)) == svg)
+
+    // An Xcode AppIcon set's largest PNG, once nothing better is there; the kept one answers until it's found.
+    try fm.removeItem(atPath: there + "/public"); try fm.removeItem(atPath: there + "/docs")
+    try Data(repeating: 1, count: 10).write(to: URL(fileURLWithPath: there + "/App/Assets.xcassets/AppIcon.appiconset/small.png"))
+    try Data(repeating: 2, count: 99).write(to: URL(fileURLWithPath: there + "/App/Assets.xcassets/AppIcon.appiconset/big.png"))
+    #expect(try await c.call(RepoIcon(path: repo.path)) == kept)
+    #expect(try await waitFor(10) { !fm.fileExists(atPath: kept) })
+    #expect(try await c.call(RepoIcon(path: repo.path)) == repo.path + "/.kelp-icon/big.png")
+
+    try fm.removeItem(atPath: there + "/App")
+    _ = try await c.call(RepoIcon(path: repo.path))
+    #expect(try await waitFor(10) { !fm.fileExists(atPath: repo.path + "/.kelp-icon") })
+    #expect(try await c.call(RepoIcon(path: repo.path)) == nil)
+}

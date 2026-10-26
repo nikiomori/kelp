@@ -221,7 +221,7 @@ final class SidebarCell: NSTableCellView {
         case .project(let id):
             let r = m.repo(id)
             let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
-            if let r, !missing { ProjectIcon.show(r.path, in: icon) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
+            if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
             icon.contentTintColor = .secondaryLabelColor
             title.stringValue = r?.name ?? ""
             // Bold where agents are: a project with none is a quieter name the eye passes over.

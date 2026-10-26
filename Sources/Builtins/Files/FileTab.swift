@@ -32,8 +32,10 @@ final class FileTab: SavableTab {
     /// Its version as the daemon pushes it (`AppModel.fileVersions`), while the tab is open.
     private let version: Watched
     private let root: String
-    /// A remote project's file: no language server, formatter, preview or notebook for it here.
+    /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
     private let remote: Bool
+    /// A remote image's or PDF's preview, once its copy is here.
+    private var preview: NSView?
     private var pendingLine: Int?
     /// Closed with Don't Save: deinit's autosave mustn't write it after all.
     private var discarded = false
@@ -75,13 +77,26 @@ final class FileTab: SavableTab {
             return
         }
         // Off the main thread, by the daemon: only a regular file (a pipe or /dev/zero would block or never end), up to
-        // `openLimit` (a 300 MB log would hang the window), as UTF-8; a remote project's on its host.
+        // `openLimit` (a 300 MB log would hang the window), as UTF-8; a remote project's on its host. A host's image or
+        // PDF is copied here instead: Quick Look and PDFKit read a file.
         let box = NSView(); view = box
         let wait = host.map { Self.message(String(localized: "Reading it from \($0)…")) }
         if let wait { box.pin(wait) }
+        let copied = remote && Preview.canPreview(url)
         loading = Task { [weak self] in
             let read: Result<FilesRead.Result, Error>
-            do { read = .success(try await app.get(FilesRead(path: p))) } catch { read = .failure(error) }
+            do {
+                if copied {
+                    let copy = URL(fileURLWithPath: try await app.get(FilesFetch(path: p)))
+                    guard let self else { return }
+                    wait?.removeFromSuperview()
+                    let v = Preview.view(for: copy, app: app)
+                    preview = v; box.pin(v)
+                    if focusWhenLoaded { focus() }
+                    return
+                }
+                read = .success(try await app.get(FilesRead(path: p)))
+            } catch { read = .failure(error) }
             guard let self else { return }
             wait?.removeFromSuperview()
             switch read {
@@ -141,7 +156,8 @@ final class FileTab: SavableTab {
     func focus() {
         guard let editor else {
             // A preview (an image, a PDF) takes the keys itself, so ⌘C copies from it.
-            if view.acceptsFirstResponder { view.window?.makeFirstResponder(view) } else { focusWhenLoaded = true }
+            let v = preview ?? view
+            if v.acceptsFirstResponder { v.window?.makeFirstResponder(v) } else { focusWhenLoaded = true }
             return
         }
         editor.focus()
