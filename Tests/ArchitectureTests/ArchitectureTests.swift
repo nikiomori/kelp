@@ -280,7 +280,7 @@ private func codeOnly(_ s: String) -> String {
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
-    let ceilings = ["Daemon": 108, "KelpKit": 65, "Core": 31, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 13,
+    let ceilings = ["Daemon": 109, "KelpKit": 61, "Core": 33, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 13,
                     "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3]
     for (module, ceiling) in ceilings {
         let n = try matches(#"\btry\?"#, in: ["Sources/" + module]).count
@@ -365,7 +365,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/AgentSkills.swift": (4, "the skills Kelp gives agents, in Kelp's home"),
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
         "KelpKit/Shell/WorkbenchActions.swift": (4, "a dropped or linked path: a file, a folder, or nothing"),
-        "KelpKit/Sidebar/ProjectIcon.swift": (3, "a project's icon, shown"),
+        "KelpKit/Sidebar/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),

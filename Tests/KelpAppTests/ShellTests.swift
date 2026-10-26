@@ -17,12 +17,12 @@ import WorkbenchKit
     try FileManager.default.createDirectory(atPath: dir + "/public", withIntermediateDirectories: true)
     let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="10" fill="red"/></svg>"#
     try svg.write(toFile: dir + "/public/favicon.svg", atomically: true, encoding: .utf8)
-    let view = NSImageView()
-    ProjectIcon.show(dir, in: view)
+    let view = NSImageView(), app = AppModel(builtins: Builtins.all)
+    ProjectIcon.show(dir, in: view, app: app)
     let initial = try #require(view.image)
     for _ in 0..<100 where view.image === initial { try await Task.sleep(for: .milliseconds(20)) }
     #expect(view.image !== initial && view.image?.size == NSSize(width: 32, height: 32))
-    #expect(ProjectIcon.image(for: dir) === view.image)   // found once
+    #expect(ProjectIcon.image(for: dir, app: app) === view.image)   // found once
 }
 
 @Test func agesAreAsShortAsARowAllows() {

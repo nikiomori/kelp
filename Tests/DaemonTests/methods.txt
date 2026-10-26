@@ -19,6 +19,7 @@ extension.fetch
 extension.library
 files.copy
 files.create
+files.fetch
 files.ignored
 files.list
 files.move
@@ -96,6 +97,7 @@ repo.add
 repo.addRemote
 repo.clone
 repo.cloneCancel
+repo.icon
 repo.list
 repo.relocate
 repo.remove

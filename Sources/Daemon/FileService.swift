@@ -20,6 +20,31 @@ struct FileService: Sendable {
         return .init(text: text, stamp: stamp)
     }
 
+    /// A remote project's file copied here, in the temporary folder (the system empties it), named as the file is so a
+    /// viewer knows its type; a file here is its own copy.
+    func fetch(_ path: String) throws -> String {
+        let path = try absolute(path)
+        guard let r = remotes.containing(path) else { return path }
+        let data = try remoteBytes(r.remote, r.remotePath)
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-remote")
+            .appendingPathComponent(String(Self.digest(Data((r.remote.host + ":" + r.remotePath).utf8)).dropFirst(7).prefix(16)))
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let copy = dir.appendingPathComponent((path as NSString).lastPathComponent)
+        try data.write(to: copy, options: .atomic)
+        return copy.path
+    }
+
+    /// A remote project's icon, kept in its folder here (`.kelp-icon/`, beside its marker): a kept one at once, looked for
+    /// again in the background; none kept, looked for now.
+    func icon(_ repo: String) throws -> String? {
+        let repo = try absolute(repo)
+        guard let remote = remotes.of(repo) else { throw RPCError.invalidParams("Not a remote project.") }
+        let kept = repo + "/.kelp-icon"
+        guard let name = (try? FileManager.default.contentsOfDirectory(atPath: kept))?.first else { return try findIcon(remote, keep: kept) }
+        DispatchQueue.global(qos: .utility).async { Log.store.attempt("looking for \(remote.host)'s project icon") { _ = try findIcon(remote, keep: kept) } }
+        return kept + "/" + name
+    }
+
     func write(_ path: String, _ text: String, base: FileStamp?) throws -> FilesWrite.Result {
         let path = try absolute(path), data = Data(text.utf8)
         guard data.count <= Unopenable.openLimit else { throw Unopenable.tooBig(data.count).error }
@@ -143,8 +168,14 @@ struct FileService: Sendable {
 
     // MARK: on a host
 
-    /// One round trip: what it is (gone, not a regular file, its size), then its bytes only when a tab would open it.
     private func readRemote(_ remote: RemoteHost, _ path: String) throws -> FilesRead.Result {
+        let body = try remoteBytes(remote, path)
+        guard let text = String(data: body, encoding: .utf8) else { throw Unopenable.binary.error }
+        return .init(text: text, stamp: Self.digest(body))
+    }
+
+    /// One round trip: what it is (gone, not a regular file, its size), then its bytes only when a tab would open it.
+    private func remoteBytes(_ remote: RemoteHost, _ path: String) throws -> Data {
         let limit = Unopenable.openLimit
         let script = "f=\(RemoteHost.quote(path)); if [ ! -e \"$f\" ]; then echo missing; elif [ ! -f \"$f\" ]; then echo special; "
             + "else n=$(wc -c < \"$f\") || exit 1; echo $n; [ $n -gt \(limit) ] || head -c \(limit + 1) -- \"$f\"; fi"
@@ -155,8 +186,33 @@ struct FileService: Sendable {
         if head == "special" { throw Unopenable.special.error }
         guard let size = Int(head) else { throw RPCError.internalError("\(remote.host) answered: \(head)") }
         guard size <= limit, body.count <= limit else { throw Unopenable.tooBig(max(size, body.count)).error }
-        guard let text = String(data: body, encoding: .utf8) else { throw Unopenable.binary.error }
-        return .init(text: text, stamp: Self.digest(body))
+        return Data(body)
+    }
+
+    /// `IconSearch` on the host, from one listing of the folders it looks in ("folder<TAB>name", and an AppIcon set's PNGs
+    /// with their size), then the icon's bytes: kept in `keep` (emptied when there's none) → the kept copy.
+    private func findIcon(_ remote: RemoteHost, keep: String) throws -> String? {
+        let places = IconSearch.places.map(RemoteHost.quote).joined(separator: " ")
+        let script = "cd \(RemoteHost.cdArg(remote.path)) || exit 1; export LC_ALL=C; "
+            + #"l() { [ -d "$1" ] && ls -1A "$1" | while IFS= read -r f; do printf '%s\t%s\n' "$1" "$f"; done; }; l .; "#
+            + #"{ echo; ls -1 | grep -vx node_modules | head -40 | sed 's|$|/|'; } | while IFS= read -r b; do for p in "# + places
+            + #"; do d="./$b$p"; l "$d"; s="${d}Assets.xcassets/AppIcon.appiconset"; [ -d "$s" ] && for f in "$s"/*.png; do "#
+            + #"[ -f "$f" ] && printf '%s\t%s\t%s\n' "$s" "${f##*/}" "$(wc -c < "$f" | tr -d ' ')"; done; done; done; true"#
+        var names: [String: [String]] = [:], sizes: [String: Int] = [:]
+        for line in String(decoding: try remote.run(script, timeLimit: 30), as: UTF8.self).split(separator: "\n") {
+            let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard f.count >= 2 else { continue }
+            names[f[0], default: []].append(f[1])
+            if f.count == 3 { sizes[f[0] + "/" + f[1]] = Int(f[2]) }
+        }
+        let fm = FileManager.default, found = IconSearch.find(in: ".", list: { names[$0] }, size: { sizes[$0] ?? 0 })
+        let data = try found.map { try remoteBytes(remote, remote.path + $0.dropFirst()) }   // "./public/x.svg" → its path there
+        if fm.fileExists(atPath: keep) { try fm.removeItem(atPath: keep) }
+        guard let found, let data else { return nil }
+        try fm.createDirectory(atPath: keep, withIntermediateDirectories: true)
+        let copy = keep + "/" + (found as NSString).lastPathComponent
+        try data.write(to: URL(fileURLWithPath: copy))
+        return copy
     }
 
     private func writeRemote(_ remote: RemoteHost, _ path: String, _ data: Data, base: FileStamp?) throws -> FilesWrite.Result {
@@ -185,10 +241,13 @@ extension FilesWrite: Handled { func handle(_ files: FileService) throws -> Resu
 extension FilesMove: Handled { func handle(_ files: FileService) throws -> Result { files.move(pairs, unique: unique == true) } }
 extension FilesTrash: Handled { func handle(_ files: FileService) throws -> Result { files.trash(paths) } }
 extension FilesCopy: Handled { func handle(_ files: FileService) throws -> Result { files.copy(paths, into: into) } }
+extension FilesFetch: Handled { func handle(_ files: FileService) throws -> String { try files.fetch(path) } }
+extension RepoIcon: Handled { func handle(_ files: FileService) throws -> String? { try files.icon(path) } }
 extension FilesCreate: Handled {
     func handle(_ files: FileService) throws -> String { try files.create(path, folder: folder == true, text: text, unique: unique == true) }
 }
 
 extension Methods {
-    static let fileMethods: [any Handled.Type] = [FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesCreate.self]
+    static let fileMethods: [any Handled.Type] = [FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesCreate.self,
+                                                        FilesFetch.self, RepoIcon.self]
 }

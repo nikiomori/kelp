@@ -108,7 +108,7 @@ final class WindowBar: NSView {
     private func update() {
         guard let w = worktree else { context.isHidden = true; return }
         context.isHidden = false
-        if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon) } else { icon.image = nil }
+        if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: app) } else { icon.image = nil }
         name.stringValue = w.displayName
         folder.title = (w.path as NSString).abbreviatingWithTildeInPath
         branch.isHidden = info == nil

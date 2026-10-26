@@ -48,6 +48,27 @@ private func end(_ session: String) {
     #expect(try await waitFor(15) { try await tmuxSessions(c, wt).contains("far") })
 }
 
+/// A remote agent whose connection dropped a week ago and was never reconnected goes with its tmux session on the host;
+/// one whose tmux ended by itself (exit 0) costs no ssh.
+@Test(.enabled(if: tmux != nil, "tmux isn't installed")) func aLostAgentsTmuxEndsWhenItsRecordGoes() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(); defer { d.stop() }
+    let repo: Repo = try await c.call("repo.addRemote", .obj(["host": "box", "path": .string(try makeRepo())]), as: Repo.self)
+    let wt = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
+    let lost = Tmux.own(), ended = Tmux.own(); defer { end(lost); end(ended) }
+    for (name, code) in [(lost, 255), (ended, 0)] {
+        _ = try await Subprocess.run([tmux ?? "", "new-session", "-d", "-s", name, "sleep 60"], cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10)
+        var s = Session(worktreeId: wt.id, cwd: wt.path, command: "codex", agent: "codex", status: .exited,
+                        createdAt: Date() - Sessions.keepEnded - 3600)
+        s.tmux = name; s.exitCode = code
+        try d.store.save(s)
+    }
+    d.sessions.pruneEnded()
+    #expect(try d.store.sessions().isEmpty)
+    #expect(try await waitFor(15) { try await !tmuxSessions(c, wt).contains(lost) })
+    #expect(try await tmuxSessions(c, wt).contains(ended))
+}
+
 /// terminal.tmux: a plain terminal runs in a tmux session of its own; what runs in it counts as running (closing asks),
 /// and closing the tab ends the session. A restart keeps it. Commands and agents aren't wrapped.
 @Test(.enabled(if: tmux != nil, "tmux isn't installed")) func terminalsRunInTheirOwnTmuxSession() async throws {

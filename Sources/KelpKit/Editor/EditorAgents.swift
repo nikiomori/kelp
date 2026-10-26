@@ -55,7 +55,8 @@ extension EditorArea {
             let sid = TabURI.body(t.uri)
             let s = app.session(sid)
             // Ended while Kelp was closed (or deleted): nothing to show. Ended now: keep it, the tab offers Restart.
-            if !known.contains(sid) || (!reconciledOnce && s?.status == .exited) {
+            // A lost connection stays too: its agent still runs on the host, reached by Reconnect, ended by closing the tab.
+            if !known.contains(sid) || (!reconciledOnce && s?.status == .exited && s?.connectionLost != true) {
                 contents[t.id] = nil
                 layout.remove(t.id)
                 changed = true

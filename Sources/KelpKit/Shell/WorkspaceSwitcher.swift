@@ -189,7 +189,7 @@ final class WorkspaceSwitcher {
         mark.announces = false   // the row's label says the state
 
         let icon = NSImageView(image: .symbol("folder"))
-        if let r = m.repo(w.repoId) { ProjectIcon.show(r.path, in: icon) }
+        if let r = m.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: m) }
         icon.widthAnchor.constraint(equalToConstant: 22).isActive = true; icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
         let name = label(w.displayName, .systemFont(ofSize: 13, weight: .semibold))
         let repo = m.repo(w.repoId)
