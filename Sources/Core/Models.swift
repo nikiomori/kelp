@@ -117,6 +117,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
     /// The folder the agent works in now.
     public var currentDir: String { workDir ?? cwd }
+    /// Ended here, its agent maybe still running on the host: a remote agent's tmux session outlives the ssh that showed it
+    /// (255: the connection dropped) and its tmux client (1: killed). tmux exits 0 when the session ended.
+    public var connectionLost: Bool { status == .exited && tmux != nil && (exitCode ?? 0) != 0 }
 }
 
 public struct DiffComment: Codable, Sendable, Equatable, Identifiable {

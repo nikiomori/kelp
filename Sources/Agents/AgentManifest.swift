@@ -217,7 +217,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
               modelFlag: "--model", models: ["opus", "sonnet", "haiku"],
               autoAnswers: [trust], resumeArgs: ["--continue"], pluginDirFlag: "--plugin-dir", contextFlag: "--append-system-prompt",
               sessionIdFlag: "--session-id", resumeIdFlag: "--resume"),
-        .init(id: "codex", name: "Codex", command: "codex", modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
+        // Its conversation in its own process, which ends with the tab: in Codex's shared background server (0.157 on) it
+        // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
+        .init(id: "codex", name: "Codex", command: "codex", args: ["--no-daemon"], modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
               effortArgs: ["low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
                            "high": ["-c", "model_reasoning_effort=high"]],
               autoAnswers: [trust], resumeArgs: ["resume", "--last"]),

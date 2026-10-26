@@ -11,7 +11,8 @@ extension Sessions {
     func pruneEnded(now: Date = Date()) {
         do {
             for s in try store.sessions() where s.status == .exited && (s.statusAt ?? s.createdAt) < now - Self.keepEnded {
-                discard(s, keepTmux: true)   // a remote one's host isn't asked: nothing waits on ssh here
+                // A remote one's host is asked only when its agent may still run there, in the background (endOwnTmux).
+                discard(s, keepTmux: !s.connectionLost)
             }
             let known = Set(try store.sessions().map(\.id)), fm = FileManager.default
             let logs = (try? fm.contentsOfDirectory(at: root.appendingPathComponent("history"),
