@@ -101,7 +101,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// restarted session comes back on the same account.
     public var profile: String?
     /// The tmux session on a remote project's host its agent runs in (`RemoteHost.command(_:inTmux:)`), so the agent outlives a
-    /// dropped connection and the daemon; kept so a wake or a restart attaches to it again. nil elsewhere.
+    /// dropped connection and the daemon; kept so a wake or a restart attaches to it again. nil elsewhere, and once Kelp
+    /// ended that tmux session (Stop, closing the tab).
     public var tmux: String?
     /// The /goal it works toward (Claude Code checks it after each turn and goes on until it's met); nil without one.
     public var goal: String?

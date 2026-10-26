@@ -135,4 +135,10 @@ private func end(_ session: String) {
     #expect(try await waitFor(15) { try await screen(c, r.id).contains("did the work") })   // the same agent, not a new one at `read`
     _ = try await c.call("session.kill", .obj(["id": .string(r.id)]))
     #expect(try await waitFor(15) { try await !tmuxSessions(c, wt).contains(name) })
+    // Stopped, not lost: its tab says "Session ended", not "Connection lost", and goes as ended ones do on a relaunch.
+    func stopped() async throws -> Bool {
+        guard let k = try await c.call("session.list", as: [Session].self).first(where: { $0.id == r.id }) else { return false }
+        return k.status == .exited && !k.connectionLost
+    }
+    #expect(try await waitFor(10) { try await stopped() })
 }

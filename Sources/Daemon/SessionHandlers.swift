@@ -73,11 +73,16 @@ extension SessionResize: Handled {
 /// on the old copy while a wake starts a new one.
 extension SessionKill: Handled {
     func handle(_ sessions: Sessions) throws -> Done {
+        // A remote agent's tmux session ends with it, and its record then names none: it reads as ended, not as an agent
+        // still running on the host (`connectionLost`). The live record too, before its exit is saved.
+        let before = try sessions.store.session(id)
         try sessions.wakeLocks.withLock(id) {
-            if let ls = sessions.existing(id) { ls.pty.terminate() }
+            if let ls = sessions.existing(id) { _ = ls.update { $0.tmux = nil }; ls.pty.terminate() }
             else if try sessions.store.session(id)?.status == .hibernated { try sessions.change(id) { $0.status = .exited } }   // don't wake just to kill
         }
-        if let s = try sessions.store.session(id) { sessions.endOwnTmux(s) }
+        guard let before else { return Done() }
+        sessions.endOwnTmux(before)
+        if before.tmux != nil { try sessions.change(id) { $0.tmux = nil } }
         return Done()
     }
 }
