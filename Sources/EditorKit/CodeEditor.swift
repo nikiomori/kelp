@@ -18,6 +18,10 @@ public final class CodeEditor: NSObject {
     /// Big files (past this many lines) get their text after the view is set up, and no minimap (a second layout of it).
     private static let bigLines = 5_000
     private let big: Bool
+    /// ⌥-click for another cursor (CodeEditor+Edits); nonisolated so deinit can remove it.
+    nonisolated(unsafe) private var monitor: Any?
+    /// The editors there are, to find the focused one (CodeEditor+Edits).
+    static let all = NSHashTable<CodeEditor>.weakObjects()
 
     /// Big documents re-parse off the main thread so typing never waits for tree-sitter (highlighting catches up a frame later).
     private static let tuned: Void = { TreeSitterClient.Constants.maxSyncContentLength = 100_000 }()
@@ -39,7 +43,11 @@ public final class CodeEditor: NSObject {
         super.init()
         relay.owner = self
         if big { _ = controller.view; suppress = true; controller.setText(text); suppress = false }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] e in self?.optionClick(e) ?? e }
+        Self.all.add(self)
     }
+
+    deinit { if let monitor { NSEvent.removeMonitor(monitor) } }
 
     public var view: NSView { let v = controller.view; evenFoldRibbon(); return v }
     public var text: String { controller.text }
@@ -91,10 +99,7 @@ public final class CodeEditor: NSObject {
     /// Replace the identifier left of the cursor with `text`.
     fileprivate func applyCompletion(_ text: String) {
         guard let tv = controller.textView, let c = controller.cursorPositions.first else { return }
-        let ns = tv.string as NSString
-        var start = c.range.location
-        while start > 0, let u = UnicodeScalar(ns.character(at: start - 1)),
-              CharacterSet.alphanumerics.union(.init(charactersIn: "_$")).contains(u) { start -= 1 }
+        let start = Self.word(at: c.range.location, in: tv.string as NSString).location
         tv.replaceCharacters(in: NSRange(location: start, length: c.range.location - start), with: text)
     }
 

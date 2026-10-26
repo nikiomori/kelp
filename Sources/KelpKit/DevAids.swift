@@ -226,10 +226,13 @@ extension AppDelegate {
                    main.window?.firstResponder?.tryToPerform(a, with: item) == true { return }
                 let flags = (123...126).contains(code) ? mods.union([.numericPad, .function]) : mods   // arrows carry these
                 for type in [NSEvent.EventType.keyDown, .keyUp] {
-                    if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
-                                                windowNumber: (NSApp.keyWindow ?? main.window)?.windowNumber ?? 0, context: nil,
-                                                characters: ch, charactersIgnoringModifiers: ch,
-                                                isARepeat: false, keyCode: code) { NSApp.sendEvent(e) }
+                    guard let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                                                   windowNumber: (NSApp.keyWindow ?? main.window)?.windowNumber ?? 0, context: nil,
+                                                   characters: ch, charactersIgnoringModifiers: ch,
+                                                   isARepeat: false, keyCode: code) else { continue }
+                    // Without a key window AppKit offers a shortcut to the menu only; a user's goes to the window's views first.
+                    if type == .keyDown, !mods.isEmpty, NSApp.keyWindow == nil, main.window?.performKeyEquivalent(with: e) == true { continue }
+                    NSApp.sendEvent(e)
                 }
             }
         }

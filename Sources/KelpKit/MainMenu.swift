@@ -55,6 +55,7 @@ extension AppDelegate {
         fileMenu(b)
         editMenu(b)
         viewMenu(b)
+        selectionMenu(b)
         let tools = b.sub("Tools")   // filled last, with what nothing else placed
         runMenu(b)
         windowMenu(b)
@@ -126,6 +127,13 @@ extension AppDelegate {
         b.add(find, "files.findInWorkspace")
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
         b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink")
+    }
+
+    /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
+    /// and ⌘D is Split Right outside the editor (inside, the editor takes it first: EditorBox).
+    private func selectionMenu(_ b: MenuBuilder) {
+        b.add(b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "-", "editor.moveLinesUp", "editor.moveLinesDown",
+              "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines")
     }
 
     /// View: the sidebar and inspector, panels, text size, panes and tabs.

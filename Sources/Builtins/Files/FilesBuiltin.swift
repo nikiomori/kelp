@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Core
 import Agents
+import EditorKit
 import WorkbenchKit
 import KelpKit
 
@@ -73,6 +74,14 @@ extension Builtins {
                           Task { if let s = await prompt(String(localized: "Go to line"), ""), let n = Int(s) { t.goTo(line: n) } }
                       },
                       cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
+                      // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D: see EditorBox.
+                      cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") { CodeEditor.focused?.addNextOccurrence() },
+                      cmd("editor.selectAllOccurrences", "Select All Occurrences", "shift+cmd+l") { CodeEditor.focused?.selectAllOccurrences() },
+                      cmd("editor.moveLinesUp", "Move Line Up", "opt+up") { CodeEditor.focused?.moveLines(down: false) },
+                      cmd("editor.moveLinesDown", "Move Line Down", "opt+down") { CodeEditor.focused?.moveLines(down: true) },
+                      cmd("editor.copyLinesUp", "Copy Line Up", "shift+opt+up") { CodeEditor.focused?.copyLines(down: false) },
+                      cmd("editor.copyLinesDown", "Copy Line Down", "shift+opt+down") { CodeEditor.focused?.copyLines(down: true) },
+                      cmd("editor.deleteLines", "Delete Line", "shift+cmd+k") { CodeEditor.focused?.deleteLines() },
                       // ⌥⌘↩: "path:12-30" into the agent's prompt (it reads the file itself), without pressing Return.
                       cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
                           if let t = fileTab(app) { FileActions(app).sendToAgent(t.path, lines: t.selectedText?.isEmpty == false ? t.selectedLines : nil) }

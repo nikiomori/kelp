@@ -76,7 +76,7 @@ final class FileTab: SavableTab {
         }
         // Off the main thread, by the daemon: only a regular file (a pipe or /dev/zero would block or never end), up to
         // `openLimit` (a 300 MB log would hang the window), as UTF-8; a remote project's on its host.
-        let box = NSView(); view = box
+        let box = EditorBox(); view = box
         let wait = host.map { Self.message(String(localized: "Reading it from \($0)…")) }
         if let wait { box.pin(wait) }
         loading = Task { [weak self] in

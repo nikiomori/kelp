@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Agents
+import EditorKit
 import Sparkle
 import WorkbenchKit
 
@@ -190,6 +191,8 @@ extension AppDelegate: NSMenuItemValidation {
         case "scripts.stop": return app.scripts.canStop
         // Off elsewhere, so a terminal still gets their keys.
         case "editor.runFile", "editor.testAtCursor", "editor.format": return app.workbench.editor?.focusedContent?.fileURL != nil
+        case "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
+             "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines": return CodeEditor.focused != nil
         default: break
         }
         return true
