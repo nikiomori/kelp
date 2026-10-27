@@ -65,6 +65,23 @@ extension OneAtATime {
     }
 }
 
+@Test func aRemoteProjectNamedLikeAnotherSaysItsMachineAndItsRowRenamesTheProject() throws {
+    let folder = Paths.root.appendingPathComponent("remote/beet/infra")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONEncoder().encode(RemoteHost(host: "beet", path: "/srv/infra")).write(to: folder.appendingPathComponent(RemoteHost.marker))
+    let here = Repo(id: "r1", name: "infra", path: "/tmp/kelp-screen-infra"), there = Repo(id: "r2", name: "infra", path: folder.path)
+    try withSidebar(repos: [here, there], worktrees: [], sessions: []) { vc, o in
+        let names = rows(of: o).flatMap { $0 }
+        #expect(names.contains("infra") && names.contains("infra · beet"))   // this Mac's stays bare
+        #expect(vc.app.projectPlace(there) == "beet:/srv/infra")
+        // The project's row edits the project's own name, not the workspace it stands for.
+        vc.startRename("r2", project: true)
+        #expect(vc.renaming?.id == "r2" && vc.renaming?.project == true)
+        vc.app.repos = [there]
+        #expect(vc.app.projectName("r2") == "infra")   // no namesake left: no machine
+    }
+}
+
 @Test func aProjectFoldsFromItsChevronAndSaysWhatItsAgentsDo() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Fix login bug")
     try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent]) { vc, o in

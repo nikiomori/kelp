@@ -223,12 +223,12 @@ final class SidebarCell: NSTableCellView {
             let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
             if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
             icon.contentTintColor = .secondaryLabelColor
-            title.stringValue = r?.name ?? ""
+            if !title.isEditable { title.stringValue = m.projectName(id) ?? "" }   // not under a rename (a status change re-reads the row)
             // Bold where agents are: a project with none is a quieter name the eye passes over.
             let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(13, weight: busy ? .semibold : .regular)
             title.textColor = busy || selected ? .labelColor : .secondaryLabelColor
-            toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r?.path
+            toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r.map(m.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable { detail.isHidden = true }
@@ -301,7 +301,7 @@ final class SidebarCell: NSTableCellView {
     /// VoiceOver reads the row as one sentence: "Fix login, needs your input, Asks: may I run npm test?, Atlas, now",
     /// not its mark, name, line and time one by one.
     private func speak(_ s: Session) {
-        let st = Self.shownStatus(s), project = app.repo(app.worktree(s.worktreeId)?.repoId)?.name
+        let st = Self.shownStatus(s), project = app.projectName(app.worktree(s.worktreeId)?.repoId)
         let state = mark.isHidden ? nil : st.words
         let line = ask.isHidden ? nil : ask.stringValue
         setAccessibilityElement(true)
@@ -389,10 +389,13 @@ final class SidebarCell: NSTableCellView {
     /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
     static func isNews(_ s: Session) -> Bool { s.unread && [.done, .waiting, .error].contains(shownStatus(s)) }
 
-    /// The workspace's name: its own row's title, or the grey name beside its project's.
-    func beginEditing(delegate: NSTextFieldDelegate) {
-        let field = node.workspace == nil ? title : detail
-        if let w = node.workspace.flatMap(app.worktree) { detail.stringValue = w.displayName; detail.isHidden = false }
+    /// The workspace's name: its own row's title, or the grey name beside its project's; with `project` the project's own
+    /// name, without the machine its row may add.
+    func beginEditing(delegate: NSTextFieldDelegate, project: Bool = false) {
+        let field = node.workspace == nil || project ? title : detail
+        if project, case .project(let id) = node.kind {
+            title.stringValue = app.repo(id)?.name ?? ""
+        } else if let w = node.workspace.flatMap(app.worktree) { detail.stringValue = w.displayName; detail.isHidden = false }
         field.isEditable = true
         field.isSelectable = true
         field.drawsBackground = true

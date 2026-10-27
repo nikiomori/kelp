@@ -43,7 +43,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private var syncing = false
     /// The workspace whose project syncSelection last opened (or found open).
     private var revealed: String?
-    var renaming: String?
+    /// The workspace or project (`project`) whose name is being edited in its row.
+    var renaming: (id: String, project: Bool)?
     private let empty = NSStackView()
     private let search = NSSearchField()
     var query = ""
@@ -424,7 +425,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Typing a name jumps to its row (the cells have no textField the outline could read it from).
     func outlineView(_ o: NSOutlineView, typeSelectStringFor tc: NSTableColumn?, item: Any) -> String? {
         switch (item as? Node)?.kind {
-        case .project(let id)?: app.repo(id)?.name
+        case .project(let id)?: app.projectName(id)
         case .workspace(let id)?: app.worktree(id)?.displayName
         case .agent(let id)?: app.session(id).map(app.catalog.displayName)
         default: nil

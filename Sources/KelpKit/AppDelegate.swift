@@ -220,7 +220,7 @@ final class ArchivedMenu: NSObject, NSMenuDelegate {
         if let failed { menu.addItem(withTitle: failed, action: nil, keyEquivalent: "").isEnabled = false; return }
         guard !archived.isEmpty else { menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false; return }
         for w in archived.sorted(by: { $0.createdAt > $1.createdAt }) {
-            menu.add("\(w.displayName) — \(app.repo(w.repoId)?.name ?? "")") { [app] in WorkspaceActions(app).unarchive(w.id) }
+            menu.add("\(w.displayName) — \(app.projectName(w.repoId) ?? "")") { [app] in WorkspaceActions(app).unarchive(w.id) }
         }
     }
 }

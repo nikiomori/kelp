@@ -420,7 +420,7 @@ package struct WorkspaceActions {
 
     func removeProject(_ r: Repo) {
         let a = NSAlert()
-        a.messageText = String(localized: "Remove “\(r.name)” from Kelp?")
+        a.messageText = String(localized: "Remove “\(app.projectName(r.id) ?? r.name)” from Kelp?")
         a.informativeText = String(localized: "The repository on disk is not touched.")
         a.addButton(withTitle: String(localized: "Remove")); a.addButton(withTitle: String(localized: "Cancel"))
         Task {

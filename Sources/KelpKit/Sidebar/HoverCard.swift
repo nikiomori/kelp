@@ -68,13 +68,13 @@ final class CardModel {
         if key.hasPrefix("a:"), let s = m.session(String(key.dropFirst(2))) {
             title = app.catalog.displayName(s)
             let w = m.worktree(s.worktreeId)
-            subtitle = [w?.displayName, m.repo(w?.repoId)?.name].compactMap { $0 }.joined(separator: " · ")
+            subtitle = [w?.displayName, m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
             agents = [Agent(id: s.id, session: s)]
             workspaceId = s.worktreeId ?? ""
             agentOnly = true
             repo = nil
         } else if key.hasPrefix("p:"), let r = m.repo(String(key.dropFirst(2))) {
-            title = r.name; subtitle = (r.path as NSString).abbreviatingWithTildeInPath
+            title = m.projectName(r.id) ?? r.name; subtitle = m.projectPlace(r)
             agents = []
             workspaceId = ""
             agentOnly = false
@@ -82,7 +82,7 @@ final class CardModel {
         } else if key.hasPrefix("w:"), let w = m.worktree(String(key.dropFirst(2))) {
             let r = m.repo(w.repoId)
             title = w.displayName
-            subtitle = [r?.name, w.path == r?.path ? nil : String(localized: "branch \(w.branch)")].compactMap { $0 }.joined(separator: " · ")
+            subtitle = [m.projectName(r?.id), w.path == r?.path ? nil : String(localized: "branch \(w.branch)")].compactMap { $0 }.joined(separator: " · ")
             agents = m.sessions.filter { $0.worktreeId == w.id && $0.agent != "shell" && $0.status != .exited }.map { Agent(id: $0.id, session: $0) }
             workspaceId = w.id
             agentOnly = false

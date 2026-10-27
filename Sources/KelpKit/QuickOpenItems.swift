@@ -17,7 +17,7 @@ extension QuickOpen {
                 }
             }
             for w in app.worktrees where !w.archived {
-                let repo = app.repo(w.repoId)?.name ?? ""
+                let repo = app.projectName(w.repoId) ?? ""
                 items.append(Item(kind: "Workspace", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
                                   action: { app.workbench.show(workspace: w.id) }))
             }
@@ -86,7 +86,7 @@ extension QuickOpen {
         var out = (queue + rest).prefix(6).map { s -> Item in
             let w = m.worktree(s.worktreeId)
             return Item(kind: s.status.words, icon: "terminal", title: app.catalog.displayName(s),
-                        detail: [w?.displayName, m.repo(w?.repoId)?.name].compactMap { $0 }.joined(separator: " · "),
+                        detail: [w?.displayName, m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · "),
                         action: { app.workbench.focus(session: s.id) },
                         split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
                         session: s)
@@ -95,7 +95,7 @@ extension QuickOpen {
         for id in app.workbench.history.visits.reversed() where id != app.workbench.workspaceId && seen.insert(id).inserted {
             guard let w = m.worktree(id) else { continue }
             out.append(Item(kind: "Workspace", icon: "arrow.triangle.branch", title: w.displayName,
-                            detail: m.repo(w.repoId)?.name ?? "", action: { app.workbench.show(workspace: w.id) }))
+                            detail: m.projectName(w.repoId) ?? "", action: { app.workbench.show(workspace: w.id) }))
             if out.count >= 10 { break }
         }
         recents = out

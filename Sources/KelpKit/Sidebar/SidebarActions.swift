@@ -14,20 +14,23 @@ extension SidebarController {
         if row >= 0 { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
     }
 
-    /// Inline rename, like Finder.
-    func startRename(_ workspace: String) {
-        guard let n = workspaceNode(workspace) else { return }
+    /// Inline rename, like Finder: a workspace's name, or with `project` its project's own.
+    func startRename(_ id: String, project: Bool = false) {
+        guard let n = project ? node("p:" + id) : workspaceNode(id) else { return }
         let row = outline.row(forItem: n)
         guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else { return }
-        renaming = workspace
-        cell.beginEditing(delegate: self)
+        renaming = (id, project)
+        cell.beginEditing(delegate: self, project: project)
     }
     func controlTextDidEndEditing(_ n: Notification) {
-        guard let id = renaming, let field = n.object as? NSTextField else { return }
+        guard let (id, project) = renaming, let field = n.object as? NSTextField else { return }
         renaming = nil
         field.isEditable = false; field.drawsBackground = false
         let name = field.stringValue.trimmingCharacters(in: .whitespaces)
-        if !name.isEmpty, name != app.worktree(id)?.displayName {
+        if project {
+            // An empty name gives the project its folder's back.
+            if name != app.repo(id)?.name { Task { await app.call(RepoRename(id: id, name: name)) } } else { refreshCell("p:" + id) }
+        } else if !name.isEmpty, name != app.worktree(id)?.displayName {
             Task { await app.call(WorktreeNote(id: id, note: name)) }
         } else if let n = workspaceNode(id) { refreshCell(n.key) }
     }
@@ -51,8 +54,9 @@ extension SidebarController {
                 return
             }
             // Standing for its only workspace: that workspace's items first, then the project's.
-            if let w = n.workspace { workspaceMenu(menu, w); menu.addItem(.separator()) }
+            if let w = n.workspace { workspaceMenu(menu, w, onProject: true); menu.addItem(.separator()) }
             menu.add(String(localized: "New Workspace")) { [weak self] in self?.newWorkspace(id) }
+            menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             if n.workspace == nil {
                 menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.path)]) }
             }
@@ -76,8 +80,8 @@ extension SidebarController {
         }
     }
 
-    /// A workspace's items, on its row or on its project's when that stands for it.
-    private func workspaceMenu(_ menu: NSMenu, _ id: String) {
+    /// A workspace's items, on its row or on its project's when that stands for it (`onProject`: its Rename says whose).
+    private func workspaceMenu(_ menu: NSMenu, _ id: String, onProject: Bool = false) {
         let app = self.app, m = app
         guard let w = m.worktree(id) else { return }
         let pinned = self.pinned.contains(id)
@@ -85,7 +89,7 @@ extension SidebarController {
             guard let self else { return }
             self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
         }
-        menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
+        menu.add(onProject ? String(localized: "Rename Workspace") : String(localized: "Rename")) { [weak self] in self?.startRename(id) }
         menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)]) }
         menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(w.path, forType: .string) }
         WorkspaceActions.addOpenIn(to: menu, path: w.path)

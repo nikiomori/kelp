@@ -232,7 +232,7 @@ private final class Row: Pressable {
         mark.status = SidebarCell.shownStatus(s); mark.unread = true   // read or not, it's here to be seen
         let what = SidebarCell.askLine(s, mode: "always").map { [$0.prefix?.0, $0.text].compactMap { $0 }.joined(separator: " ") }
         toolTip = what
-        setAccessibilityLabel([name.stringValue, what, repo?.name, ago.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
+        setAccessibilityLabel([name.stringValue, what, app.projectName(repo?.id), ago.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
         self.press = press
     }
 

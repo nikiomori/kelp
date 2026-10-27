@@ -66,6 +66,11 @@ extension SidebarController {
 
     @objc func doubleClicked() {
         guard let node = outline.item(atRow: outline.clickedRow) as? Node else { return }
-        if case .workspace(let id) = node.kind { startRename(id) } else if let id = node.workspace { startRename(id) }
+        // A project's row edits the name it shows: the project's, even when it stands for its only workspace.
+        switch node.kind {
+        case .workspace(let id): startRename(id)
+        case .project(let id): startRename(id, project: true)
+        default: break
+        }
     }
 }

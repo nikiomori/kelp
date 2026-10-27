@@ -209,6 +209,16 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     }
 }
 
+@Test func aProjectTakesANameOfItsOwnAndAnEmptyOneGivesBackItsFolders() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let named = try await r.c.call("repo.rename", .obj(["id": .string(r.repo.id), "name": .string("  infra  ")]), as: Repo.self)
+    #expect(named.name == "infra" && named.path == r.repo.path)
+    let listed = try await r.c.call("repo.list", as: [Repo].self)
+    #expect(listed.first { $0.id == r.repo.id }?.name == "infra")
+    let back = try await r.c.call("repo.rename", .obj(["id": .string(r.repo.id), "name": .string(" ")]), as: Repo.self)
+    #expect(back.name == (r.repo.path as NSString).lastPathComponent)
+}
+
 @Test func aRecipeFillsInTheBranchAndBase() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let text = try await r.call("recipe.render", ["name": .string("commit")]).string ?? ""
