@@ -194,8 +194,8 @@ final class WorkspaceSwitcher {
         let name = label(w.displayName, .systemFont(ofSize: 13, weight: .semibold))
         let repo = m.repo(w.repoId)
         // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
-        let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "), .systemFont(ofSize: 12),
-            secondary: true)
+        let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "),
+                          .systemFont(ofSize: 12), secondary: true)
         let folder = app.rowBadges.folder(workspace: w.id) ?? app.rowBadges.folder(project: w.repoId)
         let changes = label("", .uiDigits(11)), pr = label("", .uiDigits(11))
         if let c = folder.flatMap({ RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) }) {

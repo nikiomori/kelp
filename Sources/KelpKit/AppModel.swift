@@ -411,13 +411,13 @@ package final class AppModel {
 
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
     /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.
-    package func projectName(_ id: String?) -> String? {
+    func projectName(_ id: String?) -> String? {
         guard let r = repo(id) else { return nil }
         guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host else { return r.name }
         return "\(r.name) · \(host)"
     }
     /// Where the project is: "host:path" for a remote one (not the local folder that stands for it), else its path.
-    package func projectPlace(_ r: Repo) -> String {
+    func projectPlace(_ r: Repo) -> String {
         RemoteHost.of(r.path).map { "\($0.host):\($0.path)" } ?? (r.path as NSString).abbreviatingWithTildeInPath
     }
 }
