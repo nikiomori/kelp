@@ -324,4 +324,15 @@ extension OneAtATime {
         #expect(color("let") == CodeEditor.look.keyword)   // Swift's, inside the fenced block
         #expect(color("x =") == nil)   // not the block's string color: Swift's colors alone
     }
+
+    @Test func theContextMenuIsACodeEditorsOwn() throws {
+        let (e, tv) = editor("let x = 1", selecting: [NSRange(location: 0, length: 3)])
+        e.contextMenu = { m in m.addItem(withTitle: "Send to Agent", action: nil, keyEquivalent: "") }
+        let click = try #require(NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+                                                     context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        let menu = try #require(tv.menu(for: click))
+        #expect(menu.items.map(\.title) == ["Cut", "Copy", "Paste", "", "Send to Agent"])
+        #expect(!menu.allowsContextMenuPlugIns)   // no Services, no Siri
+        if #available(macOS 15.0, *) { #expect(tv.writingToolsBehavior == .none) }
+    }
 }

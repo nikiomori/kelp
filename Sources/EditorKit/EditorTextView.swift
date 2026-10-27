@@ -211,6 +211,26 @@ public final class EditorTextView: NSTextView {
         super.insertCompletion(item ?? word, forPartialWordRange: r, movement: movement, isFinal: isFinal)
     }
 
+    // MARK: Context menu
+
+    /// The app's part of the context menu (Send to Agent, Copy Path and Line…), after Cut, Copy and Paste.
+    var contextMenu: ((NSMenu) -> Void)?
+
+    /// A code editor's menu, not a rich-text one: no fonts, writing direction or substitutions, and none of what the
+    /// system adds to text views (Writing Tools, Siri, Services).
+    public override func menu(for event: NSEvent) -> NSMenu? {
+        let m = NSMenu()
+        m.allowsContextMenuPlugIns = false
+        for (title, action, key) in [("Cut", #selector(cut(_:)), "x"), ("Copy", #selector(copy(_:)), "c"), ("Paste", #selector(paste(_:)), "v")] {
+            m.addItem(withTitle: title, action: action, keyEquivalent: key)
+        }
+        if let contextMenu {
+            m.addItem(.separator())
+            contextMenu(m)
+        }
+        return m
+    }
+
     // MARK: Mouse
 
     /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, NSTextView's own way.

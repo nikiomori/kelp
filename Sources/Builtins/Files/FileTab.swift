@@ -130,6 +130,7 @@ final class FileTab: SavableTab {
             box.pin(stacked(e.view, bar))
         }
         e.onChange = { [weak self] t in self?.edited(t) }
+        e.contextMenu = { [weak self] m in self?.contextMenu(m) }
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in self?.editor?.refreshAppearance() }
         if focusWhenLoaded { focus() }
         guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
@@ -467,6 +468,17 @@ final class FileTab: SavableTab {
     }
 
     /// Its items in the tab's context menu.
+    /// The editor's context menu, after Cut, Copy and Paste.
+    private func contextMenu(_ m: NSMenu) {
+        let app = self.app, path = self.path
+        let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
+        if language?.server != nil { m.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() } }
+        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: lines()) }
+        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) }
+        m.addItem(.separator())
+        m.add(String(localized: "Toggle Comment")) { [weak self] in self?.editor?.toggleComment() }
+    }
+
     static func menu(_ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void) {
         let path = TabURI.filePath(uri).path
         m.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }

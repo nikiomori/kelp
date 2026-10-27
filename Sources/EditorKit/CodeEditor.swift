@@ -10,6 +10,11 @@ public final class CodeEditor: NSObject {
     let scroll = NSScrollView()
     public var view: NSView { scroll }
     public var onChange: ((String) -> Void)?
+    /// The app's items for the editor's context menu, after Cut, Copy and Paste.
+    public var contextMenu: ((NSMenu) -> Void)? {
+        get { textView.contextMenu }
+        set { textView.contextMenu = newValue }
+    }
     public var onSelection: (() -> Void)?
     /// Completion items come from the app (LSP); the text view shows them in its completion list.
     public var completionProvider: ((Int, Int) async -> [Completion])? {
@@ -77,6 +82,7 @@ public final class CodeEditor: NSObject {
                     \.isAutomaticSpellingCorrectionEnabled, \.isAutomaticLinkDetectionEnabled, \.isContinuousSpellCheckingEnabled,
                     \.isGrammarCheckingEnabled, \.isAutomaticTextCompletionEnabled, \.displaysLinkToolTips] { tv[keyPath: off] = false }
         tv.inlinePredictionType = .no
+        if #available(macOS 15.0, *) { tv.writingToolsBehavior = .none }   // code, not prose
         tv.textContainerInset = NSSize(width: 4, height: 6)
         tv.isVerticallyResizable = true
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
