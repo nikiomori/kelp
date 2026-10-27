@@ -256,6 +256,8 @@ final class SearchPill: NSControl {
     /// The whole pill takes the click; in the title bar its label would move the window instead.
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) == nil ? nil : self }
     override var mouseDownCanMoveWindow: Bool { false }
+    /// The palettes grow out of it (QuickOpen.present).
+    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); if window != nil { app.quickOpen.anchor = self } }
     override func mouseDown(with e: NSEvent) { app.quickOpen.show(commandsOnly: false) }
     override func accessibilityPerformPress() -> Bool { app.quickOpen.show(commandsOnly: false); return true }
 }

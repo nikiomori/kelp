@@ -59,6 +59,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     let keys = NSTextField(labelWithString: "")
     var all: [Item] = []
     var commandsOnly = false
+    /// The title bar's Search pill, which the palettes grow out of.
+    weak var anchor: NSView?
     /// The tmux sessions listed instead of the palette (`showTmux`); nil for the palette.
     var tmux: [Tmux.Session]?
     var tmuxLoad: Task<Void, Never>?
@@ -70,13 +72,34 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         present()
     }
 
+    /// Out of the title bar's Search pill (`anchor`), as if the pill widened into the field and the list dropped from it;
+    /// without the pill on screen, under the window's top.
     func present() {
-        if let w = NSApp.mainWindow {
-            let f = w.frame
-            panel.setFrameOrigin(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - panel.frame.height - 120))
+        panel.alphaValue = 1
+        guard let w = anchor?.window ?? NSApp.mainWindow else { return show() }
+        let size = panel.frame.size, f = w.frame
+        guard let pill = anchor, pill.window === w, !pill.isHiddenOrHasHiddenAncestor else {
+            panel.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.maxY - size.height - 120))
+            return show()
         }
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(field)
+        let p = w.convertToScreen(pill.convert(pill.bounds, to: nil))
+        let x = min(max(p.midX - size.width / 2, f.minX + 8), f.maxX - size.width - 8)
+        let end = NSRect(x: x, y: p.maxY + 6 - size.height, width: size.width, height: size.height)
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { panel.setFrame(end, display: false); return show() }
+        // From the pill's place and width, as tall as the field and a row, faint; to its full size in 0.18 s.
+        panel.setFrame(NSRect(x: p.minX, y: p.maxY + 6 - 120, width: max(p.width, 200), height: 120), display: false)
+        panel.alphaValue = 0
+        show()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrame(end, display: true)
+            panel.animator().alphaValue = 1
+        }
+        func show() {
+            panel.makeKeyAndOrderFront(nil)
+            panel.makeFirstResponder(field)
+        }
     }
 
     /// The palette's own list (not a setting's choices), with `query` typed.
