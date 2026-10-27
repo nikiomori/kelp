@@ -13,6 +13,13 @@ import Core
     _ = try await c.call(SettingsSet(key: "extensions.library", value: .string(index.absoluteString)))
     let all = try await c.call(ExtensionLibrary())
     #expect(all.map(\.id) == ["docker"] && all.first?.requires == ["docker"] && all.first?.description == nil)
+    #expect(all.first?.category == nil)   // an index from before categories still reads
+    // The library's search and `kelp ext search`: every word, anywhere in the id, name, description or category.
+    let icons = try JSONDecoder().decode(ExtensionLibrary.Entry.self, from: Data(#"""
+        {"id": "tidepool-icons", "name": "Tidepool Icons", "version": "1.0.0", "description": "File icons, a tag per language",
+         "category": "icons", "source": "https://github.com/me/exts/tree/abc/extensions/tidepool-icons"}
+        """#.utf8))
+    #expect(icons.matches("") && icons.matches("ICONS tag") && icons.matches("tidepool") && !icons.matches("docker"))
 
     _ = try await c.call(SettingsSet(key: "extensions.library", value: .string("-o/etc/x")))
     await #expect(throws: RPCError.self) { try await c.call(ExtensionLibrary()) }

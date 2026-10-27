@@ -11,6 +11,9 @@ struct LibrarySection: View {
     /// The first required command each one lacks on this Mac.
     @State private var missing: [String: String] = [:]
     @State private var installing: String?
+    @State private var query = ""
+    /// The category shown; nil: all of them.
+    @State private var category: String?
 
     var body: some View {
         Section {
@@ -21,8 +24,14 @@ struct LibrarySection: View {
                     Button("Try Again") { Task { await load() } }
                 }
             } else if let entries {
-                if entries.isEmpty { Text("Nothing in the library yet.").foregroundStyle(.secondary) }
-                ForEach(entries, id: \.id) { row($0) }
+                if entries.isEmpty {
+                    Text("Nothing in the library yet.").foregroundStyle(.secondary)
+                } else {
+                    filters(entries)
+                    let shown = entries.filter { (category == nil || Self.category($0) == category) && $0.matches(query) }
+                    if shown.isEmpty { Text("No extension matches “\(query)”.").foregroundStyle(.secondary) }
+                    ForEach(shown, id: \.id) { row($0) }
+                }
             } else {
                 HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Loading…").foregroundStyle(.secondary) }
             }
@@ -32,6 +41,33 @@ struct LibrarySection: View {
             if let url = URL(string: "https://github.com/\(IDE.libraryRepo)") { Link("Share Yours on GitHub", destination: url).font(.caption) }
         }
         .task { await load() }
+    }
+
+    /// The search, and the categories once the library has more than one.
+    private func filters(_ entries: [ExtensionLibrary.Entry]) -> some View {
+        let kinds = Self.categories.filter { c in entries.contains { Self.category($0) == c } }
+        return HStack {
+            TextField("Search the library", text: $query, prompt: Text("Search the library")).textFieldStyle(.roundedBorder).labelsHidden()
+            if kinds.count > 1 {
+                Picker("Category", selection: $category) {
+                    Text("All").tag(String?.none)
+                    ForEach(kinds, id: \.self) { Text(Self.title($0)).tag(String?.some($0)) }
+                }.labelsHidden().fixedSize()
+            }
+        }
+    }
+    /// The library's categories in the order the menu lists them; an index from before them files everything as tools.
+    static let categories = ["tools", "integrations", "languages", "agents", "themes", "icons"]
+    static func category(_ e: ExtensionLibrary.Entry) -> String { e.category.map { categories.contains($0) ? $0 : "tools" } ?? "tools" }
+    static func title(_ c: String) -> String {
+        switch c {
+        case "integrations": String(localized: "Integrations")
+        case "languages": String(localized: "Languages")
+        case "agents": String(localized: "Agents")
+        case "themes": String(localized: "Themes")
+        case "icons": String(localized: "Icons")
+        default: String(localized: "Tools")
+        }
     }
 
     private func row(_ e: ExtensionLibrary.Entry) -> some View {

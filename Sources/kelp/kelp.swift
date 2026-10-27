@@ -371,9 +371,7 @@ func plist() -> String {
         case "reload": show(try .from(try await c.call(UICommand(id: "extensions.reload"))))
         case "path": print(Paths.extensions.path)
         case "search":
-            let q = args.joined(separator: " ").lowercased()
-            for e in try await c.call(ExtensionLibrary())
-                where q.isEmpty || [e.id, e.name, e.description ?? ""].contains(where: { $0.lowercased().contains(q) }) {
+            for e in try await c.call(ExtensionLibrary()) where e.matches(args.joined(separator: " ")) {
                 print([e.id, e.version, e.name, e.description ?? ""].joined(separator: "\t"))
             }
         case "install":
