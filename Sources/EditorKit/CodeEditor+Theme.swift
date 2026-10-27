@@ -66,6 +66,7 @@ extension CodeEditor {
         gutter?.color = l.text.withAlphaComponent(0.4)
         gutter?.current = l.text
         gutter?.background = l.background
+        gutter?.fit(lines: lineCount)   // a bigger font needs a wider one
         gutter?.needsDisplay = true
         highlighter?.colors = Self.captureColors(l)
         wrap(Self.wrapLines)

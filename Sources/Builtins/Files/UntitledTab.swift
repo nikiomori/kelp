@@ -10,7 +10,8 @@ import KelpKit
 final class UntitledTab: SavableTab {
     let uri: String, app: AppModel
     let editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/Untitled.txt"))
-    var view: NSView { editor.view }
+    /// The editor's keys before the menu's (⌘D), as in a file's tab.
+    let view: NSView = EditorBox()
     let title: String
     var icon: NSImage? { .symbol("doc") }
     /// Any text, until Don't Save.
@@ -22,6 +23,7 @@ final class UntitledTab: SavableTab {
         self.uri = uri; self.app = app
         title = String(localized: "Untitled-\(TabURI.body(uri))")
         editor.view.clipsToBounds = true
+        view.pin(editor.view)
         editor.onChange = { [weak self] text in
             guard let self, !discarded, isEdited == text.isEmpty else { return }
             isEdited = !text.isEmpty

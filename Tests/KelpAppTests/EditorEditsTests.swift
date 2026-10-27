@@ -184,4 +184,86 @@ extension OneAtATime {
         #expect(tv.undoManager?.canUndo == false)
         #expect(e.text == "new text")
     }
+
+    // MARK: From the review of the new editor
+
+    @Test func completionAfterADotIsForTheMemberAlone() {
+        let (_, tv) = editor("obj.na", selecting: [NSRange(location: 6, length: 0)])
+        #expect(tv.rangeForUserCompletion == NSRange(location: 4, length: 2))
+        tv.completions = [CodeEditor.Completion(label: "name", detail: nil, insert: "name"), .init(label: "other", detail: nil, insert: "other")]
+        var index = 0
+        #expect(tv.completions(forPartialWordRange: tv.rangeForUserCompletion, indexOfSelectedItem: &index) == ["name"])
+        tv.setCursors([NSRange(location: 4, length: 0)])
+        #expect(tv.rangeForUserCompletion == NSRange(location: 4, length: 0))   // right after the dot: everything
+    }
+
+    @Test func returnOnTheLastLineShownBringsTheNewLineIntoView() throws {
+        let (_, tv) = editor(String(repeating: "x\n", count: 200), selecting: [NSRange(location: 400, length: 0)])
+        tv.scrollRangeToVisible(tv.selectedRange())
+        for _ in 0..<5 { tv.doCommand(by: #selector(NSResponder.insertNewline(_:))) }
+        #expect(tv.visibleRect.contains(tv.caretRect(at: tv.selectedRange().location)))
+    }
+
+    @Test func returnInsideTheIndentDoesntDoubleIt() {
+        let (e, tv) = editor("    foo", selecting: [NSRange(location: 0, length: 0)])
+        tv.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        #expect(e.text == "\n    foo")
+        let (e2, tv2) = editor("    foo", selecting: [NSRange(location: 2, length: 0)])
+        tv2.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        #expect(e2.text == "  \n    foo")
+    }
+
+    @Test func aWindowsFileKeepsItsLineBreaks() {
+        let (e, tv) = editor("a\r\nb", selecting: [NSRange(location: 1, length: 0)])
+        tv.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        #expect(e.text == "a\r\n\r\nb")
+        tv.setCursors([NSRange(location: 5, length: 0)])
+        e.deleteLines()
+        #expect(e.text == "a\r\n")
+        e.copyLines(down: true)
+        #expect(!e.text.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
+    }
+
+    @Test func occurrencesOfAWordFromTheCursorAreWholeWords() {
+        let (e, tv) = editor("id width valid id", selecting: [NSRange(location: 1, length: 0)])
+        e.selectAllOccurrences()
+        #expect(tv.cursors == [NSRange(location: 0, length: 2), NSRange(location: 15, length: 2)])
+    }
+
+    @Test func pasteWordMovesAndShiftWorkAtEveryCursor() {
+        let (e, tv) = editor("ab cd\nef gh\n", selecting: [NSRange(location: 0, length: 0), NSRange(location: 6, length: 0)])
+        tv.doCommand(by: #selector(NSResponder.moveWordRight(_:)))
+        #expect(tv.cursors == [NSRange(location: 2, length: 0), NSRange(location: 8, length: 0)])
+        tv.doCommand(by: #selector(NSResponder.moveRightAndModifySelection(_:)))
+        tv.doCommand(by: #selector(NSResponder.moveWordRightAndModifySelection(_:)))
+        #expect(tv.cursors == [NSRange(location: 2, length: 3), NSRange(location: 8, length: 3)])
+        tv.doCommand(by: #selector(NSResponder.moveLeftAndModifySelection(_:)))   // the moving end goes back
+        #expect(tv.cursors == [NSRange(location: 2, length: 2), NSRange(location: 8, length: 2)])
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("1\n2\n", forType: .string)
+        tv.paste(nil)
+        #expect(e.text == "ab1d\nef2h\n")   // a line each
+        tv.doCommand(by: #selector(NSResponder.deleteWordBackward(_:)))
+        #expect(e.text == "d\nh\n")
+    }
+
+    @Test func commandSlashUsesBlockCommentsWhereALanguageHasNoLineOnes() {
+        let (css, _) = editor("a { color: red; }\n", "s.css", selecting: [NSRange(location: 0, length: 0)])
+        css.toggleComment()
+        #expect(css.text == "/* a { color: red; } */\n")
+        css.toggleComment()
+        #expect(css.text == "a { color: red; }\n")
+    }
+
+    @Test func movingTheLastLineKeepsAWholeLineSelection() {
+        let (e, tv) = editor("a\nb", selecting: [NSRange(location: 0, length: 2)])
+        e.moveLines(down: true)
+        #expect(e.text == "b\na")
+        #expect(tv.cursors == [NSRange(location: 2, length: 1)])
+    }
+
+    @Test func aTripleClickedLineIsOneLineForSendToAgent() {
+        let (e, _) = editor("a\nb\nc\n", selecting: [NSRange(location: 2, length: 2)])
+        #expect(e.selectedLines == 2...2)
+    }
 }

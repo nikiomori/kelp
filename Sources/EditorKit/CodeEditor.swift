@@ -17,7 +17,7 @@ public final class CodeEditor: NSObject {
     }
 
     var lineIndex = LineIndex()
-    private var lineCount = 1
+    var lineCount = 1
     var gutter: LineNumbers?
     let highlighter: SyntaxHighlighter?
     let language: CodeLanguage
@@ -59,6 +59,7 @@ public final class CodeEditor: NSObject {
         load(text)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         textView.indentUnit = Self.indentUnit(of: text)
+        textView.lineBreak = text.prefix(64_000).contains("\r\n") ? "\r\n" : "\n"
         textView.colonOpensBlock = ["python", "yaml"].contains(language.tsName)
     }
 
@@ -123,10 +124,11 @@ public final class CodeEditor: NSObject {
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
-    /// 1-based lines of the first selection.
+    /// 1-based lines of the first selection; a line selected with its line break (a triple-click) is that line alone.
     public var selectedLines: ClosedRange<Int>? {
         let r = textView.selectedRange(), s = textView.string as NSString
-        return lineIndex.line(at: r.location, in: s) + 1...lineIndex.line(at: NSMaxRange(r), in: s) + 1
+        let end = r.length > 0 && s.character(at: NSMaxRange(r) - 1) == 10 ? NSMaxRange(r) - 1 : NSMaxRange(r)
+        return lineIndex.line(at: r.location, in: s) + 1...lineIndex.line(at: end, in: s) + 1
     }
 
     /// 1-based line/column of the primary cursor.
@@ -158,7 +160,12 @@ public final class CodeEditor: NSObject {
     @objc private func scrolled() {
         guard !coloring else { return }
         coloring = true
-        DispatchQueue.main.async { [weak self] in self?.coloring = false; self?.colorVisible() }   // once per run loop pass
+        DispatchQueue.main.async { [weak self] in   // once per run loop pass
+            guard let self else { return }
+            coloring = false
+            gutter?.fit(lines: lineCount)
+            colorVisible()
+        }
     }
 
     /// What's on screen and a screen around it.
@@ -218,9 +225,8 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
             if !described && !loading { lineCount = LineIndex.breaks(in: textView.string as NSString) + 1 }
             highlighter?.parse(textView.string as NSString, described: described)
             described = false
-            gutter?.fit(lines: lineCount)
             gutter?.needsDisplay = true
-            scrolled()
+            scrolled()   // after the edit is laid out: the gutter's width too (resizing it in here broke the layout)
         }
     }
 }

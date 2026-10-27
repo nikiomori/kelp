@@ -5,22 +5,24 @@ import AppKit
 @MainActor enum Typing {
     static let closers: [unichar: unichar] = [40: 41, 91: 93, 123: 125, 34: 34, 39: 39, 96: 96]   // () [] {} "" '' ``
 
-    /// A new line at every cursor, indented as its line; one level more after an opening bracket (and after `:` where
-    /// that opens a block). Between a pair, the closer goes to a line of its own below the cursor.
+    /// A new line at every cursor, indented as its line (no more than the cursor's column: Return inside the indent
+    /// doesn't double it); one level more after an opening bracket (and after `:` where that opens a block). Between a
+    /// pair, the closer goes to a line of its own below the cursor.
     static func newline(_ tv: EditorTextView) {
         let s = tv.string as NSString
-        let cs = tv.cursors
+        let cs = tv.cursors, br = tv.lineBreak
         var carets: [Int] = []
         let texts = cs.map { r -> String in
             let line = s.lineRange(for: NSRange(location: r.location, length: 0))
-            let indent = s.substring(with: leading(s, line))
+            let lead = leading(s, line)
+            let indent = s.substring(with: NSRange(location: lead.location, length: min(lead.length, r.location - line.location)))
             let prev = (line.location..<r.location).reversed().lazy.map { s.character(at: $0) }.first { $0 != 32 && $0 != 9 }
             let opens = prev.map { [40, 91, 123].contains($0) || ($0 == 58 && tv.colonOpensBlock) } ?? false   // ( [ { and :
             let next = NSMaxRange(r) < s.length ? s.character(at: NSMaxRange(r)) : nil
-            let first = "\n" + indent + (opens ? tv.indentUnit : "")
+            let first = br + indent + (opens ? tv.indentUnit : "")
             carets.append((first as NSString).length)
             guard opens, let prev, let next, closers[prev] == next else { return first }
-            return first + "\n" + indent
+            return first + br + indent
         }
         tv.replace(cs, with: texts, caret: carets)
     }

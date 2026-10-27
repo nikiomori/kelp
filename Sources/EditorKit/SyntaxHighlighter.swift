@@ -1,4 +1,5 @@
 import AppKit
+import os
 @preconcurrency import CodeEditLanguages
 @preconcurrency import SwiftTreeSitter
 
@@ -13,6 +14,8 @@ final class SyntaxHighlighter {
     /// Edits described before they happen (the old text is needed for them), applied to the tree when they have.
     private var pending: [InputEdit] = []
     private var asked = 0, applied = 0
+    /// Once a text was long, its parses stay off the main thread (a short one waiting on a long one there would block).
+    private var background = false
     var colors: [String: NSColor] = [:]
     /// A parse done on the worker's queue came in: color again.
     var parsed: (() -> Void)?
@@ -46,21 +49,21 @@ final class SyntaxHighlighter {
         pending = []
         asked += 1
         let n = asked, worker = worker
-        guard s.length > Self.syncLimit else {
-            tree = worker.queue.sync { worker.parse(edits, Worker.Text(s)) }   // after any parse still on its way
+        background = background || s.length > Self.syncLimit
+        guard background else {
+            tree = worker.parse(edits, Worker.Text(s), n)
             applied = n
             return
         }
+        worker.latest.withLock { $0 = n }
         let text = Worker.Text(s.copy() as? NSString ?? "")   // the text view's own string keeps changing
         worker.queue.async {
-            let t = worker.parse(edits, text)
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {   // the main queue
-                    guard n > self.applied else { return }
-                    self.tree = t
-                    self.applied = n
-                    self.parsed?()
-                }
+            guard let t = worker.parse(edits, text, n) else { return }   // a newer text is on its way: parsed then
+            DispatchQueue.main.async { [weak self] in
+                guard let self, n > applied else { return }
+                tree = t
+                applied = n
+                parsed?()
             }
         }
     }
@@ -81,8 +84,10 @@ final class SyntaxHighlighter {
     }
 }
 
-/// The parser and its tree, used on `queue` alone (the main thread waits for it with `sync`).
+/// The parser and its tree: used on the main thread for a short text, on `queue` alone once it was long.
 private final class Worker: @unchecked Sendable {
+    /// The newest parse asked for: an older one only applies its edits.
+    let latest = OSAllocatedUnfairLock(initialState: 0)
     struct Text: @unchecked Sendable { let s: NSString; init(_ s: NSString) { self.s = s } }   // an immutable copy, or read under sync
     let queue = DispatchQueue(label: "kelp.editor.parse")
     private let parser = Parser()
@@ -90,10 +95,12 @@ private final class Worker: @unchecked Sendable {
 
     func setLanguage(_ l: Language) -> Bool { (try? parser.setLanguage(l)) != nil }
 
-    /// The edits applied to the last tree (none: from scratch) and the text parsed; a copy for the main thread.
-    func parse(_ edits: [InputEdit]?, _ text: Text) -> Tree? {
+    /// The edits applied to the last tree (none: from scratch) and the text parsed; a copy for the main thread. Nil
+    /// without parsing when a newer text waits.
+    func parse(_ edits: [InputEdit]?, _ text: Text, _ n: Int) -> Tree? {
         let s = text.s
         if let edits, let tree { for e in edits { tree.edit(e) } } else { tree = nil }
+        guard latest.withLock({ $0 <= n }) else { return nil }
         tree = parser.parse(tree: tree, readBlock: { byte, _ in
             let at = byte / 2
             guard at < s.length else { return nil }

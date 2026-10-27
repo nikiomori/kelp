@@ -8,14 +8,18 @@ public final class EditorTextView: NSTextView {
     var indentUnit = "    "
     /// Python and YAML: a line ending in `:` opens a block, the next one goes in a level.
     var colonOpensBlock = false
+    /// What Return and the line commands put between lines: the file's own (\r\n in a Windows file).
+    var lineBreak = "\n"
     /// Cursors NSTextView can't hold: it keeps one empty selection at most, so the other carets' places are here.
     private(set) var extraCarets: [Int] = []
     private var settingCursors = false
+    /// Where each cursor's selection started while ⇧ extends them all (MultiCursor), so each knows which end moves.
+    var anchors: [Int] = []
     /// Told of every edit before it's made, while the old text is there (CodeEditor: the parse tree, the line count).
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items; they come back later, to `showCompletions`.
     var onComplete: (() -> Void)?
-    private var completions: [CodeEditor.Completion] = []
+    var completions: [CodeEditor.Completion] = []
     private var presenting = false
 
     public var length: Int { (string as NSString).length }
@@ -27,10 +31,15 @@ public final class EditorTextView: NSTextView {
         (selectedRanges.map(\.rangeValue) + extraCarets.map { NSRange(location: $0, length: 0) }).sorted { $0.location < $1.location }
     }
 
-    /// Sets them all; overlapping ones merge.
+    /// Sets them all, kept inside the text; overlapping ones merge.
     public func setCursors(_ ranges: [NSRange]) {
-        let all = Self.merged(ranges.filter { $0.location >= 0 && NSMaxRange($0) <= length })
+        let n = length
+        let all = Self.merged(ranges.map { r in
+            let a = min(max(0, r.location), n)
+            return NSRange(location: a, length: min(max(0, r.length), n - a))
+        })
         let wide = all.filter { $0.length > 0 }
+        anchors = []   // ⇧ moves set them again after this
         settingCursors = true
         if all.count <= 1 || wide.isEmpty {
             setSelectedRange(all.first ?? NSRange(location: min(selectedRange().location, length), length: 0))
@@ -44,7 +53,7 @@ public final class EditorTextView: NSTextView {
     }
 
     public override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
-        if !settingCursors { extraCarets = [] }   // a click or an arrow: one cursor again
+        if !settingCursors { extraCarets = []; anchors = [] }   // a click or an arrow: one cursor again
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
         needsDisplay = true   // the current line's mark and the carets move
     }
@@ -79,6 +88,7 @@ public final class EditorTextView: NSTextView {
             defer { shift += e.1 - e.0.length }
             return NSRange(location: e.0.location + shift + (caret?[i] ?? e.1), length: 0)
         })
+        scrollRangeToVisible(selectedRange())   // a Return on the last line shown brings the new line in
     }
 
     /// Where offset `p` is after the edits (old range, new length; top to bottom): one in a replaced range goes to its start.
@@ -114,13 +124,26 @@ public final class EditorTextView: NSTextView {
         replace(cs, with: Array(repeating: s, count: cs.count))
     }
 
+    /// With several cursors: a line each when the clipboard has as many lines as there are cursors, else all of it at each.
+    public override func paste(_ sender: Any?) {
+        let cs = cursors
+        guard cs.count > 1, let text = NSPasteboard.general.string(forType: .string) else { return super.paste(sender) }
+        var lines = text.components(separatedBy: "\n")
+        if lines.last == "" { lines.removeLast() }
+        replace(cs, with: lines.count == cs.count ? lines : Array(repeating: text, count: cs.count))
+    }
+
     public override func doCommand(by selector: Selector) {
         switch selector {
         case #selector(insertNewline(_:)): Typing.newline(self)
         case #selector(insertTab(_:)): Typing.tab(self, back: false)
         case #selector(insertBacktab(_:)): Typing.tab(self, back: true)
-        case #selector(deleteBackward(_:)) where cursors.count > 1: deleteAround(back: true)
-        case #selector(deleteForward(_:)) where cursors.count > 1: deleteAround(back: false)
+        case #selector(deleteBackward(_:)) where cursors.count > 1: deleteAround { MultiCursor.before($0, in: $1) }
+        case #selector(deleteForward(_:)) where cursors.count > 1: deleteAround { MultiCursor.after($0, in: $1) }
+        case #selector(deleteWordBackward(_:)) where cursors.count > 1: deleteAround { MultiCursor.wordLeft($0, in: $1) }
+        case #selector(deleteWordForward(_:)) where cursors.count > 1: deleteAround { MultiCursor.wordRight($0, in: $1) }
+        case #selector(deleteToBeginningOfLine(_:)) where cursors.count > 1:
+            deleteAround { i, s in s.lineRange(for: NSRange(location: i, length: 0)).location }
         case #selector(deleteBackward(_:)) where Typing.unpair(self): break
         case _ where cursors.count > 1 && MultiCursor.move(self, selector): break
         default:
@@ -129,13 +152,13 @@ public final class EditorTextView: NSTextView {
         }
     }
 
-    /// ⌫ / ⌦ at every cursor: its selection, or the character before (after) it.
-    private func deleteAround(back: Bool) {
+    /// ⌫ ⌦ ⌥⌫ ⌘⌫ at every cursor: its selection, or from the cursor to where `to` says.
+    private func deleteAround(to: (Int, NSString) -> Int) {
         let s = string as NSString
         let ranges = cursors.compactMap { r -> NSRange? in
             if r.length > 0 { return r }
-            if back { return r.location > 0 ? s.rangeOfComposedCharacterSequence(at: r.location - 1) : nil }
-            return r.location < s.length ? s.rangeOfComposedCharacterSequence(at: r.location) : nil
+            let j = to(r.location, s)
+            return j == r.location ? nil : NSRange(location: min(j, r.location), length: abs(j - r.location))
         }
         guard !ranges.isEmpty else { return }
         let gone = Self.merged(ranges)
@@ -143,6 +166,13 @@ public final class EditorTextView: NSTextView {
     }
 
     // MARK: Completion
+
+    /// The identifier left of the cursor: NSTextView's own word would take `obj.na` whole, and no label starts with that.
+    public override var rangeForUserCompletion: NSRange {
+        let i = selectedRange().location
+        let start = CodeEditor.word(at: i, in: string as NSString).location
+        return NSRange(location: min(start, i), length: i - min(start, i))
+    }
 
     /// Esc (NSTextView's key for it) asks the app; the list opens when its items come.
     public override func complete(_ sender: Any?) {
@@ -197,9 +227,11 @@ public final class EditorTextView: NSTextView {
 
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard !extraCarets.isEmpty else { return }
+        guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
+        // Only the carets in what's drawn: ⇧⌘L on a common word in a big file makes thousands.
+        let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
         insertionPointColor.setFill()
-        for i in extraCarets { caretRect(at: i).intersection(dirtyRect).fill() }
+        for i in extraCarets where i >= shown.location && i <= NSMaxRange(shown) { caretRect(at: i).intersection(dirtyRect).fill() }
     }
 
     /// Where a caret at `i` stands, in the view: one point wide, a line high.

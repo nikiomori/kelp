@@ -19,7 +19,8 @@ extension CodeEditor {
             return tv.setCursors(sels.map { $0.length > 0 ? $0 : Self.word(at: $0.location, in: s) })
         }
         guard let last = sels.last else { return }
-        let free = Self.occurrences(of: s.substring(with: last), in: s).filter { !sels.contains($0) }
+        let free = Self.occurrences(of: s.substring(with: last), in: s, wholeWords: sels.allSatisfy { Self.isWord($0, in: s) })
+            .filter { !sels.contains($0) }
         guard let next = free.first(where: { $0.location >= NSMaxRange(last) }) ?? free.first else { return }
         tv.setCursors(sels + [next])
         tv.scrollRangeToVisible(next)
@@ -31,16 +32,17 @@ extension CodeEditor {
         guard let first = tv.cursors.first else { return }
         let r = first.length > 0 ? first : Self.word(at: first.location, in: s)
         guard r.length > 0 else { return }
-        tv.setCursors(Self.occurrences(of: s.substring(with: r), in: s))
+        tv.setCursors(Self.occurrences(of: s.substring(with: r), in: s, wholeWords: Self.isWord(r, in: s)))
     }
 
     /// ⇧⌘K: the lines the selections touch, in one undo.
     public func deleteLines() {
         let s = textView.string as NSString
         let blocks = Self.lineBlocks(textView.cursors, in: s).map { b in
-            // The last line has no newline of its own: take the one before it, or an empty line stays behind.
-            let last = NSMaxRange(b) == s.length && b.location > 0 && s.character(at: NSMaxRange(b) - 1) != 10
-            return last ? NSRange(location: b.location - 1, length: b.length + 1) : b
+            // The last line has no line break of its own: take the one before it (\r\n whole), or an empty line stays.
+            guard NSMaxRange(b) == s.length, b.location > 0, s.character(at: NSMaxRange(b) - 1) != 10 else { return b }
+            let n = b.location > 1 && s.character(at: b.location - 2) == 13 ? 2 : 1
+            return NSRange(location: b.location - n, length: b.length + n)
         }
         textView.replace(blocks, with: blocks.map { _ in "" })
     }
@@ -75,7 +77,7 @@ extension CodeEditor {
         let blocks = Self.lineBlocks(sels, in: s)
         let copies = blocks.map { b -> String in
             let text = s.substring(with: b)
-            return (text as NSString).hasSuffix("\n") ? text : down ? "\n" + text : text + "\n"
+            return (text as NSString).hasSuffix("\n") ? text : down ? tv.lineBreak + text : text + tv.lineBreak
         }
         tv.replace(blocks.map { NSRange(location: down ? NSMaxRange($0) : $0.location, length: 0) }, with: copies)
         let lengths = copies.map { ($0 as NSString).length }
@@ -85,25 +87,36 @@ extension CodeEditor {
         })
     }
 
-    /// ⌘/: the touched lines commented out with the language's line comment, or back in when they all are.
+    /// ⌘/: the touched lines commented out, or back in when they all are: with the language's line comment, else each
+    /// line in its block comment (CSS, HTML).
     public func toggleComment() {
-        let mark = language.lineCommentString.isEmpty ? "//" : language.lineCommentString
+        let (open, close) = language.lineCommentString.isEmpty ? language.rangeCommentStrings : (language.lineCommentString, "")
+        guard !open.isEmpty else { return NSSound.beep() }   // plain text
         let s = textView.string as NSString
         let lines = Typing.lines(textView.cursors, in: s).filter { Typing.leading(s, $0).length < $0.length - Typing.lineBreak(s, $0) }
         guard !lines.isEmpty else { return }
-        let starts = lines.map { NSMaxRange(Typing.leading(s, $0)) }
-        let n = (mark as NSString).length
-        func head(_ i: Int) -> String { s.substring(with: NSRange(location: i, length: min(n + 1, s.length - i))) }
-        let commented = starts.allSatisfy { head($0).hasPrefix(mark) }
-        let edits: [(NSRange, String)]
-        if commented {
-            edits = starts.map { i in
-                let spaced = head(i).hasPrefix(mark + " ")
-                return (NSRange(location: i, length: n + (spaced ? 1 : 0)), "")
+        let bodies = lines.map { l in NSRange(location: NSMaxRange(Typing.leading(s, l)), length: 0) }.enumerated().map { i, b in
+            NSRange(location: b.location, length: NSMaxRange(lines[i]) - Typing.lineBreak(s, lines[i]) - b.location)   // after the indent
+        }
+        let texts = bodies.map { s.substring(with: $0) }
+        if texts.allSatisfy({ $0.hasPrefix(open) && $0.hasSuffix(close) }) {
+            var edits: [(NSRange, String)] = []
+            for (b, t) in zip(bodies, texts) {
+                let o = (open as NSString).length + (t.hasPrefix(open + " ") ? 1 : 0)
+                edits.append((NSRange(location: b.location, length: o), ""))
+                if !close.isEmpty {
+                    let c = (close as NSString).length + (t.hasSuffix(" " + close) && t.count > open.count + close.count ? 1 : 0)
+                    edits.append((NSRange(location: NSMaxRange(b) - c, length: c), ""))
+                }
             }
-        } else {   // at the block's least indent, so the marks line up
-            let column = zip(lines, starts).map { $1 - $0.location }.min() ?? 0
-            edits = lines.map { (NSRange(location: $0.location + column, length: 0), mark + " ") }
+            return textView.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
+        }
+        // At the block's least indent, so the marks line up.
+        let column = zip(lines, bodies).map { $1.location - $0.location }.min() ?? 0
+        var edits: [(NSRange, String)] = []
+        for (l, b) in zip(lines, bodies) {
+            edits.append((NSRange(location: l.location + column, length: 0), open + " "))
+            if !close.isEmpty { edits.append((NSRange(location: NSMaxRange(b), length: 0), " " + close)) }
         }
         textView.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
     }
@@ -123,15 +136,20 @@ extension CodeEditor {
         return NSRange(location: a, length: b - a)
     }
 
-    static func occurrences(of needle: String, in s: NSString) -> [NSRange] {
+    /// Where `needle` is, case and all; with `wholeWords`, not where it's part of a longer word (`id` in `width`).
+    static func occurrences(of needle: String, in s: NSString, wholeWords: Bool = false) -> [NSRange] {
         var out: [NSRange] = [], from = 0
         while from < s.length {
             let r = s.range(of: needle, options: .literal, range: NSRange(location: from, length: s.length - from))
             guard r.location != NSNotFound, r.length > 0 else { break }
-            out.append(r); from = NSMaxRange(r)
+            if !wholeWords || isWord(r, in: s) { out.append(r) }
+            from = NSMaxRange(r)
         }
         return out
     }
+
+    /// A whole word: `r` is the identifier around its start (⌘D from a caret picks one, and then looks for words alone).
+    static func isWord(_ r: NSRange, in s: NSString) -> Bool { r.length > 0 && word(at: r.location, in: s) == r }
 
     /// Whole lines under the selections, overlapping ones merged, top to bottom. A selection that ends at the start of
     /// a line (a triple-click) doesn't take that line.
