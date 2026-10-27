@@ -4,7 +4,7 @@ import AppKit
 /// palettes tell apart at a glance.
 @MainActor
 final class PaletteField: NSSearchField {
-    override class var cellClass: AnyClass? { get { Cell.self } set {} }
+    override static var cellClass: AnyClass? { get { Cell.self } set {} }
     private let token = Token()
 
     /// The token's word; nil: none.
