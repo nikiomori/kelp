@@ -218,15 +218,29 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     #expect(opened?.absoluteString == "https://example.com/a?b=c")
 }
 
-/// Dictation apps (MacWhisper) paste only into a focused text area: the terminal is one, its screen the value.
+/// Dictation apps (MacWhisper) paste only into a focused text area: the terminal is one, its screen the value and its
+/// cursor the caret — where Pretype finds an agent's input box (the text up to the caret, a rule on the row under it).
 @Test @MainActor func terminalIsATextAreaToAccessibility() async throws {
     try await takeTerminal(); defer { terminalTaken = false }
-    let v = GhosttyTerminalView(command: "echo SPOKEN; sleep 20", cwd: NSTemporaryDirectory())
+    let rule = String(repeating: "─", count: 30)
+    let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-box-\(UUID().uuidString).sh")
+    try "clear; printf 'SPOKEN\\n\(rule)\\n❯ 世界 fix\\n\(rule)\\n\\033[3;11H'; sleep 20".write(to: script, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: script) }
+    let v = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
     let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
     w.contentView = v; w.orderFront(nil)
     defer { w.orderOut(nil) }
     let deadline = Date() + 15
-    while !v.visibleText.contains("SPOKEN"), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(v.isAccessibilityElement() && v.accessibilityRole() == .textArea)
-    #expect((v.accessibilityValue() as? String)?.contains("SPOKEN") == true)
+    while !(v.visibleText.contains("fix") && v.screen().cursor?.row == 2), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(v.isAccessibilityElement() && v.accessibilityRole() == .textArea && v.accessibilityIdentifier() == "terminal")
+    let text = try #require(v.accessibilityValue() as? String) as NSString
+    #expect(text.hasPrefix("SPOKEN") && text.length == v.accessibilityNumberOfCharacters())
+    let caret = v.accessibilitySelectedTextRange()
+    #expect(caret.length == 0 && text.substring(to: caret.location).hasSuffix("\(rule)\n❯ 世界 fix"), "wide characters are a cell each in the text")
+    #expect(v.accessibilityString(for: NSRange(location: caret.location, length: 31)) == "\n" + rule)
+    #expect(v.accessibilityString(for: NSRange(location: text.length, length: 1)) == nil)
+    let s = try #require(v.surface.map(ghostty_surface_size)), scale = w.backingScaleFactor
+    let cell = w.convertToScreen(v.convert(NSRect(x: 12 + 10 * Double(s.cell_width_px) / scale, y: v.bounds.height - 8 - 3 * Double(s.cell_height_px) / scale,
+                                                 width: 0, height: Double(s.cell_height_px) / scale), to: nil))
+    #expect(v.accessibilityFrame(for: caret) == cell, "the cursor's cell, after the two wide characters")
 }

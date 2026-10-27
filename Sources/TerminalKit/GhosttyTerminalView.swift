@@ -32,6 +32,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     private var keyTextAccumulator: [String]?
     private var lastPerformKeyEvent: TimeInterval?
     private var trackingArea: NSTrackingArea?
+    var echoWatch: Timer?
 
     /// True once a terminal has started libghostty (so appearance changes don't start it just to apply).
     public static var isLoaded: Bool { GhosttyRuntime.started }
@@ -179,20 +180,18 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         let cw = Double(ghostty_surface_size(surface).cell_width_px) / (window?.backingScaleFactor ?? 2)
         return cw > 0 ? max(0, Int(((t.tl_px_x - Self.padX) / cw).rounded())) : 0   // tl_px_x: points, padding included
     }
-    private func readText(_ tag: ghostty_point_tag_e) -> String {
+    func readText(_ tag: ghostty_point_tag_e) -> String {
+        read(from: ghostty_point_s(tag: tag, coord: GHOSTTY_POINT_COORD_TOP_LEFT, x: 0, y: 0),
+             to: ghostty_point_s(tag: tag, coord: GHOSTTY_POINT_COORD_BOTTOM_RIGHT, x: 0, y: 0))
+    }
+    func read(from a: ghostty_point_s, to b: ghostty_point_s) -> String {
         guard let surface else { return "" }
         var t = ghostty_text_s()
-        let sel = ghostty_selection_s(top_left: ghostty_point_s(tag: tag, coord: GHOSTTY_POINT_COORD_TOP_LEFT, x: 0, y: 0),
-                                      bottom_right: ghostty_point_s(tag: tag, coord: GHOSTTY_POINT_COORD_BOTTOM_RIGHT, x: 0, y: 0), rectangle: false)
-        guard ghostty_surface_read_text(surface, sel, &t) else { return "" }
+        guard ghostty_surface_read_text(surface, ghostty_selection_s(top_left: a, bottom_right: b, rectangle: false), &t) else { return "" }
         defer { ghostty_surface_free_text(surface, &t) }
         return String(cString: t.text)
     }
-    /// A text area to Accessibility, as in Ghostty: dictation apps (MacWhisper, Superwhisper…) paste only into a focused
-    /// text field or area, and VoiceOver reads the screen.
-    public override func isAccessibilityElement() -> Bool { true }
-    public override func accessibilityRole() -> NSAccessibility.Role? { .textArea }
-    public override func accessibilityValue() -> Any? { visibleText }
+
     /// Type text as if pasted by the user (used for drops into the prompt).
     public func insert(_ text: String) {
         guard let surface else { return }
@@ -386,6 +385,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
 
     public override func keyDown(with event: NSEvent) {
         guard let surface else { interpretKeyEvents([event]); return }
+        watchEcho()
         if window?.isKeyWindow == true { setVisible(true) }
         // Option-as-alt and friends: let Ghostty say which modifiers take part in translating to text.
         let tm = ghostty_surface_key_translation_mods(surface, Self.mods(event.modifierFlags))
