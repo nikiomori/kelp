@@ -88,7 +88,7 @@ extension AppOfItsOwn {
         #expect(vc.reads == reads)
         var edited = fetched; edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
         rig.app.git[wid] = edited; vc.gitChanged(edited)
-        try await Task.sleep(for: .milliseconds(300))
+        for _ in 0..<250 where vc.reads == reads { try await Task.sleep(for: .milliseconds(20)) }   // a busy runner took over 300 ms
         #expect(vc.reads == reads + 1)
     }
 
