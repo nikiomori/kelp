@@ -48,6 +48,24 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(best == [1, 3, 2])
 }
 
+/// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
+@MainActor @Test func commandsRunFromThePaletteComeBackFirst() {
+    let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)
+    defer { UserDefaults.standard.set(saved, forKey: QuickOpen.usedKey) }
+    UserDefaults.standard.removeObject(forKey: QuickOpen.usedKey)
+    func item(_ title: String, _ kind: String = "Command") -> QuickOpen.Item {
+        QuickOpen.Item(kind: kind, icon: "", title: title, detail: "File", action: {})
+    }
+    let pool = [item("New Workspace"), item("Close Tab"), item("Appearance: Color Theme", "Setting"), item("Reload")]
+    for t in ["Close Tab", "New Workspace", "Close Tab"] { QuickOpen.remember(item(t)) }
+    QuickOpen.remember(item("Appearance: Color Theme", "Setting"))
+    QuickOpen.remember(item("Open Quickly", "File"))   // not a command: not kept
+    QuickOpen.remember(item("Gone"))
+    let used = QuickOpen.recentlyUsed(pool)
+    #expect(used.map(\.title) == ["Appearance: Color Theme", "Close Tab", "New Workspace"])
+    #expect(used.allSatisfy { $0.recent })
+}
+
 @MainActor @Test func notificationsReadTheFirstSentenceAsAHeadline() {
     #expect(Notifier.firstSentence("I added `mul(a, b)` to `calc.py`. It returns the product.") == "Added mul(a, b) to calc.py")
     #expect(Notifier.firstSentence("I've fixed the login bug!\nMore detail below.") == "Fixed the login bug!")

@@ -31,6 +31,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         var fuzzy: ProjectFiles.FuzzyPath?
         /// A command's shortcut, at the end of its title's line as in a menu.
         var key = ""
+        /// Run from here lately: on top of ⇧⌘P's empty list, under Recently Used.
+        var recent = false
     }
     /// A setting's choices on screen: the key, the value to go back to, whether moving tries them on, the query to return to.
     struct Choosing {
@@ -230,8 +232,11 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         }
         if q.isEmpty {
             showingRecents = !commandsOnly && choosing == nil && !recents.isEmpty
-            setRows(showingRecents ? recents : Array((commandsOnly ? pool : pool.filter { $0.kind != "File" }).prefix(200)),
-                    grouped: !showingRecents && !commandsOnly && choosing == nil)
+            let used = commandsOnly && choosing == nil ? Self.recentlyUsed(pool) : []
+            let ids = Set(used.map(Self.usedID))
+            let rest = (commandsOnly ? pool : pool.filter { $0.kind != "File" }).filter { !ids.contains(Self.usedID($0)) }
+            setRows(showingRecents ? recents : used + Array(rest.prefix(200)),
+                    grouped: (!showingRecents && !commandsOnly && choosing == nil) || !used.isEmpty)
         } else {
             showingRecents = false
             // Off the main thread: a big project's files take a while to score on every keystroke.
@@ -260,7 +265,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         if grouped {
             var order: [String] = [], byGroup: [String: [Item]] = [:]
             for it in items {
-                let g = Self.group(it.kind)
+                let g = Self.group(it)
                 if byGroup[g] == nil { order.append(g) }
                 byGroup[g, default: []].append(it)
             }
@@ -278,8 +283,27 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     package func tableViewSelectionDidChange(_ n: Notification) { tryOn() }
 
-    private static func group(_ kind: String) -> String {
-        ["File": "Files", "Agent": "Agents", "Command": "Commands", "Setting": "Settings", "Workspace": "Workspaces", "Tab": "Tabs"][kind] ?? kind
+    private static func group(_ it: Item) -> String {
+        if it.recent { return "Recently Used" }
+        return ["File": "Files", "Agent": "Agents", "Command": "Commands", "Setting": "Settings", "Workspace": "Workspaces", "Tab": "Tabs"][it.kind]
+            ?? it.kind
+    }
+
+    /// The commands and settings run from the palette last, newest first; kept per Mac, five of them.
+    static let usedKey = "quickOpen.recentCommands"
+    private static func usedID(_ it: Item) -> String { [it.kind, it.detail, it.title].joined(separator: " › ") }
+    /// Of `pool`, the ones run lately that the menus still offer, in the order they were run.
+    static func recentlyUsed(_ pool: [Item]) -> [Item] {
+        (UserDefaults.standard.stringArray(forKey: usedKey) ?? []).compactMap { id in
+            guard var it = pool.first(where: { usedID($0) == id }) else { return nil }
+            it.recent = true
+            return it
+        }
+    }
+    static func remember(_ it: Item) {
+        guard it.kind == "Command" || it.kind == "Setting" else { return }
+        let d = UserDefaults.standard, id = usedID(it)
+        d.set(Array(([id] + (d.stringArray(forKey: usedKey) ?? []).filter { $0 != id }).prefix(5)), forKey: usedKey)
     }
 
     package func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
@@ -310,6 +334,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     private func choose(split: Bool) {
         let r = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
         guard rows.indices.contains(r), case .item(let it) = rows[r] else { return }
+        Self.remember(it)
         if it.value != nil { it.action(); return }   // a setting with choices lists them; the palette stays
         choosing = nil   // the choice is kept: closing mustn't put the old value back
         panel.orderOut(nil)
