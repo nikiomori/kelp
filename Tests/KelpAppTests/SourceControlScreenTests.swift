@@ -58,3 +58,11 @@ extension AppOfItsOwn {
     #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
 }
 }
+
+/// A commit's branches and tags lead its line in the graph: the first (HEAD's branch first), then how many more, their
+/// names in that badge's tooltip.
+@MainActor @Test func aCommitsLineLeadsWithItsFirstBranchAndHowManyMore() {
+    let v = CommitCell.badges(["origin/feat", "tag: v1", "HEAD -> main"])
+    #expect(v.count == 2 && v[0].toolTip == "main" && v[1].toolTip == "origin/feat\nv1")
+    #expect(CommitCell.badges([]).isEmpty && CommitCell.badges(["tag: v1"]).count == 1)
+}

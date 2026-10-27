@@ -359,7 +359,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         switch (item as? Node)?.kind {
         case .section?, .note?: TextSize.of(26)
-        case .commit(let i)?: CommitCell.height(commits[i])
+        case .commit?: CommitCell.lineHeight
         default: TextSize.of(22)
         }
     }

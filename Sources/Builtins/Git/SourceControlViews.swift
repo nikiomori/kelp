@@ -177,11 +177,10 @@ final class CommitCell: NSTableCellView, Hoverable {
     var onHover: ((Bool) -> Void)?
     func setHover(_ on: Bool) { onHover?(on) }
 
-    /// The commit's line; its branches and tags get a line of their own under it, so they never squeeze the words.
+    /// The commit's line; its branch or tag leads it, right after its dot.
     static var lineHeight: CGFloat { TextSize.of(22) }
-    static func height(_ c: GraphCommit) -> CGFloat { lineHeight + (labels(c.refs).isEmpty ? 0 : TextSize.of(17)) }
 
-    /// `pushed` is nil without a remote; pushed commits recede so the local ones above them stand out.
+    /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
     /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
     init(_ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil) {
         let s = CommitSubject(c.subject)
@@ -191,10 +190,9 @@ final class CommitCell: NSTableCellView, Hoverable {
         let g = GraphView()
         g.commit = c
         g.isHead = isHead
-        g.dotY = Self.lineHeight / 2
         g.translatesAutoresizingMaskIntoConstraints = false; addSubview(g)
         subject.font = .ui(12, weight: isHead ? .semibold : .regular)
-        subject.textColor = pushed == true && delay == nil ? .secondaryLabelColor : .labelColor
+        subject.textColor = .labelColor
         subject.lineBreakMode = .byTruncatingTail; subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         // A breaking change ("feat!:"): a red "!" before the words.
         let bang = s.breaking ? NSTextField(labelWithString: "!") : nil
@@ -223,21 +221,19 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.toolTip = notPushed
         up.isHidden = !unpushed && delay == nil
         if let delay { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 + delay) { [weak self] in self?.land() } }
-        let row = NSStackView(views: [mark, bang, subject].compactMap { $0 } + [NSView(), scope, up, date])
+        // A row with a branch or tag leaves out the scope: the badge says where the commit is, the words keep their room.
+        let badges = Self.badges(c.refs)
+        scope.isHidden = !badges.isEmpty
+        let row = NSStackView(views: badges + [mark, bang, subject].compactMap { $0 } + [NSView(), scope, up, date])
         row.spacing = 5
         row.alignment = .centerY
         if let bang { row.setCustomSpacing(2, after: bang) }
-        let refs = NSStackView(views: Self.badges(c.refs))
-        refs.spacing = 4
-        refs.isHidden = refs.views.isEmpty
-        for v in [row, refs] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        row.translatesAutoresizingMaskIntoConstraints = false; addSubview(row)
         NSLayoutConstraint.activate([
             g.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6), g.topAnchor.constraint(equalTo: topAnchor),
             g.bottomAnchor.constraint(equalTo: bottomAnchor), g.widthAnchor.constraint(equalToConstant: graphWidth),
             row.leadingAnchor.constraint(equalTo: g.trailingAnchor, constant: 2), row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight),
-            refs.leadingAnchor.constraint(equalTo: subject.leadingAnchor), refs.topAnchor.constraint(equalTo: row.bottomAnchor, constant: -1),
-            refs.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10)
+            row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
         ])
         // The card (CommitCard) shows all this to the pointer; VoiceOver reads it here.
         let when = Date(timeIntervalSince1970: c.date).formatted(date: .abbreviated, time: .shortened)
@@ -252,22 +248,18 @@ final class CommitCell: NSTableCellView, Hoverable {
         if on { up.addSymbolEffect(.pulse, options: .repeating) } else { up.removeAllSymbolEffects() }
     }
 
-    /// Just reached the remote: the arrow hops up and fades, the subject settles into the pushed gray.
+    /// Just reached the remote: the arrow hops up and fades.
     private func land() {
         let still = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if !still { up.addSymbolEffect(.bounce.up) }
-        up.wantsLayer = true; subject.wantsLayer = true
+        up.wantsLayer = true
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 1
         fade.toValue = 0
-        let settle = CATransition(); settle.type = .fade
-        for a in [fade, settle] as [CAAnimation] {
-            a.beginTime = CACurrentMediaTime() + (still ? 0 : 0.15)
-            a.duration = 0.3
-            a.fillMode = .backwards
-        }
+        fade.beginTime = CACurrentMediaTime() + (still ? 0 : 0.15)
+        fade.duration = 0.3
+        fade.fillMode = .backwards
         up.layer?.add(fade, forKey: "land"); up.alphaValue = 0
-        subject.layer?.add(settle, forKey: "land"); subject.textColor = .secondaryLabelColor
     }
 
     /// The commit's type as an SF Symbol; the colour repeats the shape, it never stands alone. A merge without a type
@@ -288,10 +280,20 @@ final class CommitCell: NSTableCellView, Hoverable {
         }
     }
 
+    /// The first branch or tag, then how many more (their names in its tooltip): in the commit's line, they leave the
+    /// words their room.
     static func badges(_ refs: [String]) -> [NSView] {
         let out = labels(refs)
-        var views: [NSView] = out.prefix(2).map { Badge(text: $0.0, color: $0.1, strong: $0.2) }
-        if out.count > 2 { views.append(Badge(text: "+\(out.count - 2)", color: .secondaryLabelColor, strong: false)) }
+        var views: [NSView] = out.prefix(1).map {
+            let b = Badge(text: $0.0, color: $0.1, strong: $0.2)
+            b.widthAnchor.constraint(lessThanOrEqualToConstant: 72).isActive = true   // a long name ends in "…"
+            return b
+        }
+        if out.count > 1 {
+            let more = Badge(text: "+\(out.count - 1)", color: .secondaryLabelColor, strong: false)
+            more.toolTip = out.dropFirst().map(\.0).joined(separator: "\n")
+            views.append(more)
+        }
         return views
     }
 
@@ -358,8 +360,6 @@ final class GraphView: NSView {
 
     var commit: GraphCommit?
     var isHead = false
-    /// Where the dot sits: the middle of the commit's first line (a row with branches under it is taller).
-    var dotY: CGFloat?
     /// Under an expanded commit: just these lanes, straight down.
     var through: [Int]?
     override var isFlipped: Bool { true }
@@ -377,7 +377,7 @@ final class GraphView: NSView {
             return
         }
         guard let c = commit else { return }
-        let mid = dotY ?? bounds.height / 2
+        let mid = bounds.height / 2
         func segment(_ l: [Int], from y0: CGFloat, to y1: CGFloat, color: NSColor) {
             guard l.count == 2 else { return }
             let x0 = Self.x(l[0]), x1 = Self.x(l[1]), p = NSBezierPath()
