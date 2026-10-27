@@ -220,8 +220,9 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Text sent to a paused agent wakes it and goes in once it is ready, not into a program still starting (which, like
 /// many TUIs, throws away what was typed early).
 @Test func textForAPausedAgentWaitsUntilItIsReady() async throws {
-    // "starting" just before the flush: perl's own start (slow on a busy runner) isn't a quiet second and a half.
-    let script = "echo booting; sleep 1.5; echo starting; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
+    // It prints until the flush is done: a fixed quiet spell (and perl's start, slow on a busy runner) came out longer
+    // than the second and a half after which a program counts as started.
+    let script = "(while :; do echo booting; sleep 0.3; done) & sleep 1; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; kill $!; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
     let wt = try await desk(w, "paused")
@@ -494,12 +495,14 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Text sent to a session that is still starting waits until it's ready, however it came to be starting (just created,
 /// or woken by someone else a moment before): typed at once, a program that flushes its input on startup loses it.
 @Test func textForAStartingSessionWaitsUntilItIsReady() async throws {
-    // "starting" just before the flush: perl's own start (slow on a busy runner) isn't a quiet second and a half.
-    let script = "echo booting; sleep 1.5; echo starting; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
+    // It prints until the flush is done: a fixed quiet spell (and perl's start, slow on a busy runner) came out longer
+    // than the second and a half after which a program counts as started.
+    let script = "(while :; do echo booting; sleep 0.3; done) & sleep 1; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; kill $!; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow2", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
     let wt = try await desk(w, "starting")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "slow2"]), as: Session.self)
+    #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("booting") == true })
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "hello"]))   // running, but still booting
     // Up to 25 s: a program that never goes quiet counts as started then (the Thread Sanitizer's run is that slow).
     #expect(try await waitFor(40) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("GOT:hello") == true })
