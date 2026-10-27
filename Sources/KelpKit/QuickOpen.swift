@@ -54,7 +54,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
     private var scoring: Task<Void, Never>?
-    let field = NSSearchField()
+    let field = PaletteField()
     private let table = NSTableView()
     let keys = NSTextField(labelWithString: "")
     var all: [Item] = []
@@ -86,10 +86,13 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         field.placeholderString = commandsOnly ? String(localized: "Run a command") : String(localized: "Search workspaces, agents, tabs, files and commands")
         let label = commandsOnly ? String(localized: "Commands") : String(localized: "Search")
         field.setAccessibilityLabel(label)
-        field.cell?.image = NSImage(systemSymbolName: commandsOnly ? "command" : "magnifyingglass", accessibilityDescription: label)
+        (field.cell as? NSSearchFieldCell)?.searchButtonCell?.image = NSImage(systemSymbolName: commandsOnly ? "command" : "magnifyingglass",
+                                                                             accessibilityDescription: label)
         // The keys it knows, under the list (they're not written anywhere else).
-        keys.stringValue = String(localized: "↑↓ Select    ↩ Open    ⇧↩ Open in a Split    # Pull Requests")
+        keys.stringValue = commandsOnly ? String(localized: "↑↓ Select    ↩ Run    ⌫ Everything")
+            : String(localized: "↑↓ Select    ↩ Open    ⇧↩ Open in a Split    > Commands    # Pull Requests")
         field.stringValue = query
+        field.scope = commandsOnly ? String(localized: "Commands") : nil
         collect()
         filter()
     }
@@ -145,7 +148,6 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         field.delegate = self
         field.sendsSearchStringImmediately = true
         field.target = self; field.action = #selector(filterAction)
-        if let bc = field.cell as? NSButtonCell { bc.imagePosition = .imageLeading }
         let col = NSTableColumn(identifier: .init("i"))
         table.addTableColumn(col)
         table.headerView = nil
@@ -218,7 +220,15 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     @objc private func filterAction() { filter() }
-    package func controlTextDidChange(_ obj: Notification) { filter() }
+    package func controlTextDidChange(_ obj: Notification) {
+        // ">" first, as in VS Code: the commands, with what follows it.
+        if !commandsOnly, choosing == nil, tmux == nil, field.stringValue.hasPrefix(">") {
+            commandsOnly = true
+            list(query: String(field.stringValue.dropFirst()).trimmingCharacters(in: .whitespaces))
+            return
+        }
+        filter()
+    }
 
     func filter() {
         scoring?.cancel()
@@ -236,7 +246,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             let ids = Set(used.map(Self.usedID))
             let rest = (commandsOnly ? pool : pool.filter { $0.kind != "File" }).filter { !ids.contains(Self.usedID($0)) }
             setRows(showingRecents ? recents : used + Array(rest.prefix(200)),
-                    grouped: (!showingRecents && !commandsOnly && choosing == nil) || !used.isEmpty)
+                    grouped: (!showingRecents && !commandsOnly && choosing == nil) || !used.isEmpty, heading: showingRecents ? "Recent" : nil)
         } else {
             showingRecents = false
             // Off the main thread: a big project's files take a while to score on every keystroke.
@@ -261,7 +271,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     /// Searching, the results come in groups under a heading, the group with the best match first.
-    private func setRows(_ items: [Item], grouped: Bool) {
+    private func setRows(_ items: [Item], grouped: Bool, heading: String? = nil) {
         if grouped {
             var order: [String] = [], byGroup: [String: [Item]] = [:]
             for it in items {
@@ -271,7 +281,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             }
             rows = order.flatMap { g in [Row.heading(g)] + (byGroup[g] ?? []).map(Row.item) }
         } else {
-            rows = items.map(Row.item)
+            rows = (heading.map { [Row.heading($0)] } ?? []) + items.map(Row.item)
         }
         table.reloadData()
         if let first = rows.firstIndex(where: { if case .item = $0 { true } else { false } }) {
@@ -315,6 +325,10 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             // ↩ right after typing picks from what was typed, once it's scored.
             if let s = scoring { Task { await s.value; choose(split: split) } } else { choose(split: split) }
             return true
+        case #selector(NSResponder.deleteBackward(_:)) where commandsOnly && choosing == nil && field.stringValue.isEmpty:
+            commandsOnly = false   // ⌫ past the start: back to everything, as deleting VS Code's ">"
+            list(query: "")
+            return true
         case #selector(NSResponder.cancelOperation(_:)):
             if let c = choosing { list(query: c.query); return true }   // a setting's choices: back to the list, the old value back
             panel.orderOut(nil)
@@ -345,7 +359,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     package func numberOfRows(in t: NSTableView) -> Int { rows.count }
     package func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool { if case .item = rows[row] { true } else { false } }
-    package func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { if case .item = rows[row] { 36 } else { 24 } }
+    package func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { if case .item = rows[row] { 30 } else { 24 } }
     package func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         guard case .item(let it) = rows[row] else {
             guard case .heading(let g) = rows[row] else { return nil }
@@ -378,12 +392,12 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t1.attributedStringValue = Self.highlighted(it.title, field.stringValue)
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: it.detail)
-        t2.font = .systemFont(ofSize: 11)
+        t2.font = .systemFont(ofSize: 12)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
-        t2.isHidden = it.detail.isEmpty
-        // Empty field: the agents on ⌘1–⌘6 say so.
-        let n = showingRecents && row < 6 && it.kind != "Workspace" ? "⌘\(row + 1)  " : ""
+        // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
+        let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
+        let n = showingRecents && index < 6 && it.kind != "Workspace" ? "⌘\(index + 1)  " : ""
         let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .systemFont(ofSize: 11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
@@ -395,21 +409,16 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         key.textColor = .secondaryLabelColor
         key.isHidden = it.key.isEmpty
         key.setContentCompressionResistancePriority(.required, for: .horizontal); key.setContentHuggingPriority(.required, for: .horizontal)
-        let top = NSStackView(views: [t1, key])
-        top.spacing = 10
-        top.distribution = .fill
-        let texts = NSStackView(views: [top, t2])
-        texts.orientation = .vertical
-        texts.alignment = .leading
-        texts.spacing = 0
-        top.widthAnchor.constraint(equalTo: texts.widthAnchor).isActive = true
-        let line = NSStackView(views: [lead, texts, kind, tick])
-        line.spacing = 10
+        // One line, as Xcode's Open Quickly: the name, then where it is in grey, which gives way first.
+        t1.setContentCompressionResistancePriority(.init(260), for: .horizontal)
+        t1.setContentHuggingPriority(.required, for: .horizontal)
+        t2.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+        t2.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
+        let line = NSStackView(views: [lead, t1, t2, key, kind, tick])
+        line.spacing = 8
         line.distribution = .fill
         line.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
         lead.widthAnchor.constraint(equalToConstant: 18).isActive = true
-        texts.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        texts.setHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
         for v in [kind, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
         return line
     }

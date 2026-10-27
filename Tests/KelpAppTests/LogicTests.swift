@@ -56,6 +56,19 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(ContextMeter.level(nil) == 0 && level(5, 0) == 0)
 }
 
+/// ">" first in ⌘P turns it into ⇧⌘P, its "Commands ›" token in the field; ⌫ past the start goes back, as in VS Code.
+@MainActor @Test func aGreaterThanSignTurnsOpenQuicklyIntoCommandsAndBackspaceTurnsItBack() {
+    _ = testHome; _ = NSApplication.shared
+    let q = QuickOpen(app: AppModel(builtins: Builtins.all))
+    q.build()
+    q.field.stringValue = ">new"
+    q.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification))
+    #expect(q.commandsOnly && q.field.stringValue == "new" && q.field.scope == "Commands")
+    q.field.stringValue = ""
+    #expect(q.control(q.field, textView: NSTextView(), doCommandBy: #selector(NSResponder.deleteBackward(_:))))
+    #expect(!q.commandsOnly && q.field.scope == nil)
+}
+
 /// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
 @MainActor @Test func commandsRunFromThePaletteComeBackFirst() {
     let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)
