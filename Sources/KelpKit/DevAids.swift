@@ -285,11 +285,14 @@ extension AppDelegate {
     }
 
     /// A visible label's text, or "@x,y": a point in the window, from its top-left corner (SwiftUI content has no labels).
-    func click(text: String) {
+    /// "2:" first double-clicks (a row's rename in place).
+    func click(text spec: String) {
         guard let w = main.window, let root = w.contentView?.superview else { return }
         let p: NSPoint
+        let double = spec.hasPrefix("2:")
+        var text = double ? String(spec.dropFirst(2)) : spec
         let right = text.hasPrefix("r@")   // "r@x,y": a right click (context menus)
-        let text = right ? String(text.dropFirst()) : text
+        if right { text = String(text.dropFirst()) }
         if text.hasPrefix("@"), case let xy = text.dropFirst().split(separator: ",").compactMap({ Double($0) }), xy.count == 2 {
             p = NSPoint(x: xy[0], y: w.frame.height - xy[1])
         } else if let field = root.allSubviews(of: NSTextField.self)
@@ -300,9 +303,13 @@ extension AppDelegate {
         var hit = root.hitTest(root.convert(p, from: nil))
         while let v = hit, !v.acceptsFirstResponder { hit = v.superview }
         if let hit { w.makeFirstResponder(hit) }
-        for type in right ? [NSEvent.EventType.rightMouseDown, .rightMouseUp] : [.leftMouseDown, .leftMouseUp] {
-            if let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                                          windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { NSApp.sendEvent(e) }
+        for count in double ? [1, 2] : [1] {
+            for type in right ? [NSEvent.EventType.rightMouseDown, .rightMouseUp] : [.leftMouseDown, .leftMouseUp] {
+                guard let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                 windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) else { continue }
+                // Queued, so a table's mouse-down tracking finds its mouse-up instead of waiting for a real one.
+                if double { NSApp.postEvent(e, atStart: false) } else { NSApp.sendEvent(e) }
+            }
         }
         print("CLICK \(text) → workspace \(app.worktree(app.workbench.workspaceId)?.displayName ?? "-")")
     }
