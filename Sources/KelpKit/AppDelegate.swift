@@ -192,7 +192,8 @@ extension AppDelegate: NSMenuItemValidation {
         // Off elsewhere, so a terminal still gets their keys.
         case "editor.runFile", "editor.testAtCursor", "editor.format": return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
-             "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent", "editor.outdent":
+             "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent", "editor.outdent",
+             "editor.fold", "editor.unfold", "editor.unfoldAll":
             return CodeEditor.focused != nil
         default: break
         }

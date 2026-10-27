@@ -95,7 +95,7 @@ import AppKit
     }
 
     /// Where the line holding `i` ends, before its line break.
-    static func lineEnd(_ s: NSString, _ i: Int) -> Int {
+    nonisolated static func lineEnd(_ s: NSString, _ i: Int) -> Int {
         var end = 0, contentsEnd = 0
         s.getLineStart(nil, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: i, length: 0))
         return contentsEnd

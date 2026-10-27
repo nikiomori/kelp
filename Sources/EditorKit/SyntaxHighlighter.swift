@@ -10,7 +10,7 @@ final class SyntaxHighlighter {
     private let worker = Worker()
     private let query: Query
     /// The latest parse, for coloring on the main thread.
-    private var tree: Tree?
+    private(set) var tree: Tree?
     /// Edits described before they happen (the old text is needed for them), applied to the tree when they have.
     private var pending: [InputEdit] = []
     private var asked = 0, applied = 0
@@ -57,13 +57,13 @@ final class SyntaxHighlighter {
         }
         worker.latest.withLock { $0 = n }
         let text = Worker.Text(s.copy() as? NSString ?? "")   // the text view's own string keeps changing
-        worker.queue.async {
+        worker.queue.async { [weak self] in
             guard let t = worker.parse(edits, text, n) else { return }   // a newer text is on its way: parsed then
-            DispatchQueue.main.async { [weak self] in
-                guard let self, n > applied else { return }
-                tree = t
-                applied = n
-                parsed?()
+            DispatchQueue.main.async {
+                guard let self, n > self.applied else { return }
+                self.tree = t
+                self.applied = n
+                self.parsed?()
             }
         }
     }

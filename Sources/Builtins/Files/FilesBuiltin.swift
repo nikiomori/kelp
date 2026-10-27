@@ -84,6 +84,9 @@ extension Builtins {
                       cmd("editor.toggleComment", "Toggle Comment", "cmd+/") { CodeEditor.focused?.toggleComment() },
                       cmd("editor.indent", "Indent", "cmd+]") { CodeEditor.focused?.indent(out: false) },
                       cmd("editor.outdent", "Outdent", "cmd+[") { CodeEditor.focused?.indent(out: true) },
+                      cmd("editor.fold", "Fold", "opt+cmd+[") { CodeEditor.focused?.fold() },
+                      cmd("editor.unfold", "Unfold", "opt+cmd+]") { CodeEditor.focused?.unfold() },
+                      cmd("editor.unfoldAll", "Unfold All") { CodeEditor.focused?.unfoldAll() },
                       // ⌥⌘↩: "path:12-30" into the agent's prompt (it reads the file itself), without pressing Return.
                       cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
                           if let t = fileTab(app) { FileActions(app).sendToAgent(t.path, lines: t.selectedText?.isEmpty == false ? t.selectedLines : nil) }

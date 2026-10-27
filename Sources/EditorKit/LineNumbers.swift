@@ -68,26 +68,32 @@ struct LineIndex {
     }
 }
 
-/// The line numbers beside the text, the editor's colors, the current line's brighter.
+/// The line numbers beside the text, the editor's colors, the current line's brighter; a chevron where a block folds
+/// (always on a folded one, on the others while the pointer is over the gutter), a click on it folds or opens.
 final class LineNumbers: NSRulerView {
     private weak var editor: CodeEditor?
     var color = NSColor.secondaryLabelColor, current = NSColor.labelColor, background = NSColor.textBackgroundColor
+    private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    private static let chevron: CGFloat = 14
 
     init(_ editor: CodeEditor, in scroll: NSScrollView) {
         self.editor = editor
         super.init(scrollView: scroll, orientation: .verticalRuler)
         clientView = editor.textView
         clipsToBounds = true   // its background covered the text otherwise (views don't clip by default since macOS 14)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     required init(coder: NSCoder) { fatalError("not from a nib") }
 
     override var isFlipped: Bool { true }
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
 
-    /// Wide enough for the last line's number, three digits at least.
+    /// Wide enough for the last line's number, three digits at least, and the chevrons.
     func fit(lines: Int) {
         let digits = max(3, String(lines).count)
-        let width = ceil(CGFloat(digits) * ("8" as NSString).size(withAttributes: [.font: font]).width) + 20
+        let width = ceil(CGFloat(digits) * ("8" as NSString).size(withAttributes: [.font: font]).width) + 12 + Self.chevron
         if abs(ruleThickness - width) > 0.5 { ruleThickness = width }
     }
 
@@ -103,15 +109,39 @@ final class LineNumbers: NSRulerView {
         var n = editor.lineIndex.line(at: visible.location, in: s)
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y
         let font = self.font
-        func draw(_ n: Int, at frag: NSRect) {
+        func draw(_ n: Int, at frag: NSRect, start: Int) {
             let text = NSAttributedString(string: "\(n + 1)", attributes: [.font: font, .foregroundColor: n == caretLine ? current : color])
             let size = text.size()
-            text.draw(at: NSPoint(x: ruleThickness - size.width - 8, y: y0 + frag.minY + (frag.height - size.height) / 2))
+            text.draw(at: NSPoint(x: ruleThickness - Self.chevron - size.width - 4, y: y0 + frag.minY + (frag.height - size.height) / 2))
+            let line = s.lineRange(for: NSRange(location: start, length: 0))
+            let folded = tv.folds.fold(at: MultiCursor.lineEnd(s, start)) != nil
+            guard folded || (hovering && Folds.canFold(line, in: s)) else { return }
+            let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: .semibold).applying(.init(paletteColors: [color]))
+            guard let img = NSImage(systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
+                .withSymbolConfiguration(config) else { return }
+            img.draw(at: NSPoint(x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2,
+                                 y: y0 + frag.minY + (frag.height - img.size.height) / 2), from: .zero, operation: .sourceOver, fraction: 1)
         }
         while let start = editor.lineIndex.start(ofLine: n, in: s), start < s.length, start <= NSMaxRange(visible) {
-            draw(n, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil))
+            if let f = tv.folds.fold(at: start) {   // folded away: on after the fold
+                n = editor.lineIndex.line(at: NSMaxRange(f), in: s) + 1
+                continue
+            }
+            draw(n, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil), start: start)
             n += 1
         }
-        if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: n, in: s) == s.length { draw(n, at: lm.extraLineFragmentRect) }
+        if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: n, in: s) == s.length {
+            draw(n, at: lm.extraLineFragmentRect, start: s.length)
+        }
+    }
+
+    /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block.
+    override func mouseDown(with event: NSEvent) {
+        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
+        let tv = editor.textView, s = tv.string as NSString
+        let p = tv.convert(event.locationInWindow, from: nil)
+        let i = lm.characterIndex(for: NSPoint(x: 0, y: p.y - tv.textContainerOrigin.y), in: tc, fractionOfDistanceBetweenInsertionPoints: nil)
+        guard i < s.length else { return }
+        editor.toggleFold(line: s.lineRange(for: NSRange(location: i, length: 0)))
     }
 }

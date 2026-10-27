@@ -18,6 +18,7 @@ public final class CodeEditor: NSObject {
 
     var lineIndex = LineIndex()
     var lineCount = 1
+    var bracketColor = NSColor.clear
     var gutter: LineNumbers?
     let highlighter: SyntaxHighlighter?
     let language: CodeLanguage
@@ -54,7 +55,7 @@ public final class CodeEditor: NSObject {
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.frameDidChangeNotification, object: textView)
-        highlighter?.parsed = { [weak self] in self?.colorVisible() }
+        highlighter?.parsed = { [weak self] in self?.colorVisible(); self?.markBrackets() }
         refreshAppearance()
         load(text)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
@@ -81,12 +82,14 @@ public final class CodeEditor: NSObject {
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         tv.layoutManager?.allowsNonContiguousLayout = true
         tv.textStorage?.delegate = self
+        tv.layoutManager?.delegate = tv   // folds
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
     }
 
     /// The text, without an undo step or a change event: what was on disk, at first or after it changed there.
     private func load(_ s: String) {
+        _ = textView.folds.removeAll()   // the text is new: its glyphs are made again anyway
         lineCount = Self.breaks(in: s) + 1
         loading = true
         textView.textStorage?.setAttributedString(NSAttributedString(string: s, attributes: textView.typingAttributes))
@@ -204,6 +207,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         gutter?.needsDisplay = true
+        markBrackets()
         onSelection?()
     }
 

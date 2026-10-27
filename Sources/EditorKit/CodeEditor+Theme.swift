@@ -62,6 +62,7 @@ extension CodeEditor {
         tv.insertionPointColor = l.text
         tv.selectedTextAttributes = [.backgroundColor: l.selection]
         tv.lineHighlight = l.lineHighlight
+        bracketColor = l.text.withAlphaComponent(0.2)
         scroll.backgroundColor = l.background
         gutter?.color = l.text.withAlphaComponent(0.4)
         gutter?.current = l.text

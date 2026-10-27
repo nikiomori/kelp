@@ -15,6 +15,8 @@ public final class EditorTextView: NSTextView {
     private var settingCursors = false
     /// Where each cursor's selection started while ⇧ extends them all (MultiCursor), so each knows which end moves.
     var anchors: [Int] = []
+    /// What's folded away (Folding).
+    nonisolated let folds = Folds()
     /// Told of every edit before it's made, while the old text is there (CodeEditor: the parse tree, the line count).
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items; they come back later, to `showCompletions`.
@@ -56,6 +58,10 @@ public final class EditorTextView: NSTextView {
         if !settingCursors { extraCarets = []; anchors = [] }   // a click or an arrow: one cursor again
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
         needsDisplay = true   // the current line's mark and the carets move
+        // A cursor or a found match inside a fold opens it.
+        for r in ranges.map(\.rangeValue) {
+            for i in [r.location, NSMaxRange(r)] { if let f = folds.fold(at: i), i != f.location { setFolded(f, false) } }
+        }
     }
 
     static func merged(_ ranges: [NSRange]) -> [NSRange] {
@@ -104,7 +110,13 @@ public final class EditorTextView: NSTextView {
 
     public override func shouldChangeText(inRanges ranges: [NSValue], replacementStrings strings: [String]?) -> Bool {
         guard super.shouldChangeText(inRanges: ranges, replacementStrings: strings) else { return false }
-        if let strings { willReplace?(ranges.map(\.rangeValue), strings) }
+        if let strings {
+            willReplace?(ranges.map(\.rangeValue), strings)
+            // An edit into a fold opens it; the others move along. Laid out again once the edit is in.
+            let edits = zip(ranges.map(\.rangeValue), strings.map { ($0 as NSString).length }).sorted { $0.0.location < $1.0.location }
+            let opened = folds.isEmpty ? [] : folds.edit(edits)
+            if !opened.isEmpty { DispatchQueue.main.async { [weak self] in opened.forEach { self?.relayOut($0) } } }
+        }
         return true
     }
 
@@ -203,6 +215,8 @@ public final class EditorTextView: NSTextView {
 
     /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, NSTextView's own way.
     public override func mouseDown(with e: NSEvent) {
+        let at = convert(e.locationInWindow, from: nil)
+        if let f = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(f, false) }   // a ⋯ opens
         let mods = e.modifierFlags.intersection([.command, .option, .shift, .control])
         guard e.clickCount == 1, isEditable, mods == .option || mods == [.control, .shift] else { return super.mouseDown(with: e) }
         let before = cursors
@@ -227,6 +241,7 @@ public final class EditorTextView: NSTextView {
 
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        drawCapsules(in: dirtyRect)
         guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         // Only the carets in what's drawn: ⇧⌘L on a common word in a big file makes thousands.
         let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)

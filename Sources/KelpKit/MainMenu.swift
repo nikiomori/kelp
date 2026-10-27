@@ -126,7 +126,8 @@ extension AppDelegate {
         }
         b.add(find, "files.findInWorkspace")
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
-        b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink")
+        b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink",
+              "-", "editor.fold", "editor.unfold", "editor.unfoldAll")
     }
 
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,

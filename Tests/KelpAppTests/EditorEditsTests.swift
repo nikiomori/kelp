@@ -266,4 +266,48 @@ extension OneAtATime {
         let (e, _) = editor("a\nb\nc\n", selecting: [NSRange(location: 2, length: 2)])
         #expect(e.selectedLines == 2...2)
     }
+
+    // MARK: Folding and brackets
+
+    @Test func aBlockFoldsByIndentKeepingItsClosingLine() throws {
+        let (e, tv) = editor("func f() {\n    a\n    b\n}\n", selecting: [NSRange(location: 0, length: 0)])
+        e.fold()
+        #expect(tv.folds.hidden == [NSRange(location: 10, length: 12)])   // the end of `{` to the end of `b`; `}` stays
+        let lm = try #require(tv.layoutManager)
+        #expect(lm.propertyForGlyph(at: lm.glyphIndexForCharacter(at: 15)) == .null)
+        #expect(lm.propertyForGlyph(at: lm.glyphIndexForCharacter(at: 23)) != .null)
+        e.unfold()
+        #expect(tv.folds.isEmpty)
+        #expect(lm.propertyForGlyph(at: lm.glyphIndexForCharacter(at: 15)) != .null)
+    }
+
+    @Test func aFoldMovesWithEditsBeforeItAndOpensForOnesInIt() {
+        let (e, tv) = editor("def f():\n    x = 1\n\nprint()\n", "a.py", selecting: [NSRange(location: 0, length: 0)])
+        e.fold()
+        #expect(tv.folds.hidden == [NSRange(location: 8, length: 10)])
+        tv.insertText("#", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(tv.folds.hidden == [NSRange(location: 9, length: 10)])
+        tv.setCursors([NSRange(location: 14, length: 0)])   // the cursor inside: it opens
+        #expect(tv.folds.isEmpty)
+        e.fold()
+        tv.replace([NSRange(location: 12, length: 1)], with: ["y"])
+        #expect(tv.folds.isEmpty)
+    }
+
+    @Test func foldFromInsideABlockFoldsTheBlockAroundIt() {
+        let (e, tv) = editor("a {\n  b {\n    c\n  }\n  d\n}\n", selecting: [NSRange(location: 22, length: 0)])   // on `d`
+        e.fold()
+        #expect(tv.folds.hidden == [NSRange(location: 3, length: 20)])   // `a {`'s block: `b {` … `d`
+    }
+
+    @Test func theBracketBesideTheCursorAndItsPartnerAreMarked() throws {
+        let (e, tv) = editor("f(a, (b)) + \"(\"\n", selecting: [NSRange(location: 9, length: 0)])
+        let lm = try #require(tv.layoutManager)
+        func marked(_ i: Int) -> Bool { lm.temporaryAttribute(.backgroundColor, atCharacterIndex: i, effectiveRange: nil) != nil }
+        e.markBrackets()
+        #expect(marked(1) && marked(8) && !marked(5))
+        tv.setCursors([NSRange(location: 6, length: 0)])   // after the inner (
+        #expect(marked(5) && marked(7) && !marked(1))
+        #expect(Brackets.partner(of: 13, in: tv.string as NSString, tree: e.highlighter?.tree) == nil)   // in a string
+    }
 }
