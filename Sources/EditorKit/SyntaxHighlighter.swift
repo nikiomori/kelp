@@ -68,19 +68,67 @@ final class SyntaxHighlighter {
         }
     }
 
-    /// Colors `range` (the visible part, mostly) from the tree.
+    /// Colors `range` (the visible part, mostly) from the tree, and the languages inside it (a Markdown paragraph's
+    /// inline marks, a fenced block, `<script>` in HTML) from their own.
     func color(_ range: NSRange, in tv: NSTextView) {
         guard let lm = tv.layoutManager, let tree, let root = tree.rootNode else { return }
         let s = tv.string as NSString
+        let text: SwiftTreeSitter.Predicate.TextProvider = { r, _ in NSMaxRange(r) <= s.length ? s.substring(with: r) : nil }
         let cursor = query.execute(node: root, in: tree)
         cursor.setRange(range)
-        let found = cursor.resolve(with: .init(textProvider: { r, _ in NSMaxRange(r) <= s.length ? s.substring(with: r) : nil })).highlights()
+        let matches = Array(cursor.resolve(with: .init(textProvider: text)))
         lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: range)
-        for h in found {   // the less specific first: a later, narrower one wins
+        paint(matches.highlights(), at: 0, within: range, lm)
+        for inj in matches.compactMap({ $0.injection(with: text) }) where NSIntersectionRange(inj.range, range).length > 0 {
+            guard NSMaxRange(inj.range) <= s.length, let found = injected(inj.name, s.substring(with: inj.range)) else { continue }
+            // Its own colors only: the outer grammar's go (a fenced block was all one string color); Markdown's inline
+            // marks add to a heading's color instead.
+            if Self.language(named: inj.name)?.id != .markdownInline {
+                lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: NSIntersectionRange(inj.range, range))
+            }
+            paint(found, at: inj.range.location, within: range, lm)
+        }
+    }
+
+    /// The less specific first: a later, narrower one wins.
+    private func paint(_ found: [NamedRange], at offset: Int, within range: NSRange, _ lm: NSLayoutManager) {
+        for h in found {
             guard let c = colors[h.name] ?? colors[h.nameComponents.first ?? ""] else { continue }
-            let r = NSIntersectionRange(h.range, range)
+            let r = NSIntersectionRange(NSRange(location: h.range.location + offset, length: h.range.length), range)
             if r.length > 0 { lm.addTemporaryAttribute(.foregroundColor, value: c, forCharacterRange: r) }
         }
+    }
+
+    // MARK: Languages inside
+
+    private var parsers: [TreeSitterLanguage: (Parser, Query)] = [:]
+    /// What an injected piece of text colors as, by its language and text: they're small and come back on every scroll.
+    private var seen: [String: [NamedRange]] = [:]
+
+    /// The highlights of `text` (a piece of the file) in the language called `name`, parsed on its own; nil for a
+    /// language without a grammar here.
+    private func injected(_ name: String, _ text: String) -> [NamedRange]? {
+        guard let language = Self.language(named: name) else { return nil }
+        let key = language.tsName + "\u{0}" + text
+        if let known = seen[key] { return known }
+        if parsers[language.id] == nil, let l = language.language, let q = TreeSitterModel.shared.query(for: language.id) {
+            let p = Parser()
+            if (try? p.setLanguage(l)) != nil { parsers[language.id] = (p, q) }
+        }
+        guard let (parser, query) = parsers[language.id], let tree = parser.parse(text) else { return nil }
+        let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
+        if seen.count > 500 { seen = [:] }
+        seen[key] = found
+        return found
+    }
+
+    /// A language by the name an injection or a fenced block gives it (`js`, `markdown_inline`, `yml`).
+    static func language(named name: String) -> CodeLanguage? {
+        let n = name.lowercased().replacingOccurrences(of: "_", with: "-")
+        let aliases = ["js": "javascript", "ts": "typescript", "sh": "bash", "shell": "bash", "zsh": "bash", "console": "bash", "yml": "yaml",
+                       "py": "python", "rb": "ruby", "rs": "rust", "c++": "cpp", "cs": "c-sharp", "csharp": "c-sharp", "golang": "go", "md": "markdown"]
+        let id = aliases[n] ?? n
+        return CodeLanguage.allLanguages.first { $0.tsName == id || $0.extensions.contains(id) || $0.additionalIdentifiers.contains(id) }
     }
 }
 

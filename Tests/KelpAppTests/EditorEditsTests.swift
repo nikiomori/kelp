@@ -310,4 +310,18 @@ extension OneAtATime {
         #expect(marked(5) && marked(7) && !marked(1))
         #expect(Brackets.partner(of: 13, in: tv.string as NSString, tree: e.highlighter?.tree) == nil)   // in a string
     }
+
+    @Test func languagesInsideAFileGetTheirColors() throws {
+        let md = "# Title\n\nSome `code` here.\n\n```swift\nlet x = 1\n```\n"
+        let (e, tv) = editor(md, "a.md", selecting: [NSRange(location: 0, length: 0)])
+        e.colorVisible()
+        let lm = try #require(tv.layoutManager), s = md as NSString
+        func color(_ needle: String) -> NSColor? {
+            lm.temporaryAttribute(.foregroundColor, atCharacterIndex: s.range(of: needle).location, effectiveRange: nil) as? NSColor
+        }
+        #expect(color("Title") == CodeEditor.look.keyword)
+        #expect(color("code") == CodeEditor.look.string)   // Markdown's inline grammar, inside a paragraph
+        #expect(color("let") == CodeEditor.look.keyword)   // Swift's, inside the fenced block
+        #expect(color("x =") == nil)   // not the block's string color: Swift's colors alone
+    }
 }

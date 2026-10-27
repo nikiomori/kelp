@@ -92,7 +92,10 @@ extension CodeEditor {
         let keyword = ["keyword", "include", "boolean", "repeat", "conditional", "tag", "exception", "label", "variable.builtin", "constant.builtin"]
         var c: [String: NSColor] = ["comment": l.comment, "string": l.string, "character": l.string, "escape": l.string,
                                     "number": l.number, "float": l.number, "type": l.type, "constructor": l.type, "attribute": l.type,
-                                    "function": l.function, "method": l.function]
+                                    "function": l.function, "method": l.function,
+                                    // Markdown: headings, code, links and list marks
+                                    "text.title": l.keyword, "text.literal": l.string, "text.uri": l.type, "text.reference": l.type,
+                                    "punctuation.special": l.comment]
         for k in keyword { c[k] = l.keyword }
         return c
     }
