@@ -18,7 +18,7 @@ final class TabStrip: NSView {
         var unread = false
         let toolTip: String?
         var edited = false
-        var meter: Double?
+        var meter: SessionContextWindow.Usage?
         var progress: Double?
     }
 
@@ -241,6 +241,8 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = NSButton(), editedDot = NSImageView()
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
+    /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
+    private let full = NSTextField(labelWithString: "")
     private var hover = false { didSet { updateLook() } }
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
@@ -265,7 +267,8 @@ private final class TabButton: NSControl, NSDraggingSource {
             v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
             NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
         }
-        let row = NSStackView(views: [slot, title, meter])
+        full.font = .uiDigits(10, weight: .semibold)
+        let row = NSStackView(views: [slot, title, meter, full])
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
         pin(row)
@@ -297,7 +300,11 @@ private final class TabButton: NSControl, NSDraggingSource {
         mark.status = it.status
         mark.unread = it.unread
         mark.progress = it.progress
-        meter.share = it.meter
+        meter.usage = it.meter
+        let level = ContextMeter.level(it.meter)
+        full.isHidden = level < 2
+        full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
+        full.textColor = level == 3 ? .textRed : .textOrange
         toolTip = it.toolTip ?? it.title
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
         setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title); setAccessibilityValue(selected)
@@ -366,9 +373,20 @@ private final class TabButton: NSControl, NSDraggingSource {
 
 /// A small ring: how full an agent's conversation is (gray, amber from 75 %, red from 90 %).
 @MainActor
+/// How full an agent's conversation is: nothing while there's room, then a ring that fills, yellow where answers may
+/// start to slip, orange where it's time to compact or hand off, red just before the agent compacts by itself. Past
+/// half a 200k window, or 200k tokens of a bigger one: long-context benchmarks slip by absolute tokens, so a 1M
+/// window turns yellow at 200k, orange at 400k and red at 600k (a 200k one at 100k, 130k and 150k, under Claude Code's
+/// own compaction).
 final class ContextMeter: NSView {
     private let track = CAShapeLayer(), fill = CAShapeLayer()
-    var share: Double? { didSet { isHidden = share == nil; update() } }
+    var usage: SessionContextWindow.Usage? { didSet { isHidden = Self.level(usage) == 0; update() } }
+    /// 0 room, 1 yellow, 2 orange, 3 red.
+    static func level(_ u: SessionContextWindow.Usage?) -> Int {
+        guard let u, u.window > 0 else { return 0 }
+        let w = Double(u.window), used = Double(u.used)
+        return used >= min(0.75 * w, 600_000) ? 3 : used >= min(0.65 * w, 400_000) ? 2 : used >= min(0.5 * w, 200_000) ? 1 : 0
+    }
     init() {
         super.init(frame: .zero)
         wantsLayer = true; isHidden = true
@@ -387,11 +405,12 @@ final class ContextMeter: NSView {
     required init?(coder: NSCoder) { fatalError() }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
     private func update() {
-        guard let share else { return }
-        toolTip = String(localized: "Context \(Int(share * 100)) % full")
+        guard let usage, usage.window > 0 else { return }
+        let share = Double(usage.used) / Double(usage.window), level = Self.level(usage)
+        toolTip = String(localized: "Context \(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
         effectiveAppearance.performAsCurrentDrawingAppearance {
             track.strokeColor = NSColor.tertiaryLabelColor.cgColor
-            fill.strokeColor = (share >= 0.9 ? NSColor.systemRed : share >= 0.75 ? .systemOrange : .secondaryLabelColor).cgColor
+            fill.strokeColor = [NSColor.secondaryLabelColor, .systemYellow, .systemOrange, .systemRed][level].cgColor
         }
         fill.strokeEnd = min(1, share)
     }

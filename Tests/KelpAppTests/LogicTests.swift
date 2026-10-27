@@ -48,6 +48,14 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(best == [1, 3, 2])
 }
 
+/// The context ring: nothing while there's room, then yellow, orange, red — by share in a 200k window, by tokens in 1M.
+@MainActor @Test func theContextRingColoursAtTheTokensWhereAnswersSlip() {
+    func level(_ used: Int, _ window: Int) -> Int { ContextMeter.level(SessionContextWindow.Usage(used: used, window: window)) }
+    #expect([99_000, 100_000, 130_000, 150_000].map { level($0, 200_000) } == [0, 1, 2, 3])
+    #expect([199_000, 200_000, 400_000, 600_000].map { level($0, 1_000_000) } == [0, 1, 2, 3])
+    #expect(ContextMeter.level(nil) == 0 && level(5, 0) == 0)
+}
+
 /// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
 @MainActor @Test func commandsRunFromThePaletteComeBackFirst() {
     let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)

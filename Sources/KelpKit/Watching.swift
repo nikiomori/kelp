@@ -32,7 +32,7 @@ extension AppModel {
         case .activity: activity = nil
         case .ci: ci[key] = nil
         case .pr: prs[key] = nil
-        case .context: contextShare[key] = nil
+        case .context: contextUsage[key] = nil
         case .limits: limits = nil
         case .file: fileVersions[key] = nil
         case .files: fileLists[key] = nil
@@ -52,8 +52,9 @@ extension AppModel {
         case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
         case let e as ContextEvent:
             // No usage (not Claude Code, ended, just compacted) takes the ring away.
-            let share = e.usage.flatMap { $0.window > 0 ? Double($0.used) / Double($0.window) : nil }
-            if abs((contextShare[e.session] ?? -1) - (share ?? -1)) > 0.01 { contextShare[e.session] = share }
+            let usage = e.usage.flatMap { $0.window > 0 ? $0 : nil }, old = contextUsage[e.session]
+            func share(_ u: SessionContextWindow.Usage?) -> Double { u.map { Double($0.used) / Double($0.window) } ?? -1 }
+            if usage?.window != old?.window || abs(share(usage) - share(old)) > 0.01 { contextUsage[e.session] = usage }   // a percent at a time
         default: break
         }
     }

@@ -182,7 +182,7 @@ final class EditorHost: NSViewController {
         track { app.repos } changed: { [weak self] _ in self?.refresh() }
         track { app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track { app.sessions } changed: { [weak self] _ in self?.refresh() }
-        track { app.contextShare } changed: { [weak self] _ in self?.refresh() }
+        track { app.contextUsage } changed: { [weak self] _ in self?.refresh() }
     }
 
     func show(_ id: String?) {

@@ -50,7 +50,7 @@ struct TabLook: Equatable {
 package struct TabBadge: Equatable {
     package init(status: AgentStatus? = nil,
                  unread: Bool = false,
-                 meter: Double? = nil,
+                 meter: SessionContextWindow.Usage? = nil,
                  progress: Double? = nil,
                  attention: NSColor? = nil) {
         self.status = status
@@ -63,8 +63,8 @@ package struct TabBadge: Equatable {
     var status: AgentStatus?
     /// Finished and not looked at yet (the filled ✓).
     var unread = false
-    /// How full an agent's conversation is (0…1); the tab shows a ring from 75 %.
-    var meter: Double?
+    /// How full an agent's conversation is; the tab shows a ring once answers may start to slip (`ContextMeter.level`).
+    var meter: SessionContextWindow.Usage?
     /// How far what runs in it got (0…1), when it says: its status mark fills.
     var progress: Double?
     /// The colored ring around its pane: an agent asking (orange), failed (red), finished unseen (accent).
