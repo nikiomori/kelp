@@ -1,6 +1,6 @@
 import Foundation
 
-/// Inline Markdown: emphasis, code spans, links and images, autolinks.
+/// Inline Markdown: emphasis, code spans, links and images, autolinks, footnote references, the safe HTML tags.
 extension Renderer {
     func inline(_ s: String, links: Bool = true) -> String {
         let c = Array(s)
@@ -17,7 +17,7 @@ extension Renderer {
                 if let node { flush(); nodes.append(node) } else { buf += String(c[i..<end]) }
                 i = end; continue
             case "!" where links && i + 1 < c.count && c[i + 1] == "[": piece = link(c, i, image: true) ?? ("!", i + 1)
-            case "[" where links: piece = link(c, i, image: false) ?? ("[", i + 1)
+            case "[" where links: piece = footnoteRef(c, i) ?? link(c, i, image: false) ?? ("[", i + 1)
             case "<": piece = angle(c, i, links: links)
             case "&": piece = entity(c, i)
             case "\n":
@@ -83,7 +83,7 @@ extension Renderer {
         return (.delim(Delim(ch: ch, orig: run, count: run, open: open, close: close)), e)
     }
 
-    /// `<`: an HTML comment (dropped), an autolink (`<https://…>`, `<a@b.c>`), else `&lt;`.
+    /// `<`: an HTML comment (dropped), an autolink (`<https://…>`, `<a@b.c>`), a tag on the list, else `&lt;`.
     private func angle(_ c: [Character], _ i: Int, links: Bool) -> (String, Int) {
         if i + 3 < c.count, c[i + 1] == "!", c[i + 2] == "-", c[i + 3] == "-", let r = String(c[i...]).range(of: "-->") {
             return ("", i + String(c[i...])[..<r.upperBound].count)
@@ -99,7 +99,7 @@ extension Renderer {
                 }
             }
         }
-        return ("&lt;", i + 1)
+        return htmlTag(c, i) ?? ("&lt;", i + 1)
     }
 
     /// `&name;` / `&#123;` as is, else `&amp;`.
@@ -219,7 +219,7 @@ extension Renderer {
     }
 
     /// Neutralises script-capable URL schemes.
-    private func safe(_ u: String, image: Bool = false) -> String {
+    func safe(_ u: String, image: Bool = false) -> String {
         let l = u.lowercased().filter { !$0.isWhitespace && !($0.asciiValue.map { $0 < 32 } ?? false) }
         if l.hasPrefix("javascript:") || l.hasPrefix("vbscript:") || (l.hasPrefix("data:") && !(image && l.hasPrefix("data:image/"))) { return "#" }
         return u

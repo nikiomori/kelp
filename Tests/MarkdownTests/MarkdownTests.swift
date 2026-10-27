@@ -92,13 +92,16 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(r("a\n\n***\n- - -\n___") == "<p>a</p>\n<hr>\n<hr>\n<hr>")
 }
 
-@Test func escapesHTMLEverywhere() {
+@Test func escapesHTMLButTheSafeTags() {
     let h = r("<script>alert('x')</script>\n\n# <b>h</b>\n\n> <img src=x onerror=y>\n\n| <i> |\n|---|\n| & |")
     #expect(!h.contains("<script"))
     #expect(h.contains("&lt;script&gt;alert('x')&lt;/script&gt;"))
-    #expect(h.contains("&lt;b&gt;h&lt;/b&gt;"))
-    #expect(!h.contains("<img"))
-    #expect(h.contains("<th>&lt;i&gt;</th>") && h.contains("<td>&amp;</td>"))
+    #expect(h.contains("<b>h</b>"))
+    #expect(h.contains(#"<img src="x">"#) && !h.contains("onerror"))
+    #expect(h.contains("<th><i></th>") && h.contains("<td>&amp;</td>"))
+    #expect(r(#"<a href="javascript:alert(1)" onclick="x" style="color:red">a</a>"#) == ##"<p><a href="#">a</a></p>"##)
+    #expect(r(#"<p align="center"><img src="logo.png" width="120" onload="x"></p>"#) == #"<p align="center"><img src="logo.png" width="120"></p>"#)
+    #expect(r("<iframe src=x></iframe>").contains("&lt;iframe"))
     #expect(r("a <!-- hidden --> b") == #"<p>a  b</p>"#)
     #expect(r("&copy; & co") == #"<p>&copy; &amp; co</p>"#)
 }
@@ -235,4 +238,35 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(page?.contains("mermaid.initialize") == true && page?.contains("theme: 'dark'") == true)
     #expect((MarkdownHTML.mermaidJS?.count ?? 0) > 1_000_000)   // bundled, not fetched
     #expect(MarkdownHTML.render("```mermaid\ngraph LR\n```").contains("language-mermaid"))
+}
+
+// MARK: GitHub's additions
+
+@Test func alerts() {
+    let h = r("> [!WARNING]\n> Mind the **gap**.\n\n> [!note]\n> Lower case too.\n\n> [!FOO]\n> Just a quote.")
+    #expect(h.contains(#"<div class="markdown-alert markdown-alert-warning">"#))
+    #expect(h.contains(#"<p class="markdown-alert-title">Warning</p>"#) && h.contains("<p>Mind the <strong>gap</strong>.</p>"))
+    #expect(h.contains("markdown-alert-note"))
+    #expect(h.contains("<blockquote>\n<p>[!FOO]\nJust a quote.</p>"))
+}
+
+@Test func detailsAndInlineTags() {
+    let h = r("<details>\n<summary>More</summary>\n\nHidden *text*.\n\n</details>\n\nPress <kbd>⌘</kbd>+<kbd>K</kbd>, x<sup>2</sup>.")
+    #expect(h.contains("<details>\n<summary>More</summary>"))
+    #expect(h.contains("<p>Hidden <em>text</em>.</p>") && h.contains("</details>"))
+    #expect(h.contains("Press <kbd>⌘</kbd>+<kbd>K</kbd>, x<sup>2</sup>."))
+    let pic = r(#"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#)
+    #expect(pic == #"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#)
+    #expect(r("a\n<div>b</div>").contains("<p>a</p>\n<div>b</div>"))   // a block tag ends a paragraph
+}
+
+@Test func footnotes() {
+    let h = r("Claim[^src] and another[^2].\n\n[^2]: Second.\n[^src]: The source,\n    with more.\n\nAfter.")
+    #expect(h.contains(##"Claim<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>"##))
+    #expect(h.contains(##"another<sup class="footnote-ref"><a href="#fn-2" id="fnref-2">2</a></sup>"##))
+    #expect(h.contains(#"<section class="footnotes">"#))
+    #expect(h.contains(#"<li id="fn-1">The source,"#) && h.contains(##"with more. <a href="#fnref-1" class="footnote-backref">↩</a></li>"##))
+    #expect(h.contains(##"<li id="fn-2">Second. <a href="#fnref-2" class="footnote-backref">↩</a></li>"##))
+    #expect(h.contains("<p>After.</p>") && !h.contains("[^2]:"))
+    #expect(r("No note[^x].") == "<p>No note[^x].</p>")
 }

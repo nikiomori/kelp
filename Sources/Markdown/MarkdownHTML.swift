@@ -1,14 +1,14 @@
 import Foundation
 
 /// Dependency-free GitHub-flavoured Markdown → HTML.
-/// Raw HTML is always escaped (safety over fidelity).
+/// Raw HTML is escaped, but for the tags and attributes on a list (MarkdownGFM): safety over fidelity.
 public enum MarkdownHTML {
     public static func render(_ md: String) -> String {
         let src = md.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = src.split(separator: "\n", omittingEmptySubsequences: false).map { Line(s: detab(String($0))) }
         let r = Renderer()
         r.collectRefs(lines)
-        return r.blocks(lines)
+        return r.blocks(lines) + r.footnotes()
     }
 
     /// Full HTML document around `body`. `baseURL` (the document's URL) resolves relative links and images.
@@ -50,8 +50,10 @@ public enum MarkdownHTML {
     }
 
     static let darkVars = "--fg:#f5f5f7;--muted:#a1a1a6;--bg:#1e1e1e;--border:#3d3d40;--subtle:#2a2a2d;--code:rgba(255,255,255,.09);--link:#4ea1ff;"
+        + "--note:#4493f8;--tip:#3fb950;--important:#ab7df8;--warning:#d29922;--caution:#f85149;"
     static let css = """
-    :root{--fg:#1d1d1f;--muted:#6e6e73;--bg:#fff;--border:#d8d8dc;--subtle:#f5f5f7;--code:rgba(0,0,0,.055);--link:#0066cc;}
+    :root{--fg:#1d1d1f;--muted:#6e6e73;--bg:#fff;--border:#d8d8dc;--subtle:#f5f5f7;--code:rgba(0,0,0,.055);--link:#0066cc;
+    --note:#0969da;--tip:#1a7f37;--important:#8250df;--warning:#9a6700;--caution:#cf222e;}
     @media (prefers-color-scheme:dark){:root{\(darkVars)}}
     :root.dark{\(darkVars)}
     *{box-sizing:border-box}
@@ -84,6 +86,17 @@ public enum MarkdownHTML {
     th{font-weight:600}
     tbody tr:nth-child(2n){background:var(--subtle)}
     img{max-width:100%}
+    details{margin:0 0 16px}summary{cursor:pointer}details>:not(summary){margin-top:8px}
+    kbd{display:inline-block;padding:.1em .45em;font:80% ui-monospace,"SF Mono",Menlo,monospace;line-height:1.4;border:1px solid var(--border);
+    border-bottom-width:2px;border-radius:5px;background:var(--subtle)}
+    sup{line-height:0}
+    .markdown-alert{padding:.5em 1em;margin:0 0 16px;border-left:.25em solid var(--al)}
+    .markdown-alert>:last-child{margin-bottom:0}
+    .markdown-alert-title{font-weight:600;color:var(--al);margin:0 0 .3em}
+    .markdown-alert-note{--al:var(--note)}.markdown-alert-tip{--al:var(--tip)}.markdown-alert-important{--al:var(--important)}
+    .markdown-alert-warning{--al:var(--warning)}.markdown-alert-caution{--al:var(--caution)}
+    .footnotes{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:.875em;color:var(--muted)}
+    .footnotes li{margin-top:.4em}.footnote-backref{margin-left:.2em}
     """
 
     /// Safe in text and in double-quoted attributes (the only kind Kelp's pages write).
@@ -136,15 +149,20 @@ enum Node { case html(String), delim(Delim) }
 final class Renderer {
     var refs: [String: (url: String, title: String?)] = [:]
     var slugs: [String: Int] = [:]
+    /// Footnotes by label, and the order they're first referred to in (their numbers).
+    var notes: [String: [Line]] = [:]
+    var noteOrder: [String] = []
 
     // MARK: blocks
 
     func collectRefs(_ ls: [Line]) {
         var fenceCh: Character?
-        for l in ls {
+        for (i, l) in ls.enumerated() {
             let s = String(l.s.drop { $0 == " " || $0 == ">" })
             if let f = fence(s) {
                 if fenceCh == nil { fenceCh = f.ch } else if f.ch == fenceCh, f.info.isEmpty { fenceCh = nil }
+            } else if fenceCh == nil, l.indent < 4, footnote(s) != nil {
+                collectFootnote(ls, i)
             } else if fenceCh == nil, let d = def(s), refs[d.label] == nil {
                 refs[d.label] = (d.url, d.title)
             }
@@ -165,7 +183,9 @@ final class Renderer {
             else if s.hasPrefix(">") { block = blockquote(ls, i) }
             else if let m = marker(l.s) { block = list(ls, i, m) }
             else if isTable(ls, i) { block = table(ls, i) }
+            else if footnote(s) != nil { block = (nil, footnoteEnd(ls, i)) }   // read already: shown at the end
             else if def(s) != nil { block = (nil, i + 1) }   // a link reference definition: read already, shows nothing
+            else if startsHTML(s) { block = htmlBlock(ls, i) }
             else { block = paragraph(ls, i, tight: tight) }
             if let html = block.html { out.append(html) }
             i = block.end
@@ -208,7 +228,7 @@ final class Renderer {
             } else { break }
             j += 1
         }
-        return ("<blockquote>\n\(blocks(inner))\n</blockquote>", j)
+        return (alert(inner) ?? "<blockquote>\n\(blocks(inner))\n</blockquote>", j)
     }
 
     /// A paragraph, or a setext heading when an `===` / `---` line ends it.
@@ -387,7 +407,7 @@ final class Renderer {
         let ind = t.prefix { $0 == " " }.count
         guard ind < 4 else { return false }
         let s = String(t.dropFirst(ind))
-        if fence(s) != nil || atx(s) != nil || isHR(s) || s.hasPrefix(">") { return true }
+        if fence(s) != nil || atx(s) != nil || isHR(s) || s.hasPrefix(">") || startsHTML(s, interrupting: true) { return true }
         if let m = marker(t), !m.rest.isEmpty, !m.ordered || m.start == 1 { return true }
         return false
     }
