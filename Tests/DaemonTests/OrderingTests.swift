@@ -66,24 +66,25 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 /// still reach every other client. Each open terminal used to be one more reader of every event.
 @Test func aConnectionThatWantsNoEventsGetsNone() async throws {
     let (d, c, root) = try daemon(); defer { d.stop() }
-    func listener(muted: Bool) throws -> Int32 {
-        let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
-        var t = timeval(tv_sec: 1, tv_usec: 0)
-        _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
-        // Either way it says something first: until then it could be a terminal's byte stream (session.stream), which hears nothing.
-        if muted { Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: ClientEvents.name, params: .obj(["events": false])))) }
-        else { Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: Ping.name, params: nil))) }
-        return fd
-    }
-    let quiet = try listener(muted: true), loud = try listener(muted: false)
-    defer { close(quiet); close(loud) }
-    _ = try await c.call(Ping())   // after the daemon took both connections and the notification
-    _ = try await c.call(SettingsSet(key: "terminal.fontSize", value: .int(13)))   // broadcasts event.settings
     func heard(_ fd: Int32) -> String {
         var buf = [UInt8](repeating: 0, count: 65536)
         let n = read(fd, &buf, buf.count)
         return n > 0 ? String(decoding: buf[0..<n], as: UTF8.self) : ""
     }
+    func listener(muted: Bool) throws -> Int32 {
+        let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
+        var t = timeval(tv_sec: 3, tv_usec: 0)
+        _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+        // Either way it says something first, and hears the answer: until the daemon read it, it could be a terminal's
+        // byte stream (session.stream), which hears nothing. Another connection's call proves nothing about this one.
+        let first = muted ? RPCRequest(id: 1, method: ClientEvents.name, params: .obj(["events": false])) : RPCRequest(id: 1, method: Ping.name)
+        Unix.writeAll(fd, try Wire.line(first))
+        #expect(heard(fd).contains("\"id\":1"))
+        return fd
+    }
+    let quiet = try listener(muted: true), loud = try listener(muted: false)
+    defer { close(quiet); close(loud) }
+    _ = try await c.call(SettingsSet(key: "terminal.fontSize", value: .int(13)))   // broadcasts event.settings
     #expect(heard(loud).contains("event.settings"))
     #expect(heard(quiet).isEmpty)
 }

@@ -220,7 +220,8 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Text sent to a paused agent wakes it and goes in once it is ready, not into a program still starting (which, like
 /// many TUIs, throws away what was typed early).
 @Test func textForAPausedAgentWaitsUntilItIsReady() async throws {
-    let script = "echo booting; sleep 1.5; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
+    // "starting" just before the flush: perl's own start (slow on a busy runner) isn't a quiet second and a half.
+    let script = "echo booting; sleep 1.5; echo starting; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
     let wt = try await desk(w, "paused")
@@ -493,7 +494,8 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Text sent to a session that is still starting waits until it's ready, however it came to be starting (just created,
 /// or woken by someone else a moment before): typed at once, a program that flushes its input on startup loses it.
 @Test func textForAStartingSessionWaitsUntilItIsReady() async throws {
-    let script = "echo booting; sleep 1.5; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
+    // "starting" just before the flush: perl's own start (slow on a busy runner) isn't a quiet second and a half.
+    let script = "echo booting; sleep 1.5; echo starting; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow2", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
     let wt = try await desk(w, "starting")
