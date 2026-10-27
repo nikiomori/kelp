@@ -20,6 +20,7 @@ final class TabStrip: NSView {
         var edited = false
         var meter: SessionContextWindow.Usage?
         var progress: Double?
+        var waitsFor: String?
     }
 
     var onSelect: ((String) -> Void)?
@@ -243,6 +244,8 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let meter = ContextMeter()
     /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
     private let full = NSTextField(labelWithString: "")
+    /// Its agent waits for a command it started: the command on a chip, a cyan line along the tab's top.
+    private let chip = Chip(), light = CALayer()
     private var hover = false { didSet { updateLook() } }
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
@@ -268,7 +271,13 @@ private final class TabButton: NSControl, NSDraggingSource {
             NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
         }
         full.font = .uiDigits(10, weight: .semibold)
-        let row = NSStackView(views: [slot, title, meter, full])
+        chip.setContentCompressionResistancePriority(.init(200), for: .horizontal)   // gives way before the title, down to "…"
+        let least = chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 40); least.priority = .init(760)
+        NSLayoutConstraint.activate([least, chip.widthAnchor.constraint(lessThanOrEqualToConstant: 90)])
+        chip.icon.image = .symbol("apple.terminal")
+        light.cornerRadius = 1
+        layer?.addSublayer(light)
+        let row = NSStackView(views: [slot, title, chip, meter, full])
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
         pin(row)
@@ -305,6 +314,10 @@ private final class TabButton: NSControl, NSDraggingSource {
         full.isHidden = level < 2
         full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = level == 3 ? .textRed : .textOrange
+        chip.isHidden = it.waitsFor == nil; light.isHidden = it.waitsFor == nil
+        chip.label.stringValue = it.waitsFor ?? ""
+        chip.toolTip = it.waitsFor.map { String(localized: "Waits for its command:") + "\n" + $0 }
+        chip.setAccessibilityLabel(chip.toolTip)
         toolTip = it.toolTip ?? it.title
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
         setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title); setAccessibilityValue(selected)
@@ -337,6 +350,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         title.font = .systemFont(ofSize: 12, weight: active || call != nil ? .medium : .regular)
         icon.contentTintColor = active ? .controlAccentColor : .secondaryLabelColor
         effectiveAppearance.performAsCurrentDrawingAppearance {
+            light.backgroundColor = NSColor.systemCyan.cgColor
             if let call { layer?.backgroundColor = call.fill.withAlphaComponent(selected ? 0.24 : 0.16).cgColor; return }
             let fill = selected ? (groupFocused ? 0.12 : 0.07) : hover ? 0.05 : 0
             layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(fill).cgColor
@@ -353,6 +367,8 @@ private final class TabButton: NSControl, NSDraggingSource {
     override func layout() {
         super.layout()
         if #available(macOS 26, *) { layer?.cornerRadius = bounds.height / 2 }
+        let ends = max(layer?.cornerRadius ?? 6, 6)   // clear of the rounded ends
+        light.frame = NSRect(x: ends, y: bounds.height - 2, width: max(0, bounds.width - 2 * ends), height: 2)
     }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }

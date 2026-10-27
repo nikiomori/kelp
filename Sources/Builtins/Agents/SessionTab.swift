@@ -35,7 +35,8 @@ final class SessionTab: TabContent {
         // A terminal shows a state only while a program in it says how far it got (a build).
         return TabBadge(status: s.flatMap { $0.agent == "shell" ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus },
                         unread: s?.unread ?? false, meter: app.contextUsage[sessionId],
-                        progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(Self.attention))
+                        progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(Self.attention),
+                        waitsFor: s.flatMap { $0.status == .working ? $0.background?.first : nil })
     }
     /// The ring around its pane: it asks (orange), failed (red), or finished and wasn't looked at yet (accent).
     private static func attention(_ s: Session) -> NSColor? {
