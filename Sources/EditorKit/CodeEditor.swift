@@ -145,6 +145,18 @@ public final class CodeEditor: NSObject {
     /// Primary selection in UTF-16 units.
     public var selectedRange: NSRange { textView.selectedRange() }
 
+    /// Where the one selection's first line is on screen, in `view`'s coordinates; nil with no selection, several, or
+    /// one scrolled out of sight.
+    public var selectionRect: NSRect? {
+        let r = textView.selectedRange(), s = textView.string as NSString
+        guard textView.cursors.count == 1, r.length > 0, let lm = textView.layoutManager, let tc = textView.textContainer else { return nil }
+        let line = NSIntersectionRange(r, s.lineRange(for: NSRange(location: r.location, length: 0)))
+        let glyphs = lm.glyphRange(forCharacterRange: line.length > 0 ? line : r, actualCharacterRange: nil)
+        let box = lm.boundingRect(forGlyphRange: glyphs, in: tc).offsetBy(dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
+        let shown = textView.visibleRect.intersection(box)
+        return shown.isEmpty ? nil : view.convert(shown, from: textView)
+    }
+
     /// Replace everything as one undoable edit and set the selection (formatting toolbar).
     public func apply(text: String, selection: NSRange) {
         textView.replace([NSRange(location: 0, length: textView.length)], with: [text])

@@ -53,40 +53,78 @@ final class MarkdownTab: NSViewController {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// A compact icon button: the strip's and the selection bar's.
+    static func toolButton(_ sym: String, _ tip: String, _ sel: Selector, target: AnyObject) -> NSButton {
+        let x = NSButton(image: .symbol(sym, tip), target: target, action: sel)
+        x.isBordered = false
+        x.imagePosition = .imageOnly
+        x.symbolConfiguration = .init(pointSize: 12, weight: .medium)
+        x.contentTintColor = .secondaryLabelColor
+        x.toolTip = tip
+        x.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        x.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        return x
+    }
+
     override func loadView() {
-        func b(_ sym: String, _ tip: String, _ sel: Selector) -> NSButton {
-            let x = NSButton(image: .symbol(sym, tip), target: self, action: sel)
-            x.bezelStyle = .texturedRounded
-            x.toolTip = tip
-            return x
+        func b(_ sym: String, _ tip: String, _ sel: Selector) -> NSButton { Self.toolButton(sym, tip, sel, target: self) }
+        func gap() -> NSView {
+            let line = NSBox(); line.boxType = .separator
+            line.heightAnchor.constraint(equalToConstant: 14).isActive = true
+            return line
         }
         mode.selectedSegment = startInPreview ? 2 : defaultSegment
         mode.target = self
         mode.action = #selector(modeChanged)
-        let heading = NSPopUpButton()
-        heading.addItems(withTitles: [String(localized: "Text"), String(localized: "Heading 1"),
-                                      String(localized: "Heading 2"), String(localized: "Heading 3")])
+        mode.controlSize = .small
+        // Headings: a menu from one button (its first item is the button's face).
+        let heading = NSPopUpButton(frame: .zero, pullsDown: true)
+        heading.isBordered = false
+        heading.addItems(withTitles: ["", String(localized: "Text"), String(localized: "Heading 1"), String(localized: "Heading 2"),
+                                      String(localized: "Heading 3")])
+        heading.item(at: 0)?.image = .symbol("textformat.size", String(localized: "Heading"))
+        heading.toolTip = String(localized: "Heading")
         heading.target = self; heading.action = #selector(headingPicked(_:))
-        heading.bezelStyle = .texturedRounded
-        let bar = NSStackView(views: [heading, b("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
-                                      b("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
-                                      b("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
-                                      b("link", String(localized: "Link (⌘K)"), #selector(link)),
-                                      b("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
-                                      b("list.number", String(localized: "Numbered list"), #selector(numbered)),
-                                      b("checklist", String(localized: "Task list"), #selector(tasks)),
-                                      b("tablecells", String(localized: "Table"), #selector(table)),
-                                      NSView(), mode])
-        bar.spacing = 4; bar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        formatting.setViews([heading, gap(), b("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
+                             b("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
+                             b("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+                             b("link", String(localized: "Link (⌘K)"), #selector(link)), gap(),
+                             b("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
+                             b("list.number", String(localized: "Numbered list"), #selector(numbered)),
+                             b("checklist", String(localized: "Task list"), #selector(tasks)),
+                             b("tablecells", String(localized: "Table"), #selector(table))], in: .leading)
+        formatting.spacing = 0
+        let bar = NSStackView(views: [formatting, NSView(), mode])
+        bar.edgeInsets = NSEdgeInsets(top: 3, left: 6, bottom: 3, right: 8)
         split.isVertical = true; split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
         split.addArrangedSubview(editor.view); split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
         view = stacked(bar, split)
+        view.addSubview(selectionBar)   // over the text, placed by frame
+        editor.onSelection = { [weak self] in self?.placeSelectionBar() }
+        if let clip = (editor.view as? NSScrollView)?.contentView {
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: clip)
+        }
         applyMode()
         rerender()
     }
+
+    private let formatting = NSStackView()
+    private lazy var selectionBar = MarkdownSelectionBar(target: self, items: [
+        ("bold", String(localized: "Bold (⌘B)"), #selector(bold)), ("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
+        ("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)), ("link", String(localized: "Link (⌘K)"), #selector(link))
+    ])
+
+    /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
+    private func placeSelectionBar() {
+        guard NSEvent.pressedMouseButtons == 0, !editor.view.isHidden, let r = editor.selectionRect else { return selectionBar.isHidden = true }
+        selectionBar.show(over: view.convert(r, from: editor.view), in: view)
+    }
+
+    @objc private func scrolled() { if !selectionBar.isHidden { placeSelectionBar() } }
 
     private var positioned = false
     override func viewDidLayout() {
@@ -137,6 +175,8 @@ final class MarkdownTab: NSViewController {
     private func applyMode() {
         let m = mode.selectedSegment
         editor.view.isHidden = m == 2; web.isHidden = m == 0 || (m == 1 && narrow)
+        formatting.isHidden = m == 2   // nothing to format in the preview
+        placeSelectionBar()
         split.adjustSubviews()
         if m == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }
         if dirty, !web.isHidden { rerender() }
@@ -155,9 +195,9 @@ final class MarkdownTab: NSViewController {
     @objc func tasks() { edit(MarkdownFormat.toggleTask) }
     @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
     @objc private func headingPicked(_ p: NSPopUpButton) {
-        let l = p.indexOfSelectedItem
+        let l = p.indexOfSelectedItem - 1   // past the button's face: Text, Heading 1…3
+        guard l >= 0 else { return }
         edit { MarkdownFormat.heading($0, $1, level: l) }
-        p.selectItem(at: 0)
     }
     @objc func link() {
         Task {
