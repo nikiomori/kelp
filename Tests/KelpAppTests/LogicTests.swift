@@ -48,6 +48,16 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(best == [1, 3, 2])
 }
 
+/// A peeking panel stays while the pointer crosses from the window's edge strip (4 pt) to the panel (6 pt in), and on
+/// either side; it goes once the pointer is past the panel.
+@MainActor @Test func aPeekingPanelStaysWhileThePointerCrossesTheGapFromTheEdge() {
+    let edge = NSRect(x: 0, y: 0, width: 4, height: 800), panel = NSRect(x: 6, y: 6, width: 260, height: 788)
+    #expect(MainWindowController.overPeek(NSPoint(x: 5, y: 400), panel: panel, edge: edge))   // the gap
+    #expect(MainWindowController.overPeek(NSPoint(x: 2, y: 400), panel: panel, edge: edge))
+    #expect(MainWindowController.overPeek(NSPoint(x: 100, y: 400), panel: panel, edge: edge))
+    #expect(!MainWindowController.overPeek(NSPoint(x: 300, y: 400), panel: panel, edge: edge))
+}
+
 /// The context ring: nothing while there's room, then yellow, orange, red — by share in a 200k window, by tokens in 1M.
 @MainActor @Test func theContextRingColoursAtTheTokensWhereAnswersSlip() {
     func level(_ used: Int, _ window: Int) -> Int { ContextMeter.level(SessionContextWindow.Usage(used: used, window: window)) }

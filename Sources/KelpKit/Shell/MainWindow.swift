@@ -249,12 +249,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let item = peeking, e.window === window, let root = window?.contentView else { return }
         let p = root.convert(e.locationInWindow, from: nil)
         let edge = item === sidebarItem ? leftEdge : rightEdge
-        // From the window's edge through the panel: the panel stands 6 pt in from the edge, past the 4 pt strip, and a
-        // slow move across that gap closed it under the pointer.
-        if floater(item).frame.union(edge.frame).contains(p) { peekReached = true; return }
+        if Self.overPeek(p, panel: floater(item).frame, edge: edge.frame) { peekReached = true; return }
         // Not while it slides in: the panel isn't where the pointer is headed yet.
         if peekReached, Date().timeIntervalSince(peekedAt) > 0.4 { endPeek() }
     }
+    /// Over a peeking panel: anywhere from the window's edge through it. The panel stands 6 pt in from the edge, past the
+    /// 4 pt strip, and a slow move across that gap closed it under the pointer.
+    static func overPeek(_ p: NSPoint, panel: NSRect, edge: NSRect) -> Bool { panel.union(edge).contains(p) }
     private func endPeek(animated: Bool = true) {
         if let m = peekMoves { NSEvent.removeMonitor(m); peekMoves = nil }
         guard let p = peeking else { return }

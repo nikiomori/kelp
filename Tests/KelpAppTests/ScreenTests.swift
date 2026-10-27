@@ -77,6 +77,10 @@ extension OneAtATime {
         // The project's row edits the project's own name, not the workspace it stands for.
         vc.startRename("r2", project: true)
         #expect(vc.renaming?.id == "r2" && vc.renaming?.project == true)
+        // Its name, editable in its row, without the machine the row adds.
+        let edited = (0..<o.numberOfRows).compactMap { o.view(atColumn: 0, row: $0, makeIfNecessary: true) }
+            .flatMap { v in v.subviews.flatMap { ($0 as? NSStackView)?.views ?? [] } }.compactMap { $0 as? NSTextField }.filter(\.isEditable)
+        #expect(edited.map(\.stringValue) == ["infra"])
         vc.app.repos = [there]
         #expect(vc.app.projectName("r2") == "infra")   // no namesake left: no machine
     }
