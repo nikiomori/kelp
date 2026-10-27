@@ -104,7 +104,14 @@ public enum Subprocess {
     public static func stopTreeNow(_ pid: pid_t, grace: TimeInterval = 2) {
         let born = tree(pid).map { ($0, started($0)) }
         for (p, _) in born.reversed() { kill(p, SIGTERM) }
-        func left() -> [pid_t] { born.compactMap { p, t in t != nil && started(p) == t && !isZombie(p) ? p : nil } }
+        // One on its way out no longer reads its start time, but still answers kill(0) until it's a zombie: not gone yet.
+        func left() -> [pid_t] {
+            born.compactMap { p, t in
+                guard t != nil, !isZombie(p) else { return nil }
+                let now = started(p)
+                return now == t || (now == nil && kill(p, 0) == 0) ? p : nil
+            }
+        }
         let end = Date().addingTimeInterval(grace)
         while !left().isEmpty, Date() < end { usleep(50_000) }
         for p in left() { kill(p, SIGKILL) }
