@@ -111,6 +111,7 @@ public final class CodeEditor: NSObject {
     }
 
     public var text: String { textView.string }
+    public var isMarkdown: Bool { language.id == .markdown }
 
     /// Replace contents (e.g. the file changed on disk) without echoing a change event.
     public func setText(_ s: String) {

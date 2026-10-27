@@ -7,6 +7,13 @@ import WorkbenchKit
 import KelpKit
 
 extension Builtins {
+    /// The Markdown file in the focused tab; a beep when it's something else.
+    static func markdown(_ app: AppModel) -> MarkdownTab? {
+        let m = (app.workbench.editor?.focusedContent as? FileTab)?.markdown
+        if m == nil { NSSound.beep() }
+        return m
+    }
+
     /// The file in the focused tab; a beep when it's something else.
     static func fileTab(_ app: AppModel) -> FileTab? {
         let f = app.workbench.editor?.focusedContent as? FileTab
@@ -52,6 +59,14 @@ extension Builtins {
                           guard let md = (app.workbench.editor?.focusedContent as? FileTab)?.markdown else { NSSound.beep(); return }
                           md.cycleMode()
                       },
+                      // The formatting bar's, from the keyboard (as on GitHub); on only in a Markdown file's editor.
+                      cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },
+                      cmd("markdown.italic", "Italic", "cmd+i") { markdown(app)?.italic() },
+                      cmd("markdown.code", "Code") { markdown(app)?.code() },
+                      cmd("markdown.link", "Link…", "cmd+k") { markdown(app)?.link() },
+                      cmd("markdown.bullets", "Bulleted List") { markdown(app)?.bullets() },
+                      cmd("markdown.numbered", "Numbered List") { markdown(app)?.numbered() },
+                      cmd("markdown.tasks", "Task List") { markdown(app)?.tasks() },
                       cmd("editor.save", "Save", "cmd+s") {
                           guard let t = app.workbench.editor?.focusedContent as? SavableTab else { NSSound.beep(); return }
                           Task {

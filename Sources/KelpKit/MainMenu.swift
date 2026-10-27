@@ -128,6 +128,10 @@ extension AppDelegate {
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
         b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink",
               "-", "editor.fold", "editor.unfold", "editor.unfoldAll")
+        let markdown = NSMenu(title: "Markdown")
+        b.add(markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets", "markdown.numbered",
+              "markdown.tasks", "-", "markdown.cycleView")
+        edit.setSubmenu(markdown, for: edit.addItem(withTitle: "Markdown", action: nil, keyEquivalent: ""))
     }
 
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,

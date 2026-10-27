@@ -149,10 +149,10 @@ final class MarkdownTab: NSViewController {
     }
     @objc func bold() { edit(MarkdownFormat.toggleBold) }
     @objc func italic() { edit(MarkdownFormat.toggleItalic) }
-    @objc private func code() { edit(MarkdownFormat.toggleCode) }
-    @objc private func bullets() { edit(MarkdownFormat.toggleBullet) }
-    @objc private func numbered() { edit(MarkdownFormat.toggleNumbered) }
-    @objc private func tasks() { edit(MarkdownFormat.toggleTask) }
+    @objc func code() { edit(MarkdownFormat.toggleCode) }
+    @objc func bullets() { edit(MarkdownFormat.toggleBullet) }
+    @objc func numbered() { edit(MarkdownFormat.toggleNumbered) }
+    @objc func tasks() { edit(MarkdownFormat.toggleTask) }
     @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
     @objc private func headingPicked(_ p: NSPopUpButton) {
         let l = p.indexOfSelectedItem
