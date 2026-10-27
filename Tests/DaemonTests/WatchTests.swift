@@ -175,9 +175,9 @@ private final class Heard: Sendable {
     try await Task.sleep(for: .milliseconds(1200))
     #expect(heard.events(FilesEvent.self).count == 2)   // once
     try "changed\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)
-    try await Task.sleep(for: .milliseconds(1500))
-    #expect(heard.events(FilesEvent.self).count == 2)
-    #expect(w.d.watches.reads.withLock { $0[Watches.Key(topic: .files, key: wt.id)] ?? 0 } >= 3)   // read again, not pushed
+    #expect(try await waitFor(10) { w.d.watches.reads.withLock { $0[Watches.Key(topic: .files, key: wt.id)] ?? 0 } >= 3 })   // read again…
+    try await Task.sleep(for: .milliseconds(300))   // (counted before it's compared and pushed)
+    #expect(heard.events(FilesEvent.self).count == 2)   // …not pushed
 }
 
 @Test func whatChangesAFileList() {

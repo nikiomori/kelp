@@ -123,7 +123,17 @@ final class LSPHost: Sendable {
     private func start(_ key: Key) {
         let ready = Task.detached { [self] () -> LSPClient? in
             // On a thread of its own: a cold login-shell PATH (LoginPath) takes up to 8 s, too long to hold a pool thread.
-            var up = await withCheckedContinuation { c in Thread.detachNewThread { c.resume(returning: LSPClient(argv: key.argv, root: key.root)) } }
+            // Handed over under a lock: the Thread Sanitizer doesn't see a continuation resumed from that thread order
+            // the client's init before its use here, and reported its fields as raced.
+            let made = OSAllocatedUnfairLock<LSPClient?>(initialState: nil)
+            await withCheckedContinuation { c in
+                Thread.detachNewThread {
+                    let client = LSPClient(argv: key.argv, root: key.root)
+                    made.withLock { $0 = client }
+                    c.resume()
+                }
+            }
+            var up = made.withLock { $0 }
             if let started = up {
                 do { try await started.initialize() } catch {
                     Log.session.error("language server \(key.argv.joined(separator: " "), privacy: .public) didn't start: \(error)")
