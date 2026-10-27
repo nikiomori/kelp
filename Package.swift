@@ -17,7 +17,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
-        .package(url: "https://github.com/CodeEditApp/CodeEditSourceEditor", from: "0.15.0"),
+        .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", from: "0.1.20"),
+        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
     ],
     targets: [
         .target(name: "Core", resources: [.copy("Resources/extensions.md")]),   // docs/extensions.md links here
@@ -32,7 +33,8 @@ let package = Package(
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),
         .target(name: "Markdown", resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt")]),   // mermaid 11.17.2, MIT
-        .target(name: "EditorKit", dependencies: [.product(name: "CodeEditSourceEditor", package: "CodeEditSourceEditor")], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "EditorKit", dependencies: [.product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
+                                                 .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter")]),
         // The shell, and what an extension is given (`package` declarations): the window, the editor area, tabs, panels.
         .target(name: "KelpKit", dependencies: ["Core", "Agents", "TerminalKit", "EditorKit", "Markdown", "WorkbenchKit",
                                                 .product(name: "Sparkle", package: "Sparkle")]),

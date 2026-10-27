@@ -22,25 +22,26 @@ extension OneAtATime {
         try rig.write("big.swift", String(repeating: line, count: 4_700_000 / line.utf8.count))
         let p = rig.repo + "/big.swift"
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
-        let e = try #require(tab.editor), tv = try #require(e.controller.textView)
+        while tab.editor == nil { try await Task.sleep(for: .milliseconds(1)) }   // read by the daemon first
+        let e = try #require(tab.editor), tv = e.textView
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 700), styleMask: [.titled], backing: .buffered, defer: true)
         window.contentView = tab.view
         window.contentView?.layoutSubtreeIfNeeded()
         func time(_ n: Int, _ body: () -> Void) -> Double {
             let t0 = Date(); for _ in 0..<n { body() }; return Date().timeIntervalSince(t0) * 1000 / Double(n)
         }
-        let end = tv.textStorage.length - 100   // at the end: a compare with the saved text runs through all of it
+        let end = tv.length - 100   // at the end: a compare with the saved text runs through all of it
         let onChange = e.onChange
         e.onChange = nil
-        let bare = time(30) { tv.replaceCharacters(in: NSRange(location: end, length: 0), with: "x") }
+        let bare = time(30) { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
         e.onChange = onChange
-        let typed = time(30) { tv.replaceCharacters(in: NSRange(location: end, length: 0), with: "x") }
+        let typed = time(30) { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
         #expect(tab.isEdited)
         let t0 = Date()
         #expect(await tab.save())
         let save = Date().timeIntervalSince(t0) * 1000
         #expect(!tab.isEdited)
-        let overtype = time(10) { tv.replaceCharacters(in: NSRange(location: end, length: 1), with: "y") }   // the saved length
+        let overtype = time(10) { tv.replace([NSRange(location: end, length: 1)], with: ["y"]) }   // the saved length
         let text = e.text
         let lsp = time(1) { rig.app.lsp.change(rig.app, root: rig.repo, path: p, text: text) }
         print(String(format: "BENCH editor %.1f MB on the main thread: keystroke %.2f ms (the editor alone %.2f), same-length edit %.2f ms, lsp.change %.2f ms; save took %.0f ms",

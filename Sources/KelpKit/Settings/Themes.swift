@@ -121,17 +121,15 @@ package final class ThemeManager {
                                                  type: $0.type, number: $0.number, function: $0.function, selection: $0.selection,
                                                  lineHighlight: $0.lineHighlight) }
         let size = CGFloat(s.number("editor.fontSize") ?? 13), font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
-        let minimap = s.bool("editor.minimap") ?? false, wrap = s.bool("editor.wordWrap") ?? false
+        let wrap = s.bool("editor.wordWrap") ?? false
         TextSize.apply(s.string("workbench.textSize"))
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
         let language = s.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
-        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName || minimap != CodeEditor.showMinimap
-            || wrap != CodeEditor.wrapLines {
+        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName || wrap != CodeEditor.wrapLines {
             CodeEditor.palette = palette
             CodeEditor.fontSize = size
             CodeEditor.fontName = font
-            CodeEditor.showMinimap = minimap
             CodeEditor.wrapLines = wrap
             editorRevision += 1
         }

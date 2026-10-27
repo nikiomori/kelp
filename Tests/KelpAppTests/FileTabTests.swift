@@ -139,18 +139,18 @@ extension AppOfItsOwn {
         let tab = await opened(p, in: rig)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: true)
         window.contentView = tab.view
-        let tv = try #require(tab.editor?.controller.textView)
-        let end = tv.textStorage.length - 10
+        let tv = try #require(tab.editor?.textView)
+        let end = tv.length - 10
         let t0 = Date()
-        for _ in 0..<5 { tv.replaceCharacters(in: NSRange(location: end, length: 0), with: "x") }
+        for _ in 0..<5 { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
         #expect(Date().timeIntervalSince(t0) < 0.15)
         #expect(tab.isEdited)
         #expect(await tab.save())
         #expect(!tab.isEdited)
         let was = (tv.string as NSString).substring(with: NSRange(location: end, length: 1))
-        tv.replaceCharacters(in: NSRange(location: end, length: 1), with: "y")   // the saved length, other text
+        tv.replace([NSRange(location: end, length: 1)], with: ["y"])   // the saved length, other text
         #expect(tab.isEdited)
-        tv.replaceCharacters(in: NSRange(location: end, length: 1), with: was)   // the saved text again
+        tv.replace([NSRange(location: end, length: 1)], with: [was])   // the saved text again
         for _ in 0..<100 where tab.isEdited { try await Task.sleep(for: .milliseconds(20)) }
         #expect(!tab.isEdited)
     }

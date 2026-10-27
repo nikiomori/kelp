@@ -24,7 +24,6 @@ extension Builtins {
         c.settings = [SettingsSection(id: "editor", title: "Editor", icon: "doc.text", specs: [
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),
             s("editor.fontSize", "Font size", "number", 13),
-            s("editor.minimap", "Show minimap", "boolean", false),
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
             s("editor.autoSave", "Save automatically", "boolean", false,
               "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),
@@ -74,7 +73,7 @@ extension Builtins {
                           Task { if let s = await prompt(String(localized: "Go to line"), ""), let n = Int(s) { t.goTo(line: n) } }
                       },
                       cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
-                      // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D: see EditorBox.
+                      // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D, ⌘[ ⌘]: see EditorBox.
                       cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") { CodeEditor.focused?.addNextOccurrence() },
                       cmd("editor.selectAllOccurrences", "Select All Occurrences", "shift+cmd+l") { CodeEditor.focused?.selectAllOccurrences() },
                       cmd("editor.moveLinesUp", "Move Line Up", "opt+up") { CodeEditor.focused?.moveLines(down: false) },
@@ -82,6 +81,9 @@ extension Builtins {
                       cmd("editor.copyLinesUp", "Copy Line Up", "shift+opt+up") { CodeEditor.focused?.copyLines(down: false) },
                       cmd("editor.copyLinesDown", "Copy Line Down", "shift+opt+down") { CodeEditor.focused?.copyLines(down: true) },
                       cmd("editor.deleteLines", "Delete Line", "shift+cmd+k") { CodeEditor.focused?.deleteLines() },
+                      cmd("editor.toggleComment", "Toggle Comment", "cmd+/") { CodeEditor.focused?.toggleComment() },
+                      cmd("editor.indent", "Indent", "cmd+]") { CodeEditor.focused?.indent(out: false) },
+                      cmd("editor.outdent", "Outdent", "cmd+[") { CodeEditor.focused?.indent(out: true) },
                       // ⌥⌘↩: "path:12-30" into the agent's prompt (it reads the file itself), without pressing Return.
                       cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
                           if let t = fileTab(app) { FileActions(app).sendToAgent(t.path, lines: t.selectedText?.isEmpty == false ? t.selectedLines : nil) }

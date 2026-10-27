@@ -11,8 +11,7 @@ extension OneAtATime {
         defer { CodeEditor.wrapLines = false }
         let url = URL(fileURLWithPath: "/tmp/wrap.txt")
         func wraps(_ editor: CodeEditor) throws -> Bool {
-            _ = editor.view   // the text view is made with the view
-            return try #require(editor.controller.textView).wrapLines
+            try #require(editor.textView.textContainer).widthTracksTextView
         }
         let open = CodeEditor(text: String(repeating: "word ", count: 200), url: url)
         #expect(try !wraps(open))
