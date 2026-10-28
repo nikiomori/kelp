@@ -3604,7 +3604,15 @@
       }
     },
     "Jira": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jira"
+          }
+        }
+      }
     },
     "Jira search": {
       "localizations": {
@@ -3905,7 +3913,15 @@
       }
     },
     "Linear": {
-      "shouldTranslate": false
+      "shouldTranslate": false,
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linear"
+          }
+        }
+      }
     },
     "Lines starting with # are left out. ⌘↩ commits.": {
       "localizations": {
@@ -11875,6 +11891,706 @@
           "stringUnit": {
             "state": "translated",
             "value": "Контекст заполнен на %lld %%: %lldk из %lldk токенов"
+          }
+        }
+      }
+    },
+    "Bold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Жирный"
+          }
+        }
+      }
+    },
+    "Italic": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курсив"
+          }
+        }
+      }
+    },
+    "Link…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка…"
+          }
+        }
+      }
+    },
+    "Bulleted List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маркированный список"
+          }
+        }
+      }
+    },
+    "Numbered List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нумерованный список"
+          }
+        }
+      }
+    },
+    "Task List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список задач"
+          }
+        }
+      }
+    },
+    "Add Next Occurrence": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить следующее вхождение"
+          }
+        }
+      }
+    },
+    "Select All Occurrences": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать все вхождения"
+          }
+        }
+      }
+    },
+    "Move Line Up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить строку вверх"
+          }
+        }
+      }
+    },
+    "Move Line Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить строку вниз"
+          }
+        }
+      }
+    },
+    "Copy Line Up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать строку вверх"
+          }
+        }
+      }
+    },
+    "Copy Line Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать строку вниз"
+          }
+        }
+      }
+    },
+    "Delete Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить строку"
+          }
+        }
+      }
+    },
+    "Toggle Comment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закомментировать"
+          }
+        }
+      }
+    },
+    "Indent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увеличить отступ"
+          }
+        }
+      }
+    },
+    "Outdent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уменьшить отступ"
+          }
+        }
+      }
+    },
+    "Fold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "Unfold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развернуть"
+          }
+        }
+      }
+    },
+    "Unfold All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развернуть всё"
+          }
+        }
+      }
+    },
+    "Format": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат"
+          }
+        }
+      }
+    },
+    "Heading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заголовок"
+          }
+        }
+      }
+    },
+    "Anthropic’s coding agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент для кода от Anthropic"
+          }
+        }
+      }
+    },
+    "OpenAI’s coding agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент для кода от OpenAI"
+          }
+        }
+      }
+    },
+    "Google’s agent, free with a Google account": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Google, бесплатно с аккаунтом Google"
+          }
+        }
+      }
+    },
+    "Open source, works with any model provider": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый код, любой провайдер моделей"
+          }
+        }
+      }
+    },
+    "Cursor’s agent in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Cursor в терминале"
+          }
+        }
+      }
+    },
+    "Alibaba’s open source agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый агент от Alibaba"
+          }
+        }
+      }
+    },
+    "Sourcegraph’s agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Sourcegraph"
+          }
+        }
+      }
+    },
+    "GitHub Copilot in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub Copilot в терминале"
+          }
+        }
+      }
+    },
+    "Augment Code’s agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Augment Code"
+          }
+        }
+      }
+    },
+    "Charm’s open source agent, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый агент Charm, любая модель"
+          }
+        }
+      }
+    },
+    "Pair programming in git, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Парное программирование в git, любая модель"
+          }
+        }
+      }
+    },
+    "Factory’s agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Factory"
+          }
+        }
+      }
+    },
+    "Nous Research’s self-improving agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Самообучающийся агент Nous Research"
+          }
+        }
+      }
+    },
+    "Pi with an IDE’s tools wired in, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pi с инструментами IDE, любая модель"
+          }
+        }
+      }
+    },
+    "Vercel’s small native agent, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Небольшой нативный агент Vercel, любая модель"
+          }
+        }
+      }
+    },
+    "A minimal, extensible terminal agent, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минимальный расширяемый агент для терминала, любая модель"
+          }
+        }
+      }
+    },
+    "xAI’s coding agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент для кода от xAI"
+          }
+        }
+      }
+    },
+    "Google’s Antigravity agent in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Google Antigravity в терминале"
+          }
+        }
+      }
+    },
+    "Moonshot AI’s coding agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент для кода от Moonshot AI"
+          }
+        }
+      }
+    },
+    "Open source agent, any model provider": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый агент, любой провайдер моделей"
+          }
+        }
+      }
+    },
+    "Open source, extensible agent, any model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый расширяемый агент, любая модель"
+          }
+        }
+      }
+    },
+    "AWS’s agent in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент AWS в терминале"
+          }
+        }
+      }
+    },
+    "Install Node.js first (nodejs.org, or brew install node).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала установите Node.js (nodejs.org или brew install node)."
+          }
+        }
+      }
+    },
+    "Install Homebrew first (brew.sh).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала установите Homebrew (brew.sh)."
+          }
+        }
+      }
+    },
+    "More Panels": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё панели"
+          }
+        }
+      }
+    },
+    "At this pace it fills before it resets.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В таком темпе лимит закончится до сброса."
+          }
+        }
+      }
+    },
+    "Auto-Hide Sidebar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоскрытие боковой панели"
+          }
+        }
+      }
+    },
+    "Nothing to commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего коммитить"
+          }
+        }
+      }
+    },
+    "⏎ commit · ⌘⏎ commit and push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⏎ закоммитить · ⌘⏎ закоммитить и отправить"
+          }
+        }
+      }
+    },
+    "Switch Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить ветку"
+          }
+        }
+      }
+    },
+    "Fetch from the remote": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получить с сервера"
+          }
+        }
+      }
+    },
+    "Commit message": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сообщение коммита"
+          }
+        }
+      }
+    },
+    "Open Source Control": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть контроль версий"
+          }
+        }
+      }
+    },
+    "Not on a remote yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё не на сервере"
+          }
+        }
+      }
+    },
+    "No remote — add one in Source Control": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет удалённого репозитория — добавьте его в контроле версий"
+          }
+        }
+      }
+    },
+    "Pull, then push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянуть, затем отправить"
+          }
+        }
+      }
+    },
+    "Pull 1 commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянуть 1 коммит"
+          }
+        }
+      }
+    },
+    "Push 1 commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить 1 коммит"
+          }
+        }
+      }
+    },
+    "To push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К отправке"
+          }
+        }
+      }
+    },
+    "To publish": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К публикации"
+          }
+        }
+      }
+    },
+    "Pushed 1 commit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлен 1 коммит."
+          }
+        }
+      }
+    },
+    "Pulled 1 commit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянут 1 коммит."
+          }
+        }
+      }
+    },
+    "Push rejected: the remote has commits this branch doesn't. Pull first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправка отклонена: на сервере есть коммиты, которых нет в этой ветке. Сначала подтяните."
+          }
+        }
+      }
+    },
+    "Month": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месяц"
+          }
+        }
+      }
+    },
+    "Git: Commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: закоммитить"
+          }
+        }
+      }
+    },
+    "Git: Pull": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: подтянуть"
+          }
+        }
+      }
+    },
+    "Git: Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: получить"
+          }
+        }
+      }
+    },
+    "The file on disk is no longer text (another encoding, or binary). Keep Mine writes your version over it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл на диске больше не текст (другая кодировка или двоичный). «Оставить мою» запишет вашу версию поверх него."
+          }
+        }
+      }
+    },
+    "Workspace %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочая область %lld"
           }
         }
       }

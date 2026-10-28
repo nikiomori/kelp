@@ -142,5 +142,11 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
 
 extension Worktree {
     /// The name people see: their own, or the branch.
-    public var displayName: String { note.isEmpty ? branch : note }
+    public var displayName: String {
+        guard !note.isEmpty else { return branch }
+        // "Workspace 3", the name a new desk keeps until its first prompt names it, in the person's language; the
+        // stored name stays as the daemon wrote it (Workspaces.placeholderName knows it by that).
+        if note.hasPrefix("Workspace "), let n = Int(note.dropFirst("Workspace ".count)) { return String(localized: "Workspace \(n)") }
+        return note
+    }
 }

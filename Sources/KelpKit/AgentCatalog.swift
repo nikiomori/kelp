@@ -33,7 +33,7 @@ package struct AgentCatalog {
     var startable: String? { installed(all).isEmpty ? nil : defaultAgent }
     func name(_ id: String?) -> String {
         guard let id else { return "Terminal" }
-        if id == "shell" { return "Terminal" }
+        if id == "shell" { return String(localized: "Terminal") }
         return all.first { $0.id == id }?.name ?? id.capitalized
     }
 
