@@ -6,6 +6,9 @@ dev:
 	scripts/bundle.sh dev
 release:
 	scripts/bundle.sh
+	scripts/install.sh
+install:
+	scripts/install.sh
 publish:
 	scripts/publish.sh
-.PHONY: dev release publish
+.PHONY: dev release install publish

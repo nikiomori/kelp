@@ -67,6 +67,7 @@ swift build                      # everything
 swift test                       # all tests
 scripts/bundle.sh                # dist/Kelp.app + dist/Kelp.dmg (universal, release)
 SIGN_ID="Developer ID Application: …" NOTARY_PROFILE=kelp scripts/bundle.sh   # signed + notarized
+scripts/install.sh               # dist/Kelp.app over /Applications/Kelp.app, reopened; agents keep running (make release does both)
 scripts/publish.sh               # GitHub release + update feed for that DMG (bump the version in Resources/Info.plist first)
 ```
 
