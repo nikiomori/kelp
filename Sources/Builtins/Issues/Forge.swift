@@ -20,6 +20,13 @@ enum Forge {
         }
     }
 
+    /// No remote on GitHub isn't an error: an empty state that says so in the person's language, and what changes it.
+    static func noRemote(_ message: String?) -> (title: String, text: String)? {
+        guard message == GitHub.noRemote else { return nil }
+        return (String(localized: "No GitHub remote"),
+                String(localized: "Pull requests, issues and CI runs show here once this project's git has a remote on GitHub."))
+    }
+
     /// `cli`: gh or glab.
     static func install(_ cli: String) -> Setup {
         let site = cli == "glab" ? "GitLab" : "GitHub"

@@ -205,7 +205,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 if src == 3 { why = String(localized: "Connect Jira in Settings › Integrations") }
                 if src == 4, setup == nil { why = String(localized: "Projects need `gh auth refresh -s read:project`") }
                 status.stringValue = ""
-                if src == 2 || src == 3 { showEmpty(why, symbol: "link") } else { showEmpty(why, error: String(localized: "Couldn't load the list")) }
+                if let quiet = Forge.noRemote(why) {
+                    showEmpty(quiet.text, symbol: "network", title: quiet.title)
+                } else if src == 2 || src == 3 { showEmpty(why, symbol: "link") } else { showEmpty(why, error: String(localized: "Couldn't load the list")) }
             }
             table.reloadData(); showDetail(nil)
         }

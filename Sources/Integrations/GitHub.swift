@@ -8,7 +8,7 @@ public struct GitHubError: Error, CustomStringConvertible, Sendable {
     public var description: String {
         let e = stderr.lowercased()
         if e.contains("not found (brew install gh)") { return "Install GitHub CLI to see pull requests and issues: brew install gh" }
-        if e.contains("no git remotes") || e.contains("known github host") { return "This project has no GitHub remote." }
+        if e.contains("no git remotes") || e.contains("known github host") { return GitHub.noRemote }
         if e.contains("gh auth login") || e.contains("not logged in") { return "GitHub CLI isn't signed in — run gh auth login." }
         return stderr.split(whereSeparator: \.isNewline).first.map(String.init) ?? "gh failed (\(status))"
     }

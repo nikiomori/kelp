@@ -222,6 +222,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             setupButton.title = setup.title; setupButton.toolTip = setup.command
             empty.show(setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
                        buttons: [setupButton, checkAgain])
+        } else if let quiet = Forge.noRemote(text) {
+            empty.show(quiet.title, symbol: "network", text: quiet.text, buttons: [checkAgain])
         } else if failed {
             empty.showError(String(localized: "Couldn't read the runs"), text: text, buttons: [checkAgain])
         } else {

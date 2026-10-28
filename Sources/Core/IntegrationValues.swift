@@ -6,6 +6,9 @@ import Foundation
 /// Pull requests, issues, checks and projects. GitLab merge requests and Bitbucket pull requests are read into the same
 /// shapes.
 public enum GitHub {
+    /// What gh's error comes back as when the project's git has no remote on GitHub: a state the panels show quietly,
+    /// not a failure.
+    public static let noRemote = "This project has no GitHub remote."
     public struct PullRequest: Codable, Sendable, Equatable {
         public struct Checks: Codable, Sendable, Equatable {
             public var passed = 0, failed = 0, pending = 0

@@ -40,10 +40,12 @@ extension TasksViewController {
 /// No rows: the list gives way to the empty state, with the button that helps (show all, sign in).
 extension TasksViewController {
     /// `text` instead of the list (an error with `error`), with the buttons that aren't hidden; nil shows the list.
-    func showEmpty(_ text: String?, symbol: String = "tray", error: String? = nil) {
+    func showEmpty(_ text: String?, symbol: String = "tray", error: String? = nil, title: String? = nil) {
         split.isHidden = text != nil
         let buttons = [showAll, setupButton].filter { !$0.isHidden }
-        if let error { emptyView.showError(error, text: text, buttons: buttons) } else { emptyView.show(text, symbol: symbol, buttons: buttons) }
+        if let error { emptyView.showError(error, text: text, buttons: buttons) }
+        else if let title { emptyView.show(title, symbol: symbol, text: text, buttons: buttons) }
+        else { emptyView.show(text, symbol: symbol, buttons: buttons) }
     }
 }
 

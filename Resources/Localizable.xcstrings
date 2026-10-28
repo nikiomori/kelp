@@ -12604,6 +12604,26 @@
           }
         }
       }
+    },
+    "No GitHub remote": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет удалённого репозитория на GitHub"
+          }
+        }
+      }
+    },
+    "Pull requests, issues and CI runs show here once this project's git has a remote on GitHub.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pull request’ы, задачи и прогоны CI появятся здесь, когда у git этого проекта будет удалённый репозиторий на GitHub."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
