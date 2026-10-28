@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// The window, as Arc and Safari are: one surface — projects & agents in the sidebar (the traffic lights sit in it), the
@@ -59,7 +60,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         sidebarToggle.target = self; sidebarToggle.action = #selector(toggleSidebarPanel)
         inspectorToggle.target = self; inspectorToggle.action = #selector(toggleInspectorPanel)
         root.view.pin(split.view)
-        for v in [bar, leftFloat, rightFloat, sidebarToggle, inspectorToggle, leftEdge, rightEdge] {
+        // The inspector's toggle under its floater: on the floater's corner it stood half on its border. The sidebar's stays
+        // over its floater, beside the traffic lights, which are over everything anyway.
+        for v in [bar, leftFloat, inspectorToggle, rightFloat, sidebarToggle, leftEdge, rightEdge] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.view.addSubview(v)
         }
@@ -220,7 +223,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             edge.isHidden = !hide
             if hide, panel.superview !== f.box {
                 if !item.isCollapsed, column.frame.width >= item.minimumThickness { f.width = column.frame.width }
-                f.box.pin(panel)
+                // The sidebar's cards run to its column's edge, the gap before the editor card being their margin there;
+                // in the floater that edge is its border, so a margin goes inside it, as wide as the cards stand from the left (8).
+                f.box.pin(panel, inset: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: item === sidebarItem ? Metrics.gapWide : 0))
             } else if !hide, panel.superview !== column {
                 column.pin(panel)
             }
