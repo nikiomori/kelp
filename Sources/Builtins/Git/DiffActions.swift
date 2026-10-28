@@ -15,7 +15,7 @@ extension DiffViewController {
 
     @objc func hunkAction(_ b: NSButton) {
         guard let wid = worktreeId, let (path, i, h) = hunk(b) else { return }
-        let staged = single?.source == "staged" || (single == nil && source.indexOfSelectedItem == 2)
+        let staged = hunksStaged(b.tag / 10000) == true
         Task {
             await app.call(GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
             await load()

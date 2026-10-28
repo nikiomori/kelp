@@ -43,7 +43,8 @@ extension DiffViewController {
                            range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
         let t = NSTextField(labelWithAttributedString: s)
-        t.lineBreakMode = .byClipping; t.toolTip = l.text.count > 120 ? l.text : nil
+        t.lineBreakMode = .byCharWrapping   // as tall as `height(of:)` makes the row: a long line wraps, not cut off at the edge
+        t.maximumNumberOfLines = 0
         if let c = tint(l.kind) { t.drawsBackground = true; t.backgroundColor = c }
         return t
     }
@@ -103,6 +104,56 @@ extension DiffViewController {
         return v
     }
 
+    /// A file's band across the review: its icon, path and "+6 −2" on a grey fill, where one file's changes end and the
+    /// next one's begin (bold text alone on the page didn't mark it).
+    func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
+        let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
+        icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        let name = label(path, font: .ui(12, weight: .semibold))
+        name.lineBreakMode = .byTruncatingHead
+        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let stack = NSStackView(views: [icon, name, NSTextField(labelWithAttributedString: RowBadges.changes(added: a, removed: d))])
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        return stack
+    }
+
+    // MARK: long lines wrap
+
+    /// A row as tall as its code wrapped at its column's width (a monospaced font: so many characters a line); a file's
+    /// band a little taller than a line.
+    func height(of row: Int) -> CGFloat {
+        let h = Self.lineHeight
+        guard rows.indices.contains(row), case .diff(let r) = rows[row] else { return h }
+        func lines(_ l: DiffLine?, _ column: String) -> Int {
+            guard let l, let c = table.tableColumn(withIdentifier: .init(column)) else { return 1 }
+            let fit = max(1, Int((c.width - 4) / Self.charWidth(font)))
+            let n = l.text.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
+            return (n + fit - 1) / fit
+        }
+        let n = switch r {
+        case .line(_, let l): lines(l, "t")
+        case .pair(_, let l, let right): max(lines(l, "l"), lines(right, "r"))
+        case .file: 0
+        default: 1
+        }
+        return n == 0 ? h + 6 : h + CGFloat(max(n, 1) - 1) * (h - 4)
+    }
+
+    private static var measured: (font: NSFont, width: CGFloat)?
+    private static func charWidth(_ font: NSFont) -> CGFloat {
+        if let m = measured, m.font == font { return m.width }
+        let w = max(1, ("0" as NSString).size(withAttributes: [.font: font]).width)
+        measured = (font, w)
+        return w
+    }
+
+    /// The pane got wider or narrower: lines wrap at the new width.
+    @objc func columnsResized(_ n: Notification) {
+        table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count))
+    }
+
     /// A hunk's header row: where it is, and Stage / Unstage (and Discard where the diff is the unstaged one).
     func hunkRow(file f: Int, hunk h: Int, header: String) -> NSView {
         let stack = NSStackView()
@@ -112,9 +163,8 @@ extension DiffViewController {
         let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)
-        if canStageHunks(f) {
+        if let staged = hunksStaged(f) {
             // Named buttons at the hunk's end, as in Xcode's and GitHub Desktop's reviews.
-            let staged = single?.source == "staged" || (single == nil && source.indexOfSelectedItem == 2)
             func button(_ title: String, _ a: Selector) -> NSButton {
                 let b = NSButton(title: title, target: self, action: a)
                 b.bezelStyle = .push

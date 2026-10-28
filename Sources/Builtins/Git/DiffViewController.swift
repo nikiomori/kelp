@@ -92,6 +92,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         table.headerView = nil
         table.usesAlternatingRowBackgroundColors = false
         table.backgroundColor = CodeEditor.page.background; table.floatsGroupRows = false
+        NotificationCenter.default.addObserver(self, selector: #selector(columnsResized), name: NSTableView.columnDidResizeNotification, object: table)
         table.onKey = { [weak self] e in self?.key(e) ?? false }
         let cm = NSMenu()
         for (t, st) in [(String(localized: "Mark Resolved"), "resolved"), (String(localized: "Reopen"), "open")] {
@@ -367,11 +368,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             return v
         case .diff(let r):
             switch r {
-            case .file(let p, let a, let d):
-                let v = label(first ? "\(p)   " + RowBadges.changes(added: a, removed: d).string : "", font: .ui(12, weight: .semibold))
-                v.backgroundColor = .controlBackgroundColor
-                v.drawsBackground = true
-                return v
+            case .file(let p, let a, let d): return fileBand(p, added: a, removed: d)
             case .binary(let p): return label(first ? String(localized: "Binary file \(p) not shown") : "", font: font, color: .secondaryLabelColor)
             case .tooLarge(let p):
                 let said = label(first ? String(localized: "\(p) is too large to show here") : "", font: font, color: .secondaryLabelColor)
@@ -401,19 +398,29 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     /// A hunk's header spans both sides, its buttons at the row's end, rather than ending halfway in an empty strip.
+    /// A hunk's header and a file's band run across the row.
     func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool {
-        guard t === table, rows.indices.contains(row), case .diff(.hunk) = rows[row] else { return false }
-        return true
-    }
-
-    /// Hunk buttons only where the hunks shown are the ones git stages: the unstaged or the staged diff, or the uncommitted
-    /// one (against HEAD) for a file with nothing staged, whose hunks are the unstaged diff's.
-    func canStageHunks(_ f: Int) -> Bool {
-        if let s = single { return s.commit == nil && (s.source == "unstaged" || s.source == "staged") }
-        switch source.indexOfSelectedItem {
-        case 1, 2: return true
-        case 0: return diffs.indices.contains(f) && changes.first { $0.path == diffs[f].path }?.staged != true
+        guard t === table, rows.indices.contains(row) else { return false }
+        switch rows[row] {
+        case .diff(.hunk), .diff(.file): return true
         default: return false
+        }
+    }
+    func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { t === table ? height(of: row) : t.rowHeight }
+
+    /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
+    /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
+    /// nothing staged, and the staged one's for a file with nothing left unstaged.
+    func hunksStaged(_ f: Int) -> Bool? {
+        if let s = single { return s.commit == nil && (s.source == "unstaged" || s.source == "staged") ? s.source == "staged" : nil }
+        switch source.indexOfSelectedItem {
+        case 1: return false
+        case 2: return true
+        case 0:
+            guard diffs.indices.contains(f) else { return nil }
+            guard let c = changes.first(where: { $0.path == diffs[f].path }), c.staged else { return false }
+            return c.unstaged ? nil : true
+        default: return nil
         }
     }
 
