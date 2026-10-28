@@ -20,6 +20,8 @@ final class RunState {
     var active: [String: Run] = [:]
     /// Pages printed before run.start answered with their session.
     @ObservationIgnored var early: [String: String] = [:]
+    /// Workspace → the ports its sessions listen on, as last read for the Run menu.
+    @ObservationIgnored var ports: [String: [PortsList.Port]] = [:]
 }
 
 extension ScriptsMenu {
@@ -89,6 +91,7 @@ extension ScriptsMenu {
             guard let self else { return }
             if state.found[wid] == nil { await detect(wid) } else { Task { await self.detect(wid) } }
             await load(wid)
+            if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
             let m = menu(wid)
             // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
             if let a = anchor, a.window != nil { m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a) }
@@ -98,8 +101,25 @@ extension ScriptsMenu {
         }
     }
 
+    /// The ports the workspace's sessions listen on: a run's page found again (it printed it before Kelp restarted), and
+    /// the servers an agent or a terminal started, for the menu's first section.
+    private func adopt(_ ports: [PortsList.Port], _ wid: String) {
+        state.ports[wid] = ports
+        for p in ports {
+            guard let s = app.session(p.session), let c = choice(of: s), state.active[s.id]?.url == nil else { continue }
+            state.active[s.id] = RunState.Run(workspace: wid, choice: c, url: "http://localhost:\(p.port)")
+        }
+    }
+
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
+        // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
+        // ssh is a remote project's forwarding, not a server.
+        let elsewhere = (state.ports[wid] ?? []).filter { p in p.command != "ssh" && app.session(p.session).map { choice(of: $0) == nil } ?? false }
+        if !elsewhere.isEmpty {
+            m.addItem(.sectionHeader(title: String(localized: "Already Running")))
+            for p in elsewhere { server(p, in: m, wid) }
+        }
         let sections = sections(wid), rows = sections.flatMap(\.rows)
         if rows.count <= Self.flat {
             for s in sections {
@@ -143,10 +163,33 @@ extension ScriptsMenu {
         if #available(macOS 14.4, *), let said { i.subtitle = said }
     }
 
+    /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's background
+    /// task runs it; else the program), who started it and its port. A click opens its page; with ⌥, it stops.
+    private func server(_ p: PortsList.Port, in m: NSMenu, _ wid: String) {
+        let s = app.session(p.session)
+        let agent = s?.agent.flatMap { id in ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id } }
+        let tasks = s?.background ?? []
+        let what = state.found[wid]?.options.first { o in tasks.contains { $0.contains(o.command) } }?.name ?? p.command
+        let url = "http://localhost:\(p.port)"
+        let open = m.add(what) { [weak self] in self?.app.workbench.open(url, split: .right, workspace: wid, focus: false) }
+        image(open, agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
+        open.toolTip = String(localized: "Open \(url)")
+        if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · :\(p.port)" }
+        let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
+            Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
+        }
+        image(stop, .symbol("stop.circle"))
+        stop.isAlternate = true
+        stop.keyEquivalentModifierMask = .option
+    }
+
     /// The icon of the file a choice comes from, as Files shows it: what runs it (npm, Python, make, Docker) at a glance,
-    /// and the file's section it sits in. Kept on macOS 27, whose menus hide the images an item doesn't ask to show.
-    private func icon(_ i: NSMenuItem, _ file: String) {
-        i.image = app.fileIcons.image((file as NSString).lastPathComponent)
+    /// and the file's section it sits in.
+    private func icon(_ i: NSMenuItem, _ file: String) { image(i, app.fileIcons.image((file as NSString).lastPathComponent)) }
+
+    /// An item's image, kept on macOS 27, whose menus hide the images an item doesn't ask to show.
+    private func image(_ i: NSMenuItem, _ image: NSImage?) {
+        i.image = image
         #if compiler(>=6.4)   // the macOS 27 SDK
         if #available(macOS 27, *) { i.preferredImageVisibility = .visible }
         #endif

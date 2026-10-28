@@ -631,6 +631,16 @@
         }
       }
     },
+    "Already Running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже запущено"
+          }
+        }
+      }
+    },
     "API token": {
       "localizations": {
         "ru": {
@@ -7389,6 +7399,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Остановить"
+          }
+        }
+      }
+    },
+    "Stop %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить %@"
           }
         }
       }
