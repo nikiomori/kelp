@@ -23,7 +23,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         super.init(frame: .zero)
         let repo = app.repo(w.repoId)
         let icon = NSImageView(image: .symbol("folder"))
-        if let repo { ProjectIcon.show(repo.path, in: icon, app: app) }
+        if let repo { ProjectIcon.show(repo.path, in: icon, app: app, initial: false) }
         icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: w.displayName)

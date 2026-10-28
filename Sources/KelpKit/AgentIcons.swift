@@ -18,7 +18,7 @@ final class AgentIcons {
         "grok": (["Grok"], "grok.com"), "qwen": ([], "qwen.ai"), "kimi": (["Kimi"], "kimi.com"), "kilo": ([], "kilo.ai"),
         "crush": ([], "charm.land"), "droid": (["Factory"], "factory.ai"), "opencode": ([], "opencode.ai"), "amp": ([], "ampcode.com"),
         "copilot": ([], "github.com"), "aider": ([], "aider.chat"), "auggie": ([], "augmentcode.com"),
-        "omp": ([], "omp.sh"), "fx": ([], "fx.sh"), "hermes": ([], "hermes-agent.nousresearch.com")
+        "omp": ([], "omp.sh"), "fx": ([], "fx.sh"), "hermes": ([], "hermes-agent.nousresearch.com"), "pi": ([], "pi.dev")
     ]
 
     func image(_ id: String) -> NSImage? {
@@ -72,7 +72,8 @@ final class AgentIcons {
         let links = html.matches(of: #/<link[^>]*>/#).map { String($0.output) }.filter { $0.lowercased().contains("icon") }
         let ordered = links.filter { $0.contains("apple-touch") } + links.filter { !$0.contains("apple-touch") }
         for tag in ordered {
-            guard let href = tag.firstMatch(of: #/href=["']([^"']+)["']/#)?.output.1,
+            // Quoted or not: charm.land writes href=/touchicon_180w.png.
+            guard let href = tag.firstMatch(of: #/href=["']?([^"'\s>]+)/#)?.output.1,
                   let u = URL(string: String(href).replacingOccurrences(of: "&amp;", with: "&"), relativeTo: base) else { continue }
             if let d = await get(u), isImage(d) { return d }
         }

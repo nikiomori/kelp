@@ -7,12 +7,16 @@ enum ProjectIcon {
     private static var cache: [String: NSImage] = [:]
     /// Projects being looked at, and the views showing their initial meanwhile.
     private static var looking: [String: [Weak]] = [:]
-    private struct Weak { weak var view: NSImageView? }
+    /// `showing`: what it showed meanwhile; a view that shows something else by then (a reused row) keeps it.
+    private struct Weak { weak var view: NSImageView?; let showing: NSImage? }
+    private static var found: Set<String> = []
 
-    /// `view` shows the project's icon: its initial at once, the icon when found.
-    static func show(_ repo: String, in view: NSImageView, app: AppModel) {
-        view.image = image(for: repo, app: app)
-        looking[repo]?.append(Weak(view: view))
+    /// `view` shows the project's icon: its initial at once, the icon when found. `initial` false: what it shows now
+    /// (the empty workspace's folder) stays until there's a real icon, the initial being too big a guess at 56 pt.
+    static func show(_ repo: String, in view: NSImageView, app: AppModel, initial: Bool = true) {
+        let image = image(for: repo, app: app)
+        if initial || found.contains(repo) { view.image = image }
+        looking[repo]?.append(Weak(view: view, showing: view.image))
     }
 
     /// The project's icon, or its initial while the icon is looked for off the main thread (dozens of folders listed, on
@@ -33,7 +37,8 @@ enum ProjectIcon {
             guard let (file, data) = found, let img = NSImage(data: data), img.size.width <= img.size.height * 2 else { return }
             let icon = file.hasSuffix(".icns") ? IconTile.app(img) : img
             cache[repo] = icon
-            for v in views where v.view?.image === letter { v.view?.image = icon }
+            Self.found.insert(repo)
+            for v in views where v.view?.image === v.showing { v.view?.image = icon }
         }
         return letter
     }
