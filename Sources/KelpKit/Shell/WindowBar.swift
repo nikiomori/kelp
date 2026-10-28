@@ -165,7 +165,7 @@ final class WindowBar: NSView {
         let font = NSFont.ui(12), count = NSFont.ui(12, weight: .semibold)
         let t = NSMutableAttributedString(string: info.current ?? info.head ?? "HEAD", attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         if behind > 0 { t.append(NSAttributedString(string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.textOrange])) }
-        if ahead > 0 { t.append(NSAttributedString(string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.controlAccentColor])) }
+        if ahead > 0 { t.append(NSAttributedString(string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.emphasis])) }
         if dirty { t.append(NSAttributedString(string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor])) }
         let running = syncing, ci = self.ci, atEnd = ci != nil && ciPlace == "end", inPlace = ci != nil && !atEnd && running == nil
         if atEnd {

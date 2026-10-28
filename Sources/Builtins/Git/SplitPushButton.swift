@@ -17,6 +17,10 @@ final class SplitPushButton: NSButton {
         }
     }
     override var isEnabled: Bool { didSet { arrow.isEnabled = isEnabled; tint() } }
+    override static var cellClass: AnyClass? {
+        get { SplitCell.self }
+        set { _ = newValue }
+    }
 
     convenience init(title: String, arrowTip: String) {
         self.init(frame: .zero)
@@ -61,4 +65,18 @@ final class SplitPushButton: NSButton {
         }
     }
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); tint() }
+}
+
+/// The title centred in the part left of the arrow, not across the whole capsule (where it leaned into the arrow), and
+/// the arrow's room counted in the button's width.
+private final class SplitCell: NSButtonCell {
+    static let reserve: CGFloat = 32   // the arrow (26), its gap and the hairline
+    override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in view: NSView) -> NSRect {
+        super.drawTitle(title, withFrame: frame.offsetBy(dx: -Self.reserve / 2, dy: 0), in: view)
+    }
+    override var cellSize: NSSize {
+        var s = super.cellSize
+        s.width += Self.reserve
+        return s
+    }
 }

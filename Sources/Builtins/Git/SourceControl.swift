@@ -267,7 +267,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         guard info.upstream != nil else { return info.remote.isEmpty ? nil : String(localized: "Publish Branch") }
         let ahead = info.ahead ?? 0, behind = info.behind ?? 0
         guard ahead + behind > 0 else { return nil }
-        return String(localized: "Sync Changes") + (behind > 0 ? " \(behind)↓" : "") + (ahead > 0 ? " \(ahead)↑" : "")
+        // The arrow before the count, as the title bar's chip and the header write it: ↓2 ↑56.
+        return String(localized: "Sync Changes") + (behind > 0 ? " ↓\(behind)" : "") + (ahead > 0 ? " ↑\(ahead)" : "")
     }
 
     // MARK: tree

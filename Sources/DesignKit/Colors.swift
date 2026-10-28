@@ -47,6 +47,12 @@ extension NSColor {
         }
     }
 
+    /// The accent where a glyph or a count must read as the one with something to do (↑3 to push): the label's colour
+    /// when the accent is Graphite, whose grey came out lighter than the idle arrows beside it and looked disabled.
+    public static let emphasis = NSColor(name: nil) { _ in
+        (NSColor.controlAccentColor.usingColorSpace(.sRGB)?.saturationComponent ?? 1) < 0.1 ? .labelColor : .controlAccentColor
+    }
+
     /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen. Black in
     /// light appearances, white in dark: `labelColor.withAlphaComponent` is fixed to the appearance it was first read in
     /// (white, on a dark Mac), which left every fill invisible on a light theme.

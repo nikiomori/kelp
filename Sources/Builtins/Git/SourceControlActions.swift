@@ -155,6 +155,7 @@ extension SourceControlController {
         m.add(String(localized: "Pull")) { [weak self] in self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") } }
         m.add(String(localized: "Push")) { [weak self] in self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") } }
         m.add(String(localized: "Fetch")) { [weak self] in self?.run { GitRemoteOp(id: $0, op: "fetch") } }
+        m.add(String(localized: "Refresh")) { [weak self] in self?.reloadAll() }
         m.addItem(.separator())
         m.add(String(localized: "Stash Changes")) { [weak self] in self?.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) } }
         m.add(String(localized: "Pop Stash")) { [weak self] in self?.run { GitStash(id: $0, pop: true) } }
