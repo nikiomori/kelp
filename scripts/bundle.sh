@@ -12,6 +12,8 @@ if [ "$DEV" = dev ]; then
   CONFIG=debug; ARCHS=(); APP=dist/dev/Kelp.app
   # Replacing a running app's files can crash it; its daemon (and agents) may keep running.
   if pgrep -qf "$PWD/$APP/Contents/MacOS/KelpApp"; then echo "Quit Kelp (dev) first: ⌘Q"; exit 1; fi
+# Finder names disks: with another "Kelp" mounted, the DMG's window layout below would go to that one.
+elif [ -d /Volumes/Kelp ]; then echo "Eject the Kelp disk first: hdiutil detach /Volumes/Kelp"; exit 1
 fi
 # The terminal renders with libghostty (universal static lib, built once into Vendor/).
 [ -d Vendor/GhosttyKit.xcframework ] || scripts/build-ghostty.sh
@@ -56,7 +58,45 @@ if [ "$DEV" = dev ]; then
   open "$APP"; echo "built $APP"; exit 0
 fi
 STAGE=$(mktemp -d); cp -Rp "$APP" "$STAGE/"; ln -s /Applications "$STAGE/Applications"
-hdiutil create -quiet -volname Kelp -srcfolder "$STAGE" -ov -format UDZO dist/Kelp.dmg
+# The window the DMG opens in: its background (Resources/DMGBackground.svg: scripts/icon.sh), where the icons stand, the
+# disk's icon. Finder lays it out in a writable copy and keeps it in the disk's .DS_Store.
+mkdir "$STAGE/.background"; cp Resources/DMGBackground.tiff "$STAGE/.background/background.tiff"
+cp Resources/AppIcon.icns "$STAGE/.VolumeIcon.icns"
+hdiutil create -quiet -volname Kelp -srcfolder "$STAGE" -ov -format UDRW "$STAGE.dmg"
+MNT=$(hdiutil attach -readwrite -noverify -noautoopen "$STAGE.dmg" 2>/dev/null | sed -n 's|.*\(/Volumes/.*\)|\1|p')
+SetFile -a C "$MNT"
+osascript - "$MNT" <<'EOF'
+on run {mnt}
+  tell application "Finder"
+    set d to folder (POSIX file mnt as alias)
+    open d
+    set w to container window of d
+    set current view of w to icon view
+    set toolbar visible of w to false
+    set statusbar visible of w to false
+    set pathbar visible of w to false
+    set bounds of w to {200, 120, 860, 548} -- 660 × 400 under the title bar
+    set o to icon view options of w
+    set arrangement of o to not arranged
+    set icon size of o to 128
+    set text size of o to 13
+    set background picture of o to file ".background:background.tiff" of d
+    set position of item "Kelp.app" of d to {165, 170}
+    set position of item "Applications" of d to {495, 170}
+    repeat with f in {".background", ".VolumeIcon.icns", ".fseventsd"} -- out of sight where hidden files show
+      try
+        set position of item f of d to {165, 900}
+      end try
+    end repeat
+    close w
+  end tell
+end run
+EOF
+for _ in {1..50}; do [ -f "$MNT/.DS_Store" ] && break; sleep 0.2; done   # Finder writes it after the window closes
+rm -rf "$MNT/.fseventsd"; sync
+hdiutil detach -quiet "$MNT"
+hdiutil convert -quiet "$STAGE.dmg" -format UDZO -ov -o dist/Kelp.dmg
+rm -rf "$STAGE" "$STAGE.dmg"
 if [ -n "${SIGN_ID:-}" ]; then
   codesign --force --timestamp --sign "$SIGN_ID" dist/Kelp.dmg
   if [ -n "${NOTARY_PROFILE:-}" ]; then
