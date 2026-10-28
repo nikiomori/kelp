@@ -29,6 +29,8 @@ final class AgentSummary: NSView {
         v.layer?.masksToBounds = true
         return v
     }()
+    /// Over the glass, under the words: the grey the pointer brings (a fill behind the glass wouldn't show).
+    private let sheen = NSView()
     private let mark = StatusMark(size: 12)
     private let title = NSTextField(labelWithString: "")
     private var lineHeight: NSLayoutConstraint?
@@ -50,9 +52,16 @@ final class AgentSummary: NSView {
         content.spacing = 6
         content.detachesHiddenViews = true
         addLayoutGuide(line)
-        for v in [glass, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
+        sheen.wantsLayer = true
+        sheen.layer?.cornerRadius = 12
+        sheen.layer?.cornerCurve = .continuous
+        for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
         capsule.translatesAutoresizingMaskIntoConstraints = false; addSubview(capsule)
         capsule.press = { [weak self] in if self?.asking == true { self?.app.workbench.showNextNeedingAttention() } }
+        capsule.look = { [weak self] hovering, pressed in   // only the capsule that goes somewhere answers
+            guard let self else { return }
+            sheen.fadeBackground(to: !asking ? nil : pressed ? .fillSelected : hovering ? .fillHover : nil)
+        }
         capsule.setAccessibilityElement(true)
         let lh = line.heightAnchor.constraint(equalToConstant: 0)
         lineHeight = lh
@@ -64,6 +73,8 @@ final class AgentSummary: NSView {
             capsule.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -16),
             glass.topAnchor.constraint(equalTo: capsule.topAnchor), glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
             glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor), glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
+            sheen.topAnchor.constraint(equalTo: glass.topAnchor), sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+            sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor), sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor), content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
         // Asking, a capsule in the middle; otherwise the grey count where the projects' icons start (8 pt in, as the cards).
@@ -94,6 +105,7 @@ final class AgentSummary: NSView {
         lineHeight?.constant = isHidden ? 0 : TextSize.of(30)
         asking = !shown.isEmpty
         glass.isHidden = !asking
+        capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
         NSLayoutConstraint.deactivate(asking ? leading : centered)
         NSLayoutConstraint.activate(asking ? centered : leading)
         mark.status = asking ? AgentStatus.mostUrgent(shown.map(SidebarCell.shownStatus)) : busy > 0 ? .working : nil
@@ -122,10 +134,12 @@ final class AgentSummary: NSView {
     }
 }
 
-/// A view a click or VoiceOver presses.
+/// The capsule a click or VoiceOver presses: under the pointer its glass greys a step (`look`), held a step more, and a
+/// click springs it (`PointerControl`).
 @MainActor
-private final class Pressable: NSView {
+private final class Pressable: PointerControl {
     var press: () -> Void = {}
-    override func mouseDown(with e: NSEvent) { press() }
-    override func accessibilityPerformPress() -> Bool { press(); return true }
+    var look: (_ hovering: Bool, _ pressed: Bool) -> Void = { _, _ in }
+    override func clicked() { press() }
+    override func showPointer(hovering: Bool, pressed: Bool) { look(hovering, pressed) }
 }

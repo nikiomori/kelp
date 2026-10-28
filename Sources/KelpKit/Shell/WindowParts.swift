@@ -112,11 +112,11 @@ final class Card: NSView {
 }
 
 extension NSButton {
-    /// An icon button for the title bar, outlined on hover like the toolbar buttons it stands in for.
+    /// An icon button for the title bar: 14 pt, greyed in under the pointer like every Kelp control.
     static func titlebar(_ symbol: String, _ label: String, tip: String) -> NSButton {
-        let b = NSButton(image: .symbol(symbol, label), target: nil, action: nil)
-        b.bezelStyle = .recessed
-        b.showsBorderOnlyWhileMouseInside = true
+        let b = PointerButton(frame: .zero)   // greys in under the pointer, springs when clicked, as every Kelp control
+        b.image = .symbol(symbol, label)
+        b.imagePosition = .imageOnly
         b.toolTip = tip
         b.symbolConfiguration = .init(pointSize: 14, weight: Metrics.iconWeight)
         return b

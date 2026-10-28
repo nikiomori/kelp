@@ -35,7 +35,7 @@ final class SidebarCell: NSTableCellView {
     /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Lines not committed and the PR, for rows that stand for a folder (RowBadges); they go first when the row is short of room.
-    private let changes = NSButton(), pr = NSButton()
+    private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero)
 
     init(node: SidebarController.Node, owner: SidebarController) {
         self.node = node
@@ -109,9 +109,9 @@ final class SidebarCell: NSTableCellView {
         for v in [title, count] { v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
         if case .section = node.kind {} else { title.setContentHuggingPriority(.init(2), for: .horizontal) }
-        for b in [changes, pr] {
-            b.isBordered = false
-            b.title = ""
+        for b in [changes, pr] {   // grey in under the pointer and spring when clicked, as chips do
+            b.radius = Metrics.radiusXS
+            b.padding = 3
             b.target = self
         }
         changes.action = #selector(openChanges); pr.action = #selector(openPR)
@@ -133,8 +133,9 @@ final class SidebarCell: NSTableCellView {
 
     /// The chevron that folds a project or a workspace, at the row's end; shown by `showFold`.
     private func makeFold() -> NSButton {
-        let f = ClosureButton(title: "") { [weak owner, node] in owner?.toggle(node) }
-        f.isBordered = false
+        let f = PointerButton(title: "") { [weak owner, node] in owner?.toggle(node) }
+        f.imagePosition = .imageOnly   // its chevron comes in showFold
+        f.radius = Metrics.radiusXS
         f.contentTintColor = .secondaryLabelColor
         f.isHidden = true
         f.symbolConfiguration = .init(pointSize: 9, weight: .semibold)

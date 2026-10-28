@@ -29,9 +29,32 @@ final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`).
     var group: (first: Bool, last: Bool)? { didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
-    /// Under the pointer: the pill's shape in the hover grey, so a row answers before it's clicked.
-    private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    /// Under the pointer: the pill's shape in the hover grey, faded in and out, so a row answers before it's clicked.
+    private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
     private var area: NSTrackingArea?
+    /// The hover pill: over the card the row draws, under the cell (a layer, so it fades rather than switches).
+    private let hoverLayer = CAShapeLayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        hoverLayer.opacity = 0
+        layer?.insertSublayer(hoverLayer, at: 0)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func showHover() {
+        let to: Float = hovering && !isSelected ? 1 : 0
+        let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
+        hoverLayer.opacity = to
+        guard !Motion.reduced, from != to else { return }
+        let a = CABasicAnimation(keyPath: "opacity")
+        a.fromValue = from
+        a.toValue = to
+        a.duration = Motion.fast
+        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        hoverLayer.add(a, forKey: "fade")
+    }
 
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
     static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) { (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0) }
@@ -49,10 +72,13 @@ final class SidebarRowView: NSTableRowView {
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top; pill.size.height -= pad.top + pad.bottom
         let path = NSBezierPath(roundedRect: pill, xRadius: group == nil ? 9 : 5, yRadius: group == nil ? 9 : 5)
-        guard isSelected else {   // the outline draws no selection of its own (selectionHighlightStyle .none)
-            if hovering { NSColor.fillRest.setFill(); path.fill() }
-            return
-        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        hoverLayer.frame = bounds
+        hoverLayer.path = path.cgPath
+        hoverLayer.fillColor = NSColor.fillHover.cgColor   // drawing runs in the row's appearance
+        CATransaction.commit()
+        guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua, key = window?.isKeyWindow ?? true
         NSGraphicsContext.saveGraphicsState()
         if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
@@ -101,6 +127,7 @@ final class SidebarRowView: NSTableRowView {
         didSet {
             guard isSelected != oldValue else { return }
             needsDisplay = true
+            showHover()   // the pill takes over from the hover grey
             for case let c as SidebarCell in subviews { c.selected = isSelected }   // its grey text a step lighter on the pill
         }
     }

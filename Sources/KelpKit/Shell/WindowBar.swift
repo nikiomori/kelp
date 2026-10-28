@@ -96,9 +96,11 @@ final class WindowBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// A capsule that greys in under the pointer and springs when clicked (`PointerButton`), not AppKit's outline.
     private static func chip(_ symbol: String?) -> NSButton {
-        let b = NSButton(title: "", target: nil, action: nil)
-        b.bezelStyle = .recessed; b.showsBorderOnlyWhileMouseInside = true
+        let b = PointerButton(frame: .zero)
+        b.radius = nil
+        b.padding = 6
         b.font = .ui(12)
         b.imagePosition = .imageLeading
         b.imageHugsTitle = true
@@ -222,7 +224,7 @@ extension WindowBar: NSPopoverDelegate {
 
 /// Open Quickly as a place to click: it looks like a search field and opens the ⌘P palette (files, agents, commands).
 @MainActor
-final class SearchPill: NSControl {
+final class SearchPill: PointerControl {
     private let glass = NSImageView(image: .symbol("magnifyingglass", ""))
     private let label = NSTextField(labelWithString: ""), key = NSTextField(labelWithString: "⌘P")
     private let full = String(localized: "Files, agents, commands"), short = String(localized: "Search")
@@ -231,7 +233,7 @@ final class SearchPill: NSControl {
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        wantsLayer = true
+        restFill = .fillRest   // a field's ground; under the pointer a step darker, held darker still
         glass.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight); glass.contentTintColor = .secondaryLabelColor
         label.font = .ui(12)
         label.textColor = .secondaryLabelColor
@@ -248,8 +250,6 @@ final class SearchPill: NSControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func updateLayer() { layer?.backgroundColor = NSColor.fillRest.cgColor }
-    override var wantsUpdateLayer: Bool { true }
     override func layout() {
         super.layout(); layer?.cornerRadius = bounds.height / 2
         // Short of room, "Search" rather than "Files, a…". The room is the pill's, so the choice doesn't feed back on itself.
@@ -259,9 +259,7 @@ final class SearchPill: NSControl {
     }
     /// The whole pill takes the click; in the title bar its label would move the window instead.
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) == nil ? nil : self }
-    override var mouseDownCanMoveWindow: Bool { false }
     /// The palettes grow out of it (QuickOpen.present).
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); if window != nil { app.quickOpen.anchor = self } }
-    override func mouseDown(with e: NSEvent) { app.quickOpen.show(commandsOnly: false) }
-    override func accessibilityPerformPress() -> Bool { app.quickOpen.show(commandsOnly: false); return true }
+    override func clicked() { app.quickOpen.show(commandsOnly: false) }
 }

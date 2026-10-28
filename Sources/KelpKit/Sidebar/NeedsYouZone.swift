@@ -185,12 +185,11 @@ extension Inbox {
     }
 }
 
-/// A view a click or VoiceOver presses.
+/// A view a click or VoiceOver presses; it greys in under the pointer and springs when clicked (`PointerControl`).
 @MainActor
-private class Pressable: NSView {
+private class Pressable: PointerControl {
     var press: () -> Void = {}
-    override func mouseDown(with e: NSEvent) { press() }
-    override func accessibilityPerformPress() -> Bool { press(); return true }
+    override func clicked() { press() }
 }
 
 /// One agent in the zone: its project's icon, its name, when, its mark.
@@ -202,6 +201,7 @@ private final class Row: Pressable {
 
     init() {
         super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusSM   // the row's hover fill, as a list row's
         name.lineBreakMode = .byTruncatingTail
         name.maximumNumberOfLines = 1
         name.usesSingleLineMode = true

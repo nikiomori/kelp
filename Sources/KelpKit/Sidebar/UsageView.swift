@@ -68,6 +68,11 @@ package struct UsageView: View {
                 }
                 .font(.caption)
                 .opacity(r.stale ? 0.45 : 1)
+                // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))
+                .padding(.horizontal, -4).padding(.vertical, -1)
+                .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
                 .contentShape(Rectangle())
                 .onHover { hovered = $0 ? r.id : (hovered == r.id ? nil : hovered) }
                 .onTapGesture { hovered = r.id }   // trackpads, and anyone who'd rather click
