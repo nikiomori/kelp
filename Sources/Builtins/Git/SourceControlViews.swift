@@ -49,8 +49,8 @@ final class SectionCell: NSTableCellView, Hoverable {
         let t = NSTextField(labelWithString: title)
         t.font = .ui(11, weight: .semibold)
         t.textColor = .secondaryLabelColor
-        let c = NSTextField(labelWithString: count.map(String.init) ?? ""); c.font = .uiDigits(11, weight: .medium)
-        c.textColor = .secondaryLabelColor
+        let c = CountCapsule(count.map(String.init) ?? "")
+        c.isHidden = count == nil
         let d = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
         d.isHidden = detail == nil
         pinRow(self, [chevron, t, NSView(), actions, d, c], leading: 10)
@@ -58,6 +58,30 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
     required init?(coder: NSCoder) { fatalError() }
     func setHover(_ on: Bool) { actions.isHidden = !on }
+}
+
+/// A section's file count on a grey capsule, as VS Code's: beside "+6 −2" a bare "3" ran into it.
+private final class CountCapsule: NSView {
+    init(_ text: String) {
+        super.init(frame: .zero)
+        let l = NSTextField(labelWithString: text)
+        l.font = .uiDigits(10, weight: .semibold)
+        l.textColor = .secondaryLabelColor
+        l.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(l)
+        NSLayoutConstraint.activate([
+            l.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5), l.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+            l.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: 16),
+            widthAnchor.constraint(greaterThanOrEqualTo: heightAnchor)
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.fillSelected.cgColor
+        layer?.cornerRadius = bounds.height / 2
+    }
+    override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
 }
 
 /// The Graph pane's header: a click folds the pane, a drag sizes it (VS Code's view header and sash in one).

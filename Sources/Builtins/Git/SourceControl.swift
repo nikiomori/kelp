@@ -32,9 +32,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     let message = CommitTextView()
     private let placeholder = NSTextField(labelWithString: "")
     private var messageHeight: NSLayoutConstraint?
-    private var commitButton: NSButton?
+    private var commitButton: SplitPushButton?
     /// Beside Commit: its other ways (Commit & Push, Amend), or Push / Pull while it offers to sync.
-    private let commitMore = NSButton()
     private let commitMenu = NSMenu(), syncMenu = NSMenu()
     private var moreMenu: NSMenu?
     private var pullItem: NSMenuItem?
@@ -197,17 +196,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") } }
         // The panel's main action: the accent colour while there's something to commit (macOS 26's primary tint).
         // Words alone, as macOS's push buttons: a ✓ or an arrow before them only crowded the title.
-        let cb = NSButton(title: String(localized: "Commit"), target: self, action: #selector(commitPressed))
-        cb.bezelStyle = .push
-        cb.controlSize = .large; cb.toolTip = String(localized: "Commit (⌘↩ in the message)")
-        commitMore.image = .symbol("chevron.down", String(localized: "More Commit Actions")); commitMore.bezelStyle = .push
-        commitMore.controlSize = .large; commitMore.toolTip = String(localized: "Commit & Push, Amend…")
-        commitMore.target = self; commitMore.action = #selector(showCommitMenu)
-        commitMore.setContentHuggingPriority(.required, for: .horizontal)
+        let cb = SplitPushButton(title: String(localized: "Commit"), arrowTip: String(localized: "Commit & Push, Amend…"))
+        cb.target = self; cb.action = #selector(commitPressed)
+        cb.toolTip = String(localized: "Commit (⌘↩ in the message)")
+        cb.arrow.target = self; cb.arrow.action = #selector(showCommitMenu)
         commitButton = cb
-        let buttons = NSStackView(views: [cb, commitMore])
-        buttons.spacing = 6
-        buttons.distribution = .fill
+        let buttons = cb
         cb.setContentHuggingPriority(.defaultLow, for: .horizontal)
         ciRow.onClick = { [weak self] in self?.openCI() }
         let stack = NSStackView(views: [buttons, ciRow])
@@ -257,13 +251,13 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             : String(localized: "Commit all changes on “\(branch)” (⌘↩ in the message)")
         cb.toolTip = next == nil ? what : info?.upstream.map { String(localized: "Pull from and push to \($0)") }
         cb.isEnabled = !busy && (!changes.isEmpty || next != nil)   // with no message, Commit opens a page to write one
-        commitMore.isEnabled = cb.isEnabled
         bar.update(info, changes: changes.count, busy: busy)
-        if #available(macOS 26, *) { cb.tintProminence = idle && !changes.isEmpty ? .primary : .automatic }
+        cb.primary = idle && !changes.isEmpty
     }
 
     @objc private func showCommitMenu() {
-        moreMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: commitMore.bounds.height + 4), in: commitMore)
+        guard let arrow = commitButton?.arrow else { return }
+        moreMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: arrow.bounds.height + 4), in: arrow)
     }
 
     /// With nothing to commit, the button offers what's left, as in VS Code: sync the commits the remote doesn't
