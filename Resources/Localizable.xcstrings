@@ -13153,6 +13153,28 @@
           }
         }
       }
+    },
+    "Show the commands an agent runs": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать команды агента"
+          }
+        }
+      }
+    },
+    "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строка под терминалом Claude Code с командами, которые он запускал; по клику — их список, по команде — что она вывела."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

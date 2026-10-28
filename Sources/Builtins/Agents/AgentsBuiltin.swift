@@ -25,6 +25,8 @@ extension Builtins {
                   "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
                 s("agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
                   "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
+                s("agents.commandsBar", "Show the commands an agent runs", "boolean", false,
+                  "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."),
                 s("sessions.hibernateMinutes", "Pause idle agents", "number", 0, "Paused agents free memory and resume the same conversation.",
                   options: ["0", "15", "30", "60", "240"]),
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),

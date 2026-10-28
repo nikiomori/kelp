@@ -58,12 +58,24 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
         ])
         isHidden = true
         guard watch else { return }
-        watched.key = session
-        track(owner: self) { [app] in app.commands[session] } changed: { [weak self] in self?.show($0 ?? []) }
+        // Off by default (Settings › Agents): off, it neither shows nor watches.
+        let on = { [app] in app.settings.bool("agents.commandsBar") == true }
+        track(owner: self) { on() } changed: { [weak self] in self?.watched.key = $0 ? session : nil }
+        track(owner: self) { [app] in on() ? app.commands[session] ?? [] : nil } changed: { [weak self] in self?.show($0) }
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    private func show(_ list: [AgentCommand]) {
+    /// `nil`: switched off.
+    private func show(_ list: [AgentCommand]?) {
+        guard let list else {
+            commands = []
+            isHidden = true
+            popover.close()
+            table.reloadData()
+            layOut()
+            tick()
+            return
+        }
         guard !list.isEmpty || !commands.isEmpty else { return }   // a new background service starts its list over: the bar stays
         let atEnd = table.rows(in: table.visibleRect).upperBound >= commands.count
         commands = list
