@@ -59,8 +59,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     /// The typed query's matches being scored; the next keystroke cancels it.
     private var scoring: Task<Void, Never>?
     let field = PaletteField()
-    private let table = NSTableView()
-    let keys = NSTextField(labelWithString: "")
+    private let table = PaletteTable()
+    let keys = Keycaps()
     var all: [Item] = []
     var commandsOnly = false
     /// The title bar's Search pill, which the palettes grow out of.
@@ -167,9 +167,22 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         panel.hidesOnDeactivate = true
         panel.delegate = self
         panel.isReleasedWhenClosed = false
-        let effect = NSVisualEffectView()
-        effect.material = .popover
-        effect.state = .active
+        // Spotlight's ground: Liquid Glass on macOS 26, the popover material before. Its views go in `effect`.
+        let effect = NSView()
+        if #available(macOS 26, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = 16
+            glass.contentView = effect
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.contentView = glass
+        } else {
+            let material = NSVisualEffectView()
+            material.material = .popover
+            material.state = .active
+            material.pin(effect)
+            panel.contentView = material
+        }
         field.font = .ui(18)
         field.focusRingType = .none
         field.delegate = self
@@ -187,20 +200,21 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         sv.documentView = table
         sv.hasVerticalScroller = true
         sv.drawsBackground = false
-        keys.font = .ui(11); keys.textColor = .secondaryLabelColor
         let line = NSBox(); line.boxType = .separator
-        for v in [field, sv, line, keys] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; effect.addSubview(v) }
+        let top = NSBox(); top.boxType = .separator   // under the field, which is the panel's top, not a box of its own
+        for v in [field, top, sv, line, keys] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; effect.addSubview(v) }
         NSLayoutConstraint.activate([
-            field.topAnchor.constraint(equalTo: effect.topAnchor, constant: 18), field.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 14),
+            field.topAnchor.constraint(equalTo: effect.topAnchor, constant: 16), field.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 14),
             field.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -14),
-            sv.topAnchor.constraint(equalTo: field.bottomAnchor, constant: 10), sv.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 6),
+            top.topAnchor.constraint(equalTo: field.bottomAnchor, constant: 10),
+            top.leadingAnchor.constraint(equalTo: effect.leadingAnchor), top.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+            sv.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 6), sv.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 6),
             sv.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -6), sv.bottomAnchor.constraint(equalTo: line.topAnchor, constant: -4),
             line.leadingAnchor.constraint(equalTo: effect.leadingAnchor), line.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
             line.bottomAnchor.constraint(equalTo: effect.bottomAnchor, constant: -28),
             keys.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 16),
             keys.centerYAnchor.constraint(equalTo: effect.bottomAnchor, constant: -14)
         ])
-        panel.contentView = effect
     }
 
     private func pickRecent(_ n: Int) -> Bool {
@@ -440,15 +454,20 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t1.setContentHuggingPriority(.required, for: .horizontal)
         t2.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         t2.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
-        let line = NSStackView(views: [lead, t1, t2, key, kind, tick])
-        line.spacing = 10
-        line.distribution = .fill
-        line.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
+        let stack = NSStackView(views: [lead, t1, t2, key, kind, tick])
+        stack.spacing = 10
+        stack.distribution = .fill
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 12)
         lead.widthAnchor.constraint(equalToConstant: 18).isActive = true
         for v in [kind, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
-        return line
+        let cell = PaletteCell()   // its words turn light on the accent
+        cell.pin(stack)
+        return cell
     }
 
+}
+
+extension QuickOpen {
     /// The title with what was typed in bold: each word of the query where it first occurs.
     static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
         let s = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
