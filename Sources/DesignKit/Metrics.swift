@@ -35,8 +35,7 @@ public enum Metrics {
     public static let iconPoint: CGFloat = 13     // its symbol's point size
     public static let iconGap: CGFloat = 2        // between two icon buttons side by side
 
-    // Popovers and sheets
-    public static let popoverWidth: CGFloat = 300
+    // Sheets
     public static let sheetWidth: CGFloat = 480
 }
 

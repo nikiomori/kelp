@@ -62,6 +62,15 @@ feature from reaching into them, and the shell can't name a built-in either: the
 extensions: user extensions live in `~/.kelp/extensions/<id>/` — see [extensions.md](extensions.md) — and can be
 turned off or removed.
 
+What every view is drawn with is DesignKit, a module the shell, EditorKit and the built-ins share (AppKit only, so it
+doesn't count against KelpKit's `package` ceiling): the design system's sizes (`Metrics`, `Motion`: `Motion.duration` is
+0 under Reduce Motion), text that follows Settings › Appearance › Text size (`TextSize`, `NSFont.ui` / `uiDigits` /
+`uiMono`: everything but code), colours (the text shades of the status colours, `gitLetter`, the three grey fills,
+`NSColor(hex:)`) and the parts views are built from — a panel's header or a tab's toolbar (`Bar.panel`, `Bar.content`),
+`IconButton`, the inspector's row (`ListRowView`), `EmptyStateView` (an error is one too), `FloatingCard` for what floats
+over a tab, and the find bar's ↑ ↓ (`NSSegmentedControl.steps`). A panel takes these instead of measuring its own, so
+every panel looks like one; the rules behind them are in the Kelp design system.
+
 ## Source Control
 The Git built-in is a VS Code-style Source Control panel (`Sources/Builtins/Git/SourceControl.swift`): branch menu, commit box
 (Commit / Commit & Push / Amend), Merge / Staged / Changes sections with stage, unstage and discard, and a history graph
