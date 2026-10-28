@@ -74,7 +74,10 @@ final class GroupView: NSView {
     func show(_ v: NSView?) {
         guard v !== shown || v?.superview !== container else { return }
         // Only if it's still here: a tab moved to another group took its view along.
-        if shown?.superview === container { shown?.removeFromSuperview() }
+        if shown?.superview === container {
+            if v != nil { container.crossfade() }   // one tab's content fades into the next
+            shown?.removeFromSuperview()
+        }
         shown = v
         guard let v else { return }
         v.removeFromSuperview()

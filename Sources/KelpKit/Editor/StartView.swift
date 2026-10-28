@@ -228,14 +228,14 @@ private final class StartCard: NSView {
 @MainActor
 private final class StartRow: NSView {
     private let action: () -> Void
-    private var hover = false { didSet { updateLayer() } }
+    private var hover = false
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
         self.action = action
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = Metrics.radiusMD; layer?.cornerCurve = .continuous
-        let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .init(pointSize: 15, weight: .regular)
+        let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .init(pointSize: 15, weight: Metrics.iconWeight)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)
         label.font = .ui(13)
@@ -262,14 +262,12 @@ private final class StartRow: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = hover ? NSColor.fillHover.cgColor : NSColor.clear.cgColor
-        }
+    override func mouseEntered(with e: NSEvent) { hover = true; fadeBackground(to: .fillHover) }
+    override func mouseExited(with e: NSEvent) { hover = false; fadeBackground(to: nil) }
+    override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected) }
+    override func mouseUp(with e: NSEvent) {
+        fadeBackground(to: hover ? .fillHover : nil)
+        if bounds.contains(convert(e.locationInWindow, from: nil)) { pressBounce(); action() }
     }
-    override func mouseEntered(with e: NSEvent) { hover = true }
-    override func mouseExited(with e: NSEvent) { hover = false }
-    override func mouseUp(with e: NSEvent) { if bounds.contains(convert(e.locationInWindow, from: nil)) { action() } }
     override func accessibilityPerformPress() -> Bool { action(); return true }
 }

@@ -1,12 +1,14 @@
 import AppKit
 
-/// A button that is an icon (and maybe a count): a 13 pt symbol in secondary grey on a 22 pt square that greys under the
-/// pointer. The one icon button of the bars: a panel's header, a tab's toolbar, the sidebar's.
+/// A button that is an icon (and maybe a count): a 13 pt medium symbol in secondary grey on a 22 pt square. Under the
+/// pointer the square greys in (it fades), pressed it darkens, and a click dips and springs it back. The one icon
+/// button of the bars: a panel's header, a tab's toolbar, the sidebar's.
 @MainActor
 public final class IconButton: NSButton {
     private var handler: (() -> Void)?
     private var area: NSTrackingArea?
-    private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    private var hovering = false { didSet { if hovering != oldValue { showFill() } } }
+    private var pressed = false { didSet { if pressed != oldValue { showFill() } } }
 
     /// `image` named `tip` (its tooltip), calling `action`.
     public convenience init(_ image: NSImage?, tip: String, action: @escaping () -> Void) {
@@ -25,10 +27,13 @@ public final class IconButton: NSButton {
         toolTip = tip
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
-        symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: .regular)
+        symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
         font = .uiDigits(11, weight: .medium)
         self.target = target
         self.action = action
+        wantsLayer = true
+        layer?.cornerRadius = Metrics.radiusSM
+        layer?.cornerCurve = .continuous
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
     }
@@ -49,13 +54,22 @@ public final class IconButton: NSButton {
     }
     override public func mouseEntered(with event: NSEvent) { hovering = true }
     override public func mouseExited(with event: NSEvent) { hovering = false }
-    override public func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false }
+    override public func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false; pressed = false }
+    override public var isEnabled: Bool { didSet { showFill() } }
 
-    override public func draw(_ dirtyRect: NSRect) {
-        if hovering, isEnabled {
-            NSColor.fillHover.setFill()
-            NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM).fill()
-        }
-        super.draw(dirtyRect)
+    /// AppKit says when the button is held down (and let go, or dragged off).
+    override public func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        pressed = flag
     }
+
+    override public func sendAction(_ action: Selector?, to target: Any?) -> Bool {
+        pressBounce()
+        return super.sendAction(action, to: target)
+    }
+
+    private func showFill() {
+        fadeBackground(to: !isEnabled ? nil : pressed ? .fillSelected : hovering ? .fillHover : nil)
+    }
+    override public func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); showFill() }
 }

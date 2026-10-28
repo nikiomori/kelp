@@ -29,6 +29,9 @@ final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`).
     var group: (first: Bool, last: Bool)? { didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
+    /// Under the pointer: the pill's shape in the hover grey, so a row answers before it's clicked.
+    private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    private var area: NSTrackingArea?
 
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
     static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) { (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0) }
@@ -41,12 +44,15 @@ final class SidebarRowView: NSTableRowView {
         if let group {
             fill(band(6), first: group.first, top: 4, last: group.last, bottom: 4, radius: 9, Self.groupFill)
         }
-        guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
         // In a card the pill is 4 pt inside it, its corners following the card's (9 − 4); a row on its own gets a pill
         // where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top; pill.size.height -= pad.top + pad.bottom
         let path = NSBezierPath(roundedRect: pill, xRadius: group == nil ? 9 : 5, yRadius: group == nil ? 9 : 5)
+        guard isSelected else {   // the outline draws no selection of its own (selectionHighlightStyle .none)
+            if hovering { NSColor.fillRest.setFill(); path.fill() }
+            return
+        }
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua, key = window?.isKeyWindow ?? true
         NSGraphicsContext.saveGraphicsState()
         if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
@@ -98,6 +104,16 @@ final class SidebarRowView: NSTableRowView {
             for case let c as SidebarCell in subviews { c.selected = isSelected }   // its grey text a step lighter on the pill
         }
     }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area { removeTrackingArea(area) }
+        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
+        addTrackingArea(a)
+        area = a
+    }
+    override func mouseEntered(with e: NSEvent) { hovering = true }
+    override func mouseExited(with e: NSEvent) { hovering = false }
+    override func prepareForReuse() { super.prepareForReuse(); hovering = false }
     /// The pill dims while another window is in front.
     override func viewWillMove(toWindow w: NSWindow?) {
         super.viewWillMove(toWindow: w)

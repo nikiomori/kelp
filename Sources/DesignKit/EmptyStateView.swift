@@ -45,8 +45,13 @@ public final class EmptyStateView: NSView {
 
     /// Shows the block; nil `title` hides it. `symbol` is an SF Symbol's name.
     public func show(_ title: String?, symbol: String? = nil, text: String? = nil, fix: String? = nil, buttons: [NSButton] = []) {
+        let appearing = isHidden && title != nil
         isHidden = title == nil
         guard let title else { return }
+        if appearing, !Motion.reduced {   // it fades in rather than flashing up over the list it replaces
+            alphaValue = 0
+            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; animator().alphaValue = 1 }
+        }
         self.title.stringValue = title
         self.text.stringValue = text ?? ""
         self.fix.stringValue = fix ?? ""

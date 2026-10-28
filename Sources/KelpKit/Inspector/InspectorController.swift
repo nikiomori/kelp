@@ -309,6 +309,7 @@ final class InspectorController: NSViewController {
         let vc = made[p.id] ?? p.make()
         if made[p.id] == nil { made[p.id] = vc; addChild(vc) }
         guard vc.view.superview !== host else { return }
+        if !host.subviews.isEmpty { host.crossfade() }   // one panel fades into the next
         host.subviews.forEach { $0.removeFromSuperview() }
         vc.view.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(vc.view)
@@ -372,7 +373,7 @@ final class PanelIcon: NSButton {
         isBordered = false
         setButtonType(.pushOnPushOff)
         wantsLayer = true
-        symbolConfiguration = .init(pointSize: 14, weight: .regular); imageScaling = .scaleProportionallyDown
+        symbolConfiguration = .init(pointSize: 14, weight: Metrics.iconWeight); imageScaling = .scaleProportionallyDown
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
 
@@ -383,12 +384,12 @@ final class PanelIcon: NSButton {
         // In glass the shown icon sits on a raised bubble (white in light, a lighter glass in dark), as a segment does.
         if #available(macOS 26, *), on {
             let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            layer?.backgroundColor = (dark ? NSColor.white.withAlphaComponent(0.16) : NSColor.white).cgColor
+            fadeBackground(to: dark ? NSColor.white.withAlphaComponent(0.16) : .white)
             layer?.shadowOpacity = dark ? 0 : 0.15
             layer?.shadowRadius = 1.5
             layer?.shadowOffset = CGSize(width: 0, height: -0.5)
         } else {
-            layer?.backgroundColor = (on ? NSColor.fillSelected : hover ? .fillHover : .clear).cgColor
+            fadeBackground(to: on ? .fillSelected : hover ? .fillHover : nil)
             layer?.shadowOpacity = 0
         }
         contentTintColor = on ? .labelColor : .secondaryLabelColor
@@ -413,7 +414,7 @@ final class PanelIcon: NSButton {
             dragging = true; isHighlighted = false
             moved?(row.convert(at, from: nil).x)
         }
-        if dragging { dropped?() } else if bounds.contains(convert(at, from: nil)) { sendAction(action, to: target) }
+        if dragging { dropped?() } else if bounds.contains(convert(at, from: nil)) { pressBounce(); sendAction(action, to: target) }
     }
 }
 

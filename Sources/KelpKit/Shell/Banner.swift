@@ -45,17 +45,24 @@ package enum Banner {
         let fx = FloatingCard(row)
         fx.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(fx)
+        let bottom = fx.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: Motion.reduced ? -24 : -14)
         NSLayoutConstraint.activate([
-            fx.centerXAnchor.constraint(equalTo: content.centerXAnchor), fx.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -24),
+            fx.centerXAnchor.constraint(equalTo: content.centerXAnchor), bottom,
             fx.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
         ])
+        content.layoutSubtreeIfNeeded()
         current = fx
         shown += 1
         // VoiceOver says it too: the banner is out of the keyboard's way, so it would go unheard.
         NSAccessibility.post(element: content, notification: .announcementRequested,
                              userInfo: [.announcement: text, .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue])
         fx.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { $0.duration = Motion.duration(Motion.fast); fx.animator().alphaValue = 1 }
+        NSAnimationContext.runAnimationGroup { ctx in   // it rises into place as it fades in
+            ctx.duration = Motion.duration(Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            fx.animator().alphaValue = 1
+            bottom.animator().constant = -24
+        }
         if fix?.blocking == true {   // git can't run at all: stays until it's closed
             row.addArrangedSubview(IconButton(.symbol("xmark"), tip: String(localized: "Close")) { current?.removeFromSuperview() })
             return

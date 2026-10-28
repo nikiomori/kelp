@@ -17,15 +17,11 @@ struct RowAction {
 @MainActor
 private func actionButtons(_ actions: [RowAction]) -> NSStackView {
     let s = NSStackView(views: actions.map { a in
-        let b = ClosureButton(title: "") { a.run() }
-        b.image = .symbol(a.symbol, a.title)
-        b.isBordered = false
-        b.toolTip = a.title
-        b.symbolConfiguration = .init(pointSize: 11, weight: .medium); b.contentTintColor = .secondaryLabelColor
-        b.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        let b = IconButton(.symbol(a.symbol), tip: a.title) { a.run() }   // greys in under the pointer, dips when pressed
+        b.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
         return b
     })
-    s.spacing = 2; s.isHidden = true
+    s.spacing = Metrics.iconGap; s.isHidden = true
     return s
 }
 
