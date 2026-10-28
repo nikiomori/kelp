@@ -119,16 +119,17 @@ final class FileTab: SavableTab {
         editor = e
         lastSaved = text
         known = (f.stamp, text)
+        let bar = EditorStatusBar(url: url, text: text)
+        bar.show(cursor: e.cursor)
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
-            markdown = md; box.pin(md.view)
+            markdown = md; box.pin(stacked(md.view, bar))
         } else {
-            let bar = EditorStatusBar(url: url, text: text)
-            bar.show(cursor: e.cursor)
-            e.onSelection = { [weak bar, weak e] in bar?.show(cursor: e?.cursor) }
             box.pin(stacked(e.view, bar))
         }
+        let before = e.onSelection   // Markdown's selection bar follows the selection too
+        e.onSelection = { [weak bar, weak e] in before?(); bar?.show(cursor: e?.cursor) }
         e.onChange = { [weak self] t in self?.edited(t) }
         e.contextMenu = { [weak self] m in self?.contextMenu(m) }
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in self?.editor?.refreshAppearance() }

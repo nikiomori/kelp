@@ -5,10 +5,9 @@ import KelpKit
 /// The bar over the tree, as every inspector panel has one: the search field, New File, and the rest in ⋯.
 extension FilesPanel {
     func header() -> NSView {
-        search.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let plus = IconButton(.symbol("plus"), tip: String(localized: "New File"), target: self, action: #selector(newFile))
         let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
-        return Bar.panel([search], [plus, more])
+        return Bar.panel([search], [plus, more], stretching: search)
     }
 
     @objc private func showMore(_ sender: NSButton) {

@@ -26,12 +26,12 @@ final class EditorStatusBar: NSView {
         }
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let row = NSStackView(views: [kind, place, NSView(), format]); row.spacing = 16
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
         line.translatesAutoresizingMaskIntoConstraints = false; addSubview(line)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 24),
+            heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.statusBar)),
             line.topAnchor.constraint(equalTo: topAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
             line.trailingAnchor.constraint(equalTo: trailingAnchor)

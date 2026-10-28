@@ -9,24 +9,23 @@ public final class Bar: NSView {
     /// The bar's controls, left to right; a flexible space sits between `leading` and `trailing`.
     public let stack: NSStackView
 
-    public static func panel(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
-        Bar(leading, trailing, height: Metrics.panelHeader, gap: Metrics.gap, insets: (Metrics.inset, Metrics.insetTrailing))
+    public static func panel(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) -> Bar {
+        let b = Bar(height: Metrics.panelHeader, gap: Metrics.gap, insets: (Metrics.inset, Metrics.insetTrailing))
+        b.set(leading, trailing, stretching: stretching)
+        return b
     }
-    public static func content(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
-        Bar(leading, trailing, height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset))
+    public static func content(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) -> Bar {
+        let b = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset))
+        b.set(leading, trailing, stretching: stretching)
+        return b
     }
 
-    private init(_ leading: [NSView], _ trailing: [NSView], height: CGFloat, gap: CGFloat, insets: (CGFloat, CGFloat)) {
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        stack = NSStackView(views: leading + [spacer] + trailing)
+    private init(height: CGFloat, gap: CGFloat, insets: (CGFloat, CGFloat)) {
+        stack = NSStackView()
+        stack.distribution = .fill
         stack.spacing = gap
         stack.alignment = .centerY
         stack.edgeInsets = NSEdgeInsets(top: 0, left: insets.0, bottom: 0, right: insets.1)
-        // Icon buttons side by side: their 22 pt squares already hold them apart.
-        for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst()) where a is IconButton && b is IconButton {
-            stack.setCustomSpacing(Metrics.iconGap, after: a)
-        }
         super.init(frame: .zero)
         let line = NSBox()
         line.boxType = .separator
@@ -38,6 +37,19 @@ public final class Bar: NSView {
             line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor),
             line.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+    }
+
+    /// Puts these controls in the bar instead of the ones it had. The room left over goes to `stretching` (a search field,
+    /// an address), else to a space between `leading` and `trailing`.
+    public func set(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let flex = stretching ?? NSView()
+        flex.setContentHuggingPriority(.init(1), for: .horizontal)
+        for v in (stretching == nil ? leading + [flex] + trailing : leading + trailing) { stack.addArrangedSubview(v) }
+        // Icon buttons side by side: their 22 pt squares already hold them apart.
+        for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst()) where a is IconButton && b is IconButton {
+            stack.setCustomSpacing(Metrics.iconGap, after: a)
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 

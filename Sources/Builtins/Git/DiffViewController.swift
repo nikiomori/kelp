@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 import KelpKit
 
@@ -110,14 +111,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         ts.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
         self.split = split; fileList = fs
-        bar.orientation = .horizontal
-        bar.spacing = 8
-        bar.edgeInsets = NSEdgeInsets(top: 5, left: 10, bottom: 5, right: 10)
         buildBar()
         view = stacked(bar, split)
     }
 
-    private let bar = NSStackView()
+    private let bar = Bar.content([])
     private var split: NSSplitView?
     private var fileList: NSView?
     private var positioned = false
@@ -134,29 +132,23 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     private func buildBar() {
-        bar.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        func icon(_ s: String, _ tip: String, _ a: Selector) -> NSButton {
-            let b = NSButton(image: .symbol(s, tip), target: self, action: a)
-            b.isBordered = false
-            b.toolTip = tip
-            b.contentTintColor = .secondaryLabelColor
-            return b
-        }
         if single != nil {
-            [pathLabel, status, NSView(), icon("chevron.up", String(localized: "Previous Change (⌥↑)"), #selector(prevChange)),
-             icon("chevron.down", String(localized: "Next Change (⌥↓)"), #selector(nextChange)), layoutToggle].forEach { bar.addArrangedSubview($0) }
+            let steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
+                                                 target: self, action: #selector(stepped(_:)))
+            bar.set([pathLabel, status], [steps, layoutToggle])
         } else {
             func btn(_ t: String, _ a: Selector) -> NSButton {
                 let b = NSButton(title: t, target: self, action: a)
-                b.bezelStyle = .rounded
+                b.bezelStyle = .push
                 b.controlSize = .small
                 return b
             }
-            [source, layoutToggle, btn(String(localized: "Comment"), #selector(addComment)),
-             btn(String(localized: "Send to Agent"), #selector(sendComments)), NSView(), status]
-                .forEach { bar.addArrangedSubview($0) }
+            bar.set([source, layoutToggle, btn(String(localized: "Comment"), #selector(addComment)),
+                     btn(String(localized: "Send to Agent"), #selector(sendComments))], [status])
         }
     }
+
+    @objc private func stepped(_ s: NSSegmentedControl) { if s.selectedSegment == 0 { prevChange() } else { nextChange() } }
 
     private func setColumns() {
         table.tableColumns.forEach(table.removeTableColumn)

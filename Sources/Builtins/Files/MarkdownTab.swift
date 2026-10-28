@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import WebKit
 import Markdown
 import EditorKit
@@ -53,17 +54,9 @@ final class MarkdownTab: NSViewController {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// A compact icon button: the strip's and the selection bar's.
+    /// The bar's and the selection bar's icon button.
     static func toolButton(_ sym: String, _ tip: String, _ sel: Selector, target: AnyObject) -> NSButton {
-        let x = NSButton(image: .symbol(sym, tip), target: target, action: sel)
-        x.isBordered = false
-        x.imagePosition = .imageOnly
-        x.symbolConfiguration = .init(pointSize: 12, weight: .medium)
-        x.contentTintColor = .secondaryLabelColor
-        x.toolTip = tip
-        x.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        x.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        return x
+        IconButton(.symbol(sym), tip: tip, target: target, action: sel)
     }
 
     override func loadView() {
@@ -93,9 +86,8 @@ final class MarkdownTab: NSViewController {
                              b("list.number", String(localized: "Numbered list"), #selector(numbered)),
                              b("checklist", String(localized: "Task list"), #selector(tasks)),
                              b("tablecells", String(localized: "Table"), #selector(table))], in: .leading)
-        formatting.spacing = 0
-        let bar = NSStackView(views: [formatting, NSView(), mode])
-        bar.edgeInsets = NSEdgeInsets(top: 3, left: 6, bottom: 3, right: 8)
+        formatting.spacing = Metrics.iconGap
+        let bar = Bar.content([formatting], [mode])
         split.isVertical = true; split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links

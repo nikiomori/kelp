@@ -2,6 +2,7 @@ import AppKit
 import WebKit
 import Markdown
 import Core
+import DesignKit
 import KelpKit
 
 /// A rendered Jupyter notebook. Run All re-executes it in place; Open Kernel starts Jupyter Lab in this worktree
@@ -26,16 +27,17 @@ final class NotebookTab: NSViewController {
 
     override func loadView() {
         func b(_ t: String, _ sym: String, _ sel: Selector) -> NSButton {
-            let x = NSButton(title: t, target: self, action: sel); x.image = NSImage(systemSymbolName: sym, accessibilityDescription: nil)
+            let x = NSButton(title: t, target: self, action: sel)
+            x.image = .symbol(sym)
             x.imagePosition = .imageLeading
-            x.bezelStyle = .texturedRounded
+            x.bezelStyle = .push
+            x.controlSize = .small
             return x
         }
-        status.textColor = .secondaryLabelColor; status.font = .systemFont(ofSize: 11)
-        let bar = NSStackView(views: [b(String(localized: "Run All"), "play.fill", #selector(runAll)),
-                                      b(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
-                                      b(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent)), NSView(), status])
-        bar.spacing = 6; bar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        status.textColor = .secondaryLabelColor; status.font = .ui(11)
+        let bar = Bar.content([b(String(localized: "Run All"), "play.fill", #selector(runAll)),
+                               b(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
+                               b(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))], [status])
         web.navigationDelegate = links
         view = stacked(bar, web)
         reload()

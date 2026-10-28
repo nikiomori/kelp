@@ -23,7 +23,10 @@ final class UntitledTab: SavableTab {
         self.uri = uri; self.app = app
         title = String(localized: "Untitled-\(TabURI.body(uri))")
         editor.view.clipsToBounds = true
-        view.pin(editor.view)
+        let bar = EditorStatusBar(url: URL(fileURLWithPath: "Untitled.txt"), text: "")
+        bar.show(cursor: editor.cursor)
+        view.pin(stacked(editor.view, bar))
+        editor.onSelection = { [weak bar, weak editor] in bar?.show(cursor: editor?.cursor) }
         editor.onChange = { [weak self] text in
             guard let self, !discarded, isEdited == text.isEmpty else { return }
             isEdited = !text.isEmpty

@@ -1,6 +1,7 @@
 import AppKit
 import WebKit
 import Core
+import DesignKit
 import KelpKit
 
 /// One web page as a tab: address bar, back/forward, and Design Mode (click an element → its HTML, computed
@@ -40,13 +41,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
         web = WKWebView(frame: .zero, configuration: cfg)
         web.allowsBackForwardNavigationGestures = true; web.isInspectable = true
-        func b(_ sym: String, _ tip: String) -> NSButton {
-            let x = NSButton(image: .symbol(sym, tip), target: nil, action: nil)
-            x.bezelStyle = .texturedRounded
-            x.isBordered = false
-            x.toolTip = tip
-            return x
-        }
+        func b(_ sym: String, _ tip: String) -> NSButton { IconButton(.symbol(sym), tip: tip, target: nil, action: nil) }
         let back = b("chevron.left", String(localized: "Back")), fwd = b("chevron.right", String(localized: "Forward"))
         let reload = b("arrow.clockwise", String(localized: "Reload (⌘R)")), ext = b("safari", String(localized: "Open in Safari"))
         let more = b("ellipsis.circle", String(localized: "More"))
@@ -54,13 +49,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.lineBreakMode = .byTruncatingTail
         address.bezelStyle = .roundedBezel
         designButton.setButtonType(.pushOnPushOff)
-        designButton.bezelStyle = .texturedRounded
         designButton.isBordered = false
+        designButton.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: .regular)
+        designButton.contentTintColor = .secondaryLabelColor
         designButton.image = .symbol("cursorarrow.rays", String(localized: "Design Mode"))
         designButton.toolTip = String(localized: "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)")
-        let bar = NSStackView(views: [back, fwd, reload, address, designButton, ext, more]); bar.spacing = 6
-        bar.edgeInsets = NSEdgeInsets(top: 5, left: 8, bottom: 5, right: 8)
-        address.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let bar = Bar.content([back, fwd, reload, address], [designButton, ext, more], stretching: address)
         let body = NSView()
         for x in [web, ports] as [NSView] { body.pin(x) }
         view = stacked(bar, body)
@@ -176,7 +170,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
                 return e
             }
         } else if !designOn, let w = clickWatch { NSEvent.removeMonitor(w); clickWatch = nil }
-        designButton.contentTintColor = designOn ? .controlAccentColor : nil
+        designButton.contentTintColor = designOn ? .controlAccentColor : .secondaryLabelColor
         web.evaluateJavaScript(designOn ? Self.designJS : "window.__kelpOff && window.__kelpOff()")
     }
 
