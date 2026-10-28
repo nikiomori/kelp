@@ -611,6 +611,16 @@
         }
       }
     },
+    "All Commands": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все команды"
+          }
+        }
+      }
+    },
     "Already installed": {
       "localizations": {
         "ru": {
@@ -1307,6 +1317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите, чтобы открыть CI Runs"
+          }
+        }
+      }
+    },
+    "Commands: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команд: %lld"
           }
         }
       }

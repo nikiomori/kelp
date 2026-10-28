@@ -144,7 +144,8 @@ enum Runnables {
     static func make(_ f: Found, _ d: String) -> [RunOption] {
         var out: [RunOption] = []
         if let file = ["Makefile", "makefile", "GNUmakefile"].first(where: { f.has(d, $0) }), let text = f.text(d, file) {
-            for (name, about) in matches(makeTarget, text) where !out.contains(where: { $0.name == name }) {
+            // `help` only prints the list this menu already is.
+            for (name, about) in matches(makeTarget, text) where name != "help" && !out.contains(where: { $0.name == name }) {
                 out.append(opt(f, d, file, name, "make \(name)", detail: about, tool: "make"))
             }
         }

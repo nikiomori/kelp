@@ -27,7 +27,13 @@ extension ScriptsMenu {
 
     /// What ran last in the workspace's project (its desks share it).
     func remembered(_ wid: String) -> String? { project(wid).flatMap { app.uiState["run.last.\($0)"]?.string } }
-    func remember(_ choice: String, in wid: String) { project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) } }
+    func remember(_ choice: String, in wid: String) {
+        guard let p = project(wid) else { return }
+        app.uiState["run.last.\(p)"] = .string(choice)
+        app.uiState["run.recent.\(p)"] = .array(([choice] + recent(wid).filter { $0 != choice }).prefix(5).map(JSONValue.string))
+    }
+    /// What ran lately in the project, the last first (five at most): the top of a long Run menu.
+    func recent(_ wid: String) -> [String] { project(wid).map { app.uiState.strings("run.recent.\($0)") } ?? [] }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
 
     /// What the workspace's files offer, read again (on a remote host: one ssh call). Quiet: the list says what it has.
@@ -94,10 +100,26 @@ extension ScriptsMenu {
 
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
-        let sections = sections(wid)
-        for s in sections {
-            m.addItem(.sectionHeader(title: s.title))
-            for r in s.rows { item(r, in: m, wid) }
+        let sections = sections(wid), rows = sections.flatMap(\.rows)
+        if rows.count <= Self.flat {
+            for s in sections {
+                m.addItem(.sectionHeader(title: s.title))
+                for r in s.rows { item(r, in: m, wid) }
+            }
+        } else {
+            // Too many for one screen: the few that matter here, then every file's in a submenu of its own.
+            for r in top(rows, wid) { item(r, in: m, wid) }
+            m.addItem(.separator())
+            m.addItem(.sectionHeader(title: String(localized: "All Commands")))
+            for s in sections {
+                let sub = NSMenu()
+                for r in s.rows { item(r, in: sub, wid) }
+                let i = NSMenuItem(title: s.title, action: nil, keyEquivalent: "")
+                i.image = .symbol("doc.text")
+                m.addItem(i)
+                m.setSubmenu(sub, for: i)
+                if #available(macOS 14.4, *) { i.subtitle = String(localized: "Commands: \(s.rows.count)") }
+            }
         }
         if sections.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
@@ -113,11 +135,31 @@ extension ScriptsMenu {
             Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
         }
         i.state = r.current ? .on : .off
-        i.toolTip = r.command
+        i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let said = r.running ? [String(localized: "Running"), port].compactMap { $0 }.joined(separator: " · ")
-            : r.missing.map { String(localized: "\($0) isn't installed") } ?? r.detail
+            : r.missing.map { String(localized: "\($0) isn't installed") } ?? r.detail.map(Self.oneLine)
         if #available(macOS 14.4, *), let said { i.subtitle = said }
+    }
+
+    /// Up to this many, the menu lists them all by file; more, and it shows `top` and a submenu per file.
+    static let flat = 12
+
+    /// What a long menu starts with: dependencies to install, what runs now, what ⌘R runs, what ran lately, then the
+    /// likeliest server, tests, build and lint the files offer. Eight at most.
+    private func top(_ rows: [Row], _ wid: String) -> [Row] {
+        let byId = Dictionary(rows.map { ($0.id, $0) }) { a, _ in a }
+        let guess = state.found[wid]?.guess
+        var ids = rows.filter { $0.install || $0.running || $0.current }.map(\.id) + recent(wid) + [guess].compactMap { $0 }
+        ids += ["test", "build", "lint"].compactMap { k in rows.first { $0.kind == k && $0.missing == nil }?.id }
+        var seen = Set<String>()
+        return ids.filter { byId[$0] != nil && seen.insert($0).inserted }.prefix(8).compactMap { byId[$0] }
+    }
+
+    /// A description as one short line: its first line, cut at 60 characters (the tip has it whole).
+    static func oneLine(_ s: String) -> String {
+        let first = s.split(whereSeparator: \.isNewline).first.map(String.init) ?? s
+        return first.count > 60 ? first.prefix(59).trimmingCharacters(in: .whitespaces) + "…" : first
     }
 
     /// The page a run serves, beside what you're doing.

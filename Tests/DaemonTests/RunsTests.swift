@@ -14,7 +14,7 @@ private func printed(_ files: [String: String], tools: [String]) -> String {
     let out = "Welcome to the host\n" + printed([
         "package.json": #"{"scripts": {"dev": "vite", "predev": "echo", "test": "vitest", "lint": "eslint ."}}"#,
         "pnpm-lock.yaml": "",
-        "Makefile": "VAR := 1\n.PHONY: up\nup: ## start the db\n\tdocker compose up -d db\nbuild/%.o: x\nseed:\n\tpnpm seed\n",
+        "Makefile": "VAR := 1\n.PHONY: up\nhelp:\n\t@grep '##' Makefile\nup: ## start the db\n\tdocker compose up -d db\nbuild/%.o: x\nseed:\n\tpnpm seed\n",
         "compose.yaml": "services:\n  web:\n    ports:\n      - \"3000:3000\"\n  db:\n    image: postgres\nvolumes:\n  data:\n",
         "backend/pyproject.toml": "[project]\nname = \"api\"\n[project.scripts]\nadmin = \"api.cli:main\"\n[tool.pytest.ini_options]\n",
         "backend/uv.lock": "",
@@ -28,7 +28,7 @@ private func printed(_ files: [String: String], tools: [String]) -> String {
     #expect(by["|package.json|install"]?.kind == "install", "no node_modules: installing is offered apart")
     #expect(by["|package.json|test"]?.kind == "test")
     #expect(by["|Makefile|up"]?.detail == "start the db" && by["|Makefile|seed"]?.command == "make seed")
-    #expect(!options.contains { $0.name == "VAR" || $0.name.contains("%") })
+    #expect(!options.contains { $0.name == "VAR" || $0.name.contains("%") || $0.name == "help" })
     #expect(by["|compose.yaml|up"]?.missing == "docker", "docker isn't on that PATH")
     #expect(by["|compose.yaml|web"]?.detail == ":3000" && by["|compose.yaml|db"] != nil && by["|compose.yaml|data"] == nil)
     #expect(by["backend|app/main.py|uvicorn"]?.command == "uv run uvicorn app.main:api --reload")
