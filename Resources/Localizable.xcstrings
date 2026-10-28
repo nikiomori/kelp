@@ -458,6 +458,16 @@
         }
       }
     },
+    ": the limit has reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ": лимит сброшен"
+          }
+        }
+      }
+    },
     "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder": {
       "localizations": {
         "ru": {
@@ -1144,6 +1154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать…"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
           }
         }
       }
@@ -7156,6 +7176,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Остановить «%@»?"
+          }
+        }
+      }
+    },
+    "Stopped at it: ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановились на нём: "
           }
         }
       }

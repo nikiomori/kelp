@@ -20,6 +20,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         ], intentIdentifiers: []), UNNotificationCategory(identifier: "reply", actions: [
             UNTextInputNotificationAction(identifier: "reply", title: String(localized: "Reply"), textInputButtonTitle: String(localized: "Send"),
                                           textInputPlaceholder: String(localized: "Message to the agent"))
+        ], intentIdentifiers: []), UNNotificationCategory(identifier: "limitReset", actions: [
+            UNNotificationAction(identifier: "continue", title: String(localized: "Continue"))
         ], intentIdentifiers: [])])
         center?.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in Task { @MainActor in self.checkAllowed() } }
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.updateBadge() }
@@ -40,6 +42,43 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)") }
         }
         forecastChanged(u)
+        resetsChanged(u)
+    }
+
+    private var resets = LimitResets()
+    private var resetWaits: [String: Task<Void, Never>] = [:]
+    private func resetsChanged(_ u: UsageGet.Result) {
+        for agent in resets.update(LimitAlerts.readings(u)) {
+            guard let until = resets.full[agent]?.until else { continue }
+            resetWaits[agent]?.cancel()
+            resetWaits[agent] = Task { [weak self] in
+                // A minute past it: a turn that goes on by itself at the reset has started by then. The clock counts sleep.
+                do { try await Task.sleep(until: .now + .seconds(until.timeIntervalSinceNow + 60), clock: .continuous) } catch { return }
+                self?.limitReset(agent)
+            }
+        }
+    }
+
+    /// A limit that stopped sessions reset: a banner whose Continue tells them to go on.
+    private func limitReset(_ agent: String) {
+        resetWaits[agent] = nil
+        guard let f = resets.end(agent) else { return }
+        let stopped = LimitResets.stopped(app.sessions, agent: agent, f)
+        guard let first = stopped.first else { return }
+        let app = self.app, ids = stopped.map(\.id)
+        let c = UNMutableNotificationContent()
+        c.title = (app.catalog.all.first { $0.id == agent }?.name ?? agent) + String(localized: ": the limit has reset")
+        c.body = String(localized: "Stopped at it: ") + stopped.map(app.catalog.displayName).joined(separator: ", ")
+        c.sound = .default; c.categoryIdentifier = "limitReset"
+        c.userInfo = ["session": first.id, "sessions": ids]
+        center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
+        if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)", action: (String(localized: "Continue"), { Self.goOn(app, ids) })) }
+    }
+
+    /// "continue" to each that still stands where the limit left it (one the user went on with meanwhile isn't told twice).
+    private static func goOn(_ app: AppModel, _ ids: [String]) {
+        let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
+        Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
     }
 
     private func forecastChanged(_ u: UsageGet.Result) {
@@ -194,7 +233,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
         guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
         let action = r.actionIdentifier, reply = (r as? UNTextInputNotificationResponse)?.userText
+        let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
         await MainActor.run {
+            if action == "continue" { Self.goOn(app, all); return }
             if action == "reply", let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 // Sent without Kelp coming forward; refused (a half-typed line in its prompt), the agent is shown with the banner.
                 Task { if await app.call(SessionSend(id: id, text: reply, enter: true)) == nil { NSApp.activate(); app.workbench.focus(session: id) } }

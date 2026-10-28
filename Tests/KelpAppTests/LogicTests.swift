@@ -113,6 +113,24 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!Notifier.asksPermission(session(.waiting, summary: "Which file should I edit?")))
 }
 
+/// A limit that ran out: when it resets, the sessions that stopped at it, not one that went on by itself or ended before.
+@Test func aLimitResetFindsTheSessionsItStopped() throws {
+    let now = Date(), until = now.addingTimeInterval(3600)
+    func reading(_ p: Double, _ at: Date?) -> (agent: String, limit: UsageGet.Limit, resetAt: Date?) { ("codex", .init(kind: "session", percent: p, resets: nil), at) }
+    var r = LimitResets()
+    #expect(r.update([reading(80, until)], now: now).isEmpty)
+    #expect(r.update([reading(100, until)], now: now) == ["codex"])
+    #expect(r.update([reading(100, until)], now: now).isEmpty)   // told once
+    #expect(r.update([reading(100, until.addingTimeInterval(60))], now: now) == ["codex"])   // a later reset
+    let f = try #require(r.full["codex"])
+    func s(_ status: AgentStatus, _ at: TimeInterval, agent: String = "codex") -> Session {
+        var x = session(status, agent: agent); x.statusAt = now.addingTimeInterval(at); return x
+    }
+    let stoppedAtIt = s(.done, 5), wentOn = s(.working, 3700), before = s(.done, -600), other = s(.done, 5, agent: "claude")
+    #expect(LimitResets.stopped([stoppedAtIt, wentOn, before, other], agent: "codex", f).map(\.id) == [stoppedAtIt.id])
+    #expect(r.end("codex") != nil && r.full.isEmpty)
+}
+
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
     #expect(Notifier.category(session(.waiting, summary: "Allow npm test?")) == "permission")
     #expect(Notifier.category(session(.done, summary: "Added the login form")) == "reply")
