@@ -83,7 +83,9 @@ open class PointerButton: NSButton {
             attributedTitle = words
             return
         }
-        fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? .fillHover : restFill)
+        // A step past what it rests on: a pill on the hover grey darkens under the pointer instead of staying as it was.
+        let hover: NSColor = restFill == nil || restFill === NSColor.fillRest ? .fillHover : .fillSelected
+        fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? hover : restFill)
     }
     override open func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); showFill() }
 }

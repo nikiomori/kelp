@@ -57,6 +57,9 @@ final class SidebarCell: NSTableCellView {
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
             let b = IconButton(.symbol("plus"), tip: String(localized: "New workspace (⌘N)")) { [weak owner] in owner?.newWorkspace(id) }
             b.isHidden = true
+            // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
+            NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+                                         b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
             add = b   // on hover, like Finder's sidebar
             let f = makeFold()
             icon.imageScaling = .scaleProportionallyUpOrDown
@@ -113,9 +116,12 @@ final class SidebarCell: NSTableCellView {
         for v in [title, count] { v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
         if case .section = node.kind {} else { title.setContentHuggingPriority(.init(2), for: .horizontal) }
-        for b in [changes, pr, ci] {   // grey in under the pointer and spring when clicked, as chips do
-            b.radius = Metrics.radiusXS
-            b.padding = 3
+        // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
+        // (Source Control's sections): bare, they read as part of the name.
+        for b in [changes, pr, ci] {
+            b.radius = b === ci ? Metrics.radiusXS : nil
+            b.padding = b === ci ? 3 : Metrics.gap
+            b.restFill = b === ci ? nil : .fillRest
             b.target = self
         }
         changes.action = #selector(openChanges); pr.action = #selector(openPR)
