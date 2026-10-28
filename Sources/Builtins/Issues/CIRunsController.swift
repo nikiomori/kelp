@@ -28,8 +28,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let branch = NSTextField(labelWithString: "")
     private let empty = EmptyStateView()
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
-        let b = textButton(String(localized: "Check Again")) { [weak self] in self?.reload() }
-        b.controlSize = .regular
+        let b = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
+        b.bezelStyle = .push
         return b
     }()
     private let setupButton = NSButton()
@@ -38,7 +38,17 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var moreButton: NSButton?
     private var pages: GitWebPages.Pages?
     private let log = NSTextView()
-    private let logBar = NSStackView()
+    /// Over the log, as every tab's tools (DS content bar): the job's name, then its actions as icons with their names in
+    /// tooltips. Four push buttons in a row ran past a narrow inspector, "Ask Agent to Fix" cut off and two not seen.
+    private lazy var logBar = Bar.content([logTitle], [
+        IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy Log")) { [weak self] in self?.copyLog() },
+        IconButton(.symbol("sparkles"), tip: String(localized: "Ask Agent to Fix")) { [weak self] in self?.askAgent() },
+        IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Re-run Failed")) { [weak self] in self?.rerun() },
+        IconButton(.symbol("globe"), tip: String(localized: "Open in Browser")) { [weak self] in if let u = self?.shownJob?.job.url { Forge.open(u) } }
+    ])
+    private let logTitle = NSTextField(labelWithString: "")
+    /// The log's half of the split, shown once a job is picked: empty, it took most of the height and left the runs a strip.
+    private var logPane: (view: NSView, room: NSLayoutConstraint, split: NSSplitView)?
     private let workflowsButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var runs: [Item] = []
     private var workflows: [CIRuns.Workflow] = []
@@ -86,7 +96,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         setupButton.action = #selector(runSetup)
         if #available(macOS 26, *) { setupButton.tintProminence = .primary }
 
-        let bottom = logPane()
+        let bottom = makeLogPane()
 
         let split = NSSplitView()
         split.isVertical = false
@@ -95,9 +105,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
         let v = stacked(header, split)
         empty.place(in: v, under: header)
-        NSLayoutConstraint.activate([
-            bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200)
-        ])
+        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
+        bottom.isHidden = true
+        logPane = (bottom, bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), split)
         view = v
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self, app] in
             self?.worktree = $0
@@ -109,32 +119,27 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     /// The selected job's log under the runs, with what can be done with it above it (hidden until a job is picked).
-    private func logPane() -> NSStackView {
+    private func makeLogPane() -> NSStackView {
         log.isEditable = false
         log.font = .uiMono(11)
         log.textContainerInset = NSSize(width: 6, height: 6)
-        log.isVerticallyResizable = true
-        log.autoresizingMask = .width
         log.drawsBackground = false
+        // Lines wrap at the pane's width: a long one (a URL, a command) was cut off at the edge.
+        log.isVerticallyResizable = true
+        log.isHorizontallyResizable = false
+        log.autoresizingMask = .width
+        log.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        log.textContainer?.widthTracksTextView = true
         let logScroll = NSScrollView()
         logScroll.documentView = log
         logScroll.hasVerticalScroller = true
         logScroll.drawsBackground = false
-        let copy = textButton(String(localized: "Copy Log")) { [weak self] in
-            guard let self else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(shownLog, forType: .string)
-            Banner.show(String(localized: "Log copied"))
-        }
-        let fix = textButton(String(localized: "Ask Agent to Fix")) { [weak self] in self?.askAgent() }
-        let rerun = textButton(String(localized: "Re-run Failed")) { [weak self] in self?.rerun() }
-        let web = textButton(String(localized: "Open in Browser")) { [weak self] in if let u = self?.shownJob?.job.url { Forge.open(u) } }
-        [copy, fix, rerun, web].forEach { logBar.addArrangedSubview($0) }
-        logBar.spacing = 6; logBar.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        logTitle.font = .ui(12, weight: .semibold)
+        logTitle.lineBreakMode = .byTruncatingTail
+        logTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let bottom = NSStackView(views: [logBar, logScroll])
         bottom.orientation = .vertical
         bottom.spacing = 0
-        logBar.isHidden = true
         return bottom
     }
 
@@ -165,11 +170,18 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     @objc private func runSetup() { if let setup { Forge.run(setup, in: app) } }
 
-    private func textButton(_ title: String, _ action: @escaping () -> Void) -> NSButton {
-        let b = ClosureButton(title: title, action: action)
-        b.bezelStyle = .push
-        b.controlSize = .small
-        return b
+    /// Shown, the log takes about half the height (the runs keep the rest); hidden, the runs have it all.
+    private func showLogPane(_ on: Bool) {
+        guard let p = logPane, p.view.isHidden == on else { return }
+        p.view.isHidden = !on
+        p.room.isActive = on
+        if on { p.split.setPosition(p.split.bounds.height * 0.45, ofDividerAt: 0) }
+    }
+
+    private func copyLog() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(shownLog, forType: .string)
+        Banner.show(String(localized: "Log copied"))
     }
 
     // MARK: loading
@@ -233,7 +245,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
         // The runs and the log go together: the log's divider alone under the header drew a second line there.
         outline.enclosingScrollView?.superview?.isHidden = text != nil
-        if text != nil { logBar.isHidden = true; log.string = "" }
+        if text != nil {
+            showLogPane(false)
+            log.string = ""
+        }
     }
 
     private func expand(_ item: Item, openFailed: Bool) async {
@@ -258,7 +273,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func showLog(_ job: CIRuns.Job, run: Int) {
         guard let w = worktree else { return }
         shownJob = (job, run)
-        logBar.isHidden = false
+        logTitle.stringValue = job.name
+        showLogPane(true)
         log.string = ""
         // gh hands out a job's log only once it's over; the next refresh after that brings it.
         guard job.status == "completed" else {

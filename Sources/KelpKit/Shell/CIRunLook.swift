@@ -55,7 +55,7 @@ package enum CIRunLook {
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
         guard let d else { return "" }
-        return Date().timeIntervalSince(d) < 60 ? shortAgo(d) : String(localized: "\(shortAgo(d)) ago")   // "now", not "now ago"
+        return shortAgo(d)   // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)
     }
 }
 
