@@ -41,6 +41,10 @@ open class PointerButton: NSButton {
 
     @objc private func runClick() { onClick?() }
 
+    /// The frame is the button: AppKit's alignment insets made it taller than its constraints (a 22 pt square drew its
+    /// hover fill 22 × 26, the "+" of a sidebar row standing taller than the row's other marks).
+    override open var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
+
     override open var intrinsicContentSize: NSSize {
         let s = super.intrinsicContentSize
         return NSSize(width: s.width + 2 * padding, height: s.height)
