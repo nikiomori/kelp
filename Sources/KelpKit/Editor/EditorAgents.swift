@@ -70,7 +70,7 @@ extension EditorArea {
         }
         let shown = Set(layout.allTabs.filter { TabURI.scheme($0.uri) == "session" }.map { TabURI.body($0.uri) })
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
-        for s in mine where s.status != .exited && !shown.contains(s.id) && !closed.contains(s.id) {
+        for s in mine where s.status != .exited && !shown.contains(s.id) && !closed.contains(s.id) && !app.scripts.isHidden(s.id) {
             layout.add(TabURI.session(s.id)); changed = true
         }
         reconciledOnce = true

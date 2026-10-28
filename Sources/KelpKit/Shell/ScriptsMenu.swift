@@ -110,7 +110,9 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     /// Again: start over, like Xcode's Run (the last run's tab gives way to the new one). False when it didn't start.
     @discardableResult func start<M: RPCMethod>(_ wid: String, _ choice: String, _ method: M) async -> Bool where M.Result == Session {
         watch()
-        for sid in running(in: wid) where app.session(sid).flatMap(self.choice(of:)) == choice {
+        let same = running(in: wid).filter { app.session($0).flatMap(self.choice(of:)) == choice }
+        let hidden = same.contains(where: isHidden)   // put away in the Run menu: started over, it stays there
+        for sid in same {
             state.active[sid] = nil
             await app.call(SessionKill(id: sid))
             app.workbench.closeTab(uri: TabURI.session(sid))
@@ -121,6 +123,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         guard let sid = s?.id else { return false }
         state.active[sid] = RunState.Run(workspace: wid, choice: choice, url: state.early.removeValue(forKey: sid))
         await app.refresh()
+        if hidden { hide(sid); return true }
         // Below what you're doing, like a console; the keys stay where they were.
         if wid == app.workbench.workspaceId { app.workbench.open(TabURI.session(sid), split: .down, workspace: wid, focus: false) }
         else { app.workbench.window?.editors.openInBackground(TabURI.session(sid), workspace: wid) }

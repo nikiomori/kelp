@@ -14,7 +14,7 @@ final class TabStrip: NSView {
     struct Item {
         let id: String
         var title: String
-        let icon: NSImage?
+        var icon: NSImage?
         let status: AgentStatus?
         var unread = false
         let toolTip: String?
@@ -22,6 +22,8 @@ final class TabStrip: NSView {
         var meter: SessionContextWindow.Usage?
         var progress: Double?
         var waitsFor: String?
+        /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
+        var run: NSColor?
     }
 
     var onSelect: ((String) -> Void)?
@@ -367,7 +369,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         switch item?.status {
         case .waiting?: .systemOrange
         case .error? where item?.unread == true: .systemRed
-        default: item?.waitsFor != nil ? .systemCyan : nil
+        default: item?.waitsFor != nil ? .systemCyan : item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the

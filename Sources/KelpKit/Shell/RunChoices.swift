@@ -20,6 +20,9 @@ final class RunState {
     var active: [String: Run] = [:]
     /// Pages printed before run.start answered with their session.
     @ObservationIgnored var early: [String: String] = [:]
+    /// Runs put away in the Run menu this run of Kelp (`ScriptsMenu.isHidden` reads the kept list too): the sidebar and
+    /// the tabs follow it.
+    var hidden: Set<String> = []
     /// Workspace → the ports its sessions listen on, as last read for the Run menu.
     @ObservationIgnored var ports: [String: [PortsList.Port]] = [:]
 }
@@ -30,6 +33,36 @@ extension ScriptsMenu {
     /// What ran last in the workspace's project (its desks share it).
     func remembered(_ wid: String) -> String? { project(wid).flatMap { app.uiState["run.last.\($0)"]?.string } }
     func remember(_ choice: String, in wid: String) { project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) } }
+
+    // MARK: hidden runs
+
+    /// Runs whose tab was put away in the Run menu: they keep running, the menu shows them (`run.hidden` in UIState, so a
+    /// restarted Kelp doesn't bring their tabs back).
+    /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
+    var shown: [Session] { app.sessions.filter { !isHidden($0.id) } }
+    func isHidden(_ sid: String) -> Bool { state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) }
+    func hide(_ sid: String) {
+        state.hidden.insert(sid)
+        let live = app.uiState.strings("run.hidden").filter { app.session($0).map { $0.status != .exited } ?? false }
+        app.uiState["run.hidden"] = .array((live.filter { $0 != sid } + [sid]).map(JSONValue.string))
+        app.workbench.hideTab(uri: TabURI.session(sid))
+    }
+    /// Its tab again, below what you're doing, and the keys in it.
+    func show(_ sid: String) {
+        state.hidden.remove(sid)
+        app.uiState["run.hidden"] = .array(app.uiState.strings("run.hidden").filter { $0 != sid }.map(JSONValue.string))
+        app.workbench.open(TabURI.session(sid), split: .down, workspace: app.session(sid)?.worktreeId, focus: true)
+    }
+
+    /// How a run's tab stands out among terminals: its purpose's symbol in colour (green ▶ for a server) and a glow of
+    /// that colour, the port it serves after its name. nil for any other session.
+    func look(_ s: Session) -> (icon: NSImage?, glow: NSColor?, port: String?)? {
+        guard let wid = s.worktreeId, let c = choice(of: s), var r = rows(wid).first(where: { $0.id == c }) else { return nil }
+        r.running = false   // its purpose's mark, not the menu's "running" circle
+        let (symbol, color) = Self.glyph(r)
+        let port = state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
+        return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color, port)
+    }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
 
     /// What the workspace's files offer, read again (on a remote host: one ssh call). Quiet: the list says what it has.
@@ -157,16 +190,28 @@ extension ScriptsMenu {
     /// One command on one line: its purpose's symbol, its name, where it comes from ("make", "npm · web") — or its port
     /// while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
     private func item(_ r: Row, in m: NSMenu, _ wid: String) {
+        // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
+            if let sid = r.session { show(sid); return }
             Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
+        }
+        defer {
+            if let sid = r.session {
+                let stop = m.add(String(localized: "Stop \(r.name)")) { [weak self] in Task { await self?.app.call(SessionKill(id: sid)) } }
+                image(stop, Self.tinted("stop.circle.fill", .systemRed))
+                stop.keyEquivalent = i.keyEquivalent   // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
+                stop.keyEquivalentModifierMask = i.keyEquivalent.isEmpty ? .option : [.command, .option]
+                stop.isAlternate = true
+            }
         }
         let (symbol, color) = Self.glyph(r)
         image(i, Self.tinted(symbol, color))
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
-        let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : [])
+        let hidden = r.session.map(isHidden) == true ? [String(localized: "hidden")] : []
+        let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : []) + hidden
         let note = r.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
         i.attributedTitle = Self.title(r.name, note: note, dim: r.missing != nil)
     }
@@ -282,6 +327,8 @@ extension ScriptsMenu {
         var id, name, command: String
         var detail: String?, missing: String?, url: String?
         var running = false, current = false, install = false
+        /// Running: its session.
+        var session: String?
         /// run.detect's kind (run, test, build, lint, other), the file it comes from, and where it runs ("" the workspace's folder).
         var kind = "other", file = "", folder = ""
     }
@@ -302,6 +349,7 @@ extension ScriptsMenu {
             var r = r
             r.url = live[r.id].flatMap { state.active[$0]?.url }
             r.running = live[r.id] != nil
+            r.session = live[r.id]
             r.current = r.id == mark
             r.install = r.kind == "install"
             return r

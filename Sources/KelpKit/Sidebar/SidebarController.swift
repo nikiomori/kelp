@@ -131,7 +131,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in self?.refresh() }
-        track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.scripts.shown } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.order } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
@@ -217,7 +217,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     private func build() -> [Node] {
         let m = app
-        var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.sessions)
+        var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
         tree.pinned = pinned
         tree.query = query
         tree.filter = filter

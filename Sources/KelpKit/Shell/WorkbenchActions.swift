@@ -92,6 +92,13 @@ extension Workbench {
         e.closeTab(t.id)
     }
 
+    /// Takes a tab off the screen without closing what it shows: a run hidden in the Run menu keeps running.
+    func hideTab(uri: String) {
+        guard let e = [keyArea, window?.editors.current].compactMap({ $0 }).first(where: { $0.layout.tab(uri: uri) != nil }),
+              let t = e.layout.tab(uri: uri) else { return }
+        e.drop(t.id)
+    }
+
     func addProject() {
         // A new folder made here is a new project (asked whether to `git init` it). Clone and SSH are their own commands.
         let p = NSOpenPanel()

@@ -3439,12 +3439,32 @@
         }
       }
     },
+    "hidden": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "скрыто"
+          }
+        }
+      }
+    },
     "Hide Button": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Скрыть кнопку"
+          }
+        }
+      }
+    },
+    "Hide in Run Menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть в меню запуска"
           }
         }
       }

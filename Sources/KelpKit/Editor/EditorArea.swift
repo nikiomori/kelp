@@ -39,6 +39,9 @@ package final class EditorArea: NSViewController {
         view = NSView()
         track(owner: self) { [app] in app.extensions.revision } changed: { [weak self] _ in self?.extensionsChanged() }
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
+        // A run's tab follows the Run menu: its port once it prints one, its look once its files are read.
+        track(owner: self) { [app] in [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url)
+            + app.scripts.state.found.keys.sorted() } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
         track(owner: self) { app.settings.string("workbench.textSize") } changed: { [weak self] _ in   // the tabs' titles take the new size
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
@@ -206,12 +209,13 @@ package final class EditorArea: NSViewController {
         // Only the visible tab is built: a background agent tab must not wake a paused agent.
         let visible = model.selectedTab.flatMap { content($0) }
         g.strip.set(Self.disambiguated(model.tabs.map { t in
+            var item = placeholder(t)
             if let c = contents[t.id] {
                 let b = c.badge
-                return TabStrip.Item(id: t.id, title: c.title, icon: c.icon, status: b?.status, unread: b?.unread ?? false, toolTip: c.toolTip,
+                item = TabStrip.Item(id: t.id, title: c.title, icon: c.icon, status: b?.status, unread: b?.unread ?? false, toolTip: c.toolTip,
                     edited: c.isEdited, meter: b?.meter, progress: b?.progress, waitsFor: b?.waitsFor)
             }
-            return placeholder(t)
+            return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)
         g.show(visible?.view)
         // Like Ghostty's unfocused splits: with panes side by side, a terminal without focus fades a little. Never the one
@@ -231,6 +235,17 @@ package final class EditorArea: NSViewController {
 
     /// Files with unsaved changes in this workspace (asked about on quit; the workspace isn't dropped from memory).
     var editedFiles: [SavableTab] { contents.values.compactMap { $0 as? SavableTab }.filter(\.isEdited) }
+
+    /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour, a glow of that colour, its port.
+    private func runLook(_ item: TabStrip.Item, _ t: TabRef) -> TabStrip.Item {
+        guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)), s.status != .exited,
+              let look = app.scripts.look(s) else { return item }
+        var item = item
+        item.icon = look.icon
+        item.run = look.glow
+        if let port = look.port { item.title += " · " + port }
+        return item
+    }
 
     /// Strip entry for a tab not built yet, from its URI alone.
     /// Two files with one name (README.md twice): each tab adds its folder, "README.md — docs", as Xcode does.

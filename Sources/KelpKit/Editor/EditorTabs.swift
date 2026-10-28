@@ -66,6 +66,14 @@ extension EditorArea {
             guard await c.close() else { return false }
         } else if let close = app.extensions.tabProvider(for: uri)?.closeUnbuilt, await !close(uri) { return false }
         guard layout.allTabs.contains(where: { $0.id == id }) else { return true }   // gone while it asked (its workspace closed)
+        drop(id, session: sid)
+        return true
+    }
+
+    /// The tab leaves the layout; what it showed isn't asked (closing asked already, hiding keeps it running). A session's
+    /// tab doesn't come back with the daemon's next update.
+    func drop(_ id: String, session sid: String? = nil) {
+        let sid = sid ?? layout.allTabs.first { $0.id == id }.flatMap { TabURI.scheme($0.uri) == "session" ? TabURI.body($0.uri) : nil }
         if let sid { closed.insert(sid) }
         contents[id] = nil
         layout.remove(id)
@@ -77,7 +85,6 @@ extension EditorArea {
         arrange()
         render()
         focusSelected()
-        return true
     }
 
     /// Sessions whose tab is on screen right now (the selected tab of each pane shown).
@@ -165,6 +172,11 @@ extension EditorArea {
             let before = m.items.count
             items(m, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
             if m.items.count > before { m.addItem(.separator()) }
+        }
+        // A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
+        if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
+           let s = app.session(TabURI.body(uri)), s.status != .exited, app.scripts.choice(of: s) != nil {
+            m.add(String(localized: "Hide in Run Menu")) { [app] in app.scripts.hide(s.id) }
         }
         m.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
         m.add(String(localized: "Close Other Tabs")) { [weak self] in
