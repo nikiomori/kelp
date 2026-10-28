@@ -17,8 +17,13 @@ struct IntegrationsSettings: View {
     @State private var bbStatus = ""
     @State private var bbUser = ""
     @State private var bbToken = ""
+    /// Connected: the status and Disconnect; not: the fields and Connect. One button, the one that does something now.
+    @State private var linearOn = false
+    @State private var jiraOn = false
+    @State private var bbOn = false
+    // Sections of the settings page's own form: a form of its own here drew a card inside its card.
     var body: some View {
-        Form {
+        Group {
             Section("GitHub") {
                 cliRow(gh)
                 Text("Kelp uses the GitHub CLI and its login. Project boards need `gh auth refresh -s read:project`.")
@@ -30,55 +35,83 @@ struct IntegrationsSettings: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Jira") {
-                Text(jiraStatus).foregroundStyle(.secondary)
-                TextField("Site", text: $jiraSite, prompt: Text("acme.atlassian.net"))
-                TextField("Email", text: $jiraEmail)
-                SecureField("API token", text: $jiraToken)
-                HStack {
-                    Button("Connect") { Task {
+                if jiraOn {
+                    connected(jiraStatus) { Task {
+                        if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil { jiraStatus = off; jiraOn = false }
+                    } }
+                } else {
+                    TextField("Site", text: $jiraSite, prompt: Text("acme.atlassian.net")).textFieldStyle(.roundedBorder)
+                    TextField("Email", text: $jiraEmail, prompt: Text("you@acme.com")).textFieldStyle(.roundedBorder)
+                    SecureField("API token", text: $jiraToken).textFieldStyle(.roundedBorder)
+                    connect(disabled: jiraSite.isEmpty || jiraEmail.isEmpty || jiraToken.isEmpty) { Task {
                         if let r = await app.call(JiraSetCredentials(site: jiraSite, email: jiraEmail, token: jiraToken)) {
-                            jiraStatus = String(localized: "Connected as \(r?.name ?? "")"); jiraToken = ""
-                        }
-                    } }.disabled(jiraSite.isEmpty || jiraEmail.isEmpty || jiraToken.isEmpty)
-                    Button("Disconnect") { Task {
-                        if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil {
-                            jiraStatus = String(localized: "Not connected")
+                            jiraStatus = String(localized: "Connected as \(r?.name ?? "")")
+                            jiraToken = ""
+                            jiraOn = true
                         }
                     } }
                 }
                 Text("API token from id.atlassian.com › Security. Stored in your login keychain.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Bitbucket") {
-                Text(bbStatus).foregroundStyle(.secondary)
-                TextField("Username or email", text: $bbUser)
-                SecureField("API token / app password", text: $bbToken)
-                Button("Save") { Task {
-                    if await app.call(BitbucketSetCredentials(user: bbUser, token: bbToken)) != nil {
-                        bbStatus = String(localized: "Saved"); bbToken = ""
-                    }
-                } }
-                    .disabled(bbUser.isEmpty || bbToken.isEmpty)
+                if bbOn {
+                    connected(bbStatus) { Task {
+                        if await app.call(BitbucketSetCredentials(user: "", token: "")) != nil { bbStatus = off; bbOn = false }
+                    } }
+                } else {
+                    TextField("Username or email", text: $bbUser).textFieldStyle(.roundedBorder)
+                    SecureField("API token / app password", text: $bbToken).textFieldStyle(.roundedBorder)
+                    connect(disabled: bbUser.isEmpty || bbToken.isEmpty) { Task {
+                        if await app.call(BitbucketSetCredentials(user: bbUser, token: bbToken)) != nil {
+                            bbStatus = String(localized: "Credentials saved")
+                            bbToken = ""
+                            bbOn = true
+                        }
+                    } }
+                }
                 Text("Used for pull requests in repos whose origin is on bitbucket.org.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Linear") {
-                Text(linearStatus).foregroundStyle(.secondary)
-                SecureField("Personal API key", text: $key)
-                HStack {
-                    Button("Connect") { Task { await connect() } }.disabled(key.isEmpty)
-                    Button("Disconnect") { Task { if await app.call(LinearSetKey(key: "")) != nil { linearStatus = String(localized: "Not connected") } } }
+                if linearOn {
+                    connected(linearStatus) { Task {
+                        if await app.call(LinearSetKey(key: "")) != nil { linearStatus = off; linearOn = false }
+                    } }
+                } else {
+                    SecureField("Personal API key", text: $key).textFieldStyle(.roundedBorder)
+                    connect(disabled: key.isEmpty) { Task { await connect() } }
                 }
                 Text("Create a key in Linear › Settings › Security & access. It's stored in your login keychain.").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
         .task {
             let s = await app.call(LinearStatus())
-            let off = String(localized: "Not connected")
-            linearStatus = s?.connected == true ? String(localized: "Connected as \(s?.name ?? "")") : off
+            linearOn = s?.connected == true
+            linearStatus = linearOn ? String(localized: "Connected as \(s?.name ?? "")") : off
             let j = await app.call(JiraStatus())
-            jiraStatus = j?.connected == true ? String(localized: "Connected to \(j?.site ?? "") as \(j?.name ?? "")") : off
-            bbStatus = (await app.call(BitbucketStatus()))?.connected == true ? String(localized: "Credentials saved") : off
+            jiraOn = j?.connected == true
+            jiraStatus = jiraOn ? String(localized: "Connected to \(j?.site ?? "") as \(j?.name ?? "")") : off
+            bbOn = (await app.call(BitbucketStatus()))?.connected == true
+            bbStatus = bbOn ? String(localized: "Credentials saved") : off
             await check()
+        }
+    }
+
+    private var off: String { String(localized: "Not connected") }
+
+    /// Who it's connected as, and Disconnect beside it.
+    private func connected(_ status: String, disconnect: @escaping () -> Void) -> some View {
+        HStack {
+            Text(status).foregroundStyle(.secondary)
+            Spacer()
+            Button("Disconnect", action: disconnect)
+        }
+    }
+
+    /// Connect, at the trailing edge under the fields, as a form's button.
+    private func connect(disabled: Bool, _ run: @escaping () -> Void) -> some View {
+        HStack {
+            Spacer()
+            Button("Connect", action: run).disabled(disabled)
         }
     }
 
@@ -108,7 +141,9 @@ struct IntegrationsSettings: View {
     }
     private func connect() async {
         if let me = await app.call(LinearSetKey(key: key)) {
-            linearStatus = String(localized: "Connected as \(me?.name ?? "")"); key = ""
+            linearStatus = String(localized: "Connected as \(me?.name ?? "")")
+            key = ""
+            linearOn = true
         }
     }
 }

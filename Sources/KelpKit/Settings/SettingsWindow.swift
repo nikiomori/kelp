@@ -242,7 +242,9 @@ private struct SettingTextField: View {
     init(key: String) { self.key = key }
 
     var body: some View {
+        // Bordered, as the number fields: borderless in a grouped form an empty one (Branch prefix) didn't show at all.
         TextField("", text: $draft)
+            .textFieldStyle(.roundedBorder)
             .focused($editing)
             .onSubmit(commit)
             .onAppear { draft = store.string(key) ?? "" }
