@@ -55,7 +55,7 @@ final class RunChip: NSStackView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         fadeBackground(to: .fillRest)
-        if window != nil { app.scripts.anchor = self }
+        if window != nil { app.scripts.anchor = name }
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); fadeBackground(to: .fillRest) }
 

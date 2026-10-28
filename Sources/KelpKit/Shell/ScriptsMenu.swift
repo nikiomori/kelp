@@ -16,9 +16,8 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     private var watching = false
     /// run.start calls on their way: a page printed before the call's answer is a run's too (kept, not opened).
     var starting = 0
-    /// The run chip, which the list opens under.
+    /// The run chip's name, which the Run menu opens under.
     weak var anchor: NSView?
-    let popover = NSPopover()
 
     // MARK: menu
 

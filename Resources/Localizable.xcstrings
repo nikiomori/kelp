@@ -206,16 +206,6 @@
         }
       }
     },
-    "%@ on %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ на %2$@"
-          }
-        }
-      }
-    },
     "%@ wants to merge %@%@%@": {
       "localizations": {
         "en": {
@@ -5159,12 +5149,12 @@
         }
       }
     },
-    "Nothing to run found. Kelp reads package.json, Makefile, compose.yaml, pyproject.toml, Cargo.toml, go.mod and more; add your own in .kelp.yaml.": {
+    "Nothing to run found": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Запускать нечего. Kelp читает package.json, Makefile, compose.yaml, pyproject.toml, Cargo.toml, go.mod и другие; свою команду можно добавить в .kelp.yaml."
+            "value": "Запускать нечего"
           }
         }
       }
@@ -6470,16 +6460,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запустить «%@» в %@?"
-          }
-        }
-      }
-    },
-    "running": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "запущено"
           }
         }
       }
@@ -9055,16 +9035,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌘-клик — открыть · ⌥⌘-клик — открыть в своём приложении"
-          }
-        }
-      }
-    },
-    "⌘R runs the marked one · ⌃⌘R opens this list": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⌘R запускает отмеченную · ⌃⌘R открывает этот список"
           }
         }
       }

@@ -75,22 +75,49 @@ extension ScriptsMenu {
         }
     }
 
-    /// The Run list under the chip: shown at once with what's known, filled in as the files are read again.
+    /// The Run menu under the chip, as Xcode's scheme menu: a section per file, what ⌘R runs checked, what runs now said
+    /// under its name. Shown with what's known; the files are read again for next time (at once if nothing is known yet).
     func choose() {
         guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }
-        if popover.isShown { popover.performClose(nil); return }
         Task { [weak self] in
             guard let self else { return }
             if state.found[wid] == nil { await detect(wid) } else { Task { await self.detect(wid) } }
             await load(wid)
-            let vc = RunPicker(app: app, workspace: wid)
-            popover.behavior = .transient
-            popover.contentViewController = vc
-            let at = anchor?.window != nil ? anchor : app.workbench.window?.window?.contentView
-            guard let at else { return }
-            popover.show(relativeTo: at === anchor ? at.bounds : NSRect(x: at.bounds.midX, y: at.bounds.maxY - 40, width: 1, height: 1), of: at,
-                         preferredEdge: .maxY)
+            let m = menu(wid)
+            // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
+            if let a = anchor, a.window != nil { m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a) }
+            else if let v = app.workbench.window?.window?.contentView {
+                m.popUp(positioning: nil, at: NSPoint(x: v.bounds.midX - 120, y: v.bounds.maxY - 40), in: v)
+            }
         }
+    }
+
+    private func menu(_ wid: String) -> NSMenu {
+        let m = NSMenu()
+        let sections = sections(wid)
+        for s in sections {
+            m.addItem(.sectionHeader(title: s.title))
+            for r in s.rows { item(r, in: m, wid) }
+        }
+        if sections.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
+        m.addItem(.separator())
+        m.add(String(localized: "Edit Commands…")) { [weak self] in self?.edit() }
+        return m
+    }
+
+    /// One choice: its name, what it adds under it (a script's body, a target's description, a service's port — never the
+    /// command that only repeats the name), its whole command as the tip.
+    private func item(_ r: Row, in m: NSMenu, _ wid: String) {
+        let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
+            guard let self else { return }
+            Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
+        }
+        i.state = r.current ? .on : .off
+        i.toolTip = r.command
+        let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
+        let said = r.running ? [String(localized: "Running"), port].compactMap { $0 }.joined(separator: " · ")
+            : r.missing.map { String(localized: "\($0) isn't installed") } ?? r.detail
+        if #available(macOS 14.4, *), let said { i.subtitle = said }
     }
 
     /// The page a run serves, beside what you're doing.
@@ -99,27 +126,35 @@ extension ScriptsMenu {
         app.workbench.open(url, split: .right, workspace: r.workspace, focus: false)
     }
 
-    /// The list's sections: dependencies to install first, .kelp.yaml's commands, then each file's, by folder.
-    func sections(_ wid: String) -> [RunPicker.Section] {
+    struct Row { var id, name, command: String, detail: String?, missing: String?, running: Bool, url: String?, current: Bool, install: Bool }
+    struct Section { var title: String, rows: [Row] }
+
+    /// The menu's sections: dependencies to install first, .kelp.yaml's commands, then each file's, by folder.
+    func sections(_ wid: String) -> [Section] {
         let options = state.found[wid]?.options ?? []
         let mark = current(wid)?.choice
         let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
-        func row(_ id: String, _ name: String, _ command: String, missing: String? = nil) -> RunPicker.Row {
-            RunPicker.Row(id: id, name: name, command: command, missing: missing, session: live[id], url: live[id].flatMap { state.active[$0]?.url },
-                          key: id == mark ? "⌘R" : nil)
+        func row(_ id: String, _ name: String, _ command: String, detail: String? = nil, missing: String? = nil, install: Bool = false) -> Row {
+            Row(id: id, name: name, command: command, detail: detail, missing: missing, running: live[id] != nil,
+                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install)
         }
-        var out: [RunPicker.Section] = []
+        var out: [Section] = []
         let installs = options.filter { $0.kind == "install" }
         if !installs.isEmpty {
             out.append(.init(title: String(localized: "Dependencies"), rows: installs.map {
-                row($0.id, $0.folder.isEmpty ? String(localized: "Install") : String(localized: "Install in \($0.folder)"), $0.command, missing: $0.missing)
+                let name = $0.folder.isEmpty ? String(localized: "Install") : String(localized: "Install in \($0.folder)")
+                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true)
             }))
         }
-        if let kelp = state.kelp[wid], !kelp.isEmpty { out.append(.init(title: ".kelp.yaml", rows: kelp.map { row("kelp:" + $0.name, $0.name, $0.command) })) }
-        var groups: [(key: String, rows: [RunPicker.Row])] = []
+        if let kelp = state.kelp[wid], !kelp.isEmpty {
+            out.append(.init(title: ".kelp.yaml", rows: kelp.map { row("kelp:" + $0.name, $0.name, $0.command, detail: $0.command) }))
+        }
+        var groups: [(key: String, rows: [Row])] = []
         for o in options where o.kind != "install" {
             let key = o.folder.isEmpty ? o.source : "\(o.folder) · \(o.source)"
-            let r = row(o.id, o.name, [o.command, o.detail].compactMap { $0 }.joined(separator: " · "), missing: o.missing)
+            // "make dev", "swift run": the name already says it.
+            let plain = o.command == o.name || o.command.hasSuffix(" " + o.name)
+            let r = row(o.id, o.name, o.command, detail: o.detail ?? (plain ? nil : o.command), missing: o.missing)
             if let i = groups.firstIndex(where: { $0.key == key }) { groups[i].rows.append(r) } else { groups.append((key, [r])) }
         }
         return out + groups.map { .init(title: $0.key, rows: $0.rows) }
