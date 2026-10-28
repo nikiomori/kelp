@@ -94,10 +94,14 @@ final class AgentIcons {
                 (tone.map { $0 < 0.5 } ?? true ? NSColor(white: 0.96, alpha: 1) : NSColor(white: 0.14, alpha: 1)).setFill(); path.fill()
                 logo.draw(in: r.insetBy(dx: 6, dy: 6))
             } else {
+                NSGraphicsContext.saveGraphicsState()
                 path.addClip(); logo.draw(in: r)   // a full-colour icon fills its square
+                NSGraphicsContext.restoreGraphicsState()
             }
+            IconTile.edge(r)
             return true
         }
+        img.cacheMode = .never   // its edge is drawn for each appearance
         return img
     }
 

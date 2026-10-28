@@ -11,12 +11,26 @@ enum IconTile {
 
     /// A Mac app's icon cropped to its body: on the Big Sur grid the body is 824 of the 1024-point canvas.
     static func app(_ icon: NSImage) -> NSImage {
-        NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+            NSGraphicsContext.saveGraphicsState()
             NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7).addClip()
             let grow = r.width * (1024.0 / 824.0 - 1) / 2
             icon.draw(in: r.insetBy(dx: -grow, dy: -grow))
+            NSGraphicsContext.restoreGraphicsState()
+            edge(r)
             return true
         }
+        img.cacheMode = .never   // its edge is drawn for each appearance
+        return img
+    }
+
+    /// A hairline just inside a tile's edge, so every tile has one: a black logo's on a dark row and a white one's on a
+    /// light row read as tiles of the same shape, not as a loose mark beside bright squares.
+    static func edge(_ r: NSRect) {
+        NSColor.labelColor.withAlphaComponent(0.14).setStroke()
+        let line = NSBezierPath(roundedRect: r.insetBy(dx: 0.25, dy: 0.25), xRadius: 6.75, yRadius: 6.75)
+        line.lineWidth = 0.5
+        line.stroke()
     }
 
     /// A tile for a name: with `color`, its initial in white on that colour (an agent's brand); otherwise its initials
