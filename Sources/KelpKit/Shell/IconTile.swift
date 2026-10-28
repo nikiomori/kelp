@@ -1,6 +1,7 @@
 import AppKit
 import CoreImage
 import Core
+import DesignKit
 
 /// The small rounded tiles agents and projects show as (sidebar, tabs, menus), so every row's icon has the same size
 /// and shape: an app's icon filling its tile without the margin macOS draws around it, or the name's initial on a colour.
@@ -59,8 +60,7 @@ enum IconTile {
     private struct Hue {
         let dark: Int, light: Int, gray: Bool
         func ink(_ dark: Bool) -> NSColor {
-            let v = dark ? self.dark : light
-            return NSColor(srgbRed: CGFloat(v >> 16 & 0xFF) / 255, green: CGFloat(v >> 8 & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+            NSColor(hex: dark ? self.dark : light)
         }
         func tint(_ dark: Bool) -> NSColor {
             gray ? (dark ? NSColor.white.withAlphaComponent(0.1) : NSColor.black.withAlphaComponent(0.08))

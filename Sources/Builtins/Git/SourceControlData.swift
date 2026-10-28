@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// The workspace's status, history and remote state: git and CI as the daemon pushes them while the panel is on screen

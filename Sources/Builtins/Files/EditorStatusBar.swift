@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import UniformTypeIdentifiers
 import WorkbenchKit
 import KelpKit

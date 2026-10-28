@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import KelpKit
 
 /// GitHub PRs / issues / Projects and Linear tasks for the selected project, with the actions that close the loop:

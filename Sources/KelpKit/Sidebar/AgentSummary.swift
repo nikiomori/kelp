@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// One line over the projects about the agents. While some need you: a glass capsule counting them ("2 need you ·

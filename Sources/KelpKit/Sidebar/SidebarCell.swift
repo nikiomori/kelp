@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// One row; `update()` re-reads the model, so status changes don't rebuild the outline.
@@ -32,9 +33,7 @@ final class SidebarCell: NSTableCellView {
     /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
     var selected = false { didSet { if selected != oldValue { update() } } }
     /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
-    static let onPill = NSColor(name: nil) {
-        $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor.white.withAlphaComponent(0.78) : .secondaryLabelColor
-    }
+    static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Lines not committed and the PR, for rows that stand for a folder (RowBadges); they go first when the row is short of room.
     private let changes = NSButton(), pr = NSButton()
 

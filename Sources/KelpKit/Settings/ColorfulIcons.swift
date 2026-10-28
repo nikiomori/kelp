@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// The "Colorful" file icon theme: icons picked by name and extension, the way VS Code icon themes do, drawn with SF Symbols
 /// (or a short monogram where no symbol fits). Images draw on demand, so system colors follow light and dark.
@@ -25,11 +26,8 @@ enum ColorfulIcons {
 
     private static let plainFile = sym("doc", .secondaryLabelColor)
     /// systemYellow is too pale on white; folders are a lighter blue in dark mode, like Finder's.
-    private static let yellow = dynamic(light: NSColor(srgbRed: 0.85, green: 0.6, blue: 0, alpha: 1), dark: .systemYellow)
-    private static let folderColor = dynamic(light: .systemBlue, dark: NSColor(srgbRed: 0.42, green: 0.69, blue: 0.98, alpha: 1))
-    private static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
-        NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light }
-    }
+    private static let yellow = NSColor.dynamic(light: NSColor(srgbRed: 0.85, green: 0.6, blue: 0, alpha: 1), dark: .systemYellow)
+    private static let folderColor = NSColor.dynamic(light: .systemBlue, dark: NSColor(srgbRed: 0.42, green: 0.69, blue: 0.98, alpha: 1))
 
     private static func fileStyle(_ n: String) -> (String, Style) {
         if let s = byName[n] { return (n, s) }

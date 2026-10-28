@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// The window's first row, the title bar: where you are — the workspace, its folder (Open In, Finder, Copy Path), its
 /// branch and pull request — and Open Quickly (⌘P) in the middle, Back / Forward beside it. The window controller puts the panel toggles in the

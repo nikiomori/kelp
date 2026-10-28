@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// ⌃Tab, like ⌘Tab for apps: hold ⌃ and press Tab to walk the workspaces you used last (⇧ goes back, ↑↓ and the pointer
 /// too), let go or click to switch; Esc stays. A quick ⌃Tab flips to the previous workspace without showing it. The one on

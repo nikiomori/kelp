@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Agents
+import DesignKit
 import WorkbenchKit
 
 /// An empty workspace: where it is, a field for the default agent's first task, and what can be opened here, one

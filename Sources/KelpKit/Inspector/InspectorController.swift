@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 
 /// Right side: a row of panel icons (from extensions) over the selected panel — a scope bar like Mail's and Finder's:
 /// plain icons, the selected one on a soft background, in a glass capsule on macOS 26. The row is the inspector's part

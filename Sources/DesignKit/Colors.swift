@@ -1,0 +1,35 @@
+import AppKit
+
+extension NSColor {
+    /// 0xRRGGBB in sRGB.
+    public convenience init(hex: Int, alpha: CGFloat = 1) {
+        self.init(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+    }
+
+    /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours; nil for anything else.
+    public convenience init?(hex: String) {
+        var h = hex.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("#") { h.removeFirst() }
+        guard h.count == 6, let v = Int(h, radix: 16) else { return nil }
+        self.init(hex: v)
+    }
+
+    /// One colour in light appearances, another in dark.
+    public static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light }
+    }
+
+    /// Status colours for text ("+6 −2", "1 needs you", M/U letters, an error under a field). The system ones are made for
+    /// glyphs: as 11 pt text on a light sidebar systemOrange is 2.1:1 and systemGreen 2.0:1, where text needs 4.5:1. Light
+    /// appearances get darker shades (≥ 4.7:1 on the diff list's #E9E9E9); dark keeps the system colours, except red and
+    /// purple, which are lighter there.
+    public static let textOrange = dynamic(light: NSColor(hex: 0x9A5000), dark: .systemOrange)   // amber, so M and D don't both read red
+    public static let textGreen = dynamic(light: NSColor(hex: 0x1C7332), dark: .systemGreen)
+    public static let textRed = dynamic(light: NSColor(hex: 0xCC0014), dark: NSColor(hex: 0xFF6961))
+    public static let textPurple = dynamic(light: NSColor(hex: 0x9C27B0), dark: NSColor(hex: 0xE07BFF))
+
+    /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen.
+    public static let fillRest = NSColor.labelColor.withAlphaComponent(0.05)
+    public static let fillHover = NSColor.labelColor.withAlphaComponent(0.08)
+    public static let fillSelected = NSColor.labelColor.withAlphaComponent(0.12)
+}

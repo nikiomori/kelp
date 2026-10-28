@@ -81,7 +81,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     let declared = sources(["Sources/KelpKit"]).map { f in
         codeOnly(f.text).split(separator: "\n").filter { $0.range(of: #"^\s*(@\w+(\([^)]*\))?\s+)*package\s"#, options: .regularExpression) != nil }.count
     }.reduce(0, +)
-    #expect(declared <= 253, "\(declared) package declarations in KelpKit")
+    #expect(declared <= 248, "\(declared) package declarations in KelpKit")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

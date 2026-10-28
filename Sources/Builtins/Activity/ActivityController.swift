@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// What each running session costs, like Activity Monitor for agents: CPU (100% = one core) and memory summed over

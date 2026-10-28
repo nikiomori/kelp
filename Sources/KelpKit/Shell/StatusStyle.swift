@@ -46,23 +46,6 @@ extension AgentStatus {
     static func mostUrgent(_ s: [AgentStatus]) -> AgentStatus? { s.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) } }
 }
 
-/// Status colours for text ("+6 −2", "1 needs you", M/U letters). The system ones are made for glyphs: as 11 pt text on a
-/// light sidebar systemOrange is 2.1:1 and systemGreen 2.0:1, where text needs 4.5:1. Light appearances get darker shades
-/// (≥ 4.7:1 on the diff list's #E9E9E9); dark keeps the system colours, except red and purple, which are lighter there.
-extension NSColor {
-    package static let textOrange = shade(light: 0x9A5000, dark: .systemOrange)   // amber, so M and D don't both read red
-    static let textGreen = shade(light: 0x1C7332, dark: .systemGreen)
-    static let textRed = shade(light: 0xCC0014, dark: NSColor(hex: 0xFF6961))
-    static let textPurple = shade(light: 0x9C27B0, dark: NSColor(hex: 0xE07BFF))
-
-    private static func shade(light: Int, dark: NSColor) -> NSColor {
-        NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : NSColor(hex: light) }
-    }
-    private convenience init(hex: Int) {
-        self.init(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
-    }
-}
-
 /// "now", "4m", "2h", "3d": how long ago, as short as a row allows.
 package func shortAgo(_ d: Date?, now: Date = Date()) -> String {
     guard let d else { return "" }

@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// What the branch chip opens: one line on where the branch stands against its upstream, the one sync that matters, the
 /// commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays in Source Control.

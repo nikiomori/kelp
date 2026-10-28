@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// The quick actions beside the branch: Commit, Pull and Push (with how many commits each moves; Push in the accent

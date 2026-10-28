@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Core
 import Agents
+import DesignKit
 import WorkbenchKit
 
 /// Settings: every section comes from an extension's settings schema (plus custom views), searchable, like VS Code.

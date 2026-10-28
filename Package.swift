@@ -33,18 +33,20 @@ let package = Package(
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),
         .target(name: "Markdown", resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt")]),   // mermaid 11.17.2, MIT
-        .target(name: "EditorKit", dependencies: [.product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
+        // The design system's sizes, colours and building blocks (panel bar, icon button, empty state): AppKit only.
+        .target(name: "DesignKit"),
+        .target(name: "EditorKit", dependencies: ["DesignKit", .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
                                                  .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter")]),
         // The shell, and what an extension is given (`package` declarations): the window, the editor area, tabs, panels.
-        .target(name: "KelpKit", dependencies: ["Core", "Agents", "TerminalKit", "EditorKit", "Markdown", "WorkbenchKit",
+        .target(name: "KelpKit", dependencies: ["Core", "DesignKit", "Agents", "TerminalKit", "EditorKit", "Markdown", "WorkbenchKit",
                                                 .product(name: "Sparkle", package: "Sparkle")]),
         // The built-in extensions: each sees only what KelpKit declares `package`, never the shell's own parts, nor another.
-        .target(name: "BuiltinAgents", dependencies: ["KelpKit", "Core", "Agents", "TerminalKit", "WorkbenchKit"], path: "Sources/Builtins/Agents"),
-        .target(name: "BuiltinFiles", dependencies: ["KelpKit", "Core", "Agents", "EditorKit", "Markdown", "WorkbenchKit"], path: "Sources/Builtins/Files"),
-        .target(name: "BuiltinGit", dependencies: ["KelpKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Git"),
-        .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
-        .target(name: "BuiltinIssues", dependencies: ["KelpKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
-        .target(name: "BuiltinActivity", dependencies: ["KelpKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
+        .target(name: "BuiltinAgents", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "TerminalKit", "WorkbenchKit"], path: "Sources/Builtins/Agents"),
+        .target(name: "BuiltinFiles", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "Markdown", "WorkbenchKit"], path: "Sources/Builtins/Files"),
+        .target(name: "BuiltinGit", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Git"),
+        .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
+        .target(name: "BuiltinIssues", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
+        .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
         .executableTarget(
             name: "KelpApp",
             dependencies: ["KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues", "BuiltinActivity",

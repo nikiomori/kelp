@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// What the sidebar shows beside a folder: lines not committed yet and the branch's PR. Desks share their project's
 /// folder, so the project row carries it; a workspace on its own branch (a worktree) carries its own. Every folder the

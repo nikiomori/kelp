@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 extension QuickOpen {
     /// What a setting can be set to: the values and their names.

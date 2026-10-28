@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import KelpKit
 
 /// The panel's bar: what it lists (source and filter as title words) and Refresh, the last action's word under it.

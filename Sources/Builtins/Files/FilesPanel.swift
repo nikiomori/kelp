@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import Quartz
 import Markdown
 import WorkbenchKit

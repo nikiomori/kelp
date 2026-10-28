@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// Needs You as tabs (Appearance › Sidebar › Needs You): over the projects, a zone with a row for each agent that needs

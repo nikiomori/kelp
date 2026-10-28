@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 extension NSPasteboard.PasteboardType { static let kelpTab = NSPasteboard.PasteboardType("dev.kelp.tab") }
 

@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import Core
+import DesignKit
 import TerminalKit
 import EditorKit
 
@@ -133,13 +134,5 @@ package final class ThemeManager {
             CodeEditor.wrapLines = wrap
             editorRevision += 1
         }
-    }
-}
-
-extension NSColor {
-    /// "#rrggbb", as themes and Ghostty's config write colours.
-    convenience init?(hex: String) {
-        guard let c = GhosttyConfig.rgb(hex.trimmingCharacters(in: .whitespaces)) else { return nil }
-        self.init(srgbRed: c.0, green: c.1, blue: c.2, alpha: 1)
     }
 }

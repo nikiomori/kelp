@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Colors, font and line wrapping, from the IDE theme and Settings › Editor.
 extension CodeEditor {
@@ -26,11 +27,12 @@ extension CodeEditor {
 
     static var look: Look {
         let dark = (NSApp?.effectiveAppearance ?? NSAppearance.currentDrawing()).bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let c = { (v: Int) in NSColor(hex: v) }
         let base = dark
-            ? Look(background: rgb(0x1F1F24), text: rgb(0xDFDFE0), lineHighlight: rgb(0x23252B), selection: rgb(0x515B70), keyword: rgb(0xFF7AB2),
-                   string: rgb(0xFF8170), comment: rgb(0x7F8C98), type: rgb(0x5DD8FF), number: rgb(0xD9C97C), function: rgb(0x67B7A4))
-            : Look(background: rgb(0xFFFFFF), text: rgb(0x000000), lineHighlight: rgb(0xECF5FF), selection: rgb(0xB2D7FF), keyword: rgb(0x9B2393),
-                   string: rgb(0xC41A16), comment: rgb(0x5D6C79), type: rgb(0x0B4F79), number: rgb(0x1C00CF), function: rgb(0x326D74))
+            ? Look(background: c(0x1F1F24), text: c(0xDFDFE0), lineHighlight: c(0x23252B), selection: c(0x515B70), keyword: c(0xFF7AB2),
+                   string: c(0xFF8170), comment: c(0x7F8C98), type: c(0x5DD8FF), number: c(0xD9C97C), function: c(0x67B7A4))
+            : Look(background: c(0xFFFFFF), text: c(0x000000), lineHighlight: c(0xECF5FF), selection: c(0xB2D7FF), keyword: c(0x9B2393),
+                   string: c(0xC41A16), comment: c(0x5D6C79), type: c(0x0B4F79), number: c(0x1C00CF), function: c(0x326D74))
         guard let p = palette, let bg = hex(p.background), let fg = hex(p.text) else { return base }
         return Look(background: bg, text: fg, lineHighlight: hex(p.lineHighlight) ?? bg.blended(withFraction: 0.06, of: fg) ?? bg,
                     selection: hex(p.selection) ?? bg.blended(withFraction: 0.25, of: .controlAccentColor) ?? bg,
@@ -100,14 +102,5 @@ extension CodeEditor {
         return c
     }
 
-    private static func rgb(_ v: UInt32) -> NSColor {
-        NSColor(srgbRed: CGFloat(v >> 16 & 0xff) / 255, green: CGFloat(v >> 8 & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
-    }
-
-    private static func hex(_ s: String?) -> NSColor? {
-        guard var h = s?.trimmingCharacters(in: .whitespaces) else { return nil }
-        if h.hasPrefix("#") { h.removeFirst() }
-        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
-        return rgb(v)
-    }
+    private static func hex(_ s: String?) -> NSColor? { s.flatMap { NSColor(hex: $0) } }
 }

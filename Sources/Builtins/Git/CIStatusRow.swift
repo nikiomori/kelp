@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// The branch's CI in a line under Commit: the latest run of each workflow, a failure first with the job that broke
