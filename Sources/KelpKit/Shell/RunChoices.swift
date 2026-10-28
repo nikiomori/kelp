@@ -157,29 +157,30 @@ extension ScriptsMenu {
             m.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for p in elsewhere { server(p, in: m, wid) }
         }
-        let rows = rows(wid), by = Dictionary(grouping: rows, by: Self.purpose)
+        let rows = rows(wid), by = Dictionary(grouping: rows, by: Self.purpose), rest = by[.other] ?? []
+        // Where they come from, in a column after the longest name.
+        let column = Self.column(rows.filter { Self.purpose($0) != .other || rest.count <= 3 }.map(\.name) + [String(localized: "More")])
         for p in Purpose.allCases where p != .other {
             guard let some = by[p] else { continue }
             m.addItem(.sectionHeader(title: p.title))
-            for r in some { item(r, in: m, wid) }
+            for r in some { item(r, in: m, wid, column: column) }
         }
-        let rest = by[.other] ?? []
         if rest.count > 3 {
-            let sub = NSMenu()
+            let sub = NSMenu(), inSub = Self.column(rest.map(\.name))
             var file = ""
             for r in rest {
                 let from = r.folder.isEmpty ? r.file : "\(r.folder) · \(r.file)"
                 if from != file { sub.addItem(.sectionHeader(title: from)); file = from }
-                item(r, in: sub, wid)
+                item(r, in: sub, wid, column: inSub)
             }
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)")
+            more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)", column: column)
             image(more, .symbol("ellipsis.circle"))
             m.addItem(more)
             m.setSubmenu(sub, for: more)
         } else if !rest.isEmpty {
             m.addItem(.sectionHeader(title: Purpose.other.title))
-            for r in rest { item(r, in: m, wid) }
+            for r in rest { item(r, in: m, wid, column: column) }
         }
         if rows.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
@@ -189,7 +190,7 @@ extension ScriptsMenu {
 
     /// One command on one line: its purpose's symbol, its name, where it comes from ("make", "npm · web") — or its port
     /// while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
-    private func item(_ r: Row, in m: NSMenu, _ wid: String) {
+    private func item(_ r: Row, in m: NSMenu, _ wid: String, column: CGFloat) {
         // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
@@ -213,15 +214,23 @@ extension ScriptsMenu {
         let hidden = r.session.map(isHidden) == true ? [String(localized: "hidden")] : []
         let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : []) + hidden
         let note = r.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
-        i.attributedTitle = Self.title(r.name, note: note, dim: r.missing != nil)
+        i.attributedTitle = Self.title(r.name, note: note, column: column, dim: r.missing != nil)
     }
 
-    /// A name, and beside it in grey what tells it apart.
-    static func title(_ name: String, note: String, dim: Bool = false) -> NSAttributedString {
-        let font = NSFont.menuFont(ofSize: 0)
-        let t = NSMutableAttributedString(string: name, attributes: [.font: font, .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor])
-        t.append(NSAttributedString(string: "   " + note, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
+    /// A name, and in grey at `column` what tells it apart.
+    static func title(_ name: String, note: String, column: CGFloat, dim: Bool = false) -> NSAttributedString {
+        let tab = NSMutableParagraphStyle()
+        tab.tabStops = [NSTextTab(textAlignment: .left, location: column)]
+        let t = NSMutableAttributedString(string: name, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
+                                                                     .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor])
+        t.append(NSAttributedString(string: "\t" + note, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
+                                                                       .foregroundColor: NSColor.secondaryLabelColor]))
         return t
+    }
+
+    /// The longest name's width and a gap: where the grey notes start.
+    static func column(_ names: [String]) -> CGFloat {
+        (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0) + Metrics.inset
     }
 
     /// What a command is for, the Run menu's sections.
@@ -271,9 +280,11 @@ extension ScriptsMenu {
         }
     }
 
-    /// A symbol in colour: a menu draws a template image in its text colour.
+    /// A symbol in colour (a menu draws a template image in its text colour); a circled one white on a disc of it — one
+    /// colour would paint its mark into the disc.
     static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
-        let look = NSImage.SymbolConfiguration(pointSize: 13, weight: Metrics.iconWeight).applying(.init(paletteColors: [color]))
+        let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
+        let look = NSImage.SymbolConfiguration(pointSize: 13, weight: Metrics.iconWeight).applying(.init(paletteColors: colors))
         let i = NSImage.symbol(name, "").withSymbolConfiguration(look)
         i?.isTemplate = false
         return i
