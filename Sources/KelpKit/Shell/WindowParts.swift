@@ -178,6 +178,7 @@ final class EditorHost: NSViewController {
         let app = self.app
         view = NSView()
         view.pin(card, inset: NSEdgeInsets(top: WindowBar.height, left: Card.gap, bottom: Card.gap, right: Card.gap))
+        card.identifier = Banner.anchor   // banners sit in its corner
         showWelcome()
         // Daemon state: workspaces that are gone leave; sessions' tabs come and show their status and context ring.
         track { app.repos } changed: { [weak self] _ in self?.refresh() }

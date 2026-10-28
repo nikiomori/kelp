@@ -39,7 +39,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             c.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
             c.sound = a.level >= 95 ? .default : nil
             center?.add(UNNotificationRequest(identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: c, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)") }
+            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
         }
         forecastChanged(u)
         resetsChanged(u)
@@ -73,7 +73,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.sound = .default; c.categoryIdentifier = "limitReset"
         c.userInfo = ["session": first.id, "sessions": ids]
         center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
-        if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)", action: (String(localized: "Continue"), { Self.goOn(app, ids) })) }
+        if !allowed, NSApp.isActive { Banner.show(c.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: c.title) }
     }
 
     /// "continue" to each that still stands where the limit left it (one the user went on with meanwhile isn't told twice).
@@ -95,7 +95,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             c.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
             c.body = String(localized: "At this pace it fills before it resets.")
             center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: c, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)") }
+            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
         }
         forecastTold.formIntersection(now)
     }
@@ -211,7 +211,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.sound = .default; c.userInfo = ["session": s.id]
         if let cat = Self.category(s) { c.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
-            Banner.show("\(c.title)\(s.summary.isEmpty ? "" : ": " + s.summary)", action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }))
+            Banner.show(c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
+                        title: c.title, subtitle: c.subtitle, icon: app.catalog.icon(s.agent, size: 24))
         }
         let rid = "\(s.id)-\(s.status.rawValue)"
         center?.add(UNNotificationRequest(identifier: rid, content: c, trigger: nil))
