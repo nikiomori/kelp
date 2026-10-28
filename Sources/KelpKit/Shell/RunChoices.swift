@@ -115,7 +115,7 @@ extension ScriptsMenu {
                 let sub = NSMenu()
                 for r in s.rows { item(r, in: sub, wid) }
                 let i = NSMenuItem(title: s.title, action: nil, keyEquivalent: "")
-                i.image = .symbol("doc.text")
+                if let r = s.rows.first { icon(i, r.file) }
                 m.addItem(i)
                 m.setSubmenu(sub, for: i)
                 if #available(macOS 14.4, *) { i.subtitle = String(localized: "Commands: \(s.rows.count)") }
@@ -130,16 +130,26 @@ extension ScriptsMenu {
     /// One choice: its name, what it adds under it (a script's body, a target's description, a service's port — never the
     /// command that only repeats the name), its whole command as the tip.
     private func item(_ r: Row, in m: NSMenu, _ wid: String) {
-        let i = m.add(r.name, symbol: Self.symbol(r), key: r.current ? "r" : "") { [weak self] in
+        let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
             Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
         }
+        icon(i, r.file)
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let said = r.running ? [String(localized: "Running"), port].compactMap { $0 }.joined(separator: " · ")
             : r.missing.map { String(localized: "\($0) isn't installed") } ?? r.detail.map(Self.oneLine)
         if #available(macOS 14.4, *), let said { i.subtitle = said }
+    }
+
+    /// The icon of the file a choice comes from, as Files shows it: what runs it (npm, Python, make, Docker) at a glance,
+    /// and the file's section it sits in. Kept on macOS 27, whose menus hide the images an item doesn't ask to show.
+    private func icon(_ i: NSMenuItem, _ file: String) {
+        i.image = app.fileIcons.image((file as NSString).lastPathComponent)
+        #if compiler(>=6.4)   // the macOS 27 SDK
+        if #available(macOS 27, *) { i.preferredImageVisibility = .visible }
+        #endif
     }
 
     /// Up to this many, the menu lists them all by file; more, and it shows `top` and a submenu per file.
@@ -170,30 +180,10 @@ extension ScriptsMenu {
 
     struct Row {
         var id, name, command: String, detail: String?, missing: String?, running: Bool, url: String?, current: Bool, install: Bool
-        /// run.detect's kind (run, test, build, lint, other); a compose service's row is a container.
-        var kind = "other", container = false
+        /// run.detect's kind (run, test, build, lint, other) and the file it comes from.
+        var kind = "other", file = ""
     }
 
-    /// What a command does, at a glance, in the symbols Kelp gives commit types: ▶ a server, a flask for tests, a hammer
-    /// for builds; by its name for the rest (publish, clean, migrate…); a terminal when nothing says. ▶ in a circle: it runs now.
-    static func symbol(_ r: Row) -> String {
-        let n = r.name.lowercased()
-        let named: [(words: [String], symbol: String)] = [
-            (["publish", "release", "deploy", "ship"], "paperplane"), (["clean"], "trash"), (["format", "fmt"], "paintbrush"),
-            (["migrate", "seed", "db"], "cylinder"), (["doc"], "doc.text"), (["install", "setup", "bootstrap", "deps"], "arrow.down.circle")
-        ]
-        if r.running { return "play.circle.fill" }
-        if r.install { return "arrow.down.circle" }
-        switch r.kind {
-        case "run": return "play"
-        case "test": return "flask"
-        case "build": return "hammer"
-        case "lint": return n.hasPrefix("format") || n.hasPrefix("fmt") ? "paintbrush" : "checklist"
-        default: break
-        }
-        if r.container { return "shippingbox" }
-        return named.first { $0.words.contains(where: n.hasPrefix) }?.symbol ?? "terminal"
-    }
     struct Section { var title: String, rows: [Row] }
 
     /// The menu's sections: dependencies to install first, .kelp.yaml's commands, then each file's, by folder.
@@ -202,22 +192,22 @@ extension ScriptsMenu {
         let mark = current(wid)?.choice
         let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
         func row(_ id: String, _ name: String, _ command: String, detail: String? = nil, missing: String? = nil, install: Bool = false,
-                 kind: String = "other", container: Bool = false) -> Row {
+                 kind: String = "other", file: String) -> Row {
             Row(id: id, name: name, command: command, detail: detail, missing: missing, running: live[id] != nil,
-                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install, kind: kind, container: container)
+                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install, kind: kind, file: file)
         }
         var out: [Section] = []
         let installs = options.filter { $0.kind == "install" }
         if !installs.isEmpty {
             out.append(.init(title: String(localized: "Dependencies"), rows: installs.map {
                 let name = $0.folder.isEmpty ? String(localized: "Install") : String(localized: "Install in \($0.folder)")
-                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true)
+                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true, file: $0.source)
             }))
         }
         if let kelp = state.kelp[wid], !kelp.isEmpty {
             let kinds = ["run": "run", "test": "test", "build": "build", "lint": "lint"]
             out.append(.init(title: ".kelp.yaml", rows: kelp.map {
-                row("kelp:" + $0.name, $0.name, $0.command, detail: $0.command, kind: kinds[$0.name] ?? "other")
+                row("kelp:" + $0.name, $0.name, $0.command, detail: $0.command, kind: kinds[$0.name] ?? "other", file: ".kelp.yaml")
             }))
         }
         var groups: [(key: String, rows: [Row])] = []
@@ -226,7 +216,7 @@ extension ScriptsMenu {
             // "make dev", "swift run": the name already says it.
             let plain = o.command == o.name || o.command.hasSuffix(" " + o.name)
             let r = row(o.id, o.name, o.command, detail: o.detail ?? (plain ? nil : o.command), missing: o.missing, kind: o.kind,
-                        container: o.source.contains("compose") && o.kind != "run")
+                        file: o.source)
             if let i = groups.firstIndex(where: { $0.key == key }) { groups[i].rows.append(r) } else { groups.append((key, [r])) }
         }
         return out + groups.map { .init(title: $0.key, rows: $0.rows) }
