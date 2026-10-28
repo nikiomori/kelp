@@ -69,7 +69,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     private var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
     private(set) var roots: [Node] = []
     private var graphRoots: [Node] = []
-    var graphWidth: CGFloat = GraphView.width(lanes: 1)
     /// The workspace's git and its branch's CI, watched while the panel is on screen (the daemon pushes changes).
     lazy var gitWatch = Watched(.git, in: app)
     lazy var ciWatch = Watched(.ci, in: app)
@@ -372,23 +371,33 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             if more, !loadingMore, i >= commits.count - 30 { loadMore() }
             let c = commits[i]
             let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(c.hash)
-            let cell = CommitCell(c, graphWidth: graphWidth, isHead: c.hash.hasPrefix(info?.head ?? "\u{0}"), pushed: pushed, landsAfter: landing[c.hash])
+            let cell = CommitCell(c, graphWidth: Self.graphWidth(c), isHead: c.hash.hasPrefix(info?.head ?? "\u{0}"), pushed: pushed,
+                                  landsAfter: landing[c.hash])
             if syncing?.push == true { cell.pulse(true) }
             cell.onHover = { [weak self, weak cell] on in
                 if let self, let cell { self.card.hover(on, commit: c, pushed: pushed, over: cell) }
             }
             return cell
         case .commitFile(let h, let f):
+            let commit = commits.first { $0.hash == h }
+            let width = commit.map(Self.graphWidth) ?? GraphView.width(lanes: 1)
             let cell = FileCell(f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, .graph),
-                                indent: graphWidth + 4, actions: [])
+                                indent: width + 4, actions: [])
             // The lanes below the commit run on through its expanded files, as in VS Code.
-            let g = GraphView(); g.through = Array(Set(commits.first { $0.hash == h }?.bottom.compactMap(\.last) ?? []))
-            g.frame = NSRect(x: 6, y: 0, width: graphWidth, height: 22); g.autoresizingMask = [.height]
+            let g = GraphView(); g.through = Array(Set(commit?.bottom.compactMap(\.last) ?? []))
+            g.frame = NSRect(x: 6, y: 0, width: width, height: 22); g.autoresizingMask = [.height]
             cell.addSubview(g)
             return cell
         case .note(let t):
             return NoteCell(t)
         }
+    }
+
+    /// As wide as the lanes this commit's row draws, not the widest point of the whole graph: one crossing far down made
+    /// every row start its subject two lanes out from its line.
+    static func graphWidth(_ c: GraphCommit) -> CGFloat {
+        let lanes = ([c.lane] + c.top.flatMap { $0 } + c.bottom.flatMap { $0 }).max() ?? 0
+        return GraphView.width(lanes: min(lanes + 1, GraphView.maxLanes))
     }
 
     private func loadMore() {

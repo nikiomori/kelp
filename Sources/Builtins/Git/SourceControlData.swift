@@ -127,8 +127,6 @@ extension SourceControlController {
             unpushed = Git.unpushed(list, remotes: Set(info?.remote ?? []))
             let landed = list.filter { before.contains($0.hash) && !unpushed.contains($0.hash) }.reversed()
             landing = Dictionary(uniqueKeysWithValues: landed.enumerated().map { ($1.hash, Double(min($0, 12)) * 0.05) })
-            let lanes = list.map { c in ([c.lane] + c.top.flatMap { $0 } + c.bottom.flatMap { $0 }).max() ?? 0 }.max() ?? 0
-            graphWidth = GraphView.width(lanes: min(lanes + 1, GraphView.maxLanes))
         }
         loadingMore = false
         rebuild()
