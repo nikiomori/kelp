@@ -204,6 +204,9 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
 - `.kelp.yaml` runs nothing (setup, tabs, shared links, recipes, issueCommand) until the user trusts that exact text,
   shown in Kelp's window; only the KelpApp next to the daemon may grant it (`scripts.trust`, checked by the connecting
   program), so a repository's script or an agent's casual call can't.
+- What a project's other files offer to run (package.json scripts, Makefile targets, compose services… `run.detect`)
+  runs only when the user picks it in the run list or presses ⌘R after picking it once, with the command shown; opening
+  a project runs nothing. `run.start` takes an option's id and runs the command as the file says it now.
 - An agent's "trust this folder?" is answered for the user only where the agent already trusts the project and the
   branch doesn't change agent config (`.claude`, `.mcp.json`, …); a launch prompt never answers it or any startup menu.
 - Issue, review and CI-log text is typed into the agent, not sent: the user reads it before the agent acts on it.
