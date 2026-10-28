@@ -20,7 +20,8 @@ extension Builtins {
             panel.controller = p
             return p
         }]
-        c.editors = [EditorSpec(id: "git.review", title: "Review Changes", icon: "plus.forwardslash.minus", uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })]
+        c.editors = [EditorSpec(id: "git.review", title: "Review Changes", icon: "plus.forwardslash.minus",
+                                uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })]
         c.settings = [SettingsSection(id: "git", title: "Git", icon: "arrow.triangle.branch", specs: [
             s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names, e.g. “niko/”.")
         ])]
