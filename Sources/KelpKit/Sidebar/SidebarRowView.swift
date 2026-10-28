@@ -38,11 +38,12 @@ final class SidebarOutline: NSOutlineView {
     }
 }
 
-/// Like Safari's tab groups: a project with rows under it sits on a quiet card, and the row you're on is a raised pill
-/// (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a plain row.
+/// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
+/// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
+/// plain row.
 @MainActor
 final class SidebarRowView: NSTableRowView {
-    /// Where this row is in its project's card; the outline leaves room for its ends (`pads`).
+    /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
     var group: (first: Bool, last: Bool)? { didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
     /// Under the pointer: the pill's shape in the hover grey, faded in and out, so a row answers before it's clicked.
@@ -54,6 +55,7 @@ final class SidebarRowView: NSTableRowView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
+        clipsToBounds = true   // a row closing up (SidebarController.toggle) hides what no longer fits
         hoverLayer.opacity = 0
         layer?.insertSublayer(hoverLayer, at: 0)
     }
@@ -79,14 +81,8 @@ final class SidebarRowView: NSTableRowView {
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
     static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) { (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0) }
 
-    static let groupFill = NSColor.fillRest
-
     override func drawBackground(in r: NSRect) {
-        // Rows in the middle extend past their bounds, so only a card's ends are rounded. Flipped: y grows down.
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        if let group {
-            fill(band(6), first: group.first, top: 4, last: group.last, bottom: 4, radius: 9, Self.groupFill)
-        }
         // In a card the pill is 4 pt inside it, its corners following the card's (9 − 4); a row on its own gets a pill
         // where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
@@ -121,24 +117,16 @@ final class SidebarRowView: NSTableRowView {
     }
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
-    private func band(_ inset: CGFloat) -> NSRect {
-        NSRect(x: bounds.minX + inset + 2, y: bounds.minY, width: bounds.width - 2 * inset + 4, height: bounds.height)
-    }
-    // swiftlint:disable:next function_parameter_count
-    private func fill(_ r: NSRect, first: Bool, top: CGFloat, last: Bool, bottom: CGFloat, radius: CGFloat, _ color: NSColor) {
-        var r = r
-        let grow = first ? -top : 12
-        r.origin.y -= grow
-        r.size.height += grow
-        r.size.height += last ? -bottom : 12
-        color.setFill()
-        NSBezierPath(roundedRect: r, xRadius: radius, yRadius: radius).fill()
+    private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
+    static func band(_ r: NSRect, _ inset: CGFloat) -> NSRect {
+        NSRect(x: r.minX + inset + 2, y: r.minY, width: r.width - 2 * inset + 4, height: r.height)
     }
     /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses the
-    /// card's foot) the cell would only stretch with it, its text off the chevron. Put it where the outline says.
+    /// card's foot) the cell would only stretch with it, its text off the chevron. Put it where the outline says; a row
+    /// closing up keeps its cell where it was, cut off by the row's edge as it goes.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
-        guard let o = superview as? NSOutlineView, case let row = o.row(for: self), row >= 0,
+        guard bounds.height > 1, let o = superview as? NSOutlineView, case let row = o.row(for: self), row >= 0,
               let cell = subviews.first(where: { $0 is NSTableCellView }) else { return }
         let f = o.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
         cell.frame = NSRect(x: cell.frame.minX, y: f.minY - o.rect(ofRow: row).minY, width: cell.frame.width, height: f.height)
@@ -198,4 +186,18 @@ final class SidebarRowView: NSTableRowView {
     override var allowsVibrancy: Bool { false }
     /// The pill isn't the accent colour, so the cell draws as unselected (white text on it would vanish).
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
+}
+
+/// A project's card: one shape under all of its rows, so it grows and shrinks with them as the project opens or folds
+/// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
+@MainActor
+final class ProjectCard: NSView {
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {   // the appearance is current here: the fill follows light and dark
+        layer?.cornerRadius = 9
+        layer?.backgroundColor = NSColor.fillRest.cgColor
+    }
+    /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
+    override var allowsVibrancy: Bool { false }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }   // the rows over it take the clicks
 }

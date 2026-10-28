@@ -29,6 +29,8 @@ final class SidebarCell: NSTableCellView {
     private let detail = NSTextField(labelWithString: "")
     private let summary = NSStackView()
     private var fold: NSButton?
+    /// What the chevron showed last: when that changes it turns rather than switches.
+    private var shownFolded: Bool?
     private var hovering = false
     /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
     var selected = false { didSet { if selected != oldValue { update() } } }
@@ -169,6 +171,8 @@ final class SidebarCell: NSTableCellView {
         let folded = owner?.isCollapsed(node) ?? false
         fold.isHidden = node.children.isEmpty || !(hovering || folded)
         fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
+        if let was = shownFolded, was != folded, !fold.isHidden { fold.turn(from: folded ? -.pi / 2 : .pi / 2) }
+        shownFolded = folded
     }
 
     private func layout(row: [NSView], lead: CGFloat = 2) {
@@ -254,7 +258,9 @@ final class SidebarCell: NSTableCellView {
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable { detail.isHidden = true }
-            showSummary(owner?.isCollapsed(node) == true ? node : nil)
+            let folded = owner?.isCollapsed(node) == true
+            if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
+            showSummary(folded ? node : nil)
             showFold()
         case .section:
             icon.image = .symbol("pin.fill"); icon.contentTintColor = .secondaryLabelColor

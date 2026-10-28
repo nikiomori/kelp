@@ -37,6 +37,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     let outline = SidebarOutline()
     /// A project row's click folds it, a double click renames it instead (`clicked`).
     var clickFold = ClickFold()
+    /// Rows on their way to folded (SidebarFolding): the rows under them have no height and the card ends at them, while
+    /// the outline still shows them. The number tells this fold from a later one of the same row.
+    var folding: [String: Int] = [:]
+    var folds = 0
+    /// Each project's card, under its rows (`placeCards`).
+    var cards: [String: ProjectCard] = [:]
     var roots: [Node] = []
     private var shape: [String] = []
     private var collapsed: Set<String> {
@@ -268,7 +274,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.reloadData()
         for p in roots where !collapsed.contains(p.key) { expand(p) }
         syncing = false
-        updateVisibleCells()   // cells were made before their rows expanded
+        instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
         syncSelection()
         placeNeedsYou()
     }
@@ -278,7 +284,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.expandItem(p)
         for w in p.children where !collapsed.contains(w.key) { outline.expandItem(w) }
     }
-    func toggle(_ n: Node) { if outline.isItemExpanded(n) { outline.collapseItem(n) } else { outline.expandItem(n) } }
 
     /// The row for a workspace: its own, or its project's when that stands for it.
     func workspaceNode(_ id: String) -> Node? { node("w:" + id) ?? roots.first { $0.workspace == id } }
@@ -296,7 +301,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard let id = app.workbench.workspaceId, let w = workspaceNode(id), outline.selectedRowIndexes.count <= 1 else { return }
         // Gone to from elsewhere (⌃1, the line over the list) while its project is folded: open the project. Only on the
         // way in: a project folded while you're in it stays folded.
-        if id != revealed, let p = outline.parent(forItem: w) as? Node, !outline.isItemExpanded(p) { outline.expandItem(p) }
+        if id != revealed, let p = outline.parent(forItem: w) as? Node, isCollapsed(p) { open(p) }
         revealed = id
         let tab = app.workbench.focusedTab ?? ""
         let agent = TabURI.scheme(tab) == "session" ? w.children.first { $0.key == "a:" + TabURI.body(tab) } : nil
@@ -366,7 +371,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         if let last = n.children.last, outline.isItemExpanded(n) { outline.scrollRowToVisible(outline.row(forItem: last)) }
         outline.scrollRowToVisible(row)
     }
-    func isCollapsed(_ n: Node) -> Bool { !n.children.isEmpty && !outline.isItemExpanded(n) }
+    func isCollapsed(_ n: Node) -> Bool { !n.children.isEmpty && (!outline.isItemExpanded(n) || folding[n.key] != nil) }
 
     // MARK: data source / delegate
 
@@ -392,6 +397,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let n = item as? Node else { return TextSize.of(rowBase) }
+        if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
         let base = { if case .workspace = n.kind { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
         return TextSize.of(base + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
@@ -421,9 +427,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var top = n
         while let up = outline.parent(forItem: top) as? Node { top = up }
         guard case .project = top.kind, !top.children.isEmpty else { return nil }
-        var last = top
-        while outline.isItemExpanded(last), let c = last.children.last { last = c }
-        return (n === top, n === last)
+        return (n === top, n === lastRow(top))
+    }
+    /// The last row of what's under `n` (itself when folded or folding).
+    func lastRow(_ n: Node) -> Node {
+        var last = n
+        while outline.isItemExpanded(last), folding[last.key] == nil, let c = last.children.last { last = c }
+        return last
     }
 
     func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
@@ -442,9 +452,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         (v as? SidebarRowView)?.group = (outline.item(atRow: row) as? Node).flatMap(group)
     }
     /// The cards follow rows that open, close or move; a project's last row changes height with them.
-    private func updateCard() {
+    /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
+    func updateCard() {
         outline.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<outline.numberOfRows))
         outline.enumerateAvailableRowViews { v, row in self.place(v, row) }
+        placeCards()
     }
 
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
@@ -467,7 +479,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             syncing = false
         }
         refreshCell(node.key)   // collapsed, the row shows its agents' state itself
-        updateCard()   // the card ends at another row
+        instantly { updateCard() }   // the card ends at another row, where the rows already are (toggle moved them first)
     }
 }
 

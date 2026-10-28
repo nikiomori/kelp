@@ -3,15 +3,6 @@ import SwiftUI
 import Core
 import WorkbenchKit
 
-/// What a click on a project's row has set off: the fold waiting for a possible second click, the fold it made, and
-/// whether the click opened the row's workspace (then it doesn't fold).
-@MainActor
-struct ClickFold {
-    let pending = Debounce()
-    var done: (key: String, at: Date)?
-    var opened = false
-}
-
 /// Dragging rows among their own and folders from Finder.
 extension SidebarController {
     // MARK: dragging: rows among their own, folders from Finder
@@ -71,30 +62,5 @@ extension SidebarController {
         let folders = Self.folders(info)
         folders.forEach(app.workbench.addProject(path:))
         return !folders.isEmpty
-    }
-
-    /// One click on a project's row folds or unfolds it, unless that click opened the workspace the row stands for. A
-    /// double click renames it instead: the fold waits a moment for a second click, and one that comes later undoes it.
-    @objc func clicked() {
-        defer { clickFold.opened = false }
-        guard NSApp.currentEvent?.clickCount == 1, !clickFold.opened, let node = outline.item(atRow: outline.clickedRow) as? Node,
-              case .project = node.kind, !node.children.isEmpty else { return }
-        clickFold.pending.after(min(NSEvent.doubleClickInterval, 0.3)) { [weak self] in
-            self?.toggle(node)
-            self?.clickFold.done = (node.key, Date())
-        }
-    }
-
-    @objc func doubleClicked() {
-        guard let node = outline.item(atRow: outline.clickedRow) as? Node else { return }
-        clickFold.pending.cancel()
-        if let d = clickFold.done, d.key == node.key, Date().timeIntervalSince(d.at) < NSEvent.doubleClickInterval { toggle(node) }
-        clickFold.done = nil
-        // A project's row edits the name it shows: the project's, even when it stands for its only workspace.
-        switch node.kind {
-        case .workspace(let id): startRename(id)
-        case .project(let id): startRename(id, project: true)
-        default: break
-        }
     }
 }

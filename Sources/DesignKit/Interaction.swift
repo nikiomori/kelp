@@ -34,11 +34,7 @@ extension NSView {
     /// A press: the view dips to 90 % about its centre and springs back.
     public func pressBounce() {
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
-        let c = CGPoint(x: bounds.midX, y: bounds.midY)
-        func scaled(_ s: CGFloat) -> CATransform3D {   // a layer-backed view's anchor is its corner: scale about the middle
-            CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-c.x, -c.y, 0), CATransform3DMakeScale(s, s, 1)),
-                                CATransform3DMakeTranslation(c.x, c.y, 0))
-        }
+        func scaled(_ s: CGFloat) -> CATransform3D { aboutCentre(CATransform3DMakeScale(s, s, 1)) }
         let a = CAKeyframeAnimation(keyPath: "transform")
         a.values = [CATransform3DIdentity, scaled(0.9), scaled(1.03), CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
         a.keyTimes = [0, 0.3, 0.7, 1]
@@ -46,5 +42,23 @@ extension NSView {
         a.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),
                              CAMediaTimingFunction(name: .easeIn)]
         layer.add(a, forKey: "press")
+    }
+
+    /// A turn: the view starts `angle` radians round from how it's drawn (counter-clockwise) and comes back, so a
+    /// chevron just changed from ⌄ to › seems to turn there, as a disclosure triangle does.
+    public func turn(from angle: CGFloat) {
+        guard !Motion.reduced, let layer, bounds.width > 0 else { return }
+        let a = CABasicAnimation(keyPath: "transform")
+        a.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
+        a.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+        a.duration = Motion.base
+        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(a, forKey: "turn")
+    }
+
+    /// `t` about the view's middle: a layer-backed view's anchor is its corner.
+    private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
+        CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),
+                            CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
     }
 }
