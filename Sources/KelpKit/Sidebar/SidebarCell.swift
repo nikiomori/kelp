@@ -133,17 +133,21 @@ final class SidebarCell: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) {
-        hovering = true
-        add?.isHidden = false
-        showFold()
-        fitBadges()
-    }
-    override func mouseExited(with e: NSEvent) {
-        hovering = false
-        add?.isHidden = true
-        showFold()
-        fitBadges()
+    override func mouseEntered(with e: NSEvent) { showHoverControls(true) }
+    override func mouseExited(with e: NSEvent) { showHoverControls(false) }
+
+    /// The + and the chevron come in and the badges step aside (or out, where the name needs the room) in one movement:
+    /// they jumped. Reduce Motion: at once.
+    private func showHoverControls(_ on: Bool) {
+        hovering = on
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.fast)
+            ctx.allowsImplicitAnimation = true
+            add?.isHidden = !on
+            showFold()
+            fitBadges()
+            layoutSubtreeIfNeeded()
+        }
     }
 
     /// The chevron that folds a project or a workspace, at the row's end; shown by `showFold`.

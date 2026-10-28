@@ -14,7 +14,7 @@ public final class IconButton: PointerButton {
     public convenience init(_ image: NSImage?, tip: String, target: AnyObject?, action: Selector?) {
         self.init(frame: .zero)
         self.image = image
-        imagePosition = .imageLeading
+        imagePosition = .imageOnly
         toolTip = tip
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
@@ -25,6 +25,10 @@ public final class IconButton: PointerButton {
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
     }
+
+    /// An icon alone sits in the middle of its square; with a count ("↑ 56") the icon leads it. Leading with no count, the
+    /// "+" of a sidebar row stood 4 pt left of its hover square's centre.
+    override public var title: String { didSet { imagePosition = title.isEmpty ? .imageOnly : .imageLeading } }
 
     override public var intrinsicContentSize: NSSize {
         let s = super.intrinsicContentSize
