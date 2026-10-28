@@ -354,9 +354,9 @@ package final class AppModel {
             notifier?.statusChanged(s, old)
             if old?.status != s.status { syncContextWatches() }
         case let e as DevServerEvent:
-            // A dev server in the workspace on screen printed its URL: the page opens beside it.
-            // The keys stay where they are: the page comes while you may be typing.
-            if e.worktree == workbench.workspaceId { workbench.open(e.url, split: .right, workspace: e.worktree, focus: false) }
+            // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
+            // it; the keys stay where they are: the page comes while you may be typing.
+            if !scripts.served(e), e.worktree == workbench.workspaceId { workbench.open(e.url, split: .right, workspace: e.worktree, focus: false) }
         case let r as Repo: record(r)
         case let w as Worktree: record(w)
         case let e as RemovedEvent: removed(e)

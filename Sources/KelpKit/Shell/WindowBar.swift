@@ -15,6 +15,7 @@ final class WindowBar: NSView {
     private let icon = NSImageView(), name = NSTextField(labelWithString: "")
     private let folder = WindowBar.chip(nil), branch = WindowBar.chip("arrow.triangle.branch"), pr = WindowBar.chip("arrow.triangle.pull")
     private let search: SearchPill
+    private let run: RunChip
     private let app: AppModel
     private let back = NSButton.titlebar("chevron.left", String(localized: "Back"), tip: "")
     private let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
@@ -45,6 +46,7 @@ final class WindowBar: NSView {
 
     init(app: AppModel) {
         self.app = app; search = SearchPill(app: app)
+        run = RunChip(app: app)
         super.init(frame: .zero)
         name.font = .ui(13, weight: .semibold); name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.init(450), for: .horizontal)
@@ -72,7 +74,11 @@ final class WindowBar: NSView {
         forward.target = self
         forward.action = #selector(goForward)
         let nav = NSStackView(views: [back, forward]); nav.spacing = 0
-        for v in [context, nav, search, awake, sideBySide] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        // Right of the search: what runs here (gone while the project offers nothing), the cup, side by side.
+        let tools = NSStackView(views: [run, awake, sideBySide]); tools.spacing = 2
+        tools.detachesHiddenViews = true
+        tools.setCustomSpacing(6, after: run)
+        for v in [context, nav, search, tools] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         // Short of room, the search leaves the centre first, then narrows; only then does the path shorten, then the name.
         // All below the window's own size (500): a long path or name truncates instead of widening the window.
         let wide = search.widthAnchor.constraint(equalToConstant: 280); wide.priority = .init(250)
@@ -85,11 +91,10 @@ final class WindowBar: NSView {
             back.widthAnchor.constraint(equalToConstant: 24), forward.widthAnchor.constraint(equalToConstant: 24),
             nav.trailingAnchor.constraint(equalTo: search.leadingAnchor, constant: -6), nav.centerYAnchor.constraint(equalTo: centerYAnchor),
             nav.leadingAnchor.constraint(greaterThanOrEqualTo: context.trailingAnchor, constant: 12),
-            awake.leadingAnchor.constraint(equalTo: search.trailingAnchor, constant: 6), awake.centerYAnchor.constraint(equalTo: centerYAnchor),
+            tools.leadingAnchor.constraint(equalTo: search.trailingAnchor, constant: 6), tools.centerYAnchor.constraint(equalTo: centerYAnchor),
             awake.widthAnchor.constraint(equalToConstant: 28),   // the three cups differ in width; the search mustn't shift
-            sideBySide.leadingAnchor.constraint(equalTo: awake.trailingAnchor, constant: 2), sideBySide.centerYAnchor.constraint(equalTo: centerYAnchor),
             sideBySide.widthAnchor.constraint(equalToConstant: 28),
-            sideBySide.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -48)   // clear of the inspector toggle
+            tools.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -48)   // clear of the inspector toggle
         ])
         track(owner: self) {
             [-1, 1].map { app.workbench.visit($0).flatMap { app.worktree(app.workbench.history.visits[$0])?.displayName } }

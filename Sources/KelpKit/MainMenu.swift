@@ -172,7 +172,8 @@ extension AppDelegate {
     private func runMenu(_ b: MenuBuilder) {
         let runs = b.sub("Run")
         runs.delegate = app.scripts   // the project's other commands go between the separators
-        b.add(runs, "scripts.run", "scripts.test", "scripts.stop", "-", "-", "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
+        b.add(runs, "scripts.run", "scripts.choose", "scripts.test", "scripts.stop", "-", "-",
+              "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
     }
 
     /// Window: workspaces, the agent needing you, archived workspaces.

@@ -53,28 +53,6 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             + Self.quote("command -v tmux >/dev/null 2>&1 && exec " + tmux.map(Self.quote).joined(separator: " ") + " || exec " + words)
     }
 
-    /// A server on the host at `url` (its localhost) reached from this Mac over the shared connection: the same port here
-    /// when it's free, else the next free one of ten → the URL to open here, and the forwarding (`cancel` takes it).
-    /// Nothing forwarded (no shared connection, every port taken): the URL as it was, and nil.
-    public func forward(_ url: String) -> (url: String, spec: String?) {
-        guard var u = URLComponents(string: url), let port = u.port else { return (url, nil) }
-        let target = u.host == "127.0.0.1" ? "127.0.0.1" : "localhost"
-        for here in port..<port + 10 {
-            let spec = "\(here):\(target):\(port)"
-            guard control("forward", spec) else { continue }
-            u.host = "localhost"; u.port = here
-            return (u.string ?? url, spec)
-        }
-        return (url, nil)
-    }
-    public func cancel(_ spec: String) { _ = control("cancel", spec) }
-
-    /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
-    private func control(_ op: String, _ spec: String) -> Bool {
-        let argv = [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host]
-        return (try? Subprocess.run(argv, cwd: NSHomeDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 10))?.status == 0
-    }
-
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.
     public static func cdArg(_ path: String) -> String {
         path == "~" ? "~" : path.hasPrefix("~/") ? "~/" + quote(String(path.dropFirst(2))) : quote(path)

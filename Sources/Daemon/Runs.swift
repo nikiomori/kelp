@@ -78,9 +78,8 @@ enum Runnables {
 
     /// The dev server ⌘R would pick: the best-ranked runnable one, its own folder before subfolders.
     static func guess(_ options: [RunOption]) -> String? {
-        options.enumerated().filter { $0.element.kind == "run" && $0.element.missing == nil }
-            .min { (rank($0.element.name), $0.element.folder.isEmpty ? 0 : 1, $0.offset) < (rank($1.element.name), $1.element.folder.isEmpty ? 0 : 1, $1.offset) }?
-            .element.id
+        let order = { (o: (offset: Int, element: RunOption)) in (rank(o.element.name), o.element.folder.isEmpty ? 0 : 1, o.offset) }
+        return options.enumerated().filter { $0.element.kind == "run" && $0.element.missing == nil }.min { order($0) < order($1) }?.element.id
     }
 
     static func rank(_ name: String) -> Int { runNames.firstIndex(of: name) ?? runNames.count }
@@ -112,8 +111,11 @@ enum Runnables {
             let pm = manager(f, d, json["packageManager"] as? String)
             let scripts = (json["scripts"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
             let hooks = scripts.keys.filter { k in ["pre", "post"].contains { k.hasPrefix($0) && scripts[String(k.dropFirst($0.count))] != nil } }
-            out += scripts.keys.filter { !hooks.contains($0) }.sorted(by: byRank).map { opt(f, d, "package.json", $0, "\(pm) run \($0)", detail: scripts[$0], tool: pm) }
-            if !f.has(d, "node_modules"), !f.has("", "node_modules") { out.append(opt(f, d, "package.json", "install", "\(pm) install", kind: "install", tool: pm)) }
+            out += scripts.keys.filter { !hooks.contains($0) }.sorted(by: byRank)
+                .map { opt(f, d, "package.json", $0, "\(pm) run \($0)", detail: scripts[$0], tool: pm) }
+            if !f.has(d, "node_modules"), !f.has("", "node_modules") {
+                out.append(opt(f, d, "package.json", "install", "\(pm) install", kind: "install", tool: pm))
+            }
         }
         for file in ["deno.json", "deno.jsonc"] {
             guard let tasks = f.text(d, file).flatMap(object)?["tasks"] as? [String: Any] else { continue }
@@ -123,7 +125,7 @@ enum Runnables {
     }
 
     static func object(_ text: String) -> [String: Any]? {
-        try? JSONSerialization.jsonObject(with: Data(text.utf8), options: .json5Allowed) as? [String: Any]
+        Log.session.attempt("reading a project's JSON") { try JSONSerialization.jsonObject(with: Data(text.utf8), options: .json5Allowed) } as? [String: Any]
     }
 
     /// package.json's packageManager, else the lock file here or in the workspace's folder (a monorepo's), else npm.
@@ -133,8 +135,10 @@ enum Runnables {
         return [d, ""].lazy.compactMap { dir in locks.first { f.has(dir, $0.0) }?.1 }.first ?? "npm"
     }
 
-    static let makeTarget = #"^([A-Za-z0-9][A-Za-z0-9_./-]*)\s*::?(?!=)(?:[^#\n]*##\s*(.*))?"#
-    static let justRecipe = #"^@?([A-Za-z0-9][A-Za-z0-9_-]*)(?:\s+[^:=\n]*)?:(?!=)"#
+    // swiftlint:disable:next force_try
+    static let makeTarget = try! NSRegularExpression(pattern: #"^([A-Za-z0-9][A-Za-z0-9_./-]*)\s*::?(?!=)(?:[^#\n]*##\s*(.*))?"#)
+    // swiftlint:disable:next force_try
+    static let justRecipe = try! NSRegularExpression(pattern: #"^@?([A-Za-z0-9][A-Za-z0-9_-]*)(?:\s+[^:=\n]*)?:(?!=)"#)
 
     /// A Makefile's targets ("## text" after one is its description) and a justfile's recipes.
     static func make(_ f: Found, _ d: String) -> [RunOption] {
@@ -154,9 +158,8 @@ enum Runnables {
     }
 
     /// Each line's first group and, when it matched, its second.
-    static func matches(_ pattern: String, _ text: String) -> [(String, String?)] {
-        guard let re = try? NSRegularExpression(pattern: pattern) else { return [] }
-        return text.split(whereSeparator: \.isNewline).compactMap { line in
+    static func matches(_ re: NSRegularExpression, _ text: String) -> [(String, String?)] {
+        text.split(whereSeparator: \.isNewline).compactMap { line in
             let s = String(line)
             guard let m = re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)), let r = Range(m.range(at: 1), in: s) else { return nil }
             let about = m.numberOfRanges > 2 ? Range(m.range(at: 2), in: s).map { String(s[$0]).trimmingCharacters(in: .whitespaces) } : nil
@@ -173,7 +176,8 @@ enum Runnables {
             + services.map { opt(f, d, file, $0.name, "docker compose up \($0.name)", kind: "other", detail: $0.port.map { ":\($0)" }, tool: "docker") }
     }
 
-    static let portLine = #"^\s*-\s*["']?(?:[\d.]+:)?(\d+)(?:-\d+)?:\d+"#
+    // swiftlint:disable:next force_try
+    static let portLine = try! NSRegularExpression(pattern: #"^\s*-\s*["']?(?:[\d.]+:)?(\d+)(?:-\d+)?:\d+"#)
 
     /// The keys under `services:` (at the first indent found there) and the first host port each publishes.
     static func services(_ text: String) -> [(name: String, port: String?)] {
@@ -218,9 +222,11 @@ enum Runnables {
         }
         for (file, module) in [("app/main.py", "app.main"), ("main.py", "main"), ("app.py", "app")] where out.isEmpty {
             guard let text = f.text(d, file) else { continue }
-            if let v = first(#"(\w+)\s*=\s*FastAPI\("#, text) { out.append(opt(f, d, file, "uvicorn", run("uvicorn", "\(module):\(v) --reload"), tool: tool)) }
-            else if first(#"(\w+)\s*=\s*Flask\("#, text) != nil { out.append(opt(f, d, file, "flask", run("flask", "--app \(module) run --debug"), tool: tool)) }
-            else if !file.contains("/") { out.append(opt(f, d, file, file, run("python", file), tool: tool)) }
+            if let v = matches(fastAPI, text).first?.0 {
+                out.append(opt(f, d, file, "uvicorn", run("uvicorn", "\(module):\(v) --reload"), tool: tool))
+            } else if !matches(flask, text).isEmpty {
+                out.append(opt(f, d, file, "flask", run("flask", "--app \(module) run --debug"), tool: tool))
+            } else if !file.contains("/") { out.append(opt(f, d, file, file, run("python", file), tool: tool)) }
         }
         if let py {
             for section in ["[project.scripts]", "[tool.poetry.scripts]"] {
@@ -229,7 +235,8 @@ enum Runnables {
                 for line in body.split(whereSeparator: \.isNewline) {
                     let kv = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
                     guard kv.count == 2, !kv[0].isEmpty else { continue }
-                    out.append(opt(f, d, "pyproject.toml", kv[0], run(kv[0]), detail: kv[1].trimmingCharacters(in: CharacterSet(charactersIn: "\"'")), tool: tool))
+                    let target = kv[1].trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                    out.append(opt(f, d, "pyproject.toml", kv[0], run(kv[0]), detail: target, tool: tool))
                 }
             }
             if py.contains("pytest") { out.append(opt(f, d, "pyproject.toml", "pytest", run("pytest"), tool: tool)) }
@@ -240,11 +247,10 @@ enum Runnables {
         return out
     }
 
-    static func first(_ pattern: String, _ text: String) -> String? {
-        guard let re = try? NSRegularExpression(pattern: pattern), let m = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let r = Range(m.range(at: 1), in: text) else { return nil }
-        return String(text[r])
-    }
+    // swiftlint:disable:next force_try
+    static let fastAPI = try! NSRegularExpression(pattern: #"(\w+)\s*=\s*FastAPI\("#)
+    // swiftlint:disable:next force_try
+    static let flask = try! NSRegularExpression(pattern: #"(\w+)\s*=\s*Flask\("#)
 
     /// cargo, go (each cmd/* program), swift, gradle / maven (Spring Boot's bootRun), mix (Phoenix), artisan, bin/dev.
     static func compiled(_ f: Found, _ d: String) -> [RunOption] {
@@ -262,7 +268,8 @@ enum Runnables {
         if let file = ["build.gradle.kts", "build.gradle"].first(where: { f.has(d, $0) }), let text = f.text(d, file) {
             let (gradle, tool) = f.has(d, "gradlew") ? ("./gradlew", nil as String?) : ("gradle", "gradle")
             let task = text.contains("springframework.boot") ? "bootRun" : text.contains("application") ? "run" : nil
-            out += (task.map { [$0] } ?? []).map { opt(f, d, file, $0, "\(gradle) \($0)", tool: tool) } + [opt(f, d, file, "test", "\(gradle) test", tool: tool)]
+            out += (task.map { [$0] } ?? []).map { opt(f, d, file, $0, "\(gradle) \($0)", tool: tool) }
+            out.append(opt(f, d, file, "test", "\(gradle) test", tool: tool))
         }
         if let pom = f.text(d, "pom.xml") {
             if pom.contains("spring-boot") { out.append(opt(f, d, "pom.xml", "run", "mvn spring-boot:run", tool: "mvn")) }
@@ -325,5 +332,29 @@ extension RunStart: Handled {
         l.onHostInTmux = true
         let command = o.folder.isEmpty ? o.command : "cd \(RemoteHost.quote(o.folder)) && \(o.command)"
         return try workspaces.sessions.spawn(cwd: w.path, manifest: .custom(command), worktreeId: w.id, l)
+    }
+}
+
+extension RemoteHost {
+    /// A server on the host at `url` (its localhost) reached from this Mac over the shared connection: the same port here
+    /// when it's free, else the next free one of ten → the URL to open here, and the forwarding (`cancel` takes it).
+    /// Nothing forwarded (no shared connection, every port taken): the URL as it was, and nil.
+    func forward(_ url: String) -> (url: String, spec: String?) {
+        guard var u = URLComponents(string: url), let port = u.port else { return (url, nil) }
+        let target = u.host == "127.0.0.1" ? "127.0.0.1" : "localhost"
+        for here in port..<port + 10 {
+            let spec = "\(here):\(target):\(port)"
+            do { try control("forward", spec) } catch { continue }   // taken here: the next one
+            u.host = "localhost"
+            u.port = here
+            return (u.string ?? url, spec)
+        }
+        return (url, nil)
+    }
+    func cancel(_ spec: String) { Log.session.attempt("ending the forwarding \(spec)") { try control("cancel", spec) } }
+
+    /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
+    private func control(_ op: String, _ spec: String) throws {
+        _ = try Git.run(["-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory(), executable: ssh)
     }
 }

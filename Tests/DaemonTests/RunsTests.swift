@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 import Core
 @testable import Daemon
@@ -44,7 +45,7 @@ private func printed(_ files: [String: String], tools: [String]) -> String {
     let (d, c, _) = try daemon(); defer { d.stop() }
     let path = try makeRepo()
     try FileManager.default.createDirectory(atPath: path + "/tools", withIntermediateDirectories: true)
-    try "hello:\n\ttouch HELLO\n".write(toFile: path + "/tools/Makefile", atomically: true, encoding: .utf8)
+    try "hello:\n\ttouch HELLO\nserve:\n\t@echo Local: http://localhost:5173/\n".write(toFile: path + "/tools/Makefile", atomically: true, encoding: .utf8)
     try #"{"scripts": {"dev": "echo http://localhost:5173"}}"#.write(toFile: path + "/package.json", atomically: true, encoding: .utf8)
     let repo: Repo = try await c.call("repo.add", .obj(["path": .string(path)]), as: Repo.self)
     let w = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
@@ -55,6 +56,11 @@ private func printed(_ files: [String: String], tools: [String]) -> String {
     #expect(s.title == "tools › hello")
     #expect(try await waitFor { FileManager.default.fileExists(atPath: path + "/tools/HELLO") })
     await #expect(throws: (any Error).self) { try await c.call(RunStart(worktreeId: w.id, id: "|Makefile|gone")) }
+    // The page a run prints comes as event.devserver, with the run's session.
+    let pages = OSAllocatedUnfairLock<[DevServerEvent]>(initialState: [])
+    c.onEvent = { e in if let e = e as? DevServerEvent { pages.withLock { $0.append(e) } } }
+    let served = try await c.call(RunStart(worktreeId: w.id, id: "tools|Makefile|serve"))
+    #expect(try await waitFor { pages.withLock { $0 }.contains { $0.session == served.id && $0.url == "http://localhost:5173/" } })
 }
 
 /// A remote project's files are read on its host, in one call through the shared connection.

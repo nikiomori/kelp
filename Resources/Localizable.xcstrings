@@ -186,12 +186,32 @@
         }
       }
     },
+    "%@ isn't installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не установлен"
+          }
+        }
+      }
+    },
     "%@ isn't there anymore. Right-click › Locate… if it moved.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ больше нет на месте. Если папку перенесли — правый клик › «Указать…»."
+          }
+        }
+      }
+    },
+    "%@ on %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ на %2$@"
           }
         }
       }
@@ -1215,6 +1235,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "По проектам"
+          }
+        }
+      }
+    },
+    "Choose What to Run (⌃⌘R)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать, что запускать (⌃⌘R)"
           }
         }
       }
@@ -2437,6 +2467,16 @@
         }
       }
     },
+    "Dependencies": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зависимости"
+          }
+        }
+      }
+    },
     "Design Mode": {
       "localizations": {
         "ru": {
@@ -3551,6 +3591,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Установить %@"
+          }
+        }
+      }
+    },
+    "Install in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить в %@"
           }
         }
       }
@@ -5099,6 +5149,16 @@
         }
       }
     },
+    "Nothing to run found. Kelp reads package.json, Makefile, compose.yaml, pyproject.toml, Cargo.toml, go.mod and more; add your own in .kelp.yaml.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать нечего. Kelp читает package.json, Makefile, compose.yaml, pyproject.toml, Cargo.toml, go.mod и другие; свою команду можно добавить в .kelp.yaml."
+          }
+        }
+      }
+    },
     "Nothing uncommitted is lost: git removes only clean worktrees. A branch goes too if its commits are on another branch. Ignored files (builds, copied .env) go with the folder.": {
       "localizations": {
         "ru": {
@@ -5167,6 +5227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть"
+          }
+        }
+      }
+    },
+    "Open %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть %@"
           }
         }
       }
@@ -6308,6 +6378,16 @@
         }
       }
     },
+    "Run (⌘R)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить (⌘R)"
+          }
+        }
+      }
+    },
     "Run All": {
       "localizations": {
         "ru": {
@@ -6374,6 +6454,16 @@
         }
       }
     },
+    "running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "запущено"
+          }
+        }
+      }
+    },
     "Running agent sessions end. Workspaces, history and settings are kept.": {
       "localizations": {
         "ru": {
@@ -6400,6 +6490,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выполняется…"
+          }
+        }
+      }
+    },
+    "Run…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить…"
           }
         }
       }
@@ -7343,6 +7443,16 @@
         }
       }
     },
+    "Stop (⌘.)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить (⌘.)"
+          }
+        }
+      }
+    },
     "Stop 1 Session and Close": {
       "localizations": {
         "ru": {
@@ -7707,6 +7817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checkout и ветка %@ удаляются. Запущенные агенты остановятся."
+          }
+        }
+      }
+    },
+    "The connection to the host dropped. %@ keeps running there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связь с хостом прервалась. %@ продолжает работать там."
           }
         }
       }
@@ -8915,6 +9035,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌘-клик — открыть · ⌥⌘-клик — открыть в своём приложении"
+          }
+        }
+      }
+    },
+    "⌘R runs the marked one · ⌃⌘R opens this list": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘R запускает отмеченную · ⌃⌘R открывает этот список"
           }
         }
       }
