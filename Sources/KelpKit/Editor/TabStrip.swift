@@ -317,7 +317,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         full.textColor = level == 3 ? .textRed : .textOrange
         chip.isHidden = it.waitsFor == nil; light.isHidden = it.waitsFor == nil
         chip.label.stringValue = it.waitsFor ?? ""
-        chip.toolTip = it.waitsFor.map { String(localized: "Waits for its command:") + "\n" + $0 }
+        chip.toolTip = it.waitsFor.map { String(localized: "Waits for its command:\n\($0)") }
         chip.setAccessibilityLabel(chip.toolTip)
         toolTip = it.toolTip ?? it.title
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.

@@ -287,7 +287,8 @@ struct ExtActions {
             Task {
                 let res = await Shell.run(app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path, extension: folder.lastPathComponent)
                 if res.code != 0 {
-                    Banner.show(String(localized: "\(a.title) failed: ") + String((res.stderr.isEmpty ? res.stdout : res.stderr).suffix(400)), style: .error)
+                    let output = String((res.stderr.isEmpty ? res.stdout : res.stderr).suffix(400))
+                    Banner.show(String(localized: "\(a.title) failed: \(output)"), style: .error)
                 }
                 after?()
             }

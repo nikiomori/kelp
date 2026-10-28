@@ -35,8 +35,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         for a in limitAlerts.update(u, first: Int(app.settings.string("usage.alertAt") ?? "80")) {
             let name = app.catalog.all.first { $0.id == a.agent }?.name ?? a.agent
             let c = UNMutableNotificationContent()
-            c.title = name + String(localized: " is at ") + "\(Int(a.percent.rounded())) %"
-            c.body = a.kind + (a.resets.map { " · " + String(localized: "resets ") + $0 } ?? "")
+            c.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
+            c.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
             c.sound = a.level >= 95 ? .default : nil
             center?.add(UNNotificationRequest(identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: c, trigger: nil))
             if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)") }
@@ -67,8 +67,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard let first = stopped.first else { return }
         let app = self.app, ids = stopped.map(\.id)
         let c = UNMutableNotificationContent()
-        c.title = (app.catalog.all.first { $0.id == agent }?.name ?? agent) + String(localized: ": the limit has reset")
-        c.body = String(localized: "Stopped at it: ") + stopped.map(app.catalog.displayName).joined(separator: ", ")
+        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
+        c.title = String(localized: "\(name): the limit has reset")
+        c.body = String(localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
         c.sound = .default; c.categoryIdentifier = "limitReset"
         c.userInfo = ["session": first.id, "sessions": ids]
         center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
@@ -91,7 +92,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             guard forecastTold.insert(key).inserted else { continue }
             let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
             let c = UNMutableNotificationContent()
-            c.title = name + String(localized: ": \(l.kind) limit full in \(LimitForecast.duration(eta))")
+            c.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
             c.body = String(localized: "At this pace it fills before it resets.")
             center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: c, trigger: nil))
             if !allowed, NSApp.isActive { Banner.show("\(c.title) · \(c.body)") }

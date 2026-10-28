@@ -4,16 +4,6 @@
     "": {
       "shouldTranslate": false
     },
-    "\n\nFix it in Terminal:\n": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\n\nИсправьте в Терминале:\n"
-          }
-        }
-      }
-    },
     "\n\nThe merge was aborted; nothing changed.": {
       "localizations": {
         "ru": {
@@ -166,12 +156,32 @@
         }
       }
     },
+    "%@ failed: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: ошибка: %2$@"
+          }
+        }
+      }
+    },
     "%@ has no “%@” command.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "У %@ нет команды «%@»."
+          }
+        }
+      }
+    },
+    "%@ is at %lld %%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$lld %%"
           }
         }
       }
@@ -202,6 +212,16 @@
         }
       }
     },
+    "%@ · resets %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · сброс %2$@"
+          }
+        }
+      }
+    },
     "%@ — a web page, which can run any command": {
       "localizations": {
         "ru": {
@@ -218,6 +238,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ — полная запись"
+          }
+        }
+      }
+    },
+    "%@: %@ limit full in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: лимит «%2$@» закончится через %3$@"
+          }
+        }
+      }
+    },
+    "%@: the limit has reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: лимит сброшен"
           }
         }
       }
@@ -270,6 +310,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Идёт проверок: %lld"
+          }
+        }
+      }
+    },
+    "%lld found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найдено: %lld"
           }
         }
       }
@@ -332,6 +382,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld из %2$lld"
           }
         }
       }
@@ -454,16 +514,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "90 дней"
-          }
-        }
-      }
-    },
-    ": the limit has reset": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": ": лимит сброшен"
           }
         }
       }
@@ -1137,6 +1187,16 @@
         }
       }
     },
+    "Can't show this notebook": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся показать блокнот"
+          }
+        }
+      }
+    },
     "CI Runs": {
       "extractionState": "manual",
       "localizations": {
@@ -1178,12 +1238,62 @@
         }
       }
     },
+    "Couldn't list the files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось получить список файлов"
+          }
+        }
+      }
+    },
     "Couldn't load the library: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось загрузить библиотеку: %@"
+          }
+        }
+      }
+    },
+    "Couldn't load the list": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить список"
+          }
+        }
+      }
+    },
+    "Couldn't measure the sessions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось измерить сессии"
+          }
+        }
+      }
+    },
+    "Couldn't read the runs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать запуски"
+          }
+        }
+      }
+    },
+    "Couldn't search": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выполнить поиск"
           }
         }
       }
@@ -1970,32 +2080,12 @@
         }
       }
     },
-    "Couldn't list the files: %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось получить список файлов: %@"
-          }
-        }
-      }
-    },
     "Couldn't load": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось загрузить"
-          }
-        }
-      }
-    },
-    "Couldn't measure the sessions: %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось измерить сессии: %@"
           }
         }
       }
@@ -2052,16 +2142,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось сохранить %@: %@"
-          }
-        }
-      }
-    },
-    "Couldn't search: %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось выполнить поиск: %@"
           }
         }
       }
@@ -2599,6 +2679,17 @@
         }
       }
     },
+    "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, кроме кода: боковая панель, инспектор, вкладки, панели инструментов и поповеры. У терминала и редактора свои размеры шрифта."
+          }
+        }
+      }
+    },
     "Exit code %d": {
       "localizations": {
         "ru": {
@@ -2842,6 +2933,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Исправить с агентом"
+          }
+        }
+      }
+    },
+    "Fix: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправление: %@"
           }
         }
       }
@@ -4526,6 +4627,26 @@
         }
       }
     },
+    "No matches for “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет совпадений для «%@»"
+          }
+        }
+      }
+    },
+    "No panels": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панелей нет"
+          }
+        }
+      }
+    },
     "No Projects": {
       "localizations": {
         "ru": {
@@ -4676,16 +4797,6 @@
         }
       }
     },
-    "No matches for “%@”.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет совпадений для «%@»."
-          }
-        }
-      }
-    },
     "No open comments": {
       "localizations": {
         "ru": {
@@ -4702,16 +4813,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Других git worktree нет"
-          }
-        }
-      }
-    },
-    "No panels — enable extensions in Settings.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Панелей нет — включите расширения в Настройках."
           }
         }
       }
@@ -4746,12 +4847,12 @@
         }
       }
     },
-    "No sessions running.": {
+    "No sessions running": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Нет запущенных сессий."
+            "value": "Нет запущенных сессий"
           }
         }
       }
@@ -7180,12 +7281,12 @@
         }
       }
     },
-    "Stopped at it: ": {
+    "Stopped at it: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Остановились на нём: "
+            "value": "Остановились на нём: %@"
           }
         }
       }
@@ -7660,6 +7761,16 @@
         }
       }
     },
+    "To pull": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К получению"
+          }
+        }
+      }
+    },
     "Too big to open here (%@). Open it with another app.": {
       "localizations": {
         "ru": {
@@ -7707,6 +7818,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Доверяйте, только если знаете, откуда этот проект. Kelp спросит снова, если файл изменится."
+          }
+        }
+      }
+    },
+    "Turn on an extension in Settings › Extensions.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включите расширение в Настройках › Расширения."
           }
         }
       }
@@ -8006,6 +8127,16 @@
         }
       }
     },
+    "Waits for its command:\n%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждёт свою команду:\n%@"
+          }
+        }
+      }
+    },
     "Web pages as tabs, dev servers open automatically, Design Mode.": {
       "extractionState": "manual",
       "localizations": {
@@ -8027,12 +8158,12 @@
         }
       }
     },
-    "Week, ": {
+    "Week, %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Неделя, "
+            "value": "Неделя, %@"
           }
         }
       }
@@ -9424,16 +9555,6 @@
         }
       }
     },
-    "%@ failed: ": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@: ошибка: "
-          }
-        }
-      }
-    },
     "%@ finished": {
       "localizations": {
         "ru": {
@@ -9600,16 +9721,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файлы в проектах не трогаются."
-          }
-        }
-      }
-    },
-    "Fix: ": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Исправление: "
           }
         }
       }
@@ -11148,17 +11259,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Размер текста"
-          }
-        }
-      }
-    },
-    "Sidebar and inspector. The terminal and the editor have their own font sizes.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Боковая панель и инспектор. У терминала и редактора свои размеры шрифта."
           }
         }
       }

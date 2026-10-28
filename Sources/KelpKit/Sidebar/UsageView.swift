@@ -181,7 +181,7 @@ package struct UsageView: View {
             let kind = l.kind
             let label = kind == "session" ? String(localized: "5 hours") : kind == "week" ? String(localized: "Week")
                 : kind == "month" ? String(localized: "Month")
-                : kind.hasPrefix("week · ") ? String(localized: "Week, ") + kind.dropFirst(7) : kind.prefix(1).uppercased() + kind.dropFirst()
+                : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
             return Line(label: label, used: l.percent / 100, resets: l.resets, session: kind == "session", kind: kind)
         }
     }
