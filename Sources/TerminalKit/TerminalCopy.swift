@@ -13,10 +13,32 @@ public enum TerminalPaste {
 
     public static func paths(_ p: [String]) -> String { p.map(IDE.escapedPath).joined(separator: " ") + " " }
 
+    /// The MIME types a program that takes paste events (Kitty's mode 5522: omp) is offered instead of the text, from
+    /// the declared types alone: "text/plain" when a paste would type something, and the image when it would be one.
+    public static func mimes(_ pb: NSPasteboard) -> [String] {
+        let types = pb.types ?? []
+        if types.contains(.fileURL) || types.contains(.string) { return ["text/plain"] }
+        return NSImage.canInit(with: pb) ? ["text/plain", "image/png"] : []
+    }
+
+    /// What a program asked for by MIME type: "text/plain" is what a paste types.
+    public static func data(_ pb: NSPasteboard, mime: String) -> Data? {
+        switch mime {
+        case "text/plain": text(from: pb).map { Data($0.utf8) }
+        case "image/png": png(pb)
+        default: nil
+        }
+    }
+
+    static func png(_ pb: NSPasteboard) -> Data? {
+        if let png = pb.data(forType: .png) { return png }
+        guard let tiff = NSImage(pasteboard: pb)?.tiffRepresentation else { return nil }
+        return NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+    }
+
     /// The pasteboard's image as a PNG in the temporary folder.
     public static func savedImage(_ pb: NSPasteboard) -> String? {
-        guard let tiff = NSImage(pasteboard: pb)?.tiffRepresentation,
-              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return nil }
+        guard let png = png(pb) else { return nil }
         let u = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-\(UUID().uuidString.prefix(8)).png")
         return (try? png.write(to: u)) == nil ? nil : u.path
     }

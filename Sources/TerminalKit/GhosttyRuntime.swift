@@ -111,9 +111,9 @@ public final class GhosttyRuntime {
         rt.action_cb = { _, target, action in
             MainActor.assumeIsolated { GhosttyRuntime.shared.handle(target, action) }
         }
-        rt.read_clipboard_cb = { ud, _, state, mimes, count, _ in
+        rt.read_clipboard_cb = { ud, _, state, mimes, count, list in
             MainActor.assumeIsolated {
-                GhosttyTerminalView.from(ud)?.readClipboard(state: state, mimes: mimes, count: count) ?? GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
+                GhosttyTerminalView.from(ud)?.readClipboard(state: state, mimes: mimes, count: count, list: list) ?? GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
             }
         }
         rt.confirm_read_clipboard_cb = { ud, confirm, state, request in

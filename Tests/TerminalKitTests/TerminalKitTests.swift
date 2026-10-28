@@ -180,6 +180,27 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     #expect(TerminalPaste.text(from: pb) == "/tmp/my\\ shot.png ")
 }
 
+/// A program that takes paste events (omp) is offered what ⌘V would type, and reads it by MIME type.
+@Test @MainActor func pasteEventsListWhatAPasteWouldType() throws {
+    let pb = NSPasteboard(name: .init("kelp-test-\(UUID().uuidString)"))
+    defer { pb.releaseGlobally() }
+    let img = NSImage(size: NSSize(width: 4, height: 4))
+    img.lockFocus(); NSColor.red.setFill(); NSRect(x: 0, y: 0, width: 4, height: 4).fill(); img.unlockFocus()
+    pb.clearContents(); pb.writeObjects(["привет" as NSString])
+    #expect(TerminalPaste.mimes(pb) == ["text/plain"])
+    #expect(TerminalPaste.data(pb, mime: "text/plain") == Data("привет".utf8))
+    #expect(TerminalPaste.data(pb, mime: "text/html") == nil)
+    // Text wins over the picture of it; an image alone is offered as one.
+    pb.clearContents(); pb.writeObjects([img, "a b" as NSString])
+    #expect(TerminalPaste.mimes(pb) == ["text/plain"])
+    pb.clearContents(); pb.writeObjects([img])
+    #expect(TerminalPaste.mimes(pb) == ["text/plain", "image/png"])
+    let png = try #require(TerminalPaste.data(pb, mime: "image/png"))
+    #expect(NSBitmapImageRep(data: png) != nil)
+    pb.clearContents()
+    #expect(TerminalPaste.mimes(pb).isEmpty)
+}
+
 /// ⌘ over a program that took the mouse gets ⇧, which is how Ghostty looks for links past the capture; nothing else changes.
 @Test func commandFindsLinksPastMouseCapture() {
     let g = GhosttyTerminalView.self
