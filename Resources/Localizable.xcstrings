@@ -12594,6 +12594,16 @@
           }
         }
       }
+    },
+    "Terminals": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Терминалы"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

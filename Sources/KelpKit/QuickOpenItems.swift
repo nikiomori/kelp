@@ -10,10 +10,12 @@ extension QuickOpen {
         if !commandsOnly {
             collectRecents()
             if let e = app.workbench.editor {
+                let root = app.worktree(app.workbench.workspaceId)?.path
                 for (uri, title) in e.openTabs where TabURI.scheme(uri) != "session" {
-                    items.append(Item(kind: "Tab", icon: "square.on.square", title: title,
-                                      detail: TabURI.scheme(uri) == "file" ? TabURI.filePath(uri).path : uri,
-                                      action: { app.workbench.open(uri) }, split: { app.workbench.open(uri, split: .right) }))
+                    let (icon, detail) = Self.place(uri, root: root)
+                    items.append(Item(kind: "Tab", icon: icon, title: title, detail: detail,
+                                      action: { app.workbench.open(uri) }, split: { app.workbench.open(uri, split: .right) },
+                                      image: TabURI.scheme(uri) == "file" ? app.fileIcons.image(title) : nil))
                 }
             }
             for w in app.worktrees where !w.archived {
@@ -23,7 +25,7 @@ extension QuickOpen {
             }
             for s in app.sessions where s.status != .exited {
                 let wt = app.worktree(s.worktreeId)
-                items.append(Item(kind: "Agent", icon: "terminal", title: app.catalog.displayName(s),
+                items.append(Item(kind: s.agent == "shell" ? "Terminal" : "Agent", icon: "terminal", title: app.catalog.displayName(s),
                                   detail: "\(s.status.words) · \(shortAgo(s.statusAt ?? s.createdAt)) · \(wt?.displayName ?? "")",
                                   action: { app.workbench.focus(session: s.id) },
                                   split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
@@ -78,6 +80,20 @@ extension QuickOpen {
             }
         }
         all = items
+    }
+
+    /// A tab's icon and where it is, in words: a file's path in its workspace (from ~ outside it), a page's address, the
+    /// changes — never the tab's own `diff:` or `file:` address.
+    static func place(_ uri: String, root: String?) -> (icon: String, detail: String) {
+        switch TabURI.scheme(uri) {
+        case "file":
+            let path = TabURI.filePath(uri).path
+            if let root, path.hasPrefix(root + "/") { return ("doc", String(path.dropFirst(root.count + 1))) }
+            return ("doc", (path as NSString).abbreviatingWithTildeInPath)
+        case "diff": return ("plus.forwardslash.minus", String(localized: "Changes"))
+        case "http", "https": return ("globe", URL(string: uri)?.host() ?? uri)
+        default: return ("square.on.square", "")
+        }
     }
 
     /// Agents to get back to: asking or failed first, then finished and unseen, then the latest others; then the

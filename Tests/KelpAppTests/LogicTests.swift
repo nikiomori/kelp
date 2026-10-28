@@ -80,6 +80,14 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!q.commandsOnly && q.field.scope == nil)
 }
 
+/// ⌘P's tabs say where they are in words: a file inside its workspace, a page's host, the changes; never their address.
+@MainActor @Test func paletteTabsSayWhereTheyAre() {
+    #expect(QuickOpen.place(TabURI.file("/w/Sources/App.swift"), root: "/w").detail == "Sources/App.swift")
+    #expect(QuickOpen.place(TabURI.file(NSHomeDirectory() + "/notes.md"), root: "/w").detail == "~/notes.md")
+    #expect(QuickOpen.place(TabURI.diff("w1"), root: "/w").detail == "Changes")
+    #expect(QuickOpen.place("https://example.com/a/b", root: nil).detail == "example.com")
+}
+
 /// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
 @MainActor @Test func commandsRunFromThePaletteComeBackFirst() {
     let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)
