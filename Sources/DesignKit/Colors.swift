@@ -15,6 +15,13 @@ extension NSColor {
         self.init(hex: v)
     }
 
+    /// "#rrggbb" in sRGB, as CSS and themes write it (the colour as the current appearance has it).
+    public var hexString: String {
+        guard let c = usingColorSpace(.sRGB) else { return "#000000" }
+        return String(format: "#%02x%02x%02x", Int((c.redComponent * 255).rounded()), Int((c.greenComponent * 255).rounded()),
+                      Int((c.blueComponent * 255).rounded()))
+    }
+
     /// One colour in light appearances, another in dark.
     public static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
         NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light }

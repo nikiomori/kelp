@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import WorkbenchKit
 import KelpKit
 
@@ -34,7 +35,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private var commitHash: String?
     /// One-file mode: (path, "unstaged" | "staged", commit).
     var single: (file: String, source: String, commit: String?)?
-    let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
+    var font: NSFont { CodeEditor.font }
+    static var lineHeight: CGFloat { let f = CodeEditor.font; return (f.ascender - f.descender + f.leading).rounded(.up) + 4 }
     /// Side by side when chosen and there's room for two columns; a narrow pane shows it inline (like VS Code).
     private var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
     private var narrow = false
@@ -82,13 +85,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
         table.dataSource = self
         table.delegate = self
-        table.rowHeight = 18
+        table.rowHeight = Self.lineHeight
         table.intercellSpacing = .zero
         table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle; table.style = .plain
         table.allowsMultipleSelection = true
         table.headerView = nil
         table.usesAlternatingRowBackgroundColors = false
-        table.backgroundColor = .textBackgroundColor; table.floatsGroupRows = false
+        table.backgroundColor = CodeEditor.page.background; table.floatsGroupRows = false
         table.onKey = { [weak self] e in self?.key(e) ?? false }
         let cm = NSMenu()
         for (t, st) in [(String(localized: "Mark Resolved"), "resolved"), (String(localized: "Reopen"), "open")] {
@@ -113,6 +116,14 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         self.split = split; fileList = fs
         buildBar()
         view = stacked(bar, split)
+        track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
+    }
+
+    /// The editor's theme or font changed: the code here follows.
+    private func themeChanged() {
+        table.backgroundColor = CodeEditor.page.background
+        table.rowHeight = Self.lineHeight
+        rebuildRows()
     }
 
     private let bar = Bar.content([])

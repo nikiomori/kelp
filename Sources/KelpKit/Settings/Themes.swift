@@ -38,18 +38,18 @@ package final class ThemeManager {
 
     static let builtin: [Theme] = [
         Theme(id: "kelp.light", name: "Kelp Light", appearance: "light",
-              terminal: .init(background: "#ffffff", foreground: "#1d1d1f", cursor: "#0a84ff", selection: "#b3d7ff",
+              terminal: .init(background: "#ffffff", foreground: "#1d1d1f", cursor: nil, selection: "#b3d7ff",
                               palette: ["#1d1d1f", "#c41a16", "#007400", "#826b28", "#0b4f79", "#9b2393", "#326d74", "#8e8e93",
                                         "#636366", "#e0362e", "#28a745", "#b28600", "#0a84ff", "#bf5af2", "#3a9bae", "#1d1d1f"]),
               editor: nil),
         Theme(id: "kelp.dark", name: "Kelp Dark", appearance: "dark",
-              terminal: .init(background: "#1e1e22", foreground: "#e5e5ea", cursor: "#0a84ff", selection: "#3a4a63",
+              terminal: .init(background: "#1e1e22", foreground: "#e5e5ea", cursor: nil, selection: "#3a4a63",
                               palette: ["#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
                                         "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"]),
               editor: .init(background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
                             type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4")),
         Theme(id: "kelp.black", name: "Kelp Black", appearance: "dark",
-              terminal: .init(background: "#000000", foreground: "#e5e5ea", cursor: "#0a84ff", selection: "#2a3a55",
+              terminal: .init(background: "#000000", foreground: "#e5e5ea", cursor: nil, selection: "#2a3a55",
                               palette: ["#1c1c1e", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
                                         "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"]),
               editor: .init(background: "#000000", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
@@ -102,7 +102,7 @@ package final class ThemeManager {
         if let c = theme?.terminal {
             t.background = c.background
             t.foreground = c.foreground
-            t.cursor = c.cursor
+            t.cursor = c.cursor ?? NSColor.controlAccentColor.hexString   // the system's accent, by name
             t.selection = c.selection
             t.palette = c.palette ?? []
         }
@@ -119,7 +119,7 @@ package final class ThemeManager {
 
         let e = theme?.editor
         let palette = e.map { CodeEditor.Palette(background: $0.background, text: $0.text, keyword: $0.keyword, string: $0.string, comment: $0.comment,
-                                                 type: $0.type, number: $0.number, function: $0.function, selection: $0.selection,
+                                                 type: $0.type, number: $0.number, function: $0.function, selection: $0.selection ?? theme?.terminal?.selection,
                                                  lineHighlight: $0.lineHighlight) }
         let size = CGFloat(s.number("editor.fontSize") ?? 13), font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
         let wrap = s.bool("editor.wordWrap") ?? false

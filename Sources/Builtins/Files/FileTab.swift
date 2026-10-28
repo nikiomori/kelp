@@ -133,7 +133,10 @@ final class FileTab: SavableTab {
         e.onSelection = { [weak bar, weak e] in before?(); bar?.show(cursor: e?.cursor) }
         e.onChange = { [weak self] t in self?.edited(t) }
         e.contextMenu = { [weak self] m in self?.contextMenu(m) }
-        track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in self?.editor?.refreshAppearance() }
+        track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in
+            self?.editor?.refreshAppearance()
+            self?.markdown?.themeChanged()
+        }
         if focusWhenLoaded { focus() }
         guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
         let p = path

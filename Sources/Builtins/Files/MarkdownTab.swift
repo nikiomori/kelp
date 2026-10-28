@@ -132,6 +132,8 @@ final class MarkdownTab: NSViewController {
     }
 
     func textChanged() { rerender(after: .milliseconds(250)) }
+    /// The theme changed: the preview takes its page colours again.
+    func themeChanged() { rerender() }
 
     /// The page is built off the main thread (a long document, or mermaid's 3.5 MB script inlined), and not at all
     /// while only the source shows.
@@ -143,8 +145,13 @@ final class MarkdownTab: NSViewController {
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             let text = editor.text, base = url.deletingLastPathComponent(), dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let html = await Task.detached {
-                MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark) + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "")
+            var page: (background: String, text: String)?
+            view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                let p = CodeEditor.page
+                page = (p.background.hexString, p.text.hexString)
+            }
+            let html = await Task.detached { [page] in
+                MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark, page: page) + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "")
             }.value
             guard !Task.isCancelled else { return }
             // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).

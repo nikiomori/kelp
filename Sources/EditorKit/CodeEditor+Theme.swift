@@ -31,7 +31,7 @@ extension CodeEditor {
         let base = dark
             ? Look(background: c(0x1F1F24), text: c(0xDFDFE0), lineHighlight: c(0x23252B), selection: c(0x515B70), keyword: c(0xFF7AB2),
                    string: c(0xFF8170), comment: c(0x7F8C98), type: c(0x5DD8FF), number: c(0xD9C97C), function: c(0x67B7A4))
-            : Look(background: c(0xFFFFFF), text: c(0x000000), lineHighlight: c(0xECF5FF), selection: c(0xB2D7FF), keyword: c(0x9B2393),
+            : Look(background: c(0xFFFFFF), text: c(0x000000), lineHighlight: c(0xECF5FF), selection: c(0xB3D7FF), keyword: c(0x9B2393),
                    string: c(0xC41A16), comment: c(0x5D6C79), type: c(0x0B4F79), number: c(0x1C00CF), function: c(0x326D74))
         guard let p = palette, let bg = hex(p.background), let fg = hex(p.text) else { return base }
         return Look(background: bg, text: fg, lineHighlight: hex(p.lineHighlight) ?? bg.blended(withFraction: 0.06, of: fg) ?? bg,
@@ -46,8 +46,16 @@ extension CodeEditor {
         return (l.keyword, l.string, l.number, l.comment)
     }
 
-    static var font: NSFont {
+    /// The editor's font: code shown outside it (a diff) uses it too.
+    public static var font: NSFont {
         fontName.flatMap { NSFont(name: $0, size: fontSize) } ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+    }
+
+    /// The theme's page: background and text, for code and documents shown outside the editor (a diff, the Markdown
+    /// preview), so they sit on the same page as the editor beside them.
+    public static var page: (background: NSColor, text: NSColor) {
+        let l = look
+        return (l.background, l.text)
     }
 
     /// Re-applies colors, font and wrapping (at first, and after Settings or the appearance change them).

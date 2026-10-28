@@ -31,8 +31,10 @@ public enum MarkdownHTML {
 
     static let mermaidJS: String? = Bundle.module.url(forResource: "mermaid.min", withExtension: "js").flatMap { try? String(contentsOf: $0, encoding: .utf8) }
 
-    public static func page(body: String, baseURL: URL?, dark: Bool) -> String {
+    /// `page`: the editor theme's background and text ("#rrggbb"), so a preview beside the editor sits on the same page.
+    public static func page(body: String, baseURL: URL?, dark: Bool, page: (background: String, text: String)? = nil) -> String {
         let base = baseURL.map { "<base href=\"\(esc($0.absoluteString))\">\n" } ?? ""
+        let theme = page.map { ":root,:root.dark{--bg:\(esc($0.background));--fg:\(esc($0.text))}" } ?? ""
         return """
         <!doctype html>
         <html\(dark ? " class=\"dark\"" : "")>
@@ -40,7 +42,7 @@ public enum MarkdownHTML {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="\(dark ? "dark" : "light dark")">
-        \(base)<style>\(css)</style>
+        \(base)<style>\(css)\(theme)</style>
         </head>
         <body><article class="markdown-body">
         \(body)
@@ -49,10 +51,10 @@ public enum MarkdownHTML {
         """
     }
 
-    static let darkVars = "--fg:#f5f5f7;--muted:#a1a1a6;--bg:#1e1e1e;--border:#3d3d40;--subtle:#2a2a2d;--code:rgba(255,255,255,.09);--link:#4ea1ff;"
+    static let darkVars = "--fg:#f5f5f7;--muted:#a1a1a6;--bg:#1e1e1e;--border:#3d3d40;--subtle:#2a2a2d;--code:rgba(255,255,255,.09);--link:-webkit-link;"
         + "--note:#4493f8;--tip:#3fb950;--important:#ab7df8;--warning:#d29922;--caution:#f85149;"
     static let css = """
-    :root{--fg:#1d1d1f;--muted:#6e6e73;--bg:#fff;--border:#d8d8dc;--subtle:#f5f5f7;--code:rgba(0,0,0,.055);--link:#0066cc;
+    :root{--fg:#1d1d1f;--muted:#6e6e73;--bg:#fff;--border:#d8d8dc;--subtle:#f5f5f7;--code:rgba(0,0,0,.055);--link:-webkit-link;
     --note:#0969da;--tip:#1a7f37;--important:#8250df;--warning:#9a6700;--caution:#cf222e;}
     @media (prefers-color-scheme:dark){:root{\(darkVars)}}
     :root.dark{\(darkVars)}

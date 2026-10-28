@@ -3,6 +3,7 @@ import WebKit
 import Markdown
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 
 /// A rendered Jupyter notebook. Run All re-executes it in place; Open Kernel starts Jupyter Lab in this worktree
@@ -53,7 +54,10 @@ final class NotebookTab: NSViewController {
                 return
             }
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            web.loadHTMLString(MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark), baseURL: url.deletingLastPathComponent())
+            var page: (background: String, text: String)?
+            view.effectiveAppearance.performAsCurrentDrawingAppearance { page = (CodeEditor.page.background.hexString, CodeEditor.page.text.hexString) }
+            web.loadHTMLString(MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
+                               baseURL: url.deletingLastPathComponent())
             if let s = NotebookHTML.summary(d) { status.stringValue = String(localized: "\(s.cells) cells · \(s.language)") }
         }
     }

@@ -137,7 +137,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
     func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
         address.stringValue = w.url?.absoluteString ?? ""; page = (w.url, w.title)
-        if designOn { w.evaluateJavaScript(Self.designJS) }
+        if designOn { w.evaluateJavaScript(Self.designJS(accent: .controlAccentColor)) }
     }
     func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { showError(e) }
     func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { showError(e) }
@@ -167,7 +167,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             }
         } else if !designOn, let w = clickWatch { NSEvent.removeMonitor(w); clickWatch = nil }
         designButton.contentTintColor = designOn ? .controlAccentColor : .secondaryLabelColor
-        web.evaluateJavaScript(designOn ? Self.designJS : "window.__kelpOff && window.__kelpOff()")
+        web.evaluateJavaScript(designOn ? Self.designJS(accent: .controlAccentColor) : "window.__kelpOff && window.__kelpOff()")
     }
 
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
@@ -260,19 +260,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     };
     """
 
-    static let designJS = sourceJS + """
+    /// The overlay in the system's accent colour (the page has no other way to know it).
+    static func designJS(accent: NSColor) -> String { designScript.replacingOccurrences(of: "ACCENT", with: accent.hexString) }
+    private static let designScript = sourceJS + """
     (() => { if (window.__kelp) return; window.__kelp = true;
      const box = document.createElement('div');
-     box.style.cssText = 'position:fixed;pointer-events:none;border:2px solid #0a84ff;background:rgba(10,132,255,.12);z-index:2147483647;border-radius:3px;display:none';
+     box.style.cssText = 'position:fixed;pointer-events:none;border:2px solid ACCENT;background:ACCENT1f;z-index:2147483647;border-radius:3px;display:none';
      const tag = document.createElement('div');
-     tag.style.cssText = 'position:fixed
-     pointer-events:none
-     z-index:2147483647
-     background:#0a84ff
-     color:#fff
-     font:11px -apple-system
-     \
-    padding:2px 6px;border-radius:4px;display:none';
+     tag.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;background:ACCENT;color:#fff;font:11px -apple-system;padding:2px 6px;border-radius:4px;display:none';
      document.documentElement.append(box, tag);
      const move = e => { const r = e.target.getBoundingClientRect();
        Object.assign(box.style, {left: r.left+'px', top: r.top+'px', width: r.width+'px', height: r.height+'px', display: 'block'});

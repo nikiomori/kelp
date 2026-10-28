@@ -1,8 +1,11 @@
+import AppKit
 import Foundation
+import JavaScriptCore
 import Testing
 import Core
 @testable import KelpKit
 @testable import BuiltinActivity
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinIssues
 
@@ -54,4 +57,15 @@ import Core
     #expect(CIRunLook.words("in_progress", nil) == "Running")
     #expect(CIRunLook.words("queued", nil) == "Queued")
     #expect(CIRunLook.ago("not a date").isEmpty)
+}
+
+/// Design Mode's overlay is one script the page runs: a line break inside one of its strings (d4ca506 split the tag's
+/// style over lines) made all of it a syntax error, and Design Mode drew nothing.
+@MainActor @Test func designModesScriptParses() throws {
+    let js = BrowserTab.designJS(accent: .systemBlue)
+    #expect(!js.contains("ACCENT"))
+    let context = try #require(JSContext())
+    let literal = String(data: try JSONSerialization.data(withJSONObject: [js]), encoding: .utf8) ?? "[]"
+    context.evaluateScript("new Function(\(literal)[0])")   // parses it without running it (no page here)
+    #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
 }
