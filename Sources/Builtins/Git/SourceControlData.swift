@@ -72,24 +72,14 @@ extension SourceControlController {
     private func showError(_ message: String?) {
         for v in [commitArea, separator, moreButton] { v?.isHidden = message != nil }
         outline.enclosingScrollView?.isHidden = message != nil
-        empty.isHidden = message == nil
+        if message == nil { empty.show(nil) }
         layoutGraph()
         guard let message else { return }
         let notRepo = message.contains("not a git repository")
-        let s = NSMutableAttributedString(string: notRepo ? String(localized: "Not a Git Repository") : String(localized: "Git Isn't Available"),
-                                          attributes: [.font: NSFont.ui(13, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
-        s.append(NSAttributedString(string: "\n" + (notRepo ? String(localized: "This folder isn't under git version control.") : message),
-                                    attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
-        if let fix = FixRecipes.fix(for: message) {   // the command that makes git work again, selectable
-            s.append(NSAttributedString(string: String(localized: "\n\nFix it in Terminal:\n") + fix.command,
-                                        attributes: [.font: NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular),
-                                                     .foregroundColor: NSColor.secondaryLabelColor]))
-        }
-        let p = NSMutableParagraphStyle()
-        p.alignment = .center
-        p.paragraphSpacing = 4
-        s.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: s.length))
-        empty.attributedStringValue = s
+        // The command that makes git work again, selectable.
+        empty.showError(notRepo ? String(localized: "Not a Git Repository") : String(localized: "Git Isn't Available"),
+                        text: notRepo ? String(localized: "This folder isn't under git version control.") : message,
+                        fix: FixRecipes.fix(for: message)?.command)
     }
 
     /// Shown again (another panel was on screen): watched again, and what changed meanwhile comes at once.

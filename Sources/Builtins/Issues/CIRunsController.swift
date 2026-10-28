@@ -26,7 +26,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
     private let outline = NSOutlineView()
     private let branch = NSTextField(labelWithString: "")
-    private let note = NSTextField(wrappingLabelWithString: "")
+    private let empty = EmptyStateView()
+    private lazy var checkAgain = textButton(String(localized: "Check Again")) { [weak self] in self?.reload() }
     private let setupButton = NSButton()
     private var setup: Forge.Setup?
     private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
@@ -75,18 +76,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         scroll.documentView = outline
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
-        note.textColor = .secondaryLabelColor; note.alignment = .center
         setupButton.bezelStyle = .push
         setupButton.target = self
         setupButton.action = #selector(runSetup)
         if #available(macOS 26, *) { setupButton.tintProminence = .primary }
-        let checkAgain = textButton(String(localized: "Check Again")) { [weak self] in self?.reload() }
-        checkAgain.controlSize = .regular
-        let setupRow = NSStackView(views: [setupButton, checkAgain]); setupRow.spacing = 8
-        let empty = NSStackView(views: [note, setupRow])
-        empty.orientation = .vertical
-        empty.spacing = 14
-        empty.isHidden = true
 
         let bottom = logPane()
 
@@ -96,10 +89,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.addArrangedSubview(scroll); split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
         let v = stacked(header, split)
-        empty.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(empty)
+        empty.place(in: v, under: header)
         NSLayoutConstraint.activate([
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 40),
-            empty.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -40),
             bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200)
         ])
         view = v
@@ -190,7 +181,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         Task {
             if let error = e.error {
                 branch.stringValue = ""; workflowsButton.isHidden = true
-                show(note: error, setup: Forge.setup(for: error)); return
+                show(note: error, setup: Forge.setup(for: error), failed: true); return
             }
             branchName = e.result?.branch ?? ""
             branch.stringValue = branchName
@@ -220,12 +211,17 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     /// `setup`: gh or glab isn't installed or signed in; what it says, and the button that runs the fix in a terminal.
-    private func show(note text: String?, setup: Forge.Setup? = nil) {
+    private func show(note text: String?, setup: Forge.Setup? = nil, failed: Bool = false) {
         self.setup = setup
-        note.stringValue = setup.map { $0.note + "\n" + String(localized: "It runs in a terminal tab; then Check Again.") } ?? text ?? ""
-        note.superview?.isHidden = text == nil
-        setupButton.superview?.isHidden = setup == nil
-        if let setup { setupButton.title = setup.title; setupButton.toolTip = setup.command }
+        if let setup {
+            setupButton.title = setup.title; setupButton.toolTip = setup.command
+            empty.show(setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
+                       buttons: [setupButton, checkAgain])
+        } else if failed {
+            empty.showError(String(localized: "Couldn't read the runs"), text: text, buttons: [checkAgain])
+        } else {
+            empty.show(text, symbol: "checkmark.seal")
+        }
         outline.enclosingScrollView?.isHidden = text != nil
         if text != nil { logBar.isHidden = true; log.string = "" }
     }

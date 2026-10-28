@@ -18,7 +18,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     }
     private let table = NSTableView()
     private let total = NSTextField(labelWithString: "")
-    private let empty = NSTextField(labelWithString: String(localized: "No sessions running."))
+    private let empty = EmptyStateView()
     private var rows: [Row] = []
 
     override func loadView() {
@@ -38,17 +38,16 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         total.font = .uiDigits(12); total.textColor = .secondaryLabelColor
         total.lineBreakMode = .byTruncatingTail
         total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        empty.textColor = .secondaryLabelColor; empty.isHidden = true
         let header = Bar.panel([total])
         let v = NSView()
-        for x in [header, scroll, empty] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [header, scroll] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: v.topAnchor),
             header.leadingAnchor.constraint(equalTo: v.leadingAnchor), header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor), scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 40)
+            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
         ])
+        empty.place(in: v, under: header)
         view = v
     }
 
@@ -70,14 +69,17 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         guard let e else { return }
         let m = app
         // Couldn't measure: say why where "No sessions running." would be, not that nothing runs.
-        empty.stringValue = e.error.map { String(localized: "Couldn't measure the sessions: \($0)") } ?? String(localized: "No sessions running.")
         rows = (e.usage ?? []).compactMap { u in
             guard let s = m.session(u.session) else { return nil }
             return Row(session: s, cpu: u.cpu, memory: u.memory, processes: u.processes)
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue = rows.isEmpty ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(Self.bytes(mem))")
-        empty.isHidden = !rows.isEmpty
+        if let error = e.error {
+            empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
+        } else {
+            empty.show(rows.isEmpty ? String(localized: "No sessions running") : nil, symbol: "gauge.with.dots.needle.33percent")
+        }
         table.reloadData()
     }
 

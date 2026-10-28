@@ -49,8 +49,7 @@ final class NotebookTab: NSViewController {
             let d = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
             guard let d, let body = NotebookHTML.render(d) else {
                 let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
-                web.loadHTMLString("<meta name='color-scheme' content='light dark'><p style='font:13px -apple-system;color:-apple-system-secondary-label;padding:20px'>\(why)</p>",
-                    baseURL: nil)
+                web.loadHTMLString(EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil)
                 return
             }
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

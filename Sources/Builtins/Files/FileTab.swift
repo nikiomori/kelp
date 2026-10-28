@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import EditorKit
 import WorkbenchKit
 import KelpKit
@@ -80,7 +81,7 @@ final class FileTab: SavableTab {
         // `openLimit` (a 300 MB log would hang the window), as UTF-8; a remote project's on its host. A host's image or
         // PDF is copied here instead: Quick Look and PDFKit read a file.
         let box = EditorBox(); view = box
-        let wait = host.map { Self.message(String(localized: "Reading it from \($0)…")) }
+        let wait = host.map { Self.message(String(localized: "Reading it from \($0)…"), failed: false) }
         if let wait { box.pin(wait) }
         let copied = remote && Preview.canPreview(url)
         loading = Task { [weak self] in
@@ -491,12 +492,11 @@ final class FileTab: SavableTab {
         }
     }
 
-    private static func message(_ s: String) -> NSView {
-        let l = NSTextField(labelWithString: s); l.textColor = .secondaryLabelColor
-        let v = NSView()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(l)
-        NSLayoutConstraint.activate([l.centerXAnchor.constraint(equalTo: v.centerXAnchor), l.centerYAnchor.constraint(equalTo: v.centerYAnchor)])
+    /// What the tab shows instead of the file: the empty state, a warning when it couldn't be opened.
+    private static func message(_ s: String, failed: Bool = true) -> NSView {
+        let v = NSView(), e = EmptyStateView()
+        e.place(in: v)
+        if failed { e.showError(s, text: nil) } else { e.show(s, symbol: "icloud.and.arrow.down") }
         return v
     }
 }

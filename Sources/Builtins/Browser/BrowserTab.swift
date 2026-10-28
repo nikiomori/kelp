@@ -146,12 +146,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
         // Showing the error page for those cancelled the navigation the user had just started.
         if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled || ns.domain == "WebKitErrorDomain" && ns.code == 102 { return }
-        let esc = { (s: String) in s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;") }
-        let title = esc(String(localized: "Can't open this page")), hint = esc(String(localized: "Is the dev server running?"))
-        web.loadHTMLString("<html><head><meta name='color-scheme' content='light dark'></head><body style='font:14px -apple-system;color:-apple-system-secondary-label;"
-            + "display:flex;height:90vh;align-items:center;justify-content:center;text-align:center'>"
-            + "<div><b>\(title)</b><br>\(esc(ns.localizedDescription))<br><br>\(hint)</div></body></html>",
-            baseURL: nil)
+        let text = ns.localizedDescription + " " + String(localized: "Is the dev server running?")
+        web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
 
     // MARK: Design Mode

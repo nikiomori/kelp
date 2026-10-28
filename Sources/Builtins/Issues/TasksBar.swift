@@ -37,36 +37,13 @@ extension TasksViewController {
     }
 }
 
-/// No rows: the list gives way to a word in the middle of the panel, with the button that helps (show all, sign in).
+/// No rows: the list gives way to the empty state, with the button that helps (show all, sign in).
 extension TasksViewController {
-    func addEmpty(to v: NSView) {
-        for b in [showAll, setupButton] {
-            b.bezelStyle = .push
-            b.isHidden = true
-        }
-        emptyIcon.symbolConfiguration = .init(pointSize: 26, weight: .light)
-        emptyIcon.contentTintColor = .tertiaryLabelColor
-        emptyLabel.alignment = .center
-        emptyLabel.textColor = .secondaryLabelColor
-        emptyLabel.font = .ui(13)
-        emptyBox.setViews([emptyIcon, emptyLabel, showAll, setupButton], in: .center)
-        emptyBox.orientation = .vertical
-        emptyBox.spacing = 10
-        emptyBox.isHidden = true
-        emptyBox.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(emptyBox)
-        NSLayoutConstraint.activate([emptyBox.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-                                     emptyBox.centerYAnchor.constraint(equalTo: v.centerYAnchor, constant: -40),
-                                     emptyBox.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -48),
-                                     emptyLabel.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -48)])
-    }
-
-    /// `text` in the middle instead of the list; nil shows the list.
-    func showEmpty(_ text: String?, symbol: String = "tray") {
-        emptyBox.isHidden = text == nil
+    /// `text` instead of the list (an error with `error`), with the buttons that aren't hidden; nil shows the list.
+    func showEmpty(_ text: String?, symbol: String = "tray", error: String? = nil) {
         split.isHidden = text != nil
-        emptyLabel.stringValue = text ?? ""
-        emptyIcon.image = .symbol(symbol, "")
+        let buttons = [showAll, setupButton].filter { !$0.isHidden }
+        if let error { emptyView.showError(error, text: text, buttons: buttons) } else { emptyView.show(text, symbol: symbol, buttons: buttons) }
     }
 }
 

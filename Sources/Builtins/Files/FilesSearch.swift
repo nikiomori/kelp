@@ -12,11 +12,10 @@ extension FilesPanel {
     private func showResults(_ on: Bool) {
         resultsScroll.isHidden = !on
         leftScroll.isHidden = on || !loadError.isHidden
-        if !on { noResults?.isHidden = true }
+        if !on { noResults.show(nil) }
     }
     func showLoadError(_ message: String?) {
-        loadError.stringValue = message.map { String(localized: "Couldn't list the files: \($0)") } ?? ""
-        loadError.isHidden = message == nil
+        if let message { loadError.showError(String(localized: "Couldn't list the files"), text: message) } else { loadError.show(nil) }
         leftScroll.isHidden = message != nil || !resultsScroll.isHidden
     }
     /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
@@ -45,8 +44,20 @@ extension FilesPanel {
             guard worktree?.id == w.id, search.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }   // a newer search or workspace
             matches = found.value ?? []
             results.reloadData()
-            noMatches.stringValue = found.error.map { String(localized: "Couldn't search: \($0)") } ?? String(localized: "No matches for “\(q)”.")
-            noResults?.isHidden = !matches.isEmpty
+            if let e = found.error {
+                noResults.showError(String(localized: "Couldn't search"), text: e, buttons: [clearButton()])
+            } else {
+                noResults.show(matches.isEmpty ? String(localized: "No matches for “\(q)”") : nil, symbol: "magnifyingglass", buttons: [clearButton()])
+            }
+        }
+    }
+    /// Back to the tree.
+    private func clearButton() -> NSButton {
+        ClosureButton(title: String(localized: "Clear Search")) { [weak self] in
+            guard let self else { return }
+            search.stringValue = ""
+            runSearch()
+            view.window?.makeFirstResponder(outline)
         }
     }
     func numberOfRows(in t: NSTableView) -> Int { matches.count }

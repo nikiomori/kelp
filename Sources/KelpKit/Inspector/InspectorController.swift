@@ -34,7 +34,7 @@ final class InspectorController: NSViewController {
     private let rowSep = NSBox()   // over the bar at the bottom
     /// The panel's name in the inspector's top band, level with the traffic lights: the icons alone don't say where you are.
     private let panelTitle = NSTextField(labelWithString: "")
-    private let empty = NSTextField(labelWithString: String(localized: "No panels — enable extensions in Settings."))
+    private let empty = EmptyStateView()
     private static let orderKey = "workbench.inspector.panelOrder", hiddenKey = "workbench.inspector.hiddenPanels"
 
     override func loadView() {
@@ -47,14 +47,13 @@ final class InspectorController: NSViewController {
         more.setButtonType(.momentaryChange)
         more.widthAnchor.constraint(equalToConstant: 38).isActive = true; more.heightAnchor.constraint(equalToConstant: 24).isActive = true
         pin(moreBadge, on: more)
-        empty.textColor = .secondaryLabelColor; empty.alignment = .center
         panelTitle.font = .ui(13, weight: .semibold); panelTitle.lineBreakMode = .byTruncatingTail
         panelTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         host.clipsToBounds = true
         let sep = NSBox()
         sep.boxType = .separator
         rowSep.boxType = .separator
-        for x in [bar, sep, rowSep, panelTitle, host, empty] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [bar, sep, rowSep, panelTitle, host] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         // Like the sidebar, the inspector runs the window's full height: the top band (as tall as the title bar) holds the
         // panel's name and, in the corner, the window's inspector toggle; its rows start under it.
         let under = NSLayoutGuide(); v.addLayoutGuide(under)
@@ -79,9 +78,9 @@ final class InspectorController: NSViewController {
             sep.leadingAnchor.constraint(equalTo: v.leadingAnchor), sep.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             rowSep.leadingAnchor.constraint(equalTo: v.leadingAnchor), rowSep.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             host.leadingAnchor.constraint(equalTo: v.leadingAnchor), host.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.centerYAnchor.constraint(equalTo: v.centerYAnchor),
             v.widthAnchor.constraint(greaterThanOrEqualToConstant: 240)
         ])
+        empty.place(in: v, under: sep)
         v.onShow = { [weak self] in self?.showSelected() }
         v.onLayout = { [weak self] in self?.fold() }
         view = v
@@ -139,7 +138,9 @@ final class InspectorController: NSViewController {
             return b
         }
         selector.addArrangedSubview(more)
-        bar.isHidden = panels.isEmpty; empty.isHidden = !panels.isEmpty
+        bar.isHidden = panels.isEmpty
+        empty.show(panels.isEmpty ? String(localized: "No panels") : nil, symbol: "sidebar.right",
+                   text: String(localized: "Turn on an extension in Settings › Extensions."))
         folded = []; fold()
         showCounts(); showSelected()
     }

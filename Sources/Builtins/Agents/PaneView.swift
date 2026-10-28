@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import TerminalKit
 import WorkbenchKit
 import KelpKit
@@ -13,6 +14,7 @@ final class PaneView: NSView {
     /// None once it let go of its attach (`letGo`), until it's shown again.
     private var ghostty: GhosttyTerminalView?
     private let ended = NSStackView()
+    private lazy var endedCard = FloatingCard(ended)
     private let endedLabel = NSTextField(labelWithString: String(localized: "Session ended"))
     private let restartButton = NSButton()
     /// `kelp attach` still streams, and from which daemon (`AppModel.connections` when it started).
@@ -34,8 +36,8 @@ final class PaneView: NSView {
         wantsLayer = true
         buildTerminal(session)
         buildEndedOverlay()
-        ended.translatesAutoresizingMaskIntoConstraints = false; addSubview(ended)
-        NSLayoutConstraint.activate([ended.centerXAnchor.constraint(equalTo: centerXAnchor), ended.centerYAnchor.constraint(equalTo: centerYAnchor)])
+        endedCard.translatesAutoresizingMaskIntoConstraints = false; addSubview(endedCard)
+        NSLayoutConstraint.activate([endedCard.centerXAnchor.constraint(equalTo: centerXAnchor), endedCard.centerYAnchor.constraint(equalTo: centerYAnchor)])
         registerForDraggedTypes([.fileURL, .png, .tiff, .string])
         update(session)
         track(owner: self) { [app] in app.connections } changed: { [weak self] _ in self?.settle() }
@@ -73,22 +75,19 @@ final class PaneView: NSView {
 
     private func buildEndedOverlay() {
         let l = endedLabel
-        l.font = .systemFont(ofSize: 13, weight: .medium)
-        l.textColor = .secondaryLabelColor
+        l.font = .ui(13, weight: .semibold)
         let b = restartButton
         b.title = String(localized: "Restart")
         b.target = self
         b.action = #selector(restartTapped)
-        b.bezelStyle = .rounded
+        b.bezelStyle = .push
         b.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil); b.imagePosition = .imageLeading
-        let c = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeTapped)); c.bezelStyle = .rounded
+        let c = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeTapped)); c.bezelStyle = .push
         let buttons = NSStackView(views: [b, c]); buttons.spacing = 8
-        ended.orientation = .vertical; ended.spacing = 10
+        ended.orientation = .vertical; ended.spacing = Metrics.gapWide
         [l, buttons].forEach { ended.addArrangedSubview($0) }
         ended.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
-        ended.wantsLayer = true; ended.layer?.cornerRadius = 10
-        ended.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.92).cgColor
-        ended.isHidden = true
+        endedCard.isHidden = true
     }
 
     /// A new connection may be a new daemon (an update, Restart Background Service, a crash), whose session this stream
@@ -104,7 +103,7 @@ final class PaneView: NSView {
         lastStatus = s?.status
         if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached { reattach(s) }
         let paused = !attached && s?.status == .hibernated
-        ended.isHidden = attached && s?.status != .exited
+        endedCard.isHidden = attached && s?.status != .exited
         // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
         let lost = s?.connectionLost == true
         endedLabel.stringValue = paused ? String(localized: "Paused") : lost ? String(localized: "Connection lost") : String(localized: "Session ended")
@@ -121,15 +120,8 @@ final class PaneView: NSView {
         if focused { focus() }
     }
 
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            ended.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.92).cgColor
-        }
-    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        viewDidChangeEffectiveAppearance()
         settle(shown: true)
         offScreen?.cancel(); offScreen = nil
         guard window == nil, let minutes = app.settings.number("sessions.hibernateMinutes"), minutes > 0 else { return }

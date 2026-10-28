@@ -46,13 +46,10 @@ struct ExtListView: View {
             .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(height: TextSize.of(Metrics.panelHeader))
             Divider()
             if let error {
-                ContentUnavailableView { Label("Couldn't load", systemImage: "exclamationmark.triangle") } description: {
-                    Text(error).font(.caption).textSelection(.enabled)
-                }
-                    .frame(maxHeight: .infinity)
+                EmptyState(title: String(localized: "Couldn't load"), symbol: nil, output: error).frame(maxHeight: .infinity)
             } else if items.isEmpty, !running {
-                ContentUnavailableView(def.empty ?? String(localized: "Nothing here"), systemImage: def.icon ?? "tray")
-                    .frame(maxHeight: .infinity)
+                let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
+                EmptyState(title: def.empty ?? String(localized: "Nothing here"), symbol: symbol, output: nil).frame(maxHeight: .infinity)
             } else {
                 List(selection: $selection) {
                     ForEach(Array(items.enumerated()), id: \.offset) { i, item in
@@ -80,6 +77,15 @@ struct ExtListView: View {
                 guard let r = def.refresh, r > 0 else { break }
                 try? await Task.sleep(for: .seconds(max(r, 1)))
             }
+        }
+    }
+
+    /// DesignKit's empty state, as every panel has it; a failed command's output shows as its (selectable) fix line.
+    private struct EmptyState: NSViewRepresentable {
+        let title: String, symbol: String?, output: String?
+        func makeNSView(context: Context) -> EmptyStateView { EmptyStateView() }
+        func updateNSView(_ v: EmptyStateView, context: Context) {
+            if let output { v.showError(title, text: nil, fix: output) } else { v.show(title, symbol: symbol) }
         }
     }
 

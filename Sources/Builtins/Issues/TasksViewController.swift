@@ -18,7 +18,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// What an action just did ("Merged #12"); a line only while it says something.
     let status = StatusLine(labelWithString: "")
     /// No rows: the list gives way to this, in the middle, with the button that helps (show all, sign in).
-    let emptyBox = NSStackView(), emptyIcon = NSImageView(), emptyLabel = NSTextField(wrappingLabelWithString: "")
+    let emptyView = EmptyStateView()
     let table = NSTableView()
     private let detail = NSStackView()
     /// What the selected source lists.
@@ -75,7 +75,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         split.addArrangedSubview(ts); split.addArrangedSubview(ds)
         split.setHoldingPriority(.defaultLow + 1, forSubviewAt: 1)
         let v = stacked(bar, split)
-        addEmpty(to: v)
+        emptyView.place(in: v, under: bar)
+        showAll.isHidden = true; setupButton.isHidden = true   // until a list is empty because of them
         view = v
         sourceChanged(); nameSources()   // the workspace came before the view: show(worktree:) left naming to here
     }
@@ -188,8 +189,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 status.stringValue = ""
                 let picked = filter.titleOfSelectedItem ?? ""
                 let why = narrowed ? String(localized: "None in “\(picked)”.") : src < 2 ? none[src] : String(localized: "Nothing here")
-                showEmpty(rows.isEmpty ? why : nil)
                 showAll.isHidden = !narrowed; setupButton.isHidden = true
+                showEmpty(rows.isEmpty ? why : nil)
             } catch {
                 guard repoId == self.repoId, src == source.indexOfSelectedItem else { return }
                 showAll.isHidden = true
@@ -204,7 +205,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 if src == 3 { why = String(localized: "Connect Jira in Settings › Integrations") }
                 if src == 4, setup == nil { why = String(localized: "Projects need `gh auth refresh -s read:project`") }
                 status.stringValue = ""
-                showEmpty(why, symbol: "exclamationmark.triangle")
+                if src == 2 || src == 3 { showEmpty(why, symbol: "link") } else { showEmpty(why, error: String(localized: "Couldn't load the list")) }
             }
             table.reloadData(); showDetail(nil)
         }

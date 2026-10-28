@@ -25,7 +25,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         let icon = NSImageView(image: .symbol("folder"))
         if let repo { ProjectIcon.show(repo.path, in: icon, app: app) }
         icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
-        icon.contentTintColor = .secondaryLabelColor
+        icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: w.displayName)
         title.font = .systemFont(ofSize: 20, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail

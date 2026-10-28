@@ -40,7 +40,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     private var pullItem: NSMenuItem?
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
-    let empty = NSTextField(wrappingLabelWithString: "")
+    let empty = EmptyStateView()
 
     var worktreeId: String?
     var changes: [FileChange] = []
@@ -105,14 +105,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         graphBar.onResize = { [weak self] in self?.resizeGraph(by: $0) }
         graphBar.onRefresh = { [weak self] in Task { await self?.loadGraph() } }
 
-        empty.alignment = .center
-        empty.textColor = .secondaryLabelColor
-        empty.isHidden = true
         let v = NSView()
         let sep = NSBox()
         sep.boxType = .separator
         separator = sep
-        for x in [header, box, sep, scroll, graphBar, graphScroll, empty] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [header, box, sep, scroll, graphBar, graphScroll] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         // Open, the graph is the height it was dragged to. Under windowSizeStayPut: it never stretches the window.
         let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
         gh.priority = .init(495)
@@ -136,10 +133,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             graphBar.leadingAnchor.constraint(equalTo: v.leadingAnchor), graphBar.trailingAnchor.constraint(equalTo: v.trailingAnchor), bh,
             graphScroll.topAnchor.constraint(equalTo: graphBar.bottomAnchor), graphScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            graphScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), graphScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.centerYAnchor.constraint(equalTo: v.centerYAnchor),
-            empty.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -40)
+            graphScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), graphScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
         ])
+        empty.place(in: v, under: header)
         view = v
         updateHeader()   // NSButton's own "Button" title must not show while the branch loads
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.bind($0) }

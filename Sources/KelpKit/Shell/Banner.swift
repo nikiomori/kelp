@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// A short message over the bottom of the window — errors and confirmations that shouldn't block anything.
 @MainActor
@@ -14,7 +15,7 @@ package enum Banner {
         let fix = style == .error ? FixRecipes.fix(for: text) : nil
         var text = text, action = action
         if let fix {
-            text += "\n" + String(localized: "Fix: ") + fix.command
+            text += "\n" + String(localized: "Fix: \(fix.command)")
             if action == nil {
                 action = (String(localized: "Copy Fix"), {
                     NSPasteboard.general.clearContents()
@@ -23,19 +24,14 @@ package enum Banner {
             }
         }
         current?.removeFromSuperview()
-        let fx = NSVisualEffectView()
-        fx.material = .hudWindow
-        fx.blendingMode = .withinWindow
-        fx.state = .active
-        fx.wantsLayer = true; fx.layer?.cornerRadius = 10
         let icon = NSImageView(image: .symbol(style == .error ? "exclamationmark.triangle.fill" : "info.circle.fill"))
         icon.contentTintColor = style == .error ? .systemOrange : .secondaryLabelColor
         let label = NSTextField(wrappingLabelWithString: text)
-        label.font = .systemFont(ofSize: 12)
+        label.font = .ui(12)
         label.isSelectable = true
         label.preferredMaxLayoutWidth = 460
         let row = NSStackView(views: [icon, label])
-        row.spacing = 8
+        row.spacing = Metrics.gapWide
         row.alignment = .top
         if let action {
             let b = ClosureButton(title: action.title) { action.run(); current?.removeFromSuperview() }
@@ -45,7 +41,7 @@ package enum Banner {
             row.addArrangedSubview(b)
         }
         row.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 14)
-        fx.pin(row)
+        let fx = FloatingCard(row)
         fx.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(fx)
         NSLayoutConstraint.activate([
@@ -57,19 +53,18 @@ package enum Banner {
         NSAccessibility.post(element: content, notification: .announcementRequested,
                              userInfo: [.announcement: text, .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue])
         fx.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { $0.duration = 0.15; fx.animator().alphaValue = 1 }
+        NSAnimationContext.runAnimationGroup { $0.duration = Motion.duration(Motion.fast); fx.animator().alphaValue = 1 }
         if fix?.blocking == true {   // git can't run at all: stays until it's closed
-            let x = ClosureButton(title: "") { current?.removeFromSuperview() }
-            x.image = .symbol("xmark", String(localized: "Close"))
-            x.isBordered = false
-            x.contentTintColor = .secondaryLabelColor
-            row.addArrangedSubview(x)
+            row.addArrangedSubview(IconButton(.symbol("xmark"), tip: String(localized: "Close")) { current?.removeFromSuperview() })
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + (action != nil ? 10 : style == .error ? 6 : 3)) { [weak fx] in
             guard let fx else { return }
-            NSAnimationContext.runAnimationGroup({ $0.duration = 0.25; fx.animator().alphaValue = 0 }) {
-                MainActor.assumeIsolated { fx.removeFromSuperview() }   // AppKit: on main
+            let id = ObjectIdentifier(fx)
+            NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.slow); fx.animator().alphaValue = 0 }) {
+                MainActor.assumeIsolated {   // AppKit: on main
+                    if let c = current, ObjectIdentifier(c) == id { c.removeFromSuperview() }
+                }
             }
         }
     }

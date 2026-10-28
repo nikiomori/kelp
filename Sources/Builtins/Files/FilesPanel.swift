@@ -72,30 +72,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         search.sendsSearchStringImmediately = false
         search.controlSize = .small
         let v = NSView()
-        noMatches.textColor = .secondaryLabelColor; noMatches.alignment = .center
-        let clear = ClosureButton(title: String(localized: "Clear Search")) { [weak self] in
-            guard let self else { return }
-            search.stringValue = ""
-            runSearch()
-            view.window?.makeFirstResponder(outline)
-        }
-        clear.bezelStyle = .push; clear.controlSize = .small
-        let empty = NSStackView(views: [noMatches, clear])
-        empty.orientation = .vertical
-        empty.spacing = 8
-        empty.isHidden = true
-        noResults = empty
-        loadError.textColor = .secondaryLabelColor
-        loadError.alignment = .center
-        loadError.isHidden = true
         let bar = header()
-        for x in [bar, leftScroll, resultsScroll, empty, loadError] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
-        NSLayoutConstraint.activate([empty.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-                                     empty.topAnchor.constraint(equalTo: bar.bottomAnchor, constant: 40),
-                                     empty.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -32),
-                                     loadError.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-                                     loadError.topAnchor.constraint(equalTo: bar.bottomAnchor, constant: 40),
-                                     loadError.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -32)])
+        for x in [bar, leftScroll, resultsScroll] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        noResults.place(in: v, under: bar)
+        loadError.place(in: v, under: bar)
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: v.topAnchor), bar.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: v.trailingAnchor),
@@ -451,10 +431,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         FileActions(app).copyWebLink(p)
     }
     /// The files couldn't be listed (a folder moved away, git refusing it): say why where the tree would be, not an empty tree.
-    let loadError = NSTextField(wrappingLabelWithString: "")
+    let loadError = EmptyStateView()
     /// A search that found nothing says so (and the tree is one click away), rather than an empty list.
-    let noMatches = NSTextField(wrappingLabelWithString: "")
-    var noResults: NSView?
+    let noResults = EmptyStateView()
     let typing = Debounce()
 }
 
