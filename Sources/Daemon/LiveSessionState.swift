@@ -179,6 +179,9 @@ extension LiveSession {
         /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash").
         mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil) {
             heard()
+            // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
+            // isn't waiting for it. The next Stop says again.
+            if holding, event == "working" { record.awaiting = nil }
             holding = false
             let compacting = "Compacting the conversation…"
             switch event {
@@ -216,6 +219,16 @@ extension LiveSession {
             return true
         }
 
+        /// A command it sent to the background mid-turn: on the record now, not only at the next Stop, so asking meanwhile
+        /// still shows it runs; the one it waits for unless it looks like a server. Whether the record changed.
+        /// Limit: its end isn't told; it stays listed until that Stop says what still runs.
+        mutating func sentToBackground(_ command: String) -> Bool {
+            guard record.background?.contains(command) != true else { return false }
+            record.background = (record.background ?? []) + [command]
+            if record.awaiting == nil, !TurnEnd.looksLikeServer(command) { record.awaiting = command }
+            return true
+        }
+
         /// Its turn or its program ended: a command whose end wasn't told (a denied permission, an interrupt) runs no more.
         mutating func endCommands(at now: Date) {
             let open = commands.indices.filter { commands[$0].outcome == nil }
@@ -232,6 +245,7 @@ extension LiveSession {
             guard hooked, detector.status == .working, up - lastLifeUp > (holding ? 1800 : 180) else { return }
             holding = false
             record.goal = nil
+            record.awaiting = nil
             detector.hook("done")
         }
 

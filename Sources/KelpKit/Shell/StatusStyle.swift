@@ -198,6 +198,20 @@ extension Session {
     package var markStatus: AgentStatus { progress != nil && (agent == "shell" || agent == "custom") ? .working : status }
     /// "Working · 40 %" when it says how far it got.
     package var statusWords: String { let s = markStatus; return s == .working ? progress.map { "\(s.words) · \($0) %" } ?? s.words : s.words }
+    /// What it runs in the background, for the chip on its tab and row, whatever it's doing (asking included): the command it
+    /// waits for, else how many run (a dev server from an earlier turn). nil when none, or its program is gone.
+    var backgroundLabel: String? {
+        guard let b = background, !b.isEmpty, status != .exited, status != .hibernated else { return nil }
+        return awaiting ?? "\(b.count)"
+    }
+    /// The chip's tooltip: the whole list.
+    var backgroundTip: String? {
+        guard backgroundLabel != nil, let b = background else { return nil }
+        return (waitsForCommand ? String(localized: "Waits for its command:") : String(localized: "Running in the background:"))
+            + "\n" + b.joined(separator: "\n")
+    }
+    /// It works on only to see that command end: its tab glows cyan. Not while it asks, and not for a server.
+    var waitsForCommand: Bool { status == .working && awaiting != nil }
     /// "Works in .claude/worktrees/fix-login" when the agent went out of the folder it started in.
     package var workingElsewhere: String? {
         guard let d = workDir else { return nil }

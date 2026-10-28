@@ -112,6 +112,7 @@ extension OneAtATime {
     var agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working,
                         title: "Структура и плотность левой панели")
     agent.background = ["npm run test -- --watch --coverage"]
+    agent.awaiting = agent.background?.first
     try withSidebar(repos: [project], worktrees: [desk("w1", "main")], sessions: [agent]) { _, o in
         let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))
         cell.layoutSubtreeIfNeeded()
@@ -126,6 +127,7 @@ extension OneAtATime {
 @Test func aShortBackgroundCommandStaysOnOneLine() throws {
     var agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Отслеживание лимитов")
     agent.background = ["p/cl"]
+    agent.awaiting = "p/cl"
     try withSidebar(repos: [project], worktrees: [desk("w1", "main")], sessions: [agent]) { _, o in
         let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))
         cell.layoutSubtreeIfNeeded()

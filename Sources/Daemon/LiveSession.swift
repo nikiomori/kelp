@@ -362,9 +362,9 @@ final class LiveSession: Sendable {
     /// `State.hook`: the record goes out when its status or what the row says changed.
     func hook(_ event: String, trigger: String? = nil, message: String? = nil) {
         state.withLock { s in
-            let said = s.record.summary
+            let said = s.record.summary, awaited = s.record.awaiting
             s.hook(event, trigger: trigger, message: message)
-            emit(s.sync() ?? (s.record.summary != said ? s.record : nil))
+            emit(s.sync() ?? (s.record.summary != said || s.record.awaiting != awaited ? s.record : nil))
         }
     }
 
@@ -378,6 +378,7 @@ final class LiveSession: Sendable {
             s.endCommands(at: now)
             s.holding = verdict != .done
             s.record.background = running.isEmpty ? nil : running
+            if case .command(let c) = verdict { s.record.awaiting = c } else { s.record.awaiting = nil }
             if case .goal(let c) = verdict { s.record.goal = c } else if goal?.met != false { s.record.goal = nil }
             s.detector.hook(verdict == .done ? "done" : "working")
             emit(s.sync() ?? s.record)
@@ -402,7 +403,9 @@ final class LiveSession: Sendable {
                 if s.commands.count > Self.commandLimit { s.commands.removeFirst(s.commands.count - Self.commandLimit) }
             }
             _ = s.newCommands()
-            return s.showRunning() ? s.record : nil
+            let moved = c.outcome == .background && s.sentToBackground(c.command)
+            let shown = s.showRunning()
+            return moved || shown ? s.record : nil
         }
     }
 
@@ -415,6 +418,7 @@ final class LiveSession: Sendable {
             guard s.lastHookAt == at, s.detector.status == .working else { return }
             s.holding = false
             s.record.goal = nil
+            s.record.awaiting = nil
             s.detector.hook("done")
             emit(s.sync())
         }

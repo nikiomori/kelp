@@ -8572,16 +8572,6 @@
         }
       }
     },
-    "Waits for its command:\n%@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ждёт свою команду:\n%@"
-          }
-        }
-      }
-    },
     "Web pages as tabs, dev servers open automatically, Design Mode.": {
       "extractionState": "manual",
       "localizations": {

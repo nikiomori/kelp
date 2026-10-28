@@ -21,7 +21,9 @@ final class TabStrip: NSView {
         var edited = false
         var meter: SessionContextWindow.Usage?
         var progress: Double?
-        var waitsFor: String?
+        var background: String?
+        var backgroundTip: String?
+        var waitsFor = false
         /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
         var run: NSColor?
     }
@@ -248,7 +250,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let meter = ContextMeter()
     /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
     private let full = NSTextField(labelWithString: "")
-    /// Its agent waits for a command it started: the command on a chip, and the tab glows cyan.
+    /// What its agent runs in the background, whatever it's doing: the command it waits for, or how many (a dev server).
     private let chip = Chip()
     private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false { didSet { updateLook() } }
@@ -322,9 +324,9 @@ private final class TabButton: NSControl, NSDraggingSource {
         full.isHidden = level < 2
         full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = level == 3 ? .textRed : .textOrange
-        chip.isHidden = it.waitsFor == nil
-        chip.label.stringValue = it.waitsFor ?? ""
-        chip.toolTip = it.waitsFor.map { String(localized: "Waits for its command:\n\($0)") }
+        chip.isHidden = it.background == nil
+        chip.label.stringValue = it.background ?? ""
+        chip.toolTip = it.backgroundTip
         chip.setAccessibilityLabel(chip.toolTip)
         toolTip = it.toolTip ?? it.title
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
@@ -369,7 +371,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         switch item?.status {
         case .waiting?: .systemOrange
         case .error? where item?.unread == true: .systemRed
-        default: item?.waitsFor != nil ? .systemCyan : item?.run
+        default: item?.waitsFor == true ? .systemCyan : item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the

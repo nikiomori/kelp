@@ -213,7 +213,8 @@ package final class EditorArea: NSViewController {
             if let c = contents[t.id] {
                 let b = c.badge
                 item = TabStrip.Item(id: t.id, title: c.title, icon: c.icon, status: b?.status, unread: b?.unread ?? false, toolTip: c.toolTip,
-                    edited: c.isEdited, meter: b?.meter, progress: b?.progress, waitsFor: b?.waitsFor)
+                    edited: c.isEdited, meter: b?.meter, progress: b?.progress, background: b?.background,
+                    backgroundTip: b?.backgroundTip, waitsFor: b?.waitsFor ?? false)
             }
             return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)

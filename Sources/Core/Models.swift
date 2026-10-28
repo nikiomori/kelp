@@ -108,6 +108,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var goal: String?
     /// Commands it started in the background that still ran when its turn ended (a test run it waits for, a dev server).
     public var background: [String]?
+    /// The one of them it waits for (a test run, not a server): its tab glows for it while it works. A Stop says which; one
+    /// sent to the background mid-turn counts until then, unless it looks like a server. nil when it waits for none.
+    public var awaiting: String?
     /// The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.
     public var running: String?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,

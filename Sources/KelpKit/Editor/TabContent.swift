@@ -53,13 +53,15 @@ package struct TabBadge: Equatable {
                  meter: SessionContextWindow.Usage? = nil,
                  progress: Double? = nil,
                  attention: NSColor? = nil,
-                 waitsFor: String? = nil) {
+                 backgroundOf session: Session? = nil) {
         self.status = status
         self.unread = unread
         self.meter = meter
         self.progress = progress
         self.attention = attention
-        self.waitsFor = waitsFor
+        background = session?.backgroundLabel
+        backgroundTip = session?.backgroundTip
+        waitsFor = session?.waitsForCommand ?? false
     }
     /// Its state mark (nil: a terminal whose program doesn't say how far it got).
     var status: AgentStatus?
@@ -71,8 +73,11 @@ package struct TabBadge: Equatable {
     var progress: Double?
     /// The colored ring around its pane: an agent asking (orange), failed (red), finished unseen (accent).
     var attention: NSColor?
-    /// The command its agent waits for (a build it started): a line along the tab's top and the command on it, no ring.
-    var waitsFor: String?
+    /// What its agent runs in the background, on a chip whatever it's doing (`Session.backgroundLabel`), and the whole list.
+    var background: String?
+    var backgroundTip: String?
+    /// It works on only to see that command end: the tab glows cyan, below any call for you; no ring.
+    var waitsFor = false
 }
 
 /// A tab holding work that can be unsaved: ⌘S, Save All and quitting save it.

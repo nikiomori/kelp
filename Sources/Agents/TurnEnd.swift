@@ -26,7 +26,7 @@ public struct TurnEnd: Sendable {
 
     /// A command that runs until stopped (a dev server, a watcher, a log tail): the agent doesn't wait for it.
     /// Limit: a guess from the words; a server it misses holds the row "working" until the wait runs out.
-    static func looksLikeServer(_ command: String) -> Bool {
+    public static func looksLikeServer(_ command: String) -> Bool {
         command.range(of: #"(?i)\b(dev|serve|server|start|watch|preview)\b|compose up|tail -f|--follow|\blogs -f"#, options: .regularExpression) != nil
     }
 }

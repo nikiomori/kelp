@@ -36,7 +36,7 @@ final class SessionTab: TabContent {
         return TabBadge(status: s.flatMap { $0.agent == "shell" ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus },
                         unread: s?.unread ?? false, meter: app.contextUsage[sessionId],
                         progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(Self.attention),
-                        waitsFor: s.flatMap { $0.status == .working ? $0.background?.first : nil })
+                        backgroundOf: s)
     }
     /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
     /// unread dot and the bold name say it's new.

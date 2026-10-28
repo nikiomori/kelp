@@ -400,13 +400,13 @@ final class SidebarCell: NSTableCellView {
         toolTip = nil
     }
 
-    /// "▷ swift test" while its shell tool runs a command; "◎ goal" while it works toward one; "▷ npm test" while it waits
-    /// for a command it started; "▷ 2" for what keeps running in the background after its turn (a dev server). The full
-    /// text is the tooltip.
+    /// "▷ swift test" while its shell tool runs a command; "◎ goal" while it works toward one; then what runs in the
+    /// background, as on its tab (`backgroundLabel`): "▷ npm test", the command it waits for, or "▷ 2" (a dev server). The
+    /// full text is the tooltip.
     private func showChip(_ s: Session) {
-        let running = s.background ?? []
         let now = [.working, .waiting].contains(s.status) ? s.running : nil   // one left over by a lost hook says nothing once it ended
-        chip.isHidden = now == nil && s.goal == nil && running.isEmpty
+        let background = s.backgroundLabel
+        chip.isHidden = now == nil && s.goal == nil && background == nil
         if let now {
             chip.icon.image = .symbol("apple.terminal")
             chip.label.stringValue = AgentCommand.short(now)
@@ -415,12 +415,10 @@ final class SidebarCell: NSTableCellView {
             chip.icon.image = .symbol("scope")
             chip.label.stringValue = String(localized: "goal")
             chip.toolTip = String(localized: "Goal: \(g)")
-        } else if !running.isEmpty {
-            let waits = s.status == .working, first = running[0]
+        } else if let background {
             chip.icon.image = .symbol("apple.terminal")
-            chip.label.stringValue = waits ? first : "\(running.count)"
-            chip.toolTip = (waits ? String(localized: "Waits for its command:") : String(localized: "Running in the background:"))
-                + "\n" + running.joined(separator: "\n")
+            chip.label.stringValue = background
+            chip.toolTip = s.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)
     }
