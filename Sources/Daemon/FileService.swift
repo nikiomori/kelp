@@ -205,7 +205,8 @@ struct FileService: Sendable {
             names[f[0], default: []].append(f[1])
             if f.count == 3 { sizes[f[0] + "/" + f[1]] = Int(f[2]) }
         }
-        let fm = FileManager.default, found = IconSearch.find(in: ".", list: { names[$0] }, size: { sizes[$0] ?? 0 })
+        let fm = FileManager.default, name = (remote.path as NSString).lastPathComponent
+        let found = IconSearch.find(in: ".", name: name, list: { names[$0] }, size: { sizes[$0] ?? 0 })
         let data = try found.map { try remoteBytes(remote, remote.path + $0.dropFirst()) }   // "./public/x.svg" → its path there
         if fm.fileExists(atPath: keep) { try fm.removeItem(atPath: keep) }
         guard let found, let data else { return nil }

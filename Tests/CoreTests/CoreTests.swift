@@ -346,3 +346,15 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     c.close()
     #expect(ended.wait(timeout: .now() + 3) == .success)
 }
+
+/// An Android module's launcher icon; a site's favicon under the project's name, not another brand's.
+@Test func iconSearchFindsLauncherAndProjectNamedIcons() {
+    func find(_ repo: String, _ tree: [String: [String]]) -> String? { IconSearch.find(in: repo, list: { tree[$0] }) }
+    #expect(find("/p/Agro", ["/p/Agro": ["app", "logo-full.svg"], "/p/Agro/app/": ["src"],
+                             "/p/Agro/app/src/main/res/mipmap-xxxhdpi/": ["ic_launcher.png", "ic_launcher_round.png"]])
+        == "/p/Agro/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png")
+    #expect(find("/p/Pretype_lending", ["/p/Pretype_lending": ["public", "icons-qa.png"], "/p/Pretype_lending/public/": ["assets"],
+                                        "/p/Pretype_lending/public/assets/": ["github-icon.svg", "og.png", "pretype-icon.svg", "pretype-logo.png"]])
+        == "/p/Pretype_lending/public/assets/pretype-icon.svg")
+    #expect(find("/p/site", ["/p/site": ["public"], "/p/site/public/": ["github-icon.svg", "site.css"]]) == nil)
+}
