@@ -116,7 +116,11 @@ final class WindowBar: NSView {
         context.isHidden = false
         if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: app) } else { icon.image = nil }
         name.stringValue = w.displayName
-        folder.title = (w.path as NSString).abbreviatingWithTildeInPath
+        // The folder's name, as Xcode and Finder name a project; the whole path in its tooltip and its menu.
+        let place = app.repo(w.repoId).map(app.projectPlace) ?? (w.path as NSString).abbreviatingWithTildeInPath
+        let path = w.path == app.repo(w.repoId)?.path ? place : (w.path as NSString).abbreviatingWithTildeInPath
+        folder.title = (path as NSString).lastPathComponent
+        folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }
         let p = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }

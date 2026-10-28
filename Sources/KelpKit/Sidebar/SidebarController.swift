@@ -94,7 +94,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let footer = NSHostingView(rootView: UsageView(app: app))   // agent limits, when any agent reports them
         footer.sizingOptions = [.intrinsicContentSize]
         let v = NSView()
-        search.placeholderString = String(localized: "Workspace or agent")
+        search.placeholderString = String(localized: "Search")
         search.delegate = self
         search.controlSize = .regular   // 22 pt, level with the add button beside it (small was 19 pt, off its axis)
         search.sendsSearchStringImmediately = true
@@ -180,7 +180,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             i.state = f == filter ? .on : .off
         }
         search.searchMenuTemplate = m
-        search.placeholderString = filter == .all ? String(localized: "Workspace or agent") : String(localized: "Search \(loc(filter.rawValue))")
+        search.placeholderString = filter == .all ? String(localized: "Search") : String(localized: "Search \(loc(filter.rawValue))")
     }
     private func setFilter(_ f: SidebarFilter) {
         filter = f; UserDefaults.standard.set(f.rawValue, forKey: "sidebar.filter")

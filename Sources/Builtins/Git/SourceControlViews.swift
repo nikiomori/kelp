@@ -282,7 +282,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         let out = labels(refs)
         var views: [NSView] = out.prefix(1).map {
             let b = Badge(text: $0.0, color: $0.1, strong: $0.2)
-            b.widthAnchor.constraint(lessThanOrEqualToConstant: 72).isActive = true   // a long name ends in "…"
+            b.widthAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true   // a long name ends in "…", the subject keeps its room
             return b
         }
         if out.count > 1 {

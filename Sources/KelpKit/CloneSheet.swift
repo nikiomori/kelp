@@ -50,6 +50,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         field.widthAnchor.constraint(equalToConstant: 340).isActive = true; field.delegate = self
         dest.delegate = self
         dest.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        dest.usesSingleLineMode = true
+        dest.lineBreakMode = .byTruncatingHead   // a long path keeps its end in view: the folder it goes into
         fill()
         choose.title = String(localized: "Choose…")
         choose.bezelStyle = .push

@@ -91,7 +91,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         case "agent": s = r.agent == .codex ? "Codex" : "Claude"
         case "title": s = r.title.isEmpty ? String(localized: "Untitled") : r.title
         case "cwd": s = r.cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-        default: s = RelativeDateTimeFormatter().localizedString(for: r.updated, relativeTo: Date())
+        default: s = shortAgo(r.updated)   // "4m", "2h", "3d", as everywhere else in Kelp
         }
         let l = NSTextField(labelWithString: s); l.lineBreakMode = c?.identifier.rawValue == "cwd" ? .byTruncatingHead : .byTruncatingTail
         if c?.identifier.rawValue == "agent" || c?.identifier.rawValue == "updated" { l.textColor = .secondaryLabelColor }

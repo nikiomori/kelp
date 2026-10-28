@@ -223,7 +223,8 @@ final class SidebarCell: NSTableCellView {
             // Bold where agents are: a project with none is a quieter name the eye passes over.
             let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(13, weight: busy ? .semibold : .regular)
-            title.textColor = busy || selected ? .labelColor : .secondaryLabelColor
+            // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
+            title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r.map(m.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
