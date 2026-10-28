@@ -30,11 +30,12 @@ extension Daemon {
             do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) }
             catch { return (line(ActivityEvent(error: message(error))), 2) }
         case .ci:
-            // gh / glab ask the forge: again only while a run goes on (or just after a push asked, `fast`).
+            // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
+            // for a run started elsewhere (a merge on the forge, a push from another machine).
             do {
                 let r = try await ask(CIRunsList(worktreeId: k.key))
                 let running = CIRuns.latest(r.runs).contains { $0.status != "completed" }
-                return (line(CIEvent(worktree: k.key, result: r)), running ? 10 : fast ? 5 : nil)
+                return (line(CIEvent(worktree: k.key, result: r)), running ? 10 : fast ? 5 : 120)
             } catch { return (line(CIEvent(worktree: k.key, error: message(error))), nil) }
         case .pr:
             return ((try? await ask(GitHubBranchPR(worktreeId: k.key))).flatMap { line(PREvent(worktree: k.key, pr: $0)) }, 60)

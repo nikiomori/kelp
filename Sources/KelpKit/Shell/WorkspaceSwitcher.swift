@@ -194,7 +194,7 @@ final class WorkspaceSwitcher {
         // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
         let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "),
                           .ui(12), secondary: true)
-        let folder = app.rowBadges.folder(workspace: w.id) ?? app.rowBadges.folder(project: w.repoId)
+        let folder = app.rowBadges.folder(of: w.id)
         let changes = label("", .uiDigits(11)), pr = label("", .uiDigits(11))
         if let c = folder.flatMap({ RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) }) {
             changes.attributedStringValue = c
@@ -208,10 +208,12 @@ final class WorkspaceSwitcher {
         when.widthAnchor.constraint(greaterThanOrEqualToConstant: 30).isActive = true   // the times line up
         let gap = NSView()
         gap.setContentHuggingPriority(.init(1), for: .horizontal)
-        let top1 = NSStackView(views: [name, place, gap, changes, pr, when])
+        let ci = CIMark()
+        ci.state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
+        let top1 = NSStackView(views: [name, place, gap, changes, pr, ci, when])
         top1.distribution = .fill   // the gap takes the slack: the badges sit at the right edge
         top1.spacing = 6
-        top1.setCustomSpacing(8, after: changes); top1.setCustomSpacing(8, after: pr)
+        for v in [changes, pr, ci] { top1.setCustomSpacing(8, after: v) }
         top1.alignment = .firstBaseline
         top1.detachesHiddenViews = true
 

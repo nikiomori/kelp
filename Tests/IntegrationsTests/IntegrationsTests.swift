@@ -213,6 +213,23 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(CIRuns.gitlabState("manual").0 == "waiting" && CIRuns.gitlabState("canceled").1 == "cancelled")
 }
 
+@Test func ciStateIsTheNewestRunOfEachWorkflowMostPressingFirst() {
+    func run(_ workflow: String, _ status: String, _ conclusion: String? = nil) -> CIRuns.Run {
+        CIRuns.Run(id: 0, title: "", workflow: workflow, status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
+    }
+    let ok = run("CI", "completed", "success"), broke = run("CI", "completed", "failure")
+    #expect(CIRuns.state([]) == nil)
+    #expect(CIRuns.state([ok, broke]) == .passed)   // newest first: the failure was fixed since
+    #expect(CIRuns.state([run("Deploy", "in_progress"), ok]) == .running)
+    #expect(CIRuns.state([run("Deploy", "waiting"), run("Lint", "queued"), ok]) == .waiting)
+    #expect(CIRuns.state([run("Deploy", "waiting"), broke]) == .failed)
+    #expect(CIRuns.state([run("Fork", "completed", "action_required")]) == .waiting)
+    #expect(CIRuns.state([run("CI", "completed", "skipped"), run("Deploy", "completed", "cancelled")]) == nil)
+    #expect(CIRuns.state(GitHub.PullRequest.Checks(passed: 3, failed: 0, pending: 1)) == .running)
+    #expect(CIRuns.state(GitHub.PullRequest.Checks()) == nil)
+    #expect([CIRuns.State.running, .passed, .failed].max() == .failed)
+}
+
 @Test func gitlabIsRecognisedByTheHostNotAWordInThePath() {
     #expect(GitLab.isGitLab(remote: "git@gitlab.com:g/r.git"))
     #expect(GitLab.isGitLab(remote: "https://gitlab.example.org/g/r"))

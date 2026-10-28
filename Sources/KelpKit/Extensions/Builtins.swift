@@ -53,10 +53,20 @@ package enum Builtins {
             s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge."),
             s("workbench.sideBySideButton", "Agents Side by Side button", "boolean", true,
               "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.")
-        ] + sidebar), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
+        ] + sidebar + ci), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
                             custom: { AnyView(KeyboardSettings()) })]
         return c
     }
+
+    /// Appearance › CI: where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
+    private static let ci = [
+        s("workbench.ci.branchChip", "On the branch chip", "enum", "icon",
+          "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
+          options: ["icon", "end", "off"], group: "CI"),
+        s("workbench.ci.sidebar", "Beside folders", "boolean", true,
+          "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.", group: "CI"),
+        s("workbench.ci.popover", "In the branch popover", "boolean", true, "The newest run of each workflow; a click opens CI Runs.", group: "CI")
+    ]
 
     /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.
     private static let sidebar = [

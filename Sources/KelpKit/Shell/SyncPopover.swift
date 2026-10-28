@@ -19,7 +19,9 @@ final class SyncPopover: NSViewController {
     private lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     private lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     private let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
-    private let outgoing = NSStackView(), incoming = NSStackView()
+    private let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView()
+    /// The folder whose CI the section shows (a desk shares its project's): the one the branch chip's mark reads.
+    private var folder: String { app.rowBadges.folder(of: wid)?.id ?? wid }
     private let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""), message = NSTextField()
     private let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))
     private let hint = NSTextField(labelWithString: String(localized: "⏎ commit · ⌘⏎ commit and push"))
@@ -80,7 +82,7 @@ final class SyncPopover: NSViewController {
         status.spacing = 6
         status.alignment = .top
 
-        for s in [outgoing, incoming] {
+        for s in [outgoing, incoming, ci] {
             s.orientation = .vertical
             s.alignment = .leading
             s.spacing = 2
@@ -101,7 +103,7 @@ final class SyncPopover: NSViewController {
         hint.textColor = .tertiaryLabelColor
 
         // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
-        let footer = FooterLink(String(localized: "Open Source Control")) { [weak self] in
+        let footer = LinkRow(String(localized: "Open Source Control")) { [weak self] in
             self?.app.workbench.showPanel("git.changes")
             self?.popover?.performClose(nil)
         }
@@ -111,8 +113,9 @@ final class SyncPopover: NSViewController {
         root.alignment = .leading
         root.spacing = 8
         root.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 8, right: 14)
-        root.setViews([head, status, primary, outgoing, incoming, rules.0, changeHead, field, nothing, hint, rules.1, footer], in: .top)
-        let gaps: [(NSView, CGFloat)] = [(head, 12), (primary, 16), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12), (rules.1, 4)]
+        root.setViews([head, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint, rules.1, footer], in: .top)
+        let gaps: [(NSView, CGFloat)] = [(head, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12),
+                                         (rules.1, 4)]
         for (v, gap) in gaps {
             root.setCustomSpacing(gap, after: v)
         }
@@ -136,6 +139,8 @@ final class SyncPopover: NSViewController {
         super.viewDidLoad()
         track(owner: self) { [app, wid] in app.git[wid] } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app, wid] in app.syncing[wid] } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [weak self] in self.flatMap { $0.app.ci[$0.folder] } } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app] in app.settings.bool("workbench.ci.popover") } changed: { [weak self] _ in self?.update() }
     }
 
     /// Opened for a pull or a push, not to type: the commit field waits for a click.
@@ -185,6 +190,7 @@ final class SyncPopover: NSViewController {
         showStatus(running)
         loadLists(info)
         showLists(ahead: ahead, behind: behind, published: published)
+        showCI(on: info?.upstream ?? info?.current)
         showChanges()
         preferredContentSize = view.fittingSize
     }
@@ -273,6 +279,35 @@ final class SyncPopover: NSViewController {
         toggle.contentTintColor = .secondaryLabelColor
         let rows = showIncoming ? inc.map { row($0, trailing: $0.author) } + more(behind - inc.count) : []
         incoming.setViews([toggle] + rows, in: .top)
+    }
+
+    /// "CI · origin/main" and the newest run of each workflow (CI and deploys apart), as CI Runs marks them; a row opens
+    /// CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
+    private func showCI(on branch: String?) {
+        let runs = app.settings.bool("workbench.ci.popover") == false ? [] : CIRuns.latest(app.ci[folder]?.result?.runs ?? [])
+        ci.isHidden = runs.isEmpty
+        guard !runs.isEmpty else { return }
+        let head = NSTextField(labelWithString: "")
+        head.attributedStringValue = NSAttributedString(string: ["CI", branch].compactMap { $0 }.joined(separator: " · "), attributes: Self.captionAttributes)
+        let shown = runs.prefix(3).map { run in
+            let words = label(CIRunLook.words(run.status, run.conclusion))
+            words.lineBreakMode = .byTruncatingTail
+            words.setContentCompressionResistancePriority(.init(240), for: .horizontal)
+            let name = label(run.workflow, secondary: false)
+            name.lineBreakMode = .byTruncatingTail
+            name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+            let r = LinkRow([CIRunLook.mark(run.status, run.conclusion), name, words, NSView(), label(CIRunLook.ago(run.createdAt), size: 11)],
+                            said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))") { [weak self] in
+                guard let self else { return }
+                app.rowBadges.openCI(folder)
+                popover?.performClose(nil)
+            }
+            r.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
+            r.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+            return r as NSView
+        }
+        ci.setViews([head] + shown + more(runs.count - shown.count), in: .top)
+        ci.setCustomSpacing(2, after: head)
     }
 
     private func caption(_ text: String, _ n: Int) -> NSView {
@@ -429,22 +464,27 @@ extension SyncPopover: NSTextFieldDelegate {
 /// A line that is a link to somewhere else ("Open Source Control ›"): words on the left, a chevron on the right, the
 /// whole line one target that answers the pointer (`PointerControl`).
 @MainActor
-private final class FooterLink: PointerControl {
+private final class LinkRow: PointerControl {
     private let run: () -> Void
-    init(_ title: String, action: @escaping () -> Void) {
+    convenience init(_ title: String, action: @escaping () -> Void) {
+        let label = NSTextField(labelWithString: title)
+        label.font = .ui(13)
+        self.init([label, NSView()], said: title, action: action)
+    }
+    /// `views` along the row, then the chevron; `said` is what VoiceOver reads for it.
+    init(_ views: [NSView], said: String, action: @escaping () -> Void) {
         run = action
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.radiusSM
-        let label = NSTextField(labelWithString: title)
-        label.font = .ui(13)
         let chevron = NSImageView(image: .symbol("chevron.right", ""))
         chevron.contentTintColor = .tertiaryLabelColor
-        let row = NSStackView(views: [label, NSView(), chevron])
+        let row = NSStackView(views: views + [chevron])
+        row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
         pin(row)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel(title)
+        setAccessibilityLabel(said)
     }
     required init?(coder: NSCoder) { fatalError() }
     override func clicked() { run() }

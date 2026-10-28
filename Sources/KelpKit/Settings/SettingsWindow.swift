@@ -213,6 +213,9 @@ struct SettingRow: View {
         case "workbench.sidebar.rowHeight" where v == "system": return String(localized: "Match System")
         case "workbench.sidebar.agentDetail" where v == "needsYou": return String(localized: "When They Need You")
         case "workbench.sidebar.agentIcons" where v == "others": return String(localized: "Other Agents Only")
+        case "workbench.ci.branchChip":
+            let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
+            return said[v] ?? v
         case "workbench.sidebar.order":
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "sessions.hibernateMinutes":

@@ -220,6 +220,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Notifier.swift": "a notification's summary waits a moment for the agent's last line",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
         "KelpKit/Shell/WorkspaceSwitcher.swift": "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
+        "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
         "Builtins/Agents/UsageTab.swift": "a \"still reading\" hint after 3 s",
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
         "Builtins/Files/FileTab.swift": "typing settles before the language server hears it",

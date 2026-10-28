@@ -32,6 +32,26 @@ public enum CIRuns {
         var seen = Set<String>()
         return runs.filter { seen.insert($0.workflow).inserted }
     }
+
+    /// A branch's CI in one mark, least to most pressing: of two sources (its runs, its PR's checks) the greater wins.
+    public enum State: Int, Sendable, Comparable {
+        case passed, running, waiting, failed
+        public static func < (a: State, b: State) -> Bool { a.rawValue < b.rawValue }
+    }
+    /// From the newest run of each workflow: one failed; else one waiting for someone's approval (a deploy to a protected
+    /// environment, a fork's first run); else one not finished; else one that succeeded. Nil: no runs, or only skipped or
+    /// cancelled ones (someone stopped it: nothing to fix).
+    public static func state(_ runs: [Run]) -> State? {
+        let now = latest(runs)
+        if now.contains(where: { $0.failed && !["cancelled", "action_required"].contains($0.conclusion) }) { return .failed }
+        if now.contains(where: { $0.status == "waiting" || $0.conclusion == "action_required" }) { return .waiting }
+        if now.contains(where: { $0.status != "completed" }) { return .running }
+        return now.contains { $0.conclusion == "success" } ? .passed : nil
+    }
+    /// A pull request's checks, which also count what runs outside the forge's CI (a deploy preview, a review bot).
+    public static func state(_ c: GitHub.PullRequest.Checks) -> State? {
+        c.failed > 0 ? .failed : c.pending > 0 ? .running : c.passed > 0 ? .passed : nil
+    }
     /// A workflow you can start by hand (`on: workflow_dispatch`), with the inputs its form asks for.
     public struct Workflow: Codable, Sendable, Equatable {
         public struct Input: Codable, Sendable, Equatable {

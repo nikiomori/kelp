@@ -57,7 +57,7 @@ extension SourceControlController {
             || br.ahead != info?.ahead || br.behind != info?.behind   // a push or fetch moved origin/…
         let changed = ch != changes || br != info
         // A push (or a publish) starts CI: look for its run now and for a while.
-        let pushed = info.map { old in br.upstream != nil && br.current == old.current && (old.upstream == nil || (br.ahead ?? 0) < (old.ahead ?? 0)) } ?? false
+        let pushed = info.map { br.pushed(since: $0) } ?? false
         changes = ch
         info = br
         showError(nil)

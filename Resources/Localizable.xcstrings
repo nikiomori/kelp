@@ -538,6 +538,27 @@
         }
       }
     },
+    "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольцо, пока идёт, ✕ — если упал, ◎ — пока деплой ждёт подтверждения, ✓ — минуту после успеха."
+          }
+        }
+      }
+    },
+    "After the Counts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После счётчиков"
+          }
+        }
+      }
+    },
     "Agents as tabs. Click to put them side by side (⌃⌘T)": {
       "localizations": {
         "ru": {
@@ -1050,6 +1071,17 @@
         }
       }
     },
+    "Beside folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рядом с папками"
+          }
+        }
+      }
+    },
     "Bigger Text": {
       "extractionState": "manual",
       "localizations": {
@@ -1187,6 +1219,27 @@
         }
       }
     },
+    "CI": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI"
+          }
+        }
+      }
+    },
+    "CI: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: %@"
+          }
+        }
+      }
+    },
     "Can't show this notebook": {
       "localizations": {
         "ru": {
@@ -1214,6 +1267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать…"
+          }
+        }
+      }
+    },
+    "Click to open CI Runs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите, чтобы открыть CI Runs"
           }
         }
       }
@@ -3338,6 +3401,38 @@
         }
       }
     },
+    "In Place of the Branch Icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместо значка ветки"
+          }
+        }
+      }
+    },
+    "In the branch popover": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В поповере ветки"
+          }
+        }
+      }
+    },
+    "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В боковой панели и переключателе ⌃Tab; ✓ — пока вы не откроете папку. Если выключить, Kelp перестаёт проверять CI остальных папок."
+          }
+        }
+      }
+    },
     "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.": {
       "extractionState": "manual",
       "localizations": {
@@ -5051,6 +5146,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выкл.: у изменённых файлов точка, сохранение по ⌘S. Вкл.: сохраняются через мгновение после того, как вы перестали печатать."
+          }
+        }
+      }
+    },
+    "On the branch chip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На чипе ветки"
           }
         }
       }
@@ -7644,6 +7750,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mac не уснёт, пока работают агенты. Нажмите, чтобы он не засыпал совсем"
+          }
+        }
+      }
+    },
+    "The newest run of each workflow; a click opens CI Runs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последний запуск каждого workflow; щелчок открывает CI Runs."
           }
         }
       }

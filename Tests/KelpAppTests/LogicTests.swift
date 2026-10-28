@@ -393,3 +393,33 @@ extension OneAtATime {
     #expect(ResetTime.parse("Nov 23", now: now, calendar: cal).map { cal.component(.month, from: $0) } == 11)
     #expect(ResetTime.parse("soon", now: now, calendar: cal) == nil)
 }
+
+/// A folder's CI mark: a run shows while it goes; a pass that lands while you're elsewhere waits in the sidebar until you
+/// open the folder, then stays on the branch chip for its minute; a failure shows wherever it is.
+@MainActor @Test func aPassedCIWaitsInTheSidebarUntilItsFolderIsOnScreen() async throws {
+    _ = testHome
+    let m = AppModel(builtins: Builtins.all)
+    m.repos = [Repo(id: "r1", name: "Atlas", path: "/tmp/kelp-ci-atlas")]
+    m.worktrees = [Worktree(id: "w1", repoId: "r1", branch: "main", path: "/tmp/kelp-ci-atlas"),
+                   Worktree(id: "w2", repoId: "r1", branch: "fix", path: "/tmp/kelp-ci-atlas-fix")]
+    func ci(_ status: String, _ conclusion: String? = nil) {
+        let run = CIRuns.Run(id: 1, title: "", workflow: "CI", status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
+        m.ci["w1"] = CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: []))
+    }
+    func until(_ ok: () -> Bool) async throws { for _ in 0..<100 where !ok() { try await Task.sleep(for: .milliseconds(20)) } }
+    let b = m.rowBadges
+    m.workbench.workspaceId = "w2"   // its own worktree: not w1's folder
+    ci("in_progress")
+    try await until { b.sidebarCI("w1") == .running }
+    #expect(b.sidebarCI("w1") == .running && b.chipCI("w1") == .running)
+    try await Task.sleep(for: .milliseconds(100))   // the badges see it run before it passes, as with reads seconds apart
+    ci("completed", "success")
+    try await until { b.sidebarCI("w1") == .passed }
+    #expect(b.sidebarCI("w1") == .passed)
+    m.workbench.workspaceId = "w1"
+    try await until { b.sidebarCI("w1") == nil }
+    #expect(b.sidebarCI("w1") == nil && b.chipCI("w1") == .passed)   // seen: off the sidebar, on the chip for a minute
+    ci("completed", "failure")
+    try await until { b.chipCI("w1") == .failed }
+    #expect(b.sidebarCI("w1") == .failed && b.ciLine("w1") == "CI: Failed · CI")
+}

@@ -30,8 +30,18 @@ final class WindowBar: NSView {
     private var closedAt = Date.distantPast
 
     private var worktree: Worktree? { app.worktree(app.workbench.workspaceId) }
-    /// The folder the sidebar keeps the pull request for: a desk shares its project's.
-    private var badgeFolder: Worktree? { worktree.flatMap { app.rowBadges.folder(workspace: $0.id) ?? app.rowBadges.folder(project: $0.repoId) } }
+    /// The folder the sidebar keeps the pull request and CI for: a desk shares its project's.
+    private var badgeFolder: Worktree? { app.rowBadges.folder(of: app.workbench.workspaceId) }
+    /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
+    private let ciMark = CIMark()
+    /// Centred on the glyph's slot (the chip's padding, then 13 pt) or on the room left at the title's end (12 pt).
+    private lazy var ciAtStart = ciMark.centerXAnchor.constraint(equalTo: branch.leadingAnchor, constant: Self.chipPadding + 13 / 2)
+    private lazy var ciAtEnd = ciMark.centerXAnchor.constraint(equalTo: branch.trailingAnchor, constant: -(Self.chipPadding + 12 / 2))
+    private static let chipPadding: CGFloat = 6
+    private var ciPlace: String { app.settings.string("workbench.ci.branchChip") ?? "icon" }
+    private var ci: CIRuns.State? { ciPlace == "off" ? nil : badgeFolder.flatMap { app.rowBadges.chipCI($0.id) } }
+    /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
+    private var ciLine: String? { badgeFolder.flatMap { app.rowBadges.ciLine($0.id) } }
 
     init(app: AppModel) {
         self.app = app; search = SearchPill(app: app)
@@ -44,6 +54,8 @@ final class WindowBar: NSView {
         folder.toolTip = String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.target = self
         branch.action = #selector(branchClicked)
+        branch.addSubview(ciMark)
+        ciMark.centerYAnchor.constraint(equalTo: branch.centerYAnchor).isActive = true
         pr.target = self; pr.action = #selector(openPR)
         context.setViews([icon, name, folder, branch, pr], in: .leading)
         context.spacing = 2
@@ -93,6 +105,8 @@ final class WindowBar: NSView {
         track(owner: self) { [weak self] in self?.dirty ?? false } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [weak self] in self?.syncing } changed: { [weak self] _ in self?.update() }
         track(owner: self) { app.rowBadges.prs } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [weak self] in self.map { [$0.ciPlace, "\($0.ci?.rawValue ?? -1)", $0.ciLine ?? ""] } ?? [] }
+            changed: { [weak self] _ in self?.update() }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -100,7 +114,7 @@ final class WindowBar: NSView {
     private static func chip(_ symbol: String?) -> NSButton {
         let b = PointerButton(frame: .zero)
         b.radius = nil
-        b.padding = 6
+        b.padding = chipPadding
         b.font = .ui(12)
         b.imagePosition = .imageLeading
         b.imageHugsTitle = true
@@ -139,7 +153,8 @@ final class WindowBar: NSView {
     }
 
     /// The branch, what is left to pull (orange) and push (blue), a dot while there are uncommitted changes; the sync arrows
-    /// instead of the branch glyph while a pull, push or fetch runs. No upstream: only what publishing would push.
+    /// instead of the branch glyph while a pull, push or fetch runs, else the CI's mark there (or after the counts). No
+    /// upstream: only what publishing would push.
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
         let font = NSFont.ui(12), count = NSFont.ui(12, weight: .semibold)
@@ -147,15 +162,25 @@ final class WindowBar: NSView {
         if behind > 0 { t.append(NSAttributedString(string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.textOrange])) }
         if ahead > 0 { t.append(NSAttributedString(string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.controlAccentColor])) }
         if dirty { t.append(NSAttributedString(string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor])) }
+        let running = syncing, ci = self.ci, atEnd = ci != nil && ciPlace == "end", inPlace = ci != nil && !atEnd && running == nil
+        if atEnd {
+            let room = NSTextAttachment()
+            room.image = CIMark.room(12)
+            t.append(NSAttributedString(string: " ")); t.append(NSAttributedString(attachment: room))
+        }
         branch.attributedTitle = t
+        ciMark.state = atEnd || inPlace ? ci : nil
+        ciAtStart.isActive = inPlace
+        ciAtEnd.isActive = atEnd
         let changed = app.git[app.workbench.workspaceId ?? ""]?.changes?.count ?? 0
         let parts = [info.current ?? info.head ?? "HEAD"] + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (behind > 0 ? [String(localized: "\(behind) to pull")] : []) + (changed > 0 ? [String(localized: "\(changed) changed")] : [])
-        branch.toolTip = parts.joined(separator: " · ")
-        let running = syncing
-        branch.image = running == nil ? (Glyph.image("arrow.triangle.branch", size: 13) ?? .symbol("arrow.triangle.branch", ""))
-                                      : .symbol("arrow.triangle.2.circlepath", running ?? "")
-        branch.setAccessibilityLabel(running ?? String(localized: "Branch \(info.current ?? "HEAD"), \(behind) to pull, \(ahead) to push"))
+        let said = ciLine
+        branch.toolTip = parts.joined(separator: " · ") + (said.map { "\n" + $0 } ?? "")
+        branch.image = running != nil ? .symbol("arrow.triangle.2.circlepath", running ?? "") : inPlace ? CIMark.room(13)
+            : Glyph.image("arrow.triangle.branch", size: 13) ?? .symbol("arrow.triangle.branch", "")
+        let branchWords = String(localized: "Branch \(info.current ?? "HEAD"), \(behind) to pull, \(ahead) to push")
+        branch.setAccessibilityLabel(running ?? ([branchWords] + [said].compactMap { $0 }).joined(separator: ", "))
     }
 
     @objc private func branchClicked() {

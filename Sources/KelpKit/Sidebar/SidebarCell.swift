@@ -34,8 +34,10 @@ final class SidebarCell: NSTableCellView {
     var selected = false { didSet { if selected != oldValue { update() } } }
     /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
-    /// Lines not committed and the PR, for rows that stand for a folder (RowBadges); they go first when the row is short of room.
-    private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero)
+    /// Lines not committed, the PR and its CI, for rows that stand for a folder (RowBadges); the counts go first when the row
+    /// is short of room, the CI mark last.
+    private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero), ci = PointerButton(frame: .zero)
+    private let ciMark = CIMark()
 
     init(node: SidebarController.Node, owner: SidebarController) {
         self.node = node
@@ -65,7 +67,7 @@ final class SidebarCell: NSTableCellView {
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [icon, title, detail, summary, changes, pr, trailing, b, f])
+            layout(row: [icon, title, detail, summary, changes, pr, ci, trailing, b, f])
             detail.isHidden = true   // the workspace's name shows in the hover card; here only while it's renamed
         case .section:
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
@@ -76,7 +78,7 @@ final class SidebarCell: NSTableCellView {
             // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
             title.font = .ui(11, weight: .semibold)
             title.textColor = .secondaryLabelColor
-            layout(row: [title, changes, pr, trailing, mark, makeFold()])
+            layout(row: [title, changes, pr, ci, trailing, mark, makeFold()])
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -109,12 +111,17 @@ final class SidebarCell: NSTableCellView {
         for v in [title, count] { v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
         if case .section = node.kind {} else { title.setContentHuggingPriority(.init(2), for: .horizontal) }
-        for b in [changes, pr] {   // grey in under the pointer and spring when clicked, as chips do
+        for b in [changes, pr, ci] {   // grey in under the pointer and spring when clicked, as chips do
             b.radius = Metrics.radiusXS
             b.padding = 3
             b.target = self
         }
         changes.action = #selector(openChanges); pr.action = #selector(openPR)
+        ci.action = #selector(openCI)
+        ci.image = CIMark.room(12)
+        ci.imagePosition = .imageOnly
+        ci.addSubview(ciMark)
+        NSLayoutConstraint.activate([ciMark.centerXAnchor.constraint(equalTo: ci.centerXAnchor), ciMark.centerYAnchor.constraint(equalTo: ci.centerYAnchor)])
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -157,7 +164,7 @@ final class SidebarCell: NSTableCellView {
         r.spacing = 6
         r.alignment = .centerY
         r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr { r.setVisibilityPriority(.notVisible, for: v) }
+        for v in row where v === changes || v === pr || v === ci { r.setVisibilityPriority(.notVisible, for: v) }
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
         let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = y
@@ -174,6 +181,7 @@ final class SidebarCell: NSTableCellView {
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
     @objc private func openPR() { if let w = folder, let u = app.rowBadges.prs[w.id]?.url { app.workbench.open(u, workspace: w.id) } }
+    @objc private func openCI() { if let w = folder { app.rowBadges.openCI(w.id) } }
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
@@ -185,18 +193,22 @@ final class SidebarCell: NSTableCellView {
             changes.toolTip = String(localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
         }
         if let p { pr.attributedTitle = p.0; pr.toolTip = p.1 }
-        hasBadge = (c != nil, p != nil)
+        let state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
+        ciMark.state = state
+        ci.toolTip = folder.flatMap { app.rowBadges.ciLine($0.id) }.map { $0 + "\n" + String(localized: "Click to open CI Runs") }
+        ci.setAccessibilityLabel(ci.toolTip)
+        hasBadge = (c != nil, p != nil, state != nil)
         fitBadges()
     }
-    private var hasBadge = (changes: false, pr: false)
+    private var hasBadge = (changes: false, pr: false, ci: false)
 
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack
     /// squeezes the name instead: "kdrde…  +2 −1").
     private func fitBadges() {
         guard let r = changes.superview as? NSStackView else { return }
-        let others = r.views.filter { $0 !== changes && $0 !== pr && !$0.isHidden }
+        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && !$0.isHidden }
         var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
-        for (b, has) in [(changes, hasBadge.changes), (pr, hasBadge.pr)] {
+        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
             let need = b.intrinsicContentSize.width + r.spacing, show = has && room >= need
             if show { room -= need }
             r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)

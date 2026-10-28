@@ -137,6 +137,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.settings.string("workbench.textSize") } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in ["rowHeight", "agentDetail", "agentIcons"].map { app.settings.string("workbench.sidebar." + $0) } }
             changed: { [weak self] _ in self?.updateVisibleCells() }
@@ -224,7 +225,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
         tree.statusLabel = { $0.label }
         tree.hasPR = { [app] w in
-            (app.rowBadges.folder(workspace: w.id) ?? app.rowBadges.folder(project: w.repoId)).map { [app] in app.rowBadges.prs[$0.id] != nil } ?? false
+            app.rowBadges.folder(of: w.id).map { [app] in app.rowBadges.prs[$0.id] != nil } ?? false
         }
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)

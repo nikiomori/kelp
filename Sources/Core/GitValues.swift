@@ -183,6 +183,10 @@ public struct BranchInfo: Codable, Sendable, Equatable {
         self.current = current; self.head = head; self.local = local; self.remote = remote
         self.upstream = upstream; self.ahead = ahead; self.behind = behind; self.merging = merging
     }
+    /// The same branch with fewer commits to push, or newly on a remote: a push (or a publish) went out, which starts CI.
+    public func pushed(since old: BranchInfo) -> Bool {
+        upstream != nil && current == old.current && (old.upstream == nil || (ahead ?? 0) < (old.ahead ?? 0))
+    }
 }
 
 /// The newest commits a sync would move: `outgoing` is what a push sends, `incoming` what a pull brings (none without an upstream).
