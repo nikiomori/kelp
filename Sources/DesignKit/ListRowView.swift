@@ -22,13 +22,33 @@ public final class ListRowView: NSTableRowView {
         addTrackingArea(a)
         area = a
     }
-    override public func mouseEntered(with e: NSEvent) {
-        hovering = true
-        (subviews.first { $0 is Hoverable } as? Hoverable)?.setHover(true)
+    override public func mouseEntered(with e: NSEvent) { setHovering(true) }
+    override public func mouseExited(with e: NSEvent) { setHovering(false) }
+    private func setHovering(_ on: Bool) {
+        guard on != hovering else { return }
+        hovering = on
+        (subviews.first { $0 is Hoverable } as? Hoverable)?.setHover(on)
     }
-    override public func mouseExited(with e: NSEvent) {
-        hovering = false
-        (subviews.first { $0 is Hoverable } as? Hoverable)?.setHover(false)
+
+    /// A list scrolled under a still pointer: rows coming under it get an "entered", the ones leaving often no "exited",
+    /// so several stayed lit at once. Each scroll asks again where the pointer is; a reused row starts unlit.
+    private var scrollWatch: NSObjectProtocol?
+    override public func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let scrollWatch { NotificationCenter.default.removeObserver(scrollWatch) }
+        scrollWatch = nil
+        guard window != nil, let clip = enclosingScrollView?.contentView else { setHovering(false); return }
+        scrollWatch = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.recheckPointer() }   // queue: .main
+        }
+    }
+    override public func prepareForReuse() {
+        super.prepareForReuse()
+        setHovering(false)
+    }
+    private func recheckPointer() {
+        guard let w = window else { return }
+        setHovering(w.isKeyWindow && bounds.contains(convert(w.mouseLocationOutsideOfEventStream, from: nil)))
     }
 
     private func showHover() {
@@ -58,11 +78,6 @@ public final class ListRowView: NSTableRowView {
         hoverFill.frame = bounds.insetBy(dx: 6, dy: 1)
         CATransaction.commit()
     }
-    override public func prepareForReuse() {
-        super.prepareForReuse()
-        hovering = false
-    }
-
     override public func drawSelection(in r: NSRect) {
         (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor).setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM).fill()

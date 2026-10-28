@@ -35,14 +35,16 @@ extension SidebarController {
         } else if let n = workspaceNode(id) { refreshCell(n.key) }
     }
 
+    func menuDidClose(_ menu: NSMenu) { outline.menuClosed() }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         let app = self.app
         menu.removeAllItems()
         card.close()
-        guard let n = outline.item(atRow: outline.clickedRow) as? Node else { return }
+        guard let n = outline.item(atRow: outline.menuRow) as? Node else { return }
         let m = app
         let picked = outline.selectedRowIndexes
-        if picked.count > 1, picked.contains(outline.clickedRow) {
+        if picked.count > 1, picked.contains(outline.menuRow) {
             bulkMenu(menu, picked.compactMap { outline.item(atRow: $0) as? Node }); return
         }
         switch n.kind {

@@ -16,6 +16,22 @@ final class SidebarOutline: NSOutlineView {
         r.origin.x = x; r.size.width = bounds.width - 8 - x
         return r
     }
+    /// The row a right-click opened the menu for; `clickedRow` stays -1, see `menu(for:)`.
+    private(set) var menuRow = -1
+    /// The menu, without the outline NSTableView draws around the clicked row (it matched neither the pill nor the
+    /// card): the row keeps its hover pill until the menu closes (`menuClosed`).
+    override func menu(for event: NSEvent) -> NSMenu? {
+        menuRow = row(at: convert(event.locationInWindow, from: nil))
+        (rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView)?.menuTarget = true
+        return menu
+    }
+    func menuClosed() {
+        let row = rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView
+        row?.menuTarget = false
+        row?.recheckPointer()   // the pointer may have left it while the menu was open
+        menuRow = -1
+    }
+
     private func padded(_ r: NSRect, _ row: Int) -> NSRect {
         let p = pads(row)
         return NSRect(x: r.minX, y: r.minY + p.top, width: r.width, height: r.height - p.top - p.bottom)
@@ -43,8 +59,12 @@ final class SidebarRowView: NSTableRowView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Its menu is open (right-click): the row keeps the hover pill, as the place the menu is about, instead of the
+    /// table's own outline drawn around it, which matched neither the pill nor the card.
+    var menuTarget = false { didSet { if menuTarget != oldValue { showHover() } } }
+
     private func showHover() {
-        let to: Float = hovering && !isSelected ? 1 : 0
+        let to: Float = (hovering || menuTarget) && !isSelected ? 1 : 0
         let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
         hoverLayer.opacity = to
         guard !Motion.reduced, from != to else { return }
@@ -140,7 +160,26 @@ final class SidebarRowView: NSTableRowView {
     }
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) { hovering = false }
-    override func prepareForReuse() { super.prepareForReuse(); hovering = false }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        hovering = false
+        menuTarget = false
+    }
+    /// Scrolled under a still pointer, rows leaving it often get no "exited" (several stayed lit): each scroll asks again.
+    private var scrollWatch: NSObjectProtocol?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let scrollWatch { NotificationCenter.default.removeObserver(scrollWatch) }
+        scrollWatch = nil
+        guard window != nil, let clip = enclosingScrollView?.contentView else { hovering = false; return }
+        scrollWatch = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.recheckPointer() }   // queue: .main
+        }
+    }
+    func recheckPointer() {
+        guard let w = window else { return }
+        hovering = w.isKeyWindow && bounds.contains(convert(w.mouseLocationOutsideOfEventStream, from: nil))
+    }
     /// The pill dims while another window is in front.
     override func viewWillMove(toWindow w: NSWindow?) {
         super.viewWillMove(toWindow: w)
