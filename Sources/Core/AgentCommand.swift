@@ -71,10 +71,36 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
         return String(decoding: s.utf8.suffix(outputLimit), as: UTF8.self)
     }
 
-    /// The command without the `cd <folder> &&` agents put in front of it: what it runs.
+    /// What it runs, in a line: its first step that does something — past the variables an agent's script sets first
+    /// (`S=/tmp/x;`), `cd`, `export`, `set` and comments — without the variables set for that step alone
+    /// (`KELP_HOME=/tmp/k make` is `make`), its program by name (`.build/debug/kelp` is `kelp`). Its first line when no
+    /// step is left.
     public var shortCommand: String { Self.short(command) }
     public static func short(_ command: String) -> String {
-        let s = command.replacing(/^\s*cd\s+("[^"]*"|'[^']*'|\S+)\s*&&\s*/, with: "")
-        return s.isEmpty ? command : s
+        for step in steps(command) {
+            let run = step.replacing(/^(?:[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\$\([^)]*\)|\S)*?(?:\s+|$))+/, with: "")
+            let program = run.prefix { $0 != " " }
+            if run.isEmpty || run.hasPrefix("#") || ["cd", "export", "set"].contains(program) { continue }
+            return program.contains("/") ? (program as NSString).lastPathComponent + run.dropFirst(program.count) : run
+        }
+        return command.split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? command
+    }
+
+    /// The steps of a shell command — split at `;`, `&&`, `||` and new lines outside quotes and `$( )` — trimmed.
+    static func steps(_ command: String) -> [String] {
+        var steps: [String] = [], step = "", quote: Character?, depth = 0, escaped = false
+        var chars = command.makeIterator(), next = chars.next()
+        while let c = next {
+            next = chars.next()
+            if escaped { step.append(c); escaped = false; continue }
+            if c == "\\" && quote != "'" { step.append(c); escaped = true; continue }
+            if let q = quote { step.append(c); if c == q { quote = nil }; continue }
+            if c == "'" || c == "\"" { quote = c } else if c == "(" { depth += 1 } else if c == ")" { depth = max(0, depth - 1) }
+            let ends = depth == 0 && (c == ";" || c == "\n" || (c == "&" || c == "|") && next == c)
+            guard ends else { step.append(c); continue }
+            if c != ";" && c != "\n" { next = chars.next() }   // the second & or |
+            steps.append(step); step = ""
+        }
+        return (steps + [step]).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 }

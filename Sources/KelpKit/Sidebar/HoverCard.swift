@@ -143,7 +143,7 @@ struct CardView: View {
                         Text(a.session.summary).font(.caption).foregroundStyle(.secondary).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                     }
                     if let r = a.session.running, [.working, .waiting].contains(a.session.status) {
-                        Text("Running: \(r)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
+                        Text("Running: \(AgentCommand.short(r))").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
                     }
                     if let g = a.session.goal { Text("Goal: \(g)").font(.caption).foregroundStyle(.secondary).lineLimit(3) }
                     if let b = a.session.background, !b.isEmpty {

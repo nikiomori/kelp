@@ -54,3 +54,12 @@ private func payload(_ json: String) throws -> JSONValue { try JSONDecoder().dec
     #expect(AgentCommand.short(#"cd "/a b" && make"#) == "make")
     #expect(AgentCommand.short("cd sub") == "cd sub")
 }
+
+@Test func aScriptIsSaidByWhatItRuns() {
+    let script = "S=/private/tmp/x; ID=$(cat $S/sid); cd /p && KELP_HOME=/tmp/k KELP_SNAPSHOT=\"$S/a b.png\" .build/debug/KelpApp 2>&1 | grep X"
+    #expect(AgentCommand.short(script) == "KelpApp 2>&1 | grep X")
+    #expect(AgentCommand.short("# build it\nexport A=1\nset -e\nswift build && swift test") == "swift build")
+    #expect(AgentCommand.short(#"echo "a; b && c" || true"#) == #"echo "a; b && c""#)
+    #expect(AgentCommand.short("python3 - <<'EOF'\nprint(1)\nEOF") == "python3 - <<'EOF'")
+    #expect(AgentCommand.short("X=1 Y='a b'") == "X=1 Y='a b'")
+}

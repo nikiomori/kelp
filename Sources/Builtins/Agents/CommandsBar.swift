@@ -161,30 +161,29 @@ private final class Header: PointerControl {
     override func clicked() { press() }
 }
 
-/// One command: its mark, what it ran, the agent's words for it, and how long it took or has been running.
+/// One command: its mark, the agent's words for it, what it runs in grey, and how long it took or has been running.
 @MainActor
 final class CommandRow: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("command")
     private let mark = StatusMark(size: 12)
-    private let command = NSTextField(labelWithString: ""), words = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
+    /// The agent's words for it (else the command, else a title); then the command.
+    private let lead = NSTextField(labelWithString: ""), command = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
     /// The mark's room, so the commands line up; a count goes without it.
     private let slot = NSView()
 
     init() {
         super.init(frame: .zero)
         identifier = Self.id
-        command.font = .uiMono(11)
-        words.font = .ui(11); words.textColor = .secondaryLabelColor
+        command.font = .uiMono(11); command.textColor = .secondaryLabelColor
         time.font = .uiDigits(11); time.textColor = .secondaryLabelColor
-        for l in [command, words] {
-            l.lineBreakMode = .byTruncatingTail
-            l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        }
-        words.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
+        for l in [lead, command] { l.lineBreakMode = .byTruncatingTail }
+        lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
+        command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+        command.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
         slot.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(mark)
         NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
                                      mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor), mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
-        let s = NSStackView(views: [slot, command, words, time])
+        let s = NSStackView(views: [slot, lead, command, time])
         s.spacing = Metrics.gapWide
         s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         pin(s)
@@ -195,9 +194,10 @@ final class CommandRow: NSTableCellView {
     func show(_ c: AgentCommand?, title: String = "", now: Date) {
         mark.status = c.map(Self.status)
         slot.isHidden = c == nil
-        command.font = c == nil ? .ui(11, weight: .semibold) : .uiMono(11)
-        command.stringValue = c?.shortCommand ?? title
-        words.stringValue = c?.description ?? ""
+        let words = c?.description.flatMap { $0.isEmpty ? nil : $0 }
+        lead.font = c == nil ? .ui(11, weight: .semibold) : words == nil ? .uiMono(11) : .ui(11)
+        lead.stringValue = words ?? c?.shortCommand ?? title
+        command.stringValue = words == nil ? "" : c?.shortCommand ?? ""   // empty, it still pushes the time to the right
         time.stringValue = c.map { Self.time($0, now: now) } ?? ""
         toolTip = c.map { [$0.description, $0.command].compactMap { $0 }.joined(separator: "\n") }
     }
