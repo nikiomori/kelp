@@ -145,9 +145,9 @@ extension ScriptsMenu {
         }
     }
 
-    /// The Run menu: what's already running that it didn't start, then the project's commands by what they do — Run,
-    /// Tests, Build & Check, Deploy — a line each, a coloured symbol of its purpose, where it comes from in grey; the rest
-    /// under More, by file. A description and the whole command are the tip.
+    /// The Run menu: what's already running that it didn't start, then the project's commands a group a program ("make",
+    /// "npm · web"), each by what it does, a line each: its purpose's symbol, its name, the program in grey; more than three
+    /// that say nothing of their purpose go under More, by file. A description and the whole command are the tip.
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
@@ -157,13 +157,14 @@ extension ScriptsMenu {
             m.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for p in elsewhere { server(p, in: m, wid) }
         }
-        let rows = rows(wid), by = Dictionary(grouping: rows, by: Self.purpose), rest = by[.other] ?? []
-        // Where they come from, in a column after the longest name.
-        let column = Self.column(rows.filter { Self.purpose($0) != .other || rest.count <= 3 }.map(\.name) + [String(localized: "More")])
-        for p in Purpose.allCases where p != .other {
-            guard let some = by[p] else { continue }
-            m.addItem(.sectionHeader(title: p.title))
-            for r in some { item(r, in: m, wid, column: column) }
+        let rows = rows(wid), rest = rows.filter { Self.purpose($0) == .other }
+        let shown = rest.count > 3 ? rows.filter { Self.purpose($0) != .other } : rows
+        let tools = shown.map(Self.source).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        let column = Self.column(shown.map(\.name) + [String(localized: "More")])   // the programs, after the longest name
+        for tool in tools {
+            if m.numberOfItems > 0 { m.addItem(.separator()) }
+            let group = shown.filter { Self.source($0) == tool }.sorted { Self.purpose($0).rawValue < Self.purpose($1).rawValue }
+            for r in group { item(r, in: m, wid, column: column) }
         }
         if rest.count > 3 {
             let sub = NSMenu(), inSub = Self.column(rest.map(\.name))
@@ -176,11 +177,9 @@ extension ScriptsMenu {
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)", column: column)
             image(more, .symbol("ellipsis.circle"))
+            if m.numberOfItems > 0 { m.addItem(.separator()) }
             m.addItem(more)
             m.setSubmenu(sub, for: more)
-        } else if !rest.isEmpty {
-            m.addItem(.sectionHeader(title: Purpose.other.title))
-            for r in rest { item(r, in: m, wid, column: column) }
         }
         if rows.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
@@ -188,8 +187,8 @@ extension ScriptsMenu {
         return m
     }
 
-    /// One command on one line: its purpose's symbol, its name, where it comes from ("make", "npm · web") — or its port
-    /// while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
+    /// One command on one line: its purpose's symbol (grey; green while it runs), its name, where it comes from ("make",
+    /// "npm · web") — and its port while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
     private func item(_ r: Row, in m: NSMenu, _ wid: String, column: CGFloat) {
         // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
@@ -207,7 +206,7 @@ extension ScriptsMenu {
             }
         }
         let (symbol, color) = Self.glyph(r)
-        image(i, Self.tinted(symbol, color))
+        image(i, Self.tinted(symbol, r.running ? color : .secondaryLabelColor))
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
@@ -233,19 +232,9 @@ extension ScriptsMenu {
         (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0) + Metrics.inset
     }
 
-    /// What a command is for, the Run menu's sections.
-    enum Purpose: CaseIterable {
+    /// What a command is for: the order of a program's commands in the Run menu, its symbol.
+    enum Purpose: Int {
         case install, run, test, build, deploy, other
-        var title: String {
-            switch self {
-            case .install: String(localized: "Dependencies")
-            case .run: String(localized: "Run")
-            case .test: String(localized: "Tests")
-            case .build: String(localized: "Build & Check")
-            case .deploy: String(localized: "Deploy")
-            case .other: String(localized: "Other")
-            }
-        }
     }
 
     /// By run.detect's kind, and by name for what kinds don't say (deploy, release, rollback; smoke and e2e tests).
@@ -262,7 +251,8 @@ extension ScriptsMenu {
     }
 
     /// Its purpose's symbol and colour (green ▶ run, purple flask tests, orange hammer build, blue check lint, red plane
-    /// deploy, teal install); the rest in grey, by name. ▶ in a green circle: it runs now.
+    /// deploy, teal install) — the colour for a run's tab; the Run menu shows it only on what runs. The rest in grey, by
+    /// name. ▶ in a green circle: it runs now.
     static func glyph(_ r: Row) -> (String, NSColor) {
         let n = r.name.lowercased()
         if r.running { return ("play.circle.fill", .systemGreen) }

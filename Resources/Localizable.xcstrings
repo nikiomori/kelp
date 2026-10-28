@@ -1251,16 +1251,6 @@
         }
       }
     },
-    "Build & Check": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сборка и проверка"
-          }
-        }
-      }
-    },
     "Built-in": {
       "localizations": {
         "ru": {
@@ -2535,26 +2525,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запретить"
-          }
-        }
-      }
-    },
-    "Dependencies": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Зависимости"
-          }
-        }
-      }
-    },
-    "Deploy": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Деплой"
           }
         }
       }
@@ -5630,16 +5600,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Option работает как Alt (Meta)"
-          }
-        }
-      }
-    },
-    "Other": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Прочее"
           }
         }
       }
