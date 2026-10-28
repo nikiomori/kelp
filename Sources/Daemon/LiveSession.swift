@@ -221,6 +221,7 @@ final class LiveSession: Sendable {
             s.detector.exited()
             let exitCode = (code & 0x7f) == 0 ? (code >> 8) & 0xff : 0   // killed by a signal (closed, stopped) isn't a failure
             if exitCode != 0, s.record.agent != "shell" { s.record.summary = "Ended with an error (exit code \(exitCode))" }
+            s.endCommands(at: Date())
             s.record.progress = nil; s.record.exitCode = Int((code & 0x7f) == 0 ? (code >> 8) & 0xff : 128 + (code & 0x7f))
             emit(s.sync())
         }
@@ -374,6 +375,7 @@ final class LiveSession: Sendable {
             let now = Date()
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
+            s.endCommands(at: now)
             s.holding = verdict != .done
             s.record.background = running.isEmpty ? nil : running
             if case .goal(let c) = verdict { s.record.goal = c } else if goal?.met != false { s.record.goal = nil }
@@ -382,6 +384,30 @@ final class LiveSession: Sendable {
             return (verdict, now)
         }
     }
+
+    static let commandLimit = 100
+
+    /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
+    /// record when what it runs changed.
+    func ran(_ c: AgentCommand) -> Session? {
+        state.withLock { s in
+            // A sign of life, not a hook that says what the turn does: an Esc that stopped this command is still read off the screen.
+            s.lastLifeUp = ProcessInfo.processInfo.systemUptime
+            if let i = s.commands.lastIndex(where: { $0.id == c.id }) {
+                let started = s.commands[i].started   // the end keeps the start it was told of
+                s.commands[i] = c
+                s.commands[i].started = min(started, c.started)
+            } else {
+                s.commands.append(c)
+                if s.commands.count > Self.commandLimit { s.commands.removeFirst(s.commands.count - Self.commandLimit) }
+            }
+            _ = s.newCommands()
+            return s.showRunning() ? s.record : nil
+        }
+    }
+
+    var commands: [AgentCommand] { state.withLock { $0.commands } }
+    var commandChanges: Int { state.withLock { $0.commandChanges } }
 
     /// A Stop held as working that nothing came after (`at`: its time): the goal was met, or the wait ran out.
     func release(_ at: Date) {

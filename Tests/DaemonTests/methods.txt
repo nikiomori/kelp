@@ -114,6 +114,7 @@ session.annotate
 session.attach
 session.busy
 session.choose
+session.commands
 session.context
 session.contextWindow
 session.create

@@ -67,11 +67,11 @@ package func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.U
 
 /// A status mark for AppKit. Ready agents show none.
 @MainActor
-final class StatusMark: NSView {
+package final class StatusMark: NSView {
     private let image = NSImageView()
     private let ring = CAShapeLayer()
     private let size: CGFloat
-    var status: AgentStatus? { didSet { if status != oldValue { update() } } }
+    package var status: AgentStatus? { didSet { if status != oldValue { update() } } }
     /// Done and not looked at yet: the filled ✓; seen: no mark.
     var unread = true { didSet { if unread != oldValue { update() } } }
     /// Working on shrinking its conversation (Claude's compaction): a slow pulse, not the spin.
@@ -82,7 +82,7 @@ final class StatusMark: NSView {
     var announces = true { didSet { if announces != oldValue { update() } } }
     private let track = CAShapeLayer(), bar = CAShapeLayer()
 
-    init(size: CGFloat = 12) {
+    package init(size: CGFloat = 12) {
         self.size = size
         super.init(frame: .zero)
         wantsLayer = true
@@ -116,8 +116,8 @@ final class StatusMark: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); update() }   // animations stop when a view leaves a window
+    override package func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
+    override package func viewDidMoveToWindow() { super.viewDidMoveToWindow(); update() }   // animations stop when a view leaves a window
 
     private func update() {
         let s = status == .idle || (status == .done && !unread) ? nil : status

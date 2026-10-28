@@ -136,6 +136,10 @@ extension Sessions {
         StatusDetector.stripANSI(String(decoding: try liveSessionOrLog(id, bytes: bytes), as: UTF8.self))
     }
 }
+extension SessionCommands: Handled {
+    static var quick: Bool { true }
+    func handle(_ sessions: Sessions) throws -> [AgentCommand] { sessions.existing(id)?.commands ?? [] }
+}
 extension SessionRead: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 8192) } }
 extension SessionContext: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) } }
 
@@ -168,5 +172,6 @@ extension SessionLastReply: Handled {
 extension Methods {
     static let sessionMethods: [any Handled.Type] = [SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
         SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, SessionUsage.self,
-        SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self]
+        SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
+        SessionCommands.self]
 }

@@ -106,6 +106,11 @@ extension SessionHook: Handled {
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) { return Done() }
         guard let event else { throw RPCError.invalidParams("missing event") }
+        if event == "command" {   // a Bash command started or ended: the list and the row, not the status
+            if let command, ls.ran(command) != nil { sessions.publish(ls) }
+            sessions.touchCommands(ls)
+            return Done()
+        }
         guard event == "done" else {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) })
             return Done()

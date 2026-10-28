@@ -81,7 +81,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     let declared = sources(["Sources/KelpKit"]).map { f in
         codeOnly(f.text).split(separator: "\n").filter { $0.range(of: #"^\s*(@\w+(\([^)]*\))?\s+)*package\s"#, options: .regularExpression) != nil }.count
     }.reduce(0, +)
-    #expect(declared <= 248, "\(declared) package declarations in KelpKit")
+    #expect(declared <= 252, "\(declared) package declarations in KelpKit")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -223,6 +223,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
         "Builtins/Agents/UsageTab.swift": "a \"still reading\" hint after 3 s",
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
+        "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
         "Builtins/Files/FileTab.swift": "typing settles before the language server hears it",
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Git/CommitCard.swift": "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",

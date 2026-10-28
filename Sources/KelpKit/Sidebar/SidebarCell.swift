@@ -376,12 +376,18 @@ final class SidebarCell: NSTableCellView {
         toolTip = nil
     }
 
-    /// "◎ goal" while it works toward one; "▷ npm test" while it waits for a command it started; "▷ 2" for what keeps
-    /// running in the background after its turn (a dev server). The full text is the tooltip.
+    /// "▷ swift test" while its shell tool runs a command; "◎ goal" while it works toward one; "▷ npm test" while it waits
+    /// for a command it started; "▷ 2" for what keeps running in the background after its turn (a dev server). The full
+    /// text is the tooltip.
     private func showChip(_ s: Session) {
         let running = s.background ?? []
-        chip.isHidden = s.goal == nil && running.isEmpty
-        if let g = s.goal {
+        let now = [.working, .waiting].contains(s.status) ? s.running : nil   // one left over by a lost hook says nothing once it ended
+        chip.isHidden = now == nil && s.goal == nil && running.isEmpty
+        if let now {
+            chip.icon.image = .symbol("apple.terminal")
+            chip.label.stringValue = AgentCommand.short(now)
+            chip.toolTip = String(localized: "Running:") + "\n" + now
+        } else if let g = s.goal {
             chip.icon.image = .symbol("scope")
             chip.label.stringValue = String(localized: "goal")
             chip.toolTip = String(localized: "Goal: \(g)")

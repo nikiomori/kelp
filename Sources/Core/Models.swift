@@ -108,6 +108,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var goal: String?
     /// Commands it started in the background that still ran when its turn ended (a test run it waits for, a dev server).
     public var background: [String]?
+    /// The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.
+    public var running: String?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {

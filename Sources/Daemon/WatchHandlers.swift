@@ -44,6 +44,9 @@ extension Daemon {
             let usage = try? await ask(SessionContextWindow(id: k.key))
             let working = sessions.existing(k.key)?.snapshot.status == .working
             return (line(ContextEvent(session: k.key, usage: usage ?? nil)), working ? 15 : nil)
+        case .commands:
+            // From memory; read again when one starts or ends (`Sessions.touchCommands`).
+            return (line(CommandsEvent(session: k.key, commands: sessions.existing(k.key)?.commands ?? [])), nil)
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
             return ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)

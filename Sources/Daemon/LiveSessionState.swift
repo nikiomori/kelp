@@ -41,6 +41,9 @@ extension LiveSession {
         /// The last Stop was held as working (subagents, a goal, a command): the agent is quiet by design until it wakes.
         var holding = false
         var turnEnd = TurnEnd()
+        /// What its shell tool ran (`ran`), the last `commandLimit`; `commandChanges` counts the changes, for the watchers.
+        /// Limit: in memory, so a restarted background service starts the list over; the transcript keeps them all.
+        var commands: [AgentCommand] = [], commandChanges = 0
         /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
         /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?
@@ -200,6 +203,26 @@ extension LiveSession {
 
         /// A sign of life from the agent: a hook, or what it printed.
         mutating func heard(at now: Date = Date()) { lastHookAt = now; lastLifeUp = ProcessInfo.processInfo.systemUptime }
+
+        /// One more change to its commands, for the watchers (`Watches.touched`).
+        mutating func newCommands() -> Int { commandChanges += 1; return commandChanges }
+
+        /// The row's running command: the last one started that hasn't ended (one moved to the background has). Whether
+        /// that changed.
+        mutating func showRunning() -> Bool {
+            let now = commands.last { $0.outcome == nil }?.command
+            guard now != record.running else { return false }
+            record.running = now
+            return true
+        }
+
+        /// Its turn or its program ended: a command whose end wasn't told (a denied permission, an interrupt) runs no more.
+        mutating func endCommands(at now: Date) {
+            let open = commands.indices.filter { commands[$0].outcome == nil }
+            for i in open { commands[i].outcome = .stopped; commands[i].ended = now }
+            if !open.isEmpty { _ = newCommands() }
+            _ = showRunning()
+        }
 
         /// A row that says working while the screen stood still for minutes and no hook came: a Stop (or a compaction's end) was
         /// one Kelp doesn't know of or missed, and the row would stay working, keeping the Mac awake, until the next prompt.

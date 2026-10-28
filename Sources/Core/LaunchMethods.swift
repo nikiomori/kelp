@@ -102,11 +102,13 @@ public struct SessionHook: RPCMethod {
     public static let name = "session.hook"; public typealias Result = Done
     public var id: String, event: String?, transcript: String?, cwd: String?, trigger: String?, notification: JSONValue?
     public var backgroundTasks: [JSONValue]?
-    enum CodingKeys: String, CodingKey { case id, event, transcript, cwd, trigger, notification, backgroundTasks = "background_tasks" }
+    /// `command`: what its shell tool started or finished.
+    public var command: AgentCommand?
+    enum CodingKeys: String, CodingKey { case id, event, transcript, cwd, trigger, notification, command, backgroundTasks = "background_tasks" }
     public init(id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil, notification: JSONValue? = nil,
-                backgroundTasks: [JSONValue]? = nil) {
+                backgroundTasks: [JSONValue]? = nil, command: AgentCommand? = nil) {
         self.id = id; self.event = event; self.transcript = transcript; self.cwd = cwd; self.trigger = trigger
-        self.notification = notification; self.backgroundTasks = backgroundTasks
+        self.notification = notification; self.backgroundTasks = backgroundTasks; self.command = command
     }
 }
 

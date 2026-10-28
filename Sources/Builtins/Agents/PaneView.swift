@@ -17,6 +17,8 @@ final class PaneView: NSView {
     private lazy var endedCard = FloatingCard(ended)
     private let endedLabel = NSTextField(labelWithString: String(localized: "Session ended"))
     private let restartButton = NSButton()
+    /// Under the terminal: what an agent's shell tool ran.
+    private let commands: CommandsBar
     /// `kelp attach` still streams, and from which daemon (`AppModel.connections` when it started).
     private var attached = true
     private var attachedTo: Int
@@ -32,8 +34,12 @@ final class PaneView: NSView {
         sessionId = session.id
         self.app = app
         attachedTo = app.connections
+        commands = CommandsBar(session: session.id, app: app, watch: session.agent != "shell")
         super.init(frame: .zero)
         wantsLayer = true
+        commands.translatesAutoresizingMaskIntoConstraints = false; addSubview(commands)
+        NSLayoutConstraint.activate([commands.leadingAnchor.constraint(equalTo: leadingAnchor), commands.trailingAnchor.constraint(equalTo: trailingAnchor),
+                                     commands.bottomAnchor.constraint(equalTo: bottomAnchor)])
         buildTerminal(session)
         buildEndedOverlay()
         endedCard.translatesAutoresizingMaskIntoConstraints = false; addSubview(endedCard)
@@ -58,7 +64,7 @@ final class PaneView: NSView {
         g.translatesAutoresizingMaskIntoConstraints = false
         addSubview(g, positioned: .below, relativeTo: nil)
         NSLayoutConstraint.activate([g.topAnchor.constraint(equalTo: topAnchor), g.leadingAnchor.constraint(equalTo: leadingAnchor),
-                                     g.trailingAnchor.constraint(equalTo: trailingAnchor), g.bottomAnchor.constraint(equalTo: bottomAnchor)])
+                                     g.trailingAnchor.constraint(equalTo: trailingAnchor), g.bottomAnchor.constraint(equalTo: commands.topAnchor)])
         g.onExit = { [weak self] in self?.attached = false; self?.settle() }
         g.onSearch = { [weak self] in self?.searchEvent($0) }
         // Paths the agent prints are its folder's: its own worktree once it went into one.

@@ -47,6 +47,8 @@ package final class AppModel {
     package var sessions: [Session] = []
     /// How full each agent's conversation is, pushed when its status changes and while it works (`WatchTopic.context`).
     package var contextUsage: [String: SessionContextWindow.Usage] = [:]
+    /// The commands each watched agent ran (`WatchTopic.commands`), by session id.
+    package var commands: [String: [AgentCommand]] = [:]
     /// What the daemon pushes for what's watched (`watch(_:_:)`), by worktree id where it has one.
     package var git: [String: GitEvent] = [:]
     /// A pull, push or fetch running in a workspace, by worktree id: what it says ("Pushing…"). See `GitSync`.

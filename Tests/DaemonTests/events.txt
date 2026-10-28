@@ -2,6 +2,7 @@ event.activity
 event.changed
 event.ci
 event.clone
+event.commands
 event.context
 event.devserver
 event.file

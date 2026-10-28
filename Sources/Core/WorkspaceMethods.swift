@@ -174,6 +174,12 @@ public struct SessionBusy: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// The commands its agent ran with its shell tool, oldest first: the last 100, kept while the background service runs.
+public struct SessionCommands: RPCMethod {
+    public static let name = "session.commands"; public typealias Result = [AgentCommand]
+    public var id: String
+    public init(id: String) { self.id = id }
+}
 /// The last `bytes` it printed, as text.
 public struct SessionRead: RPCMethod {
     public static let name = "session.read"; public typealias Result = String; public var id: String, bytes: Int?

@@ -121,6 +121,9 @@ public final class Store: Sendable {
         m.registerMigration("v14") { db in
             try db.alter(table: "session") { t in t.add(column: "goal", .text); t.add(column: "background", .text) }
         }
+        m.registerMigration("v15") { db in
+            try db.alter(table: "session") { t in t.add(column: "running", .text) }
+        }
         return m
     }
 

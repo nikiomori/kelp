@@ -286,7 +286,13 @@ extension Sessions {
     private func said(_ s: Session) {
         notify(s)
         watches.touched(.init(topic: .context, key: s.id), tag: s.status.rawValue)   // a turn ended or began: how full now
+        if let ls = existing(s.id) { touchCommands(ls) }   // one ended with its turn or its program
         if s.status == .done || s.status == .waiting, let a = s.agent { agentUsage.planUsed(a) }
+    }
+
+    /// Its commands changed: whoever watches them reads them again.
+    func touchCommands(_ ls: LiveSession) {
+        watches.touched(.init(topic: .commands, key: ls.snapshot.id), tag: "\(ls.commandChanges)")
     }
 
     /// Name a session (and optionally its fresh branch) from the first prompt; a manual title always wins.

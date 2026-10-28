@@ -12,7 +12,7 @@ public protocol RPCEvent: Codable, Sendable {
 public let rpcEvents: [any RPCEvent.Type] = [Session.self, OutputEvent.self, DevServerEvent.self, ChangedEvent.self, CloneEvent.self,
                                               SettingsEvent.self, UIEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
                                               GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
-                                              LimitsEvent.self, FileEvent.self, FilesEvent.self]
+                                              LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self]
 
 /// A session's record changed: the record is the event.
 extension Session: RPCEvent { public static let name = "event.session" }

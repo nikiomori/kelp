@@ -72,6 +72,10 @@ import TestSupport
     let v = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))
     #expect(v["hooks"]?["Stop"] != nil)
     #expect(v["hooks"]?["PreToolUse"]?.array?.first?["matcher"]?.string == "AskUserQuestion")
+    for event in ["PreToolUse", "PostToolUse", "PostToolUseFailure"] {   // each Bash command, as it starts and ends
+        let bash = v["hooks"]?[event]?.array?.first { $0["matcher"]?.string == "Bash" }
+        #expect(bash?["hooks"]?.array?.first?["command"]?.string == "kelp hook command")
+    }
     #expect(v["hooks"]?["PermissionRequest"]?.array?.first?["hooks"]?.array?.first?["command"]?.string == "kelp hook waiting")
 }
 

@@ -194,3 +194,28 @@ private final class Heard: Sendable {
     d.workspaces.headQueue.sync {}
     #expect(d.workspaces.heads.withLock { $0 ?? [:] }.isEmpty)
 }
+
+/// An agent's Bash commands, as its hooks tell them: in its list, pushed to whoever watches it; the one running on its
+/// row; one whose end never came, stopped when its turn ends.
+@Test func anAgentsCommandsAreListedAndTheRunningOneIsOnItsRow() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await firstDesk(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
+    let heard = Heard(); heard.listen(w.c)
+    w.c.notify(WatchStart(.commands, s.id))
+    func hook(_ c: AgentCommand) async throws { _ = try await w.c.call(SessionHook(id: s.id, event: "command", command: c)) }
+    func row() async throws -> Session? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    func pushed() -> [AgentCommand]? { heard.events(CommandsEvent.self).last?.commands }
+    try await hook(AgentCommand(id: "a", command: "swift test"))
+    #expect(try await waitFor(10) { try await row()?.running == "swift test" })
+    #expect(try await waitFor(10) { pushed()?.map(\.id) == ["a"] })
+    try await hook(AgentCommand(id: "a", command: "swift test", started: Date(), ended: Date(), outcome: .failed, exitCode: 1, output: "1 failed"))
+    #expect(try await waitFor(10) { try await row()?.running == nil })
+    try await hook(AgentCommand(id: "b", command: "rm -rf build"))   // its permission denied: no end comes
+    #expect(try await waitFor(10) { try await row()?.running == "rm -rf build" })
+    _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))
+    #expect(try await waitFor(10) { pushed()?.map(\.outcome) == [.failed, .stopped] })
+    #expect(try await row()?.running == nil)
+    let list = try await w.c.call(SessionCommands(id: s.id))
+    #expect(list.first?.exitCode == 1 && list.first?.output == "1 failed")
+}

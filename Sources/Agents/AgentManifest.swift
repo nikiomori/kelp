@@ -282,14 +282,17 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
 public enum Hooks {
     /// Claude-style settings file: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing),
-    /// AskUserQuestion and a permission dialog → waiting until answered. `kelp` must be on PATH in the session.
+    /// AskUserQuestion and a permission dialog → waiting until answered; each Bash command as it starts and ends
+    /// (`AgentCommand`). `kelp` must be on PATH in the session.
     public static func settingsJSON() -> String {
-        func hook(_ ev: String, _ matcher: String? = nil) -> String {
-            #"[{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}]"#
+        func entry(_ ev: String, _ matcher: String?) -> String {
+            #"{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}"#
         }
+        func hook(_ ev: String, _ matcher: String? = nil) -> String { "[\(entry(ev, matcher))]" }
+        let command = entry("command", "Bash")
         return #"{"hooks":{"Stop":\#(hook("done")),"Notification":\#(hook("waiting")),"UserPromptSubmit":\#(hook("working")),"StopFailure":\#(hook("done")),"#
-            + #""PreToolUse":\#(hook("waiting", "AskUserQuestion")),"PostToolUse":\#(hook("working", "AskUserQuestion")),"#
-            + #""PermissionRequest":\#(hook("waiting")),"#
+            + #""PreToolUse":[\#(entry("waiting", "AskUserQuestion")),\#(command)],"PostToolUse":[\#(entry("working", "AskUserQuestion")),\#(command)],"#
+            + #""PostToolUseFailure":[\#(command)],"PermissionRequest":\#(hook("waiting")),"#
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
     }
 

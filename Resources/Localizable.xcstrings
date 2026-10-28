@@ -324,6 +324,58 @@
         }
       }
     },
+    "%lld commands": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld command"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld commands"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld команда"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld команды"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld команд"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld команды"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld found": {
       "localizations": {
         "ru": {
@@ -2637,6 +2689,16 @@
         }
       }
     },
+    "Done in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнена за %@"
+          }
+        }
+      }
+    },
     "Draft": {
       "localizations": {
         "ru": {
@@ -2829,6 +2891,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код выхода %d"
+          }
+        }
+      }
+    },
+    "Exit code %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код выхода %lld"
           }
         }
       }
@@ -3419,6 +3491,16 @@
         }
       }
     },
+    "Hide the commands": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть команды"
+          }
+        }
+      }
+    },
     "Host:": {
       "localizations": {
         "ru": {
@@ -3477,6 +3559,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вместо значка ветки"
+          }
+        }
+      }
+    },
+    "in the background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в фоне"
           }
         }
       }
@@ -3734,6 +3826,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Он умеет это через навык расширений (Настройки › Агенты)."
+          }
+        }
+      }
+    },
+    "It printed nothing.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда ничего не вывела."
           }
         }
       }
@@ -6504,12 +6606,52 @@
         }
       }
     },
+    "Running for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняется %@"
+          }
+        }
+      }
+    },
+    "Running in the background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняется в фоне"
+          }
+        }
+      }
+    },
     "Running in This Workspace": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Запущено в этой рабочей области"
+          }
+        }
+      }
+    },
+    "Running:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняет:"
+          }
+        }
+      }
+    },
+    "Running: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняет: %@"
           }
         }
       }
@@ -7042,6 +7184,16 @@
         }
       }
     },
+    "Show the commands it ran (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать выполненные команды (%lld)"
+          }
+        }
+      }
+    },
     "Side by Side": {
       "localizations": {
         "ru": {
@@ -7549,6 +7701,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Остановить «%@»?"
+          }
+        }
+      }
+    },
+    "Stopped": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановлена"
           }
         }
       }
@@ -8487,6 +8649,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Что каждый агент сообщает о своём плане; самый заполненный — первым. Бледные цифры старше получаса."
+          }
+        }
+      }
+    },
+    "What it prints shows when it ends.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вывод появится, когда команда завершится."
           }
         }
       }

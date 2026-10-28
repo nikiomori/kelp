@@ -36,6 +36,7 @@ extension AppModel {
         case .limits: limits = nil
         case .file: fileVersions[key] = nil
         case .files: fileLists[key] = nil
+        case .commands: commands[key] = nil
         }
     }
 
@@ -50,6 +51,7 @@ extension AppModel {
         case let e as LimitsEvent: if limits != e.usage { forecast.record(e.usage); limits = e.usage }
         case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
         case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
+        case let e as CommandsEvent: if commands[e.session] != e.commands { commands[e.session] = e.commands }
         case let e as ContextEvent:
             // No usage (not Claude Code, ended, just compacted) takes the ring away.
             let usage = e.usage.flatMap { $0.window > 0 ? $0 : nil }, old = contextUsage[e.session]
