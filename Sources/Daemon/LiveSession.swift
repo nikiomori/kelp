@@ -64,6 +64,13 @@ final class LiveSession: Sendable {
         d == Data([0x1B]) || d.contains(0x03) || String(decoding: d, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
     }
 
+    /// Keys that pick an option in an agent's menu: Return, a digit, ⇧Tab (Claude Code's "allow all edits during this session").
+    static func answersMenu(_ d: Data) -> Bool {
+        let s = String(decoding: d, as: UTF8.self)
+        if d.contains(0x0D) || (d.count == 1 && (0x31...0x39).contains(d[0])) || s == "\u{1B}[Z" { return true }
+        return kittyKey(s).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
+    }
+
     /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
     /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
     static func kittyKey(_ s: String) -> (key: Int, mods: Int)? {
@@ -330,7 +337,7 @@ final class LiveSession: Sendable {
             if Self.isStopKey(d), s.record.status == .working || (s.hooked && s.record.status == .waiting) { s.interruptArmed = (Date(), "") }
             if s.hooked {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
-                if s.record.status == .waiting, d.contains(0x0D) || (d.count == 1 && (0x31...0x39).contains(d[0])) {
+                if s.record.status == .waiting, Self.answersMenu(d) {
                     s.detector.override(.working); s.interruptArmed = (Date(), "")
                 }
             }

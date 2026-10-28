@@ -88,3 +88,29 @@ private func hooked() -> LiveSession.State {
     #expect(try await waitFor { try await status() == .waiting })
     _ = try await w.c.call("session.kill", .obj(["id": .string(s.id)]))
 }
+
+/// Claude Code's PermissionRequest makes the row ask at once, saying what it would run; the vague Notification that
+/// follows six seconds later leaves that text.
+@Test func aPermissionRequestAsksAtOnceAndKeepsItsText() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let desk = try await firstDesk(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    func row() async throws -> Session? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
+    _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "waiting", "notification": .obj([
+        "notification_type": "permission_request", "tool_name": "Bash", "tool_input": .obj(["command": "npm test"])])]))
+    #expect(try await waitFor { try await row()?.status == .waiting })
+    #expect(try await row()?.summary == "Allow npm test?")
+    _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "waiting", "notification": .obj([
+        "notification_type": "permission_prompt", "message": "Claude needs your permission to use Bash"])]))
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(try await row()?.summary == "Allow npm test?")
+    _ = try await w.c.call("session.kill", .obj(["id": .string(s.id)]))
+}
+
+/// Answering a permission menu turns the row back to working: Return and ⇧Tab as the kitty protocol sends them too
+/// (Claude Code turns it on), and the row stayed "needs you" until the turn ended.
+@Test func menuAnswersAreSeenInKittyKeyboardMode() {
+    for k in ["\r", "2", "\u{1B}[Z", "\u{1B}[13u", "\u{1B}[9;2u"] { #expect(LiveSession.answersMenu(Data(k.utf8)), "\(k.debugDescription)") }
+    for k in ["\u{1B}[B", "\u{1B}[9u", "\u{1B}[13;2u", "a", "0"] { #expect(!LiveSession.answersMenu(Data(k.utf8)), "\(k.debugDescription)") }
+}

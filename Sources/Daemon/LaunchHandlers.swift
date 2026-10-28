@@ -106,7 +106,10 @@ extension SessionHook: Handled {
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) { return Done() }
         guard let event else { throw RPCError.invalidParams("missing event") }
-        guard event == "done" else { ls.hook(event, trigger: trigger, message: notification?["message"]?.string); return Done() }
+        guard event == "done" else {
+            ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) })
+            return Done()
+        }
         let path = ls.transcriptPath
         let goal = path.flatMap(GoalStatus.last(inFile:))
         let (verdict, at) = ls.stop(backgroundTasks ?? [], goal: goal)

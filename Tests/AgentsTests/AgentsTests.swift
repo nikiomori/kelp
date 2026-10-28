@@ -72,6 +72,7 @@ import TestSupport
     let v = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))
     #expect(v["hooks"]?["Stop"] != nil)
     #expect(v["hooks"]?["PreToolUse"]?.array?.first?["matcher"]?.string == "AskUserQuestion")
+    #expect(v["hooks"]?["PermissionRequest"]?.array?.first?["hooks"]?.array?.first?["command"]?.string == "kelp hook waiting")
 }
 
 /// Qwen Code's system settings (an admin's policy) stay in force with Kelp's file in their place, their hooks too.
@@ -99,6 +100,23 @@ import TestSupport
     #expect(!Hooks.isInformational(note("elicitation_dialog")) && !Hooks.isInformational(note("agent_needs_input")))
     #expect(!Hooks.isInformational(note("a_type_it_has_not_had_before")))   // asked until known to ask nothing
     #expect(Hooks.isInformational(.obj(["message": "Claude is waiting for your input"])))   // Qwen Code names no type
+}
+
+/// A permission dialog says what it would do; the vague notice Claude Code sends six seconds later doesn't replace that.
+@Test func aPermissionRequestSaysWhatItWouldRun() {
+    func ask(_ tool: String, _ input: JSONValue) -> JSONValue {
+        .obj(["notification_type": "permission_request", "tool_name": .string(tool), "tool_input": input, "cwd": "/repo"])
+    }
+    #expect(Hooks.permissionAsk(ask("Bash", .obj(["command": "rm -rf node_modules\necho done"]))) == "Allow rm -rf node_modules?")
+    #expect(Hooks.permissionAsk(ask("Edit", .obj(["file_path": "/repo/Sources/App.swift"]))) == "Allow editing Sources/App.swift?")
+    #expect(Hooks.permissionAsk(ask("Write", .obj(["file_path": "/etc/hosts"]))) == "Allow writing /etc/hosts?")
+    #expect(Hooks.permissionAsk(ask("WebFetch", .obj(["url": "https://example.com/a?b"]))) == "Allow fetching example.com?")
+    #expect(Hooks.permissionAsk(ask("mcp__github__create_issue", .obj([:]))) == "Allow github: create_issue?")
+    #expect(Hooks.permissionAsk(ask("Bash", .obj(["command": .string(String(repeating: "x", count: 200))]))).count == 127)
+    let vague: JSONValue = .obj(["notification_type": "permission_prompt", "message": "Claude needs your permission to use Bash"])
+    #expect(Hooks.message(vague, alreadyWaiting: true) == nil)
+    #expect(Hooks.message(vague, alreadyWaiting: false) == "Claude needs your permission to use Bash")
+    #expect(Hooks.message(ask("Bash", .obj(["command": "make"])), alreadyWaiting: false) == "Allow make?")
 }
 
 @Test func stripKeepsWordGapsFromCursorMoves() {
