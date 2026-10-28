@@ -142,6 +142,8 @@ final class SidebarCell: NSTableCellView {
     /// they jumped. Reduce Motion: at once.
     private func showHoverControls(_ on: Bool) {
         hovering = on
+        // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
+        let coming = on ? [add, fold].compactMap { $0 }.filter(\.isHidden) : []
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.fast)
             ctx.allowsImplicitAnimation = true
@@ -149,6 +151,16 @@ final class SidebarCell: NSTableCellView {
             showFold()
             fitBadges()
             layoutSubtreeIfNeeded()
+            for v in coming {
+                v.layer?.removeAllAnimations()
+                guard !Motion.reduced else { continue }
+                let a = CABasicAnimation(keyPath: "opacity")   // faint while the badges are still moving out of its way
+                a.fromValue = 0
+                a.toValue = 1
+                a.duration = Motion.fast
+                a.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                v.layer?.add(a, forKey: "fadeIn")
+            }
         }
     }
 
@@ -182,6 +194,8 @@ final class SidebarCell: NSTableCellView {
         r.detachesHiddenViews = true
         for v in row where v === changes || v === pr || v === ci { r.setVisibilityPriority(.notVisible, for: v) }
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
+        // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
+        r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
         let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = y
         NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: lead),
