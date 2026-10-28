@@ -2,7 +2,8 @@ import Foundation
 
 /// Inline Markdown: emphasis, code spans, links and images, autolinks, footnote references, the safe HTML tags.
 extension Renderer {
-    func inline(_ s: String, links: Bool = true) -> String {
+    /// `links: false` inside a link's text (no link in a link), `images: false` inside an image's alt.
+    func inline(_ s: String, links: Bool = true, images: Bool = true) -> String {
         let c = Array(s)
         var nodes: [Node] = [], buf = "", i = 0
         func flush() { if !buf.isEmpty { nodes.append(.html(buf)); buf = "" } }
@@ -16,7 +17,7 @@ extension Renderer {
                 let (node, end) = delimiterRun(c, i)
                 if let node { flush(); nodes.append(node) } else { buf += String(c[i..<end]) }
                 i = end; continue
-            case "!" where links && i + 1 < c.count && c[i + 1] == "[": piece = link(c, i, image: true) ?? ("!", i + 1)
+            case "!" where images && i + 1 < c.count && c[i + 1] == "[": piece = link(c, i, image: true) ?? ("!", i + 1)
             case "[" where links: piece = footnoteRef(c, i) ?? link(c, i, image: false) ?? ("[", i + 1)
             case "<": piece = angle(c, i, links: links)
             case "&": piece = entity(c, i)
@@ -179,7 +180,7 @@ extension Renderer {
         }
         guard let d = dest else { return nil }
         let t = title.map { " title=\"\(MarkdownHTML.esc($0))\"" } ?? ""
-        let inner = inline(text, links: false)
+        let inner = inline(text, links: false, images: !image)   // a badge: `[![alt](img)](link)`
         if image { return ("<img src=\"\(MarkdownHTML.esc(safe(d, image: true)))\" alt=\"\(stripTags(inner))\"\(t)>", end) }
         return ("<a href=\"\(MarkdownHTML.esc(safe(d)))\"\(t)>\(inner)</a>", end)
     }

@@ -81,6 +81,7 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
 @Test func linksImagesAutolinks() {
     #expect(r("[x *y*](https://a.b/c?d=1&e=2 \"T\")") == #"<p><a href="https://a.b/c?d=1&amp;e=2" title="T">x <em>y</em></a></p>"#)
     #expect(r("![alt *t*](img/a.png)") == #"<p><img src="img/a.png" alt="alt t"></p>"#)
+    #expect(r("[![CI](b.svg)](https://ci.io)") == #"<p><a href="https://ci.io"><img src="b.svg" alt="CI"></a></p>"#)
     #expect(r("<https://x.io> and <me@x.io>") == #"<p><a href="https://x.io">https://x.io</a> and <a href="mailto:me@x.io">me@x.io</a></p>"#)
     #expect(r("see https://x.io/a_(b). or www.y.com,")
         == #"<p>see <a href="https://x.io/a_(b)">https://x.io/a_(b)</a>. or <a href="http://www.y.com">www.y.com</a>,</p>"#)
