@@ -56,7 +56,7 @@ final class SyncPopover: NSViewController {
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         fetch.padding = 4
-        fetch.image = .symbol("arrow.down.circle", String(localized: "Fetch"))
+        fetch.image = .symbol("arrow.down.to.line", String(localized: "Fetch"))   // as Source Control's
         fetch.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
         fetch.imagePosition = .imageLeading
         fetch.attributedTitle = NSAttributedString(string: fetch.title,
