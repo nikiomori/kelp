@@ -328,46 +328,24 @@ private struct ExtensionsSettings: View {
         }
     }
 
+    /// Two groups, each named once: Kelp's own parts, then what was installed (with its version). "Built-in" on every row
+    /// and a bold sentence over the list made three sizes of text in one card.
     @ViewBuilder private var installed: some View {
         Section {
-            ForEach(registry.extensions) { e in
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: e.icon).font(.title3).foregroundStyle(e.error == nil ? Color.accentColor : .orange).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(loc(e.name)).fontWeight(.medium)
-                            Text(e.builtin ? String(localized: "Built-in") : e.version).font(.caption).foregroundStyle(.secondary)
-                        }
-                        if !e.description.isEmpty { Text(loc(e.description)).font(.caption).foregroundStyle(.secondary) }
-                        if let err = e.error { Text(err).font(.caption).foregroundStyle(Color.textOrange).textSelection(.enabled) }
-                        if let u = e.unavailable { Text(u).font(.caption).foregroundStyle(.tertiary) }
-                    }
-                    Spacer()
-                    if let p = e.path, !e.builtin {
-                        Menu {
-                            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
-                            let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
-                                ? "extension.json" : "package.json"
-                            Button("Edit \(manifest)") { app.workbench.open(TabURI.file(p.appendingPathComponent(manifest).path)) }
-                            Divider()
-                            Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
-                        } label: { Image(systemName: "ellipsis.circle") }
-                        .menuStyle(.borderlessButton).fixedSize()
-                    }
-                    if e.essential { Text("Required").font(.caption).foregroundStyle(.secondary) } else {
-                        Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) }))
-                            .toggleStyle(.switch).labelsHidden()
-                    }
-                }
-                .padding(.vertical, 2)
-            }
+            ForEach(registry.extensions.filter(\.builtin)) { row($0) }
         } header: {
-            Text("The browser, git and issues are extensions too. Turn off what you don't use.")
+            Text("Built-in")
+        } footer: {
+            Text("The browser, git and issues are extensions too. Turn off what you don't use.").font(.caption).foregroundStyle(.secondary)
+        }
+        let added = registry.extensions.filter { !$0.builtin }
+        if !added.isEmpty {
+            Section("Installed") { ForEach(added) { row($0) } }
         }
         Section {
             Text(String(localized: "To add one, install it from the Library, or ask Claude Code in an agent tab, e.g. “make a Kelp panel that lists my Docker containers”. ")
                  + String(localized: "It knows how through the extensions skill (Settings › Agents)."))
-                .foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("How Extensions Work") { app.workbench.open(TabURI.file(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md").path)) }
                     .buttonStyle(.link)
@@ -378,6 +356,38 @@ private struct ExtensionsSettings: View {
                 Button("Reload") { registry.reload() }
             }
         }
+    }
+
+    private func row(_ e: ExtensionInfo) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: e.icon).font(.title3).foregroundStyle(e.error == nil ? Color.accentColor : .orange).frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(loc(e.name)).fontWeight(.medium)
+                    if !e.builtin { Text(e.version).font(.caption).foregroundStyle(.secondary) }
+                }
+                if !e.description.isEmpty { Text(loc(e.description)).font(.caption).foregroundStyle(.secondary) }
+                if let err = e.error { Text(err).font(.caption).foregroundStyle(Color.textOrange).textSelection(.enabled) }
+                if let u = e.unavailable { Text(u).font(.caption).foregroundStyle(.tertiary) }
+            }
+            Spacer()
+            if let p = e.path, !e.builtin {
+                Menu {
+                    Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
+                    let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
+                        ? "extension.json" : "package.json"
+                    Button("Edit \(manifest)") { app.workbench.open(TabURI.file(p.appendingPathComponent(manifest).path)) }
+                    Divider()
+                    Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.borderlessButton).fixedSize()
+            }
+            if e.essential { Text("Required").font(.caption).foregroundStyle(.secondary) } else {
+                Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) }))
+                    .toggleStyle(.switch).labelsHidden()
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 
