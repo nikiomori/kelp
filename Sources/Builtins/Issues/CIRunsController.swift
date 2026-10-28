@@ -99,8 +99,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200)
         ])
         view = v
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in
+        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self, app] in
             self?.worktree = $0
+            self?.branch.stringValue = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.follow()
             self?.loadPages()
         }
@@ -185,7 +186,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         guard let e, e.worktree == worktree else { return }
         Task {
             if let error = e.error {
-                branch.stringValue = ""; workflowsButton.isHidden = true
+                branch.stringValue = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
+                workflowsButton.isHidden = true
                 show(note: error, setup: Forge.setup(for: error), failed: true); return
             }
             branchName = e.result?.branch ?? ""
@@ -229,7 +231,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         } else {
             empty.show(text, symbol: "checkmark.seal")
         }
-        outline.enclosingScrollView?.isHidden = text != nil
+        // The runs and the log go together: the log's divider alone under the header drew a second line there.
+        outline.enclosingScrollView?.superview?.isHidden = text != nil
         if text != nil { logBar.isHidden = true; log.string = "" }
     }
 
