@@ -230,14 +230,14 @@ final class CommitCell: NSTableCellView, Hoverable {
 
     /// Just reached the remote: the arrow hops up and fades.
     private func land() {
-        let still = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        if !still { up.addSymbolEffect(.bounce.up) }
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { up.alphaValue = 0; return }   // no hop, no fade
+        up.addSymbolEffect(.bounce.up)
         up.wantsLayer = true
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 1
         fade.toValue = 0
-        fade.beginTime = CACurrentMediaTime() + (still ? 0 : 0.15)
-        fade.duration = still ? 0 : Motion.appear
+        fade.beginTime = CACurrentMediaTime() + Motion.fast
+        fade.duration = Motion.appear
         fade.fillMode = .backwards
         up.layer?.add(fade, forKey: "land"); up.alphaValue = 0
     }

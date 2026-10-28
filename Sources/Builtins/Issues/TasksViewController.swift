@@ -230,7 +230,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let s = NSStackView(views: [t1, t2])
         s.orientation = .vertical
         s.alignment = .leading
-        s.spacing = 2
+        s.spacing = Metrics.lineGap
+        s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         return s
     }
     static func checksText(_ c: GitHub.PullRequest.Checks) -> String {

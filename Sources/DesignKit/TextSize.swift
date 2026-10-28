@@ -1,8 +1,10 @@
 import AppKit
 
-/// Settings › Appearance › Interface text: larger text in the app's own chrome (sidebar, inspector, tabs, bars, popovers)
+/// Settings › Appearance › Text size: larger text in the app's own chrome (sidebar, inspector, tabs, bars, popovers)
 /// for people who want it; code (the terminal, the editor, a diff) has its own font size. Set as settings change, before
-/// views that follow the setting hear of it: the sidebar redraws and the inspector's panels are rebuilt.
+/// views that follow the setting hear of it: the sidebar redraws, the inspector's panels are rebuilt, the tabs retitle.
+/// Limit: other views built before the change (a tab's toolbar and status bar, the window bar) keep their size until
+/// they are built again; following the setting there too means each tracking it.
 @MainActor
 public enum TextSize {
     public internal(set) static var scale: CGFloat = 1

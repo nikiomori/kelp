@@ -30,9 +30,11 @@ public final class EmptyStateView: NSView {
         stack.setCustomSpacing(Metrics.gap, after: title)   // a title and its line read as one
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        // Lifted over the middle while there's room; in a short area it slides down rather than past the top.
+        let lifted = stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift)
+        lifted.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift),
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor), lifted,
             stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8),
             stack.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: Metrics.inset)
         ])

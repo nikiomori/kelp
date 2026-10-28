@@ -24,10 +24,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             }
         }
     }
-    private let outline = NSOutlineView()
+    private let outline = ListOutlineView()
     private let branch = NSTextField(labelWithString: "")
     private let empty = EmptyStateView()
-    private lazy var checkAgain = textButton(String(localized: "Check Again")) { [weak self] in self?.reload() }
+    private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
+        let b = textButton(String(localized: "Check Again")) { [weak self] in self?.reload() }
+        b.controlSize = .regular
+        return b
+    }()
     private let setupButton = NSButton()
     private var setup: Forge.Setup?
     private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
@@ -53,6 +57,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                                  (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))] {
             b.image = .symbol(symbol, tip)
             b.toolTip = tip
+            b.setAccessibilityLabel(tip)
             b.target = self
         }
         moreButton = more

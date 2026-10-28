@@ -39,6 +39,9 @@ package final class EditorArea: NSViewController {
         view = NSView()
         track(owner: self) { [app] in app.extensions.revision } changed: { [weak self] _ in self?.extensionsChanged() }
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
+        track(owner: self) { app.settings.string("workbench.textSize") } changed: { [weak self] _ in   // the tabs' titles take the new size
+            self?.groupViews.keys.forEach { self?.refreshGroup($0) }
+        }
         // The empty workspace lists the agents that work, with their icons; rebuild it when either changes.
         track(owner: self) { app.availability.ids } changed: { [weak self] _ in self?.rebuildStart() }
         track(owner: self) { app.agentIcons.images.count } changed: { [weak self] _ in

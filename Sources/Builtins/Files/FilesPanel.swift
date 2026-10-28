@@ -438,7 +438,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
 }
 
 /// Finder's keys in the tree: Space previews, ↩ renames, ⌘⌫ moves to the Trash.
-final class FilesOutline: NSOutlineView {
+final class FilesOutline: ListOutlineView {
     var onSpace: (() -> Void)?, onReturn: (() -> Void)?, onDelete: (() -> Void)?
     override func keyDown(with e: NSEvent) {
         let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])

@@ -144,7 +144,7 @@ package struct UsageView: View {
                 }
             }
             .font(.callout)
-            .frame(width: 220, alignment: .leading)
+            .frame(width: 276, alignment: .leading)   // 300 with its padding, as the design's popovers are
             .padding(12)
         }
     }

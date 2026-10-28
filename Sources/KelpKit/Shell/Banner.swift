@@ -7,6 +7,7 @@ import DesignKit
 package enum Banner {
     package enum Style { case info, error }
     private static var current: NSView?
+    private static var shown = 0   // which banner is up: a fade that ends after a newer one came leaves that one
 
     /// `action`: one button beside the text (e.g. "Open Settings"); the banner stays a little longer.
     package static func show(_ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil) {
@@ -49,6 +50,7 @@ package enum Banner {
             fx.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
         ])
         current = fx
+        shown += 1
         // VoiceOver says it too: the banner is out of the keyboard's way, so it would go unheard.
         NSAccessibility.post(element: content, notification: .announcementRequested,
                              userInfo: [.announcement: text, .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue])
@@ -60,10 +62,10 @@ package enum Banner {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + (action != nil ? 10 : style == .error ? 6 : 3)) { [weak fx] in
             guard let fx else { return }
-            let id = ObjectIdentifier(fx)
+            let id = shown
             NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.slow); fx.animator().alphaValue = 0 }) {
                 MainActor.assumeIsolated {   // AppKit: on main
-                    if let c = current, ObjectIdentifier(c) == id { c.removeFromSuperview() }
+                    if shown == id { current?.removeFromSuperview() }
                 }
             }
         }
