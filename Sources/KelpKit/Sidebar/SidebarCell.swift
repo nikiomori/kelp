@@ -78,7 +78,9 @@ final class SidebarCell: NSTableCellView {
             // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
             title.font = .ui(11, weight: .semibold)
             title.textColor = .secondaryLabelColor
-            layout(row: [title, changes, pr, ci, trailing, mark, makeFold()])
+            // Under the project's name (its icon, 16, and the gap after it, 6, further in than the row's own 2 less the step
+            // children take): between the icon and the name it lined up with nothing.
+            layout(row: [title, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -159,7 +161,7 @@ final class SidebarCell: NSTableCellView {
         fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
     }
 
-    private func layout(row: [NSView]) {
+    private func layout(row: [NSView], lead: CGFloat = 2) {
         let r = NSStackView(views: row)
         r.spacing = 6
         r.alignment = .centerY
@@ -168,7 +170,8 @@ final class SidebarCell: NSTableCellView {
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
         let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = y
-        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2), r.trailingAnchor.constraint(equalTo: trailingAnchor), y])
+        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: lead),
+                                     r.trailingAnchor.constraint(equalTo: trailingAnchor), y])
     }
 
     /// The folder this row stands for, if any (RowBadges.folder).
