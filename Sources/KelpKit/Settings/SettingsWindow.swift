@@ -334,7 +334,7 @@ private struct ExtensionsSettings: View {
                             Text(e.builtin ? String(localized: "Built-in") : e.version).font(.caption).foregroundStyle(.secondary)
                         }
                         if !e.description.isEmpty { Text(loc(e.description)).font(.caption).foregroundStyle(.secondary) }
-                        if let err = e.error { Text(err).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
+                        if let err = e.error { Text(err).font(.caption).foregroundStyle(Color.textOrange).textSelection(.enabled) }
                         if let u = e.unavailable { Text(u).font(.caption).foregroundStyle(.tertiary) }
                     }
                     Spacer()

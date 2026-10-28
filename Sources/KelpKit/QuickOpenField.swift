@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// The palette's field: in ⇧⌘P it starts with a "Commands ›" token (`scope`), what's typed after it, so the two
 /// palettes tell apart at a glance.
@@ -53,7 +54,7 @@ final class PaletteField: NSSearchField {
     private final class Token: NSView {
         var text = "" { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
         private var words: NSAttributedString {
-            NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.systemPurple])
+            NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.textPurple])
         }
         override var intrinsicContentSize: NSSize { NSSize(width: ceil(words.size().width) + 14, height: 20) }
         override func draw(_ r: NSRect) {

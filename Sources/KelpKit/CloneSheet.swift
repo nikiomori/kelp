@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// Clone a repository by URL, in a sheet that does the work in place: git's progress, its error in the sheet, and
 /// Cancel stops it and removes the half-made folder.
@@ -158,7 +159,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { NSSound.beep(); return }
         guard let path = destination else {
-            status.isHidden = false; status.textColor = .systemRed
+            status.isHidden = false; status.textColor = .textRed
             status.stringValue = String(localized: "Enter the full path to clone to, like ~/Developer/app."); return
         }
         let parent = (path as NSString).deletingLastPathComponent, folder = (path as NSString).lastPathComponent
@@ -171,7 +172,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
             running = nil; busy(false)
             if let e = r.error {
                 if e == "Clone cancelled." { close(); return }
-                status.textColor = .systemRed
+                status.textColor = .textRed
                 status.stringValue = e
                 return
             }

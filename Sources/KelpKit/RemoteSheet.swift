@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// Remote projects as this app's home keeps them (KELP_HOME/remote): which folders stand for one on a host.
 extension RemoteHost {
@@ -175,7 +176,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     private func say(_ text: String?, error: Bool = false) {
         status.isHidden = text == nil; status.stringValue = text ?? ""
-        status.textColor = error ? .systemRed : .secondaryLabelColor
+        status.textColor = error ? .textRed : .secondaryLabelColor
     }
 
     private func busy(_ on: Bool) {

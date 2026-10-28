@@ -351,7 +351,7 @@ final class CapsuleStack: NSStackView {
     /// Off inside glass, which is the capsule then.
     var filled = true { didSet { needsDisplay = true } }
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = filled ? NSColor.labelColor.withAlphaComponent(0.06).cgColor : nil }
+    override func updateLayer() { layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil }
     override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
 }
 
@@ -388,7 +388,7 @@ final class PanelIcon: NSButton {
             layer?.shadowRadius = 1.5
             layer?.shadowOffset = CGSize(width: 0, height: -0.5)
         } else {
-            layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(on ? 0.14 : hover ? 0.06 : 0).cgColor
+            layer?.backgroundColor = (on ? NSColor.fillSelected : hover ? .fillHover : .clear).cgColor
             layer?.shadowOpacity = 0
         }
         contentTintColor = on ? .labelColor : .secondaryLabelColor

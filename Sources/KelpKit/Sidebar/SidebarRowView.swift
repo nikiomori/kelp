@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Two levels, as a Finder sidebar keeps them: a project, then what's in it 12 pt further in (an agent's mark under
 /// the right half of the project's icon), workspaces as headings at the same depth as their agents.
@@ -32,7 +33,7 @@ final class SidebarRowView: NSTableRowView {
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
     static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) { (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0) }
 
-    static let groupFill = NSColor.labelColor.withAlphaComponent(0.05)
+    static let groupFill = NSColor.fillRest
 
     override func drawBackground(in r: NSRect) {
         // Rows in the middle extend past their bounds, so only a card's ends are rounded. Flipped: y grows down.

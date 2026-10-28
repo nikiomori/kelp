@@ -107,7 +107,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let cost = NSTextField(labelWithString: "\(Self.percent(r.cpu))\n\(Self.bytes(r.memory))")
         cost.font = .uiDigits(11)
         cost.alignment = .right
-        cost.textColor = r.cpu > 80 ? .systemOrange : .secondaryLabelColor
+        cost.textColor = r.cpu > 80 ? .textOrange : .secondaryLabelColor
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
         let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([s.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }

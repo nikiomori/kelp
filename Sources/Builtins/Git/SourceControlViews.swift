@@ -177,7 +177,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         // A breaking change ("feat!:"): a red "!" before the words.
         let bang = s.breaking ? NSTextField(labelWithString: "!") : nil
         bang?.font = .ui(12, weight: .bold)
-        bang?.textColor = .systemRed
+        bang?.textColor = .textRed
         bang?.setAccessibilityLabel(String(localized: "Breaking change"))
         let mark = Self.mark(s, merge: c.parents.count > 1).map { m in
             let v = NSImageView(image: .symbol(m.symbol, s.type ?? String(localized: "Merge commit")))

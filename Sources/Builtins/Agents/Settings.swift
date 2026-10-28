@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Core
 import Agents
+import DesignKit
 import KelpKit
 
 /// Settings › Agent Catalog: every agent Kelp knows, installed first. Its card: Install (its own installer in a terminal you
@@ -61,7 +62,7 @@ struct AgentsSettings: View {
                 }
                 if !updates.isEmpty {
                     Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
-                        .font(.caption).foregroundStyle(.orange)
+                        .font(.caption).foregroundStyle(Color.textOrange)
                 }
             }
             .frame(width: 250)
@@ -195,7 +196,7 @@ struct AgentsSettings: View {
         let v = versions[m.id]
         HStack {
             if let installed = v?.version {
-                Text("Version \(installed)") + Text(newer(v) ? String(localized: " · \(v?.latest ?? "") available") : "").foregroundColor(.orange)
+                Text("Version \(installed)") + Text(newer(v) ? String(localized: " · \(v?.latest ?? "") available") : "").foregroundColor(.textOrange)
             } else if versions.isEmpty { Text("Checking…").foregroundStyle(.secondary) }
             Spacer()
             if let cmd = m.update {

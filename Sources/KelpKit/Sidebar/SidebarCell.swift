@@ -431,7 +431,7 @@ final class Chip: NSView {
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
-        layer?.cornerRadius = 4
-        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.09).cgColor
+        layer?.cornerRadius = Metrics.radiusXS
+        layer?.backgroundColor = NSColor.fillRest.cgColor
     }
 }

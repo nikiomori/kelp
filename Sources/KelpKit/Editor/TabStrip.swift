@@ -229,7 +229,7 @@ private final class CapsuleSegment: NSButton {
     }
     required init?(coder: NSCoder) { fatalError() }
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(hover ? 0.08 : 0).cgColor }
+    override func updateLayer() { layer?.backgroundColor = (hover ? NSColor.fillHover : .clear).cgColor }
     override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }
@@ -353,8 +353,9 @@ private final class TabButton: NSControl, NSDraggingSource {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             light.backgroundColor = NSColor.systemCyan.cgColor
             if let call { layer?.backgroundColor = call.fill.withAlphaComponent(selected ? 0.24 : 0.16).cgColor; return }
-            let fill = selected ? (groupFocused ? 0.12 : 0.07) : hover ? 0.05 : 0
-            layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(fill).cgColor
+            // Chosen in the group you're in, chosen in another one (or under the pointer), nothing.
+            let fill = selected && groupFocused ? NSColor.fillSelected : selected || hover ? .fillHover : .clear
+            layer?.backgroundColor = fill.cgColor
         }
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateLook() }

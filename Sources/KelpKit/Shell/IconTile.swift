@@ -95,7 +95,7 @@ extension NSImage {
 extension FileChange {
     /// VS Code's status letter and colour, as Files and the diff's file list show it (text shades: they colour names too).
     package var badge: (String, NSColor) {
-        conflicted ? ("!", .textRed) : untracked ? ("U", .textGreen) : (index == "D" || worktree == "D") ? ("D", .textRed)
-            : index == "A" ? ("A", .textGreen) : ("M", .textOrange)
+        let l = conflicted ? "!" : untracked ? "U" : (index == "D" || worktree == "D") ? "D" : index == "A" ? "A" : index == "R" ? "R" : "M"
+        return (l, .gitLetter(l))
     }
 }

@@ -135,7 +135,7 @@ final class WindowBar: NSView {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
         let font = NSFont.ui(12), count = NSFont.ui(12, weight: .semibold)
         let t = NSMutableAttributedString(string: info.current ?? info.head ?? "HEAD", attributes: [.font: font, .foregroundColor: NSColor.labelColor])
-        if behind > 0 { t.append(NSAttributedString(string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.systemOrange])) }
+        if behind > 0 { t.append(NSAttributedString(string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.textOrange])) }
         if ahead > 0 { t.append(NSAttributedString(string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.controlAccentColor])) }
         if dirty { t.append(NSAttributedString(string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor])) }
         branch.attributedTitle = t
@@ -245,7 +245,7 @@ final class SearchPill: NSControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func updateLayer() { layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07).cgColor }
+    override func updateLayer() { layer?.backgroundColor = NSColor.fillRest.cgColor }
     override var wantsUpdateLayer: Bool { true }
     override func layout() {
         super.layout(); layer?.cornerRadius = bounds.height / 2

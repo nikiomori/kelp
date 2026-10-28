@@ -38,12 +38,12 @@ final class SessionTab: TabContent {
                         progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(Self.attention),
                         waitsFor: s.flatMap { $0.status == .working ? $0.background?.first : nil })
     }
-    /// The ring around its pane: it asks (orange), failed (red), or finished and wasn't looked at yet (accent).
+    /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
+    /// unread dot and the bold name say it's new.
     private static func attention(_ s: Session) -> NSColor? {
         guard s.agent != "shell" else { return nil }
         if s.status == .waiting { return .systemOrange }
-        if s.status == .error || s.endedWithError { return s.unread ? .systemRed : nil }
-        return s.status == .done && s.unread ? .controlAccentColor : nil
+        return (s.status == .error || s.endedWithError) && s.unread ? .systemRed : nil
     }
     /// Only one on screen: a hidden pane's grid is from whatever size it last had.
     var terminalGrid: (cols: Int, rows: Int)? { pane.window == nil ? nil : pane.gridSize }

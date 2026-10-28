@@ -152,7 +152,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         let row = NSStackView(views: [icon, prompt])
         row.spacing = 10
         row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
-        let box = StartBox(radius: 10, fill: 0.05)
+        let box = StartBox(radius: Metrics.radiusLG)
         row.translatesAutoresizingMaskIntoConstraints = false; box.addSubview(row)
         NSLayoutConstraint.activate([
             box.heightAnchor.constraint(equalToConstant: 40), icon.widthAnchor.constraint(equalToConstant: 18),
@@ -181,19 +181,19 @@ final class StartView: NSView, NSTextFieldDelegate {
 /// A rounded box in the system's grouped style: a soft fill and a hairline.
 @MainActor
 private final class StartBox: NSView {
-    private let radius: CGFloat, fill: CGFloat
-    init(radius: CGFloat, fill: CGFloat) {
+    private let radius: CGFloat
+    init(radius: CGFloat) {
         self.radius = radius
-        self.fill = fill
         super.init(frame: .zero)
         wantsLayer = true
     }
     required init?(coder: NSCoder) { fatalError() }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        layer?.cornerRadius = radius; layer?.borderWidth = 1
+        layer?.cornerRadius = radius; layer?.cornerCurve = .continuous
+        layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor
-        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(fill).cgColor
+        layer?.backgroundColor = NSColor.fillRest.cgColor
     }
 }
 
@@ -202,7 +202,7 @@ private final class StartBox: NSView {
 private final class StartCard: NSView {
     init(rows: [NSView], others: [NSView]) {
         super.init(frame: .zero)
-        let box = StartBox(radius: 12, fill: 0.035)
+        let box = StartBox(radius: Metrics.radiusLG)
         var views: [NSView] = []
         for (i, r) in (rows + others).enumerated() {
             if i > 0 {
@@ -264,7 +264,7 @@ private final class StartRow: NSView {
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = hover ? NSColor.labelColor.withAlphaComponent(0.07).cgColor : NSColor.clear.cgColor
+            layer?.backgroundColor = hover ? NSColor.fillHover.cgColor : NSColor.clear.cgColor
         }
     }
     override func mouseEntered(with e: NSEvent) { hover = true }

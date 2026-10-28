@@ -173,7 +173,7 @@ final class WorkspaceSwitcher {
         // Grey, as ⌘Tab's: the status marks and the changes' colours stay readable on it.
         for (i, r) in rows.enumerated() {
             r.effectiveAppearance.performAsCurrentDrawingAppearance {
-                r.layer?.backgroundColor = i == index ? NSColor.labelColor.withAlphaComponent(0.11).cgColor : nil
+                r.layer?.backgroundColor = i == index ? NSColor.fillSelected.cgColor : nil
             }
         }
     }

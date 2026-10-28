@@ -454,12 +454,7 @@ extension SourceControlController {
 
     static func letter(_ f: FileChange, _ s: Section) -> (String, NSColor) {
         let l = f.letter(inWorktree: s == .changes, merging: s == .merge)
-        switch l {
-        case "!", "D": return (l, .systemRed)
-        case "U", "A": return (l, .systemGreen)
-        case "R", "C": return (l, .systemBlue)
-        default: return (l, .systemOrange)
-        }
+        return (l, .gitLetter(l))
     }
 }
 

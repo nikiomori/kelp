@@ -1,5 +1,6 @@
 import SwiftUI
 import Core
+import DesignKit
 
 /// How much of each agent's plan is used: a line per agent that reports it — name, a bar and percentage for its 5-hour
 /// window (or its fullest limit) with the week as a thin line under it, and when the 5 hours reset — and the details
@@ -122,7 +123,7 @@ package struct UsageView: View {
                     if let at = row.readAt {
                         Text(row.stale ? String(localized: "Read \(shortAgo(at)) ago; not since, so these may be out of date.")
                              : Date().timeIntervalSince(at) < 60 ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago"))
-                            .font(.caption).foregroundStyle(row.stale ? .orange : .secondary)
+                            .font(.caption).foregroundStyle(row.stale ? Color.textOrange : .secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -136,7 +137,7 @@ package struct UsageView: View {
                         Bar(used: l.used)
                         if let r = l.resets { Text("Resets \(r)").font(.caption).foregroundStyle(.secondary) }
                         if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resets.flatMap { ResetTime.parse($0) }) {
-                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(.orange)
+                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

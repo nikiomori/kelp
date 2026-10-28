@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 extension NSColor {
     /// 0xRRGGBB in sRGB.
@@ -28,8 +29,27 @@ extension NSColor {
     public static let textRed = dynamic(light: NSColor(hex: 0xCC0014), dark: NSColor(hex: 0xFF6961))
     public static let textPurple = dynamic(light: NSColor(hex: 0x9C27B0), dark: NSColor(hex: 0xE07BFF))
 
+    /// A git status letter's colour, as Files, Source Control and the diff show it: M amber, U and A green, D and ! red,
+    /// R and C the accent.
+    public static func gitLetter(_ l: String) -> NSColor {
+        switch l {
+        case "!", "D": .textRed
+        case "U", "A": .textGreen
+        case "R", "C": .controlAccentColor
+        default: .textOrange
+        }
+    }
+
     /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen.
     public static let fillRest = NSColor.labelColor.withAlphaComponent(0.05)
     public static let fillHover = NSColor.labelColor.withAlphaComponent(0.08)
     public static let fillSelected = NSColor.labelColor.withAlphaComponent(0.12)
+}
+
+/// The text shades for SwiftUI.
+extension Color {
+    public static let textOrange = Color(nsColor: .textOrange)
+    public static let textGreen = Color(nsColor: .textGreen)
+    public static let textRed = Color(nsColor: .textRed)
+    public static let textPurple = Color(nsColor: .textPurple)
 }

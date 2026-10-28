@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import WorkbenchKit
 import KelpKit
 
@@ -130,7 +131,7 @@ struct PathPreviewView: View {
                 Text(model.name).font(.headline)
                 if !model.folder.isEmpty { Text(model.folder).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 Spacer(minLength: 8)
-                if model.changed { Text("Changed").font(.caption.weight(.medium)).foregroundStyle(.orange) }
+                if model.changed { Text("Changed").font(.caption.weight(.medium)).foregroundStyle(Color.textOrange) }
             }
             if let img = model.image {
                 Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 360, maxHeight: 240)
@@ -140,7 +141,7 @@ struct PathPreviewView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(l.number.map(String.init) ?? "").foregroundStyle(.tertiary).frame(width: 34, alignment: .trailing)
                             Text(l.mark == " " ? l.text : "\(l.mark) \(l.text)").lineLimit(1).truncationMode(.tail)
-                                .foregroundStyle(l.mark == "+" ? .green : l.mark == "-" ? .red : .primary)
+                                .foregroundStyle(l.mark == "+" ? Color.textGreen : l.mark == "-" ? Color.textRed : .primary)
                         }
                         .padding(.vertical, 1)
                         .background(l.number == model.line && l.mark == " " ? Color.accentColor.opacity(0.18) : .clear)

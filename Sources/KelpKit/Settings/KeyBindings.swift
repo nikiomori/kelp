@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// The one place a `KeySpec`'s modifiers meet AppKit's flags (menu items, key events).
@@ -190,7 +191,7 @@ struct KeyboardSettings: View {
                 }
                 .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? .secondary : .primary)
             }
-            if let w = warning[e.id] { Text(w).font(.caption).foregroundStyle(.orange) }
+            if let w = warning[e.id] { Text(w).font(.caption).foregroundStyle(Color.textOrange) }
         }
     }
 

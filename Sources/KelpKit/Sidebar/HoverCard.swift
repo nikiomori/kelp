@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 
 /// What a sidebar row holds, in full, when the pointer rests on it: the row itself stays one line.
 /// After half a second the card appears; while one is open, moving to another row shows that row's card at once.
@@ -125,8 +126,8 @@ struct CardView: View {
             if let r = model.repo { WorktreeSizes(items: model.worktrees, root: r.path) }
             if let pr = model.pr { PRLine(pr: pr) }
             if let c = model.changes, c.totalAdded + c.totalRemoved > 0 {
-                (Text("Not committed  ") + Text(c.totalAdded > 0 ? "+\(c.totalAdded)" : "").foregroundColor(.green)
-                    + Text(c.totalAdded > 0 && c.totalRemoved > 0 ? " " : "") + Text(c.totalRemoved > 0 ? "−\(c.totalRemoved)" : "").foregroundColor(.red))
+                (Text("Not committed  ") + Text(c.totalAdded > 0 ? "+\(c.totalAdded)" : "").foregroundColor(.textGreen)
+                    + Text(c.totalAdded > 0 && c.totalRemoved > 0 ? " " : "") + Text(c.totalRemoved > 0 ? "−\(c.totalRemoved)" : "").foregroundColor(.textRed))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             ForEach(model.agents) { a in
@@ -165,7 +166,7 @@ struct PRLine: View {
     let pr: GitHub.PullRequest
     var body: some View {
         let state = pr.isDraft ? String(localized: "Draft") : pr.state.capitalized
-        let color: Color = state == String(localized: "Draft") ? .secondary : state == "Merged" ? .purple : state == "Closed" ? .red : .green
+        let color: Color = state == String(localized: "Draft") ? .secondary : state == "Merged" ? .textPurple : state == "Closed" ? .textRed : .textGreen
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
@@ -175,9 +176,9 @@ struct PRLine: View {
             }
             HStack(spacing: 6) {
                 Text(state).foregroundStyle(color)
-                if failed > 0 { Text("✕ \(failed) failing").foregroundStyle(.red) }
-                else if pending > 0 { Text("● \(pending) running").foregroundStyle(.orange) }
-                else if passed > 0 { Text("✓ checks passed").foregroundStyle(.green) }
+                if failed > 0 { Text("✕ \(failed) failing").foregroundStyle(Color.textRed) }
+                else if pending > 0 { Text("● \(pending) running").foregroundStyle(Color.textOrange) }
+                else if passed > 0 { Text("✓ checks passed").foregroundStyle(Color.textGreen) }
             }.font(.caption)
         }
     }

@@ -245,7 +245,7 @@ final class SyncPopover: NSViewController {
         } else {
             busy.stopAnimation(nil)
             note.stringValue = result?.text ?? ""
-            note.textColor = result?.failed == true ? .systemRed : .systemGreen
+            note.textColor = result?.failed == true ? .textRed : .textGreen
         }
         note.isHidden = note.stringValue.isEmpty
         status.isHidden = note.isHidden
@@ -320,7 +320,7 @@ final class SyncPopover: NSViewController {
         let text = NSMutableAttributedString()
         if n > 0, let s = git?.stats {
             let mono = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-            for (count, sign, color) in [(s.totalAdded, "+", NSColor.systemGreen), (s.totalRemoved, "−", .systemRed)] where count > 0 {
+            for (count, sign, color) in [(s.totalAdded, "+", NSColor.textGreen), (s.totalRemoved, "−", .textRed)] where count > 0 {
                 text.append(NSAttributedString(string: (text.length > 0 ? "  " : "") + "\(sign)\(count)", attributes: [.font: mono, .foregroundColor: color]))
             }
         }

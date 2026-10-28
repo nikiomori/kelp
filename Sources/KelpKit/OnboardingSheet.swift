@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// The first launch, in one sheet: the agents found on this Mac and which one New Agent starts, a test notification
 /// (so a silent banner setting shows up now, not when an agent is waiting), and Add Project.
@@ -125,7 +126,7 @@ final class OnboardingSheet: SheetController {
         app.notifier?.sendTest { [weak self] ok in
             self?.notifyStatus.stringValue = ok
                 ? String(localized: "Sent. If no banner appeared, check Focus.") : String(localized: "Turned off for Kelp in System Settings › Notifications.")
-            self?.notifyStatus.textColor = ok ? .secondaryLabelColor : .systemRed
+            self?.notifyStatus.textColor = ok ? .secondaryLabelColor : .textRed
         }
     }
 }
