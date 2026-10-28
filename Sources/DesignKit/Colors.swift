@@ -47,10 +47,13 @@ extension NSColor {
         }
     }
 
-    /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen.
-    public static let fillRest = NSColor.labelColor.withAlphaComponent(0.05)
-    public static let fillHover = NSColor.labelColor.withAlphaComponent(0.08)
-    public static let fillSelected = NSColor.labelColor.withAlphaComponent(0.12)
+    /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen. Black in
+    /// light appearances, white in dark: `labelColor.withAlphaComponent` is fixed to the appearance it was first read in
+    /// (white, on a dark Mac), which left every fill invisible on a light theme.
+    public static let fillRest = grey(0.05)
+    public static let fillHover = grey(0.08)
+    public static let fillSelected = grey(0.12)
+    private static func grey(_ alpha: CGFloat) -> NSColor { dynamic(light: NSColor(white: 0, alpha: alpha), dark: NSColor(white: 1, alpha: alpha)) }
 }
 
 /// The text shades for SwiftUI.
