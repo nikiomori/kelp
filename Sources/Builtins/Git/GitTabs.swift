@@ -20,7 +20,7 @@ final class DiffTab: TabContent {
             : source == "branch" ? String(localized: "Branch vs base") : String(localized: "Working Tree"))
         return "\((file as NSString).lastPathComponent) (\(what))"
     }
-    var icon: NSImage? { .symbol("plusminus") }
+    var icon: NSImage? { .symbol("plus.forwardslash.minus") }
     var toolTip: String? { file }
 
     init(uri: String, app: AppModel) {

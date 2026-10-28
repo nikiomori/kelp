@@ -258,7 +258,7 @@ package final class EditorArea: NSViewController {
             let p = TabURI.filePath(t.uri).path
             return .init(id: t.id, title: (p as NSString).lastPathComponent, icon: app.fileIcons.image((p as NSString).lastPathComponent),
                          status: nil, toolTip: p)
-        case "diff": return .init(id: t.id, title: String(localized: "Changes"), icon: .symbol("plusminus"), status: nil, toolTip: nil)
+        case "diff": return .init(id: t.id, title: String(localized: "Changes"), icon: .symbol("plus.forwardslash.minus"), status: nil, toolTip: nil)
         case "http", "https", "about":
             return .init(id: t.id, title: URL(string: t.uri)?.host ?? String(localized: "New Page"), icon: .symbol("safari"), status: nil, toolTip: t.uri)
         case "preview": return .init(id: t.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil, toolTip: body)
