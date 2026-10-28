@@ -11,7 +11,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let view: NSView
     private let web: WKWebView
     private let address = NSTextField()
-    private let designButton = NSButton()
+    private let designButton = PointerButton(frame: .zero)
     /// Shown instead of a blank page: the workspace's servers.
     private let ports: PortsView
     let app: AppModel
@@ -49,8 +49,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.lineBreakMode = .byTruncatingTail
         address.bezelStyle = .roundedBezel
         designButton.setButtonType(.pushOnPushOff)
-        designButton.isBordered = false
-        designButton.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: .regular)
+        designButton.imagePosition = .imageOnly
+        designButton.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
         designButton.contentTintColor = .secondaryLabelColor
         designButton.image = .symbol("cursorarrow.rays", String(localized: "Design Mode"))
         designButton.toolTip = String(localized: "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)")
@@ -159,6 +159,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
 
     @objc func toggleDesign() {
         designOn.toggle(); designButton.state = designOn ? .on : .off
+        designButton.restFill = designOn ? .fillSelected : nil   // on, it stays pressed in, as a toggle in a bar does
+        designButton.contentTintColor = designOn ? .controlAccentColor : .secondaryLabelColor
         // The user's own clicks on the page, as AppKit sees them: a page can post without one, it can't make one.
         if designOn, clickWatch == nil {
             clickWatch = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] e in

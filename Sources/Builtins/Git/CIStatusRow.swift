@@ -52,16 +52,25 @@ final class CIStatusRow: NSView {
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {
-        layer?.cornerRadius = 6
-        layer?.backgroundColor = (hover ? NSColor.quaternarySystemFill : .clear).cgColor
+    /// The hover grey fades in, held it darkens, a click springs it, as every row and button does (no hand cursor:
+    /// macOS keeps that for links).
+    private var pressed = false
+    private func showFill() {
+        wantsLayer = true
+        layer?.cornerRadius = Metrics.radiusSM
+        fadeBackground(to: pressed ? .fillSelected : hover ? .fillHover : nil)
     }
-    override func mouseEntered(with e: NSEvent) { hover = true; needsDisplay = true }
-    override func mouseExited(with e: NSEvent) { hover = false; needsDisplay = true }
+    override func mouseEntered(with e: NSEvent) { hover = true; showFill() }
+    override func mouseExited(with e: NSEvent) {
+        hover = false
+        pressed = false
+        showFill()
+    }
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }   // one target, labels included
-    override func mouseDown(with e: NSEvent) {}   // the click is the row's, not the panel's
-    override func mouseUp(with e: NSEvent) { if bounds.contains(convert(e.locationInWindow, from: nil)) { onClick?() } }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    override func mouseDown(with e: NSEvent) { pressed = true; showFill() }   // the click is the row's, not the panel's
+    override func mouseUp(with e: NSEvent) {
+        pressed = false; showFill()
+        if bounds.contains(convert(e.locationInWindow, from: nil)) { pressBounce(); onClick?() }
+    }
     override func accessibilityPerformPress() -> Bool { onClick?(); return true }
 }

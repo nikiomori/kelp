@@ -14,8 +14,8 @@ final class SyncPopover: NSViewController {
     private let wid: String
     weak var popover: NSPopover?
 
-    private let name = NSButton(title: "", target: nil, action: nil), state = NSTextField(labelWithString: "")
-    private lazy var fetch = ClosureButton(title: String(localized: "Fetch")) { [weak self] in self?.sync(["fetch"]) }
+    private let name = PointerButton(frame: .zero), state = NSTextField(labelWithString: "")
+    private lazy var fetch = PointerButton(title: String(localized: "Fetch")) { [weak self] in self?.sync(["fetch"]) }
     private lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     private lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     private let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
@@ -42,7 +42,7 @@ final class SyncPopover: NSViewController {
     // MARK: layout
 
     override func loadView() {
-        name.isBordered = false
+        name.padding = 4
         name.imagePosition = .imageTrailing
         name.lineBreakMode = .byTruncatingMiddle
         name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
@@ -53,7 +53,7 @@ final class SyncPopover: NSViewController {
         state.textColor = .secondaryLabelColor
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        fetch.isBordered = false
+        fetch.padding = 4
         fetch.image = .symbol("arrow.down.circle", String(localized: "Fetch"))
         fetch.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
         fetch.imagePosition = .imageLeading
@@ -100,17 +100,11 @@ final class SyncPopover: NSViewController {
         hint.font = .ui(11)
         hint.textColor = .tertiaryLabelColor
 
-        let open = ClosureButton(title: String(localized: "Open Source Control")) { [weak self] in
+        // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
+        let footer = FooterLink(String(localized: "Open Source Control")) { [weak self] in
             self?.app.workbench.showPanel("git.changes")
             self?.popover?.performClose(nil)
         }
-        open.isBordered = false
-        open.attributedTitle = NSAttributedString(string: open.title, attributes: [.font: NSFont.ui(13), .foregroundColor: NSColor.labelColor])
-        let chevron = NSImageView(image: .symbol("chevron.right", ""))
-        chevron.contentTintColor = .tertiaryLabelColor
-        let footer = NSStackView()
-        footer.setViews([open], in: .leading)
-        footer.setViews([chevron], in: .trailing)
 
         let rules = (rule(), rule())
         root.orientation = .vertical
@@ -266,12 +260,13 @@ final class SyncPopover: NSViewController {
         let title = published ? String(localized: "To push") : String(localized: "To publish")
         outgoing.setViews([caption(title, ahead)] + out.map { row($0, trailing: when($0)) } + more(ahead - out.count), in: .top)
 
-        let toggle = ClosureButton(title: "") { [weak self] in
+        let toggle = PointerButton(title: "") { [weak self] in
             guard let self else { return }
             showIncoming.toggle()
             update()
         }
-        toggle.isBordered = false
+        toggle.radius = Metrics.radiusXS
+        toggle.padding = 2
         toggle.attributedTitle = NSAttributedString(string: String(localized: "To pull") + " · \(behind)", attributes: Self.captionAttributes)
         toggle.image = .symbol(showIncoming ? "chevron.down" : "chevron.right", String(localized: "To pull"))
         toggle.imagePosition = .imageLeading
@@ -429,4 +424,29 @@ extension SyncPopover: NSTextFieldDelegate {
         if commit.isEnabled { commitAll(thenPush: true) }
         return true
     }
+}
+
+/// A line that is a link to somewhere else ("Open Source Control ›"): words on the left, a chevron on the right, the
+/// whole line one target that answers the pointer (`PointerControl`).
+@MainActor
+private final class FooterLink: PointerControl {
+    private let run: () -> Void
+    init(_ title: String, action: @escaping () -> Void) {
+        run = action
+        super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusSM
+        let label = NSTextField(labelWithString: title)
+        label.font = .ui(13)
+        let chevron = NSImageView(image: .symbol("chevron.right", ""))
+        chevron.contentTintColor = .tertiaryLabelColor
+        let row = NSStackView(views: [label, NSView(), chevron])
+        row.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        pin(row)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityLabel(title)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func clicked() { run() }
+    override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) == nil ? nil : self }   // one target, label included
 }

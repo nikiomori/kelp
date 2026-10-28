@@ -17,6 +17,13 @@ public final class EditorTextView: NSTextView {
     var anchors: [Int] = []
     /// What's folded away (Folding).
     nonisolated let folds = Folds()
+    /// The folded block whose ⋯ is under the pointer: it brightens, and the pointer is an arrow there (it's a button).
+    var hoveredFold: NSRange? {
+        didSet {
+            guard hoveredFold != oldValue else { return }
+            for r in [oldValue, hoveredFold].compactMap({ $0 }) { setNeedsDisplay(capsule(for: r).insetBy(dx: -2, dy: -2)) }
+        }
+    }
     /// Told of every edit before it's made, while the old text is there (CodeEditor: the parse tree, the line count).
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items; they come back later, to `showCompletions`.
@@ -232,6 +239,13 @@ public final class EditorTextView: NSTextView {
     }
 
     // MARK: Mouse
+
+    public override func mouseMoved(with e: NSEvent) {
+        let at = convert(e.locationInWindow, from: nil)
+        hoveredFold = folds.isEmpty ? nil : folds.hidden.first { capsule(for: $0).contains(at) }
+        if hoveredFold != nil { NSCursor.arrow.set() } else { super.mouseMoved(with: e) }
+    }
+    public override func mouseExited(with e: NSEvent) { hoveredFold = nil; super.mouseExited(with: e) }
 
     /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, NSTextView's own way.
     public override func mouseDown(with e: NSEvent) {

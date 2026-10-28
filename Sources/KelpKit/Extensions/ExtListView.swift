@@ -33,7 +33,7 @@ struct ExtListView: View {
                     Button { ExtActions(app).perform(a, item: nil, folder: folder) { reload() } } label: {
                         if i == 0 { Label(a.title, systemImage: a.icon ?? "play") } else { Image(systemName: a.icon ?? "play").frame(width: 22, height: 22) }
                     }
-                    .buttonStyle(.borderless).help(a.title)
+                    .buttonStyle(PointerButtonStyle()).help(a.title)
                     if i == 0 { Spacer() }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }

@@ -351,6 +351,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     // MARK: table
     func numberOfRows(in t: NSTableView) -> Int { t === files ? diffs.count : rows.count }
 
+    /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
+    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { t === files ? ListRowView() : nil }
+
     func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
         if t === files { return fileRow(row) }

@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Where lines start, found only as far as asked and forgotten past an edit: a 5 MB file's line numbers without a scan
 /// per keystroke or per frame.
@@ -74,6 +75,8 @@ final class LineNumbers: NSRulerView {
     private weak var editor: CodeEditor?
     var color = NSColor.secondaryLabelColor, current = NSColor.labelColor, background = NSColor.textBackgroundColor
     private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    /// The line under the pointer (its first character): its chevron sits on the hover grey, so it reads as a button.
+    private var hoverLine: Int? { didSet { if hoverLine != oldValue { needsDisplay = true } } }
     private static let chevron: CGFloat = 14
 
     init(_ editor: CodeEditor, in scroll: NSScrollView) {
@@ -81,14 +84,15 @@ final class LineNumbers: NSRulerView {
         super.init(scrollView: scroll, orientation: .verticalRuler)
         clientView = editor.textView
         clipsToBounds = true   // its background covered the text otherwise (views don't clip by default since macOS 14)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     required init(coder: NSCoder) { fatalError("not from a nib") }
 
     override var isFlipped: Bool { true }
     override func mouseEntered(with event: NSEvent) { hovering = true }
-    override func mouseExited(with event: NSEvent) { hovering = false }
+    override func mouseExited(with event: NSEvent) { hovering = false; hoverLine = nil }
+    override func mouseMoved(with event: NSEvent) { hoverLine = lineStart(at: event)?.location }
 
     /// Wide enough for the last line's number, three digits at least, and the chevrons.
     func fit(lines: Int) {
@@ -120,8 +124,14 @@ final class LineNumbers: NSRulerView {
             let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: .semibold).applying(.init(paletteColors: [color]))
             guard let img = NSImage(systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
                 .withSymbolConfiguration(config) else { return }
-            img.draw(at: NSPoint(x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2,
-                                 y: y0 + frag.minY + (frag.height - img.size.height) / 2), from: .zero, operation: .sourceOver, fraction: 1)
+            let at = NSPoint(x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2, y: y0 + frag.minY + (frag.height - img.size.height) / 2)
+            if line.location == hoverLine {
+                let side = max(img.size.width, img.size.height) + 6
+                NSColor.fillHover.setFill()
+                NSBezierPath(roundedRect: NSRect(x: at.x + img.size.width / 2 - side / 2, y: at.y + img.size.height / 2 - side / 2, width: side, height: side),
+                             xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
+            }
+            img.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
         }
         while let start = editor.lineIndex.start(ofLine: n, in: s), start < s.length, start <= NSMaxRange(visible) {
             if let f = tv.folds.fold(at: start) {   // folded away: on after the fold
@@ -138,11 +148,16 @@ final class LineNumbers: NSRulerView {
 
     /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block.
     override func mouseDown(with event: NSEvent) {
-        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
+        guard let editor, let line = lineStart(at: event) else { return }
+        editor.toggleFold(line: line)
+    }
+
+    /// The line beside the pointer.
+    private func lineStart(at event: NSEvent) -> NSRange? {
+        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return nil }
         let tv = editor.textView, s = tv.string as NSString
         let p = tv.convert(event.locationInWindow, from: nil)
         let i = lm.characterIndex(for: NSPoint(x: 0, y: p.y - tv.textContainerOrigin.y), in: tc, fractionOfDistanceBetweenInsertionPoints: nil)
-        guard i < s.length else { return }
-        editor.toggleFold(line: s.lineRange(for: NSRange(location: i, length: 0)))
+        return i < s.length ? s.lineRange(for: NSRange(location: i, length: 0)) : nil
     }
 }

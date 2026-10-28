@@ -66,14 +66,21 @@ final class GraphBar: NSView {
     var onToggle: (() -> Void)?, onResize: ((CGFloat) -> Void)?, onRefresh: (() -> Void)?
     var expanded = true { didSet { cell?.expanded = expanded; window?.invalidateCursorRects(for: self) } }
     private var cell: SectionCell?
+    /// Under the pointer the header greys in as a list row does (inset, rounded), held it darkens.
+    private let fill = NSView()
+    private var hovering = false, pressed = false
 
     init() {
         super.init(frame: .zero)
         let c = SectionCell(title: loc(SourceControlController.Section.graph.rawValue), count: nil, expanded: true,
                             actions: [RowAction("arrow.clockwise", "Refresh") { [weak self] in self?.onRefresh?() }])
         let sep = NSBox(); sep.boxType = .separator
-        for v in [sep, c] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        fill.wantsLayer = true
+        fill.layer?.cornerRadius = Metrics.radiusSM
+        for v in [sep, fill, c] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         NSLayoutConstraint.activate([
+            fill.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: 1), fill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
+            fill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6), fill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             sep.topAnchor.constraint(equalTo: topAnchor), sep.heightAnchor.constraint(equalToConstant: 1),
             sep.leadingAnchor.constraint(equalTo: leadingAnchor), sep.trailingAnchor.constraint(equalTo: trailingAnchor),
             c.topAnchor.constraint(equalTo: sep.bottomAnchor), c.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -87,8 +94,14 @@ final class GraphBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) { cell?.setHover(true) }
-    override func mouseExited(with e: NSEvent) { cell?.setHover(false) }
+    private func showFill() { fill.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil) }
+    override func mouseEntered(with e: NSEvent) { setHovering(true) }
+    override func mouseExited(with e: NSEvent) { setHovering(false) }
+    private func setHovering(_ on: Bool) {
+        cell?.setHover(on)
+        hovering = on
+        showFill()
+    }
     override func resetCursorRects() {
         if expanded { addCursorRect(NSRect(x: 0, y: bounds.height - 4, width: bounds.width, height: 4), cursor: .resizeUpDown) }
     }
@@ -100,13 +113,20 @@ final class GraphBar: NSView {
         start = e.locationInWindow.y
         last = start
         dragged = false
+        pressed = true; showFill()
     }
     override func mouseDragged(with e: NSEvent) {
         let y = e.locationInWindow.y
         dragged = dragged || (expanded && abs(y - start) > 3)
-        if dragged { onResize?(y - last); last = y }
+        guard dragged else { return }
+        if pressed { pressed = false; showFill() }
+        onResize?(y - last)
+        last = y
     }
-    override func mouseUp(with e: NSEvent) { if !dragged { onToggle?() } }
+    override func mouseUp(with e: NSEvent) {
+        pressed = false; showFill()
+        if !dragged { onToggle?() }
+    }
 }
 
 final class FileCell: NSTableCellView, Hoverable {

@@ -139,7 +139,7 @@ extension EditorTextView: NSLayoutManagerDelegate {
         for r in folds.hidden {
             let box = capsule(for: r)
             guard box.intersects(dirty) else { continue }
-            color.withAlphaComponent(0.14).setFill()
+            color.withAlphaComponent(r == hoveredFold ? 0.24 : 0.14).setFill()   // under the pointer it brightens
             NSBezierPath(roundedRect: box, xRadius: box.height / 2, yRadius: box.height / 2).fill()
             let dots = NSAttributedString(string: "⋯", attributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: color.withAlphaComponent(0.7)])
             let size = dots.size()

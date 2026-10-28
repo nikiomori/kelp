@@ -11,10 +11,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
-    let source = NSPopUpButton()
+    let source = PointerPopUpButton()
     let split = NSSplitView()
     private var dividerPlaced = false
-    let filter = NSPopUpButton()
+    let filter = PointerPopUpButton()
     /// What an action just did ("Merged #12"); a line only while it says something.
     let status = StatusLine(labelWithString: "")
     /// No rows: the list gives way to this, in the middle, with the button that helps (show all, sign in).

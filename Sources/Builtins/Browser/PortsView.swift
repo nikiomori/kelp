@@ -59,10 +59,10 @@ final class PortsView: NSView {
 
     private func row(_ p: PortsList.Port, workspace wid: String) -> NSView {
         let port = p.port, address = "http://localhost:\(port)"
-        let link = ClosureButton(title: "localhost:\(port)") { [weak self] in self?.onOpen?(address) }
-        link.isBordered = false
+        let link = PointerButton(title: "localhost:\(port)") { [weak self] in self?.onOpen?(address) }
         link.contentTintColor = .linkColor
         link.font = .uiDigits(13, weight: .medium)
+        link.underlinesOnHover = true
         let what = NSTextField(labelWithString: p.command)
         what.textColor = .secondaryLabelColor
         what.font = .ui(12)

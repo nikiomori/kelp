@@ -378,6 +378,7 @@ final class PanelIcon: NSButton {
     }
 
     override var state: NSControl.StateValue { didSet { needsDisplay = true } }
+    override var isHighlighted: Bool { didSet { needsDisplay = true } }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         let on = state == .on
@@ -389,7 +390,7 @@ final class PanelIcon: NSButton {
             layer?.shadowRadius = 1.5
             layer?.shadowOffset = CGSize(width: 0, height: -0.5)
         } else {
-            fadeBackground(to: on ? .fillSelected : hover ? .fillHover : nil)
+            fadeBackground(to: on || isHighlighted ? .fillSelected : hover ? .fillHover : nil)   // held, it darkens
             layer?.shadowOpacity = 0
         }
         contentTintColor = on ? .labelColor : .secondaryLabelColor

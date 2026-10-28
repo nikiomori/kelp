@@ -186,7 +186,7 @@ struct AgentsSettings: View {
             Spacer()
             Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string) } label: {
                 Image(systemName: "doc.on.doc")
-            }.buttonStyle(.borderless).help("Copy")
+            }.buttonStyle(PointerButtonStyle()).help("Copy")
         }
         .padding(8)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))

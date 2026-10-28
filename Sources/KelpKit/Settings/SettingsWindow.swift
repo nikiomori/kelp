@@ -287,7 +287,7 @@ private struct ThemeGallery: View {
                         .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
                             .strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selection == c.id ? 2 : 1))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PointerCardStyle())
                     .accessibilityLabel(c.name).accessibilityAddTraits(selection == c.id ? .isSelected : [])
                 }
             }

@@ -16,6 +16,8 @@ open class PointerButton: NSButton {
     public var padding: CGFloat = 0 { didSet { invalidateIntrinsicContentSize() } }
     /// The fill it rests on (nil: none); hover and press go a step past it.
     public var restFill: NSColor? { didSet { showFill() } }
+    /// A link (a port, "Open Source Control"): no fill; under the pointer its words are underlined, as links are.
+    public var underlinesOnHover = false { didSet { showFill() } }
 
     override public init(frame: NSRect) {
         super.init(frame: frame)
@@ -73,9 +75,46 @@ open class PointerButton: NSButton {
     }
 
     private func showFill() {
+        guard !underlinesOnHover else {
+            let words = NSMutableAttributedString(string: title, attributes: [.font: font ?? .ui(13), .foregroundColor: contentTintColor ?? .linkColor])
+            if hovering && isEnabled {
+                words.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: words.length))
+            }
+            attributedTitle = words
+            return
+        }
         fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? .fillHover : restFill)
     }
     override open func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); showFill() }
+}
+
+/// A borderless pop-up (a panel's title words that pick what it lists): the hover grey fades in under the pointer, as a
+/// `PointerButton`'s does; its menu answers the press.
+@MainActor
+open class PointerPopUpButton: NSPopUpButton {
+    private var area: NSTrackingArea?
+    private var hovering = false { didSet { if hovering != oldValue { fadeBackground(to: hovering && isEnabled ? .fillHover : nil) } } }
+
+    override public init(frame: NSRect, pullsDown: Bool) {
+        super.init(frame: frame, pullsDown: pullsDown)
+        isBordered = false
+        wantsLayer = true
+        layer?.cornerRadius = Metrics.radiusSM
+        layer?.cornerCurve = .continuous
+    }
+    public convenience init() { self.init(frame: .zero, pullsDown: false) }
+    required public init?(coder: NSCoder) { fatalError() }
+
+    override open func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area { removeTrackingArea(area) }
+        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
+        addTrackingArea(a)
+        area = a
+    }
+    override open func mouseEntered(with event: NSEvent) { hovering = true }
+    override open func mouseExited(with event: NSEvent) { hovering = false }
+    override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false }
 }
 
 /// A custom clickable view (a pill, a capsule, a row drawn by hand) that answers the pointer like `PointerButton`:

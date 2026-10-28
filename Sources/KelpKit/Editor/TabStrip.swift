@@ -33,11 +33,11 @@ final class TabStrip: NSView {
     var onUnzoom: (() -> Void)?
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
     var zoomed = false { didSet { unzoom.isHidden = !zoomed } }
-    private let unzoom = NSButton()
+    private let unzoom = PointerButton(frame: .zero)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     private let stack = NSStackView()
     private let scroll = NSScrollView()
-    private let overflow = NSButton()
+    private let overflow = PointerButton(frame: .zero)
     private let add = CapsuleSegment()
     /// The default agent, one click away beside "+" (no list to pick from); the two share one capsule.
     private let newAgent = CapsuleSegment()
@@ -216,23 +216,14 @@ final class TabStrip: NSView {
 /// An NSControl, not a plain view: under a transparent title bar the window server moves the window on a drag over
 /// anything but controls, whatever `mouseDownCanMoveWindow` says, so a dragged tab would take the window with it.
 @MainActor
-/// A button in a capsule: a soft fill under the pointer, like the inspector's panel icons.
-private final class CapsuleSegment: NSButton {
-    private var hover = false { didSet { needsDisplay = true } }
+/// A button in a capsule: a soft fill fades in under the pointer, darkens held, springs when clicked (`PointerButton`).
+private final class CapsuleSegment: PointerButton {
     override init(frame: NSRect) {
         super.init(frame: frame)
-        title = ""
         imagePosition = .imageOnly
-        isBordered = false
-        wantsLayer = true
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        radius = nil
     }
     required init?(coder: NSCoder) { fatalError() }
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = (hover ? NSColor.fillHover : .clear).cgColor }
-    override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
-    override func mouseEntered(with e: NSEvent) { hover = true }
-    override func mouseExited(with e: NSEvent) { hover = false }
 }
 
 private final class TabButton: NSControl, NSDraggingSource {
@@ -240,7 +231,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     private var item: TabStrip.Item?
     private var selected = false
     var groupFocused = false { didSet { updateLook() } }
-    private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = NSButton(), editedDot = NSImageView()
+    private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero), editedDot = NSImageView()
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
     /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
@@ -262,6 +253,8 @@ private final class TabButton: NSControl, NSDraggingSource {
         close.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
         close.wantsLayer = true
         close.contentTintColor = .secondaryLabelColor
+        close.imagePosition = .imageOnly
+        close.radius = nil   // a round fill under the pointer, the slot's 16 pt
         close.target = self
         close.action = #selector(closeTapped)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
@@ -273,6 +266,7 @@ private final class TabButton: NSControl, NSDraggingSource {
             v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
             NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
         }
+        NSLayoutConstraint.activate([close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)])
         full.font = .uiDigits(10, weight: .semibold)
         chip.setContentCompressionResistancePriority(.init(200), for: .horizontal)   // gives way before the title, down to "…"
         let least = chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 40); least.priority = .init(760)
@@ -386,7 +380,10 @@ private final class TabButton: NSControl, NSDraggingSource {
     }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }
-    override func mouseDown(with e: NSEvent) { if let id = item?.id { strip?.onSelect?(id) } }
+    override func mouseDown(with e: NSEvent) {
+        pressBounce()   // a click answers as every control's does; dragging on from here moves the tab
+        if let id = item?.id { strip?.onSelect?(id) }
+    }
     override func accessibilityPerformPress() -> Bool { if let id = item?.id { strip?.onSelect?(id) }; return true }
     override func otherMouseUp(with e: NSEvent) { closeTapped() }
     override func menu(for event: NSEvent) -> NSMenu? { item.flatMap { strip?.onMenu?($0.id) } }

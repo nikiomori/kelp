@@ -171,12 +171,8 @@ final class WorkspaceSwitcher {
             NSAccessibility.post(element: r, notification: .announcementRequested,
                                  userInfo: [.announcement: r.accessibilityLabel() ?? "", .priority: NSAccessibilityPriorityLevel.high.rawValue])
         }
-        // Grey, as ⌘Tab's: the status marks and the changes' colours stay readable on it.
-        for (i, r) in rows.enumerated() {
-            r.effectiveAppearance.performAsCurrentDrawingAppearance {
-                r.layer?.backgroundColor = i == index ? NSColor.fillSelected.cgColor : nil
-            }
-        }
+        // Grey, as ⌘Tab's: the status marks and the changes' colours stay readable on it. Faded, not switched.
+        for (i, r) in rows.enumerated() { r.fadeBackground(to: i == index ? .fillSelected : nil) }
     }
 
     /// Status | project | name, place, badges, when — and the agent the mark is for on a second line, when there is one.

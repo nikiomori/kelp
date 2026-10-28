@@ -71,8 +71,7 @@ final class MarkdownTab: NSViewController {
         mode.action = #selector(modeChanged)
         mode.controlSize = .small
         // Headings: a menu from one button (its first item is the button's face).
-        let heading = NSPopUpButton(frame: .zero, pullsDown: true)
-        heading.isBordered = false
+        let heading = PointerPopUpButton(frame: .zero, pullsDown: true)   // greys in under the pointer, as the bar's icons
         heading.addItems(withTitles: ["", String(localized: "Text"), String(localized: "Heading 1"), String(localized: "Heading 2"),
                                       String(localized: "Heading 3")])
         heading.item(at: 0)?.image = .symbol("textformat.size", String(localized: "Heading"))

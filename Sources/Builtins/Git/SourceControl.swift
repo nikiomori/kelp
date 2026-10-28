@@ -27,7 +27,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     private var graphHeight: NSLayoutConstraint?, graphClosed: NSLayoutConstraint?, barHeight: NSLayoutConstraint?
     /// Never dragged, the open graph has the lower half; the changes keep at least their rows' height up to 80 pt.
     private var graphHalf: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
-    let branchButton = NSButton()
+    let branchButton = PointerButton(frame: .zero)   // greys in under the pointer, as the window bar's branch chip
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
     private let placeholder = NSTextField(labelWithString: "")
@@ -85,7 +85,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     override func loadView() {
         let app = self.app
-        branchButton.isBordered = false
+        branchButton.padding = 4
         branchButton.imagePosition = .imageLeading
         branchButton.imageHugsTitle = true
         branchButton.image = Glyph.image("arrow.triangle.branch", size: 14); branchButton.font = .ui(12, weight: .semibold)
