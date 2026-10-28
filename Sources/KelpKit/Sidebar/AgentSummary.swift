@@ -116,7 +116,7 @@ final class AgentSummary: NSView {
         capsule.toolTip = asking ? String(localized: "Show the next agent that needs you (⇧⌘U)") : nil
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
-            NSAnimationContext.runAnimationGroup { $0.duration = 0.5; capsule.animator().alphaValue = 1 }
+            NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; capsule.animator().alphaValue = 1 }
         }
         updated()
     }

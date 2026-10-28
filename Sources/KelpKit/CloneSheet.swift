@@ -30,7 +30,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     }
 
     private init(app: AppModel) {
-        super.init(app: app, width: 480)
+        super.init(app: app, width: Metrics.sheetWidth)
         build()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -85,9 +85,9 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         let stack = NSStackView(views: [title, grid, bar, status, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 14
+        stack.spacing = 12
         stack.detachesHiddenViews = true
-        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        stack.edgeInsets = NSEdgeInsets(top: Metrics.sheetInset, left: Metrics.sheetInset, bottom: Metrics.sheetInset, right: Metrics.sheetInset)
         for v in [bar, buttons] { v.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true }
         window?.contentView = stack
         window?.initialFirstResponder = field

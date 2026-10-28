@@ -80,8 +80,9 @@ final class WorkspaceSwitcher {
         fx.material = .popover   // as Quick Open's
         fx.state = .active
         fx.wantsLayer = true
-        fx.layer?.cornerRadius = 14
-        fx.layer?.borderWidth = 0.5   // a hairline edge, as menus have, so it holds against a window of the same grey
+        fx.layer?.cornerRadius = Metrics.radiusXL
+        fx.layer?.cornerCurve = .continuous
+        fx.layer?.borderWidth = 1   // an edge, as menus have, so it holds against a window of the same grey
         fx.effectiveAppearance.performAsCurrentDrawingAppearance { fx.layer?.borderColor = NSColor.separatorColor.cgColor }
         fx.pin(scroll)
         let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)

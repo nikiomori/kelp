@@ -71,7 +71,7 @@ final class Floater: NSView {
             superview?.layoutSubtreeIfNeeded()
         }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.2 : 0
+            ctx.duration = animated ? Motion.duration(Motion.base) : 0
             ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
             edge.animator().constant = on ? Self.inset : away
         } completionHandler: { [weak self] in   // on main

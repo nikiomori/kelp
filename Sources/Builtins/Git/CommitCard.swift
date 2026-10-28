@@ -18,7 +18,7 @@ final class CommitCard {
     /// The author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
 
-    init() { popover.behavior = .transient }
+    init() { popover.behavior = .applicationDefined }   // as the sidebar's: it goes when the pointer leaves
 
     /// The pointer came onto or left a commit's row. A card already up follows the pointer to the next row at once.
     func hover(_ on: Bool, commit c: GraphCommit, pushed: Bool?, over row: NSView) {
@@ -26,7 +26,7 @@ final class CommitCard {
         guard on else { closeSoon(); return }
         closing?.cancel()
         guard !(popover.isShown && shown == c.hash) else { return }
-        let wait: Duration = popover.isShown ? .milliseconds(120) : .milliseconds(500)
+        let wait: Duration = .seconds(popover.isShown ? Motion.hoverOpenWarm : Motion.hoverOpen)
         let loading = Task { await detailsOf(c.hash) }
         opening = Task { [weak self] in
             try? await Task.sleep(for: wait)
@@ -46,7 +46,7 @@ final class CommitCard {
     private func closeSoon() {
         closing?.cancel()
         closing = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .seconds(Motion.hoverClose))
             if !Task.isCancelled { self?.close() }
         }
     }

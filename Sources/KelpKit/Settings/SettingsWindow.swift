@@ -77,7 +77,7 @@ private struct SettingsIcon: View {
     var body: some View {
         Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white)
             .frame(width: 20, height: 20)
-            .background(Self.tint[id, default: .gray].gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .background(Self.tint[id, default: .gray].gradient, in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
     static let tint: [String: Color] = ["agents": .purple, "catalog": .indigo, "terminal": Color(white: 0.3), "appearance": .blue, "keyboard": .gray,
                                         "editor": .indigo, "git": .orange, "integrations": .green, "extensions": .gray]
@@ -283,9 +283,9 @@ private struct ThemeGallery: View {
                             Text(c.name).font(.caption).foregroundStyle(c.fg).lineLimit(1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                        .background(c.bg, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15),
-                                                                                lineWidth: selection == c.id ? 2 : 1))
+                        .background(c.bg, in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
+                            .strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selection == c.id ? 2 : 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(c.name).accessibilityAddTraits(selection == c.id ? .isSelected : [])

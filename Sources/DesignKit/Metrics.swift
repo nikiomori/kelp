@@ -43,9 +43,16 @@ public enum Metrics {
 /// How long things move, and nothing under Reduce Motion.
 @MainActor
 public enum Motion {
-    public static let fast: TimeInterval = 0.15   // hover, a banner coming in
-    public static let base: TimeInterval = 0.2    // a panel sliding, a popover's content
-    public static let slow: TimeInterval = 0.25   // something leaving (a banner fading)
+    public static let fast: TimeInterval = 0.15   // hover, icons moving, a banner coming in
+    public static let base: TimeInterval = 0.2    // a panel sliding, Quick Open opening
+    public static let slow: TimeInterval = 0.25   // a banner fading
+    public static let appear: TimeInterval = 0.3  // a row coming in, the attention glow
+    public static let disappear: TimeInterval = 0.4
+
+    // A hover card: the pointer rests this long on a row (a card already up follows sooner); it closes this long after.
+    public static let hoverOpen: TimeInterval = 0.5
+    public static let hoverOpenWarm: TimeInterval = 0.12
+    public static let hoverClose: TimeInterval = 0.2
 
     public static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     /// `d`, or 0 when the person asked for less motion.

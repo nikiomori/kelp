@@ -22,9 +22,9 @@ final class HoverCard {
     /// The pointer is over a row (`key` "w:…" / "a:…"), or over nothing.
     func hover(_ key: String?, rect: NSRect, in view: NSView) {
         guard key != shownKey || !popover.isShown else { return }
-        guard let key else { pending.after(0.15) { [weak self] in self?.close() }; return }
+        guard let key else { pending.after(Motion.hoverClose) { [weak self] in self?.close() }; return }
         let warm = popover.isShown || Date() < warmUntil
-        pending.after(warm ? 0 : 0.5) { [weak self, weak view] in if let view { self?.show(key, rect: rect, in: view) } }
+        pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in if let view { self?.show(key, rect: rect, in: view) } }
     }
 
     func close() {

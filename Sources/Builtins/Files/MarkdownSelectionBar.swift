@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import KelpKit
 
 /// The few formatting buttons that float over a Markdown selection (as in Notion or Bear): bold, italic, code, link.
@@ -8,30 +9,13 @@ final class MarkdownSelectionBar: NSView {
 
     init(target: AnyObject, items: [(symbol: String, tip: String, action: Selector)]) {
         super.init(frame: .zero)
-        let back: NSView
-        if #available(macOS 26, *) {
-            let g = NSGlassEffectView()
-            g.cornerRadius = 9
-            back = g
-        } else {
-            let v = NSVisualEffectView()
-            v.material = .popover
-            v.blendingMode = .withinWindow
-            v.state = .active
-            v.wantsLayer = true
-            v.layer?.cornerRadius = 9
-            v.layer?.masksToBounds = true
-            back = v
-        }
-        back.frame = bounds; back.autoresizingMask = [.width, .height]
-        addSubview(back)
         for i in items { row.addArrangedSubview(MarkdownTab.toolButton(i.symbol, i.tip, i.action, target: target)) }
-        row.spacing = 0
+        row.spacing = Metrics.iconGap
         row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 5)
-        row.frame = bounds; row.autoresizingMask = [.width, .height]
-        addSubview(row)
-        setFrameSize(row.fittingSize)
-        shadow = NSShadow()
+        let card = FloatingCard(row, radius: Metrics.radiusMD)   // the popover's material, as the other floating controls
+        setFrameSize(card.fittingSize)
+        card.frame = bounds; card.autoresizingMask = [.width, .height]
+        addSubview(card)
         isHidden = true
         setAccessibilityRole(.toolbar)
         setAccessibilityLabel(String(localized: "Format"))

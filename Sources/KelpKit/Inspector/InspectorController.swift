@@ -234,7 +234,7 @@ final class InspectorController: NSViewController {
         guard selector.arrangedSubviews.firstIndex(of: b) != i else { return }
         selector.removeArrangedSubview(b); selector.insertArrangedSubview(b, at: i)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.15; ctx.allowsImplicitAnimation = true
+            ctx.duration = Motion.duration(Motion.fast); ctx.allowsImplicitAnimation = true
             selector.layoutSubtreeIfNeeded()
         }
     }

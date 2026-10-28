@@ -6,7 +6,7 @@ import DesignKit
 /// commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays in Source Control.
 @MainActor
 final class SyncPopover: NSViewController {
-    private static let width: CGFloat = 332, shown = 5
+    private static let width: CGFloat = 320, shown = 5   // a popover of commits, as the commit card
     private static let times: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .abbreviated
@@ -133,16 +133,15 @@ final class SyncPopover: NSViewController {
         view = Self.ground(root)
     }
 
-    /// A denser ground than the popover's glass: code scrolling behind it shouldn't tint what's written here.
+    /// The popover material under the glass, as Quick Open and the switcher have it: code scrolling behind the popover
+    /// shouldn't tint what's written here.
     private static func ground(_ content: NSView) -> NSView {
-        let box = NSBox()
-        box.boxType = .custom
-        box.borderWidth = 0
-        box.cornerRadius = 0
-        box.contentViewMargins = .zero
-        box.fillColor = NSColor.windowBackgroundColor.withAlphaComponent(0.6)
-        box.contentView = content
-        return box
+        let fx = NSVisualEffectView()
+        fx.material = .popover
+        fx.blendingMode = .withinWindow
+        fx.state = .active
+        fx.pin(content)
+        return fx
     }
 
     override func viewDidLoad() {

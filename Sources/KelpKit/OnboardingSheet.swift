@@ -20,7 +20,7 @@ final class OnboardingSheet: SheetController {
 
     static func show(_ app: AppModel) {
         guard shown == nil else { return }
-        let s = OnboardingSheet(app: app, width: 460)
+        let s = OnboardingSheet(app: app, width: Metrics.sheetWidth)
         s.build()
         guard s.begin(ended: { shown = nil; UserDefaults.standard.set(true, forKey: "onboarding.done") }) else { return }
         shown = s
@@ -35,7 +35,7 @@ final class OnboardingSheet: SheetController {
         sub.textColor = .secondaryLabelColor; sub.preferredMaxLayoutWidth = 340
         let head = NSStackView(views: [icon, NSStackView(views: [title, sub])])
         head.alignment = .top
-        head.spacing = 14
+        head.spacing = 12
         (head.arrangedSubviews[1] as? NSStackView).map {
             $0.orientation = .vertical
             $0.alignment = .leading
@@ -67,11 +67,11 @@ final class OnboardingSheet: SheetController {
                                         section(String(localized: "Notifications")), notifyRow, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
+        stack.spacing = 12
         stack.setCustomSpacing(18, after: head)
         stack.setCustomSpacing(18, after: pickRow)
         stack.setCustomSpacing(22, after: notifyRow)
-        stack.edgeInsets = NSEdgeInsets(top: 22, left: 22, bottom: 20, right: 22)
+        stack.edgeInsets = NSEdgeInsets(top: Metrics.sheetInset, left: Metrics.sheetInset, bottom: Metrics.sheetInset, right: Metrics.sheetInset)
         buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -44).isActive = true
         window?.contentView = stack
         track(owner: self) { [app] in app.availability.ids } changed: { [weak self] _ in self?.fillAgents() }

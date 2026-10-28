@@ -237,7 +237,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         fade.fromValue = 1
         fade.toValue = 0
         fade.beginTime = CACurrentMediaTime() + (still ? 0 : 0.15)
-        fade.duration = 0.3
+        fade.duration = still ? 0 : Motion.appear
         fade.fillMode = .backwards
         up.layer?.add(fade, forKey: "land"); up.alphaValue = 0
     }

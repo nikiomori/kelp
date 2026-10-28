@@ -140,7 +140,7 @@ final class NeedsYouZone: NSView {
             r.show(s, app: app) { [app] in app.workbench.focus(session: s.id) }
             if new.contains(s.id), !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 r.alphaValue = 0
-                NSAnimationContext.runAnimationGroup { $0.duration = 0.3; r.animator().alphaValue = 1 }
+                NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; r.animator().alphaValue = 1 }
             }
         }
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { flash() }

@@ -152,7 +152,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         let row = NSStackView(views: [icon, prompt])
         row.spacing = 10
         row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
-        let box = StartBox(radius: Metrics.radiusLG)
+        let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         row.translatesAutoresizingMaskIntoConstraints = false; box.addSubview(row)
         NSLayoutConstraint.activate([
             box.heightAnchor.constraint(equalToConstant: 40), icon.widthAnchor.constraint(equalToConstant: 18),
@@ -202,7 +202,7 @@ private final class StartBox: NSView {
 private final class StartCard: NSView {
     init(rows: [NSView], others: [NSView]) {
         super.init(frame: .zero)
-        let box = StartBox(radius: Metrics.radiusLG)
+        let box = StartBox(radius: Metrics.radiusXL)   // the card
         var views: [NSView] = []
         for (i, r) in (rows + others).enumerated() {
             if i > 0 {
@@ -233,7 +233,8 @@ private final class StartRow: NSView {
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
         self.action = action
         super.init(frame: .zero)
-        wantsLayer = true; layer?.cornerRadius = 8
+        wantsLayer = true
+        layer?.cornerRadius = Metrics.radiusMD; layer?.cornerCurve = .continuous
         let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .init(pointSize: 15, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)

@@ -90,12 +90,12 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         let x = min(max(p.midX - size.width / 2, f.minX + 8), f.maxX - size.width - 8)
         let end = NSRect(x: x, y: p.maxY + 6 - size.height, width: size.width, height: size.height)
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { panel.setFrame(end, display: false); return show() }
-        // From the pill's place and width, as tall as the field and a row, faint; to its full size in 0.18 s.
+        // From the pill's place and width, as tall as the field and a row, faint; to its full size in 0.2 s.
         panel.setFrame(NSRect(x: p.minX, y: p.maxY + 6 - 120, width: max(p.width, 200), height: 120), display: false)
         panel.alphaValue = 0
         show()
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+            ctx.duration = Motion.base
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(end, display: true)
             panel.animator().alphaValue = 1

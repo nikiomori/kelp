@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// One editor group: its tab strip over the selected tab's content. Dropping a tab on an edge splits the group.
 @MainActor
@@ -165,7 +166,7 @@ private final class Glow: Veil {
         super.init(frame: .zero)
         wantsLayer = true; isHidden = true
         layer?.masksToBounds = true
-        layer?.cornerRadius = 5
+        layer?.cornerRadius = Metrics.radiusSM
         layer?.borderWidth = 1
         frameLayer.fillRule = .evenOdd
         frameLayer.shadowOffset = .zero
@@ -182,7 +183,7 @@ private final class Glow: Veil {
         self.color = color
         guard let color else {
             // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
-            NSAnimationContext.runAnimationGroup({ $0.duration = 0.4; animator().alphaValue = 0 }) { [weak self] in
+            NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.disappear); animator().alphaValue = 0 }) { [weak self] in
                 MainActor.assumeIsolated {  // AppKit runs the completion on the main thread
                     guard let self, self.color == nil else { return }
                     self.isHidden = true
@@ -193,7 +194,7 @@ private final class Glow: Veil {
         }
         if isHidden { alphaValue = 0; isHidden = false }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.3
+            ctx.duration = Motion.duration(Motion.appear)
             ctx.allowsImplicitAnimation = true
             animator().alphaValue = 1
             layer?.borderColor = color.withAlphaComponent(0.5).cgColor
