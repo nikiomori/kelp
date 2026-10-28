@@ -13,10 +13,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func start() {
         center?.delegate = self
-        // A permission request can be answered from the banner itself.
+        // A permission request can be answered from the banner itself, and an agent at its prompt told what to do next.
         center?.setNotificationCategories([UNNotificationCategory(identifier: "permission", actions: [
             UNNotificationAction(identifier: "allow", title: String(localized: "Allow")),
             UNNotificationAction(identifier: "deny", title: String(localized: "Deny"), options: [.destructive])
+        ], intentIdentifiers: []), UNNotificationCategory(identifier: "reply", actions: [
+            UNTextInputNotificationAction(identifier: "reply", title: String(localized: "Reply"), textInputButtonTitle: String(localized: "Send"),
+                                          textInputPlaceholder: String(localized: "Message to the agent"))
         ], intentIdentifiers: [])])
         center?.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in Task { @MainActor in self.checkAllowed() } }
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.updateBadge() }
@@ -166,7 +169,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.subtitle = [wt?.displayName, m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
         c.body = s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer") : String(localized: "Ready for review")) : s.summary
         c.sound = .default; c.userInfo = ["session": s.id]
-        if Self.asksPermission(s) { c.categoryIdentifier = "permission" }
+        if let cat = Self.category(s) { c.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
             Banner.show("\(c.title)\(s.summary.isEmpty ? "" : ": " + s.summary)", action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }))
         }
@@ -174,6 +177,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center?.add(UNNotificationRequest(identifier: rid, content: c, trigger: nil))
         posted[s.id] = rid
         NSApp.requestUserAttention(.informationalRequest)
+    }
+
+    /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt. A question
+    /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
+    static func category(_ s: Session) -> String? {
+        asksPermission(s) ? "permission" : [.done, .error].contains(s.status) ? "reply" : nil
     }
 
     /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
@@ -184,8 +193,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
         guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
-        let action = r.actionIdentifier
+        let action = r.actionIdentifier, reply = (r as? UNTextInputNotificationResponse)?.userText
         await MainActor.run {
+            if action == "reply", let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Sent without Kelp coming forward; refused (a half-typed line in its prompt), the agent is shown with the banner.
+                Task { if await app.call(SessionSend(id: id, text: reply, enter: true)) == nil { NSApp.activate(); app.workbench.focus(session: id) } }
+                return
+            }
             guard action == "allow" || action == "deny" else {
                 NSApp.activate()
                 app.workbench.focus(session: id)

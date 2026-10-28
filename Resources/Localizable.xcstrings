@@ -4079,6 +4079,16 @@
         }
       }
     },
+    "Message to the agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сообщение агенту"
+          }
+        }
+      }
+    },
     "Mine": {
       "localizations": {
         "ru": {
@@ -5898,6 +5908,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть снова"
+          }
+        }
+      }
+    },
+    "Reply": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответить"
           }
         }
       }

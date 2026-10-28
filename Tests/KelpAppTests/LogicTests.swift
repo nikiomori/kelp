@@ -113,6 +113,13 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!Notifier.asksPermission(session(.waiting, summary: "Which file should I edit?")))
 }
 
+@MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
+    #expect(Notifier.category(session(.waiting, summary: "Allow npm test?")) == "permission")
+    #expect(Notifier.category(session(.done, summary: "Added the login form")) == "reply")
+    #expect(Notifier.category(session(.error)) == "reply")
+    #expect(Notifier.category(session(.waiting, summary: "Which file should I edit?")) == nil)   // its own menu answers it
+}
+
 @MainActor @Test func theSidebarFlagsWhatWantsYou() {
     #expect(SidebarCell.wantsYou(session(.waiting)))
     #expect(SidebarCell.wantsYou(session(.error)))
