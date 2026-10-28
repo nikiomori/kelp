@@ -2,22 +2,25 @@ import AppKit
 import UniformTypeIdentifiers
 
 /// The icon beside a file or folder name (Files, Source Control, tabs, Quick Open), from the theme picked in
-/// Settings › Appearance: System (Finder's icons, the default), Colorful, or a VS Code icon theme an extension adds.
+/// Settings › Appearance: Colorful (symbols tinted by kind, the default: they sit with the rest of Kelp's symbols and read
+/// on a light theme, where Finder's pale paper icons didn't), System (Finder's), or a VS Code icon theme an extension adds.
 @MainActor
 package struct FileIcon {
     let app: AppModel
     static let system = "default", colorful = "kelp.colorful"
+    /// What an unset `workbench.iconTheme` means.
+    static let standard = colorful
 
     /// The choices for `workbench.iconTheme`.
     var themes: [(id: String, label: String)] {
-        [(Self.system, "System"), (Self.colorful, "Colorful")] + app.extensions.all.iconThemes.map { ($0.id, $0.label) }
+        [(Self.colorful, "Colorful"), (Self.system, "System")] + app.extensions.all.iconThemes.map { ($0.id, $0.label) }
     }
 
     /// Changes with the pick and with installed extensions: views showing icons reload when it does.
-    package var revision: String { "\(app.settings.string("workbench.iconTheme") ?? Self.system)#\(app.extensions.revision)" }
+    package var revision: String { "\(app.settings.string("workbench.iconTheme") ?? Self.standard)#\(app.extensions.revision)" }
 
     package func image(_ name: String, folder: Bool = false, expanded: Bool = false) -> NSImage {
-        switch app.settings.string("workbench.iconTheme") ?? Self.system {
+        switch app.settings.string("workbench.iconTheme") ?? Self.standard {
         case Self.system: Self.systemIcon(name, folder: folder)
         case Self.colorful: ColorfulIcons.image(name, folder: folder)
         case let id: contributed(id)?.image(name, folder: folder, expanded: expanded) ?? Self.systemIcon(name, folder: folder)

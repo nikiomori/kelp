@@ -43,7 +43,7 @@ package enum Builtins {
               options: ["system", "en", "ru"]),
             s("workbench.theme", "Color Theme", "theme", "auto",
               "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
-            s("workbench.iconTheme", "File Icon Theme", "enum", .string(FileIcon.system),
+            s("workbench.iconTheme", "File Icon Theme", "enum", .string(FileIcon.standard),
               "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…"),
             s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
               options: ["left", "center", "right"]),
