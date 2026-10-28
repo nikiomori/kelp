@@ -7,11 +7,6 @@ import DesignKit
 @MainActor
 final class SyncPopover: NSViewController {
     private static let width: CGFloat = 320, shown = 5   // a popover of commits, as the commit card
-    private static let times: RelativeDateTimeFormatter = {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .abbreviated
-        return f
-    }()
     private static let captionAttributes: [NSAttributedString.Key: Any] =
         [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
 
@@ -291,9 +286,8 @@ final class SyncPopover: NSViewController {
         return l
     }
 
-    private func when(_ c: Unsynced.Commit) -> String {
-        Self.times.localizedString(for: Date(timeIntervalSince1970: c.date), relativeTo: Date())
-    }
+    /// "11m", as the sidebar and the graph write how long ago (the relative formatter's short style wrote "−11 мин" in Russian).
+    private func when(_ c: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: c.date)) }
 
     private func more(_ n: Int) -> [NSView] { n > 0 ? [label(String(localized: "and \(n) more"))] : [] }
 
