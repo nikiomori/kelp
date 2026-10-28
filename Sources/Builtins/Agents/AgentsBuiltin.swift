@@ -17,19 +17,19 @@ extension Builtins {
         c.settings = [
             SettingsSection(id: "agents", title: "Agents", icon: "sparkles", specs: [
                 s("agents.default", "Default agent", "enum", "claude",
-                  "Used by New Agent (⌥⌘T). Only installed agents are listed; find more in the Agent Catalog.", options: app.catalog.all.map(\.id)),
-                s("agents.skills.extensions", "Skill: write Kelp extensions", "boolean", true,
-                  "Claude Code knows where an extension goes, its format and how to connect it. Ask it for a panel, tab or command."),
-                s("agents.skills.settings", "Skill: change Kelp settings", "boolean", true,
-                  "Claude Code can read and change these settings (theme, fonts, extensions…) when you ask."),
-                s("agents.skills.terminals", "Skill: run commands in Kelp tabs", "boolean", true,
-                  "Claude Code runs tests or a dev server in a tab beside it, waits for them and reads what they printed, and shows its progress on its row."),
+                  "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.", options: app.catalog.all.map(\.id)),
+                // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
+                s("agents.skills.extensions", "Write Kelp extensions", "boolean", true,
+                  "Ask Claude Code for a panel, tab or command: it knows how to make one.", group: "Claude Code skills"),
+                s("agents.skills.settings", "Change Kelp settings", "boolean", true,
+                  "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
+                s("agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
+                  "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
                 s("sessions.hibernateMinutes", "Pause idle agents", "number", 0, "Paused agents free memory and resume the same conversation.",
                   options: ["0", "15", "30", "60", "240"]),
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),
                 s("usage.readPlans", "Show plan limits", "boolean", true,
-                  "Opens /usage of Claude Code (every 10 minutes), Grok, Antigravity, Kimi, Copilot and Cursor (every 30) in the background, asks Codex for its limits "
-                    + "(every 10 minutes) and shows how much of each plan is used at the bottom of the sidebar. Uses no tokens."),
+                  "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens."),
                 s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
                   options: ["off", "70", "80", "90"])
             ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }),

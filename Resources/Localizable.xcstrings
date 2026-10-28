@@ -12741,6 +12741,96 @@
           }
         }
       }
+    },
+    "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для «Новый агент» (⌥⌘T). Другие агенты — в каталоге агентов."
+          }
+        }
+      }
+    },
+    "Write Kelp extensions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Писать расширения Kelp"
+          }
+        }
+      }
+    },
+    "Change Kelp settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Менять настройки Kelp"
+          }
+        }
+      }
+    },
+    "Run commands in Kelp tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать команды во вкладках Kelp"
+          }
+        }
+      }
+    },
+    "Ask Claude Code for a panel, tab or command: it knows how to make one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросите Claude Code о панели, вкладке или команде: он знает, как их сделать."
+          }
+        }
+      }
+    },
+    "Claude Code reads and changes these settings when you ask.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code читает и меняет эти настройки, когда вы просите."
+          }
+        }
+      }
+    },
+    "Tests and servers run in a tab you can watch; Claude Code reads what they print.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тесты и серверы идут во вкладке у вас на виду; Claude Code читает их вывод."
+          }
+        }
+      }
+    },
+    "Claude Code skills": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Навыки Claude Code"
+          }
+        }
+      }
+    },
+    "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько израсходовано из тарифа каждого агента — внизу боковой панели; читается в фоне, без токенов."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
