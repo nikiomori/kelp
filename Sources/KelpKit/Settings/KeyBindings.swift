@@ -186,10 +186,18 @@ struct KeyboardSettings: View {
                     }.buttonStyle(.link).font(.caption)
                         .help(e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") } ?? String(localized: "Kelp's default: none"))
                 }
+                // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
+                // plate on every row, "—" ones too, was a column of empty boxes.
                 Button { record(e.id) } label: {
-                    Text(recording == e.id ? String(localized: "Type shortcut…") : e.key.map(KeyBindings.display) ?? "—").frame(minWidth: 96)
+                    Text(recording == e.id ? String(localized: "Type shortcut…") : e.key.map(KeyBindings.display) ?? "—").monospacedDigit()
                 }
-                .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? .secondary : .primary)
+                .buttonStyle(PointerButtonStyle())
+                .overlay {
+                    if recording == e.id {
+                        RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous).strokeBorder(Color.accentColor)
+                    }
+                }
+                .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
             if let w = warning[e.id] { Text(w).font(.caption).foregroundStyle(Color.textOrange) }
         }
