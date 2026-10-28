@@ -396,7 +396,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             return v
         }
         let img = NSImageView(image: it.image ??
-            (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage(systemSymbolName: it.icon, accessibilityDescription: it.kind) ?? NSImage()))
+            (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage.symbol(it.icon, it.kind)))
         img.contentTintColor = .secondaryLabelColor
         // An agent: its state while there's something to see (as on its tab), else its own icon.
         let lead: NSView

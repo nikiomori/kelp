@@ -44,11 +44,11 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         search.placeholderString = String(localized: "Search titles and folders"); search.delegate = self
         fullText.target = self; fullText.action = #selector(searchChanged)
         let resumeB = NSButton(title: String(localized: "Resume"), target: self, action: #selector(resume))
-        resumeB.bezelStyle = .rounded
+        resumeB.bezelStyle = .push
         resumeB.keyEquivalent = "\r"
-        let copyB = NSButton(title: String(localized: "Copy Resume Command"), target: self, action: #selector(copyCommand)); copyB.bezelStyle = .rounded
+        let copyB = NSButton(title: String(localized: "Copy Resume Command"), target: self, action: #selector(copyCommand)); copyB.bezelStyle = .push
         status.textColor = .secondaryLabelColor; status.font = .ui(11)
-        showAll.bezelStyle = .rounded; showAll.isHidden = true
+        showAll.bezelStyle = .push; showAll.isHidden = true
         let bar = NSStackView(views: [search, fullText, NSView(), status, showAll, copyB, resumeB])
         bar.spacing = 8; bar.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 8, right: 12)
         search.widthAnchor.constraint(equalToConstant: 280).isActive = true

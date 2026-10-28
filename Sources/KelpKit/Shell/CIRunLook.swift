@@ -9,7 +9,7 @@ package enum CIRunLook {
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
         if status == "in_progress" {
-            let m = StatusMark(size: 14)
+            let m = StatusMark(size: 12)   // as tall as the symbols beside it
             m.status = .working
             m.toolTip = words
             return m

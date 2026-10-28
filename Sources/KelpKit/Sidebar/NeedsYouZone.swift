@@ -36,7 +36,7 @@ final class NeedsYouZone: NSView {
         return v
     }()
     private let header = Pressable()
-    private let mark = StatusMark(size: 11)   // nothing needs you: the working one's
+    private let mark = StatusMark(size: 12)   // nothing needs you: the working one's
     private let title = NSTextField(labelWithString: "")
     private let count = NSTextField(labelWithString: "")
     private let chevron = NSImageView()

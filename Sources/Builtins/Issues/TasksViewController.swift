@@ -251,9 +251,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     }
     private func button(_ t: String, _ sym: String, _ action: @escaping () -> Void) -> NSButton {
         let b = ClosureButton(title: t, action: action)
-        b.image = NSImage(systemSymbolName: sym, accessibilityDescription: nil)
+        b.image = .symbol(sym)   // Kelp's own drawing where it has one (a branch, a pull request)
         b.imagePosition = .imageLeading
-        b.bezelStyle = .rounded; return b
+        b.bezelStyle = .push; return b
     }
 
     private func showDetail(_ r: Row?) {

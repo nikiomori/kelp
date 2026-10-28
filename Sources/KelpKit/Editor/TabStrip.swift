@@ -389,7 +389,6 @@ private final class TabButton: NSControl, NSDraggingSource {
     nonisolated func draggingSession(_ s: NSDraggingSession, sourceOperationMaskFor c: NSDraggingContext) -> NSDragOperation { .move }
 }
 
-/// A small ring: how full an agent's conversation is (gray, amber from 75 %, red from 90 %).
 @MainActor
 /// How full an agent's conversation is: nothing while there's room, then a ring that fills, yellow where answers may
 /// start to slip, orange where it's time to compact or hand off, red just before the agent compacts by itself. Past
