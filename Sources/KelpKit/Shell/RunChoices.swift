@@ -64,6 +64,17 @@ extension ScriptsMenu {
         return state.found[wid]?.guess.map { ($0, true) }
     }
 
+    /// What the empty workspace and the "+" menu offer to run, as the chip names it: its label, its command, and whether
+    /// it's only a guess (then ⌘R lists the choices instead of running it).
+    struct Offer: Equatable { var choice: String, label: String, command: String?, guess: Bool }
+    func offer(_ wid: String) -> Offer? {
+        current(wid).map { c in
+            let command = c.choice.hasPrefix("kelp:") ? state.kelp[wid]?.first { "kelp:" + $0.name == c.choice }?.command
+                : state.found[wid]?.options.first { $0.id == c.choice }?.command
+            return Offer(choice: c.choice, label: label(c.choice, in: wid), command: command, guess: c.guess)
+        }
+    }
+
     /// The Run list under the chip: shown at once with what's known, filled in as the files are read again.
     func choose() {
         guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }

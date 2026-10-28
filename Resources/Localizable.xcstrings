@@ -1249,6 +1249,16 @@
         }
       }
     },
+    "Choose What to Run…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать, что запускать…"
+          }
+        }
+      }
+    },
     "CI": {
       "extractionState": "manual",
       "localizations": {
@@ -6374,6 +6384,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запуск"
+          }
+        }
+      }
+    },
+    "Run %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить %@"
           }
         }
       }

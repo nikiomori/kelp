@@ -196,6 +196,17 @@ extension EditorArea {
                 app.quickOpen.showTmux()
             }
         }
+        // What the run chip runs, and its list: a run opens as a tab too.
+        if let o = app.scripts.offer(workspaceId) {
+            let wid = workspaceId
+            m.addItem(.separator())
+            let run = m.add(String(localized: "Run \(o.label)"), symbol: "play", key: o.guess ? "" : "r") {
+                Task { await app.scripts.start(choice: o.choice, in: wid) }
+            }
+            run.toolTip = o.command
+            m.add(String(localized: "Choose What to Run…"), symbol: "list.bullet", key: "r") { app.scripts.choose() }
+                .keyEquivalentModifierMask = [.control, .command]
+        }
         let ctx = IDEContext.of(app)
         let editors = app.extensions.all.editors
         if !editors.isEmpty { m.addItem(.separator()) }

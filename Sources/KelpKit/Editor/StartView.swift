@@ -130,9 +130,12 @@ final class StartView: NSView, NSTextFieldDelegate {
     }
 
     /// What else opens here: a terminal, a tmux session, what extensions open.
-    private func otherRows(_ w: Worktree) -> [StartRow] {
+    private func otherRows(_ w: Worktree) -> [NSView] {
         let app = self.app
-        var others = [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in self?.onOpen?("terminal:") }]
+        var others: [NSView] = [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in
+            self?.onOpen?("terminal:")
+        }]
+        others.append(RunSlot(app: app, workspace: w.id))
         if app.catalog.hasTmux(w) {
             others.append(StartRow(image: .symbol("rectangle.split.3x1"), title: String(localized: "tmux Session"), shortcut: nil) { app.quickOpen.showTmux() })
         }
@@ -214,10 +217,12 @@ private final class StartCard: NSView {
             if i > 0 {
                 let sep = NSBox(); sep.boxType = .separator
                 views.append(sep)
+                (r as? RunSlot)?.before = sep
             }
             views.append(r)
         }
         let list = NSStackView(views: views)
+        list.detachesHiddenViews = true   // the run rows, while there's nothing to run, and their separator
         list.orientation = .vertical
         list.spacing = 0
         list.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
@@ -228,6 +233,35 @@ private final class StartCard: NSView {
         }
     }
     required init?(coder: NSCoder) { fatalError() }
+}
+
+/// What the run chip runs (its command beside it; ⌘R once something ran in the project) and its list; gone, with the
+/// separator above, while the project offers nothing to run. Follows the files as they're read.
+@MainActor
+private final class RunSlot: NSStackView {
+    weak var before: NSView? { didSet { before?.isHidden = isHidden } }
+    override var isHidden: Bool { didSet { before?.isHidden = isHidden } }
+
+    init(app: AppModel, workspace wid: String) {
+        super.init(frame: .zero)
+        orientation = .vertical
+        spacing = 0
+        track(owner: self) { app.scripts.offer(wid) } changed: { [weak self] in self?.show($0, app, wid) }
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func show(_ o: ScriptsMenu.Offer?, _ app: AppModel, _ wid: String) {
+        isHidden = o == nil
+        guard let o else { return }
+        let run = StartRow(image: .symbol("play"), title: String(localized: "Run \(o.label)"), detail: o.command, shortcut: o.guess ? nil : "⌘R") {
+            Task { await app.scripts.start(choice: o.choice, in: wid) }
+        }
+        let choose = StartRow(image: .symbol("list.bullet"), title: String(localized: "Choose What to Run…"), shortcut: "⌃⌘R") { app.scripts.choose() }
+        let sep = NSBox(); sep.boxType = .separator
+        setViews([run, sep, choose], in: .top)
+        for v in [run, choose] { v.widthAnchor.constraint(equalTo: widthAnchor).isActive = true }
+        sep.widthAnchor.constraint(equalTo: widthAnchor, constant: -32).isActive = true   // inset as the card's own
+    }
 }
 
 /// One action: symbol, title, a detail and its shortcut on the right; highlights on hover.
