@@ -27,7 +27,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var pinned = (sidebar: false, inspector: false)
     private let leftEdge = EdgeTrigger(), rightEdge = EdgeTrigger()
     /// Where a hiding panel is while it's away, and comes in from.
-    private let leftFloat = Floater(width: 260), rightFloat = Floater(width: 300)
+    private let leftFloat = Floater(width: 260, inset: 0), rightFloat = Floater(width: 300, inset: Card.gap)
     private lazy var bar = WindowBar(app: app)
     /// Fixed in the window bar's corners, whichever panels are open.
     private let sidebarToggle = NSButton.titlebar("sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar (⌘0)"))

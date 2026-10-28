@@ -25,18 +25,22 @@ final class ShellSplit: NSSplitViewController {
 }
 
 /// A hiding panel's place (auto-hide, focus mode): it holds the panel while it's away and, at the window's edge, brings
-/// it in over the editor area, clear of the window's edges, with rounded corners and a shadow, as Arc's sidebar does.
+/// it in over the editor area with rounded corners and a shadow, as Arc's sidebar does: `inset` clear of the window's
+/// edges, or flush with them (the sidebar's, where the traffic lights are: 6 pt in, they sat on its corner with a strip
+/// of window round them).
 @MainActor
 final class Floater: NSView {
-    private static let inset: CGFloat = 6, radius: CGFloat = 12
+    private static let radius: CGFloat = 12
+    private let inset: CGFloat
     /// The panel's background, the same material the window's surface is.
     let box = NSVisualEffectView()
     private var edge: NSLayoutConstraint?, widthC: NSLayoutConstraint?
     private var shown = false
     var width: CGFloat { didSet { widthC?.constant = width } }
 
-    init(width: CGFloat) {
+    init(width: CGFloat, inset: CGFloat) {
         self.width = width
+        self.inset = inset
         super.init(frame: .zero)
         isHidden = true; wantsLayer = true
         box.material = .sidebar
@@ -56,15 +60,15 @@ final class Floater: NSView {
         guard let s = superview else { return }
         let e = leading ? leadingAnchor.constraint(equalTo: s.leadingAnchor) : s.trailingAnchor.constraint(equalTo: trailingAnchor)
         let w = widthAnchor.constraint(equalToConstant: width)
-        NSLayoutConstraint.activate([e, w, topAnchor.constraint(equalTo: s.topAnchor, constant: Self.inset),
-                                     bottomAnchor.constraint(equalTo: s.bottomAnchor, constant: -Self.inset)])
+        NSLayoutConstraint.activate([e, w, topAnchor.constraint(equalTo: s.topAnchor, constant: inset),
+                                     bottomAnchor.constraint(equalTo: s.bottomAnchor, constant: -inset)])
         edge = e; widthC = w
     }
 
     func slide(in on: Bool, animated: Bool = true) {
         guard let edge, on != shown else { return }
         shown = on
-        let away = -width - 2 * Self.inset - 20   // the shadow out of sight too
+        let away = -width - 2 * inset - 20   // the shadow out of sight too
         if on, isHidden {
             edge.constant = away
             isHidden = false
@@ -73,7 +77,7 @@ final class Floater: NSView {
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = animated ? Motion.duration(Motion.base) : 0
             ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
-            edge.animator().constant = on ? Self.inset : away
+            edge.animator().constant = on ? inset : away
         } completionHandler: { [weak self] in   // on main
             MainActor.assumeIsolated { if let self, !self.shown { self.isHidden = true } }
         }
