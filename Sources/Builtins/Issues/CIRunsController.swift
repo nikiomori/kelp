@@ -64,7 +64,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         outline.addTableColumn(col)
         outline.outlineTableColumn = col
         outline.headerView = nil
-        outline.style = .sourceList
+        outline.style = .plain
+        outline.backgroundColor = .clear
+        outline.indentationPerLevel = 12
         outline.rowSizeStyle = .custom
         outline.dataSource = self
         outline.delegate = self
@@ -360,7 +362,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         if case .step = i.kind { return false }
         return i.children.map { !$0.isEmpty } ?? true
     }
-    func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat { TextSize.of({ if case .run? = (item as? Item)?.kind { 38 } else { 22 } }()) }
+    func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+        TextSize.of({ if case .run? = (item as? Item)?.kind { Metrics.rowTwoLine } else { Metrics.row } }())
+    }
+    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
     func outlineViewItemWillExpand(_ n: Notification) {
         guard let i = n.userInfo?["NSObject"] as? Item, case .run = i.kind, i.children == nil else { return }
         Task { await expand(i, openFailed: false) }
@@ -387,7 +392,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             let text = NSStackView(views: [t, s])
             text.orientation = .vertical
             text.alignment = .leading
-            text.spacing = 1
+            text.spacing = Metrics.lineGap
             for x in [t, s, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
             return row([CIRunLook.mark(r.status, r.conclusion), text])
         case .job(let j, _):

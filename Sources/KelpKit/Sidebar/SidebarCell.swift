@@ -69,7 +69,7 @@ final class SidebarCell: NSTableCellView {
             detail.isHidden = true   // the workspace's name shows in the hover card; here only while it's renamed
         case .section:
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
-            count.font = .ui(11); count.textColor = .secondaryLabelColor
+            count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
             icon.symbolConfiguration = .init(pointSize: 11, weight: .semibold)
             layout(row: [icon, title, count, NSView()])
         case .workspace:

@@ -91,7 +91,7 @@ struct ExtListView: View {
             if let icon = def.icon, icon.contains("${") {
                 Image(systemName: x.expand(icon, item: item, quote: false)).foregroundStyle(.secondary).frame(width: 16)
             }
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(x.expand(def.title ?? "${name}", item: item, quote: false)).lineLimit(1)
                 if !subtitle.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)

@@ -55,7 +55,7 @@ final class NeedsYouZone: NSView {
         super.init(frame: .zero)
         header.wantsLayer = true; header.layer?.cornerRadius = 10
         title.lineBreakMode = .byTruncatingTail; title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        count.font = .uiDigits(11, weight: .semibold); count.textColor = .labelColor
+        count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
         chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .secondaryLabelColor
         header.setAccessibilityElement(true)
         header.press = { [weak self] in self?.fold() }

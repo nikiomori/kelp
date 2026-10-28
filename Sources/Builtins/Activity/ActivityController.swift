@@ -27,7 +27,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.headerView = nil
         table.style = .plain
         table.backgroundColor = .clear
-        table.rowHeight = TextSize.of(40)
+        table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
         table.target = self; table.doubleAction = #selector(open)
@@ -85,6 +85,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     static func bytes(_ b: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(b), countStyle: .memory) }
 
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
+    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
 
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
@@ -100,7 +101,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let text = NSStackView(views: [name, place])
         text.orientation = .vertical
         text.alignment = .leading
-        text.spacing = 1
+        text.spacing = Metrics.lineGap
         let cost = NSTextField(labelWithString: "\(Self.percent(r.cpu))\n\(Self.bytes(r.memory))")
         cost.font = .uiDigits(11)
         cost.alignment = .right

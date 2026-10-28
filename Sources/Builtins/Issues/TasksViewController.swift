@@ -51,13 +51,15 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let col = NSTableColumn(identifier: .init("t"))
         table.addTableColumn(col)
         table.headerView = nil
-        table.rowHeight = TextSize.of(40)
+        table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
-        table.style = .inset
+        table.style = .plain
+        table.backgroundColor = .clear
         let ts = NSScrollView()
         ts.documentView = table
         ts.hasVerticalScroller = true
+        ts.drawsBackground = false
         detail.orientation = .vertical
         detail.alignment = .leading
         detail.spacing = 10
@@ -235,6 +237,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         if c.pending > 0 { return String(localized: " · ◌ \(c.pending) pending") }
         return c.passed > 0 ? String(localized: " · ✓ checks passed") : ""
     }
+    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableViewSelectionDidChange(_ n: Notification) { showDetail(table.selectedRow >= 0 ? rows[table.selectedRow] : nil) }
 
     // MARK: detail

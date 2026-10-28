@@ -50,18 +50,20 @@ extension FilesPanel {
         }
     }
     func numberOfRows(in t: NSTableView) -> Int { matches.count }
+    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         let m = matches[row]
         let top = NSTextField(labelWithString: "\(m.path):\(m.line)")
-        top.font = .ui(10)
+        top.font = .uiDigits(11)
         top.textColor = .secondaryLabelColor
         let txt = NSTextField(labelWithString: m.text)
-        txt.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        txt.font = .uiMono(11)
         txt.lineBreakMode = .byTruncatingTail
         let s = NSStackView(views: [top, txt])
         s.orientation = .vertical
         s.alignment = .leading
-        s.spacing = 1
+        s.spacing = Metrics.lineGap
+        s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         return s
     }
     @objc func openResult() {

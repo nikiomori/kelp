@@ -357,16 +357,16 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { false }
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         switch (item as? Node)?.kind {
-        case .section?, .note?: TextSize.of(26)
+        case .section?, .note?: TextSize.of(Metrics.rowSection)
         case .commit?: CommitCell.lineHeight
-        default: TextSize.of(22)
+        default: TextSize.of(Metrics.row)
         }
     }
     func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         if case .note? = (item as? Node)?.kind { return false }
         return true
     }
-    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { HoverRowView() }
+    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
 
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let n = item as? Node else { return nil }

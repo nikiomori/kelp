@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// ⌘P: files, worktrees, agents, tabs, commands in one fuzzy list; "#123" finds a pull request. ⇧⌘P: commands only.
@@ -43,7 +44,10 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     var choosing: Choosing?
     /// A list row: a group's heading ("Files", "Agents"…) while searching, or an item.
-    private enum Row { case heading(String), item(Item) }
+    private enum Row {
+        case heading(String), item(Item)
+        var isItem: Bool { if case .item = self { true } else { false } }
+    }
     private var rows: [Row] = []
 
     var panel: QuickPanel!
@@ -174,7 +178,6 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         let col = NSTableColumn(identifier: .init("i"))
         table.addTableColumn(col)
         table.headerView = nil
-        table.rowHeight = 34
         table.dataSource = self
         table.delegate = self
         table.style = .plain
@@ -382,12 +385,12 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     package func numberOfRows(in t: NSTableView) -> Int { rows.count }
     package func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool { if case .item = rows[row] { true } else { false } }
-    package func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { if case .item = rows[row] { 30 } else { 24 } }
+    package func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { TextSize.of(rows[row].isItem ? Metrics.rowMenu : Metrics.row) }
     package func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         guard case .item(let it) = rows[row] else {
             guard case .heading(let g) = rows[row] else { return nil }
             let h = NSTextField(labelWithString: loc(g))
-            h.font = .systemFont(ofSize: 11, weight: .semibold)
+            h.font = .ui(11, weight: .semibold)
             h.textColor = .secondaryLabelColor
             let v = NSStackView(views: [h]); v.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
             return v
@@ -428,7 +431,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         tick.contentTintColor = .controlAccentColor; tick.isHidden = !it.checked
         // A command's shortcut: at the end of the title's line, as in a menu.
         let key = NSTextField(labelWithString: it.key)
-        key.font = .systemFont(ofSize: 12)
+        key.font = .ui(12)
         key.textColor = .secondaryLabelColor
         key.isHidden = it.key.isEmpty
         key.setContentCompressionResistancePriority(.required, for: .horizontal); key.setContentHuggingPriority(.required, for: .horizontal)
@@ -438,7 +441,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t2.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         t2.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
         let line = NSStackView(views: [lead, t1, t2, key, kind, tick])
-        line.spacing = 8
+        line.spacing = 10
         line.distribution = .fill
         line.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
         lead.widthAnchor.constraint(equalToConstant: 18).isActive = true

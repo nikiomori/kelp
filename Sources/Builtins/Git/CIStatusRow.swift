@@ -17,10 +17,10 @@ final class CIStatusRow: NSView {
         text.font = .ui(12); text.lineBreakMode = .byTruncatingTail
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        time.font = .ui(11); time.textColor = .tertiaryLabelColor
+        time.font = .uiDigits(11); time.textColor = .secondaryLabelColor
         chevron.image = .symbol("chevron.right", "")
         chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
-        chevron.contentTintColor = .tertiaryLabelColor
+        chevron.contentTintColor = .secondaryLabelColor
         line.spacing = 6; line.alignment = .centerY
         pin(line, inset: NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4))
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))

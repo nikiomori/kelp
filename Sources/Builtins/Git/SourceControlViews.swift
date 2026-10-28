@@ -14,27 +14,6 @@ struct RowAction {
     }
 }
 
-/// Rows that show buttons while the pointer is over them (VS Code's inline actions).
-@MainActor
-protocol Hoverable: AnyObject { func setHover(_ on: Bool) }
-
-/// Rounded selection inset from the edges, and hover tracking for the cell.
-final class HoverRowView: NSTableRowView {
-    private var area: NSTrackingArea?
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
-        addTrackingArea(a); area = a
-    }
-    override func mouseEntered(with e: NSEvent) { (subviews.first as? Hoverable)?.setHover(true) }
-    override func mouseExited(with e: NSEvent) { (subviews.first as? Hoverable)?.setHover(false) }
-    override func drawSelection(in r: NSRect) {
-        (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor).setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: 5, yRadius: 5).fill()
-    }
-}
-
 @MainActor
 private func actionButtons(_ actions: [RowAction]) -> NSStackView {
     let s = NSStackView(views: actions.map { a in
@@ -53,7 +32,7 @@ private func actionButtons(_ actions: [RowAction]) -> NSStackView {
 @MainActor
 private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailing: CGFloat = 10) {
     let row = NSStackView(views: views)
-    row.spacing = 5
+    row.spacing = Metrics.gap
     row.alignment = .centerY
     row.translatesAutoresizingMaskIntoConstraints = false; cell.addSubview(row)
     NSLayoutConstraint.activate([row.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: leading),
@@ -69,12 +48,12 @@ final class SectionCell: NSTableCellView, Hoverable {
     init(title: String, count: Int?, expanded: Bool, actions a: [RowAction], detail: NSAttributedString? = nil) {
         actions = actionButtons(a)
         super.init(frame: .zero)
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .tertiaryLabelColor
+        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
         let t = NSTextField(labelWithString: title)
         t.font = .ui(11, weight: .semibold)
         t.textColor = .secondaryLabelColor
-        let c = NSTextField(labelWithString: count.map(String.init) ?? ""); c.font = .uiDigits(10, weight: .medium)
+        let c = NSTextField(labelWithString: count.map(String.init) ?? ""); c.font = .uiDigits(11, weight: .medium)
         c.textColor = .secondaryLabelColor
         let d = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
         d.isHidden = detail == nil
@@ -148,10 +127,10 @@ final class FileCell: NSTableCellView, Hoverable {
             name.attributedStringValue = NSAttributedString(string: name.stringValue, attributes: [.strikethroughStyle: 1, .font: NSFont.ui(12)])
         }
         let dir = NSTextField(labelWithString: (f.path as NSString).deletingLastPathComponent); dir.font = .ui(11)
-        dir.textColor = .tertiaryLabelColor; dir.lineBreakMode = .byTruncatingHead
+        dir.textColor = .secondaryLabelColor; dir.lineBreakMode = .byTruncatingHead
         dir.setContentCompressionResistancePriority(.init(200), for: .horizontal); name.setContentCompressionResistancePriority(.init(400), for: .horizontal)
         let l = NSTextField(labelWithString: letter.0)
-        l.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        l.font = .uiMono(11, weight: .semibold)
         l.textColor = letter.1
         l.alignment = .center; l.widthAnchor.constraint(equalToConstant: 12).isActive = true
         pinRow(self, [icon, name, dir, NSView(), actions, l], leading: indent + 10)
@@ -179,7 +158,7 @@ final class CommitCell: NSTableCellView, Hoverable {
     func setHover(_ on: Bool) { onHover?(on) }
 
     /// The commit's line; its branch or tag leads it, right after its dot.
-    static var lineHeight: CGFloat { TextSize.of(22) }
+    static var lineHeight: CGFloat { TextSize.of(Metrics.row) }
 
     /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
     /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
@@ -209,11 +188,11 @@ final class CommitCell: NSTableCellView, Hoverable {
         }
         let scope = NSTextField(labelWithString: s.scope ?? "")
         scope.font = .ui(11)
-        scope.textColor = .tertiaryLabelColor
+        scope.textColor = .secondaryLabelColor
         scope.lineBreakMode = .byTruncatingTail; scope.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         scope.widthAnchor.constraint(lessThanOrEqualToConstant: TextSize.of(80)).isActive = true
         let date = NSTextField(labelWithString: Self.relative(c.date))
-        date.font = .ui(11)
+        date.font = .uiDigits(11)
         date.textColor = .secondaryLabelColor
         // Not on the remote yet: an arrow before the time, as in GitHub Desktop.
         let notPushed = String(localized: "Not pushed yet")
