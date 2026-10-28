@@ -271,8 +271,19 @@ private struct ThemeGallery: View {
         let all = app.themes.themes
         let auto = all.first { $0.id == (app.themes.isDark ? "kelp.dark" : "kelp.light") }
         return (auto.map { [card($0, id: "auto", name: "Match System")] } ?? [])
-            + [Card(id: "ghostty", name: "Ghostty", bg: Color(nsColor: .controlBackgroundColor), fg: .secondary, dots: [])]
+            + [ghosttyCard(base: auto.map { card($0) })]
             + all.map { card($0) }
+    }
+
+    /// Your Ghostty config's colours, as the terminal will have them; what it doesn't set, the Kelp theme's. A card without
+    /// swatches looked like one that failed to load.
+    private func ghosttyCard(base: Card?) -> Card {
+        let g = GhosttyConfig.load()
+        let dots = (1...6).compactMap { i in
+            g?.palette[i].flatMap { Color(hex: $0) } ?? base.flatMap { $0.dots.indices.contains(i - 1) ? $0.dots[i - 1] : nil }
+        }
+        return Card(id: "ghostty", name: "Ghostty", bg: g?.background.flatMap { Color(hex: $0) } ?? base?.bg ?? Color(nsColor: .controlBackgroundColor),
+                    fg: g?.foreground.flatMap { Color(hex: $0) } ?? base?.fg ?? .secondary, dots: dots)
     }
 
     var body: some View {
