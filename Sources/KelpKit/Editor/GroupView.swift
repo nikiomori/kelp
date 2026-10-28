@@ -10,7 +10,7 @@ final class GroupView: NSView {
     private let hint = GroupView.dropHint()
     private weak var shown: NSView?
     private let veil = Veil()
-    private let ring = Glow()
+    private let ring = EdgeGlow(radius: Metrics.radiusSM, spread: 14)
     /// A glow inside the content's edges when its agent calls for you (it clears once you've looked or answered).
     var attention: NSColor? {
         didSet { if attention != oldValue { ring.show(attention, breathing: breathing) } }
@@ -147,98 +147,4 @@ final class GroupView: NSView {
 /// Paints over the content without taking its clicks.
 private class Veil: NSView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
-}
-
-/// The frame the glow is the shadow of: a band just outside `b`, its inner edge wound against the outer one.
-enum GlowFrame {
-    static func path(_ b: CGRect) -> CGPath {
-        let path = CGMutablePath()
-        path.addRect(b.insetBy(dx: -40, dy: -40))
-        path.addLines(between: [CGPoint(x: b.minX, y: b.minY), CGPoint(x: b.minX, y: b.maxY), CGPoint(x: b.maxX, y: b.maxY),
-                                CGPoint(x: b.maxX, y: b.minY)])
-        path.closeSubpath()
-        return path
-    }
-}
-
-/// A hairline and a soft glow inward from the edges: the shadow of a frame drawn just outside, clipped to the bounds.
-private final class Glow: Veil {
-    private let frameLayer = CAShapeLayer()
-
-    init() {
-        super.init(frame: .zero)
-        wantsLayer = true; isHidden = true
-        layer?.masksToBounds = true
-        layer?.cornerRadius = Metrics.radiusSM
-        layer?.borderWidth = 1
-        frameLayer.fillRule = .evenOdd
-        frameLayer.shadowOffset = .zero
-        frameLayer.shadowRadius = 14
-        frameLayer.shadowOpacity = 0.6
-        layer?.addSublayer(frameLayer)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    private var color: NSColor?
-
-    /// Fades in and out, and eases into and out of breathing, rather than switching at once.
-    func show(_ color: NSColor?, breathing: Bool) {
-        self.color = color
-        guard let color else {
-            // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
-            NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.disappear); animator().alphaValue = 0 }) { [weak self] in
-                MainActor.assumeIsolated {  // AppKit runs the completion on the main thread
-                    guard let self, self.color == nil else { return }
-                    self.isHidden = true
-                    self.frameLayer.removeAllAnimations()
-                }
-            }
-            return
-        }
-        if isHidden { alphaValue = 0; isHidden = false }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.duration(Motion.appear)
-            ctx.allowsImplicitAnimation = true
-            animator().alphaValue = 1
-            layer?.borderColor = color.withAlphaComponent(0.5).cgColor
-            frameLayer.fillColor = color.cgColor; frameLayer.shadowColor = color.cgColor
-        }
-        breathe(breathing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
-    }
-
-    private func breathe(_ on: Bool) {
-        let breathingNow = frameLayer.animation(forKey: "breathe") != nil
-        guard on != breathingNow else { return }
-        let opacity = frameLayer.presentation()?.opacity ?? 1
-        frameLayer.removeAnimation(forKey: "breathe")
-        let a = CABasicAnimation(keyPath: "opacity")
-        a.fromValue = opacity
-        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        if on {
-            a.toValue = 0.35
-            a.duration = 1.2
-            a.autoreverses = true
-            a.repeatCount = .infinity
-            frameLayer.add(a, forKey: "breathe")
-        } else {
-            // Back to full from wherever the breath was.
-            a.toValue = 1
-            a.duration = 0.3
-            frameLayer.add(a, forKey: "settle")
-        }
-    }
-
-    override func layout() {
-        super.layout()
-        // The inner edge runs the other way round from the outer one, so the hole stays a hole under the non-zero rule the
-        // shadow path is filled with. Given as the shadow's path, the shadow isn't worked out from the layer's pixels
-        // offscreen on every frame of the breathing animation.
-        let path = GlowFrame.path(bounds)
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        frameLayer.frame = bounds
-        frameLayer.path = path
-        frameLayer.shadowPath = path
-        CATransaction.commit()
-    }
 }

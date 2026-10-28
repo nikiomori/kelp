@@ -6,6 +6,7 @@ import Core
 import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
+@testable import DesignKit
 @testable import BuiltinAgents
 @testable import BuiltinFiles
 @testable import BuiltinGit
@@ -317,10 +318,13 @@ extension OneAtATime {
 
 /// The glow's frame is a band with a hole under either fill rule: the shadow path is filled non-zero, and a hole that
 /// filled in would glow over the whole pane.
-@Test func theGlowsFrameHasAHoleUnderTheShadowsRule() {
-    let p = GlowFrame.path(CGRect(x: 0, y: 0, width: 200, height: 100))
-    #expect(!p.contains(CGPoint(x: 100, y: 50), using: .winding) && !p.contains(CGPoint(x: 100, y: 50), using: .evenOdd))
-    #expect(p.contains(CGPoint(x: -10, y: 50), using: .winding))
+@MainActor @Test func theGlowsFrameHasAHoleUnderTheShadowsRule() {
+    // A pane's square-ish corners and a tab's capsule alike: the middle is never part of the light.
+    for (rect, r) in [(CGRect(x: 0, y: 0, width: 200, height: 100), 6.0), (CGRect(x: 0, y: 0, width: 160, height: 28), 14.0)] {
+        let p = EdgeGlow.frame(around: rect, radius: r)
+        #expect(!p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .winding) && !p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .evenOdd))
+        #expect(p.contains(CGPoint(x: -10, y: rect.midY), using: .winding))
+    }
 }
 
 @Test func limitAlertsFireOncePerLevel() {

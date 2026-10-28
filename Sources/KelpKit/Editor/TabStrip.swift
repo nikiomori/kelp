@@ -247,6 +247,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let full = NSTextField(labelWithString: "")
     /// Its agent waits for a command it started: the command on a chip, and the tab glows cyan.
     private let chip = Chip()
+    private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false { didSet { updateLook() } }
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
@@ -281,6 +282,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
         pin(row)
+        pin(edgeGlow)   // over the row, as the pane's ring is over its content; clicks go through it
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 28),
             widthAnchor.constraint(lessThanOrEqualToConstant: 300), widthAnchor.constraint(greaterThanOrEqualToConstant: 110),
@@ -330,12 +332,12 @@ private final class TabButton: NSControl, NSDraggingSource {
         return [.working, .waiting, .error].contains(s) || (s == .done && item?.unread == true)
     }
 
-    /// It asks, or it failed and wasn't looked at: the whole capsule takes the colour, so the pane that calls for you
-    /// reads across the window, not only by its 12 pt mark.
-    private var call: (fill: NSColor, text: NSColor)? {
+    /// It asks, or it failed and wasn't looked at: its title takes the colour (and the tab glows, `glow`), so the pane
+    /// that calls for you reads across the window, not only by its 12 pt mark.
+    private var callText: NSColor? {
         switch item?.status {
-        case .waiting?: (.systemOrange, .textOrange)
-        case .error? where item?.unread == true: (.systemRed, .textRed)
+        case .waiting?: .textOrange
+        case .error? where item?.unread == true: .textRed
         default: nil
         }
     }
@@ -345,18 +347,18 @@ private final class TabButton: NSControl, NSDraggingSource {
         close.isHidden = !hover; editedDot.isHidden = hover || !edited
         icon.isHidden = hover || edited || showsState
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
-        let active = selected && groupFocused, call = call
-        title.textColor = call?.text ?? (selected ? .labelColor : .secondaryLabelColor)
+        let active = selected && groupFocused, call = callText
+        title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         title.font = .ui(12, weight: active || call != nil ? .medium : .regular)
         icon.contentTintColor = active ? .controlAccentColor : .secondaryLabelColor
         // Chosen in the group you're in, chosen in another one (or under the pointer), nothing; faded, not switched.
         let fill = selected && groupFocused ? NSColor.fillSelected : selected || hover ? .fillHover : nil
-        fadeBackground(to: call.map { $0.fill.withAlphaComponent(selected ? 0.24 : 0.16) } ?? fill)
+        fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them
         showGlow()
     }
 
     /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
-    /// unseen, cyan while it waits for a command it started. A glow, not a line: it reads as the pane's light.
+    /// unseen, cyan while it waits for a command it started. A glow, not a line or a fill: it reads as the pane's light.
     private var glow: NSColor? {
         switch item?.status {
         case .waiting?: .systemOrange
@@ -364,29 +366,10 @@ private final class TabButton: NSControl, NSDraggingSource {
         default: item?.waitsFor != nil ? .systemCyan : nil
         }
     }
+    /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the
+    /// selected fill under it stays as it is.
     private func showGlow() {
-        guard let layer else { return }
-        let g = glow, breathe = item?.status == .waiting && !Motion.reduced
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer.borderColor = g?.withAlphaComponent(0.55).cgColor
-            layer.shadowColor = g?.cgColor
-        }
-        layer.borderWidth = g == nil ? 0 : 1
-        layer.shadowOffset = .zero
-        layer.shadowRadius = 5
-        layer.shadowOpacity = g == nil ? 0 : 0.55
-        if breathe, layer.animation(forKey: "breathe") == nil {
-            let a = CABasicAnimation(keyPath: "shadowOpacity")
-            a.fromValue = 0.55
-            a.toValue = 0.15
-            a.duration = 1.2
-            a.autoreverses = true
-            a.repeatCount = .infinity
-            a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            layer.add(a, forKey: "breathe")
-        } else if !breathe {
-            layer.removeAnimation(forKey: "breathe")
-        }
+        edgeGlow.show(glow, breathing: item?.status == .waiting)
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateLook() }
     /// The whole tab takes the click, label and icon included: in the title bar they would move the window instead.
@@ -399,8 +382,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     override func layout() {
         super.layout()
         if #available(macOS 26, *) { layer?.cornerRadius = bounds.height / 2 }
-        let r = layer?.cornerRadius ?? 6
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: r, cornerHeight: r, transform: nil)   // the glow follows the capsule
+        edgeGlow.radius = layer?.cornerRadius ?? Metrics.radiusSM   // the glow follows the capsule
     }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }
