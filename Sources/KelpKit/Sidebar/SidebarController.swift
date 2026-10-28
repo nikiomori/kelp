@@ -35,6 +35,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 
     let outline = SidebarOutline()
+    /// A project row's click folds it, a double click renames it instead (`clicked`).
+    var clickFold = ClickFold()
     var roots: [Node] = []
     private var shape: [String] = []
     private var collapsed: Set<String> {
@@ -74,6 +76,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.allowsMultipleSelection = true   // ⌘/⇧-click: the menu then acts on all of them
         outline.dataSource = self; outline.delegate = self
         outline.target = self; outline.doubleAction = #selector(doubleClicked)
+        outline.action = #selector(clicked)
         outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a folder from Finder becomes a project; rows move
         outline.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
                                                owner: self, userInfo: nil))
@@ -466,7 +469,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         refreshCell(node.key)   // collapsed, the row shows its agents' state itself
         updateCard()   // the card ends at another row
     }
+}
 
+/// A row picked opens what it stands for.
+extension SidebarController {
     func outlineViewSelectionDidChange(_ n: Notification) {
         card.close()
         // Several rows picked: nothing to open, they wait for the menu.
@@ -474,7 +480,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         switch node.kind {
         case .workspace(let id): app.workbench.show(workspace: id)
         case .agent(let id): app.workbench.focus(session: id)
-        case .project: if let id = node.workspace { app.workbench.show(workspace: id) }
+        case .project:
+            guard let id = node.workspace else { break }
+            if id != app.workbench.workspaceId { clickFold.opened = true }   // this click opens it; it doesn't fold it too
+            app.workbench.show(workspace: id)
         case .section: break
         }
     }
