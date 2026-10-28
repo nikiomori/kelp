@@ -48,6 +48,7 @@ final class TabStrip: NSView {
     private let insertion = NSView()
     /// "+" follows the last tab (set in layout); with the strip full, it stays at the right end.
     private var addLead: NSLayoutConstraint?
+    private var laidOutWidth: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -100,7 +101,11 @@ final class TabStrip: NSView {
         let sep = NSBox(); sep.boxType = .separator
         for v in [scroll, adds, trailing, sep] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         addSubview(insertion)
-        let lead = adds.leadingAnchor.constraint(equalTo: leadingAnchor); addLead = lead
+        // Below the split view's holding (250), like `fit`: measured before the overflow button shows, it asked for 18 pt
+        // more than the strip had, and the window widened to give them; now "+" gives way instead.
+        let lead = adds.leadingAnchor.constraint(equalTo: leadingAnchor)
+        lead.priority = .init(249)
+        addLead = lead
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height),
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor), trailing.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
@@ -156,6 +161,11 @@ final class TabStrip: NSView {
         if abs((addLead?.constant ?? 0) - x) > 0.5 { addLead?.constant = x }
         overflow.isHidden = natural <= room + 1
         super.layout()
+        // Squeezed (a narrower window, the inspector opening): the chosen tab is scrolled back into view.
+        if bounds.width != laidOutWidth {
+            laidOutWidth = bounds.width
+            DispatchQueue.main.async { [weak self] in self?.revealSelected() }
+        }
     }
 
     /// Keeps the selected tab in view when the strip is scrolled or squeezed.
