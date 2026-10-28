@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import Core
+import DesignKit
 import Agents
 import WorkbenchKit
 
@@ -26,21 +27,23 @@ struct ExtListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The bar every panel has: the first action in words, the others as icons, Refresh last.
-            HStack(spacing: 10) {
+            // The bar every panel has (DesignKit's Bar): the first action in words, the others as icons, Refresh in ⋯.
+            HStack(spacing: Metrics.gap) {
                 ForEach(Array((def.toolbar ?? []).enumerated()), id: \.offset) { i, a in
                     Button { ExtActions(app).perform(a, item: nil, folder: folder) { reload() } } label: {
-                        if i == 0 { Label(a.title, systemImage: a.icon ?? "play") } else { Image(systemName: a.icon ?? "play") }
+                        if i == 0 { Label(a.title, systemImage: a.icon ?? "play") } else { Image(systemName: a.icon ?? "play").frame(width: 22, height: 22) }
                     }
                     .buttonStyle(.borderless).help(a.title)
                     if i == 0 { Spacer() }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }
                 if loading { ProgressView().controlSize(.small) }
-                Button { reload() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Refresh")
+                Menu { Button("Refresh") { reload() } } label: { Image(systemName: "ellipsis.circle") }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
             }
+            .font(.system(size: Metrics.iconPoint))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 12).frame(height: 36)
+            .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(height: TextSize.of(Metrics.panelHeader))
             Divider()
             if let error {
                 ContentUnavailableView { Label("Couldn't load", systemImage: "exclamationmark.triangle") } description: {

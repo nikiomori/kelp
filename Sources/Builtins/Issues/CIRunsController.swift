@@ -29,11 +29,12 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let note = NSTextField(wrappingLabelWithString: "")
     private let setupButton = NSButton()
     private var setup: Forge.Setup?
-    private let webButton = NSButton()
+    private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
+    private var moreButton: NSButton?
     private var pages: GitWebPages.Pages?
     private let log = NSTextView()
     private let logBar = NSStackView()
-    private let workflowsButton = NSButton()
+    private let workflowsButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var runs: [Item] = []
     private var workflows: [CIRuns.Workflow] = []
     private var worktree: String?
@@ -45,21 +46,19 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     override func loadView() {
         branch.font = .ui(12, weight: .semibold); branch.lineBreakMode = .byTruncatingMiddle
-        let refresh = button("arrow.clockwise", String(localized: "Refresh")) { [weak self] in self?.reload() }
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in self?.showMore() }
         workflowsButton.isHidden = true
         for (b, symbol, tip) in [(workflowsButton, "play.circle", String(localized: "Run Workflow…")),
                                  (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))] {
             b.image = .symbol(symbol, tip)
-            b.isBordered = false
             b.toolTip = tip
-            b.contentTintColor = .secondaryLabelColor
             b.target = self
         }
+        moreButton = more
         workflowsButton.action = #selector(runWorkflow)
         webButton.action = #selector(showPages)
         webButton.isHidden = true
-        let header = NSStackView(views: [NSImageView(image: .symbol("arrow.triangle.branch")), branch, NSView(), workflowsButton, webButton, refresh])
-        header.spacing = 6; header.edgeInsets = NSEdgeInsets(top: 6, left: 12, bottom: 6, right: 8)
+        let header = Bar.panel([NSImageView(image: Glyph.image("arrow.triangle.branch", size: 14) ?? NSImage()), branch], [workflowsButton, webButton, more])
 
         let col = NSTableColumn(identifier: .init("ci")); col.resizingMask = .autoresizingMask
         outline.addTableColumn(col)
@@ -94,12 +93,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.dividerStyle = .thin
         split.addArrangedSubview(scroll); split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
-        let line = NSBox(); line.boxType = .separator
-        let v = stacked(header, line, split)
+        let v = stacked(header, split)
         empty.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(empty)
         NSLayoutConstraint.activate([
-            header.heightAnchor.constraint(equalToConstant: 36),   // else it and the split share the height
-            line.heightAnchor.constraint(equalToConstant: 1),
             empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 40),
             empty.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -40),
             bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200)
@@ -159,15 +155,17 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         Forge.menu(pages).popUp(positioning: nil, at: NSPoint(x: 0, y: webButton.bounds.height + 4), in: webButton)
     }
 
+    private func showMore() {
+        guard let b = moreButton else { return }
+        let m = NSMenu()
+        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(refreshPressed), keyEquivalent: "").target = self
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
+    }
+
+    @objc private func refreshPressed() { reload() }
+
     @objc private func runSetup() { if let setup { Forge.run(setup, in: app) } }
 
-    private func button(_ symbol: String, _ tip: String, _ action: @escaping () -> Void) -> NSButton {
-        let b = ClosureButton(title: "", action: action)
-        b.image = .symbol(symbol, tip)
-        b.isBordered = false
-        b.toolTip = tip
-        b.contentTintColor = .secondaryLabelColor; return b
-    }
     private func textButton(_ title: String, _ action: @escaping () -> Void) -> NSButton {
         let b = ClosureButton(title: title, action: action)
         b.bezelStyle = .push

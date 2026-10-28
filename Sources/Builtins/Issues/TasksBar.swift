@@ -5,10 +5,7 @@ import KelpKit
 /// The panel's bar: what it lists (source and filter as title words) and Refresh, the last action's word under it.
 extension TasksViewController {
     func makeBar() -> NSView {
-        let refresh = NSButton(image: .symbol("arrow.clockwise", String(localized: "Refresh")), target: self, action: #selector(reload))
-        refresh.isBordered = false
-        refresh.contentTintColor = .secondaryLabelColor
-        refresh.toolTip = String(localized: "Refresh")
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
         status.textColor = .secondaryLabelColor; status.font = .ui(11)
         status.lineBreakMode = .byWordWrapping
         status.maximumNumberOfLines = 3
@@ -21,20 +18,22 @@ extension TasksViewController {
             c.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         filter.font = .ui(12)
-        // An inspector panel: its bar (what it lists, Refresh), the last action's word under it, the list over the details.
-        let controls = NSStackView(views: [source, filter, NSView(), refresh]); controls.spacing = 4
-        controls.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
-        controls.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        // An inspector panel: its bar (what it lists, ⋯), the last action's word under it, the list over the details.
+        let controls = Bar.panel([source, filter], [more])
         status.isHidden = true
-        let line = NSBox(); line.boxType = .separator
-        let bar = NSStackView(views: [controls, status, line])
+        let bar = NSStackView(views: [controls, status])
         bar.orientation = .vertical
-        bar.spacing = 0
-        bar.setCustomSpacing(6, after: status)
-        for v in [controls, line] { v.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true }
-        status.widthAnchor.constraint(equalTo: bar.widthAnchor, constant: -24).isActive = true   // else the status wraps to no width
-        controls.setHuggingPriority(.defaultHigh, for: .vertical)   // as tall as its views; the list takes the rest
+        bar.spacing = 6
+        controls.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true
+        status.widthAnchor.constraint(equalTo: bar.widthAnchor, constant: -2 * Metrics.inset).isActive = true   // else the status wraps to no width
+        controls.setContentHuggingPriority(.defaultHigh, for: .vertical)   // as tall as its views; the list takes the rest
         return bar
+    }
+
+    @objc private func showMore(_ sender: NSButton) {
+        let m = NSMenu()
+        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(reload), keyEquivalent: "").target = self
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 }
 

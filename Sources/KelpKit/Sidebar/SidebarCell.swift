@@ -53,11 +53,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = ClosureButton(title: "") { [weak owner] in owner?.newWorkspace(id) }
-            b.image = .symbol("plus", String(localized: "New Workspace"))
-            b.isBordered = false
-            b.contentTintColor = .secondaryLabelColor
-            b.toolTip = String(localized: "New workspace (⌘N)")
+            let b = IconButton(.symbol("plus"), tip: String(localized: "New workspace (⌘N)")) { [weak owner] in owner?.newWorkspace(id) }
             b.isHidden = true
             add = b   // on hover, like Finder's sidebar
             let f = makeFold()

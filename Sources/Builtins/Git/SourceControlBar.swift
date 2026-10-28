@@ -14,17 +14,7 @@ final class SourceControlBar {
 
     init(_ owner: SourceControlController) {
         func b(_ symbol: String, _ tip: String, _ action: @escaping (SourceControlController) -> Void) -> NSButton {
-            let x = ClosureButton(title: "") { [weak owner] in if let owner { action(owner) } }
-            x.image = .symbol(symbol, tip)
-            x.isBordered = false
-            x.toolTip = tip
-            x.imagePosition = .imageLeading
-            x.font = .uiDigits(11, weight: .medium)
-            x.contentTintColor = .secondaryLabelColor
-            x.symbolConfiguration = .init(pointSize: 13, weight: .regular)
-            x.setContentHuggingPriority(.required, for: .horizontal)
-            x.setContentCompressionResistancePriority(.required, for: .horizontal)
-            return x
+            IconButton(.symbol(symbol), tip: tip) { [weak owner] in if let owner { action(owner) } }
         }
         commit = b("checkmark", String(localized: "Commit (⌥⌘C)")) { $0.commitPressed() }
         pull = b("arrow.down", String(localized: "Pull (⌥⌘X)")) { $0.pullPressed() }
@@ -35,11 +25,12 @@ final class SourceControlBar {
         more = b("ellipsis.circle", String(localized: "More Actions")) { $0.showMoreMenu() }
     }
 
-    /// Puts the buttons in `stack`, the ones that give way first last in line for the room.
-    func add(to stack: NSStackView) {
-        for x in buttons { stack.addView(x, in: .trailing) }
-        stack.setVisibilityPriority(.init(300), for: stash)
-        stack.setVisibilityPriority(.init(400), for: fetch)
+    /// The header: the branch, then the buttons, the ones that give way first last in line for the room.
+    func header(_ branch: NSView) -> Bar {
+        let bar = Bar.panel([branch], buttons)
+        bar.stack.setVisibilityPriority(.init(300), for: stash)
+        bar.stack.setVisibilityPriority(.init(400), for: fetch)
+        return bar
     }
 
     func update(_ info: BranchInfo?, changes: Int, busy: Bool) {

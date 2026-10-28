@@ -97,9 +97,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         branchButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
         moreButton = bar.more
         stats.font = .uiDigits(10, weight: .medium)
-        let header = NSStackView(views: [branchButton])
-        bar.add(to: header)
-        header.spacing = 4; header.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 8)
+        let header = bar.header(branchButton)
 
         let box = commitBox(); commitArea = box
         let scroll = list(outline), graphScroll = list(graphOutline)
@@ -127,9 +125,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let room = scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 80); room.priority = .init(760)   // the graph gives way first
         changesRoom = room
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: v.topAnchor), header.heightAnchor.constraint(equalToConstant: 36),
+            header.topAnchor.constraint(equalTo: v.topAnchor),
             header.leadingAnchor.constraint(equalTo: v.leadingAnchor), header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            box.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
+            box.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             box.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 12), box.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -12),
             sep.topAnchor.constraint(equalTo: box.bottomAnchor, constant: 10),
             sep.leadingAnchor.constraint(equalTo: v.leadingAnchor), sep.trailingAnchor.constraint(equalTo: v.trailingAnchor),

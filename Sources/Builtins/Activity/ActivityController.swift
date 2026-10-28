@@ -35,15 +35,19 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
-        total.font = .uiDigits(11); total.textColor = .secondaryLabelColor
+        total.font = .uiDigits(12); total.textColor = .secondaryLabelColor
+        total.lineBreakMode = .byTruncatingTail
+        total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         empty.textColor = .secondaryLabelColor; empty.isHidden = true
+        let header = Bar.panel([total])
         let v = NSView()
-        for x in [total, scroll, empty] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [header, scroll, empty] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         NSLayoutConstraint.activate([
-            total.topAnchor.constraint(equalTo: v.topAnchor, constant: 10), total.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 12),
-            scroll.topAnchor.constraint(equalTo: total.bottomAnchor, constant: 6), scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
+            header.topAnchor.constraint(equalTo: v.topAnchor),
+            header.leadingAnchor.constraint(equalTo: v.leadingAnchor), header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: header.bottomAnchor), scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.topAnchor.constraint(equalTo: total.bottomAnchor, constant: 40)
+            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 40)
         ])
         view = v
     }
@@ -101,11 +105,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         cost.font = .uiDigits(11)
         cost.alignment = .right
         cost.textColor = r.cpu > 80 ? .systemOrange : .secondaryLabelColor
-        let stop = ClosureButton(title: "") { AgentActions(app).stop([s.id]) }
-        stop.image = .symbol("stop.circle", String(localized: "Stop"))
-        stop.isBordered = false
-        stop.contentTintColor = .secondaryLabelColor
-        stop.toolTip = String(localized: "Stop \(name.stringValue) (ends its processes)")
+        let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
+        let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([s.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         let rowView = NSStackView(views: [icon, text, NSView(), cost, stop]); rowView.spacing = 8
         rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 10)
