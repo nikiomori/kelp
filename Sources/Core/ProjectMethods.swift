@@ -34,6 +34,44 @@ public struct ScriptsRun: RPCMethod {
     public init(worktreeId: String, name: String) { self.worktreeId = worktreeId; self.name = name }
 }
 
+/// Something the project's own files say can be run: a package.json script, a Makefile target, a compose service, a
+/// Python app… (`run.detect`). It runs only when someone picks it (`run.start`), never because a project was opened.
+public struct RunOption: Codable, Sendable, Equatable {
+    /// "folder|file|name": the same while the file keeps the entry, so a choice can be remembered.
+    public var id: String
+    public var name: String, command: String
+    /// Where it runs, inside the workspace ("" is its own folder).
+    public var folder: String
+    /// The file it comes from ("package.json", "Makefile", "compose.yaml"…).
+    public var source: String
+    /// "run", "test", "build", "lint", "install" (the dependencies), or "other".
+    public var kind: String
+    /// What the entry says, when that isn't the command (a script's body, a service's port).
+    public var detail: String?
+    /// The program it needs that isn't on that machine's PATH.
+    public var missing: String?
+    public init(id: String, name: String, command: String, folder: String, source: String, kind: String, detail: String? = nil, missing: String? = nil) {
+        self.id = id; self.name = name; self.command = command; self.folder = folder; self.source = source; self.kind = kind
+        self.detail = detail; self.missing = missing
+    }
+}
+/// What the workspace's project files offer to run (on the host, for a remote project), and the likeliest dev server.
+public struct RunDetect: RPCMethod {
+    public static let name = "run.detect"
+    public struct Result: Codable, Sendable, Equatable {
+        public var options: [RunOption], guess: String?
+        public init(options: [RunOption], guess: String?) { self.options = options; self.guess = guess }
+    }
+    public var worktreeId: String
+    public init(worktreeId: String) { self.worktreeId = worktreeId }
+}
+/// Runs option `id` (as run.detect gives it, read again now) in the workspace → the session. The first local URL it prints
+/// comes as event.devserver; a remote project's runs go in tmux on the host, their port forwarded to this Mac.
+public struct RunStart: RPCMethod {
+    public static let name = "run.start"; public typealias Result = Session; public var worktreeId: String, id: String
+    public init(worktreeId: String, id: String) { self.worktreeId = worktreeId; self.id = id }
+}
+
 /// A project on `host` at `path` (its local folder stands for the one there); `init` makes a plain folder a repository.
 public struct RepoAddRemote: RPCMethod {
     public static let name = "repo.addRemote"; public typealias Result = Repo; public var host: String, path: String, `init`: Bool?

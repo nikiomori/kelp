@@ -95,6 +95,7 @@ final class Sessions: Sendable {
         var cols: UInt16 = 120, rows: UInt16 = 32
         var argv: [String]?   // restart: reuse exactly
         var tmux: String?   // restart: the host's tmux session the old one's agent still runs in
+        var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
 
         /// A terminal size: anything out of range is clamped, nothing (or 0) is 120 × 32.
         static func size(cols: Int?, rows: Int?) -> (cols: UInt16, rows: UInt16) {
@@ -141,7 +142,7 @@ final class Sessions: Sendable {
         rec.argv = argv
         rec.profile = o.profile
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
-        if !local, !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
+        if !local, o.onHostInTmux || !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
         let env = launchEnv(manifest, rec)
         let ls = try LiveSession(record: rec, manifest: liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
                                  argv: try launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
@@ -210,7 +211,23 @@ final class Sessions: Sendable {
                 DispatchQueue.global(qos: .utility).async { self.retitle(session: sid, topic: t) }
             }
         }
-        if let worktree { c.localURL = { [weak self] url in self?.notify(DevServerEvent(worktree: worktree, url: url, session: sid)) } }
+        if let worktree {
+            // On a remote project's host, the port comes to this Mac first: the page opens here.
+            let remote = remotes.of(rec.cwd), forwarded = OSAllocatedUnfairLock<String?>(initialState: nil)
+            c.localURL = { [weak self] url in
+                guard let remote else { self?.notify(DevServerEvent(worktree: worktree, url: url, session: sid)); return }
+                DispatchQueue.global(qos: .utility).async {
+                    let (here, spec) = remote.forward(url)
+                    forwarded.withLock { $0 = spec }
+                    self?.notify(DevServerEvent(worktree: worktree, url: here, session: sid))
+                }
+            }
+            let status = c.status
+            c.status = { ls, s in
+                status(ls, s)
+                if s.status == .exited, let spec = forwarded.withLock({ $0 }) { DispatchQueue.global(qos: .utility).async { remote?.cancel(spec) } }
+            }
+        }
         return c
     }
 

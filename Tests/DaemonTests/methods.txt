@@ -104,6 +104,8 @@ repo.remove
 repo.removeWorktrees
 repo.rename
 repo.worktreeSizes
+run.detect
+run.start
 scratch.ensure
 scripts.list
 scripts.run
