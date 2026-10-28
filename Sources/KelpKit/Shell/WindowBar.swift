@@ -102,7 +102,10 @@ final class WindowBar: NSView {
         b.font = .ui(12)
         b.imagePosition = .imageLeading
         b.imageHugsTitle = true
-        if let symbol { b.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, ""); b.symbolConfiguration = .init(pointSize: 11, weight: .regular) }
+        if let symbol {
+            b.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, "")
+            b.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        }
         return b
     }
 
@@ -229,7 +232,7 @@ final class SearchPill: NSControl {
         self.app = app
         super.init(frame: .zero)
         wantsLayer = true
-        glass.symbolConfiguration = .init(pointSize: 11, weight: .regular); glass.contentTintColor = .secondaryLabelColor
+        glass.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight); glass.contentTintColor = .secondaryLabelColor
         label.font = .ui(12)
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byTruncatingTail

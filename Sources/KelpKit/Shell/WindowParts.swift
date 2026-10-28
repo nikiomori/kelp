@@ -118,7 +118,7 @@ extension NSButton {
         b.bezelStyle = .recessed
         b.showsBorderOnlyWhileMouseInside = true
         b.toolTip = tip
-        b.symbolConfiguration = .init(pointSize: 14, weight: .regular)
+        b.symbolConfiguration = .init(pointSize: 14, weight: Metrics.iconWeight)
         return b
     }
 }

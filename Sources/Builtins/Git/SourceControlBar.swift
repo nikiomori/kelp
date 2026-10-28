@@ -19,8 +19,8 @@ final class SourceControlBar {
         commit = b("checkmark", String(localized: "Commit (⌥⌘C)")) { $0.commitPressed() }
         pull = b("arrow.down", String(localized: "Pull (⌥⌘X)")) { $0.pullPressed() }
         push = b("arrow.up", String(localized: "Push (⌥⌘P)")) { $0.pushPressed() }
-        fetch = b("icloud.and.arrow.down", String(localized: "Fetch (⌥⌘F)")) { $0.fetchPressed() }
-        stash = b("archivebox", String(localized: "Stash Changes")) { $0.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) } }
+        fetch = b("arrow.down.circle", String(localized: "Fetch (⌥⌘F)")) { $0.fetchPressed() }
+        stash = b("tray.and.arrow.down", String(localized: "Stash Changes")) { $0.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) } }
         refresh = b("arrow.clockwise", String(localized: "Refresh")) { $0.reloadAll() }
         more = b("ellipsis.circle", String(localized: "More Actions")) { $0.showMoreMenu() }
     }
@@ -44,7 +44,7 @@ final class SourceControlBar {
         pull.toolTip = up.map { behind > 0 ? String(localized: "Pull \(behind) from \($0) (⌥⌘X)") : String(localized: "Pull from \($0) (⌥⌘X)") }
             ?? String(localized: "Pull (no upstream)")
         push.isEnabled = !busy && (publish || (up != nil && ahead > 0))
-        push.image = .symbol(publish ? "icloud.and.arrow.up" : "arrow.up", String(localized: "Push"))
+        push.image = .symbol(publish ? "arrow.up.circle" : "arrow.up", String(localized: "Push"))
         push.title = ahead > 0 ? "\(ahead)" : ""
         push.contentTintColor = ahead > 0 || publish ? .controlAccentColor : .secondaryLabelColor
         let pushTip = up.map { ahead > 0 ? String(localized: "Push \(ahead) to \($0) (⌥⌘P)") : String(localized: "Nothing to push to \($0)") }

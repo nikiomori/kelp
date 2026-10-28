@@ -81,7 +81,6 @@ final class PaneView: NSView {
         b.target = self
         b.action = #selector(restartTapped)
         b.bezelStyle = .push
-        b.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil); b.imagePosition = .imageLeading
         let c = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeTapped)); c.bezelStyle = .push
         let buttons = NSStackView(views: [b, c]); buttons.spacing = 8
         ended.orientation = .vertical; ended.spacing = Metrics.gapWide
@@ -108,7 +107,6 @@ final class PaneView: NSView {
         let lost = s?.connectionLost == true
         endedLabel.stringValue = paused ? String(localized: "Paused") : lost ? String(localized: "Connection lost") : String(localized: "Session ended")
         restartButton.title = paused ? String(localized: "Resume") : lost ? String(localized: "Reconnect") : String(localized: "Restart")
-        restartButton.image = NSImage(systemSymbolName: paused ? "play.fill" : "arrow.clockwise", accessibilityDescription: nil)
     }
 
     private func reattach(_ s: Session) {

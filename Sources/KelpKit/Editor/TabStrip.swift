@@ -245,20 +245,21 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let meter = ContextMeter()
     /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
     private let full = NSTextField(labelWithString: "")
-    /// Its agent waits for a command it started: the command on a chip, a cyan line along the tab's top.
-    private let chip = Chip(), light = CALayer()
+    /// Its agent waits for a command it started: the command on a chip, and the tab glows cyan.
+    private let chip = Chip()
     private var hover = false { didSet { updateLook() } }
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
         super.init(frame: .zero)
         wantsLayer = true; layer?.cornerRadius = 6
-        icon.symbolConfiguration = .init(pointSize: 11, weight: .regular)
+        icon.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
         title.font = .ui(12); title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
         close.toolTip = String(localized: "Close Tab (⌘W)")
         close.isBordered = false
         close.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        close.wantsLayer = true
         close.contentTintColor = .secondaryLabelColor
         close.target = self
         close.action = #selector(closeTapped)
@@ -276,8 +277,6 @@ private final class TabButton: NSControl, NSDraggingSource {
         let least = chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 40); least.priority = .init(760)
         NSLayoutConstraint.activate([least, chip.widthAnchor.constraint(lessThanOrEqualToConstant: 90)])
         chip.icon.image = .symbol("apple.terminal")
-        light.cornerRadius = 1
-        layer?.addSublayer(light)
         let row = NSStackView(views: [slot, title, chip, meter, full])
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
@@ -315,7 +314,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         full.isHidden = level < 2
         full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = level == 3 ? .textRed : .textOrange
-        chip.isHidden = it.waitsFor == nil; light.isHidden = it.waitsFor == nil
+        chip.isHidden = it.waitsFor == nil
         chip.label.stringValue = it.waitsFor ?? ""
         chip.toolTip = it.waitsFor.map { String(localized: "Waits for its command:\n\($0)") }
         chip.setAccessibilityLabel(chip.toolTip)
@@ -348,14 +347,45 @@ private final class TabButton: NSControl, NSDraggingSource {
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
         let active = selected && groupFocused, call = call
         title.textColor = call?.text ?? (selected ? .labelColor : .secondaryLabelColor)
-        title.font = .systemFont(ofSize: 12, weight: active || call != nil ? .medium : .regular)
+        title.font = .ui(12, weight: active || call != nil ? .medium : .regular)
         icon.contentTintColor = active ? .controlAccentColor : .secondaryLabelColor
+        // Chosen in the group you're in, chosen in another one (or under the pointer), nothing; faded, not switched.
+        let fill = selected && groupFocused ? NSColor.fillSelected : selected || hover ? .fillHover : nil
+        fadeBackground(to: call.map { $0.fill.withAlphaComponent(selected ? 0.24 : 0.16) } ?? fill)
+        showGlow()
+    }
+
+    /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
+    /// unseen, cyan while it waits for a command it started. A glow, not a line: it reads as the pane's light.
+    private var glow: NSColor? {
+        switch item?.status {
+        case .waiting?: .systemOrange
+        case .error? where item?.unread == true: .systemRed
+        default: item?.waitsFor != nil ? .systemCyan : nil
+        }
+    }
+    private func showGlow() {
+        guard let layer else { return }
+        let g = glow, breathe = item?.status == .waiting && !Motion.reduced
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            light.backgroundColor = NSColor.systemCyan.cgColor
-            if let call { layer?.backgroundColor = call.fill.withAlphaComponent(selected ? 0.24 : 0.16).cgColor; return }
-            // Chosen in the group you're in, chosen in another one (or under the pointer), nothing.
-            let fill = selected && groupFocused ? NSColor.fillSelected : selected || hover ? .fillHover : .clear
-            layer?.backgroundColor = fill.cgColor
+            layer.borderColor = g?.withAlphaComponent(0.55).cgColor
+            layer.shadowColor = g?.cgColor
+        }
+        layer.borderWidth = g == nil ? 0 : 1
+        layer.shadowOffset = .zero
+        layer.shadowRadius = 5
+        layer.shadowOpacity = g == nil ? 0 : 0.55
+        if breathe, layer.animation(forKey: "breathe") == nil {
+            let a = CABasicAnimation(keyPath: "shadowOpacity")
+            a.fromValue = 0.55
+            a.toValue = 0.15
+            a.duration = 1.2
+            a.autoreverses = true
+            a.repeatCount = .infinity
+            a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(a, forKey: "breathe")
+        } else if !breathe {
+            layer.removeAnimation(forKey: "breathe")
         }
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateLook() }
@@ -369,8 +399,8 @@ private final class TabButton: NSControl, NSDraggingSource {
     override func layout() {
         super.layout()
         if #available(macOS 26, *) { layer?.cornerRadius = bounds.height / 2 }
-        let ends = max(layer?.cornerRadius ?? 6, 6)   // clear of the rounded ends
-        light.frame = NSRect(x: ends, y: bounds.height - 2, width: max(0, bounds.width - 2 * ends), height: 2)
+        let r = layer?.cornerRadius ?? 6
+        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: r, cornerHeight: r, transform: nil)   // the glow follows the capsule
     }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }

@@ -59,7 +59,8 @@ final class SyncPopover: NSViewController {
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         fetch.isBordered = false
-        fetch.image = .symbol("arrow.clockwise", String(localized: "Fetch"))
+        fetch.image = .symbol("arrow.down.circle", String(localized: "Fetch"))
+        fetch.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
         fetch.imagePosition = .imageLeading
         fetch.attributedTitle = NSAttributedString(string: fetch.title,
                                                    attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
@@ -70,12 +71,10 @@ final class SyncPopover: NSViewController {
         head.setViews([column([name, state], spacing: 2)], in: .leading)
         head.setViews([fetch], in: .trailing)
 
+        // The popover's one action, in words alone and the accent (macOS 26's primary tint; the bezel colour before it).
         primary.bezelStyle = .push
         primary.controlSize = .large
-        primary.imagePosition = .imageLeading
-        primary.imageHugsTitle = true
-        primary.bezelColor = .controlAccentColor
-        primary.contentTintColor = .white
+        if #available(macOS 26, *) { primary.tintProminence = .primary } else { primary.bezelColor = .controlAccentColor }
 
         busy.style = .spinning
         busy.controlSize = .small
@@ -214,24 +213,24 @@ final class SyncPopover: NSViewController {
 
     /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into the fix.
     private func showPrimary(ahead: Int, behind: Int, published: Bool, possible: Bool, running: String?) {
-        let (title, symbol, ops) = Self.action(ahead: ahead, behind: behind, published: published, rejected: result?.rejected == true)
+        let (title, ops) = Self.action(ahead: ahead, behind: behind, published: published, rejected: result?.rejected == true)
         primaryOps = ops
         primary.isHidden = !possible || ops.isEmpty
         let text = running ?? title
-        primary.attributedTitle = NSAttributedString(string: text, attributes: [.foregroundColor: NSColor.white, .font: NSFont.ui(13, weight: .semibold)])
-        primary.image = .symbol(running == nil ? symbol : "arrow.triangle.2.circlepath", text)
+        primary.title = text
+        primary.font = .ui(13, weight: .semibold)
         primary.isEnabled = running == nil
     }
 
-    private static func action(ahead: Int, behind: Int, published: Bool, rejected: Bool) -> (String, String, [String]) {
-        if !published { return (String(localized: "Publish Branch"), "icloud.and.arrow.up", ["push"]) }
+    private static func action(ahead: Int, behind: Int, published: Bool, rejected: Bool) -> (String, [String]) {
+        if !published { return (String(localized: "Publish Branch"), ["push"]) }
         if rejected || (ahead > 0 && behind > 0) {
             let title = behind > 0 ? String(localized: "Pull \(behind), then push \(ahead)") : String(localized: "Pull, then push")
-            return (title, "arrow.up.arrow.down", ["pull", "push"])
+            return (title, ["pull", "push"])
         }
-        if behind > 0 { return (behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), "arrow.down", ["pull"]) }
-        if ahead > 0 { return (ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), "arrow.up", ["push"]) }
-        return ("", "", [])
+        if behind > 0 { return (behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), ["pull"]) }
+        if ahead > 0 { return (ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), ["push"]) }
+        return ("", [])
     }
 
     private func showStatus(_ running: String?) {

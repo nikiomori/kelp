@@ -196,10 +196,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         syncMenu.add(String(localized: "Push")) { [weak self] in self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") } }
         pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") } }
         // The panel's main action: the accent colour while there's something to commit (macOS 26's primary tint).
+        // Words alone, as macOS's push buttons: a ✓ or an arrow before them only crowded the title.
         let cb = NSButton(title: String(localized: "Commit"), target: self, action: #selector(commitPressed))
-        cb.image = .symbol("checkmark", String(localized: "Commit"))
-        cb.imagePosition = .imageLeading
-        cb.imageHugsTitle = true
         cb.bezelStyle = .push
         cb.controlSize = .large; cb.toolTip = String(localized: "Commit (⌘↩ in the message)")
         commitMore.image = .symbol("chevron.down", String(localized: "More Commit Actions")); commitMore.bezelStyle = .push
@@ -251,7 +249,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let count = files > 0 ? files : changes.count
         cb.title = syncing?.title ?? next ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files"))
         let idle = next == nil && syncing == nil
-        cb.image = .symbol(idle ? "checkmark" : info?.upstream == nil ? "icloud.and.arrow.up" : "arrow.triangle.2.circlepath", cb.title)
         moreMenu = next == nil ? commitMenu : syncMenu
         pullItem?.isHidden = info?.upstream == nil
         cb.action = next == nil ? #selector(commitPressed) : #selector(sync)

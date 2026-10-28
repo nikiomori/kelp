@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// How a CI run reads, in CI Runs (Issues) and on the Source Control panel (Git).
 @MainActor
@@ -23,7 +24,7 @@ package enum CIRunLook {
         let v = NSImageView(image: .symbol(symbol, words))
         v.contentTintColor = color
         v.toolTip = words
-        v.symbolConfiguration = .init(pointSize: 12, weight: .regular)
+        v.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
         return v
     }
 
