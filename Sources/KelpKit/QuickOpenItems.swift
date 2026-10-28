@@ -47,7 +47,11 @@ extension QuickOpen {
         // Commands: every enabled menu item with an action.
         func walk(_ m: NSMenu, path: String) {
             for i in m.items {
-                if let s = i.submenu { walk(s, path: path.isEmpty ? i.title : path + " › " + i.title); continue }
+                if let s = i.submenu {
+                    // Not the system's Services ("Convert Text to Chinese"…): other apps' actions, not Kelp's commands.
+                    if s !== NSApp.servicesMenu { walk(s, path: path.isEmpty ? i.title : path + " › " + i.title) }
+                    continue
+                }
                 guard let a = i.action, !i.isSeparatorItem, !i.isHidden, !i.title.isEmpty else { continue }
                 // Only what the menu would offer now: someone handles it and it's enabled (Run File needs a file…).
                 guard let t = NSApp.target(forAction: a, to: i.target, from: i), (t as? NSMenuItemValidation)?.validateMenuItem(i) ?? true else { continue }

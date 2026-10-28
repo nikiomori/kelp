@@ -11768,6 +11768,116 @@
           }
         }
       }
+    },
+    "↑↓ Select    ↩ Run    ⌫ Everything": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑↓ Выбрать    ↩ Выполнить    ⌫ Ко всему"
+          }
+        }
+      }
+    },
+    "↑↓ Select    ↩ Open    ⇧↩ Open in a Split    > Commands    # Pull Requests": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑↓ Выбрать    ↩ Открыть    ⇧↩ Открыть справа    > Команды    # Pull requests"
+          }
+        }
+      }
+    },
+    "Recently Used": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недавние"
+          }
+        }
+      }
+    },
+    "Search the library": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск в библиотеке"
+          }
+        }
+      }
+    },
+    "Category": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Категория"
+          }
+        }
+      }
+    },
+    "Languages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Языки"
+          }
+        }
+      }
+    },
+    "Themes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Темы"
+          }
+        }
+      }
+    },
+    "Rename Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать проект"
+          }
+        }
+      }
+    },
+    "Rename Workspace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать рабочую область"
+          }
+        }
+      }
+    },
+    "No extension matches “%@”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет расширений по запросу «%@»."
+          }
+        }
+      }
+    },
+    "Context %lld %% full: %lldk of %lldk tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контекст заполнен на %lld %%: %lldk из %lldk токенов"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
