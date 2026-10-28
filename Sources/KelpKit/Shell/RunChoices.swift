@@ -58,11 +58,18 @@ extension ScriptsMenu {
     }
 
     /// What the chip and the list call a choice: "dev", "frontend › dev".
+    /// What the chip, the banners and "Run …" call a choice: the command itself ("make dev", "web › npm run dev"), which
+    /// says what runs it where a bare "dev" wouldn't; a long one cut.
     func label(_ choice: String, in wid: String) -> String {
-        if choice.hasPrefix("kelp:") { return String(choice.dropFirst(5)) }
+        if choice.hasPrefix("kelp:") {
+            return state.kelp[wid]?.first { "kelp:" + $0.name == choice }.map { Self.short($0.command) } ?? String(choice.dropFirst(5))
+        }
         guard let o = state.found[wid]?.options.first(where: { $0.id == choice }) else { return choice.split(separator: "|").last.map(String.init) ?? choice }
-        return o.folder.isEmpty ? o.name : "\((o.folder as NSString).lastPathComponent) › \(o.name)"
+        return (o.folder.isEmpty ? "" : "\((o.folder as NSString).lastPathComponent) › ") + Self.short(o.command)
     }
+
+    /// A command as one short line (32 characters), whole in tips.
+    static func short(_ s: String) -> String { s.count > 32 ? s.prefix(31).trimmingCharacters(in: .whitespaces) + "…" : s }
 
     /// What ⌘R would run in the workspace now, and whether it's only a guess (nothing ran in the project yet).
     func current(_ wid: String) -> (choice: String, guess: Bool)? {
@@ -128,18 +135,18 @@ extension ScriptsMenu {
             }
         } else {
             // Too many for one screen: the few that matter here, then every file's in a submenu of its own.
-            for r in top(rows, wid) { item(r, in: m, wid) }
+            // Mixed files and folders: each shows as its command, its folder beside it.
+            for r in top(rows, wid) { item(r, in: m, wid, asCommand: true) }
             m.addItem(.separator())
             m.addItem(.sectionHeader(title: String(localized: "All Commands")))
+            // A file of the workspace's own folder has its submenu; a subfolder (api, web) one for all its files.
+            var groups: [(title: String, folder: Bool, sections: [Section])] = []
             for s in sections {
-                let sub = NSMenu()
-                for r in s.rows { item(r, in: sub, wid) }
-                let i = NSMenuItem(title: s.title, action: nil, keyEquivalent: "")
-                if let r = s.rows.first { icon(i, r.file) }
-                m.addItem(i)
-                m.setSubmenu(sub, for: i)
-                if #available(macOS 14.4, *) { i.subtitle = String(localized: "Commands: \(s.rows.count)") }
+                let key = s.folder.isEmpty ? s.title : s.folder
+                if let i = groups.firstIndex(where: { $0.title == key }) { groups[i].sections.append(s) }
+                else { groups.append((key, !s.folder.isEmpty, [s])) }
             }
+            for g in groups { submenu(g.title, folder: g.folder, g.sections, in: m, wid) }
         }
         if sections.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
@@ -149,7 +156,7 @@ extension ScriptsMenu {
 
     /// One choice: its name, what it adds under it (a script's body, a target's description, a service's port — never the
     /// command that only repeats the name), its whole command as the tip.
-    private func item(_ r: Row, in m: NSMenu, _ wid: String) {
+    private func item(_ r: Row, in m: NSMenu, _ wid: String, asCommand: Bool = false) {
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
             Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
@@ -158,9 +165,32 @@ extension ScriptsMenu {
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
+        let detail = asCommand && r.detail == r.command ? nil : r.detail
         let said = r.running ? [String(localized: "Running"), port].compactMap { $0 }.joined(separator: " · ")
-            : r.missing.map { String(localized: "\($0) isn't installed") } ?? r.detail.map(Self.oneLine)
+            : r.missing.map { String(localized: "\($0) isn't installed") } ?? detail.map(Self.oneLine)
         if #available(macOS 14.4, *), let said { i.subtitle = said }
+        guard asCommand else { return }
+        let font = NSFont.menuFont(ofSize: 0)
+        let title = NSMutableAttributedString(string: Self.short(r.command), attributes: [.font: font])
+        if !r.folder.isEmpty {
+            title.append(NSAttributedString(string: "  " + r.folder, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
+        }
+        i.attributedTitle = title
+    }
+
+    /// "Makefile ▸" with its commands, or "api ▸" with each of its files' commands under the file's name.
+    private func submenu(_ title: String, folder: Bool, _ sections: [Section], in m: NSMenu, _ wid: String) {
+        let sub = NSMenu()
+        for s in sections {
+            if folder { sub.addItem(.sectionHeader(title: s.file)) }
+            for r in s.rows { item(r, in: sub, wid) }
+        }
+        let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        if folder { image(i, .symbol("folder")) } else if let r = sections.first?.rows.first { icon(i, r.file) }
+        m.addItem(i)
+        m.setSubmenu(sub, for: i)
+        let n = sections.reduce(0) { $0 + $1.rows.count }
+        if #available(macOS 14.4, *) { i.subtitle = String(localized: "Commands: \(n)") }
     }
 
     /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's background
@@ -225,9 +255,12 @@ extension ScriptsMenu {
         var id, name, command: String, detail: String?, missing: String?, running: Bool, url: String?, current: Bool, install: Bool
         /// run.detect's kind (run, test, build, lint, other) and the file it comes from.
         var kind = "other", file = ""
+        /// Where it runs inside the workspace ("" its own folder).
+        var folder = ""
     }
 
-    struct Section { var title: String, rows: [Row] }
+    /// `folder` and `file` for a file's section ("" folder: the workspace's own); a title of its own otherwise.
+    struct Section { var title: String, rows: [Row], folder = "", file = "" }
 
     /// The menu's sections: dependencies to install first, .kelp.yaml's commands, then each file's, by folder.
     func sections(_ wid: String) -> [Section] {
@@ -235,16 +268,17 @@ extension ScriptsMenu {
         let mark = current(wid)?.choice
         let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
         func row(_ id: String, _ name: String, _ command: String, detail: String? = nil, missing: String? = nil, install: Bool = false,
-                 kind: String = "other", file: String) -> Row {
+                 kind: String = "other", file: String, folder: String = "") -> Row {
             Row(id: id, name: name, command: command, detail: detail, missing: missing, running: live[id] != nil,
-                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install, kind: kind, file: file)
+                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install, kind: kind, file: file,
+                folder: folder)
         }
         var out: [Section] = []
         let installs = options.filter { $0.kind == "install" }
         if !installs.isEmpty {
             out.append(.init(title: String(localized: "Dependencies"), rows: installs.map {
                 let name = $0.folder.isEmpty ? String(localized: "Install") : String(localized: "Install in \($0.folder)")
-                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true, file: $0.source)
+                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true, file: $0.source, folder: $0.folder)
             }))
         }
         if let kelp = state.kelp[wid], !kelp.isEmpty {
@@ -253,15 +287,15 @@ extension ScriptsMenu {
                 row("kelp:" + $0.name, $0.name, $0.command, detail: $0.command, kind: kinds[$0.name] ?? "other", file: ".kelp.yaml")
             }))
         }
-        var groups: [(key: String, rows: [Row])] = []
+        var groups: [(key: String, folder: String, file: String, rows: [Row])] = []
         for o in options where o.kind != "install" {
             let key = o.folder.isEmpty ? o.source : "\(o.folder) · \(o.source)"
             // "make dev", "swift run": the name already says it.
             let plain = o.command == o.name || o.command.hasSuffix(" " + o.name)
             let r = row(o.id, o.name, o.command, detail: o.detail ?? (plain ? nil : o.command), missing: o.missing, kind: o.kind,
-                        file: o.source)
-            if let i = groups.firstIndex(where: { $0.key == key }) { groups[i].rows.append(r) } else { groups.append((key, [r])) }
+                        file: o.source, folder: o.folder)
+            if let i = groups.firstIndex(where: { $0.key == key }) { groups[i].rows.append(r) } else { groups.append((key, o.folder, o.source, [r])) }
         }
-        return out + groups.map { .init(title: $0.key, rows: $0.rows) }
+        return out + groups.map { .init(title: $0.key, rows: $0.rows, folder: $0.folder, file: $0.file) }
     }
 }
