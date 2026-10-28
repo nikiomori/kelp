@@ -30,7 +30,7 @@ extension DiffViewController {
         return t
     }
     func band(_ s: String) -> NSTextField {
-        let t = label(s, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
+        let t = label(s, font: .ui(11), color: .tertiaryLabelColor)
         t.drawsBackground = true; t.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.06)
         return t
     }
@@ -87,12 +87,12 @@ extension DiffViewController {
         // The name, its counts, then its folder in grey, shown only when all of it fits: a cut folder ("So…") says nothing.
         let dir = (d.path as NSString).deletingLastPathComponent
         t.append(NSAttributedString(string: (d.path as NSString).lastPathComponent + "  ",
-            attributes: [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.labelColor]))
+            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.labelColor]))
         t.append(RowBadges.changes(added: d.additions, removed: d.deletions))
         let full = NSMutableAttributedString(attributedString: t)
         if !dir.isEmpty {
             full.append(NSAttributedString(string: "  " + dir,
-                                           attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]))
+                                           attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
         }
         let para = NSMutableParagraphStyle(); para.lineBreakMode = .byTruncatingTail
         for s in [t, full] { s.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: s.length)) }
@@ -109,7 +109,7 @@ extension DiffViewController {
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
-        let where_ = label(header, font: .monospacedSystemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor)
+        let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)
         if canStageHunks(f) {

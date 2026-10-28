@@ -62,7 +62,7 @@ package enum Builtins {
     private static let sidebar = [
         s("workbench.sidebar.autoHide", "Auto-hide sidebar", "boolean", false, "Comes in while the pointer is at the window's left edge, like the Dock.",
           group: "Sidebar"),
-        s("workbench.textSize", "Text size", "enum", "normal", "Sidebar and inspector. The terminal and the editor have their own font sizes.",
+        s("workbench.textSize", "Text size", "enum", "normal", "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
           options: ["normal", "large", "larger"], group: "Sidebar"),
         s("workbench.sidebar.rowHeight", "Row height", "enum", "system",
           "Match System follows Sidebar icon size in System Settings › Appearance.", options: ["system", "compact", "regular", "large"], group: "Sidebar"),

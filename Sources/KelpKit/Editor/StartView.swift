@@ -27,12 +27,12 @@ final class StartView: NSView, NSTextFieldDelegate {
         icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: w.displayName)
-        title.font = .systemFont(ofSize: 20, weight: .semibold)
+        title.font = .ui(20, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.alignment = .center
         // The window bar shows the folder; a remote project's host and path are said here, the bar has the local stand-in.
         let folder = NSTextField(labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? "")
-        folder.font = .systemFont(ofSize: 13)
+        folder.font = .ui(13)
         folder.textColor = .secondaryLabelColor
         folder.lineBreakMode = .byTruncatingMiddle
         folder.isHidden = folder.stringValue.isEmpty
@@ -51,7 +51,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         let open = NSTextField(labelWithString: String(localized: "Open"))
         open.font = .ui(11, weight: .semibold); open.textColor = .secondaryLabelColor
         let hint = NSTextField(labelWithString: String(localized: "A file, an agent or a command: ⌘P"))
-        hint.font = .systemFont(ofSize: 12); hint.textColor = .secondaryLabelColor
+        hint.font = .ui(12); hint.textColor = .secondaryLabelColor
 
         var views: [NSView] = [icon, title, folder]
         let field = agents.contains { $0.id == def } ? promptField() : nil
@@ -145,7 +145,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         prompt.isBordered = false
         prompt.drawsBackground = false
         prompt.focusRingType = .none
-        prompt.font = .systemFont(ofSize: 14)
+        prompt.font = .ui(14)
         prompt.lineBreakMode = .byTruncatingTail; prompt.delegate = self
         prompt.setAccessibilityLabel(String(localized: "First task for \(name)"))
         let icon = NSImageView(image: app.catalog.icon(def, size: 18) ?? NSImage())
@@ -237,16 +237,16 @@ private final class StartRow: NSView {
         let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .init(pointSize: 15, weight: .regular)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13)
+        label.font = .ui(13)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let more = NSTextField(labelWithString: detail ?? "")
         more.textColor = .secondaryLabelColor
-        more.font = .systemFont(ofSize: 12)
+        more.font = .ui(12)
         more.lineBreakMode = .byTruncatingTail; more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
         let key = NSTextField(labelWithString: shortcut ?? "")
         key.textColor = .secondaryLabelColor
-        key.font = .systemFont(ofSize: 12)
+        key.font = .ui(12)
         let row = NSStackView(views: [icon, label, NSView(), more, key])
         row.spacing = 10
         row.detachesHiddenViews = true

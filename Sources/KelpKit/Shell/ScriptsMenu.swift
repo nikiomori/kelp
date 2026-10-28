@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// The Run menu: the project's commands from `.kelp.yaml` (⌘R run, ⌘U test, ⌘. stops; without them, the focused
@@ -137,7 +138,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         text.string = lines.joined(separator: "\n")
         text.isEditable = false
         text.drawsBackground = false
-        text.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        text.font = .uiMono(11)
         text.isVerticallyResizable = true; text.textContainer?.widthTracksTextView = true
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8)))
         scroll.documentView = text

@@ -119,7 +119,7 @@ package struct UsageView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(row.fullName).font(.headline)
+                    Text(row.fullName).font(.system(size: TextSize.of(13), weight: .semibold))
                     if let at = row.readAt {
                         Text(row.stale ? String(localized: "Read \(shortAgo(at)) ago; not since, so these may be out of date.")
                              : Date().timeIntervalSince(at) < 60 ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago"))

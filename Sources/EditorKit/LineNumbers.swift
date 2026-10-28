@@ -97,7 +97,8 @@ final class LineNumbers: NSRulerView {
         if abs(ruleThickness - width) > 0.5 { ruleThickness = width }
     }
 
-    private var font: NSFont { .monospacedDigitSystemFont(ofSize: editor?.textView.font?.pointSize ?? 13, weight: .regular) }
+    /// The editor's own font, so the numbers line up with its lines.
+    private var font: NSFont { editor?.textView.font ?? .monospacedDigitSystemFont(ofSize: 13, weight: .regular) }
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
         background.setFill()

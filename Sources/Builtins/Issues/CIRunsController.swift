@@ -105,7 +105,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// The selected job's log under the runs, with what can be done with it above it (hidden until a job is picked).
     private func logPane() -> NSStackView {
         log.isEditable = false
-        log.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        log.font = .uiMono(11)
         log.textContainerInset = NSSize(width: 6, height: 6)
         log.isVerticallyResizable = true
         log.autoresizingMask = .width

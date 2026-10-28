@@ -170,7 +170,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         let effect = NSVisualEffectView()
         effect.material = .popover
         effect.state = .active
-        field.font = .systemFont(ofSize: 18)
+        field.font = .ui(18)
         field.focusRingType = .none
         field.delegate = self
         field.sendsSearchStringImmediately = true
@@ -187,7 +187,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         sv.documentView = table
         sv.hasVerticalScroller = true
         sv.drawsBackground = false
-        keys.font = .systemFont(ofSize: 11); keys.textColor = .secondaryLabelColor
+        keys.font = .ui(11); keys.textColor = .secondaryLabelColor
         let line = NSBox(); line.boxType = .separator
         for v in [field, sv, line, keys] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; effect.addSubview(v) }
         NSLayoutConstraint.activate([
@@ -418,13 +418,13 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t1.attributedStringValue = Self.highlighted(it.title, field.stringValue)
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: it.detail)
-        t2.font = .systemFont(ofSize: 12)
+        t2.font = .ui(12)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
         let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
         let n = showingRecents && index < 6 && it.kind != "Workspace" ? "⌘\(index + 1)  " : ""
-        let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .systemFont(ofSize: 11)
+        let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .ui(11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
         let tick = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: String(localized: "Current")) ?? NSImage())
@@ -451,10 +451,10 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     /// The title with what was typed in bold: each word of the query where it first occurs.
     static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
-        let s = NSMutableAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 13)])
+        let s = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
         for word in query.split(separator: " ") where !word.isEmpty {
             let r = (title as NSString).range(of: String(word), options: .caseInsensitive)
-            if r.location != NSNotFound { s.addAttribute(.font, value: NSFont.systemFont(ofSize: 13, weight: .bold), range: r) }
+            if r.location != NSNotFound { s.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: r) }
         }
         return s
     }

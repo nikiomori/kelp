@@ -158,7 +158,7 @@ struct KeyboardSettings: View {
                 Button("Restore Defaults") { KeyBindings.resetAll(app.settings); later() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
             }
             ForEach(groups, id: \.0) { menu, items in
-                Text(menu).font(.headline).padding(.top, 6)
+                Text(menu).font(.system(size: TextSize.of(13), weight: .semibold)).padding(.top, 6)
                 ForEach(items) { e in row(e) }
             }
         }

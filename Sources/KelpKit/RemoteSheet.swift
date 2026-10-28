@@ -47,7 +47,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     required init?(coder: NSCoder) { fatalError() }
 
     private func build() {
-        let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH")); title.font = .boldSystemFont(ofSize: 13)
+        let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH")); title.font = .ui(13, weight: .semibold)
         host.addItems(withObjectValues: Self.sshHosts()); host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         host.completes = true; host.delegate = self
         host.stringValue = UserDefaults.standard.string(forKey: "remote.host") ?? ""
@@ -72,7 +72,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                                + String(localized: "The agents you use must be installed on that machine. Files open read-only."))
         for t in [note, status] {
             t.textColor = .secondaryLabelColor
-            t.font = .systemFont(ofSize: 11)
+            t.font = .ui(11)
             t.preferredMaxLayoutWidth = 430
         }
         spinner.style = .spinning

@@ -120,7 +120,7 @@ struct CardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.title).font(.headline).lineLimit(2)
+                Text(model.title).font(.system(size: TextSize.of(13), weight: .semibold)).lineLimit(2)
                 if !model.subtitle.isEmpty { Text(model.subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
             }
             if let r = model.repo { WorktreeSizes(items: model.worktrees, root: r.path) }

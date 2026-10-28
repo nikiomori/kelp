@@ -283,7 +283,7 @@ final class SidebarCell: NSTableCellView {
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
-        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11.5)
+        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
         let t = NSMutableAttributedString()
         if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
             t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))

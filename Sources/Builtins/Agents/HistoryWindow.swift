@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 import KelpKit
 
@@ -46,7 +47,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         resumeB.bezelStyle = .rounded
         resumeB.keyEquivalent = "\r"
         let copyB = NSButton(title: String(localized: "Copy Resume Command"), target: self, action: #selector(copyCommand)); copyB.bezelStyle = .rounded
-        status.textColor = .secondaryLabelColor; status.font = .systemFont(ofSize: 11)
+        status.textColor = .secondaryLabelColor; status.font = .ui(11)
         showAll.bezelStyle = .rounded; showAll.isHidden = true
         let bar = NSStackView(views: [search, fullText, NSView(), status, showAll, copyB, resumeB])
         bar.spacing = 8; bar.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 8, right: 12)

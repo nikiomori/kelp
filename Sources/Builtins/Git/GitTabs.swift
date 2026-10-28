@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import WorkbenchKit
 import KelpKit
 
@@ -105,7 +106,7 @@ final class CommitMessageTab: TabContent {
     private func build() {
         text.isRichText = false
         text.allowsUndo = true
-        text.font = .monospacedSystemFont(ofSize: TextSize.of(13), weight: .regular)
+        text.font = CodeEditor.font   // a commit message is written in the editor's font, at its size
         text.textContainerInset = NSSize(width: 12, height: 12)
         text.isVerticallyResizable = true
         text.autoresizingMask = .width

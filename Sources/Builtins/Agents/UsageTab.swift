@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Charts
 import Core
+import DesignKit
 import KelpKit
 
 /// "usage:" — what the agents used: plan limits first, then Claude Code's tokens by day, model and project from its own
@@ -115,7 +116,7 @@ struct UsageReportView: View {
     }
     private func table(_ title: String, _ rows: [Row]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
+            Text(title).font(.system(size: TextSize.of(13), weight: .semibold))
             ForEach(rows.prefix(8)) { r in
                 HStack {
                     Text(r.id).lineLimit(1).truncationMode(.middle)

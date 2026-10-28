@@ -64,7 +64,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         source.target = self
         source.action = #selector(sourceChanged)
         source.controlSize = .small
-        status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor
+        status.font = .ui(11); status.textColor = .secondaryLabelColor
         pathLabel.lineBreakMode = .byTruncatingHead; pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let fc = NSTableColumn(identifier: .init("file")); fc.title = String(localized: "Files")
@@ -188,10 +188,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         single = (path, source, commit)
         fileList?.isHidden = true
         let dir = (path as NSString).deletingLastPathComponent
-        let s = NSMutableAttributedString(string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)])
+        let s = NSMutableAttributedString(string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
         if !dir.isEmpty {
             s.append(NSAttributedString(string: "  " + dir,
-                                        attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.tertiaryLabelColor]))
+                                        attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
         }
         pathLabel.attributedStringValue = s
         buildBar()
@@ -359,13 +359,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         switch rows[row] {
         case .comment(let c):
             guard first else { return label("", font: font) }
-            let v = label("💬 \(c.text)  [\(c.state.rawValue)]", font: .systemFont(ofSize: 11, weight: .medium))
+            let v = label("💬 \(c.text)  [\(c.state.rawValue)]", font: .ui(11, weight: .medium))
             v.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.2); v.drawsBackground = true
             return v
         case .diff(let r):
             switch r {
             case .file(let p, let a, let d):
-                let v = label(first ? "\(p)   " + RowBadges.changes(added: a, removed: d).string : "", font: .boldSystemFont(ofSize: 12))
+                let v = label(first ? "\(p)   " + RowBadges.changes(added: a, removed: d).string : "", font: .ui(12, weight: .semibold))
                 v.backgroundColor = .controlBackgroundColor
                 v.drawsBackground = true
                 return v

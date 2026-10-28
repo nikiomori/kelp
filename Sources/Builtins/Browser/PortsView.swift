@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// A blank browser tab offers what the workspace is serving: each port its terminals or agents listen on, to open,
@@ -15,8 +16,8 @@ final class PortsView: NSView {
     init(app: AppModel) {
         self.app = app; ports = Watched(.ports, in: app)
         super.init(frame: .zero)
-        let title = NSTextField(labelWithString: String(localized: "Running in This Workspace")); title.font = .systemFont(ofSize: 13, weight: .semibold)
-        hint.textColor = .secondaryLabelColor; hint.font = .systemFont(ofSize: 12)
+        let title = NSTextField(labelWithString: String(localized: "Running in This Workspace")); title.font = .ui(13, weight: .semibold)
+        hint.textColor = .secondaryLabelColor; hint.font = .ui(12)
         hint.stringValue = String(localized: "Servers you start in this workspace's terminals and agents show up here. Or type an address above.")
         list.orientation = .vertical
         list.alignment = .leading
@@ -61,10 +62,10 @@ final class PortsView: NSView {
         let link = ClosureButton(title: "localhost:\(port)") { [weak self] in self?.onOpen?(address) }
         link.isBordered = false
         link.contentTintColor = .linkColor
-        link.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        link.font = .uiDigits(13, weight: .medium)
         let what = NSTextField(labelWithString: p.command)
         what.textColor = .secondaryLabelColor
-        what.font = .systemFont(ofSize: 12)
+        what.font = .ui(12)
         let copy = ClosureButton(title: String(localized: "Copy")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(address, forType: .string)

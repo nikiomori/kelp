@@ -29,7 +29,7 @@ final class OnboardingSheet: SheetController {
     private func build() {
         let icon = NSImageView(image: NSApp.applicationIconImage); icon.widthAnchor.constraint(equalToConstant: 56).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 56).isActive = true
-        let title = NSTextField(labelWithString: String(localized: "Welcome to Kelp")); title.font = .boldSystemFont(ofSize: 17)
+        let title = NSTextField(labelWithString: String(localized: "Welcome to Kelp")); title.font = .ui(17, weight: .semibold)
         let sub = NSTextField(wrappingLabelWithString:
                               String(localized: "Agents work in their own workspaces here, with the terminal, editor and git next to them."))
         sub.textColor = .secondaryLabelColor; sub.preferredMaxLayoutWidth = 340
@@ -50,7 +50,7 @@ final class OnboardingSheet: SheetController {
 
         let test = ClosureButton(title: String(localized: "Send Test Notification")) { [weak self] in self?.testNotification() }
         test.bezelStyle = .push
-        notifyStatus.textColor = .secondaryLabelColor; notifyStatus.font = .systemFont(ofSize: 11)
+        notifyStatus.textColor = .secondaryLabelColor; notifyStatus.font = .ui(11)
         let notifyRow = NSStackView(views: [test, notifyStatus]); notifyRow.spacing = 8
 
         let later = ClosureButton(title: String(localized: "Later")) { [weak self] in self?.close() }
@@ -79,7 +79,8 @@ final class OnboardingSheet: SheetController {
 
     private func section(_ t: String) -> NSTextField {
         let l = NSTextField(labelWithString: t)
-        l.font = .systemFont(ofSize: 12, weight: .semibold)
+        l.font = .ui(11, weight: .semibold)
+        l.textColor = .secondaryLabelColor
         return l
     }
 

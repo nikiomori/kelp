@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// The window's split: its dividers aren't drawn (the panels and the gap round the card are one surface), and each can
@@ -268,7 +269,7 @@ final class WelcomeView: NSView {
         let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "folder.badge.plus"))
         icon.symbolConfiguration = .init(pointSize: 40, weight: .light); icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a workspace") : String(localized: "Welcome to Kelp"))
-        title.font = .systemFont(ofSize: 20, weight: .semibold)
+        title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos
             ? String(localized: "Pick a workspace in the sidebar, or press ⌘N for a new one — a clean desk in the project for one task and its agents.")
             : String(localized: "Add a project folder. Each task gets its own workspace: agents, terminals and files side by side."))

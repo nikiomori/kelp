@@ -430,13 +430,13 @@ final class CountBadge: NSView {
     private var text: NSAttributedString? {
         guard let n = badge?.count, n > 0 else { return nil }
         return NSAttributedString(string: n > 99 ? "99+" : "\(n)",
-                                  attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold), .foregroundColor: NSColor.white])
+                                  attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold), .foregroundColor: NSColor.white])
     }
     init() { super.init(frame: .zero); isHidden = true }
     required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize {
-        guard let t = text else { return NSSize(width: 7, height: 13) }   // a dot, centred where the number's capsule would be
-        return NSSize(width: max(13, ceil(t.size().width) + 7), height: 13)
+        guard let t = text else { return NSSize(width: 7, height: 14) }   // a dot, centred where the number's capsule would be
+        return NSSize(width: max(14, ceil(t.size().width) + 7), height: 14)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
     override func draw(_ r: NSRect) {

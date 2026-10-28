@@ -54,7 +54,7 @@ final class PaletteField: NSSearchField {
     private final class Token: NSView {
         var text = "" { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
         private var words: NSAttributedString {
-            NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.textPurple])
+            NSAttributedString(string: text, attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.textPurple])
         }
         override var intrinsicContentSize: NSSize { NSSize(width: ceil(words.size().width) + 14, height: 20) }
         override func draw(_ r: NSRect) {

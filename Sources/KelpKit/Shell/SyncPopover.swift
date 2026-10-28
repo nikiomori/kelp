@@ -13,7 +13,7 @@ final class SyncPopover: NSViewController {
         return f
     }()
     private static let captionAttributes: [NSAttributedString.Key: Any] =
-        [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor, .kern: 0.4]
+        [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
 
     private let app: AppModel
     private let wid: String
@@ -279,7 +279,7 @@ final class SyncPopover: NSViewController {
             update()
         }
         toggle.isBordered = false
-        toggle.attributedTitle = NSAttributedString(string: String(localized: "To pull").uppercased() + " · \(behind)", attributes: Self.captionAttributes)
+        toggle.attributedTitle = NSAttributedString(string: String(localized: "To pull") + " · \(behind)", attributes: Self.captionAttributes)
         toggle.image = .symbol(showIncoming ? "chevron.down" : "chevron.right", String(localized: "To pull"))
         toggle.imagePosition = .imageLeading
         toggle.contentTintColor = .secondaryLabelColor
@@ -289,7 +289,7 @@ final class SyncPopover: NSViewController {
 
     private func caption(_ text: String, _ n: Int) -> NSView {
         let l = NSTextField(labelWithString: "")
-        l.attributedStringValue = NSAttributedString(string: text.uppercased() + " · \(n)", attributes: Self.captionAttributes)
+        l.attributedStringValue = NSAttributedString(string: text + " · \(n)", attributes: Self.captionAttributes)
         return l
     }
 
@@ -315,7 +315,7 @@ final class SyncPopover: NSViewController {
     private func showChanges() {
         let git = app.git[wid], list = git?.changes ?? [], n = list.count
         let hasRemote = git?.branches.map { $0.upstream != nil || !$0.remote.isEmpty } ?? false
-        changes.attributedStringValue = NSAttributedString(string: String(localized: "Changes").uppercased() + (n > 0 ? " · \(n)" : ""),
+        changes.attributedStringValue = NSAttributedString(string: String(localized: "Changes") + (n > 0 ? " · \(n)" : ""),
                                                            attributes: Self.captionAttributes)
         let text = NSMutableAttributedString()
         if n > 0, let s = git?.stats {

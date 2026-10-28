@@ -218,7 +218,7 @@ struct AgentsSettings: View {
 
     /// How Kelp starts it: binary, arguments, environment (and a provider's variables).
     @ViewBuilder private func launch(_ m: AgentManifest) -> some View {
-        Text("Launch").font(.headline)
+        Text("Launch").font(.system(size: TextSize.of(13), weight: .semibold))
         Form {
             TextField("Command", text: $command)
             TextField("Arguments", text: $args, prompt: Text("space separated"))

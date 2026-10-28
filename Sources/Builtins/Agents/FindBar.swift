@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import KelpKit
 
 /// ⌘F over a terminal: floats in the top corner (the terminal doesn't resize, so an agent's screen doesn't reflow).
@@ -28,9 +29,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         field.placeholderString = String(localized: "Find")
         field.delegate = self
         field.controlSize = .small
-        field.font = .systemFont(ofSize: 12)
+        field.font = .ui(12)
         field.sendsSearchStringImmediately = true; field.focusRingType = .none
-        count.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); count.textColor = .secondaryLabelColor
+        count.font = .uiDigits(11); count.textColor = .secondaryLabelColor
         steps.segmentCount = 2
         steps.trackingMode = .momentary
         steps.controlSize = .small

@@ -254,7 +254,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         super.init(frame: .zero)
         wantsLayer = true; layer?.cornerRadius = 6
         icon.symbolConfiguration = .init(pointSize: 11, weight: .regular)
-        title.font = .systemFont(ofSize: 12); title.lineBreakMode = .byTruncatingTail
+        title.font = .ui(12); title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
         close.toolTip = String(localized: "Close Tab (⌘W)")
         close.isBordered = false

@@ -128,7 +128,7 @@ struct PathPreviewView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text(model.name).font(.headline)
+                Text(model.name).font(.system(size: TextSize.of(13), weight: .semibold))
                 if !model.folder.isEmpty { Text(model.folder).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 Spacer(minLength: 8)
                 if model.changed { Text("Changed").font(.caption.weight(.medium)).foregroundStyle(Color.textOrange) }
@@ -147,7 +147,7 @@ struct PathPreviewView: View {
                         .background(l.number == model.line && l.mark == " " ? Color.accentColor.opacity(0.18) : .clear)
                     }
                 }
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: TextSize.of(11), design: .monospaced))
             }
             Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.caption2).foregroundStyle(.tertiary)
         }

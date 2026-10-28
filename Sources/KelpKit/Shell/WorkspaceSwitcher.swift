@@ -192,11 +192,11 @@ final class WorkspaceSwitcher {
         let icon = NSImageView(image: .symbol("folder"))
         if let r = m.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: m) }
         icon.widthAnchor.constraint(equalToConstant: 22).isActive = true; icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let name = label(w.displayName, .systemFont(ofSize: 13, weight: .semibold))
+        let name = label(w.displayName, .ui(13, weight: .semibold))
         let repo = m.repo(w.repoId)
         // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
         let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "),
-                          .systemFont(ofSize: 12), secondary: true)
+                          .ui(12), secondary: true)
         let folder = app.rowBadges.folder(workspace: w.id) ?? app.rowBadges.folder(project: w.repoId)
         let changes = label("", .uiDigits(11)), pr = label("", .uiDigits(11))
         if let c = folder.flatMap({ RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) }) {
@@ -205,7 +205,7 @@ final class WorkspaceSwitcher {
             changes.isHidden = true
         }
         if let p = folder.flatMap({ RowBadges.pr(app.rowBadges.prs[$0.id]) }) { pr.attributedStringValue = p.0 } else { pr.isHidden = true }
-        let when = label(shortAgo(lead.map { $0.statusAt ?? $0.createdAt }), .monospacedDigitSystemFont(ofSize: 11, weight: .regular), secondary: true)
+        let when = label(shortAgo(lead.map { $0.statusAt ?? $0.createdAt }), .uiDigits(11), secondary: true)
         when.alignment = .right
         when.setContentCompressionResistancePriority(.required, for: .horizontal)   // a long name truncates, not the time
         when.widthAnchor.constraint(greaterThanOrEqualToConstant: 30).isActive = true   // the times line up
@@ -224,7 +224,7 @@ final class WorkspaceSwitcher {
             [app.catalog.displayName(s) + " · " + s.statusWords, s.summary].filter { !$0.isEmpty }.joined(separator: " — ")
                 + (others > 0 ? "  " + String(localized: "+\(others) more") : "")
         }
-        let detail = label(said ?? "", .systemFont(ofSize: 12), secondary: true)
+        let detail = label(said ?? "", .ui(12), secondary: true)
         detail.isHidden = said == nil   // no agents: one line
         let text = NSStackView(views: [top1, detail])
         text.orientation = .vertical

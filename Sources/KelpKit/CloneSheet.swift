@@ -45,7 +45,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
 
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Clone a Repository"))
-        title.font = .boldSystemFont(ofSize: 13)
+        title.font = .ui(13, weight: .semibold)
         field.placeholderString = "https://github.com/owner/repo or git@…"
         field.widthAnchor.constraint(equalToConstant: 340).isActive = true; field.delegate = self
         dest.delegate = self
@@ -68,7 +68,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         bar.minValue = 0
         bar.maxValue = 100
         status.textColor = .secondaryLabelColor
-        status.font = .systemFont(ofSize: 11)
+        status.font = .ui(11)
         status.isHidden = true
         status.preferredMaxLayoutWidth = 430
         go.title = String(localized: "Clone")

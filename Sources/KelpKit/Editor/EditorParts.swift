@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// A tab whose provider is missing (its extension is disabled or uninstalled).
 @MainActor
@@ -12,7 +13,7 @@ final class UnavailableTab: TabContent {
         self.uri = uri
         let icon = NSImageView(image: .symbol("puzzlepiece.extension")); icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
-        let t = NSTextField(labelWithString: String(localized: "Extension Turned Off")); t.font = .systemFont(ofSize: 13, weight: .semibold)
+        let t = NSTextField(labelWithString: String(localized: "Extension Turned Off")); t.font = .ui(13, weight: .semibold)
         let l = NSTextField(wrappingLabelWithString: String(localized: "The extension that shows “\(uri)” is turned off or was removed."))
         l.alignment = .center; l.textColor = .secondaryLabelColor
         let b = ClosureButton(title: String(localized: "Extensions…")) { SettingsWindow.show(app, section: "extensions") }; b.bezelStyle = .push
