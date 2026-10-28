@@ -29,13 +29,7 @@ extension ScriptsMenu {
 
     /// What ran last in the workspace's project (its desks share it).
     func remembered(_ wid: String) -> String? { project(wid).flatMap { app.uiState["run.last.\($0)"]?.string } }
-    func remember(_ choice: String, in wid: String) {
-        guard let p = project(wid) else { return }
-        app.uiState["run.last.\(p)"] = .string(choice)
-        app.uiState["run.recent.\(p)"] = .array(([choice] + recent(wid).filter { $0 != choice }).prefix(5).map(JSONValue.string))
-    }
-    /// What ran lately in the project, the last first (five at most): the top of a long Run menu.
-    func recent(_ wid: String) -> [String] { project(wid).map { app.uiState.strings("run.recent.\($0)") } ?? [] }
+    func remember(_ choice: String, in wid: String) { project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) } }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
 
     /// What the workspace's files offer, read again (on a remote host: one ssh call). Quiet: the list says what it has.
@@ -118,6 +112,9 @@ extension ScriptsMenu {
         }
     }
 
+    /// The Run menu: what's already running that it didn't start, then the project's commands by what they do — Run,
+    /// Tests, Build & Check, Deploy — a line each, a coloured symbol of its purpose, where it comes from in grey; the rest
+    /// under More, by file. A description and the whole command are the tip.
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
@@ -127,70 +124,124 @@ extension ScriptsMenu {
             m.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for p in elsewhere { server(p, in: m, wid) }
         }
-        let sections = sections(wid), rows = sections.flatMap(\.rows)
-        if rows.count <= Self.flat {
-            for s in sections {
-                m.addItem(.sectionHeader(title: s.title))
-                for r in s.rows { item(r, in: m, wid) }
-            }
-        } else {
-            // Too many for one screen: the few that matter here, then every file's in a submenu of its own.
-            // Mixed files and folders: each shows as its command, its folder beside it.
-            for r in top(rows, wid) { item(r, in: m, wid, asCommand: true) }
-            m.addItem(.separator())
-            m.addItem(.sectionHeader(title: String(localized: "All Commands")))
-            // A file of the workspace's own folder has its submenu; a subfolder (api, web) one for all its files.
-            var groups: [(title: String, folder: Bool, sections: [Section])] = []
-            for s in sections {
-                let key = s.folder.isEmpty ? s.title : s.folder
-                if let i = groups.firstIndex(where: { $0.title == key }) { groups[i].sections.append(s) }
-                else { groups.append((key, !s.folder.isEmpty, [s])) }
-            }
-            for g in groups { submenu(g.title, folder: g.folder, g.sections, in: m, wid) }
+        let rows = rows(wid), by = Dictionary(grouping: rows, by: Self.purpose)
+        for p in Purpose.allCases where p != .other {
+            guard let some = by[p] else { continue }
+            m.addItem(.sectionHeader(title: p.title))
+            for r in some { item(r, in: m, wid) }
         }
-        if sections.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
+        let rest = by[.other] ?? []
+        if rest.count > 3 {
+            let sub = NSMenu()
+            var file = ""
+            for r in rest {
+                let from = r.folder.isEmpty ? r.file : "\(r.folder) · \(r.file)"
+                if from != file { sub.addItem(.sectionHeader(title: from)); file = from }
+                item(r, in: sub, wid)
+            }
+            let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)")
+            image(more, .symbol("ellipsis.circle"))
+            m.addItem(more)
+            m.setSubmenu(sub, for: more)
+        } else if !rest.isEmpty {
+            m.addItem(.sectionHeader(title: Purpose.other.title))
+            for r in rest { item(r, in: m, wid) }
+        }
+        if rows.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
         m.add(String(localized: "Edit Commands…"), symbol: "pencil") { [weak self] in self?.edit() }
         return m
     }
 
-    /// One choice: its name, what it adds under it (a script's body, a target's description, a service's port — never the
-    /// command that only repeats the name), its whole command as the tip.
-    private func item(_ r: Row, in m: NSMenu, _ wid: String, asCommand: Bool = false) {
+    /// One command on one line: its purpose's symbol, its name, where it comes from ("make", "npm · web") — or its port
+    /// while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
+    private func item(_ r: Row, in m: NSMenu, _ wid: String) {
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
             Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
         }
-        icon(i, r.file)
+        let (symbol, color) = Self.glyph(r)
+        image(i, Self.tinted(symbol, color))
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
-        let detail = asCommand && r.detail == r.command ? nil : r.detail
-        let said = r.running ? [String(localized: "Running"), port].compactMap { $0 }.joined(separator: " · ")
-            : r.missing.map { String(localized: "\($0) isn't installed") } ?? detail.map(Self.oneLine)
-        if #available(macOS 14.4, *), let said { i.subtitle = said }
-        guard asCommand else { return }
-        let font = NSFont.menuFont(ofSize: 0)
-        let title = NSMutableAttributedString(string: Self.short(r.command), attributes: [.font: font])
-        if !r.folder.isEmpty {
-            title.append(NSAttributedString(string: "  " + r.folder, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
-        }
-        i.attributedTitle = title
+        let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : [])
+        let note = r.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
+        i.attributedTitle = Self.title(r.name, note: note, dim: r.missing != nil)
     }
 
-    /// "Makefile ▸" with its commands, or "api ▸" with each of its files' commands under the file's name.
-    private func submenu(_ title: String, folder: Bool, _ sections: [Section], in m: NSMenu, _ wid: String) {
-        let sub = NSMenu()
-        for s in sections {
-            if folder { sub.addItem(.sectionHeader(title: s.file)) }
-            for r in s.rows { item(r, in: sub, wid) }
+    /// A name, and beside it in grey what tells it apart.
+    static func title(_ name: String, note: String, dim: Bool = false) -> NSAttributedString {
+        let font = NSFont.menuFont(ofSize: 0)
+        let t = NSMutableAttributedString(string: name, attributes: [.font: font, .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor])
+        t.append(NSAttributedString(string: "   " + note, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
+        return t
+    }
+
+    /// What a command is for, the Run menu's sections.
+    enum Purpose: CaseIterable {
+        case install, run, test, build, deploy, other
+        var title: String {
+            switch self {
+            case .install: String(localized: "Dependencies")
+            case .run: String(localized: "Run")
+            case .test: String(localized: "Tests")
+            case .build: String(localized: "Build & Check")
+            case .deploy: String(localized: "Deploy")
+            case .other: String(localized: "Other")
+            }
         }
-        let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        if folder { image(i, .symbol("folder")) } else if let r = sections.first?.rows.first { icon(i, r.file) }
-        m.addItem(i)
-        m.setSubmenu(sub, for: i)
-        let n = sections.reduce(0) { $0 + $1.rows.count }
-        if #available(macOS 14.4, *) { i.subtitle = String(localized: "Commands: \(n)") }
+    }
+
+    /// By run.detect's kind, and by name for what kinds don't say (deploy, release, rollback; smoke and e2e tests).
+    static func purpose(_ r: Row) -> Purpose {
+        let n = r.name.lowercased()
+        if r.install || ["install", "setup", "bootstrap", "deps"].contains(where: n.hasPrefix) { return .install }
+        if ["deploy", "release", "publish", "ship", "rollback"].contains(where: n.hasPrefix) { return .deploy }
+        switch r.kind {
+        case "run": return r.file == "Dockerfile" ? .other : .run   // building an image to run it: not the everyday server
+        case "test": return .test
+        case "build", "lint": return .build
+        default: return ["smoke", "e2e"].contains(where: n.hasPrefix) ? .test : .other
+        }
+    }
+
+    /// Its purpose's symbol and colour (green ▶ run, purple flask tests, orange hammer build, blue check lint, red plane
+    /// deploy, teal install); the rest in grey, by name. ▶ in a green circle: it runs now.
+    static func glyph(_ r: Row) -> (String, NSColor) {
+        let n = r.name.lowercased()
+        if r.running { return ("play.circle.fill", .systemGreen) }
+        switch purpose(r) {
+        case .install: return ("arrow.down.circle.fill", .systemTeal)
+        case .run: return ("play.fill", .systemGreen)
+        case .test: return ("flask.fill", .systemPurple)
+        case .build: return r.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
+        case .deploy: return (n.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
+        case .other:
+            if r.file.contains("compose") || r.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
+            let named: [(words: [String], symbol: String)] = [(["clean"], "trash"), (["migrate", "seed", "db", "backup"], "cylinder"),
+                                                              (["log"], "text.alignleft"), (["doc"], "book")]
+            return (named.first { $0.words.contains(where: n.hasPrefix) }?.symbol ?? "terminal", .secondaryLabelColor)
+        }
+    }
+
+    /// A symbol in colour: a menu draws a template image in its text colour.
+    static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
+        let look = NSImage.SymbolConfiguration(pointSize: 13, weight: Metrics.iconWeight).applying(.init(paletteColors: [color]))
+        let i = NSImage.symbol(name, "").withSymbolConfiguration(look)
+        i?.isTemplate = false
+        return i
+    }
+
+    /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its folder.
+    static func source(_ r: Row) -> String {
+        let words = r.command.split(separator: " ").map(String.init)
+        var tool = r.file == ".kelp.yaml" ? ".kelp.yaml" : words.first ?? ""
+        if tool == "docker", words.dropFirst().first == "compose" { tool = "compose" }
+        if tool.hasPrefix(".venv/") { tool = "venv" }
+        if tool.hasPrefix("./") { tool = String(tool.dropFirst(2)) }
+        return r.folder.isEmpty ? tool : "\(tool) · \((r.folder as NSString).lastPathComponent)"
     }
 
     /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's background
@@ -213,36 +264,12 @@ extension ScriptsMenu {
         stop.keyEquivalentModifierMask = .option
     }
 
-    /// The icon of the file a choice comes from, as Files shows it: what runs it (npm, Python, make, Docker) at a glance,
-    /// and the file's section it sits in.
-    private func icon(_ i: NSMenuItem, _ file: String) { image(i, app.fileIcons.image((file as NSString).lastPathComponent)) }
-
     /// An item's image, kept on macOS 27, whose menus hide the images an item doesn't ask to show.
     private func image(_ i: NSMenuItem, _ image: NSImage?) {
         i.image = image
         #if compiler(>=6.4)   // the macOS 27 SDK
         if #available(macOS 27, *) { i.preferredImageVisibility = .visible }
         #endif
-    }
-
-    /// Up to this many, the menu lists them all by file; more, and it shows `top` and a submenu per file.
-    static let flat = 12
-
-    /// What a long menu starts with: dependencies to install, what runs now, what ⌘R runs, what ran lately, then the
-    /// likeliest server, tests, build and lint the files offer. Eight at most.
-    private func top(_ rows: [Row], _ wid: String) -> [Row] {
-        let byId = Dictionary(rows.map { ($0.id, $0) }) { a, _ in a }
-        let guess = state.found[wid]?.guess
-        var ids = rows.filter { $0.install || $0.running || $0.current }.map(\.id) + recent(wid) + [guess].compactMap { $0 }
-        ids += ["test", "build", "lint"].compactMap { k in rows.first { $0.kind == k && $0.missing == nil }?.id }
-        var seen = Set<String>()
-        return ids.filter { byId[$0] != nil && seen.insert($0).inserted }.prefix(8).compactMap { byId[$0] }
-    }
-
-    /// A description as one short line: its first line, cut at 60 characters (the tip has it whole).
-    static func oneLine(_ s: String) -> String {
-        let first = s.split(whereSeparator: \.isNewline).first.map(String.init) ?? s
-        return first.count > 60 ? first.prefix(59).trimmingCharacters(in: .whitespaces) + "…" : first
     }
 
     /// The page a run serves, beside what you're doing.
@@ -252,50 +279,32 @@ extension ScriptsMenu {
     }
 
     struct Row {
-        var id, name, command: String, detail: String?, missing: String?, running: Bool, url: String?, current: Bool, install: Bool
-        /// run.detect's kind (run, test, build, lint, other) and the file it comes from.
-        var kind = "other", file = ""
-        /// Where it runs inside the workspace ("" its own folder).
-        var folder = ""
+        var id, name, command: String
+        var detail: String?, missing: String?, url: String?
+        var running = false, current = false, install = false
+        /// run.detect's kind (run, test, build, lint, other), the file it comes from, and where it runs ("" the workspace's folder).
+        var kind = "other", file = "", folder = ""
     }
 
-    /// `folder` and `file` for a file's section ("" folder: the workspace's own); a title of its own otherwise.
-    struct Section { var title: String, rows: [Row], folder = "", file = "" }
-
-    /// The menu's sections: dependencies to install first, .kelp.yaml's commands, then each file's, by folder.
-    func sections(_ wid: String) -> [Section] {
-        let options = state.found[wid]?.options ?? []
+    /// Every command the menu offers: .kelp.yaml's, then the files', its own folder's first; what runs, and what ⌘R runs.
+    func rows(_ wid: String) -> [Row] {
         let mark = current(wid)?.choice
         let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
-        func row(_ id: String, _ name: String, _ command: String, detail: String? = nil, missing: String? = nil, install: Bool = false,
-                 kind: String = "other", file: String, folder: String = "") -> Row {
-            Row(id: id, name: name, command: command, detail: detail, missing: missing, running: live[id] != nil,
-                url: live[id].flatMap { state.active[$0]?.url }, current: id == mark, install: install, kind: kind, file: file,
-                folder: folder)
+        let kinds = ["run": "run", "test": "test", "build": "build", "lint": "lint"]
+        let kelp = (state.kelp[wid] ?? []).map {
+            Row(id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other", file: ".kelp.yaml")
         }
-        var out: [Section] = []
-        let installs = options.filter { $0.kind == "install" }
-        if !installs.isEmpty {
-            out.append(.init(title: String(localized: "Dependencies"), rows: installs.map {
-                let name = $0.folder.isEmpty ? String(localized: "Install") : String(localized: "Install in \($0.folder)")
-                return row($0.id, name, $0.command, detail: $0.command, missing: $0.missing, install: true, file: $0.source, folder: $0.folder)
-            }))
+        let found = (state.found[wid]?.options ?? []).map { o in
+            Row(id: o.id, name: o.kind == "install" ? String(localized: "Install") : o.name, command: o.command, detail: o.detail,
+                missing: o.missing, kind: o.kind, file: o.source, folder: o.folder)
         }
-        if let kelp = state.kelp[wid], !kelp.isEmpty {
-            let kinds = ["run": "run", "test": "test", "build": "build", "lint": "lint"]
-            out.append(.init(title: ".kelp.yaml", rows: kelp.map {
-                row("kelp:" + $0.name, $0.name, $0.command, detail: $0.command, kind: kinds[$0.name] ?? "other", file: ".kelp.yaml")
-            }))
+        return (kelp + found).map { r in
+            var r = r
+            r.url = live[r.id].flatMap { state.active[$0]?.url }
+            r.running = live[r.id] != nil
+            r.current = r.id == mark
+            r.install = r.kind == "install"
+            return r
         }
-        var groups: [(key: String, folder: String, file: String, rows: [Row])] = []
-        for o in options where o.kind != "install" {
-            let key = o.folder.isEmpty ? o.source : "\(o.folder) · \(o.source)"
-            // "make dev", "swift run": the name already says it.
-            let plain = o.command == o.name || o.command.hasSuffix(" " + o.name)
-            let r = row(o.id, o.name, o.command, detail: o.detail ?? (plain ? nil : o.command), missing: o.missing, kind: o.kind,
-                        file: o.source, folder: o.folder)
-            if let i = groups.firstIndex(where: { $0.key == key }) { groups[i].rows.append(r) } else { groups.append((key, o.folder, o.source, [r])) }
-        }
-        return out + groups.map { .init(title: $0.key, rows: $0.rows, folder: $0.folder, file: $0.file) }
     }
 }

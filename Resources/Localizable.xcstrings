@@ -663,16 +663,6 @@
         }
       }
     },
-    "All Commands": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все команды"
-          }
-        }
-      }
-    },
     "Already installed": {
       "localizations": {
         "ru": {
@@ -1261,6 +1251,16 @@
         }
       }
     },
+    "Build & Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сборка и проверка"
+          }
+        }
+      }
+    },
     "Built-in": {
       "localizations": {
         "ru": {
@@ -1379,16 +1379,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите, чтобы открыть CI Runs"
-          }
-        }
-      }
-    },
-    "Commands: %lld": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Команд: %lld"
           }
         }
       }
@@ -2555,6 +2545,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Зависимости"
+          }
+        }
+      }
+    },
+    "Deploy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Деплой"
           }
         }
       }
@@ -5610,6 +5610,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Option работает как Alt (Meta)"
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочее"
           }
         }
       }
