@@ -81,24 +81,6 @@ func trustQuestionStandIn() -> String {
     #expect(!rows.contains { $0["id"]?.string == "gone" })   // not installed: not listed
 }
 
-@Test func planLimitsAreReadInAFolderTheAgentAlreadyTrusts() {
-    func pick(_ used: [String], _ trusted: [String], usable: Set<String>? = nil) -> String? {
-        AgentUsage.probeFolder(used: used, trusted: trusted, remoteRoot: "/h/.kelp/remote", home: "/h") { usable?.contains($0) ?? true }
-    }
-    // A trusted folder in Documents, Desktop… that Kelp never opened isn't touched: macOS would ask for it out of nowhere.
-    #expect(pick([], ["/h/Documents/app", "/h/Desktop/x", "/Volumes/usb/y", "/p/web"]) == "/p/web")
-    #expect(pick([], ["/h/Documents/app"]) == nil)
-    #expect(pick(["/h/Documents/app"], ["/h/Documents/app"]) == "/h/Documents/app")   // Kelp works there: already asked
-    // The newest session was in a remote project's local folder: it holds nothing, and the agent never trusted it.
-    #expect(pick(["/h/.kelp/remote/box/app", "/p/web"], ["/p/web", "/p/api"]) == "/p/web")
-    // A recent folder the agent hasn't trusted would stop at its trust question: a trusted one is used instead.
-    #expect(pick(["/tmp/scratch"], ["/p/web", "/p/api"]) == "/p/api")   // trusted ones in a stable order
-    #expect(pick([], ["/p/web"]) == "/p/web")                             // no sessions yet: still something to read from
-    #expect(pick(["/p/new"], []) == "/p/new")                             // no trust list to go by: recent folders as before
-    #expect(pick(["/p/gone"], ["/p/gone", "/p/api"], usable: ["/p/api"]) == "/p/api")   // a folder that no longer exists is skipped
-    #expect(pick([], []) == nil)
-}
-
 @Test func aFailedCloneRemovesOnlyItsOwnFolder() async throws {
     let w = try await world(); defer { w.d.stop() }
     let parent = tmp().path
@@ -510,23 +492,6 @@ func trustQuestionStandIn() -> String {
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "printf '\\033[?2004hready\\n'; exec cat -v",   // a TUI that takes pastes
                                                                  "prompt": "!touch pwned"]), as: Session.self)
     #expect(try await waitFor(15) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("[200~!touch pwned^[[201~") == true })
-}
-
-/// The hidden usage probe opens no folder whose agent config (hooks, MCP servers) came in unseen.
-@Test func theUsageProbeAvoidsFoldersWithNewAgentConfig() throws {
-    let repo = try makeRepo()
-    #expect(AgentUsage.quietFolder(repo, base: "main"))                       // config as on main
-    try Git.run(["checkout", "-qb", "pr"], cwd: repo)
-    try FileManager.default.createDirectory(atPath: repo + "/.claude", withIntermediateDirectories: true)
-    try #"{"hooks":{"SessionStart":[]}}"#.write(toFile: repo + "/.claude/settings.json", atomically: true, encoding: .utf8)
-    #expect(!AgentUsage.quietFolder(repo, base: "main"))                      // not committed yet
-    try Git.run(["add", "."], cwd: repo); try Git.run(["commit", "-qm", "hook"], cwd: repo)
-    #expect(!AgentUsage.quietFolder(repo, base: "main"))                      // committed on the branch
-    // A folder Kelp has no base for: only one without agent config.
-    let plain = tmp().path
-    #expect(AgentUsage.quietFolder(plain, base: nil))
-    try "{}".write(toFile: plain + "/.mcp.json", atomically: true, encoding: .utf8)
-    #expect(!AgentUsage.quietFolder(plain, base: nil))
 }
 
 /// A folder outside any repository is asked about (no silent `git init`): added as it is, its files are listed and

@@ -2,7 +2,6 @@ import Foundation
 import os
 import Core
 import Agents
-import GitKit
 import AgentData
 
 /// Plan limits as the agents themselves show them in `/usage` (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor). A hidden copy of
@@ -59,8 +58,9 @@ extension AgentUsage {
         PlanProbe(agent: "grok", command: "grok", every: 1800, ready: { $0.contains("Ctrl+x:shortcuts") },
                   shown: { $0.contains("Weekly limit") && $0.contains("Resets") }, parse: ClaudeLimits.parseGrokUsage,
                   env: ["GROK_FOLDER_TRUST": "0"]),
-        PlanProbe(agent: "antigravity", command: "agy", every: 1800, ready: { $0.contains("for shortcuts") },
-                  shown: { $0.contains("Weekly Limit Remaining") && $0.contains("%") }, parse: ClaudeLimits.parseAntigravityUsage),
+        // Its /usage typed in a terminal went into its prompt history every time.
+        PlanProbe(agent: "antigravity", command: "agy", every: 1800, parse: { ClaudeLimits.parseAntigravityUsage($0) },
+                  printArgs: ["-p", "/usage"]),
         // Trust for this process only: the probe has no one to answer "Trust this folder?".
         PlanProbe(agent: "kimi", command: "kimi", every: 1800,
                   ready: { $0.contains("│ >") || $0.contains("context:") },
@@ -69,7 +69,6 @@ extension AgentUsage {
         // "Plan ■■■■ 2% used 5 / 200 AIC". Its folder question is answered with Enter: "1. Yes", for this session only.
         PlanProbe(agent: "copilot", command: "copilot", every: 1800, ready: { $0.contains("/ commands") },
                   shown: { $0.contains("Plan") && $0.contains("% used") }, parse: ClaudeLimits.parseCopilotUsage, answersTrust: true),
-        // Opens where Cursor already trusts: its "[a] Trust this workspace" is nobody's to answer.
         PlanProbe(agent: "cursor", command: "cursor-agent", every: 1800, ready: { $0.contains("build anything") },
                   shown: { $0.contains("Included") && $0.contains("% used") }, parse: ClaudeLimits.parseCursorUsage)
     ]
@@ -94,7 +93,7 @@ extension AgentUsage {
                     if !probe.printArgs.isEmpty {
                         screen = Sessions.run([path] + probe.printArgs, path: LoginPath.value, timeout: 30) ?? ""
                         readings = probe.parse(screen)
-                    } else if let cwd = probeDir(probe.agent) {
+                    } else if let cwd = probeDir {
                         for argv in probeArgv(probe.agent, path) {
                             (readings, screen) = Self.probe(probe, argv: argv, cwd: cwd)
                             if !readings.isEmpty { break }
@@ -172,66 +171,27 @@ extension AgentUsage {
         return l
     }
 
-    /// A folder the agent already works in, so it won't ask whether to trust it. Grok keeps a session per launch: it
-    /// gets Kelp's own folder and always the same session, so its history doesn't fill up. Grok's and Kimi's probes
-    /// trust via env, and Copilot's answer lasts for the run, so they can use that same folder.
-    private func probeDir(_ agent: String) -> String? {
-        if ["grok", "kimi", "copilot"].contains(agent) {
-            let d = root.appendingPathComponent("probe")
-            try? Paths.ensure(d)
-            return d.path
-        }
-        let used = ((try? store.sessions()) ?? []).filter { $0.agent == agent }.sorted { $0.createdAt > $1.createdAt }.map(\.cwd)
-        let trusted = agent == "antigravity" ? Self.antigravityTrusted() : []
-        let worktrees = (try? store.worktrees()) ?? []
-        return Self.probeFolder(used: used, trusted: trusted, remoteRoot: root.appendingPathComponent("remote").path) { dir in
-            guard FileManager.default.fileExists(atPath: dir), remotes.of(dir) == nil else { return false }
-            let w = worktrees.first { AgentTrust.normal($0.path) == AgentTrust.normal(dir) }
-            return Self.quietFolder(dir, base: w.flatMap { try? store.repo($0.repoId)?.baseBranch }, remotes: remotes)
-        }
+    /// Kelp's own folder, with no agent config in it: nobody watches the hidden copy, so no project's hooks or MCP servers
+    /// may come in unseen. Each agent trusts it for the run (Grok's and Kimi's env, Copilot's Enter, Cursor's --trust).
+    private var probeDir: String? {
+        let d = root.appendingPathComponent("probe")
+        return (try? Paths.ensure(d)).map { d.path }
     }
 
-    /// Nobody watches the hidden copy, so it only opens where the project's agent config (hooks, MCP servers) can't have
-    /// come in unseen: a Kelp workspace whose config matches its base branch (the check a launch makes before answering
-    /// trust), or any other folder with no agent config at all.
-    static func quietFolder(_ dir: String, base: String?, remotes: Remotes = .none) -> Bool {
-        if let base { return !AgentConfig.changed(dir, base: base, remotes: remotes) }
-        return !AgentConfig.files.contains { FileManager.default.fileExists(atPath: (dir as NSString).appendingPathComponent($0)) }
-    }
-
-    /// Where the hidden copy of an agent opens: a folder it already trusts, or it stops at its trust question and `/usage`
-    /// never shows. Folders of the agent's recent sessions come first; a remote project's local folder never counts (its
-    /// sessions run on the host, and the folder here holds nothing). With no trust list to go by, recent folders do.
-    /// A trusted folder Kelp never worked in is skipped where macOS asks first (Documents, Desktop…): even checking that
-    /// it exists would pop "Kelp would like to access…" out of nowhere.
-    static func probeFolder(used: [String], trusted: [String], remoteRoot: String, home: String = NSHomeDirectory(),
-                            usable: (String) -> Bool) -> String? {
-        let local = used.filter { !$0.hasPrefix(remoteRoot + "/") && $0 != remoteRoot }
-        let ordered = trusted.isEmpty ? local : local.filter(trusted.contains) + trusted.filter { !asksFirst($0, home: home) }.sorted()
-        return ordered.first(where: usable)
-    }
-
-    /// In a place macOS guards under Privacy › Files and Folders.
-    static func asksFirst(_ dir: String, home: String) -> Bool {
-        dir.hasPrefix("/Volumes/") || ["Desktop", "Documents", "Downloads", "Library/Mobile Documents", "Library/CloudStorage"]
-            .contains { dir == "\(home)/\($0)" || dir.hasPrefix("\(home)/\($0)/") }
-    }
-
+    /// Always the same session, so a reading leaves no session of its own in the agent's list (Copilot and Cursor kept one
+    /// per reading). Kimi keeps none for a launch that only looked.
     private func probeArgv(_ agent: String, _ path: String) -> [[String]] {
-        guard agent == "grok" else { return [[path]] }
-        let file = root.appendingPathComponent("probe/grok-session")
+        guard ["grok", "copilot", "cursor"].contains(agent) else { return [[path]] }
+        let file = root.appendingPathComponent("probe/\(agent)-session")
         let id = (try? String(contentsOf: file, encoding: .utf8)).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             ?? UUID().uuidString.lowercased()
-        Log.session.attempt("keeping Grok's probe session id") { try id.write(to: file, atomically: true, encoding: .utf8) }
+        Log.session.attempt("keeping the usage probe's session id") { try id.write(to: file, atomically: true, encoding: .utf8) }
+        return switch agent {
         // Resume, then same id, then a fresh one if another probe still holds the lock ("already in use").
-        return [[path, "--resume", id], [path, "--session-id", id], [path, "--session-id", UUID().uuidString.lowercased()]]
-    }
-
-    /// Folders the user trusted in Antigravity (read only).
-    private static func antigravityTrusted() -> [String] {
-        let f = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/antigravity-cli/settings.json")
-        guard let d = try? Data(contentsOf: f), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return [] }
-        return o["trustedWorkspaces"] as? [String] ?? []
+        case "grok": [[path, "--resume", id], [path, "--session-id", id], [path, "--session-id", UUID().uuidString.lowercased()]]
+        case "copilot": [[path, "--session-id", id], [path]]           // resumes that session, or starts it under that id
+        default: [[path, "--trust", "--resume", id], [path, "--trust"]]  // Cursor: an id it doesn't know becomes the new chat's
+        }
     }
 
     static func probe(_ p: PlanProbe, argv: [String], cwd: String) -> ([ClaudeLimits.Reading], String) {

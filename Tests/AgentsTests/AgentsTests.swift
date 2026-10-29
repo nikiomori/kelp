@@ -268,18 +268,9 @@ import TestSupport
     #expect(ClaudeLimits.parseGrokUsage(grok) == [.init(kind: "week", percent: 45.5, resets: "October 24, 19:36")])
     let framed = "│ Weekly limit (X Premium)          │\n│ ██████░░░░ 45%                    │\n│ Resets: October 24, 19:36         │"
     #expect(ClaudeLimits.parseGrokUsage(framed).first?.percent == 45)
-    let agy = """
-    └ Models & Quota
-    GEMINI MODELS
-    Models within this group: Gemini Flash, Gemini Pro
-    Weekly Limit Remaining
-    [████████████] 88.25%
-    Quota available
-    CLAUDE AND GPT MODELS
-    Models within this group: Claude Opus, Claude Sonnet, GPT-OSS
-    Within each group, models share a weekly limit.
-    """
-    #expect(ClaudeLimits.parseAntigravityUsage(agy) == [.init(kind: "Gemini week", percent: 11.75, resets: nil)])
+    let agy = "Gemini Models\tWeekly Limit Remaining\t88.25%\t2026-10-30T21:42:00Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\n"
+    #expect(ClaudeLimits.parseAntigravityUsage(agy, timeZone: .gmt)
+        == [.init(kind: "Gemini week", percent: 11.75, resets: "Oct 30 at 9:42pm"), .init(kind: "Claude week", percent: 0, resets: nil)])
 }
 
 @Test func kimiUsageScreenParses() {

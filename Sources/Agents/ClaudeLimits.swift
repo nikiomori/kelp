@@ -58,27 +58,21 @@ public enum ClaudeLimits {
         return percent.map { [Reading(kind: "week", percent: $0, resets: resets)] } ?? []
     }
 
-    /// Antigravity's `/usage`: per model group ("GEMINI MODELS", "CLAUDE AND GPT MODELS") a weekly limit *remaining*;
-    /// returned as used, like the others ("Gemini week" 12 = 88% left).
-    public static func parseAntigravityUsage(_ text: String) -> [Reading] {
-        let lines = cells(text)
-        var found: [String: Reading] = [:], order: [String] = []
-        for (i, line) in lines.enumerated() where line.hasSuffix(" MODELS") && line == line.uppercased() {
-            let group = line.dropLast(" MODELS".count).split(separator: " ").first.map { $0.capitalized } ?? "Models"
-            var percent: Double?, resets: String?
-            for next in lines[(i + 1)..<min(i + 6, lines.count)] {
-                if next.hasSuffix(" MODELS") { break }
-                if percent == nil, let r = next.range(of: #"\d{1,3}(?:\.\d+)?%"#, options: .regularExpression) {
-                    percent = Double(next[r].dropLast()).map(bounded)
-                }
-                if let r = next.range(of: #"(?i)resets in .*"#, options: .regularExpression) { resets = String(next[r].dropFirst("resets ".count)) }
-            }
-            guard let left = percent else { continue }
-            let kind = "\(group) week"
-            if found[kind] == nil { order.append(kind) }
-            found[kind] = Reading(kind: kind, percent: bounded(100 - left), resets: resets)
+    /// Antigravity's `/usage` as `agy -p /usage` prints it, a row per model group, tab-separated:
+    /// "Gemini Models  Weekly Limit Remaining  9%  2026-10-30T21:42:00Z". A limit *remaining*, returned as used like the
+    /// others ("Gemini week" 91 = 9% left), and the reset as Claude writes one ("Oct 30 at 9:42pm", local time).
+    public static func parseAntigravityUsage(_ text: String, timeZone: TimeZone = .current) -> [Reading] {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = timeZone
+        f.dateFormat = "MMM d 'at' h:mma"; f.amSymbol = "am"; f.pmSymbol = "pm"
+        return text.split(whereSeparator: \.isNewline).compactMap { line in
+            let cell = line.split(separator: "\t").map { $0.trimmingCharacters(in: .whitespaces) }
+            guard cell.count >= 3, cell[1].localizedCaseInsensitiveContains("remaining"), cell[2].hasSuffix("%"),
+                  let left = Double(cell[2].dropLast()) else { return nil }
+            let group = cell[0].split(separator: " ").first.map { $0.capitalized } ?? "Models"
+            let resets = cell.count > 3 ? (try? Date(cell[3], strategy: .iso8601)).map(f.string) : nil
+            return Reading(kind: "\(group) week", percent: bounded(100 - left), resets: resets)
         }
-        return order.compactMap { found[$0] }
     }
 
     /// Kimi Code's `/usage`: under "Plan usage", rows like "5h limit  ███░…  20% used  resets in 1h" (and Weekly / Monthly).
