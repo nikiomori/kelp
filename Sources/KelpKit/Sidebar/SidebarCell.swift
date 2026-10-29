@@ -336,6 +336,10 @@ final class SidebarCell: NSTableCellView {
             t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))
         }
         t.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
+        // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
+        let tail = NSMutableParagraphStyle()
+        tail.lineBreakMode = .byTruncatingTail
+        t.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: t.length))
         ask.attributedStringValue = t
         ask.toolTip = line.text
     }
