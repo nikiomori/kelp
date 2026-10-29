@@ -206,6 +206,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         guard let pin = sessionIdFlag, let r = resumeIdFlag, let i = argv.lastIndex(where: { $0 == pin || $0 == r }), i + 1 < argv.count,
               argv[i + 1].lowercased() != conversation.lowercased() else { return argv }
         var a = argv; a[i] = pin; a[i + 1] = conversation   // pinned: a wake resumes it once it's on disk, else starts it under this id
+        a.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (Kelp Dev's copies, scripts/dev-home.sh): this is it
         return a
     }
 

@@ -184,6 +184,8 @@ import TestSupport
     #expect(claude.resuming(claude.resuming(pinned)) == claude.resuming(pinned))
     #expect(claude.resuming(["claude"]) == ["claude", "--continue"])   // sessions from before ids were pinned
     #expect(claude.resumes(["claude", "--resume", "x"]))
+    // A fork (Kelp Dev's copy of a session) follows the conversation it made, and the next wake resumes that one.
+    #expect(claude.following(["claude", "--resume", "abc", "--fork-session"], conversation: "def") == ["claude", "--session-id", "def"])
 }
 
 @Test func hookedAgentsDontGuessFromOutput() throws {
