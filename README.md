@@ -27,9 +27,9 @@ they touch is one tab away to read, review and edit.
 
 <br/><br/>
 
-<img src="docs/screenshots/agent-and-diff.png" alt="An agent's finished change next to its diff, Source Control on the right, every workspace's agents in the sidebar" />
+<img src="docs/screenshots/agents-and-editor.png" alt="Three agents at work in split panes of one workspace, beside the file they're changing open in the editor; every workspace's agents in the sidebar" />
 
-<sub>*An agent's change, its diff and Source Control side by side. The sidebar shows every workspace's agents.*</sub>
+<sub>*Three agents at work in one workspace, beside the file they're changing. The sidebar shows every workspace's agents.*</sub>
 
 </div>
 
@@ -46,6 +46,12 @@ they touch is one tab away to read, review and edit.
 - **Native.** Swift + AppKit, terminal on libghostty. No Electron, no cloud, no telemetry.
 
 <div align="center">
+
+<img src="docs/screenshots/agent-and-diff.png" alt="An agent's finished change next to its diff, Source Control on the right" />
+
+<sub>*An agent's change, its diff and Source Control side by side.*</sub>
+
+<br/><br/>
 
 <img src="docs/screenshots/agent-asks.png" alt="An agent waiting on a question; the sidebar counts who needs you" />
 
