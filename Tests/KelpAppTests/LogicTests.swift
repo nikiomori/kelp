@@ -140,6 +140,21 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(r.end("codex") != nil && r.full.isEmpty)
 }
 
+/// While you type, a finished agent's banner waits (a question doesn't); 20 s without a key, it goes; they come as one.
+@Test func bannersWaitWhileYouType() {
+    let now = Date()
+    #expect(TypingHold.holds(question: false, lastKey: now.addingTimeInterval(-5), active: true, now: now))
+    #expect(!TypingHold.holds(question: true, lastKey: now.addingTimeInterval(-5), active: true, now: now))   // Needs you: at once
+    #expect(!TypingHold.holds(question: false, lastKey: now.addingTimeInterval(-21), active: true, now: now))
+    #expect(!TypingHold.holds(question: false, lastKey: now.addingTimeInterval(-5), active: false, now: now))   // Kelp at the back
+    #expect(!TypingHold.holds(question: false, lastKey: nil, active: true, now: now))
+    let two = TypingHold.summary([("docs", false, "Updated README"), ("perf", true, "missing module sharp")])
+    #expect(two.title == "2 agents finished while you typed")
+    #expect(two.body == "docs — Updated README\nperf — Failed: missing module sharp")
+    let six = TypingHold.summary((1...6).map { ("w\($0)", false, "") })
+    #expect(six.body.split(separator: "\n").count == 5 && six.body.hasSuffix("and 2 more"))
+}
+
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
     #expect(Notifier.category(session(.waiting, summary: "Allow npm test?")) == "permission")
     #expect(Notifier.category(session(.done, summary: "Added the login form")) == "reply")

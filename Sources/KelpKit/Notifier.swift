@@ -26,6 +26,71 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center?.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in Task { @MainActor in self.checkAllowed() } }
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.updateBadge() }
         track(owner: self) { [app] in app.limits } changed: { [weak self] u in self?.limitsChanged(u) }
+        // Typing: a key in one of Kelp's windows while it is the key one (a bare modifier isn't a keyDown).
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            if e.window?.isKeyWindow == true { self?.lastKey = Date() }
+            return e
+        }
+        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.releaseHeld() }
+    }
+
+    // MARK: Held while you type (TypingHold)
+
+    private var lastKey: Date?
+    private var held: [Session] = []                  // finished / failed agents, latest status each
+    private var heldAlerts: [() -> Void] = []         // limit warnings, posted as they were
+    private var quietWait: Task<Void, Never>?
+
+    private func holds(question: Bool) -> Bool {
+        app.settings.bool("agents.holdBanners") ?? true && TypingHold.holds(question: question, lastKey: lastKey, active: NSApp.isActive)
+    }
+
+    /// A limit warning now, or once typing stops.
+    private func alert(_ post: @escaping () -> Void) {
+        guard holds(question: false) else { post(); return }
+        heldAlerts.append(post)
+        waitForQuiet()
+    }
+
+    private func waitForQuiet() {
+        guard quietWait == nil else { return }
+        quietWait = Task { [weak self] in
+            while let left = self?.lastKey.map({ $0.timeIntervalSinceNow + TypingHold.quiet }), left > 0 {
+                do { try await Task.sleep(for: .seconds(left)) } catch { return }
+            }
+            self?.releaseHeld()
+        }
+    }
+
+    /// 20 s without a key, Kelp went to the back, or another workspace came up: what waited goes out, the agents in one banner.
+    func releaseHeld() {
+        quietWait?.cancel(); quietWait = nil
+        let alerts = heldAlerts; heldAlerts = []
+        alerts.forEach { $0() }
+        // As each is now: one looked at, or that moved on (answered, at work again), has nothing left to say.
+        let ready = held.filter { h in
+            app.session(h.id)?.status == h.status && !(NSApp.isActive && app.workbench.isViewing(session: h.id))
+        }
+        held = []
+        if ready.count == 1 { post(ready[0], holding: false) } else if ready.count > 1 { postHeld(ready) }
+    }
+
+    /// "2 agents finished while you typed": a line each; a click shows the first, the rest are marked in the sidebar.
+    private func postHeld(_ ss: [Session]) {
+        let app = self.app
+        let (title, body) = TypingHold.summary(ss.map { s in
+            (app.worktree(s.worktreeId)?.displayName ?? app.catalog.displayName(s), s.status == .error, s.summary)
+        })
+        let c = UNMutableNotificationContent()
+        c.title = title; c.body = body
+        c.subtitle = ss.compactMap { app.projectName(app.worktree($0.worktreeId)?.repoId) }
+            .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
+        c.sound = .default; c.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
+        if !allowed, NSApp.isActive {
+            Banner.show(body, action: (String(localized: "Show"), { app.workbench.focus(session: ss[0].id) }), title: title, subtitle: c.subtitle)
+        }
+        center?.add(UNNotificationRequest(identifier: "held-\(ss[0].id)", content: c, trigger: nil))
+        NSApp.requestUserAttention(.informationalRequest)
     }
 
     private var limitAlerts = LimitAlerts()
@@ -38,8 +103,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             c.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
             c.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
             c.sound = a.level >= 95 ? .default : nil
-            center?.add(UNNotificationRequest(identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: c, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            alert { [self] in
+                center?.add(UNNotificationRequest(identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: c, trigger: nil))
+                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            }
         }
         forecastChanged(u)
         resetsChanged(u)
@@ -72,8 +139,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.body = String(localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
         c.sound = .default; c.categoryIdentifier = "limitReset"
         c.userInfo = ["session": first.id, "sessions": ids]
-        center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
-        if !allowed, NSApp.isActive { Banner.show(c.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: c.title) }
+        alert { [self] in
+            center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
+            if !allowed, NSApp.isActive { Banner.show(c.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: c.title) }
+        }
     }
 
     /// "continue" to each that still stands where the limit left it (one the user went on with meanwhile isn't told twice).
@@ -94,8 +163,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             let c = UNMutableNotificationContent()
             c.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
             c.body = String(localized: "At this pace it fills before it resets.")
-            center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: c, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            alert { [self] in
+                center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: c, trigger: nil))
+                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            }
         }
         forecastTold.formIntersection(now)
     }
@@ -198,10 +269,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         return s.count > 90 ? String(s.prefix(89)) + "…" : s
     }
 
-    private func post(_ s: Session) {
+    private func post(_ s: Session, holding: Bool = true) {
         let app = self.app
         // No banner if the user is already looking at that pane (what it asks stays marked until it's answered).
         if NSApp.isActive, app.workbench.isViewing(session: s.id) { return }
+        if holding, holds(question: s.status == .waiting) {
+            held.removeAll { $0.id == s.id }; held.append(s)
+            waitForQuiet()
+            return
+        }
         let m = app, wt = m.worktree(s.worktreeId)
         let c = UNMutableNotificationContent()
         c.title = app.catalog.displayName(s) + (s.status == .waiting ? String(localized: " needs you")

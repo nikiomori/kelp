@@ -77,6 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Agents installed while Kelp was in the background show up when it comes back.
     func applicationDidBecomeActive(_ n: Notification) { app.availability.refresh(); notifier.checkAllowed() }
+    /// Banners held while you typed go out once you're elsewhere.
+    func applicationDidResignActive(_ n: Notification) { notifier.releaseHeld() }
 
     /// Unsaved files ask before quitting, like any Mac app: the question is a sheet, and the app quits once it's answered
     /// and any remote file's save came back (not if one failed).

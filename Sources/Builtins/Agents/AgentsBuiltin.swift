@@ -32,8 +32,11 @@ extension Builtins {
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),
                 s("usage.readPlans", "Show plan limits", "boolean", true,
                   "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens."),
+                s("agents.holdBanners", "Hold finished agents while I type", "boolean", true,
+                  "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.",
+                  group: "Notifications"),
                 s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
-                  options: ["off", "70", "80", "90"])
+                  options: ["off", "70", "80", "90"], group: "Notifications")
             ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }),
             SettingsSection(id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
                             custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }),

@@ -288,6 +288,17 @@
         }
       }
     },
+    "%lld agents finished while you typed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока вы печатали, закончили агенты: %lld"
+          }
+        }
+      }
+    },
     "%lld cells · %@": {
       "localizations": {
         "en": {
@@ -580,6 +591,28 @@
         }
       }
     },
+    "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Баннер «закончил» или «ошибка» ждёт, пока вы 20 секунд не печатаете в Kelp, и потом приходит один на всех. Вопросы агентов приходят сразу."
+          }
+        }
+      }
+    },
+    "A notification when a plan limit reaches this, and again at 95. “off”: none.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомление, когда лимит плана дойдёт до этого числа, и ещё раз на 95. «off» — без уведомлений."
+          }
+        }
+      }
+    },
     "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder": {
       "localizations": {
         "ru": {
@@ -679,6 +712,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Уже запущено"
+          }
+        }
+      }
+    },
+    "and %lld more": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "и ещё %lld"
           }
         }
       }
@@ -3491,6 +3535,17 @@
         }
       }
     },
+    "Hold finished agents while I type": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Придерживать баннеры, пока я печатаю"
+          }
+        }
+      }
+    },
     "Host:": {
       "localizations": {
         "ru": {
@@ -6036,6 +6091,17 @@
         }
       }
     },
+    "ran into an error": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "столкнулся с ошибкой"
+          }
+        }
+      }
+    },
     "Re-running the failed jobs": {
       "localizations": {
         "ru": {
@@ -8568,6 +8634,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ждёт вашего ответа"
+          }
+        }
+      }
+    },
+    "Warn about limits at (%)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предупреждать о лимитах с (%)"
           }
         }
       }
