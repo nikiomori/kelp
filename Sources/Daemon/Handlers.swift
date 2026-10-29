@@ -432,8 +432,10 @@ extension RoutineRun: Handled { func handle(_ w: Workspaces) throws -> Routine.R
 
 extension SessionContextParts: Handled {
     func handle(_ sessions: Sessions) throws -> Parts? {
-        guard let t = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)), let c = AgentUsage.contextUsage(transcript: t) else { return nil }
-        return ClaudeContext.parts(try Data(contentsOf: t, options: .mappedIfSafe), used: c.used)
+        guard let ls = sessions.existing(id), let t = sessions.agentUsage.transcript(of: ls), let c = AgentUsage.contextUsage(transcript: t),
+              var parts = ClaudeContext.parts(try Data(contentsOf: t, options: .mappedIfSafe), used: c.used) else { return nil }
+        parts.setup = sessions.claudeSetup(ls.snapshot).map { ClaudeContext.fit($0, to: parts.base) }
+        return parts
     }
 }
 

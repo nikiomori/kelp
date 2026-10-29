@@ -1448,6 +1448,17 @@
         }
       }
     },
+    "Built-in tools": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Встроенные инструменты"
+          }
+        }
+      }
+    },
     "Bulleted list": {
       "localizations": {
         "ru": {
@@ -3821,6 +3832,17 @@
         }
       }
     },
+    "Hook output, the environment, names of tools loaded when used": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вывод хуков, окружение, названия инструментов, которые грузятся по требованию"
+          }
+        }
+      }
+    },
     "Host:": {
       "localizations": {
         "ru": {
@@ -4271,6 +4293,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jupyter не найден — pip install jupyter"
+          }
+        }
+      }
+    },
+    "Kept for compacting": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запас на сжатие"
           }
         }
       }
@@ -4735,12 +4768,45 @@
         }
       }
     },
+    "MCP server instructions": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструкции серверов MCP"
+          }
+        }
+      }
+    },
+    "MCP tools": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструменты MCP"
+          }
+        }
+      }
+    },
     "Measuring worktrees…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Считаю размер worktree…"
+          }
+        }
+      }
+    },
+    "Memory files": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы памяти"
           }
         }
       }
@@ -5715,6 +5781,17 @@
         }
       }
     },
+    "Not in the context until used: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не в контексте, пока не понадобятся: %@"
+          }
+        }
+      }
+    },
     "Not installed": {
       "localizations": {
         "ru": {
@@ -6095,6 +6172,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Option работает как Alt (Meta)"
+          }
+        }
+      }
+    },
+    "Other at start": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочее на старте"
           }
         }
       }
@@ -7884,6 +7972,17 @@
         }
       }
     },
+    "Skills": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы"
+          }
+        }
+      }
+    },
     "Smaller Text": {
       "extractionState": "manual",
       "localizations": {
@@ -8314,6 +8413,17 @@
         }
       }
     },
+    "Subagents": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субагенты"
+          }
+        }
+      }
+    },
     "Summary of earlier work": {
       "extractionState": "manual",
       "localizations": {
@@ -8352,6 +8462,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Синхронизировать"
+          }
+        }
+      }
+    },
+    "System prompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системный промпт"
           }
         }
       }

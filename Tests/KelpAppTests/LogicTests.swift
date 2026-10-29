@@ -164,6 +164,16 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(ContextParts.detail(files) == "payment.ts 17.6k · a.ts ×2 11.8k · +7 more 22.6k")
     let talk = Parts.Part(kind: .conversation, tokens: 30_000, top: [.init(label: "replies", tokens: 25_400, count: 0), .init(label: "messages", tokens: 4_600, count: 9)], more: 0)
     #expect(ContextParts.detail(talk) == "Its replies 25.4k · your 9 messages 4.6k")
+    let skills = Parts.Setup.Group(label: "Skills", tokens: 9_900, top: [.init(label: "transitions-dev", tokens: 520), .init(label: "review", tokens: 300)], more: 12)
+    #expect(ContextParts.detail(skills) == "transitions-dev 520 · review 300 · +12 more 9.1k")
+    #expect(ContextParts.deferred([.init(label: "MCP tools (deferred)", tokens: 46_800), .init(label: "System tools (deferred)", tokens: 13_700)])
+            == "Not in the context until used: MCP tools 46.8k · Built-in tools 13.7k")
+    #expect(ContextParts.share(146_200, of: 1_000_000) == 0.1462.formatted(.percent.precision(.fractionLength(1))))
+    // Split as Claude Code counts it, the base is its parts; without, one "Base".
+    let setup = Parts.Setup(parts: [.init(label: "System prompt", tokens: 2_500), .init(label: "Skills", tokens: 9_900)], buffer: 33_000)
+    #expect(ContextParts(parts: .init(base: 12_400, parts: [files], setup: setup), window: 1_000_000, compact: nil).rows.map(\.label)
+            == ["System prompt", "Skills", "Files read"])
+    #expect(ContextParts(parts: .init(base: 12_400, parts: [files]), window: 1_000_000, compact: nil).rows.map(\.label) == ["Base", "Files read"])
 }
 
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {

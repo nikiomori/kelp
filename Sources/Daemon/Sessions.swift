@@ -26,6 +26,8 @@ final class Sessions: Sendable {
 
     let remotes: Remotes
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
+    /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
+    let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 
     init(root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage, clients: Clients,
          watches: Watches, offloads: Slots) {

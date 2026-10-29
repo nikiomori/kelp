@@ -79,7 +79,27 @@ public struct SessionContextParts: RPCMethod {
     public struct Parts: Codable, Sendable, Equatable {
         /// In Kind's order, the empty ones left out.
         public var base: Int, parts: [Part]
-        public init(base: Int, parts: [Part]) { self.base = base; self.parts = parts }
+        /// The base as the agent itself splits it, when it says (Claude Code's /context).
+        public var setup: Setup?
+        public init(base: Int, parts: [Part], setup: Setup? = nil) { self.base = base; self.parts = parts; self.setup = setup }
+    }
+    /// What every request starts with, as Claude Code's /context counts it: system prompt, tools, MCP, memory files,
+    /// skills… (`parts`, in its order, summing to the base), with the biggest items of some ("CLAUDE.md 4k").
+    public struct Setup: Codable, Sendable, Equatable {
+        public struct Group: Codable, Sendable, Equatable {
+            /// As Claude Code names it: "System prompt", "Memory files".
+            public var label: String, tokens: Int
+            public var top: [Item], more: Int
+            public init(label: String, tokens: Int, top: [Item] = [], more: Int = 0) {
+                self.label = label; self.tokens = tokens; self.top = top; self.more = more
+            }
+        }
+        public var parts: [Group]
+        /// Tools it loads only when one is used ("MCP tools (deferred)"): not in the context.
+        public var deferred: [Item]
+        /// Kept free for compacting: the conversation compacts by itself before it reaches this.
+        public var buffer: Int
+        public init(parts: [Group], deferred: [Item] = [], buffer: Int = 0) { self.parts = parts; self.deferred = deferred; self.buffer = buffer }
     }
     public typealias Result = Parts?
     public var id: String

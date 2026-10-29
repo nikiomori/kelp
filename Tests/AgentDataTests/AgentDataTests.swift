@@ -297,3 +297,61 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect((2390...2400).contains(sum))   // scaled to what the reply counted
     #expect(ClaudeContext.parts(Data(old.joined(separator: "\n").utf8), used: 0) == nil)
 }
+
+/// What every request starts with, as `claude -p /context` prints it: the categories (not Messages or Free space, read
+/// elsewhere), the deferred tools and the buffer apart, the memory files and skills it lists under their category.
+@Test func contextSetupFromClaudeCodesOwnCount() throws {
+    let printed = """
+    ## Context Usage
+
+    **Tokens:** 26.3k / 1m (3%)
+
+    ### Estimated usage by category
+
+    | Category | Tokens | Percentage |
+    |----------|--------|------------|
+    | System prompt | 2.5k | 0.2% |
+    | System tools | 578 | 0.1% |
+    | MCP tools (deferred) | 57.5k | 5.8% |
+    | Memory files | 7.8k | 0.8% |
+    | Skills | 1.2k | 0.1% |
+    | Messages | 2k | 0.2% |
+    | Free space | 940.7k | 94.1% |
+    | Autocompact buffer | 33k | 3.3% |
+
+    ### MCP Tools
+
+    | Tool | Server | Tokens |
+    |------|--------|--------|
+    | mcp__x__y | x | 153 |
+
+    ### Memory Files
+
+    | Type | Path | Tokens |
+    |------|------|--------|
+    | Project | /Users/me/app/CLAUDE.md | 4k |
+    | AutoMem | /Users/me/.claude/projects/app/memory/MEMORY.md | 3.8k |
+
+    ### Skills
+
+    | Skill | Source | Tokens |
+    |-------|--------|--------|
+    | find-skills | User | ~110 |
+    | tabbit | User | ~40 |
+    | transitions-dev | User | ~520 |
+    | review | Plugin | ~300 |
+    """
+    let s = try #require(ClaudeContext.setup(printed))
+    #expect(s.parts.map(\.label) == ["System prompt", "System tools", "Memory files", "Skills"])
+    #expect(s.parts.map(\.tokens) == [2500, 578, 7800, 1200])
+    #expect(s.deferred == [.init(label: "MCP tools (deferred)", tokens: 57_500)])
+    #expect(s.buffer == 33_000)
+    #expect(s.parts[2].top.map(\.label) == ["CLAUDE.md", "MEMORY.md"])
+    #expect(s.parts[3].top.map(\.label) == ["transitions-dev", "review", "find-skills"] && s.parts[3].more == 1)
+    #expect(ClaudeContext.setup("Error: not logged in") == nil)
+    // What else the first request held is one more part; one that counts more than the request held is scaled down.
+    let more = ClaudeContext.fit(s, to: 20_078)
+    #expect(more.parts.map(\.label).last == "Other" && more.parts.last?.tokens == 8000 && more.parts[2].tokens == 7800)
+    let less = ClaudeContext.fit(s, to: 6_039)
+    #expect(less.parts.count == 4 && less.parts[2].top[0].tokens == 2000 && less.buffer == 33_000)   // half: 12,078 counted, 6,039 sent
+}

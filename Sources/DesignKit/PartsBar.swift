@@ -1,23 +1,26 @@
 import SwiftUI
 
-/// Parts of a whole side by side in a fixed order, the free rest hatched, as Storage in System Settings draws a disk.
-/// The legend under it marks each part with `Swatch`. Its parts grow and shrink when they change.
+/// Parts of a whole side by side in a fixed order, the free rest hatched, as Storage in System Settings draws a disk;
+/// `end`, a part kept at the far end (room held back). The legend under it marks each part with `Swatch`. Its parts grow
+/// and shrink when they change.
 public struct PartsBar: View {
     public struct Part: Identifiable, Equatable {
         public let id: String, value: Double, color: Color
         public init(id: String, value: Double, color: Color) { self.id = id; self.value = value; self.color = color }
     }
     public static let height: CGFloat = 8
-    let parts: [Part], total: Double
+    let parts: [Part], total: Double, end: Part?
 
-    public init(_ parts: [Part], total: Double) { self.parts = parts; self.total = total }
+    public init(_ parts: [Part], total: Double, end: Part? = nil) { self.parts = parts; self.total = total; self.end = end }
 
     public var body: some View {
         GeometryReader { g in
-            let room = g.size.width - CGFloat(parts.count)   // a point between parts
+            let room = g.size.width - CGFloat(parts.count + (end == nil ? 0 : 1))   // a point between parts
+            let width = { (p: Part) in max(1, room * min(1, p.value / max(1, total))) }
             HStack(spacing: 1) {
-                ForEach(parts) { p in Rectangle().fill(p.color).frame(width: max(1, room * min(1, p.value / max(1, total)))) }
+                ForEach(parts) { p in Rectangle().fill(p.color).frame(width: width(p)) }
                 Hatch()
+                if let end { Rectangle().fill(end.color).frame(width: width(end)) }
             }
         }
         .frame(height: Self.height)
