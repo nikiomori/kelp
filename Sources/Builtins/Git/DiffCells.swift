@@ -42,8 +42,12 @@ extension DiffViewController {
             s.addAttribute(.backgroundColor, value: l.kind == .add ? Self.addWord : Self.delWord,
                            range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
+        // Wrapped at any character, as `height(of:)` counts the row's lines: the field's own mode doesn't reach an
+        // attributed string, which wrapped at words, ran a line longer and lost it under the next row.
+        let chars = NSMutableParagraphStyle()
+        chars.lineBreakMode = .byCharWrapping
+        s.addAttribute(.paragraphStyle, value: chars, range: NSRange(location: 0, length: s.length))
         let t = NSTextField(labelWithAttributedString: s)
-        t.lineBreakMode = .byCharWrapping   // as tall as `height(of:)` makes the row: a long line wraps, not cut off at the edge
         t.maximumNumberOfLines = 0
         if let c = tint(l.kind) { t.drawsBackground = true; t.backgroundColor = c }
         return t
