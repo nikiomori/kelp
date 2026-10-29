@@ -4,6 +4,8 @@
 -include local.mk
 dev:
 	scripts/bundle.sh dev
+dev-home:
+	scripts/dev-home.sh
 release:
 	scripts/bundle.sh
 	scripts/install.sh
@@ -11,4 +13,4 @@ install:
 	scripts/install.sh
 publish:
 	scripts/publish.sh
-.PHONY: dev release install publish
+.PHONY: dev dev-home release install publish

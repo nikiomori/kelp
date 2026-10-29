@@ -6,7 +6,12 @@ import ServiceManagement
 /// its subordinates"): kelpd and every agent, on a quit or an update. The item gives Kelp a switch there and tells it
 /// whether it's on.
 enum BackgroundItem {
-    static let label = "dev.kelp.kelpd"   // Resources/dev.kelp.kelpd.plist, in Contents/Library/LaunchAgents
+    // Resources/dev.kelp.kelpd.plist, in Contents/Library/LaunchAgents; Kelp Dev's is a copy under its own label.
+    #if DEBUG
+    static let label = "dev.kelp.kelpd.dev"
+    #else
+    static let label = "dev.kelp.kelpd"
+    #endif
     private static var service: SMAppService { .agent(plistName: label + ".plist") }
     private static var bundled: Bool { Bundle.main.bundleURL.pathExtension == "app" }
 

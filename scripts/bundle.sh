@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Build dist/Kelp.app (+ DMG). One command:  scripts/bundle.sh   (or `make release`)
-#   scripts/bundle.sh dev   (`make dev`): a debug build for this Mac in dist/dev/Kelp.app, signed ad hoc, then opens it
+#   scripts/bundle.sh dev   (`make dev`): a debug build for this Mac in "dist/dev/Kelp Dev.app", signed ad hoc, then opens it
 # Signing/notarization are opt-in via env:
 #   SIGN_ID="Developer ID Application: Name (TEAM)"   sign app + dmg
 #   NOTARY_PROFILE=kelp                               notarytool keychain profile (xcrun notarytool store-credentials)
@@ -9,9 +9,9 @@ cd "$(dirname "$0")/.."
 DEV=${1:-}
 CONFIG=${CONFIG:-release}; ARCHS=(--arch arm64 --arch x86_64); APP=dist/Kelp.app
 if [ "$DEV" = dev ]; then
-  CONFIG=debug; ARCHS=(); APP=dist/dev/Kelp.app
+  CONFIG=debug; ARCHS=(); APP="dist/dev/Kelp Dev.app"
   # Replacing a running app's files can crash it; its daemon (and agents) may keep running.
-  if pgrep -qf "$PWD/$APP/Contents/MacOS/KelpApp"; then echo "Quit Kelp (dev) first: ⌘Q"; exit 1; fi
+  if pgrep -qf "$PWD/$APP/Contents/MacOS/KelpApp"; then echo "Quit Kelp Dev first: ⌘Q"; exit 1; fi
 # Finder names disks: with another "Kelp" mounted, the DMG's window layout below would go to that one.
 elif [ -d /Volumes/Kelp ]; then echo "Eject the Kelp disk first: hdiutil detach /Volumes/Kelp"; exit 1
 fi
@@ -27,7 +27,15 @@ cp "$BIN/KelpApp" "$APP/Contents/MacOS/KelpApp"
 cp -p "$BIN/kelpd" "$BIN/kelp" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Library/LaunchAgents"; cp Resources/dev.kelp.kelpd.plist "$APP/Contents/Library/LaunchAgents/"   # BackgroundItem
-cp Resources/AppIcon.icns "$APP/Contents/Resources/"   # from AppIcon.svg: scripts/icon.sh
+if [ "$DEV" = dev ]; then
+  # An app of its own beside the installed Kelp: its defaults, notifications and Login Items entry (BackgroundItem.label
+  # in a debug build), its home ~/.kelp-dev (Paths.root). No update feed; kelp:// links stay the installed Kelp's.
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier dev.kelp.app.dev" -c "Set :CFBundleName Kelp Dev" \
+    -c "Set :CFBundleDisplayName Kelp Dev" -c "Delete :SUFeedURL" -c "Delete :CFBundleURLTypes" "$APP/Contents/Info.plist"
+  LA="$APP/Contents/Library/LaunchAgents"; mv "$LA/dev.kelp.kelpd.plist" "$LA/dev.kelp.kelpd.dev.plist"
+  /usr/libexec/PlistBuddy -c "Set :Label dev.kelp.kelpd.dev" "$LA/dev.kelp.kelpd.dev.plist"
+fi
+cp Resources/AppIcon${DEV:+Dev}.icns "$APP/Contents/Resources/AppIcon.icns"   # from AppIcon(Dev).svg: scripts/icon.sh
 [ -d "$BIN/Sparkle.framework" ] && cp -R "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/" || true
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
 scripts/strings.sh install "$APP/Contents/Resources"   # English and Russian
@@ -55,6 +63,7 @@ if [ "$DEV" = dev ]; then
   # Ad hoc, inside out; no entitlements, as a debug build runs from Xcode.
   for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP"; do codesign --force --sign - "$f"; done
   touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
+  [ -f ~/.kelp-dev/kelp.sqlite ] || scripts/dev-home.sh   # the first time: the installed Kelp's projects and workspaces
   open "$APP"; echo "built $APP"; exit 0
 fi
 STAGE=$(mktemp -d); cp -Rp "$APP" "$STAGE/"; ln -s /Applications "$STAGE/Applications"

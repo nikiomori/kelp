@@ -27,8 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var notifier = Notifier(app: app)
     /// Files and links opened while Kelp starts (nil once it has).
     private var pendingOpens: [URL]? = []
-    /// Sparkle needs a real app bundle (feed URL and keys live in Info.plist); dev runs skip it.
-    lazy var updater: SPUStandardUpdaterController? = Bundle.main.bundleIdentifier == nil ? nil
+    /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
+    lazy var updater: SPUStandardUpdaterController? = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") == nil ? nil
         : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ n: Notification) {
