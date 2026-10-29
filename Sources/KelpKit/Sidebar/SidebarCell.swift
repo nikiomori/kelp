@@ -319,7 +319,7 @@ final class SidebarCell: NSTableCellView {
         icon.image = s.status == .hibernated ? image?.grayscale : image
         icon.alphaValue = s.status == .hibernated ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
-        glyph.image = image?.grayscale
+        glyph.image = glyph.isHidden ? nil : image?.grayscale
         glyph.toolTip = app.catalog.name(s.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)
     }

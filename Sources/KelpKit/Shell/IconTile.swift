@@ -8,6 +8,7 @@ import DesignKit
 @MainActor
 enum IconTile {
     nonisolated static let side: CGFloat = 32
+    fileprivate static let ci = CIContext()   // one for every grayscale tile
 
     /// A Mac app's icon cropped to its body: on the Big Sur grid the body is 824 of the 1024-point canvas.
     static func app(_ icon: NSImage) -> NSImage {
@@ -87,13 +88,13 @@ enum IconTile {
 }
 
 extension NSImage {
-    /// The same picture without its colour, at the same size (a paused agent's icon).
-    var grayscale: NSImage {
-        guard let cg = cgImage(forProposedRect: nil, context: nil, hints: nil) else { return self }
-        let gray = CIImage(cgImage: cg).applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-        let out = NSImage(size: size)
-        out.addRepresentation(NSCIImageRep(ciImage: gray))
-        return out
+    /// The same picture without its colour, at the same size (a paused agent's icon), rendered once: an `NSCIImageRep`
+    /// makes a new CIContext (Metal libraries loaded and hashed) each time it's drawn.
+    @MainActor var grayscale: NSImage {
+        guard let cg = cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let gray = IconTile.ci.createCGImage(CIImage(cgImage: cg).applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0]),
+                                                   from: CGRect(x: 0, y: 0, width: cg.width, height: cg.height)) else { return self }
+        return NSImage(cgImage: gray, size: size)
     }
 }
 

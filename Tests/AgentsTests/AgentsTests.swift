@@ -332,6 +332,10 @@ import TestSupport
     let claude = ["claude", "Claude Code", "Kelp"]
     #expect(TerminalTitle.topic("✳ Ревью и оценка приложения", names: claude) == "Ревью и оценка приложения")
     #expect(TerminalTitle.topic("◐ Claude Code", names: claude) == nil)
+    // omp's spinner sits after its mark: every frame is the same topic.
+    let omp = ["omp", "Oh My Pi", "Kelp"]
+    #expect(TerminalTitle.topic("π ⠧ \u{F0297} CHEAT: Enable cheats", names: omp) == "π CHEAT: Enable cheats")
+    #expect(TerminalTitle.topic("π ⠴ \u{F0297} CHEAT: Enable cheats", names: omp) == "π CHEAT: Enable cheats")
     // Others name themselves or the folder: no topic.
     #expect(TerminalTitle.topic("π - Kelp", names: ["pi", "Pi", "Kelp"]) == nil)
     #expect(TerminalTitle.topic("grok", names: ["grok", "Grok", "Kelp"]) == nil)
