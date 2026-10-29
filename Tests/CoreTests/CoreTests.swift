@@ -358,3 +358,25 @@ final class Flag: @unchecked Sendable {   // the bool under lock
         == "/p/Pretype_lending/public/assets/pretype-icon.svg")
     #expect(find("/p/site", ["/p/site": ["public"], "/p/site/public/": ["github-icon.svg", "site.css"]]) == nil)
 }
+
+/// When a routine is due next: weekdays skip the weekend, weekly keeps its day, hourly its minute; a time the clocks skip
+/// (spring forward) runs at the next one that exists.
+@Test func routinesAreDueOnTheirSchedule() throws {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = try #require(TimeZone(identifier: "America/New_York"))
+    func at(_ s: String) throws -> Date {
+        let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+        return try #require(f.date(from: s))
+    }
+    func next(_ every: Routine.Every, _ time: Int, weekday: Int = 2, after: String) throws -> Date? {
+        Routine(name: "r", repoId: "p", agent: "a", prompt: "x", every: every, time: time, weekday: weekday).next(after: try at(after), calendar: cal)
+    }
+    #expect(try next(.weekdays, 9 * 60, after: "2026-10-30 10:00") == at("2026-11-02 09:00"))   // Friday → Monday
+    #expect(try next(.weekdays, 9 * 60, after: "2026-10-29 08:59") == at("2026-10-29 09:00"))
+    #expect(try next(.weekly, 10 * 60, weekday: 2, after: "2026-10-27 10:00") == at("2026-11-02 10:00"))   // Mondays
+    #expect(try next(.hourly, 15, after: "2026-10-29 11:14") == at("2026-10-29 11:15"))
+    #expect(try next(.hourly, 15, after: "2026-10-29 11:15") == at("2026-10-29 12:15"))
+    #expect(try next(.daily, 2 * 60 + 30, after: "2026-03-08 00:00") == at("2026-03-08 03:00"))   // no 2:30 that night
+    let r = Routine(name: "r", repoId: "p", agent: "a", prompt: "x", every: .daily, time: 9 * 60)
+    #expect(try r.times(after: at("2026-10-26 08:00"), through: at("2026-10-29 09:00"), calendar: cal).count == 4)
+}

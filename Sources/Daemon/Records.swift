@@ -8,3 +8,5 @@ extension Repo: FetchableRecord, PersistableRecord { public static let databaseT
 extension Worktree: FetchableRecord, PersistableRecord { public static let databaseTableName = "worktree" }
 extension Session: FetchableRecord, PersistableRecord { public static let databaseTableName = "session" }
 extension DiffComment: FetchableRecord, PersistableRecord { public static let databaseTableName = "diffComment" }
+extension Routine: FetchableRecord, PersistableRecord { public static let databaseTableName = "routine" }
+extension Routine.Run: FetchableRecord, PersistableRecord { public static let databaseTableName = "routineRun" }

@@ -150,6 +150,7 @@ public final class Daemon: Sendable {
         src.resume()
         t.resume()
         prune.resume()
+        workspaces.routines.start(desks: workspaces)
         // not once stopped
         workspaces.headQueue.async { [weak self] in
             if self?.running.withLock({ $0.accept != nil }) == true { self?.workspaces.followHeads() }
@@ -168,6 +169,7 @@ public final class Daemon: Sendable {
         if r.accept == nil, r.listenFD >= 0 { close(r.listenFD) }
         // Every program ends with the daemon, whole trees (a job in a process group of its own, an agent that ignores the
         // hangup), each recorded as pausing records it: a resumable agent comes back paused, not as a second copy.
+        workspaces.routines.stop()
         sessions.pauseAll()
         lsp.stopAll()
         watches.stopAll()
@@ -188,6 +190,7 @@ public final class Daemon: Sendable {
         accept.cancel()
         r.ticker?.cancel()
         r.prune?.cancel()
+        workspaces.routines.stop()
         let h = Handover(socket: socket, lock: dup(r.instanceLock), sessions: sessions.handOver())
         lsp.stopAll()
         watches.stopAll()

@@ -19,6 +19,7 @@ final class Workspaces: Sendable {
     let heads = OSAllocatedUnfairLock<[String: HeadWatch]?>(initialState: [:])
     let headQueue = DispatchQueue(label: "kelp.heads")   // syncs one at a time, off every reader and the pool
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
+    let routines: Routines   // agents on a schedule, each in a desk of its own
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root
@@ -26,6 +27,7 @@ final class Workspaces: Sendable {
         self.remotes = remotes
         self.sessions = sessions
         self.clients = clients
+        self.routines = Routines(store: store, sessions: sessions, clients: clients)
     }
 
     func notify(_ e: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(e, to: only) }

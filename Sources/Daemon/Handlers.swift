@@ -139,7 +139,8 @@ extension Daemon {
     static let methods: [String: any Answered.Type] = {
         let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self, SessionContextWindow.self, SessionContextParts.self,
                                         WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self, GitDiscardHunk.self,
-                                        RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self]
+                                        RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self,
+                                        RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self]
             + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods + Methods.integrationMethods + Methods.projectMethods
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
         let all = sync.map { $0 as any Answered.Type } + (Methods.asyncMethods + Methods.lspAsyncMethods).map { $0 as any Answered.Type }
@@ -418,6 +419,16 @@ extension SessionContextWindow: Handled {
         return Usage(used: c.used, window: sessions.agentUsage.contextWindow(model: c.model, peak: c.peak))
     }
 }
+
+extension RoutineList: Handled { func handle(_ w: Workspaces) throws -> RoutinesEvent { try w.routines.list() } }
+extension RoutineSet: Handled { func handle(_ w: Workspaces) throws -> Routine { try w.routines.set(routine) } }
+extension RoutineDelete: Handled {
+    func handle(_ w: Workspaces) throws -> Done {
+        try w.routines.delete(id)
+        return Done()
+    }
+}
+extension RoutineRun: Handled { func handle(_ w: Workspaces) throws -> Routine.Run { try w.routines.runNow(id, desks: w) } }
 
 extension SessionContextParts: Handled {
     func handle(_ sessions: Sessions) throws -> Parts? {

@@ -35,6 +35,10 @@ usage: kelp <command>
   ext install <id | github-url | ./folder> [--yes]   from the library, any GitHub folder (…/tree/<branch>/<path>) or
                                        disk; one from elsewhere on GitHub shows what it runs and asks first (--yes: don't)
   ext update [id]                      what came from GitHub, to the library's latest (or its branch's)
+  routine add <name> --prompt <text> [--agent id] [--model m] [--every hourly|daily|weekdays|weekly] [--at 9:00]
+              [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
+                                       missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
+  routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
 """
 
 // Internal: the daemon starts agents through this so the PTY becomes their controlling terminal
@@ -167,6 +171,7 @@ func plist() -> String {
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)
         case "ext": try await ext(sub, c)
         case "open": try await open(sub, c)
+        case "routine": try await routines(sub, c)
         default: print(usage)
         }
     }
@@ -455,6 +460,33 @@ func plist() -> String {
         let unit = ["s": 1.0, "m": 60, "h": 3600][String(s.suffix(1))]
         guard let n = Double(unit == nil ? s : String(s.dropLast())) else { fail("bad duration \(s): use 30s, 10m or 1h") }
         return n * (unit ?? 1)
+    }
+
+    /// `routine add|list|run|rm`.
+    static func routines(_ sub: String?, _ c: RPCClient) async throws {
+        func id() async throws -> String {
+            let p = args.first ?? "", found = try await c.call(RoutineList()).routines.map(\.id).filter { !p.isEmpty && $0.hasPrefix(p) }
+            guard found.count == 1 else { fail(found.isEmpty ? "no routine \(p) (see `kelp routine list`)" : "ambiguous: \(p)") }
+            return found[0]
+        }
+        switch sub {
+        case "add":
+            let prompt = flag("--prompt"), agent = flag("--agent") ?? "claude", model = flag("--model")
+            let every = Routine.Every(rawValue: flag("--every") ?? "weekdays") ?? .weekdays
+            let at = flag("--at") ?? (every == .hourly ? ":00" : "9:00"), day = flag("--day") ?? "mon", skip = has("--skip-missed")
+            let hm = at.split(separator: ":", omittingEmptySubsequences: false).map { Int($0) ?? 0 }
+            let days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+            guard let prompt, let name = args.first, let weekday = days.firstIndex(of: String(day.lowercased().prefix(3))) else {
+                fail("routine add <name> --prompt <text> [--every hourly|daily|weekdays|weekly] [--at 9:00] [--day mon]")
+            }
+            let time = hm.count > 1 ? hm[0] * 60 + hm[1] : hm[0] * 60
+            show(try await c.call(RoutineSet(routine: Routine(name: name, repoId: try await currentRepoID(c), agent: agent, model: model, prompt: prompt,
+                                                              every: every, time: time, weekday: weekday + 1, onWake: !skip))))
+        case "list": show(try await c.call(RoutineList()))
+        case "run": show(try await c.call(RoutineRun(id: try await id())))
+        case "rm": _ = try await c.call(RoutineDelete(id: try await id()))
+        default: print(usage)
+        }
     }
 
     /// Accept a full id or a unique prefix (what `kelp status` prints) of a session (`session.list`) or else a workspace.

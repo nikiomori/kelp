@@ -14,6 +14,7 @@ event.ports
 event.pr
 event.removed
 event.repo
+event.routines
 event.session
 event.settings
 event.ui

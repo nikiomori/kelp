@@ -104,6 +104,10 @@ repo.remove
 repo.removeWorktrees
 repo.rename
 repo.worktreeSizes
+routine.delete
+routine.list
+routine.run
+routine.set
 run.detect
 run.start
 scratch.ensure

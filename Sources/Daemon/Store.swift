@@ -127,6 +127,25 @@ public final class Store: Sendable {
         m.registerMigration("v16") { db in
             try db.alter(table: "session") { t in t.add(column: "awaiting", .text) }
         }
+        m.registerMigration("v17") { db in   // routines go with their project, runs with their routine
+            try db.create(table: "routine") { t in
+                t.primaryKey("id", .text); t.column("name", .text).notNull()
+                t.column("repoId", .text).notNull().references("repo", onDelete: .cascade)
+                t.column("agent", .text).notNull(); t.column("model", .text)
+                t.column("prompt", .text).notNull(); t.column("every", .text).notNull()
+                t.column("time", .integer).notNull(); t.column("weekday", .integer).notNull()
+                t.column("enabled", .boolean).notNull(); t.column("onWake", .boolean).notNull()
+                t.column("worktreeId", .text); t.column("checked", .datetime).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(table: "routineRun") { t in
+                t.primaryKey("id", .text)
+                t.column("routineId", .text).notNull().indexed().references("routine", onDelete: .cascade)
+                t.column("sessionId", .text); t.column("due", .datetime).notNull()
+                t.column("started", .datetime).notNull(); t.column("ended", .datetime)
+                t.column("outcome", .text).notNull(); t.column("summary", .text).notNull()
+            }
+        }
         return m
     }
 
