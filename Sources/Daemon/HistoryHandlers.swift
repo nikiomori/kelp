@@ -40,9 +40,9 @@ extension UsageReport: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
         let since = AgentUsage.since(days: days)
         let rows = usage.usageIndex.rows(roots: usage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) }, since: since)
-        let all = rows.map { ("claude", $0) }
+        let all = rows.map { ("claude", $0) }, project = usage.projects()
         func group(_ key: (AgentUsage.AgentRow) -> String) -> [Group] { AgentUsage.groups(all, by: key) }
-        return Result(days: group { $0.row.day }, models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
+        return Result(days: group { $0.row.day }, models: group { $0.row.model }, projects: group { project($0.row.cwd) },
                       since: since.timeIntervalSince1970)
     }
 }
@@ -51,7 +51,7 @@ extension UsageReport: Handled {
 extension UsageAgents: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
         let since = AgentUsage.since(days: days)
-        let rows = usage.agentRows(since: since)
+        let rows = usage.agentRows(since: since), project = usage.projects()
         func group(_ key: (AgentUsage.AgentRow) -> String) -> [UsageReport.Group] { AgentUsage.groups(rows, by: key) }
         let days = Dictionary(grouping: rows) { [$0.row.day, $0.agent] }.map { k, rs in
             Day(day: k[0], agent: k[1], cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: rs.reduce(0) { $0 + $1.row.tally.tokens.total })
@@ -61,25 +61,25 @@ extension UsageAgents: Handled {
             let t = rs.dropFirst().reduce(rs[0].row.tally.tokens) { $0 + $1.row.tally.tokens }   // a group is never empty
             return Agent(id: id, cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: t.total, input: t.input, output: t.output,
                          cacheWrite: t.cacheWrite, cacheRead: t.cacheRead,
-                         models: AgentUsage.groups(rs) { $0.row.model }, projects: AgentUsage.groups(rs) { usage.project($0.row.cwd) })
+                         models: AgentUsage.groups(rs) { $0.row.model }, projects: AgentUsage.groups(rs) { project($0.row.cwd) })
         }
             .sorted { ($0.cost, $0.tokens) > ($1.cost, $1.tokens) }
-        return Result(days: days, agents: agents, models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
+        return Result(days: days, agents: agents, models: group { $0.row.model }, projects: group { project($0.row.cwd) },
                       since: since.timeIntervalSince1970)
     }
 }
 
 extension AgentUsage {
-    /// The first of the last `days` days (1–90, 30 if not said), from midnight.
+    /// The first of the last `days` days (1–371: the Usage tab's year of weeks; 30 if not said), from midnight.
     static func since(days: Int?) -> Date {
         let cal = Calendar.current
-        return cal.date(byAdding: .day, value: 1 - max(1, min(90, days ?? 30)), to: cal.startOfDay(for: Date())) ?? Date()
+        return cal.date(byAdding: .day, value: 1 - max(1, min(371, days ?? 30)), to: cal.startOfDay(for: Date())) ?? Date()
     }
 
-    /// The Kelp project a folder is in, else the folder's name.
-    func project(_ cwd: String) -> String {
+    /// The Kelp project a folder is in, else the folder's name; the projects read once (a reply names thousands of rows').
+    func projects() -> (String) -> String {
         let repos = (try? store.repos()) ?? []
-        return repos.first { cwd == $0.path || cwd.hasPrefix($0.path + "/") }?.name ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent)
+        return { cwd in repos.first { cwd == $0.path || cwd.hasPrefix($0.path + "/") }?.name ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent) }
     }
 
     /// Sums `rows` by a key, most expensive first (then most tokens: a model with no list price costs 0).

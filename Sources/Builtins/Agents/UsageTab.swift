@@ -36,6 +36,8 @@ struct UsageReportView: View {
     @State private var loading = true
     @State private var slow = false
     @State private var failed: String?
+    /// The last year of weeks, for the board of days (read once, after the span's).
+    @State private var year: [UsageAgents.Day] = []
 
     /// The agents whose tokens the daemon reads (`usage.agents`): one that reports a plan but isn't here keeps no counts.
     static let counted: Set = ["claude", "codex", "grok", "antigravity", "kimi", "copilot", "opencode", "kilo", "pi", "omp", "qwen", "gemini"]
@@ -237,14 +239,12 @@ struct UsageReportView: View {
 
     // MARK: Under the table
 
-    /// Cost or tokens a day, stacked by agent (or the chosen one's alone).
+    /// The last year's days as tiles, then cost or tokens a day over the span stacked by agent (the chosen one's alone).
     private func detail(_ usage: UsageAgents.Result) -> some View {
         let ids = series.map(\.id)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                let who = sel.map { app.catalog.name($0) } ?? String(localized: "All agents")
-                Text(byCost ? String(localized: "\(who) · cost per day") : String(localized: "\(who) · tokens per day"))
-                    .font(.system(size: TextSize.of(13), weight: .semibold))
+                Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(.system(size: TextSize.of(13), weight: .semibold))
                 if sel != nil { Button("Show All") { selected = nil }.controlSize(.small) }
                 Spacer()
                 Picker("", selection: $byCost) {
@@ -253,6 +253,9 @@ struct UsageReportView: View {
                 }
                     .pickerStyle(.segmented).fixedSize()
             }
+            if !year.isEmpty { board }
+            Text(byCost ? String(localized: "Cost per day · last \(range) days") : String(localized: "Tokens per day · last \(range) days"))
+                .font(.caption).foregroundStyle(.secondary).padding(.top, 8)
             Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { d in
                 BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value(byCost ? "Cost" : "Tokens", value(d)))
                     .foregroundStyle(by: .value("Agent", app.catalog.name(d.agent)))
@@ -266,6 +269,25 @@ struct UsageReportView: View {
                 }
             }
             .frame(height: 180)
+        }
+    }
+
+    /// The year's days by how much the agents (the chosen one) used, what it all came to over it, and each day's on hover.
+    private var board: some View {
+        var days: [Date: (cost: Double, tokens: Int)] = [:]
+        for d in year where sel == nil || d.agent == sel {
+            let t = Self.date(d.day), was = days[t] ?? (0, 0)
+            days[t] = (was.cost + d.cost, was.tokens + d.tokens)
+        }
+        let cost = days.values.reduce(0) { $0 + $1.cost }, tokens = days.values.reduce(0) { $0 + $1.tokens }
+        let total = byCost ? money(cost, tokens) : String(localized: "\(count(tokens)) tokens")
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("\(total) in the last year · \(days.count) active days").font(.caption).foregroundStyle(.secondary)
+            YearBoard(values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green) { day in
+                let when = day.formatted(.dateTime.month(.wide).day())
+                guard let d = days[day] else { return String(localized: "No usage on \(when)") }
+                return String(localized: "\(when): \(money(d.cost, d.tokens)) · \(count(d.tokens)) tokens")
+            }
         }
     }
 
@@ -303,6 +325,8 @@ struct UsageReportView: View {
         failed = read.error
         if let r = read.value { usage = r }
         loading = false
+        // The board's year once the span's is in: both wait on the same logs, and the table is what's asked for first.
+        if year.isEmpty { year = await app.quiet(UsageAgents(days: 371), timeout: 330)?.days ?? [] }
     }
 
     // MARK: Formats
@@ -319,11 +343,15 @@ struct UsageReportView: View {
         return words.joined(separator: " ")
     }
 
-    static func date(_ day: String) -> Date {
+    /// A day as the daemon writes it ("2026-10-29", local), at its start.
+    static func date(_ day: String) -> Date { dayFormat.date(from: day) ?? Date() }
+    private static let dayFormat: DateFormatter = {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
         f.dateFormat = "yyyy-MM-dd"
-        return f.date(from: day) ?? Date()
-    }
+        return f
+    }()
     /// "—" for tokens with no price (a model without a list price).
     private func money(_ v: Double, _ tokens: Int) -> String {
         v == 0 && tokens > 0 ? "—" : v.formatted(.currency(code: "USD").precision(.fractionLength(v < 10 ? 2 : 0)))
