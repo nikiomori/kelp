@@ -14,6 +14,14 @@ package func runSheet(_ a: NSAlert) async -> NSApplication.ModalResponse {
     return await withCheckedContinuation { c in a.beginSheetModal(for: w) { c.resume(returning: $0) } }
 }
 
+/// A window of our own (a form) as a sheet on the front window, awaited; its buttons end it with
+/// `sheetParent?.endSheet(_:returnCode:)`. `.abort` when there's no window to put it on.
+@MainActor
+package func runSheet(_ sheet: NSWindow) async -> NSApplication.ModalResponse {
+    guard let w = sheetWindow else { return .abort }
+    return await withCheckedContinuation { c in w.beginSheet(sheet) { c.resume(returning: $0) } }
+}
+
 /// A save panel as a sheet on the front window, awaited.
 @MainActor
 package func runSheet(_ p: NSSavePanel) async -> NSApplication.ModalResponse {

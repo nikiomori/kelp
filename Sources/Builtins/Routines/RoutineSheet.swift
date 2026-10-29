@@ -4,23 +4,21 @@ import Core
 import DesignKit
 import KelpKit
 
-/// New Routine / Edit Routine: a sheet with the routine's name, agent, prompt and when it runs.
+/// New Routine / Edit Routine: a sheet with the routine's name, agent, prompt and when it runs. A window of its own, not
+/// an alert's accessory: the form grows a row for Weekly, and an alert keeps the size it opened with.
 @MainActor
 enum RoutineSheet {
     /// The routine as filled in; nil when cancelled.
     static func run(_ app: AppModel, repoId: String, editing: Routine? = nil) async -> Routine? {
         let agents = app.catalog.installed(app.catalog.all).map { (id: $0.id, name: $0.name) }
         let form = RoutineForm(editing ?? Routine(name: "", repoId: repoId, agent: app.catalog.defaultAgent, prompt: ""))
-        let a = NSAlert()
-        a.messageText = editing == nil ? String(localized: "New Routine") : String(localized: "Edit Routine")
-        a.informativeText = String(localized: "An agent on a schedule: at its time it starts with this prompt, in a workspace of its own.")
-        let save = a.addButton(withTitle: editing == nil ? String(localized: "Create") : String(localized: "Save"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        let host = NSHostingView(rootView: RoutineFormView(form: form, agents: agents) { save.isEnabled = $0 })
-        host.frame.size = NSSize(width: 400, height: host.fittingSize.height)
-        a.accessoryView = host
-        save.isEnabled = form.valid
-        guard await runSheet(a) == .alertFirstButtonReturn, form.valid else { return nil }
+        let sheet = NSPanel(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        let host = NSHostingController(rootView: RoutineFormView(form: form, agents: agents, editing: editing != nil) { [weak sheet] r in
+            if let sheet { sheet.sheetParent?.endSheet(sheet, returnCode: r) }
+        })
+        host.sizingOptions = [.minSize, .maxSize]   // the sheet follows the form: taller for Weekly's day
+        sheet.contentViewController = host
+        guard await runSheet(sheet) == .OK, form.valid else { return nil }
         return form.routine
     }
 }
@@ -38,10 +36,27 @@ final class RoutineForm {
 struct RoutineFormView: View {
     @Bindable var form: RoutineForm
     let agents: [(id: String, name: String)]
-    /// Whether it can be saved, as it's typed.
-    let validity: (Bool) -> Void
+    let editing: Bool
+    let end: (NSApplication.ModalResponse) -> Void
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.gapWide) {
+            Text(editing ? String(localized: "Edit Routine") : String(localized: "New Routine")).font(.headline)
+            Text("An agent on a schedule: at its time it starts with this prompt, in a workspace of its own.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            fields
+            HStack {
+                Spacer()
+                Button(String(localized: "Cancel")) { end(.cancel) }.keyboardShortcut(.cancelAction)
+                Button(editing ? String(localized: "Save") : String(localized: "Create")) { end(.OK) }
+                    .keyboardShortcut(.defaultAction).disabled(!form.valid)
+            }
+        }
+        .padding(Metrics.sheetInset)
+        .frame(width: Metrics.sheetWidth)
+    }
+
+    private var fields: some View {
         Form {
             TextField(String(localized: "Name"), text: $form.routine.name, prompt: Text("Morning triage"))
             Picker(String(localized: "Agent"), selection: $form.routine.agent) {
@@ -58,7 +73,6 @@ struct RoutineFormView: View {
             Toggle(String(localized: "Missed while the Mac slept: run once it wakes"), isOn: $form.routine.onWake)
         }
         .formStyle(.columns)
-        .onChange(of: form.valid, initial: true) { _, ok in validity(ok) }
     }
 }
 

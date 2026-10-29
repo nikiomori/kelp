@@ -168,7 +168,7 @@ struct RunMark: View {
     var body: some View {
         VStack(spacing: 1) {
             symbol.frame(height: 16)
-            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
         }
         .padding(.horizontal, 3).padding(.vertical, 2)
         .background(picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS))

@@ -35,11 +35,13 @@ struct RoutineDetail: View {
 
     /// Next run, where it runs, what a missed one does.
     private var facts: some View {
-        let next = routine.enabled ? routine.next(after: week.now).map { String(localized: "Next: \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))") }
+        let next = routine.enabled
+            ? routine.next(after: week.now).map { String(localized: "Next: \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))") }
             : String(localized: "Off")
         let place = app.worktree(routine.worktreeId).map { String(localized: "Runs in its workspace “\($0.displayName)”") }
             ?? String(localized: "Runs in a workspace of its own, made at its first run")
-        let wake = routine.onWake ? String(localized: "Missed while the Mac slept: runs once it wakes") : String(localized: "Missed while the Mac slept: skipped")
+        let wake = routine.onWake ? String(localized: "Missed while the Mac slept: runs once it wakes")
+            : String(localized: "Missed while the Mac slept: skipped")
         return Text([next, place, wake, String(localized: "Asks for permission as usual")].compactMap { $0 }.joined(separator: " · "))
             .font(.caption).foregroundStyle(.secondary)
     }
@@ -81,7 +83,10 @@ struct RunResult: View {
             if !run.summary.isEmpty {
                 Text(prefix + run.summary).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
             }
-            if run.late { Text("Ran late: the Mac was asleep or Kelp wasn't running at \(run.due.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.tertiary) }
+            if run.late {
+                Text("Ran late: the Mac was asleep or Kelp wasn't running at \(run.due.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption).foregroundStyle(.tertiary)
+            }
         }
         .padding(Metrics.inset)
         .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusMD))
@@ -104,7 +109,8 @@ struct RunResult: View {
         case .missed: String(localized: "Missed")
         }
         let when = run.due.formatted(.dateTime.weekday(.abbreviated).hour().minute())
-        let took = run.ended.map { " · " + Duration.seconds($0.timeIntervalSince(run.started)).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 1)) } ?? ""
+        let units = Duration.UnitsFormatStyle.units(allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 1)
+        let took = run.ended.map { " · " + Duration.seconds($0.timeIntervalSince(run.started)).formatted(units) } ?? ""
         return "\(state) · \(when)\(took)"
     }
 }
