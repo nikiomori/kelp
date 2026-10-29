@@ -13,9 +13,13 @@ extension Hooks {
         }
     }
 
-    /// "Allow rm -rf node_modules?", "Allow editing Sources/App.swift?": the tool and what it would act on.
+    /// "Allow rm -rf node_modules?", "Allow editing Sources/App.swift?": the tool and what it would act on. A question
+    /// (AskUserQuestion goes through the same dialog) is its own first question, not a permission.
     public static func permissionAsk(_ n: JSONValue) -> String {
         let tool = n["tool_name"]?.string ?? "", input = n["tool_input"] ?? .null
+        if tool == "AskUserQuestion", let q = input["questions"]?.array?.first?["question"]?.string.map(oneLine), !q.isEmpty {
+            return q.count > 126 ? String(q.prefix(125)) + "…" : q
+        }
         func field(_ key: String) -> String? { input[key]?.string.map(oneLine).flatMap { $0.isEmpty ? nil : $0 } }
         func file(_ key: String) -> String? { field(key).map { shortPath($0, cwd: n["cwd"]?.string) } }
         let what: String? = switch tool {
