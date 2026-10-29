@@ -231,9 +231,10 @@ extension OneAtATime {
         s.unread = true
         return s
     }
-    let sessions = [agent("w1", .waiting, "Ask"), agent("w2", .done, "Report A"), agent("w3", .done, "Report B")]
+    let sessions = [agent("w1", .waiting, "Ask"), agent("w2", .done, "Report A"), agent("w3", .done, "Report B"), agent("w4", .done, "Put away")]
+    // w4 is archived: the daemon doesn't list it, its agent stays in the session list.
     try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, o in
-        #expect(texts(vc.view).contains("3 need you"))   // a question and two reports nobody has read
+        #expect(texts(vc.view).contains("3 need you"))   // a question and two reports nobody has read; not the archived one's
         let listed: [String] = rows(of: o).flatMap { $0 }
         #expect(listed.contains("Report A") && listed.contains("Report B"))   // each on its own row
     }
