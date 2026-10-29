@@ -52,6 +52,7 @@ extension AppModel {
         case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
         case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
         case let e as CommandsEvent: if commands[e.session] != e.commands { commands[e.session] = e.commands }
+        case let e as RoutinesEvent: if routines != e { routines = e }
         case let e as ContextEvent:
             // No usage (not Claude Code, ended, just compacted) takes the ring away.
             let usage = e.usage.flatMap { $0.window > 0 ? $0 : nil }, old = contextUsage[e.session]

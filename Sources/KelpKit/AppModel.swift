@@ -56,6 +56,8 @@ package final class AppModel {
     package var ports: [String: [PortsList.Port]] = [:]
     package var activity: ActivityEvent?
     package var ci: [String: CIEvent] = [:]
+    /// Every routine and their runs of the last two weeks, as the daemon last told (`event.routines`).
+    package var routines: RoutinesEvent?
     var prs: [String: GitHub.PullRequest] = [:]
     var limits: UsageGet.Result?
     @ObservationIgnored var forecast = LimitForecast()   // the pace of each limit, from the readings pushed so far
@@ -320,6 +322,7 @@ package final class AppModel {
             let merged = Self.merge(list: s, local: sessions, newer: Set(sessionEvents.keys.filter { sessionEvents[$0] != before[$0] }))
             if merged != sessions { sessions = merged }
         }
+        if let r = await quiet(RoutineList()), r != routines { routines = r }
         syncContextWatches()
     }
 

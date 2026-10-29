@@ -8,7 +8,7 @@ import Agents
 @MainActor
 package struct AgentCatalog {
     let app: AppModel
-    func installed(_ all: [AgentManifest]) -> [AgentManifest] {
+    package func installed(_ all: [AgentManifest]) -> [AgentManifest] {
         let ok = app.availability.ids
         return all.filter { ok.contains($0.id) }
     }
@@ -19,7 +19,7 @@ package struct AgentCatalog {
         return base + app.extensions.all.agents.filter { a in !base.contains { $0.id == a.id } }
     }
     /// The agent "New Agent" starts: the setting if it's installed, else the first installed one.
-    var defaultAgent: String {
+    package var defaultAgent: String {
         let installed = installed(all)
         if let d = app.settings.string("agents.default"), installed.contains(where: { $0.id == d }) { return d }
         return installed.first?.id ?? "claude"
@@ -31,7 +31,7 @@ package struct AgentCatalog {
     }
     /// The default agent, nil while no agent CLI is found (nothing to start).
     var startable: String? { installed(all).isEmpty ? nil : defaultAgent }
-    func name(_ id: String?) -> String {
+    package func name(_ id: String?) -> String {
         guard let id else { return "Terminal" }
         if id == "shell" { return String(localized: "Terminal") }
         return all.first { $0.id == id }?.name ?? id.capitalized

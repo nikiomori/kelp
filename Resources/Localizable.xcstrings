@@ -156,6 +156,17 @@
         }
       }
     },
+    "%@ didn't run at %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%1$@» не запустилась в %2$@"
+          }
+        }
+      }
+    },
     "%@ failed: %@": {
       "localizations": {
         "ru": {
@@ -284,6 +295,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@: у вида «%@» нет ни list, ни web."
+          }
+        }
+      }
+    },
+    "%@s at %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
           }
         }
       }
@@ -465,6 +487,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "%lld routines · %lld on · this week, %@ – %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рутин: %1$lld · включено: %2$lld · неделя %3$@ – %4$@"
           }
         }
       }
@@ -675,6 +708,17 @@
         }
       }
     },
+    "Agents on a schedule, each in a workspace of its own.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты по расписанию, каждый в своём воркспейсе."
+          }
+        }
+      }
+    },
     "Agents Side by Side": {
       "extractionState": "manual",
       "localizations": {
@@ -727,6 +771,28 @@
         }
       }
     },
+    "An agent on a schedule: at its time it starts with this prompt, in a workspace of its own.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент по расписанию: в своё время он запускается с этим промптом в собственном воркспейсе."
+          }
+        }
+      }
+    },
+    "An agent on a schedule: triage new issues every morning, run the tests every night.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент по расписанию: каждое утро разбирает новые задачи, каждую ночь гоняет тесты."
+          }
+        }
+      }
+    },
     "and %lld more": {
       "extractionState": "manual",
       "localizations": {
@@ -734,6 +800,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "и ещё %lld"
+          }
+        }
+      }
+    },
+    "Answer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответить"
           }
         }
       }
@@ -1178,12 +1255,56 @@
         }
       }
     },
+    "Asks for permission as usual": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешения спрашивает как обычно"
+          }
+        }
+      }
+    },
+    "Asks: ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивает: "
+          }
+        }
+      }
+    },
     "Assigned to me": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Назначенные мне"
+          }
+        }
+      }
+    },
+    "At": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время"
+          }
+        }
+      }
+    },
+    "At minute": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минута"
           }
         }
       }
@@ -2505,6 +2626,17 @@
         }
       }
     },
+    "Daily": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый день"
+          }
+        }
+      }
+    },
     "Day": {
       "localizations": {
         "ru": {
@@ -2614,6 +2746,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалить «%@»?"
+          }
+        }
+      }
+    },
+    "Delete…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить…"
           }
         }
       }
@@ -2840,6 +2983,17 @@
         }
       }
     },
+    "Edit Routine": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить рутину"
+          }
+        }
+      }
+    },
     "Edit settings.json in the editor": {
       "localizations": {
         "ru": {
@@ -2867,6 +3021,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Редактор"
+          }
+        }
+      }
+    },
+    "Edit…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить…"
           }
         }
       }
@@ -2939,6 +3104,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выровнять панели"
+          }
+        }
+      }
+    },
+    "Every day at %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый день в %@"
+          }
+        }
+      }
+    },
+    "Every hour at :%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый час в :%@"
           }
         }
       }
@@ -3020,6 +3207,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ошибка"
+          }
+        }
+      }
+    },
+    "Failed: ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка: "
           }
         }
       }
@@ -3633,6 +3831,17 @@
         }
       }
     },
+    "Hourly": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый час"
+          }
+        }
+      }
+    },
     "How Extensions Work": {
       "localizations": {
         "ru": {
@@ -3978,6 +4187,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запуск на GitHub Actions."
+          }
+        }
+      }
+    },
+    "It stops running. Its workspace and the tabs of its runs stay.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Она больше не запустится. Её воркспейс и вкладки прогонов останутся."
           }
         }
       }
@@ -4657,6 +4877,61 @@
         }
       }
     },
+    "Missed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропущен"
+          }
+        }
+      }
+    },
+    "Missed while the Mac slept: run once it wakes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если Mac спал — запустить один раз после пробуждения"
+          }
+        }
+      }
+    },
+    "Missed while the Mac slept: runs once it wakes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если Mac спал — один прогон после пробуждения"
+          }
+        }
+      }
+    },
+    "Missed while the Mac slept: skipped": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если Mac спал — прогон пропускается"
+          }
+        }
+      }
+    },
+    "Model": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель"
+          }
+        }
+      }
+    },
     "More": {
       "localizations": {
         "ru": {
@@ -4673,6 +4948,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Другие действия"
+          }
+        }
+      }
+    },
+    "Morning triage": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Утренний разбор"
           }
         }
       }
@@ -4763,6 +5049,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нужен `%@` — на этом Mac его нет."
+          }
+        }
+      }
+    },
+    "Needs you": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждёт вас"
           }
         }
       }
@@ -4885,6 +5182,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Новый проект…"
+          }
+        }
+      }
+    },
+    "New Routine": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая рутина"
+          }
+        }
+      }
+    },
+    "New Routine…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая рутина…"
           }
         }
       }
@@ -5029,6 +5348,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Следующая рабочая область"
+          }
+        }
+      }
+    },
+    "Next: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующий: %@"
           }
         }
       }
@@ -5249,6 +5579,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Комментариев ревью нет"
+          }
+        }
+      }
+    },
+    "No Routines": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рутин нет"
           }
         }
       }
@@ -5620,6 +5961,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Быстрое открытие…"
+          }
+        }
+      }
+    },
+    "Open Run": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть прогон"
           }
         }
       }
@@ -6017,6 +6369,17 @@
         }
       }
     },
+    "Prompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Промпт"
+          }
+        }
+      }
+    },
     "Provider Presets": {
       "localizations": {
         "ru": {
@@ -6186,6 +6549,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "столкнулся с ошибкой"
+          }
+        }
+      }
+    },
+    "Ran late: the Mac was asleep or Kelp wasn't running at %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С опозданием: в %@ Mac спал или Kelp не был запущен"
           }
         }
       }
@@ -6501,6 +6875,17 @@
         }
       }
     },
+    "Repeat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повтор"
+          }
+        }
+      }
+    },
     "Reply": {
       "localizations": {
         "ru": {
@@ -6644,6 +7029,17 @@
         }
       }
     },
+    "Routines": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рутины"
+          }
+        }
+      }
+    },
     "Run": {
       "localizations": {
         "ru": {
@@ -6690,6 +7086,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запустить файл"
+          }
+        }
+      }
+    },
+    "Run Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить сейчас"
           }
         }
       }
@@ -6806,6 +7213,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выполняется…"
+          }
+        }
+      }
+    },
+    "Runs in a workspace of its own, made at its first run": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт в своём воркспейсе — он появится при первом прогоне"
+          }
+        }
+      }
+    },
+    "Runs in its workspace “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт в своём воркспейсе «%@»"
           }
         }
       }
@@ -8139,12 +8568,34 @@
         }
       }
     },
+    "The agent ended before it finished": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент закончил, не доделав"
+          }
+        }
+      }
+    },
     "The agent is still working. Closing the tab ends its session.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Агент ещё работает. Закрытие вкладки завершит его сессию."
+          }
+        }
+      }
+    },
+    "The agent's default": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как у агента по умолчанию"
           }
         }
       }
@@ -8238,6 +8689,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mac не уснёт, пока работают агенты. Нажмите, чтобы он не засыпал совсем"
+          }
+        }
+      }
+    },
+    "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac спал или Kelp не был запущен. «Запустить сейчас» — на вкладке «Рутины»."
           }
         }
       }
@@ -8786,6 +9248,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Неделя, %@"
+          }
+        }
+      }
+    },
+    "Weekdays": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По будням"
+          }
+        }
+      }
+    },
+    "Weekdays at %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По будням в %@"
+          }
+        }
+      }
+    },
+    "Weekly": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раз в неделю"
           }
         }
       }

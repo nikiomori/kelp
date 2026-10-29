@@ -5,6 +5,8 @@ import Core
 import Agents
 
 private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])
+/// Half a day from now: the daemon's own clock, running beside the test, never finds it due.
+private var farOff: Int { (Calendar.current.component(.hour, from: Date()) + 12) % 24 * 60 }
 
 /// The events a client was sent, by name.
 private final class Heard: @unchecked Sendable {
@@ -19,7 +21,7 @@ private final class Heard: @unchecked Sendable {
     let w = try await world(agents: [bot]); defer { w.d.stop() }
     let heard = Heard(); w.c.onNotification = { m, _ in heard.add(m) }
     await #expect(throws: RPCError.self) { try await w.c.call(RoutineSet(routine: Routine(name: " ", repoId: w.repo.id, agent: "bot", prompt: "x"))) }
-    var r = try await w.c.call(RoutineSet(routine: Routine(name: "Morning triage", repoId: w.repo.id, agent: "bot", prompt: "triage", every: .daily)))
+    var r = try await w.c.call(RoutineSet(routine: Routine(name: "Morning triage", repoId: w.repo.id, agent: "bot", prompt: "triage", every: .daily, time: farOff)))
     #expect(!r.id.isEmpty)
     w.d.workspaces.routines.tick(desks: w.d.workspaces, now: r.checked.addingTimeInterval(1))
     #expect(try await w.c.call(RoutineList()).runs.isEmpty)   // nothing due yet
@@ -64,9 +66,10 @@ private final class Heard: @unchecked Sendable {
 /// Several due times gone by make one run, not one each.
 @Test func aRoutineDueWhileAwayRunsOnceOrIsMissed() async throws {
     let w = try await world(agents: [bot]); defer { w.d.stop() }
-    let wake = try await w.c.call(RoutineSet(routine: Routine(name: "Hourly", repoId: w.repo.id, agent: "bot", prompt: "x", every: .hourly)))
-    let skip = try await w.c.call(RoutineSet(routine: Routine(name: "Skip", repoId: w.repo.id, agent: "bot", prompt: "x", every: .hourly, onWake: false)))
-    let later = wake.checked.addingTimeInterval(5 * 3600)
+    let wake = try await w.c.call(RoutineSet(routine: Routine(name: "Daily", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff)))
+    let skip = try await w.c.call(RoutineSet(routine: Routine(name: "Skip", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff,
+                                                              onWake: false)))
+    let later = wake.checked.addingTimeInterval(3 * 86400)
     w.d.workspaces.routines.tick(desks: w.d.workspaces, now: later)
     let runs = try await w.c.call(RoutineList()).runs
     let woke = try #require(runs.first { $0.routineId == wake.id }), missed = try #require(runs.first { $0.routineId == skip.id })

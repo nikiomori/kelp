@@ -32,6 +32,28 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             return e
         }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.releaseHeld() }
+        track(owner: self) { [app] in app.routines?.runs.filter { $0.outcome == .missed }.map(\.id) ?? [] } changed: { [weak self] _ in self?.missedRuns() }
+    }
+
+    /// A routine that didn't run (the Mac slept or Kelp was off, and it skips those): a banner that opens its routines.
+    /// The ones already there when Kelp opened aren't news.
+    private var missedTold: Set<String>?
+    private func missedRuns() {
+        guard let e = app.routines else { return }
+        let missed = e.runs.filter { $0.outcome == .missed }
+        defer { missedTold = (missedTold ?? []).union(missed.map(\.id)) }
+        guard let told = missedTold else { return }
+        for run in missed where !told.contains(run.id) {
+            guard let r = e.routines.first(where: { $0.id == run.routineId }) else { continue }
+            let c = UNMutableNotificationContent()
+            c.title = String(localized: "\(r.name) didn't run at \(run.due.formatted(date: .omitted, time: .shortened))")
+            c.body = String(localized: "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.")
+            c.userInfo = ["uri": "routines:\(r.repoId)"]
+            alert { [self] in
+                center?.add(UNNotificationRequest(identifier: "missed-\(run.id)", content: c, trigger: nil))
+                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            }
+        }
     }
 
     // MARK: Held while you type (TypingHold)
@@ -309,6 +331,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
+        if let uri = r.notification.request.content.userInfo["uri"] as? String {
+            await MainActor.run { NSApp.activate(); app.workbench.open(uri) }
+            return
+        }
         guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
         let action = r.actionIdentifier, reply = (r as? UNTextInputNotificationResponse)?.userText
         let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]

@@ -13,6 +13,7 @@ import WorkbenchKit
 @testable import BuiltinBrowser
 @testable import BuiltinIssues
 @testable import BuiltinActivity
+@testable import BuiltinRoutines
 
 private func session(_ status: AgentStatus, unread: Bool = false, agent: String? = "claude", summary: String = "") -> Session {
     Session(cwd: "/", command: "x", agent: agent, status: status, unread: unread, summary: summary)
@@ -447,4 +448,25 @@ extension OneAtATime {
     ci("completed", "failure")
     try await until { b.chipCI("w1") == .failed }
     #expect(b.sidebarCI("w1") == .failed && b.ciLine("w1") == "CI: Failed · CI")
+}
+
+/// The Routines tab's week: a day's runs as they went, and from now on when it's due — the next one marked.
+@Test func aRoutinesWeekShowsRunsThenWhatsDue() throws {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = try #require(TimeZone(identifier: "Europe/Berlin"))
+    cal.firstWeekday = 2
+    let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+    func at(_ s: String) throws -> Date { try #require(f.date(from: s)) }
+    let week = RoutineWeek(now: try at("2026-10-29 11:14"), calendar: cal)
+    let monday = try at("2026-10-26 00:00")
+    #expect(week.days.count == 7 && week.days.first == monday)
+    let r = Routine(id: "r", name: "Morning triage", repoId: "p", agent: "claude", prompt: "x", every: .weekdays, time: 9 * 60)
+    let wed = Routine.Run(routineId: "r", due: try at("2026-10-28 09:00"), outcome: .failed, summary: "gh is not signed in")
+    #expect(week.marks(r, runs: [wed], day: week.days[2]).map(\.kind) == [.run(.failed)])
+    #expect(week.marks(r, runs: [wed], day: week.days[3]).isEmpty)   // today's 9:00 has gone by without a run
+    #expect(week.marks(r, runs: [], day: week.days[4]).map(\.kind) == [.next])
+    #expect(week.marks(r, runs: [], day: week.days[5]).isEmpty)   // Saturday
+    var off = r; off.enabled = false
+    #expect(week.marks(off, runs: [], day: week.days[4]).isEmpty)
+    #expect(RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15)) == "Every hour at :15")
 }

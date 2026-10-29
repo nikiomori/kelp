@@ -47,10 +47,11 @@ let package = Package(
         .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
         .target(name: "BuiltinIssues", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
         .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
+        .target(name: "BuiltinRoutines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Routines"),
         .executableTarget(
             name: "KelpApp",
             dependencies: ["KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues", "BuiltinActivity",
-                           "GhosttyKit"],
+                           "BuiltinRoutines", "GhosttyKit"],
             // SwiftPM records the deployment target (14.0) as the SDK the app was built with, and AppKit then draws the
             // macOS 14 look (compatibility mode). Naming a current SDK gets the system's own design on macOS 26+.
             // Limit: fixed at 26.0; raise it when a later SDK's look is wanted.
@@ -72,7 +73,7 @@ let package = Package(
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit"]),
         .testTarget(name: "ArchitectureTests"),   // reads the sources: the rules in docs/architecture.md
         .testTarget(name: "KelpAppTests", dependencies: ["KelpApp", "KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues",
-                                                  "BuiltinActivity", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
+                                                  "BuiltinActivity", "BuiltinRoutines", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
         .binaryTarget(name: "GhosttyKit", path: "Vendor/GhosttyKit.xcframework"),
     ]
 )
