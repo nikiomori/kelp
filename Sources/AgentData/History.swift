@@ -188,6 +188,9 @@ enum JSONL {
 
     static func object(_ d: Data) -> [String: Any]? { try? JSONSerialization.jsonObject(with: d) as? [String: Any] }
 
+    /// A number field as an Int, 0 when it's missing.
+    static func int(_ o: [String: Any], _ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
+
     /// ISO-8601 string (with or without fractional seconds) or epoch seconds.
     static func date(_ v: Any?) -> Date? {
         if let n = v as? NSNumber { return Date(timeIntervalSince1970: n.doubleValue) }

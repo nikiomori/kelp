@@ -16,7 +16,7 @@ final class AgentUsage: Sendable {
     let longContextModels = OSAllocatedUnfairLock<Set<String>?>(initialState: nil)
     /// Claude Code's usage by day / model / folder, read incrementally (usage.report).
     let usageIndex: UsageIndex
-    /// Codex's, Grok's and Kimi Code's, read the same way (usage.agents).
+    /// The other agents' logs (Codex, Grok, Kimi Code, pi, oh-my-pi, Qwen Code, Gemini CLI), read the same way (usage.agents).
     let agentIndexes: [UsageFormat: UsageIndex]
     /// Where Claude Code and Codex keep their conversations, before the account profiles' (tests set it before the first call).
     let agentHomes = OSAllocatedUnfairLock(initialState: (claude: ClaudeHistory.defaultRoot, codex: CodexHistory.defaultRoot))
@@ -39,7 +39,7 @@ final class AgentUsage: Sendable {
         self.store = store
         self.remotes = remotes
         self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-2.json"))   // new number: a parser change reads everything again
-        self.agentIndexes = Dictionary(uniqueKeysWithValues: [UsageFormat.codex, .grok, .kimi].map {
+        self.agentIndexes = Dictionary(uniqueKeysWithValues: UsageFormat.allCases.filter { $0 != .claude }.map {
             ($0, UsageIndex(cache: root.appendingPathComponent("usage-index-\($0.rawValue)-1.json"), format: $0))
         })
     }
@@ -59,7 +59,7 @@ final class AgentUsage: Sendable {
     }
 
     /// Every agent's usage since `since`, by agent id: the logs each keeps on this Mac (all account profiles' for Claude and
-    /// Codex). Cursor keeps no token counts there, and Antigravity's are in protobuf, not read yet.
+    /// Codex). Cursor, Amp and fx keep no token counts there; Droid, Goose, Hermes and Kiro only a session's, not read.
     typealias AgentRow = (agent: String, row: UsageIndex.Row)
     func agentRows(since: Date) -> [AgentRow] {
         let roots = agentRoots(), exists = { (u: URL) in FileManager.default.fileExists(atPath: u.path) }
@@ -68,22 +68,27 @@ final class AgentUsage: Sendable {
             let r = format == .codex ? roots.codex : [format.defaultRoot].compactMap { $0 }
             out += index.rows(roots: r.filter(exists), since: since).map { (format.rawValue, $0) }
         }
-        return out + copilotRows(since: since).map { ("copilot", $0) }
+        return out + databaseRows(since: since)
     }
 
-    /// Copilot's database copied (with its WAL) to read: `CopilotUsage.rows(copy:)`.
-    private func copilotRows(since: Date) -> [UsageIndex.Row] {
-        let fm = FileManager.default, db = CopilotUsage.database.path
-        guard fm.fileExists(atPath: db) else { return [] }
-        let copy = fm.temporaryDirectory.appendingPathComponent("kelp-copilot-\(UUID().uuidString)")
-        defer { Log.session.attempt("removing the copy of Copilot's usage") { try fm.removeItem(at: copy) } }
-        let copied: Void? = Log.session.attempt("copying Copilot's usage") {
-            try fm.createDirectory(at: copy, withIntermediateDirectories: true)
-            for part in ["", "-wal"] where part.isEmpty || fm.fileExists(atPath: db + part) {
-                try fm.copyItem(atPath: db + part, toPath: copy.appendingPathComponent("s.db" + part).path)
+    /// The agents that keep their calls in SQLite (`AgentDatabases`), each database copied with its WAL to read. A copy on
+    /// the same disk is a clone: it takes no time or room however big the database.
+    private func databaseRows(since: Date) -> [AgentRow] {
+        let fm = FileManager.default, dir = fm.temporaryDirectory.appendingPathComponent("kelp-usage-\(UUID().uuidString)")
+        defer { if fm.fileExists(atPath: dir.path) { Log.session.attempt("removing the agents' copied usage") { try fm.removeItem(at: dir) } } }
+        return AgentDatabases.agents.flatMap { agent -> [AgentRow] in
+            let copies = AgentDatabases.files(agent, changedSince: since).enumerated().compactMap { i, db -> URL? in
+                let copy = dir.appendingPathComponent("\(agent)-\(i).db")
+                return Log.session.attempt("copying \(agent)'s usage") {
+                    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                    for part in ["", "-wal"] where part.isEmpty || fm.fileExists(atPath: db.path + part) {
+                        try fm.copyItem(atPath: db.path + part, toPath: copy.path + part)
+                    }
+                    return copy
+                }
             }
+            return AgentDatabases.rows(agent, copies: copies, since: since).map { (agent, $0) }
         }
-        return copied == nil ? [] : CopilotUsage.rows(copy: copy.appendingPathComponent("s.db"), since: since)
     }
 
     /// Where a Claude Code session writes its conversation: what its hooks said, else the id Kelp started or resumed it

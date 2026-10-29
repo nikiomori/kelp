@@ -11,14 +11,19 @@ struct UsageEntry {
 /// Whose logs a `UsageIndex` reads: which files, which lines, and what a line says. `context` keeps what earlier lines of
 /// the file said (Codex names the model and folder once, not with every call) from one read to the next.
 public enum UsageFormat: String, Sendable, CaseIterable {
-    case claude, codex, grok, kimi
+    case claude, codex, grok, kimi, pi, omp, qwen, gemini
 
-    /// Grok's and Kimi Code's sessions, where their own env puts them; Claude's and Codex's come with account profiles.
+    /// Where each keeps its sessions, as its own env moves them; Claude's and Codex's come with account profiles.
     public var defaultRoot: URL? {
         let env = ProcessInfo.processInfo.environment, home = FileManager.default.homeDirectoryForCurrentUser
+        func dir(_ variable: String, _ fallback: String) -> URL { env[variable].map { URL(fileURLWithPath: $0) } ?? home.appendingPathComponent(fallback) }
         return switch self {
-        case .grok: (env["GROK_HOME"].map { URL(fileURLWithPath: $0) } ?? home.appendingPathComponent(".grok")).appendingPathComponent("sessions")
-        case .kimi: (env["KIMI_CODE_HOME"].map { URL(fileURLWithPath: $0) } ?? home.appendingPathComponent(".kimi-code")).appendingPathComponent("sessions")
+        case .grok: dir("GROK_HOME", ".grok").appendingPathComponent("sessions")
+        case .kimi: dir("KIMI_CODE_HOME", ".kimi-code").appendingPathComponent("sessions")
+        case .pi: dir("PI_CODING_AGENT_DIR", ".pi/agent").appendingPathComponent("sessions")
+        case .omp: home.appendingPathComponent(".omp/agent/sessions")
+        case .qwen: dir("QWEN_HOME", ".qwen").appendingPathComponent("projects")
+        case .gemini: dir("GEMINI_CLI_HOME", "").appendingPathComponent(".gemini/tmp")
         case .claude, .codex: nil
         }
     }
@@ -29,6 +34,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         case .codex: f.pathExtension == "jsonl" && f.lastPathComponent.hasPrefix("rollout-")
         case .grok: f.lastPathComponent == "updates.jsonl"
         case .kimi: f.lastPathComponent == "wire.jsonl"
+        case .pi, .omp: f.pathExtension == "jsonl"
+        case .qwen: f.pathExtension == "jsonl" && f.deletingLastPathComponent().lastPathComponent == "chats"
+        case .gemini: f.pathExtension == "jsonl" && f.lastPathComponent.hasPrefix("session-")
         }
     }
 
@@ -39,6 +47,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         case .codex: [#""session_meta""#, #""turn_context""#, #""token_count""#].map { Data($0.utf8) }
         case .grok: [Data(#""turn_completed""#.utf8)]
         case .kimi: [Data(#""usage.record""#.utf8)]
+        case .pi, .omp: [#""usage""#, #""type":"session""#].map { Data($0.utf8) }
+        case .qwen: [Data(#""usageMetadata""#.utf8)]
+        case .gemini: [Data(#""tokens""#.utf8)]
         }
     }
 
@@ -58,7 +69,14 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             let session = f.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             let state = FileManager.default.contents(atPath: session.appendingPathComponent("state.json").path).flatMap(JSONL.object)
             return ["cwd": state?["cwd"] as? String ?? ""]
-        case .claude, .codex: return [:]
+        // tmp/<project>/chats/session-….jsonl; projects.json says which folder a project's name stands for.
+        case .gemini:
+            let project = f.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+            let list = FileManager.default.contents(atPath: f.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent().appendingPathComponent("projects.json").path).flatMap(JSONL.object)
+            let names = list?["projects"] as? [String: String] ?? [:]
+            return ["cwd": names.first { $0.value == project }?.key ?? project]
+        case .claude, .codex, .pi, .omp, .qwen: return [:]
         }
     }
 
@@ -68,6 +86,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         case .codex: Self.codex(line, &context)
         case .grok: context["skip"] == nil ? Self.grok(line, context) : nil
         case .kimi: Self.kimi(line, context)
+        case .pi, .omp: Self.pi(line, &context)
+        case .qwen: Self.qwen(line)
+        case .gemini: Self.gemini(line, context)
         }
     }
 
@@ -126,5 +147,43 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         return UsageEntry(time: ms / 1000, model: o["model"] as? String ?? "kimi", cwd: c["cwd"] ?? "", id: nil, tokens: tokens)
     }
 
-    private static func n(_ o: [String: Any], _ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
+    /// pi's (and oh-my-pi's) sessions: the folder on the first line (`type: session`), then an assistant message's `usage`
+    /// (input without the cache, output with the reasoning) and what pi priced it at. A fork copies its parent's lines with
+    /// their old times: the index skips those as older than the file.
+    static func pi(_ line: Data, _ c: inout [String: String]) -> UsageEntry? {
+        guard let o = JSONL.object(line) else { return nil }
+        if o["type"] as? String == "session" { c["cwd"] = o["cwd"] as? String; return nil }
+        guard o["type"] as? String == "message", let m = o["message"] as? [String: Any], m["role"] as? String == "assistant",
+              let u = m["usage"] as? [String: Any],
+              let t = (m["timestamp"] as? NSNumber).map({ $0.doubleValue / 1000 }) ?? JSONL.date(o["timestamp"])?.timeIntervalSince1970 else { return nil }
+        let tokens = TokenCounts(input: n(u, "input"), output: n(u, "output"), cacheWrite: n(u, "cacheWrite"), cacheRead: n(u, "cacheRead"))
+        guard tokens.total > 0 else { return nil }
+        let cost = ((u["cost"] as? [String: Any])?["total"] as? NSNumber)?.doubleValue
+        return UsageEntry(time: t, model: m["model"] as? String ?? "pi", cwd: c["cwd"] ?? "", id: m["responseId"] as? String, tokens: tokens,
+                          cost: cost.flatMap { $0 > 0 ? $0 : nil })
+    }
+
+    /// Qwen Code's chats: an assistant line's `usageMetadata`, Gemini's shape (the prompt counts the cache; what's past the
+    /// prompt in the total is output, thinking included, whichever provider answered).
+    static func qwen(_ line: Data) -> UsageEntry? {
+        guard let o = JSONL.object(line), o["type"] as? String == "assistant", let u = o["usageMetadata"] as? [String: Any],
+              let t = JSONL.date(o["timestamp"])?.timeIntervalSince1970 else { return nil }
+        let prompt = n(u, "promptTokenCount"), cached = n(u, "cachedContentTokenCount")
+        let tokens = TokenCounts(input: max(0, prompt - cached), output: max(0, n(u, "totalTokenCount") - prompt), cacheWrite: 0, cacheRead: cached)
+        guard tokens.total > 0 else { return nil }
+        return UsageEntry(time: t, model: o["model"] as? String ?? "qwen", cwd: o["cwd"] as? String ?? "", id: o["uuid"] as? String, tokens: tokens)
+    }
+
+    /// Gemini CLI's sessions: a reply's record (`type: gemini`) with its `tokens` (input counts the cache, thoughts aren't
+    /// in output). A reply is written again once its tokens come, under the same id: one counts.
+    static func gemini(_ line: Data, _ c: [String: String]) -> UsageEntry? {
+        guard let o = JSONL.object(line), o["type"] as? String == "gemini", let u = o["tokens"] as? [String: Any],
+              let t = JSONL.date(o["timestamp"])?.timeIntervalSince1970 else { return nil }
+        let cached = n(u, "cached")
+        let tokens = TokenCounts(input: max(0, n(u, "input") - cached), output: n(u, "output") + n(u, "thoughts"), cacheWrite: 0, cacheRead: cached)
+        guard tokens.total > 0 else { return nil }
+        return UsageEntry(time: t, model: o["model"] as? String ?? "gemini", cwd: c["cwd"] ?? "", id: o["id"] as? String, tokens: tokens)
+    }
+
+    private static func n(_ o: [String: Any], _ k: String) -> Int { JSONL.int(o, k) }
 }

@@ -91,7 +91,97 @@ private func iso(_ t: Date) -> String { ISO8601DateFormatter().string(from: t) }
         """
     #expect(sqlite3_exec(h, sql, nil, nil, nil) == SQLITE_OK)
     sqlite3_close(h)
-    let rows = CopilotUsage.rows(copy: home.appendingPathComponent("session-store.db"), since: Date() - 86400)
+    let rows = AgentDatabases.rows("copilot", copies: [home.appendingPathComponent("session-store.db")], since: Date() - 86400)
     #expect(rows.map(\.cwd) == ["/p/cop"])
     #expect(rows.first?.tally.tokens == TokenCounts(input: 300, output: 40, cacheWrite: 100, cacheRead: 600))
+}
+
+/// pi and oh-my-pi: the folder from the session line, what pi priced a reply at; a line copied in by a fork is older than
+/// the file and counts for nothing.
+@Test func piRepliesCountWithTheirFolderAndPrice() throws {
+    let dir = try scratch(), ms = Date().timeIntervalSince1970 * 1000
+    func reply(_ at: Double, _ input: Int) -> [String: Any] {
+        ["type": "message", "message": ["role": "assistant", "model": "glm-5.3", "timestamp": at, "responseId": "r\(input)",
+                                        "usage": ["input": input, "output": 20, "cacheRead": 300, "cacheWrite": 0, "cost": ["total": 0.01]]]]
+    }
+    try write(dir.appendingPathComponent("--p-app--/a.jsonl"), [
+        ["type": "session", "cwd": "/p/app"], reply(ms - 5 * 86_400_000, 999), reply(ms, 100), ["type": "message", "message": ["role": "user"]]
+    ])
+    let rows = UsageIndex(cache: dir.appendingPathComponent("c.json"), format: .pi).rows(roots: [dir], since: Date() - 30 * 86400)
+    #expect(rows.map(\.cwd) == ["/p/app"] && rows.first?.model == "glm-5.3")
+    #expect(rows.first?.tally.tokens == TokenCounts(input: 100, output: 20, cacheWrite: 0, cacheRead: 300))
+    #expect(abs((rows.first?.tally.cost ?? 0) - 0.01) < 1e-9)
+}
+
+/// Qwen Code and Gemini CLI write Gemini's numbers: the prompt (Gemini: input) counts the cache; Gemini writes a reply
+/// again once its tokens come, under the same id.
+@Test func qwenAndGeminiCountTheCacheOnce() throws {
+    let dir = try scratch(), now = iso(Date())
+    try write(dir.appendingPathComponent("-p-q/chats/s.jsonl"), [
+        ["type": "assistant", "uuid": "u1", "cwd": "/p/q", "model": "qwen3-coder", "timestamp": now,
+         "usageMetadata": ["promptTokenCount": 1000, "cachedContentTokenCount": 600, "candidatesTokenCount": 40, "totalTokenCount": 1050]]
+    ])
+    let q = UsageIndex(cache: dir.appendingPathComponent("q.json"), format: .qwen).rows(roots: [dir], since: Date() - 86400)
+    #expect(q.first?.tally.tokens == TokenCounts(input: 400, output: 50, cacheWrite: 0, cacheRead: 600) && q.first?.cwd == "/p/q")
+
+    let gem = try scratch()
+    try write(gem.appendingPathComponent("projects.json"), [["projects": ["/p/g": "g-app"]]])
+    let reply: [String: Any] = ["id": "m1", "type": "gemini", "timestamp": now, "model": "gemini-3-pro",
+                                "tokens": ["input": 900, "output": 30, "cached": 500, "thoughts": 10, "total": 940]]
+    try write(gem.appendingPathComponent("tmp/g-app/chats/session-1.jsonl"), [["id": "m1", "type": "gemini", "timestamp": now], reply, reply])
+    let g = UsageIndex(cache: gem.appendingPathComponent("c.json"), format: .gemini).rows(roots: [gem.appendingPathComponent("tmp")], since: Date() - 86400)
+    #expect(g.first?.tally.tokens == TokenCounts(input: 400, output: 40, cacheWrite: 0, cacheRead: 500) && g.first?.cwd == "/p/g")
+}
+
+/// OpenCode and Kilo: complete assistant messages, reasoning counted as output; what it says it cost.
+@Test func openCodeMessagesCountWhenComplete() throws {
+    let dir = try scratch(), db = dir.appendingPathComponent("opencode.db"), ms = Int(Date().timeIntervalSince1970 * 1000)
+    func message(_ completed: Bool) -> String {
+        let time = completed ? #"{"created":\#(ms),"completed":\#(ms + 900)}"# : #"{"created":\#(ms)}"#
+        return #"{"role":"assistant","modelID":"step-5","cost":0.25,"path":{"cwd":"/p/oc"},"time":\#(time),"#
+            + #""tokens":{"input":10,"output":5,"reasoning":3,"cache":{"read":70,"write":2}}}"#
+    }
+    try sql(db, """
+        CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT NOT NULL);
+        CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, time_created INTEGER NOT NULL, data TEXT NOT NULL);
+        INSERT INTO session VALUES ('s', '/p/oc');
+        INSERT INTO message VALUES ('a', 's', \(ms), '\(message(true))');
+        INSERT INTO message VALUES ('b', 's', \(ms), '\(message(false))');
+        INSERT INTO message VALUES ('c', 's', \(ms), '{"role":"user"}');
+        """)
+    let rows = AgentDatabases.rows("opencode", copies: [db], since: Date() - 86400)
+    #expect(rows.first?.tally.tokens == TokenCounts(input: 10, output: 8, cacheWrite: 2, cacheRead: 70) && rows.first?.cwd == "/p/oc")
+    #expect(rows.first?.tally.cost == 0.25)
+}
+
+/// Antigravity: protobuf per call; the time from its steps, the folder from the conversation; a call cut short (no usage)
+/// counts for nothing.
+@Test func antigravityCallsDecodeFromProtobuf() throws {
+    func varint(_ n: UInt64) -> [UInt8] { var n = n, out: [UInt8] = []; repeat { out.append(UInt8(n & 0x7F) | (n > 0x7F ? 0x80 : 0)); n >>= 7 } while n > 0; return out }
+    func num(_ f: UInt64, _ n: UInt64) -> [UInt8] { varint(f << 3) + varint(n) }
+    func bytes(_ f: UInt64, _ b: [UInt8]) -> [UInt8] { varint(f << 3 | 2) + varint(UInt64(b.count)) + b }
+    func hex(_ b: [UInt8]) -> String { "X'" + b.map { String(format: "%02x", $0) }.joined() + "'" }
+    let now = UInt64(Date().timeIntervalSince1970)
+    let usage = num(2, 2313) + num(3, 120) + num(5, 64140) + bytes(11, Array("r1".utf8))
+    let call = bytes(1, bytes(4, usage) + bytes(19, Array("gemini-3.8-flash".utf8))) + bytes(2, varint(7) + varint(8))
+    let aborted = bytes(1, bytes(4, []) + bytes(19, Array("gemini-3.8-flash".utf8))) + bytes(2, varint(9))
+    let dir = try scratch(), db = dir.appendingPathComponent("c.db")
+    try sql(db, """
+        CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
+        CREATE TABLE steps (idx INTEGER PRIMARY KEY, metadata BLOB);
+        CREATE TABLE trajectory_metadata_blob (id TEXT PRIMARY KEY, data BLOB);
+        INSERT INTO gen_metadata VALUES (1, \(hex(call))), (2, \(hex(aborted)));
+        INSERT INTO steps VALUES (7, \(hex(bytes(1, num(1, now + 5))))), (8, \(hex(bytes(1, num(1, now))))), (9, \(hex(bytes(1, num(1, now)))));
+        INSERT INTO trajectory_metadata_blob VALUES ('main', \(hex(bytes(7, Array("file:///p/agy".utf8)))));
+        """)
+    let rows = AgentDatabases.rows("antigravity", copies: [db], since: Date() - 86400)
+    #expect(rows.count == 1 && rows.first?.model == "gemini-3.8-flash" && rows.first?.cwd == "/p/agy")
+    #expect(rows.first?.tally.tokens == TokenCounts(input: 2313, output: 120, cacheWrite: 0, cacheRead: 64140))
+}
+
+private func sql(_ db: URL, _ text: String) throws {
+    var h: OpaquePointer?
+    defer { sqlite3_close(h) }
+    try #require(sqlite3_open(db.path, &h) == SQLITE_OK)
+    try #require(sqlite3_exec(h, text, nil, nil, nil) == SQLITE_OK, "\(String(cString: sqlite3_errmsg(h)))")
 }

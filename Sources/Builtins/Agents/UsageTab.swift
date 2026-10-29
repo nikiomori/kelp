@@ -79,9 +79,10 @@ struct UsageReportView: View {
                         table(String(localized: "By Project"), projects)
                     }
                     Text("""
-                        Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Kimi Code and Copilot. \
-                        Cursor keeps no token counts on disk, and Antigravity's aren't read yet. Prices are list prices (Grok's as it reports them); \
-                        a subscription bills differently, and "—" is a model without one.
+                        Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
+                        Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
+                        disk; Droid, Goose, Hermes and Kiro keep only a session's. Prices are list prices (Grok's, pi's and OpenCode's as \
+                        they report them); a subscription bills differently, and "—" is a model without one.
                         """)
                         .font(.caption).foregroundStyle(.secondary)
                 }
