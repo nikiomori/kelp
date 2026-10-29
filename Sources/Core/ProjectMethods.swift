@@ -204,6 +204,25 @@ public struct UsageReport: RPCMethod {
     public var days: Int?
     public init(days: Int? = nil) { self.days = days }
 }
+/// What each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code, Copilot): by
+/// day and agent, and by agent, model and project, priced as the API would (Grok as it says itself; 0 for a model with no
+/// list price).
+public struct UsageAgents: RPCMethod {
+    public static let name = "usage.agents"
+    public struct Day: Codable, Sendable, Hashable {
+        public var day: String, agent: String, cost: Double, tokens: Int
+        public init(day: String, agent: String, cost: Double, tokens: Int) { self.day = day; self.agent = agent; self.cost = cost; self.tokens = tokens }
+    }
+    public struct Result: Codable, Sendable, Equatable {
+        /// `days` by day ("yyyy-MM-dd") and agent id; the groups most expensive first; `since` is the first day's start.
+        public var days: [Day], agents: [UsageReport.Group], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
+        public init(days: [Day], agents: [UsageReport.Group], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double) {
+            self.days = days; self.agents = agents; self.models = models; self.projects = projects; self.since = since
+        }
+    }
+    public var days: Int?
+    public init(days: Int? = nil) { self.days = days }
+}
 /// Past conversations, newest first; `query` (in `fullText` too), `cwd`, at most `limit`.
 public struct HistoryList: RPCMethod {
     public static let name = "history.list"; public typealias Result = [AgentSessionInfo]

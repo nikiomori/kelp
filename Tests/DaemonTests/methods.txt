@@ -150,6 +150,7 @@ ui.command
 ui.open
 ui.publish
 ui.state
+usage.agents
 usage.get
 usage.report
 watch.start

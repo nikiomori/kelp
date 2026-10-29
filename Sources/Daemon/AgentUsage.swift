@@ -16,6 +16,8 @@ final class AgentUsage: Sendable {
     let longContextModels = OSAllocatedUnfairLock<Set<String>?>(initialState: nil)
     /// Claude Code's usage by day / model / folder, read incrementally (usage.report).
     let usageIndex: UsageIndex
+    /// Codex's, Grok's and Kimi Code's, read the same way (usage.agents).
+    let agentIndexes: [UsageFormat: UsageIndex]
     /// Where Claude Code and Codex keep their conversations, before the account profiles' (tests set it before the first call).
     let agentHomes = OSAllocatedUnfairLock(initialState: (claude: ClaudeHistory.defaultRoot, codex: CodexHistory.defaultRoot))
     /// Latest Claude plan usage by kind ("weekly", "session"…), as printed by Claude Code.
@@ -37,6 +39,9 @@ final class AgentUsage: Sendable {
         self.store = store
         self.remotes = remotes
         self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-2.json"))   // new number: a parser change reads everything again
+        self.agentIndexes = Dictionary(uniqueKeysWithValues: [UsageFormat.codex, .grok, .kimi].map {
+            ($0, UsageIndex(cache: root.appendingPathComponent("usage-index-\($0.rawValue)-1.json"), format: $0))
+        })
     }
 
     func recordLimits(_ r: [ClaudeLimits.Reading]) { claudeLimits.withLock { for x in r { $0[x.kind] = (x, Date()) } } }
@@ -51,6 +56,34 @@ final class AgentUsage: Sendable {
             if p["agent"]?.string == "codex" { x.append(URL(fileURLWithPath: d).appendingPathComponent("sessions")) }
         }
         return (c, x)
+    }
+
+    /// Every agent's usage since `since`, by agent id: the logs each keeps on this Mac (all account profiles' for Claude and
+    /// Codex). Cursor keeps no token counts there, and Antigravity's are in protobuf, not read yet.
+    typealias AgentRow = (agent: String, row: UsageIndex.Row)
+    func agentRows(since: Date) -> [AgentRow] {
+        let roots = agentRoots(), exists = { (u: URL) in FileManager.default.fileExists(atPath: u.path) }
+        var out: [AgentRow] = usageIndex.rows(roots: roots.claude.filter(exists), since: since).map { ("claude", $0) }
+        for (format, index) in agentIndexes {
+            let r = format == .codex ? roots.codex : [format.defaultRoot].compactMap { $0 }
+            out += index.rows(roots: r.filter(exists), since: since).map { (format.rawValue, $0) }
+        }
+        return out + copilotRows(since: since).map { ("copilot", $0) }
+    }
+
+    /// Copilot's database copied (with its WAL) to read: `CopilotUsage.rows(copy:)`.
+    private func copilotRows(since: Date) -> [UsageIndex.Row] {
+        let fm = FileManager.default, db = CopilotUsage.database.path
+        guard fm.fileExists(atPath: db) else { return [] }
+        let copy = fm.temporaryDirectory.appendingPathComponent("kelp-copilot-\(UUID().uuidString)")
+        defer { Log.session.attempt("removing the copy of Copilot's usage") { try fm.removeItem(at: copy) } }
+        let copied: Void? = Log.session.attempt("copying Copilot's usage") {
+            try fm.createDirectory(at: copy, withIntermediateDirectories: true)
+            for part in ["", "-wal"] where part.isEmpty || fm.fileExists(atPath: db + part) {
+                try fm.copyItem(atPath: db + part, toPath: copy.appendingPathComponent("s.db" + part).path)
+            }
+        }
+        return copied == nil ? [] : CopilotUsage.rows(copy: copy.appendingPathComponent("s.db"), since: since)
     }
 
     /// Where a Claude Code session writes its conversation: what its hooks said, else the id Kelp started or resumed it

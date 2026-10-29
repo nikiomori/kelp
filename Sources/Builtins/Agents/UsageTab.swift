@@ -5,8 +5,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// "usage:" — what the agents used: plan limits first, then Claude Code's tokens by day, model and project from its own
-/// transcripts on this Mac, priced as the API would charge (so you see what a subscription saves). Window › Usage (⌥⌘U).
+/// "usage:" — what the agents used: plan limits first, then each agent's tokens by day, agent, model and project from its
+/// own logs on this Mac, priced as the API would charge (so you see what a subscription saves). Window › Usage (⌥⌘U).
 @MainActor
 final class UsageTab: KelpKit.TabContent {   // not SwiftUI's
     let uri = "usage:"
@@ -26,7 +26,8 @@ struct UsageReportView: View {
         let tokens: Int
     }
     @State private var range = 30
-    @State private var days: [Row] = []
+    @State private var days: [UsageAgents.Day] = []
+    @State private var agents: [Row] = []
     @State private var models: [Row] = []
     @State private var projects: [Row] = []
     @State private var loading = true
@@ -42,7 +43,7 @@ struct UsageReportView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Claude Code").font(.title3.weight(.semibold))
+                    Text("Tokens").font(.title3.weight(.semibold))
                     Spacer()
                     Picker("", selection: $range) {
                         Text("7 Days").tag(7)
@@ -54,29 +55,34 @@ struct UsageReportView: View {
                 if loading {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        if slow { Text("Reading Claude Code's transcripts — the first time takes a minute.").foregroundStyle(.secondary) }
+                        if slow { Text("Reading the agents' logs — the first time takes a minute.").foregroundStyle(.secondary) }
                     }
                 }
                 else if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
-                else if days.isEmpty { Text("No Claude Code conversations in this time.").foregroundStyle(.secondary) }
+                else if days.isEmpty { Text("No agent conversations in this time.").foregroundStyle(.secondary) }
                 else {
                     let cost = days.reduce(0) { $0 + $1.cost }, tokens = days.reduce(0) { $0 + $1.tokens }
                     HStack(spacing: 28) {
                         stat(money(cost), String(localized: "at API prices"))
                         stat(count(tokens), "tokens")
-                        stat(money(cost / Double(max(1, days.count))), String(localized: "per active day"))
+                        stat(money(cost / Double(max(1, Set(days.map(\.day)).count))), String(localized: "per active day"))
                     }
-                    Chart(days) { d in
-                        BarMark(x: .value("Day", Self.date(d.id), unit: .day), y: .value("Cost", d.cost))
-                            .foregroundStyle(Color.accentColor.gradient)
+                    Chart(days, id: \.self) { d in
+                        BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value("Cost", d.cost))
+                            .foregroundStyle(by: .value("Agent", app.catalog.name(d.agent)))
                     }
                     .chartYAxis { AxisMarks { v in AxisGridLine(); AxisValueLabel { if let x = v.as(Double.self) { Text(money(x)) } } } }
                     .frame(height: 180)
+                    table(String(localized: "By Agent"), agents.map { Row(id: app.catalog.name($0.id), cost: $0.cost, tokens: $0.tokens) })
                     HStack(alignment: .top, spacing: 28) {
                         table(String(localized: "By Model"), models)
                         table(String(localized: "By Project"), projects)
                     }
-                    Text("Read from ~/.claude transcripts on this Mac (every account profile). Prices are Anthropic's list prices; a subscription bills differently.")
+                    Text("""
+                        Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Kimi Code and Copilot. \
+                        Cursor keeps no token counts on disk, and Antigravity's aren't read yet. Prices are list prices (Grok's as it reports them); \
+                        a subscription bills differently, and "—" is a model without one.
+                        """)
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -89,10 +95,11 @@ struct UsageReportView: View {
         loading = true; slow = false
         let hint = Task { try? await Task.sleep(for: .seconds(3)); if loading { slow = true } }
         defer { hint.cancel() }
-        let read = await app.tryCall(UsageReport(days: range))
+        let read = await app.tryCall(UsageAgents(days: range))
         let r = read.value; failed = read.error
         func rows(_ groups: [UsageReport.Group]?) -> [Row] { (groups ?? []).map { Row(id: $0.name, cost: $0.cost, tokens: $0.tokens) } }
-        days = rows(r?.days).sorted { $0.id < $1.id }
+        days = r?.days ?? []
+        agents = rows(r?.agents)
         models = rows(r?.models)
         projects = rows(r?.projects)
         loading = false
@@ -122,7 +129,7 @@ struct UsageReportView: View {
                     Text(r.id).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 12)
                     Text(count(r.tokens)).foregroundStyle(.secondary).monospacedDigit()
-                    Text(money(r.cost)).monospacedDigit().frame(width: 72, alignment: .trailing)
+                    Text(r.cost == 0 && r.tokens > 0 ? "—" : money(r.cost)).monospacedDigit().frame(width: 72, alignment: .trailing)
                 }.font(.callout)
                 Divider()
             }

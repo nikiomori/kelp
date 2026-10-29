@@ -38,20 +38,49 @@ extension UsageGet: Handled {
 /// What Claude Code used, by day / model / project, priced as the API would.
 extension UsageReport: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
-        let days = max(1, min(90, days ?? 30))
-        let cal = Calendar.current, since = cal.date(byAdding: .day, value: 1 - days, to: cal.startOfDay(for: Date())) ?? Date()
+        let since = AgentUsage.since(days: days)
         let rows = usage.usageIndex.rows(roots: usage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) }, since: since)
-        let repos = (try? usage.store.repos()) ?? []
-        func project(_ cwd: String) -> String {
-            repos.first { cwd == $0.path || cwd.hasPrefix($0.path + "/") }?.name ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent)
+        let all = rows.map { ("claude", $0) }
+        func group(_ key: (AgentUsage.AgentRow) -> String) -> [Group] { AgentUsage.groups(all, by: key) }
+        return Result(days: group { $0.row.day }, models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
+                      since: since.timeIntervalSince1970)
+    }
+}
+
+/// What every agent used, by day and agent, agent, model and project.
+extension UsageAgents: Handled {
+    func handle(_ usage: AgentUsage) throws -> Result {
+        let since = AgentUsage.since(days: days)
+        let rows = usage.agentRows(since: since)
+        func group(_ key: (AgentUsage.AgentRow) -> String) -> [UsageReport.Group] { AgentUsage.groups(rows, by: key) }
+        let days = Dictionary(grouping: rows) { [$0.row.day, $0.agent] }.map { k, rs in
+            Day(day: k[0], agent: k[1], cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: rs.reduce(0) { $0 + $1.row.tally.tokens.total })
         }
-        func group(_ key: (UsageIndex.Row) -> String) -> [Group] {
-            Dictionary(grouping: rows, by: key).map { k, rs in
-                Group(name: k, cost: rs.reduce(0) { $0 + $1.tally.cost }, tokens: rs.reduce(0) { $0 + $1.tally.tokens.total })
-            }
-                .sorted { $0.cost > $1.cost }
+            .sorted { ($0.day, $0.agent) < ($1.day, $1.agent) }
+        return Result(days: days, agents: group(\.agent), models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
+                      since: since.timeIntervalSince1970)
+    }
+}
+
+extension AgentUsage {
+    /// The first of the last `days` days (1–90, 30 if not said), from midnight.
+    static func since(days: Int?) -> Date {
+        let cal = Calendar.current
+        return cal.date(byAdding: .day, value: 1 - max(1, min(90, days ?? 30)), to: cal.startOfDay(for: Date())) ?? Date()
+    }
+
+    /// The Kelp project a folder is in, else the folder's name.
+    func project(_ cwd: String) -> String {
+        let repos = (try? store.repos()) ?? []
+        return repos.first { cwd == $0.path || cwd.hasPrefix($0.path + "/") }?.name ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent)
+    }
+
+    /// Sums `rows` by a key, most expensive first (then most tokens: a model with no list price costs 0).
+    static func groups(_ rows: [AgentRow], by key: (AgentRow) -> String) -> [UsageReport.Group] {
+        Dictionary(grouping: rows, by: key).map { k, rs in
+            UsageReport.Group(name: k, cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: rs.reduce(0) { $0 + $1.row.tally.tokens.total })
         }
-        return Result(days: group(\.day), models: group(\.model), projects: group { project($0.cwd) }, since: since.timeIntervalSince1970)
+            .sorted { ($0.cost, $0.tokens) > ($1.cost, $1.tokens) }
     }
 }
 

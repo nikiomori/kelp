@@ -70,7 +70,7 @@ public enum ClaudeLimits {
             guard cell.count >= 3, cell[1].localizedCaseInsensitiveContains("remaining"), cell[2].hasSuffix("%"),
                   let left = Double(cell[2].dropLast()) else { return nil }
             let group = cell[0].split(separator: " ").first.map { $0.capitalized } ?? "Models"
-            let resets = cell.count > 3 ? (try? Date(cell[3], strategy: .iso8601)).map(f.string) : nil
+            let resets = cell.count > 3 ? ISO8601DateFormatter().date(from: cell[3]).map(f.string) : nil
             return Reading(kind: "\(group) week", percent: bounded(100 - left), resets: resets)
         }
     }

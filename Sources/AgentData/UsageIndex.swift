@@ -1,9 +1,9 @@
 import Foundation
 import os
 
-/// What Claude Code used, by local day, model and folder, kept up to date cheaply: each transcript is read once, then only
-/// the bytes appended since (the index remembers how far it got, on disk). Lines are not parsed whole: only their small
-/// `usage` object and a few fields are, so gigabytes of transcripts take seconds the first time and nothing after.
+/// What an agent used (Claude Code, or another `UsageFormat`), by local day, model and folder, kept up to date cheaply: each
+/// log is read once, then only the bytes appended since (the index remembers how far it got, on disk). Claude's lines are
+/// not parsed whole: only their small `usage` object and a few fields are, so gigabytes take seconds the first time.
 public final class UsageIndex: Sendable {
     public struct Tally: Codable, Sendable, Equatable {
         public var tokens = TokenCounts(); public var cost = 0.0
@@ -15,16 +15,31 @@ public final class UsageIndex: Sendable {
         var hours: [String: Tally]? = [:]
         /// The last responses' ids: one response is several lines, which can straddle two reads.
         var recent: [String]? = []
+        /// What earlier lines said that later ones need (`UsageFormat.entry`); nil before the first read.
+        var context: [String: String]?
     }
     public struct Row: Sendable { public var day: String, model: String, cwd: String; public var tally: Tally }
+
+    /// Calls read some other way (Copilot's database) as rows, by local day, model and folder.
+    static func rows(_ entries: [UsageEntry]) -> [Row] {
+        var tallies: [String: Row] = [:]
+        for e in entries {
+            let d = day(e.time), key = "\(d)|\(e.model)|\(e.cwd)"
+            tallies[key, default: Row(day: d, model: e.model, cwd: e.cwd, tally: Tally())].tally.tokens += e.tokens
+            tallies[key]?.tally.cost += e.cost ?? Pricing.cost(model: e.model, tokens: e.tokens)
+        }
+        return Array(tallies.values)
+    }
     public struct Hour: Sendable { public var start: Date, model: String; public var tally: Tally }
 
     private let cacheURL: URL
+    private let format: UsageFormat
     /// Path → what's been read of it. Updates hold the lock while they read (one at a time: the first one reads gigabytes).
     private let files: OSAllocatedUnfairLock<[String: FileState]>
 
-    public init(cache: URL) {
+    public init(cache: URL, format: UsageFormat = .claude) {
         cacheURL = cache
+        self.format = format
         files = OSAllocatedUnfairLock(initialState: (try? JSONDecoder().decode([String: FileState].self, from: Data(contentsOf: cache))) ?? [:])
     }
 
@@ -68,13 +83,13 @@ public final class UsageIndex: Sendable {
         let keys: Set<URLResourceKey> = [.contentModificationDateKey, .creationDateKey, .fileSizeKey]
         for root in roots {
             for case let f as URL in FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys)) ?? NSEnumerator()
-                where f.pathExtension == "jsonl" {
+                where format.reads(f) {
                 guard let v = try? f.resourceValues(forKeys: keys), (v.contentModificationDate ?? .distantPast) >= since else { continue }
                 let size = UInt64(v.fileSize ?? 0)
                 var st = known[f.path] ?? FileState(offset: 0, born: (v.creationDate ?? .distantPast).timeIntervalSince1970)
                 if size < st.offset || st.hours == nil { st = FileState(offset: 0, born: st.born) }   // rewritten, or indexed without hours
                 guard size > st.offset else { continue }
-                Self.read(f, into: &st)
+                Self.read(f, into: &st, format: format)
                 known[f.path] = st; changed = true
             }
         }
@@ -95,17 +110,19 @@ public final class UsageIndex: Sendable {
 
     /// The complete lines after `offset`, 8 MB at a time (one session can be gigabytes); a line still being written waits
     /// for next time.
-    static func read(_ url: URL, into st: inout FileState) {
+    static func read(_ url: URL, into st: inout FileState, format: UsageFormat = .claude) {
         guard let h = try? FileHandle(forReadingFrom: url), (try? h.seek(toOffset: st.offset)) != nil else { return }
         defer { try? h.close() }
         var recent = st.recent ?? [], seen = Set(recent), hours = st.hours ?? [:], rest = Data()
+        var context = st.context ?? format.start(url)
         while let chunk = autoreleasepool(invoking: { try? h.read(upToCount: 8 << 20) }), !chunk.isEmpty {
             let data = rest.isEmpty ? chunk : rest + chunk
             guard let last = data.lastIndex(of: 0x0A) else { rest = data; continue }
-            for line in JSONL.lines(data[..<last]) where line.range(of: marker) != nil {
-                guard let e = entry(line), e.time >= st.born - 120 else { continue }   // older: history a resumed session copied in
+            for line in JSONL.lines(data[..<last]) where format.markers.contains(where: { line.range(of: $0) != nil }) {
+                // Older than the file: history a resumed (or forked) session copied in.
+                guard let e = format.entry(line, &context), e.time >= st.born - 120 else { continue }
                 if let id = e.id { guard seen.insert(id).inserted else { continue }; recent.append(id) }   // one response, several lines
-                let cost = Pricing.cost(model: e.model, tokens: e.tokens)
+                let cost = e.cost ?? Pricing.cost(model: e.model, tokens: e.tokens)
                 func add(_ t: inout Tally) { t.tokens += e.tokens; t.cost += cost }
                 add(&st.tallies["\(day(e.time))|\(e.model)|\(e.cwd)", default: Tally()])
                 add(&hours["\(Int(e.time / 3600) * 3600)|\(e.model)", default: Tally()])
@@ -116,10 +133,11 @@ public final class UsageIndex: Sendable {
         let dayAgo = Date().timeIntervalSince1970 - 86400
         st.hours = hours.filter { (Double($0.key.prefix { $0 != "|" }) ?? 0) >= dayAgo }
         st.recent = Array(recent.suffix(64))
+        st.context = context
     }
 
     /// One assistant line's numbers, without parsing its (large) message content.
-    static func entry(_ line: Data) -> (time: TimeInterval, model: String, cwd: String, id: String?, tokens: TokenCounts)? {
+    static func entry(_ line: Data) -> UsageEntry? {
         // `"type":"assistant"` is the line's own type; the first "type" in a line is usually the message's ("message").
         guard line.range(of: assistant) != nil, let usage = object(line, after: "\"usage\":"),
               let u = try? JSONSerialization.jsonObject(with: usage) as? [String: Any],
@@ -128,9 +146,9 @@ public final class UsageIndex: Sendable {
         guard model != "<synthetic>" else { return nil }
         func n(_ k: String) -> Int { (u[k] as? NSNumber)?.intValue ?? 0 }
         let id = [field(line, "id"), field(line, "requestId")].compactMap { $0 }.joined(separator: ":")
-        return (ts, model, field(line, "cwd") ?? "", id.isEmpty ? nil : id,
-                TokenCounts(input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
-                            cacheRead: n("cache_read_input_tokens")))
+        return UsageEntry(time: ts, model: model, cwd: field(line, "cwd") ?? "", id: id.isEmpty ? nil : id,
+                          tokens: TokenCounts(input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
+                                              cacheRead: n("cache_read_input_tokens")))
     }
 
     /// The first `"name":"value"` in the line (string values only).
