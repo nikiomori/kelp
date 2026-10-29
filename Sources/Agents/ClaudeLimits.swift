@@ -29,31 +29,19 @@ public enum ClaudeLimits {
         return out
     }
 
-    /// Claude Code's `/usage` screen: "Current session … 2% used · Resets 7:40am", "Current week (all models) … 82% used · Resets Oct 20 at 5am",
-    /// "Current week (Fable) …". The screen redraws while it loads, so the last reading of each limit wins.
-    public static func parseUsageScreen(_ text: String) -> [Reading] {
-        let lines = text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var found: [String: Reading] = [:]
-        var order: [String] = []
-        for (i, line) in lines.enumerated() where line.hasPrefix("Current ") && !line.contains("%") {
-            let label = String(line.dropFirst("Current ".count))
+    /// Claude Code's `/usage` as `claude -p /usage` prints it: "Current session: 2% used · resets 7:40am (Europe/Helsinki)",
+    /// "Current week (all models): 82% used · resets Oct 20 at 5am (…)", "Current week (Fable): 0% used · …".
+    public static func parseUsage(_ text: String) -> [Reading] {
+        text.split(whereSeparator: \.isNewline).compactMap { line in
+            guard let m = line.trimmingCharacters(in: .whitespaces)
+                .wholeMatch(of: /Current (.+?): (\d{1,3}(?:\.\d+)?)% used(?: · resets (.+?))?(?: \(.*\))?/.ignoresCase()),
+                let percent = Double(m.2) else { return nil }
+            let label = String(m.1)
             let kind = label == "session" ? "session"
                 : label.hasPrefix("week (all") ? "week"
                 : label.hasPrefix("week (") ? "week · " + label.dropFirst(6).dropLast() : label
-            var percent: Double?, resets: String?
-            for next in lines[(i + 1)..<min(i + 4, lines.count)] {
-                if next.hasPrefix("Current ") { break }
-                if percent == nil, let r = next.range(of: #"\d{1,3}(?:\.\d+)?% used"#, options: .regularExpression) {
-                    percent = Double(next[r].dropLast("% used".count)).map(bounded)
-                } else if resets == nil, next.hasPrefix("Resets ") {
-                    resets = String(next.dropFirst("Resets ".count)).replacingOccurrences(of: #"\s*\(.*\)$"#, with: "", options: .regularExpression)
-                }
-            }
-            guard let percent else { continue }
-            if found[kind] == nil { order.append(kind) }
-            found[kind] = Reading(kind: kind, percent: percent, resets: resets)
+            return Reading(kind: kind, percent: bounded(percent), resets: m.3.map(String.init))
         }
-        return order.compactMap { found[$0] }
     }
 
     /// Grok Build's `/usage` dialog: "Weekly limit (X Premium)", a bar with "45%", "Resets: October 24, 19:36".

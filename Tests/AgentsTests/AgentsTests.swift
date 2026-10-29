@@ -160,24 +160,21 @@ import TestSupport
     #expect(ClaudeLimits.parse("nothing to see").isEmpty)
 }
 
-@Test func claudeUsageScreenParses() {
-    let screen = """
-    Settings    Status   Config      Usage      Stats
-    Current session
-    █                                                    2% used
-    Resets 7:40am (Europe/Helsinki)
-    Current week (all models)
-    █████████████████████████████████████████            82.5% used
-    Resets Oct 20 at 5am (Europe/Helsinki)
-    Scanning local sessions…
-    Current week (Fable)
-    0% used
-    Resets Oct 20 at 5am (Europe/Helsinki)
+@Test func claudeUsageParses() {
+    let printed = """
+    You are currently using your subscription to power your Claude Code usage
+
+    Current session: 2% used · resets 7:40am (Europe/Helsinki)
+    Current week (all models): 82.5% used · resets Oct 20 at 5am (Europe/Helsinki)
+    Current week (Fable): 0% used
+
+    Last 24h · 3793 requests · 55 sessions
+      81%  Start fresh when you switch tasks · run /clear
     """
-    let r = ClaudeLimits.parseUsageScreen(screen)
+    let r = ClaudeLimits.parseUsage(printed)
     #expect(r.map(\.kind) == ["session", "week", "week · Fable"])
     #expect(r[1].percent == 82.5 && r[1].resets == "Oct 20 at 5am")
-    #expect(r[0].resets == "7:40am")
+    #expect(r[0].resets == "7:40am" && r[2].resets == nil)
 }
 
 @Test func resumeFindsThisConversationNotTheLatest() throws {

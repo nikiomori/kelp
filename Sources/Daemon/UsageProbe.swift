@@ -10,11 +10,13 @@ import AgentData
 extension AgentUsage {
     struct PlanProbe: Sendable {
         let agent: String, command: String, every: TimeInterval
-        let ready: @Sendable (String) -> Bool    // its prompt is drawn
-        let shown: @Sendable (String) -> Bool    // the usage screen has loaded
+        var ready: @Sendable (String) -> Bool = { _ in true }    // its prompt is drawn
+        var shown: @Sendable (String) -> Bool = { _ in true }    // the usage screen has loaded
         let parse: @Sendable (String) -> [ClaudeLimits.Reading]
         var env: [String: String] = [:]          // extra launch env (e.g. Kimi's trust-this-run)
         var answersTrust = false                 // its "trust this folder?" has a default that trusts for this run only (Copilot)
+        /// With these it prints the usage and exits, no terminal: nothing opens, so no session or prompt history is left (Claude's `-p`).
+        var printArgs: [String] = []
     }
     struct PlanState {
         var readings: [ClaudeLimits.Reading] = []
@@ -49,8 +51,9 @@ extension AgentUsage {
     }
 
     static let planProbes = [
-        PlanProbe(agent: "claude", command: "claude", every: 600, ready: { $0.contains("❯") },
-                  shown: { $0.contains("Current week") && $0.contains("% used") }, parse: ClaudeLimits.parseUsageScreen),
+        // Opened in a terminal, every reading was a session of its own in Claude's /resume and a "/usage" in its prompt history.
+        PlanProbe(agent: "claude", command: "claude", every: 600, parse: ClaudeLimits.parseUsage,
+                  printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
         // With any hook of the user's own, Grok asks "Do you trust the contents of this directory?" in every folder; this
         // run alone does without the question, and nothing is written to its trusted_folders.toml.
         PlanProbe(agent: "grok", command: "grok", every: 1800, ready: { $0.contains("Ctrl+x:shortcuts") },
@@ -86,11 +89,16 @@ extension AgentUsage {
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard let self else { return }
                 var readings: [ClaudeLimits.Reading] = []
-                if let path = try? LoginPath.resolve(probe.command), let cwd = probeDir(probe.agent) {
+                if let path = try? LoginPath.resolve(probe.command) {
                     var screen = ""
-                    for argv in probeArgv(probe.agent, path) {
-                        (readings, screen) = Self.probe(probe, argv: argv, cwd: cwd)
-                        if !readings.isEmpty { break }
+                    if !probe.printArgs.isEmpty {
+                        screen = Sessions.run([path] + probe.printArgs, path: LoginPath.value, timeout: 30) ?? ""
+                        readings = probe.parse(screen)
+                    } else if let cwd = probeDir(probe.agent) {
+                        for argv in probeArgv(probe.agent, path) {
+                            (readings, screen) = Self.probe(probe, argv: argv, cwd: cwd)
+                            if !readings.isEmpty { break }
+                        }
                     }
                     // What a failed probe saw, for whoever fixes the parser when an agent changes its screen.
                     if readings.isEmpty, (try? Paths.ensure(root.appendingPathComponent("probe"))) != nil {
@@ -174,7 +182,7 @@ extension AgentUsage {
             return d.path
         }
         let used = ((try? store.sessions()) ?? []).filter { $0.agent == agent }.sorted { $0.createdAt > $1.createdAt }.map(\.cwd)
-        let trusted = agent == "antigravity" ? Self.antigravityTrusted() : agent == "claude" ? Self.claudeTrusted() : []
+        let trusted = agent == "antigravity" ? Self.antigravityTrusted() : []
         let worktrees = (try? store.worktrees()) ?? []
         return Self.probeFolder(used: used, trusted: trusted, remoteRoot: root.appendingPathComponent("remote").path) { dir in
             guard FileManager.default.fileExists(atPath: dir), remotes.of(dir) == nil else { return false }
@@ -207,11 +215,6 @@ extension AgentUsage {
     static func asksFirst(_ dir: String, home: String) -> Bool {
         dir.hasPrefix("/Volumes/") || ["Desktop", "Documents", "Downloads", "Library/Mobile Documents", "Library/CloudStorage"]
             .contains { dir == "\(home)/\($0)" || dir.hasPrefix("\(home)/\($0)/") }
-    }
-
-    /// Folders the user trusted in Claude Code (read only).
-    private static func claudeTrusted() -> [String] {
-        AgentTrust.trustedFolders(agent: "claude", env: ProcessInfo.processInfo.environment, home: NSHomeDirectory())
     }
 
     private func probeArgv(_ agent: String, _ path: String) -> [[String]] {
