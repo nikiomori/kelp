@@ -57,7 +57,14 @@ extension UsageAgents: Handled {
             Day(day: k[0], agent: k[1], cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: rs.reduce(0) { $0 + $1.row.tally.tokens.total })
         }
             .sorted { ($0.day, $0.agent) < ($1.day, $1.agent) }
-        return Result(days: days, agents: group(\.agent), models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
+        let agents = Dictionary(grouping: rows, by: \.agent).map { id, rs in
+            let t = rs.dropFirst().reduce(rs[0].row.tally.tokens) { $0 + $1.row.tally.tokens }   // a group is never empty
+            return Agent(id: id, cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: t.total, input: t.input, output: t.output,
+                         cacheWrite: t.cacheWrite, cacheRead: t.cacheRead,
+                         models: AgentUsage.groups(rs) { $0.row.model }, projects: AgentUsage.groups(rs) { usage.project($0.row.cwd) })
+        }
+            .sorted { ($0.cost, $0.tokens) > ($1.cost, $1.tokens) }
+        return Result(days: days, agents: agents, models: group { $0.row.model }, projects: group { usage.project($0.row.cwd) },
                       since: since.timeIntervalSince1970)
     }
 }

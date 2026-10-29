@@ -213,10 +213,22 @@ public struct UsageAgents: RPCMethod {
         public var day: String, agent: String, cost: Double, tokens: Int
         public init(day: String, agent: String, cost: Double, tokens: Int) { self.day = day; self.agent = agent; self.cost = cost; self.tokens = tokens }
     }
+    /// One agent over the span: its tokens by kind (`input` leaves the cache out) and its own models and projects.
+    public struct Agent: Codable, Sendable, Equatable {
+        public var id: String, cost: Double, tokens: Int
+        public var input: Int, output: Int, cacheWrite: Int, cacheRead: Int
+        public var models: [UsageReport.Group], projects: [UsageReport.Group]
+        public init(id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
+                    models: [UsageReport.Group], projects: [UsageReport.Group]) {
+            self.id = id; self.cost = cost; self.tokens = tokens
+            self.input = input; self.output = output; self.cacheWrite = cacheWrite; self.cacheRead = cacheRead
+            self.models = models; self.projects = projects
+        }
+    }
     public struct Result: Codable, Sendable, Equatable {
-        /// `days` by day ("yyyy-MM-dd") and agent id; the groups most expensive first; `since` is the first day's start.
-        public var days: [Day], agents: [UsageReport.Group], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
-        public init(days: [Day], agents: [UsageReport.Group], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double) {
+        /// `days` by day ("yyyy-MM-dd") and agent id; agents and groups most expensive first; `since` is the first day's start.
+        public var days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
+        public init(days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double) {
             self.days = days; self.agents = agents; self.models = models; self.projects = projects; self.since = since
         }
     }

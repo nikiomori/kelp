@@ -99,7 +99,7 @@ struct UsageReportView: View {
         let r = read.value; failed = read.error
         func rows(_ groups: [UsageReport.Group]?) -> [Row] { (groups ?? []).map { Row(id: $0.name, cost: $0.cost, tokens: $0.tokens) } }
         days = r?.days ?? []
-        agents = rows(r?.agents)
+        agents = (r?.agents ?? []).map { Row(id: $0.id, cost: $0.cost, tokens: $0.tokens) }
         models = rows(r?.models)
         projects = rows(r?.projects)
         loading = false
