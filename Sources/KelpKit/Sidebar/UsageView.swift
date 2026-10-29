@@ -7,7 +7,7 @@ import DesignKit
 /// (each limit with its bar, when it resets) on hover.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
 /// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
-package struct UsageView: View {
+struct UsageView: View {
     struct Line: Equatable { // used: 0...1
         var label: String
         var used: Double
@@ -27,11 +27,11 @@ package struct UsageView: View {
         var other: Line? { lines.filter { $0 != main }.max { $0.used < $1.used } }
     }
     let app: AppModel
-    package init(app: AppModel) { self.app = app }
+    init(app: AppModel) { self.app = app }
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
-    package var body: some View {
+    var body: some View {
         // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
         VStack(alignment: .leading, spacing: 0) {
             if !rows.isEmpty {
@@ -157,8 +157,14 @@ package struct UsageView: View {
     static func tint(_ u: Double, quiet: Color = .secondary) -> Color { u >= 0.9 ? .red : u >= 0.7 ? .orange : quiet }
 
     private func load() {
-        guard let u = app.limits else { return }
-        let next = app.catalog.installed(app.catalog.all).compactMap { a -> Row? in
+        guard app.limits != nil else { return }
+        let next = Self.rows(app)
+        if next != rows { rows = next }
+    }
+
+    static func rows(_ app: AppModel) -> [Row] {
+        guard let u = app.limits else { return [] }
+        return app.catalog.installed(app.catalog.all).compactMap { a -> Row? in
             var r = Row(id: a.id, name: Self.short(a.name), fullName: a.name)
             r.readAt = u.plansReadAt?[a.id].map { Date(timeIntervalSince1970: $0) }
             switch a.id {
@@ -171,7 +177,6 @@ package struct UsageView: View {
             }
             return r.lines.isEmpty ? nil : r
         }
-        if next != rows { rows = next }
     }
 
     /// "Claude Code" → "Claude", "Cursor Agent" → "Cursor", "GitHub Copilot" → "Copilot": room for three in a sidebar.
@@ -214,4 +219,18 @@ package struct UsageView: View {
         return d.timeIntervalSinceNow < 12 * 3600 ? d.formatted(date: .omitted, time: .shortened)
             : d.formatted(.dateTime.weekday(.wide).hour().minute())
     }
+}
+
+extension AppModel {
+    /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
+    /// Plan column (kept coming with `watchingPlans`).
+    package var plans: [String: (limits: [(label: String, used: Double, resets: String?)], readAt: Date?)] {
+        Dictionary(UsageView.rows(self).map { r in (r.id, (r.lines.sorted { $0.used > $1.used }.map { ($0.label, $0.used, $0.resets) }, r.readAt)) },
+                   uniquingKeysWith: { a, _ in a })
+    }
+}
+
+extension View {
+    /// Keeps the agents' plan limits coming while this is shown (`AppModel.plans`).
+    package func watchingPlans(_ app: AppModel) -> some View { onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) } }
 }
