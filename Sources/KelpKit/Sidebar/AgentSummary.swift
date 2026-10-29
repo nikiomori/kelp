@@ -47,7 +47,8 @@ final class AgentSummary: NSView {
         self.app = app
         super.init(frame: .zero)
         title.lineBreakMode = .byTruncatingTail
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // A step over defaultLow: tied with it, the window's first narrow layout cut the words and the capsule kept them cut.
+        title.setContentCompressionResistancePriority(.defaultLow + 1, for: .horizontal)
         let content = NSStackView(views: [mark, title])
         content.spacing = 6
         content.detachesHiddenViews = true

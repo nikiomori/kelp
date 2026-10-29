@@ -198,6 +198,32 @@ extension OneAtATime {
     }
 }
 
+/// Laid out narrow first (as the window opens), then at its width: the capsule's words are whole, inside its glass.
+@Test func theCapsuleTakesItsWordsBackWhenTheSidebarWidens() throws {
+    let done = (1...6).map { i in
+        var s = Session(worktreeId: "w\(i)", cwd: "/", command: "claude", agent: "claude", status: .done, title: "Report \(i)")
+        s.statusAt = Date() - 60
+        s.unread = true
+        return s
+    }
+    try withSidebar(repos: [project], worktrees: (1...6).map { desk("w\($0)", "b\($0)") }, sessions: done) { vc, _ in
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        let title = try #require(textFields(line).first { $0.stringValue == "6 need you" })
+        let capsule = try #require(title.superview?.superview)
+        vc.view.frame.size.width = 60
+        vc.view.layoutSubtreeIfNeeded()
+        vc.view.frame.size.width = 280
+        vc.view.layoutSubtreeIfNeeded()
+        #expect(title.frame.width >= title.intrinsicContentSize.width)
+        #expect(title.convert(title.bounds, to: capsule).maxX <= capsule.bounds.maxX)
+    }
+}
+
+@MainActor private func textFields(_ v: NSView) -> [NSTextField] {
+    if let t = v as? NSTextField { return [t] }
+    return v.subviews.flatMap(textFields)
+}
+
 @Test func theLineOverTheListCountsWhatAskedAndWhatFinished() throws {
     func agent(_ w: String, _ status: AgentStatus, _ title: String) -> Session {
         var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: title, summary: "Question")
