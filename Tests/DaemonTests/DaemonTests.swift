@@ -591,6 +591,7 @@ final class NoteBox: @unchecked Sendable {
     #expect(info.pid == Int(getpid()) && info.liveSessions == 0 && info.binaryMTime == Daemon.binaryMTime)
     #expect(try await c.call("daemon.info") == .from(info))
     #expect(try await c.call(SessionContextWindow(id: "nope")) == nil)
+    #expect(try await c.call(SessionContextParts(id: "nope")) == nil)
     await #expect(throws: RPCError.invalidParams("missing title")) { try await c.call("session.rename", .obj(["id": "x"])) }
 }
 

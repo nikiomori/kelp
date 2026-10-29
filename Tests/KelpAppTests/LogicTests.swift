@@ -155,6 +155,16 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(six.body.split(separator: "\n").count == 5 && six.body.hasSuffix("and 2 more"))
 }
 
+/// The context card's legend: tokens as "17.6k", a part's biggest items, the conversation in its own words.
+@MainActor @Test func contextPartsReadAsALegend() {
+    #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
+    typealias Parts = SessionContextParts
+    let files = Parts.Part(kind: .files, tokens: 52_000, top: [.init(label: "payment.ts", tokens: 17_600), .init(label: "a.ts", tokens: 11_800, count: 2)], more: 7)
+    #expect(ContextParts.detail(files) == "payment.ts 17.6k · a.ts ×2 11.8k · +7 more 22.6k")
+    let talk = Parts.Part(kind: .conversation, tokens: 30_000, top: [.init(label: "replies", tokens: 25_400, count: 0), .init(label: "messages", tokens: 4_600, count: 9)], more: 0)
+    #expect(ContextParts.detail(talk) == "Its replies 25.4k · your 9 messages 4.6k")
+}
+
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
     #expect(Notifier.category(session(.waiting, summary: "Allow npm test?")) == "permission")
     #expect(Notifier.category(session(.done, summary: "Added the login form")) == "reply")

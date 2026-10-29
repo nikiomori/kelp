@@ -261,3 +261,39 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let noon = try #require(c.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 12)))
     #expect(UsageIndex.day(noon) == "2026-03-07")   // the local day, zero-padded
 }
+
+/// What fills the context: since the last /compact, by part (Read by file, Bash by command, the conversation), scaled to
+/// the tokens the last reply counted on top of the first request's base.
+@Test func contextPartsSinceTheLastCompaction() throws {
+    func line(_ o: [String: Any]) -> String { String(decoding: (try? JSONSerialization.data(withJSONObject: o)) ?? Data(), as: UTF8.self) }
+    func reply(_ input: Int, _ blocks: [[String: Any]]) -> String {
+        line(["type": "assistant", "message": ["content": blocks, "usage": ["input_tokens": input]]])
+    }
+    func results(_ r: [(String, String)]) -> String {
+        line(["type": "user", "message": ["content": r.map { ["type": "tool_result", "tool_use_id": $0.0, "content": $0.1] }]])
+    }
+    let old = [line(["type": "user", "message": ["content": String(repeating: "x", count: 400)]]), reply(1100, [["type": "text", "text": "hi"]]),
+               results([("gone", String(repeating: "g", count: 9000))])]
+    let now = [
+        line(["type": "system", "subtype": "compact_boundary", "compactMetadata": ["preTokens": 9000, "postTokens": 300]]),
+        line(["type": "user", "isCompactSummary": true, "message": ["content": String(repeating: "s", count: 400)]]),
+        reply(1200, [["type": "tool_use", "id": "r1", "name": "Read", "input": ["file_path": "/a/payment.ts"]],
+                     ["type": "tool_use", "id": "b1", "name": "Bash", "input": ["command": "cd app && npm test -- --ci"]],
+                     ["type": "tool_use", "id": "b2", "name": "Bash", "input": ["command": "npm test"]]]),
+        results([("r1", String(repeating: "f", count: 2000)), ("b1", String(repeating: "t", count: 1000)), ("b2", String(repeating: "t", count: 1000))]),
+        line(["type": "attachment", "rendered": [["content": String(repeating: "n", count: 200)]]]),
+        line(["type": "user", "isSidechain": true, "message": ["content": String(repeating: "z", count: 8000)]]),   // a subagent's
+        reply(2400, [["type": "text", "text": "Done"]])
+    ]
+    let data = Data((old + now).joined(separator: "\n").utf8)
+    let p = try #require(ClaudeContext.parts(data, used: 2400))
+    #expect(p.base == 1000)   // the first request, less what was typed (400 / 4)
+    #expect(p.parts.map(\.kind) == [.files, .commands, .conversation, .summary])
+    let files = try #require(p.parts.first), cmds = p.parts[1]
+    #expect(files.top.map(\.label) == ["payment.ts"])
+    #expect(cmds.top.map(\.label) == ["npm test"] && cmds.top[0].count == 2)   // both runs, under one name
+    #expect(files.tokens == cmds.tokens)   // 2000 characters each
+    let sum = p.base + p.parts.reduce(0) { $0 + $1.tokens }
+    #expect((2390...2400).contains(sum))   // scaled to what the reply counted
+    #expect(ClaudeContext.parts(Data(old.joined(separator: "\n").utf8), used: 0) == nil)
+}

@@ -3,6 +3,7 @@ import os
 import Core
 import GitKit
 import Agents
+import AgentData
 import Integrations
 
 extension JSONValue {
@@ -136,7 +137,7 @@ extension Daemon {
 
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
-        let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self, SessionContextWindow.self,
+        let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self, SessionContextWindow.self, SessionContextParts.self,
                                         WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self, GitDiscardHunk.self,
                                         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self]
             + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods + Methods.integrationMethods + Methods.projectMethods
@@ -415,6 +416,13 @@ extension SessionContextWindow: Handled {
     func handle(_ sessions: Sessions) throws -> Usage? {
         guard let t = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)), let c = AgentUsage.contextUsage(transcript: t) else { return nil }
         return Usage(used: c.used, window: sessions.agentUsage.contextWindow(model: c.model, peak: c.peak))
+    }
+}
+
+extension SessionContextParts: Handled {
+    func handle(_ sessions: Sessions) throws -> Parts? {
+        guard let t = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)), let c = AgentUsage.contextUsage(transcript: t) else { return nil }
+        return ClaudeContext.parts(try Data(contentsOf: t, options: .mappedIfSafe), used: c.used)
     }
 }
 

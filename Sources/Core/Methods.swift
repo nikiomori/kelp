@@ -50,6 +50,42 @@ public struct SessionContextWindow: RPCMethod {
     public init(id: String) { self.id = id }
 }
 
+/// What fills a Claude Code conversation's context since its last compaction: the base it starts with (system prompt,
+/// tools, CLAUDE.md, skills: the first request) and the parts after it, estimated from the transcript and scaled so that
+/// base + parts make the tokens the last reply counted. nil when that isn't known (other agents, no reply yet).
+public struct SessionContextParts: RPCMethod {
+    public static let name = "session.contextParts"
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        /// What Read returned, by file.
+        case files
+        /// What Bash and the other tools printed, by command or tool.
+        case commands
+        /// The agent's replies (and what it wrote with Edit / Write), your messages, Claude Code's notes to it.
+        case conversation
+        /// What /compact kept of the conversation before it.
+        case summary
+    }
+    public struct Item: Codable, Sendable, Equatable {
+        /// "payment.ts", "npm test", "its replies"; `count` times ("npm test ×38", "your 9 messages").
+        public var label: String, tokens: Int, count: Int
+        public init(label: String, tokens: Int, count: Int = 1) { self.label = label; self.tokens = tokens; self.count = count }
+    }
+    public struct Part: Codable, Sendable, Equatable {
+        public var kind: Kind, tokens: Int
+        /// The biggest three, biggest first; `more` items besides them.
+        public var top: [Item], more: Int
+        public init(kind: Kind, tokens: Int, top: [Item], more: Int) { self.kind = kind; self.tokens = tokens; self.top = top; self.more = more }
+    }
+    public struct Parts: Codable, Sendable, Equatable {
+        /// In Kind's order, the empty ones left out.
+        public var base: Int, parts: [Part]
+        public init(base: Int, parts: [Part]) { self.base = base; self.parts = parts }
+    }
+    public typealias Result = Parts?
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
 /// The project's other git worktrees (agents' `.claude/worktrees/…`, older Kelp workspaces) and the disk each takes,
 /// biggest first: they grow with every build and nothing in the folder itself shows it.
 public struct RepoWorktreeSizes: RPCMethod {

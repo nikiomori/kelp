@@ -521,6 +521,17 @@
     "+%lld": {
       "shouldTranslate": false
     },
+    "+%lld more %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$lld ещё %2$@"
+          }
+        }
+      }
+    },
     "1 running agent stops. Files in the project are not touched.": {
       "localizations": {
         "ru": {
@@ -1187,6 +1198,17 @@
         }
       }
     },
+    "Base": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "База"
+          }
+        }
+      }
+    },
     "Beside folders": {
       "extractionState": "manual",
       "localizations": {
@@ -1407,12 +1429,45 @@
         }
       }
     },
+    "Claude Code's notes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "заметки Claude Code"
+          }
+        }
+      }
+    },
     "Click to open CI Runs": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите, чтобы открыть CI Runs"
+          }
+        }
+      }
+    },
+    "Command output": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вывод команд"
+          }
+        }
+      }
+    },
+    "Compact Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сжать сейчас"
           }
         }
       }
@@ -3073,6 +3128,17 @@
         }
       }
     },
+    "Files read": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитанные файлы"
+          }
+        }
+      }
+    },
     "Find": {
       "localizations": {
         "ru": {
@@ -3255,6 +3321,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вперёд"
+          }
+        }
+      }
+    },
+    "Free": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свободно"
           }
         }
       }
@@ -3911,6 +3988,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Курсив (⌘I)"
+          }
+        }
+      }
+    },
+    "its replies": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "его ответы"
           }
         }
       }
@@ -7797,6 +7885,17 @@
         }
       }
     },
+    "Summary of earlier work": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Итог прежней работы"
+          }
+        }
+      }
+    },
     "Switch Workspace": {
       "extractionState": "manual",
       "localizations": {
@@ -7824,6 +7923,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Синхронизировать"
+          }
+        }
+      }
+    },
+    "System prompt, tools, CLAUDE.md, skills": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системный промпт, инструменты, CLAUDE.md, навыки"
           }
         }
       }
@@ -8690,6 +8800,17 @@
         }
       }
     },
+    "What /compact kept of the conversation": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что /compact оставил от разговора"
+          }
+        }
+      }
+    },
     "What changed since the agent's last prompt, even with other agents in the same folder": {
       "localizations": {
         "ru": {
@@ -8954,12 +9075,34 @@
         }
       }
     },
+    "your %lld messages": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ваши сообщения: %lld"
+          }
+        }
+      }
+    },
     "Your changes will be lost if you don't save them.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Если не сохранить, изменения пропадут."
+          }
+        }
+      }
+    },
+    "your message": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ваше сообщение"
           }
         }
       }

@@ -61,6 +61,7 @@ final class CardModel {
     var pr: GitHub.PullRequest?
     var turn: String?
     var context: (used: Int, window: Int)?
+    var parts: SessionContextParts.Parts?
     var ports: [Int] = []
 
     init?(_ key: String, app: AppModel) {
@@ -110,7 +111,16 @@ final class CardModel {
                     : String(localized: "Last turn: \(files.count) files +\(add) −\(del) · \(took)")
             }
             if let u = await m.quiet(SessionContextWindow(id: a.id)) ?? nil { context = (u.used, u.window) }
+            if context != nil { parts = await m.quiet(SessionContextParts(id: a.id)) ?? nil }
         }
+    }
+
+    /// Compact Now, from 90 %, while the agent is at its prompt (a question's menu would take the text).
+    var compact: (() -> Void)? {
+        guard let c = context, Double(c.used) >= 0.9 * Double(c.window), let a = agents.first,
+              [.done, .idle, .error].contains(app.session(a.id)?.status) else { return nil }
+        let app = self.app
+        return { Task { await app.call(SessionSend(id: a.id, text: "/compact", enter: true)) } }
     }
 }
 
@@ -158,6 +168,7 @@ struct CardView: View {
             }
             if let t = model.turn { Text(t).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
             if let c = model.context { ContextLine(used: c.used, window: c.window) }
+            if let c = model.context, let p = model.parts { ContextParts(parts: p, window: c.window, compact: model.compact) }
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)

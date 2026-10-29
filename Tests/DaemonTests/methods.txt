@@ -116,6 +116,7 @@ session.busy
 session.choose
 session.commands
 session.context
+session.contextParts
 session.contextWindow
 session.create
 session.detach
