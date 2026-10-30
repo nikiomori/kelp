@@ -5,7 +5,7 @@
 # (--fork-session): never the one the installed Kelp's agent writes. Any other session that could come back is ended
 # (a second agent in the same conversation, or the same tmux); routines are copied switched off (they'd run twice).
 # `make dev` runs it once, while there's no ~/.kelp-dev/kelp.sqlite; `make dev-home` copies again over Kelp Dev's own.
-# `scripts/dev-home.sh nightly` does the same for Kelp Nightly (~/.kelp-nightly).
+# `scripts/dev-home.sh beta` does the same for Kelp Beta (~/.kelp-beta).
 # The workspaces are the same folders: what Kelp Dev changes in them (or a git worktree it removes) the installed one sees.
 set -euo pipefail
 CH=${1:-dev}; NAME="Kelp ${(C)CH}"; SRC=$HOME/.kelp; DST=$HOME/.kelp-$CH

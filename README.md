@@ -65,9 +65,9 @@ Requires macOS 14+. Download [`Kelp.dmg`](https://github.com/nikiomori/kelp/rele
 drag Kelp to Applications; it updates itself (Kelp › Check for Updates…). Kelp's terminals have `kelp` on their PATH; for
 other terminals: `ln -s /Applications/Kelp.app/Contents/MacOS/kelp /usr/local/bin/kelp`.
 
-**Kelp Nightly** is main's build of the day: [`Kelp-Nightly.dmg`](https://github.com/nikiomori/kelp/releases/download/nightly/Kelp-Nightly.dmg).
-It installs beside Kelp as an app of its own (its settings, projects and agents in `~/.kelp-nightly`) and updates itself
-daily. It can break; Kelp is unaffected. Channels, branches and releases: [docs/releasing.md](docs/releasing.md).
+**Kelp Beta** is what's coming, ahead of a release: [`Kelp-Beta.dmg`](https://github.com/nikiomori/kelp/releases/download/beta/Kelp-Beta.dmg).
+It installs beside Kelp as an app of its own (its settings, projects and agents in `~/.kelp-beta`) and updates itself
+with each new beta. It can break; Kelp is unaffected. Channels, branches and releases: [docs/releasing.md](docs/releasing.md).
 
 ## Build and run
 
@@ -79,7 +79,7 @@ scripts/bundle.sh                # dist/Kelp.app + dist/Kelp.dmg (universal, rel
 SIGN_ID="Developer ID Application: …" NOTARY_PROFILE=kelp scripts/bundle.sh   # signed + notarized
 scripts/install.sh               # dist/Kelp.app over /Applications/Kelp.app, reopened; agents keep running (make release does both)
 scripts/publish.sh               # GitHub release + update feed for that DMG (bump the version in Resources/Info.plist first)
-scripts/bundle.sh nightly        # Kelp Nightly in dist/nightly (CI builds and publishes it daily: docs/releasing.md)
+scripts/bundle.sh beta           # Kelp Beta in dist/beta; scripts/publish-beta.sh publishes it (docs/releasing.md)
 scripts/bundle.sh dev            # Kelp Dev: a debug build beside Kelp, with a copy of its projects (make dev)
 ```
 

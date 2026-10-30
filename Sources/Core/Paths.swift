@@ -3,7 +3,7 @@ import Foundation
 public enum Paths {
     public static var root: URL {
         let stable = home.appendingPathComponent(".kelp")
-        // Kelp Nightly and Kelp Dev name a home of their own (KelpHome, scripts/bundle.sh); so does any debug build.
+        // Kelp Beta and Kelp Dev name a home of their own (KelpHome, scripts/bundle.sh); so does any debug build.
         #if DEBUG
         let own: URL? = home.appendingPathComponent(".kelp-dev")
         #else

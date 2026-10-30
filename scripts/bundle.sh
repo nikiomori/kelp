@@ -1,23 +1,25 @@
 #!/bin/zsh
 # Build dist/Kelp.app (+ DMG). One command:  scripts/bundle.sh   (or `make release`)
-#   scripts/bundle.sh nightly   (`make nightly`, CI daily): Kelp Nightly, main's build of the day, in dist/nightly (+ DMG)
-#   scripts/bundle.sh dev       (`make dev`): Kelp Dev, a debug build for this Mac in "dist/dev/Kelp Dev.app", signed ad hoc,
-#                               then opens it
-# Nightly and Dev are apps of their own beside Kelp: their id (so defaults, notifications, Login Items entry), name, icon
+#   scripts/bundle.sh beta   (`make beta`): Kelp Beta, a build of main to try ahead of a release, in dist/beta (+ DMG)
+#   scripts/bundle.sh dev    (`make dev`): Kelp Dev, a debug build for this Mac in "dist/dev/Kelp Dev.app", signed ad hoc,
+#                            then opens it
+# Beta and Dev are apps of their own beside Kelp: their id (so defaults, notifications, Login Items entry), name, icon
 # and home (~/.kelp-<channel>: KelpHome, read by Paths.root); kelp:// links stay Kelp's.
 # Signing/notarization are opt-in via env:
 #   SIGN_ID="Developer ID Application: Name (TEAM)"   sign app + dmg
 #   NOTARY_PROFILE=kelp                               notarytool keychain profile (xcrun notarytool store-credentials)
 set -euo pipefail
 cd "$(dirname "$0")/.."
-CH=${1:-}   # the channel: stable (none), nightly or dev
+CH=${1:-}   # the channel: stable (none), beta or dev
 CONFIG=${CONFIG:-release}; ARCHS=(--arch arm64 --arch x86_64); NAME=Kelp; APP=dist/Kelp.app; DMG=dist/Kelp.dmg
 case $CH in
   "") ;;
-  nightly) NAME="Kelp Nightly"; APP="dist/nightly/$NAME.app"; DMG=dist/nightly/Kelp-Nightly.dmg
-    [ -f Resources/NightlyUpdateKey.pub ] || { echo "no Resources/NightlyUpdateKey.pub: see docs/releasing.md"; exit 1; } ;;
+  beta) NAME="Kelp Beta"; APP="dist/beta/$NAME.app"; DMG=dist/beta/Kelp-Beta.dmg
+    # What's built is what's committed: the commit it names (KelpCommit) is what it ships.
+    [ -z "$(git status --porcelain -- Sources Resources Package.swift Package.resolved)" ] ||
+      { echo "uncommitted changes in Sources, Resources or Package.*: they'd ship in Kelp Beta. Commit them first."; exit 1; } ;;
   dev) CONFIG=debug; ARCHS=(); NAME="Kelp Dev"; APP="dist/dev/$NAME.app" ;;
-  *) echo "usage: scripts/bundle.sh [nightly|dev]"; exit 1 ;;
+  *) echo "usage: scripts/bundle.sh [beta|dev]"; exit 1 ;;
 esac
 # Replacing a running app's files can crash it; its daemon (and agents) may keep running.
 if pgrep -qf "$PWD/$APP/Contents/MacOS/KelpApp"; then echo "Quit $NAME first: ⌘Q"; exit 1; fi
@@ -43,17 +45,17 @@ if [ -n "$CH" ]; then
   /usr/libexec/PlistBuddy -c "Set :Label dev.kelp.kelpd.$CH" "$LA/dev.kelp.kelpd.$CH.plist"
 fi
 [ "$CH" != dev ] || "${P[@]}" -c "Delete :SUFeedURL"   # updated by `make dev`
-if [ "$CH" = nightly ]; then
-  # Its own feed and update key (CI holds the private one; the stable key never leaves this Mac), installed without asking.
+if [ "$CH" = beta ]; then
+  # Its own feed and update key (login keychain, account kelp-beta), installed without asking.
   # Numbered by main's commits (Sparkle compares CFBundleVersion), named by the next minor version and the day (UTC);
-  # KelpCommit: the commit built, which scripts/publish-nightly.sh tags.
+  # KelpCommit: the commit built, which scripts/publish-beta.sh tags.
   V=$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)
-  "${P[@]}" -c "Set :SUFeedURL https://github.com/nikiomori/kelp/releases/download/nightly/appcast.xml" \
-    -c "Set :SUPublicEDKey $(<Resources/NightlyUpdateKey.pub)" -c "Add :SUAutomaticallyUpdate bool true" \
+  "${P[@]}" -c "Set :SUFeedURL https://github.com/nikiomori/kelp/releases/download/beta/appcast.xml" \
+    -c "Set :SUPublicEDKey $(<Resources/BetaUpdateKey.pub)" -c "Add :SUAutomaticallyUpdate bool true" \
     -c "Set :CFBundleVersion $(git rev-list --count HEAD)" -c "Add :KelpCommit string $(git rev-parse HEAD)" \
-    -c "Set :CFBundleShortVersionString ${V%%.*}.$(( ${${V#*.}%%.*} + 1 )).0-nightly.$(date -u +%Y%m%d)"
+    -c "Set :CFBundleShortVersionString ${V%%.*}.$(( ${${V#*.}%%.*} + 1 )).0-beta.$(date -u +%Y%m%d)"
 fi
-ICON=Resources/AppIcon${CH:+Dev}.icns   # from AppIcon(Dev).svg: scripts/icon.sh; Nightly and Dev share the blueprint
+ICON=Resources/AppIcon${CH:+Dev}.icns   # from AppIcon(Dev).svg: scripts/icon.sh; Beta and Dev share the blueprint
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 [ -d "$BIN/Sparkle.framework" ] && cp -R "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/" || true
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
