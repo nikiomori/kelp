@@ -6,7 +6,8 @@ extension Main {
         switch sub {
         case "list":
             for e in try await IDE.extensions(client: c, dir: Paths.extensions).array ?? [] {
-                let tags = [e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil].compactMap { $0 }
+                let tags = [e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil,
+                            e["error"]?.string.map { "error: \($0)" }].compactMap { $0 }
                 print(([e["id"]?.string ?? "", e["name"]?.string ?? ""] + tags).joined(separator: "\t"))
             }
         case "new":
