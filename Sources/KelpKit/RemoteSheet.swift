@@ -4,7 +4,8 @@ import DesignKit
 
 /// Remote projects as this app's home keeps them (KELP_HOME/remote): which folders stand for one on a host.
 extension RemoteHost {
-    package static func of(_ dir: String) -> RemoteHost? { Remotes(home: Paths.root).of(dir) }
+    /// Asked for every row of the sidebar: a folder outside remote/ is answered without looking.
+    package static func of(_ dir: String) -> RemoteHost? { dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil }
     package static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? { Remotes(home: Paths.root).containing(path) }
 }
 

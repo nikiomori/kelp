@@ -4,7 +4,8 @@ public enum Paths {
     public static var root: URL {
         // KELP_HOME picks another (tests, snapshots), but never Kelp's own for a build with its own home: one started from a
         // Kelp terminal inherits it (`open` passes the shell's on), and would restart that kelpd, ending its agents.
-        if let e = ProcessInfo.processInfo.environment["KELP_HOME"].map({ URL(fileURLWithPath: $0) }),
+        // getenv: ProcessInfo copies the whole environment on each read, and this is read everywhere.
+        if let e = getenv("KELP_HOME").map({ URL(fileURLWithPath: String(cString: $0)) }),
            own == nil || e.standardizedFileURL.path != stable.path { return e }
         return own ?? stable
     }
