@@ -268,7 +268,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func tell(_ s: Session, turn: TimeInterval?) {
-        if rule.level(s.status, turn: turn) != .off, !app.isMuted(s) { post(s) }
+        // A limit stops the turn with a question in it, what next: it comes as one, however short the turn.
+        if rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off, !app.isMuted(s) { post(s) }
     }
 
     /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.
@@ -313,18 +314,20 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let app = self.app
         // No banner if the user is already looking at that pane (what it asks stays marked until it's answered).
         if NSApp.isActive, app.workbench.isViewing(session: s.id) { return }
-        if holding, holds(question: s.status == .waiting) {
+        if holding, holds(question: s.status == .waiting || s.limitHit != nil) {
             held.removeAll { $0.id == s.id }; held.append(s)
             waitForQuiet()
             return
         }
         let m = app, wt = m.worktree(s.worktreeId)
         let c = UNMutableNotificationContent()
-        c.title = app.catalog.displayName(s) + (s.status == .waiting ? String(localized: " needs you")
+        c.title = app.catalog.displayName(s) + (s.limitHit != nil ? String(localized: " hit its limit")
+            : s.status == .waiting ? String(localized: " needs you")
             : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
         c.subtitle = [wt?.displayName, m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
-        c.body = s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer") : String(localized: "Ready for review")) : s.summary
-        c.sound = sound(s.status); c.userInfo = ["session": s.id]
+        c.body = s.limitHit.map(LimitStop.banner) ?? (s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer")
+                                                                           : String(localized: "Ready for review")) : s.summary)
+        c.sound = sound(s.limitHit == nil ? s.status : .waiting); c.userInfo = ["session": s.id]
         if let cat = Self.category(s) { c.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
             Banner.show(c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
@@ -339,7 +342,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt. A question
     /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
     static func category(_ s: Session) -> String? {
-        asksPermission(s) ? "permission" : [.done, .error].contains(s.status) ? "reply" : nil
+        asksPermission(s) ? "permission" : [.done, .error].contains(s.status) && s.limitHit == nil ? "reply" : nil
     }
 
     /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…

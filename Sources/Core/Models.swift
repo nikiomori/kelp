@@ -70,6 +70,17 @@ public enum AgentStatus: String, Codable, Sendable {
     }
 }
 
+/// A plan limit that stopped a session's turn.
+public struct LimitHit: Codable, Sendable, Equatable {
+    /// As the agent names it: "5-hour", "weekly", "usage".
+    public var kind: String
+    /// When it resets, as the agent printed it ("3:40pm", "Oct 20 at 5am"); nil when it didn't say.
+    public var resets: String?
+    /// When it stopped: `resets` is read from here, so "3pm" stays today's once that has passed.
+    public var at: Date
+    public init(kind: String, resets: String?, at: Date = Date()) { self.kind = kind; self.resets = resets; self.at = at }
+}
+
 public struct Session: Codable, Sendable, Equatable, Revised {
     public var id: String
     public var revision: Int?
@@ -113,6 +124,10 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var awaiting: String?
     /// The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.
     public var running: String?
+    /// The plan limit that stopped it; nil again once it does anything else.
+    public var limitHit: LimitHit?
+    /// When Kelp types "continue" into it, if it still stands where the limit left it (`session.continueAt`).
+    public var continueAt: Date?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {

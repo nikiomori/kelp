@@ -310,6 +310,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: Self.isNews(s) ? .semibold : .regular)
             mark.status = Self.shownStatus(s)
             mark.unread = s.unread
+            mark.limited = s.limitHit != nil
             mark.compacting = s.summary.hasPrefix("Compacting")
             mark.progress = s.progress.map { Double($0) / 100 }
             trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
@@ -368,10 +369,12 @@ final class SidebarCell: NSTableCellView {
         for v in [title, ask, trailing] as [NSView] { v.setAccessibilityElement(false) }
     }
 
-    /// "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an agent that needs you wants, in its own
-    /// words (its summary); with `always` every agent says what it's on. Nil: no second line.
+    /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
+    /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
+    /// line.
     static func askLine(_ s: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
         let st = shownStatus(s), text = s.summary.isEmpty ? st.words : s.summary
+        if mode != "never", let l = LimitStop.rowLine(s) { return ((l.word, .textOrange), l.text) }
         switch (mode, st) {
         case ("never", _): return nil
         case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)

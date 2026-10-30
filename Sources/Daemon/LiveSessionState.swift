@@ -32,6 +32,8 @@ extension LiveSession {
         /// The program turned on bracketed paste (ESC[?2004h): it tells a paste from typing.
         var pasteMode = false, pasteCarry = Data()
         var sawURL = false, lastLimits: [ClaudeLimits.Reading] = []
+        /// An agent without hooks printed that its plan ran out: it counts if its turn stops by it (`settleLimit`).
+        var limitSeen: (hit: LimitHit, at: Date)?
         var transcript: String?
         var lastHookAt = Date.distantPast, compactManual = false
         /// What the row said before a compaction wrote on it.
@@ -86,7 +88,7 @@ extension LiveSession {
             self.logSize = logSize
             wantsTopic = callbacks.topic != nil
             wantsURL = callbacks.localURL != nil
-            wantsLimits = callbacks.limits != nil
+            wantsLimits = callbacks.limits != nil || record.agent == "codex"
         }
 
         /// The last `bytes` of what it printed, without escapes: what's on screen, near enough.
@@ -158,14 +160,29 @@ extension LiveSession {
             return String(plain[r]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(of: "[::]", with: "localhost")
         }
 
-        /// Plan limits Claude Code (or Cursor Agent, once it ran out) printed, when they changed.
+        /// Plan limits Claude Code (or Cursor Agent or Codex, once it ran out) printed, when they changed.
         mutating func newLimits(_ d: Data) -> [ClaudeLimits.Reading] {
             guard wantsLimits, d.range(of: Data("limit".utf8)) != nil else { return [] }
             let found = record.agent == "cursor" ? ClaudeLimits.parseCursorLimitHit(screen(1200)).map { [$0] } ?? []
+                : record.agent == "codex" ? ClaudeLimits.parseCodexLimitHit(screen(1200)).map { [$0] } ?? []
                 : ClaudeLimits.parse(screen(1200))
+            if !hooked, let r = found.first(where: { $0.percent >= 100 }) {
+                limitSeen = (LimitHit(kind: r.kind, resets: r.resets), Date())
+                settleLimit()
+            }
             guard !found.isEmpty, found != lastLimits else { return [] }
             lastLimits = found
             return found
+        }
+
+        /// The words count only by a turn that stopped: the same ones in a file it reads, or a test's output, stop nothing.
+        /// Hooks say so themselves (`hitLimit`). Limit: words printed in the last half minute of a turn that ended for another
+        /// reason count too.
+        mutating func settleLimit() {
+            guard let seen = limitSeen, [.done, .error].contains(record.status), let at = record.statusAt,
+                  abs(seen.at.timeIntervalSince(at)) < 30 else { return }
+            record.limitHit = seen.hit
+            limitSeen = nil
         }
 
         /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
@@ -256,6 +273,7 @@ extension LiveSession {
             guard s != record.status, record.status != .exited else { return nil }
             record.status = s
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
+            if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on
             return record
         }
 

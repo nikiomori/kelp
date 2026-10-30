@@ -83,16 +83,20 @@ package struct AgentActions {
         return m
     }
 
-    func handoff(_ sid: String, to agent: String, full: Bool) {
+    /// `send`: the brief goes straight in, nobody needs to read it first (an agent out of plan handing its work over).
+    func handoff(_ sid: String, to agent: String, full: Bool, send: Bool = false) {
         Task {
             let p = SessionHandoff(id: sid, agent: agent, full: full,
                                    prompt: "Continue the task where the previous agent left off: check what's done, then finish it.",
-                                   draft: true)
+                                   draft: !send)
             guard let s = await app.call(p) else { return }
             app.upsert(s)
             app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId)
         }
     }
+
+    /// What an agent's terminal shows once a plan limit stopped it; it shows and hides itself.
+    package func limitStrip(_ sid: String) -> NSView { LimitStrip(app: app, session: sid) }
 
     package func copyContext(_ sid: String) {
         Task {

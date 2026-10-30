@@ -318,6 +318,12 @@ public enum Hooks {
             || payload["message"]?.string?.hasPrefix("Claude is waiting for your input") == true
     }
 
+    /// The plan limit a StopFailure says ended the turn. Only there: the same words in a reply or a file stop nothing.
+    public static func limitHit(_ payload: JSONValue) -> ClaudeLimits.Reading? {
+        guard payload["notification_type"]?.string == "stop_failure", let text = payload["message"]?.string else { return nil }
+        return ClaudeLimits.parse(text).first { $0.percent >= 100 }
+    }
+
     /// Kilo Code / OpenCode plugin (`HookTransport.pluginDir`): busy → working, a permission or question → waiting, idle → done.
     /// A subagent's session (one with a parent) idles before the turn ends: skipped. Hooks run one after another, so they
     /// arrive in order.

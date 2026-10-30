@@ -76,6 +76,8 @@ package final class StatusMark: NSView {
     var unread = true { didSet { if unread != oldValue { update() } } }
     /// Working on shrinking its conversation (Claude's compaction): a slow pulse, not the spin.
     var compacting = false { didSet { if compacting != oldValue { update() } } }
+    /// Stopped by a plan limit, read or not: a clock, until it does something else.
+    var limited = false { didSet { if limited != oldValue { update() } } }
     /// How far it got (0…1), when it says: a pie filling a circle, as Finder's and Safari's progress, not the spinning ring.
     var progress: Double? { didSet { if progress != oldValue { update() } } }
     /// Read by VoiceOver on its own; off where its row says the state in its own label (a sidebar agent).
@@ -120,7 +122,7 @@ package final class StatusMark: NSView {
     override package func viewDidMoveToWindow() { super.viewDidMoveToWindow(); update() }   // animations stop when a view leaves a window
 
     private func update() {
-        let s = status == .idle || (status == .done && !unread) ? nil : status
+        let s = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
         let filling = s == .working ? progress : nil
         isHidden = s == nil
         toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" } ?? s?.words
@@ -173,6 +175,11 @@ package final class StatusMark: NSView {
             return
         }
         guard let s else { return }
+        if limited {
+            image.image = .symbol("clock", String(localized: "Stopped at its limit"))
+            image.symbolConfiguration = .init(pointSize: size - 1, weight: .regular); image.contentTintColor = .textOrange
+            return
+        }
         image.image = .symbol(s.symbol, s.words)
         // The moon is wider than the circles: a size smaller, it takes the same room.
         image.symbolConfiguration = .init(pointSize: s == .hibernated ? size - 3 : size - 1, weight: .regular)

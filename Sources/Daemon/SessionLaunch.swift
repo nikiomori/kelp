@@ -109,7 +109,8 @@ extension Sessions {
         guard minutes > 0 else { return }
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
         let candidates = live.all.filter { ls in
-            ls.resumable && [.done, .waiting, .idle].contains(ls.snapshot.status) && !ls.isAttached && ls.idleSeconds > minutes * 60
+            ls.resumable && [.done, .waiting, .idle].contains(ls.snapshot.status) && ls.snapshot.continueAt == nil
+                && !ls.isAttached && ls.idleSeconds > minutes * 60
         }.map { ($0, $0.inputs) }
         // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.
         let start = pausingIdle.withLock { busy -> Bool in

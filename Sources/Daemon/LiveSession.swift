@@ -185,7 +185,7 @@ final class LiveSession: Sendable {
         // ever printed (300 MB of output held 300 MB). The slack makes the copy rare.
         if s.ring.count > 2 * Self.ringLimit { s.ringModes.read(s.ring.dropLast(Self.ringLimit)); s.ring = Data(s.ring.suffix(Self.ringLimit)) }
         s.logSize += d.count
-        let said = (s.record.summary, s.record.progress)
+        let said = (s.record.summary, s.record.progress, s.record.limitHit)
         var h = Heard(probe: s.readReports(text, d), topic: s.readTopic(text, d))
         // The chunk without escapes, once, for the two readers that want it.
         let plain = s.interruptArmed != nil || (!s.sawURL && s.wantsURL) ? StatusDetector.stripANSI(text) : ""
@@ -198,7 +198,7 @@ final class LiveSession: Sendable {
         h.attached = s.attached
         h.id = s.record.id
         h.trimLog = s.logSize > Self.logLimit
-        emit(s.sync() ?? (said != (s.record.summary, s.record.progress) ? s.record : nil))
+        emit(s.sync() ?? (said != (s.record.summary, s.record.progress, s.record.limitHit) ? s.record : nil))
         return h
     }
 
@@ -244,7 +244,7 @@ final class LiveSession: Sendable {
     /// Hands a change to `callbacks.status` (saved, sent to the app, turn bookkeeping) in the order the changes were made:
     /// called inside `state.withLock`, so it's queued in that order and run one after another. Called after the lock,
     /// from whichever thread made the change, an older "working" could be saved after a newer "done" and stay.
-    private func emit(_ s: Session?) {
+    func emit(_ s: Session?) {
         guard let s else { return }
         statusQueue.async { self.callbacks.status(self, s) }   // holds the session until it ran: one just taken out of `live` still says so
     }
@@ -295,6 +295,7 @@ final class LiveSession: Sendable {
                 } else if Date().timeIntervalSince(arm.at) > 10 { s.interruptArmed = nil }
             }
             emit(s.sync())
+            continueIfDue(&s)
             // Deliver the launch prompt once the TUI has drawn and gone quiet (or after a timeout).
             let quiet = Date().timeIntervalSince(s.lastOutputAt ?? s.started) > 1.5   // a program that prints nothing (cat) is quiet too
             let settled = (quiet && Date().timeIntervalSince(s.started) > 2) || Date().timeIntervalSince(s.started) > 25

@@ -144,12 +144,7 @@ func plist() -> String {
                     h.trigger = v["trigger"]?.string   // PreCompact: manual (/compact) or auto
                     h.backgroundTasks = v["background_tasks"]?.array   // Stop: subagents still running
                     if ev == "command" { h.command = AgentCommand(hook: v) }   // a Bash command started or ended
-                    if v["hook_event_name"]?.string == "PermissionRequest" {   // the dialog: what it would run says more than any notice
-                        h.notification = .obj(["notification_type": "permission_request", "tool_name": v["tool_name"] ?? .null,
-                                               "tool_input": v["tool_input"] ?? .null, "cwd": v["cwd"] ?? .null])
-                    } else if v["notification_type"] != nil || v["message"] != nil {
-                        h.notification = .obj(["notification_type": v["notification_type"] ?? .null, "message": v["message"] ?? .null])
-                    }
+                    h.notification = SessionHook.notification(of: v)
                 }
                 _ = try await c.call(h)
             default:

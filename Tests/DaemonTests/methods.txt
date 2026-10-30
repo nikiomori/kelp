@@ -120,6 +120,7 @@ session.busy
 session.choose
 session.commands
 session.context
+session.continueAt
 session.contextParts
 session.contextWindow
 session.create

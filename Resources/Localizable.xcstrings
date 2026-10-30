@@ -17,6 +17,16 @@
     " ": {
       "shouldTranslate": false
     },
+    " hit its limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " упёрся в лимит"
+          }
+        }
+      }
+    },
     " Untracked files are deleted.": {
       "localizations": {
         "ru": {
@@ -187,6 +197,16 @@
         }
       }
     },
+    "%@ hit its %@ limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ упёрся в лимит: %2$@"
+          }
+        }
+      }
+    },
     "%@ is at %lld %%": {
       "localizations": {
         "ru": {
@@ -239,6 +259,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ хочет влить %@%@%@"
+          }
+        }
+      }
+    },
+    "%@ will continue at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ продолжит в %2$@"
           }
         }
       }
@@ -1308,6 +1338,16 @@
         }
       }
     },
+    "at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в %@"
+          }
+        }
+      }
+    },
     "At minute": {
       "extractionState": "manual",
       "localizations": {
@@ -1651,6 +1691,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "Continue at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить в %@"
+          }
+        }
+      }
+    },
+    "Continue in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить в %@"
+          }
+        }
+      }
+    },
+    "Continues": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжит"
           }
         }
       }
@@ -2903,6 +2973,16 @@
         }
       }
     },
+    "Dismiss": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть"
+          }
+        }
+      }
+    },
     "Do Not Disturb": {
       "localizations": {
         "ru": {
@@ -3770,6 +3850,16 @@
         }
       }
     },
+    "has reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сброшен"
+          }
+        }
+      }
+    },
     "Heading 1": {
       "localizations": {
         "ru": {
@@ -4369,6 +4459,16 @@
         }
       }
     },
+    "Kelp types “continue” here a minute after the reset, even with its window closed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp напечатает здесь «continue» через минуту после сброса, даже с закрытым окном."
+          }
+        }
+      }
+    },
     "Kept for compacting": {
       "extractionState": "manual",
       "localizations": {
@@ -4643,6 +4743,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Библиотека"
+          }
+        }
+      }
+    },
+    "Limit:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимит:"
           }
         }
       }
@@ -7106,6 +7216,26 @@
         }
       }
     },
+    "resets %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сбросится %@"
+          }
+        }
+      }
+    },
+    "Resets at %@, in %@. The work so far stays in this tab.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сброс в %1$@, через %2$@. Сделанное остаётся в этой вкладке."
+          }
+        }
+      }
+    },
     "Restart": {
       "localizations": {
         "ru": {
@@ -8510,6 +8640,16 @@
         }
       }
     },
+    "Stopped at its limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановлен лимитом"
+          }
+        }
+      }
+    },
     "Stops %@ (PID %lld)": {
       "localizations": {
         "en": {
@@ -8987,6 +9127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Окно, терминал и редактор вместе. «Как в системе» переключает Kelp Light / Dark вместе с macOS; Ghostty оставляет цвета вашего терминала Ghostty."
+          }
+        }
+      }
+    },
+    "The work so far stays in this tab.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделанное остаётся в этой вкладке."
           }
         }
       }

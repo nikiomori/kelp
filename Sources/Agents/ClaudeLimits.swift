@@ -26,6 +26,10 @@ public enum ClaudeLimits {
         out += (reached?.matches(in: text, range: r) ?? []).compactMap { m in
             group(m, 1).map { Reading(kind: $0.replacingOccurrences(of: "Claude AI usage", with: "usage"), percent: 100, resets: group(m, 2)) }
         }
+        // "You've hit your 5-hour limit · resets 3:40pm", "You've hit your limit".
+        out += text.matches(of: /hit your ([A-Za-z0-9\- ]{0,30}?) ?limit(?:\s*[·∙•|-]\s*resets ([^\n(·]{2,40}))?/).map { m in
+            Reading(kind: m.1.isEmpty ? "usage" : String(m.1), percent: 100, resets: m.2.map { $0.trimmingCharacters(in: .whitespaces) })
+        }
         return out
     }
 
@@ -147,6 +151,14 @@ public enum ClaudeLimits {
         let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         let resets = date.flatMap { m in Int(m.1).flatMap { (1...12).contains($0) ? "\(months[$0 - 1]) \(Int(m.2) ?? 0)" : nil } }
         return Reading(kind: "month", percent: 100, resets: resets)
+    }
+
+    /// What a Codex session prints when its plan ran out: "You've hit your usage limit. … Try again at Oct 30, 2026 3:40 PM."
+    /// (which of the offers sits between depends on the plan, and some have no date).
+    public static func parseCodexLimitHit(_ text: String) -> Reading? {
+        guard text.contains("hit your usage limit") else { return nil }
+        let at = text.firstMatch(of: /(?i:try again at)\s+([A-Za-z0-9:,\s]{3,40}?)\s*\./)
+        return Reading(kind: "usage", percent: 100, resets: at.map { $0.1.split(whereSeparator: \.isWhitespace).joined(separator: " ") })
     }
 
     /// A TUI's text in pieces: lines, split again at dialog borders (│) and wide gaps between columns.

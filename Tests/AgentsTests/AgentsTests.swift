@@ -539,6 +539,30 @@ import TestSupport
     #expect(ClaudeLimits.parseCursorLimitHit("→ Plan, search, build anything") == nil)
 }
 
+/// What an agent prints when its plan stopped it: today's Claude Code, an older one, Codex with and without a date.
+@Test func limitHitsAreRead() throws {
+    let five = try #require(ClaudeLimits.parse("⎿  You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki) · progress saved").first)
+    #expect(five == .init(kind: "5-hour", percent: 100, resets: "3:40pm"))
+    #expect(ClaudeLimits.parse("You've hit your limit · resets Oct 20 at 5am").first == .init(kind: "usage", percent: 100, resets: "Oct 20 at 5am"))
+    #expect(ClaudeLimits.parse("You've hit your weekly limit").first == .init(kind: "weekly", percent: 100, resets: nil))
+    #expect(ClaudeLimits.parse("5-hour limit reached · resets 3pm").first?.percent == 100)
+    #expect(ClaudeLimits.parse("You've used 80% of your weekly limit").first?.percent == 80)
+
+    let codex = "■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus),\n  or try again at Oct 30,\n  2026 3:40 PM."
+    #expect(ClaudeLimits.parseCodexLimitHit(codex) == .init(kind: "usage", percent: 100, resets: "Oct 30, 2026 3:40 PM"))
+    #expect(ClaudeLimits.parseCodexLimitHit("You've hit your usage limit.")?.resets == nil)
+    #expect(ClaudeLimits.parseCodexLimitHit("Working (12s • esc to interrupt)") == nil)
+
+    // Only a StopFailure says so: the same words in a notification or a reply are words.
+    let failure: JSONValue = .obj(["hook_event_name": "StopFailure", "error": "rate_limit", "last_assistant_message": "You've hit your session limit · resets 7pm"])
+    let said = try #require(SessionHook.notification(of: failure))
+    #expect(Hooks.limitHit(said) == .init(kind: "session", percent: 100, resets: "7pm"))
+    #expect(SessionHook.notification(of: .obj(["hook_event_name": "Stop"])) == nil)
+    #expect(SessionHook.notification(of: .obj(["message": "Claude needs your permission"]))?["message"]?.string == "Claude needs your permission")
+    #expect(Hooks.limitHit(.obj(["notification_type": "stop_failure", "message": "API Error: 500"])) == nil)
+    #expect(Hooks.limitHit(.obj(["message": "You've hit your session limit"])) == nil)
+}
+
 /// Every preset an installer exists for offers it; the ones that need npm or Homebrew say so, so the app can check first.
 @Test func presetsWithAnInstallerOfferIt() throws {
     func installed(_ id: String) throws -> AgentManifest { AgentManifest.withInstall(try #require(AgentManifest.presets.first { $0.id == id })) }

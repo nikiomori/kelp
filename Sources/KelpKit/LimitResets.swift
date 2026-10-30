@@ -24,11 +24,12 @@ struct LimitResets {
     mutating func end(_ agent: String) -> Full? { full.removeValue(forKey: agent) }
 
     /// The agent's sessions that stopped while its limit was full and haven't moved since. One that went on by itself at
-    /// the reset (Claude Code can) changed its status after it, so it isn't told twice. The limit is read from the screen a
-    /// moment after the turn stopped: two minutes of slack.
+    /// the reset (Claude Code can) changed its status after it, so it isn't told twice, and one the daemon will go on with
+    /// (`Session.continueAt`) needs no asking. The limit is read from the screen a moment after the turn stopped: two minutes
+    /// of slack.
     static func stopped(_ sessions: [Session], agent: String, _ f: Full) -> [Session] {
         sessions.filter { s in
-            guard s.agent == agent, [.done, .error].contains(s.status), let at = s.statusAt else { return false }
+            guard s.agent == agent, [.done, .error].contains(s.status), s.continueAt == nil, let at = s.statusAt else { return false }
             return at >= f.since.addingTimeInterval(-120) && at < f.until
         }
     }

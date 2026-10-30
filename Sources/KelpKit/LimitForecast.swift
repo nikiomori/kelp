@@ -42,7 +42,7 @@ struct LimitForecast {
     }
 }
 
-/// A reset as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am"; nil for anything else.
+/// A reset as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am", "Oct 30, 2026 3:40 PM"; nil for anything else.
 enum ResetTime {
     static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> Date? {
         let t = text.trimmingCharacters(in: .whitespaces).lowercased()
@@ -53,7 +53,7 @@ enum ResetTime {
             }
             return secs > 0 ? now.addingTimeInterval(secs) : nil
         }
-        let clock = /(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:\s+at\s+|$))?(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm))?/
+        let clock = /(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:,\s+\d{4}\s+|\s+at\s+|$))?(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm))?/
         guard let m = t.wholeMatch(of: clock), m.1 != nil || m.3 != nil else { return nil }   // a date, a time, or both
         var hour = 0
         if let h = m.3.flatMap({ Int($0) }) {

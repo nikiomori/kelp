@@ -19,6 +19,8 @@ final class PaneView: NSView {
     private let restartButton = NSButton()
     /// Under the terminal: what an agent's shell tool ran.
     private let commands: CommandsBar
+    /// Over the terminal's foot, made the first time a plan limit stops this agent.
+    private var limitStrip: NSView?
     /// `kelp attach` still streams, and from which daemon (`AppModel.connections` when it started).
     private var attached = true
     private var attachedTo: Int
@@ -171,7 +173,16 @@ final class PaneView: NSView {
         }
     }
 
-    func update(_: Session) { settle() }
+    func update(_ s: Session) {
+        settle()
+        guard limitStrip == nil, s.limitHit != nil else { return }
+        let strip = AgentActions(app).limitStrip(s.id)
+        limitStrip = strip
+        strip.translatesAutoresizingMaskIntoConstraints = false; addSubview(strip)
+        NSLayoutConstraint.activate([strip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gapWide * 1.5),
+                                     strip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide * 1.5),
+                                     strip.bottomAnchor.constraint(equalTo: commands.topAnchor, constant: -Metrics.gapWide * 1.5)])
+    }
 
     func focus() { ghostty?.focus() }
 

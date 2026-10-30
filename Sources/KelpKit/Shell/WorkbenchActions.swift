@@ -278,7 +278,7 @@ package struct WorkspaceActions {
             i.image = NSWorkspace.shared.icon(forFile: e.app.path).resized(16)
         }
     }
-    package static func addOpenIn(to menu: NSMenu, path: String) { addOpenIn(to: menu, path: { path }) }
+    static func addOpenIn(to menu: NSMenu, path: String) { addOpenIn(to: menu, path: { path }) }
 
     /// The file in the focused tab, else the workspace's folder (Xcode's "Show in Finder" works on the selection).
     func revealCurrent() {

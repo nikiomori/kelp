@@ -115,6 +115,7 @@ extension SessionHook: Handled {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) })
             return Done()
         }
+        if let hit = notification.flatMap(Hooks.limitHit) { ls.hitLimit(hit) }
         let path = ls.transcriptPath
         let goal = path.flatMap(GoalStatus.last(inFile:))
         let (verdict, at) = ls.stop(backgroundTasks ?? [], goal: goal)

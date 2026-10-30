@@ -195,6 +195,13 @@ public struct SessionMarkRead: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// "continue" typed into a session a plan limit stopped, by the daemon, so Kelp's window can be closed by then. nil takes it back.
+public struct SessionContinueAt: RPCMethod {
+    public static let name = "session.continueAt"; public typealias Result = Done
+    public var id: String, at: Date?
+    public init(id: String, at: Date?) { self.id = id; self.at = at }
+}
+
 public struct SessionMarkUnread: RPCMethod {
     public static let name = "session.markUnread"; public typealias Result = Done
     public var id: String

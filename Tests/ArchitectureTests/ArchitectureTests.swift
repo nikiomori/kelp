@@ -218,6 +218,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/SidebarController.swift": "relative times on the rows (\"now\" becomes \"1m\")",
         "KelpKit/AppModel.swift": "connecting: waiting for the socket, retries and backoff",
         "KelpKit/Notifier.swift": "a notification's summary waits a moment for the agent's last line",
+        "KelpKit/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
         "KelpKit/Shell/WorkspaceSwitcher.swift": "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
         "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",

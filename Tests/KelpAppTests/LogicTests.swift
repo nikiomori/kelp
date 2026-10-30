@@ -137,8 +137,46 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
         var x = session(status, agent: agent); x.statusAt = now.addingTimeInterval(at); return x
     }
     let stoppedAtIt = s(.done, 5), wentOn = s(.working, 3700), before = s(.done, -600), other = s(.done, 5, agent: "claude")
-    #expect(LimitResets.stopped([stoppedAtIt, wentOn, before, other], agent: "codex", f).map(\.id) == [stoppedAtIt.id])
+    var told = stoppedAtIt; told.continueAt = until   // the daemon goes on with this one by itself
+    #expect(LimitResets.stopped([stoppedAtIt, told, wentOn, before, other], agent: "codex", f).map(\.id) == [stoppedAtIt.id])
     #expect(r.end("codex") != nil && r.full.isEmpty)
+}
+
+/// Who could take over from an agent out of plan: the freest first, those without numbers last; the button names the first with room.
+@Test func anAgentOutOfPlanHandsToTheFreest() {
+    let all = [("claude", "Claude Code"), ("gemini", "Gemini CLI"), ("cursor", "Cursor Agent"), ("codex", "Codex"), ("grok", "Grok")]
+    let used = ["claude": 100.0, "cursor": 40, "codex": 12, "grok": 100]
+    let takers = LimitStop.takers(all.map { (id: $0.0, name: $0.1) }, except: "claude", used: used)
+    #expect(takers.map(\.id) == ["codex", "cursor", "gemini"])   // itself and the one that's full are out
+    #expect(takers.first?.used == 12 && takers.last?.used == nil)
+    #expect(LimitStop.pick(takers)?.id == "codex")
+    let tight = LimitStop.takers(all.map { (id: $0.0, name: $0.1) }, except: "claude", used: ["codex": 95, "cursor": 92, "grok": 91])
+    #expect(LimitStop.pick(tight)?.id == "gemini")   // nothing under 90: the one without numbers
+    #expect(LimitStop.pick([]) == nil)
+}
+
+/// What a session a limit stopped says, from the stop to the reset, and with Kelp told to go on.
+@MainActor @Test func aLimitStopSaysWhereItIs() throws {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = .current
+    let stopped = try #require(cal.date(bySettingHour: 12, minute: 0, second: 0, of: Date()))
+    var s = session(.done)
+    #expect(LimitStop.rowLine(s) == nil)
+    s.limitHit = LimitHit(kind: "5-hour", resets: "3:40pm", at: stopped)
+    let reset = try #require(s.limitHit?.resetAt)
+    #expect(cal.dateComponents([.hour, .minute], from: reset) == DateComponents(hour: 15, minute: 40))
+    let before = reset.addingTimeInterval(-600), after = reset.addingTimeInterval(600)
+    #expect(LimitStop.rowLine(s, now: before)?.text == "resets \(LimitStop.clock(reset, now: before))")
+    #expect(LimitStop.rowLine(s, now: after)?.text == "has reset")   // read from the stop, "3:40pm" isn't tomorrow's by then
+    #expect(LimitStop.title("Claude Code", s, now: before) == "Claude Code hit its 5-hour limit")
+    #expect(LimitStop.title("Claude Code", s, now: after) == "Claude Code: the limit has reset")
+    #expect(LimitStop.detail(s, now: before).hasPrefix("Resets at"))
+    #expect(LimitStop.banner(try #require(s.limitHit)) == "5-hour · resets 3:40pm")
+    s.continueAt = reset.addingTimeInterval(60)
+    #expect(LimitStop.rowLine(s, now: before)?.word == "Continues")
+    #expect(LimitStop.title("Claude Code", s, now: before).hasPrefix("Claude Code will continue at"))
+    #expect(Notifier.category(s) == nil)   // its banner asks nothing typed: the tab has the choices
+    #expect(SidebarCell.askLine(s, mode: "needsYou")?.prefix?.0 == "Continues")
+    #expect(SidebarCell.askLine(s, mode: "never") == nil)
 }
 
 /// While you type, a finished agent's banner waits (a question doesn't); 20 s without a key, it goes; they come as one.
@@ -468,6 +506,8 @@ extension OneAtATime {
     #expect(ResetTime.parse("7:40am", now: now, calendar: cal).map { cal.component(.minute, from: $0) } == 40)
     #expect(ResetTime.parse("Oct 20 at 5am", now: now, calendar: cal).map { cal.component(.day, from: $0) } == 20)
     #expect(ResetTime.parse("Nov 23", now: now, calendar: cal).map { cal.component(.month, from: $0) } == 11)
+    let codex = ResetTime.parse("Oct 30, 2026 3:40 PM", now: now, calendar: cal)
+    #expect(codex.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) } == DateComponents(month: 10, day: 30, hour: 15, minute: 40))
     #expect(ResetTime.parse("soon", now: now, calendar: cal) == nil)
 }
 
