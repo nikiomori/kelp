@@ -137,7 +137,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
     func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
         address.stringValue = w.url?.absoluteString ?? ""; page = (w.url, w.title)
-        if designOn { w.evaluateJavaScript(Self.designJS(accent: .controlAccentColor)) }
+        if designOn { w.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
     }
     func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { showError(e) }
     func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { showError(e) }
@@ -160,7 +160,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @objc func toggleDesign() {
         designOn.toggle(); designButton.state = designOn ? .on : .off
         designButton.restFill = designOn ? .fillSelected : nil   // on, it stays pressed in, as a toggle in a bar does
-        designButton.contentTintColor = designOn ? .controlAccentColor : .secondaryLabelColor
+        designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
         // The user's own clicks on the page, as AppKit sees them: a page can post without one, it can't make one.
         if designOn, clickWatch == nil {
             clickWatch = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] e in
@@ -168,8 +168,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
                 return e
             }
         } else if !designOn, let w = clickWatch { NSEvent.removeMonitor(w); clickWatch = nil }
-        designButton.contentTintColor = designOn ? .controlAccentColor : .secondaryLabelColor
-        web.evaluateJavaScript(designOn ? Self.designJS(accent: .controlAccentColor) : "window.__kelpOff && window.__kelpOff()")
+        designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
+        web.evaluateJavaScript(designOn ? Self.designJS(accent: .themeAccent) : "window.__kelpOff && window.__kelpOff()")
     }
 
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {

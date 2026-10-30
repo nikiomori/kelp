@@ -90,7 +90,7 @@ final class PaletteRowView: NSTableRowView {
     override var isSelected: Bool { didSet { showHover() } }
 
     override func drawSelection(in r: NSRect) {
-        NSColor.controlAccentColor.setFill()   // the selection colour turns grey in a panel that isn't key; Spotlight's stays blue
+        NSColor.themeAccent.setFill()   // the selection colour turns grey in a panel that isn't key; Spotlight's stays blue
         NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: Metrics.radiusMD, yRadius: Metrics.radiusMD).fill()
     }
     override func updateTrackingAreas() {

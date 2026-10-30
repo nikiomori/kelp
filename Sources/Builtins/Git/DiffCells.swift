@@ -163,7 +163,7 @@ extension DiffViewController {
         let stack = NSStackView()
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
+        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.08).cgColor
         let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)

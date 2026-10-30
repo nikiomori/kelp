@@ -443,7 +443,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
         let tick = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: String(localized: "Current")) ?? NSImage())
-        tick.contentTintColor = .controlAccentColor; tick.isHidden = !it.checked
+        tick.contentTintColor = .themeAccent; tick.isHidden = !it.checked
         // A command's shortcut: at the end of the title's line, as in a menu.
         let key = NSTextField(labelWithString: it.key)
         key.font = .ui(12)

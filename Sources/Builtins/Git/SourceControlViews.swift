@@ -325,11 +325,11 @@ final class CommitCell: NSTableCellView, Hoverable {
             return r.hasPrefix("tag: ") || r.contains("/") || r == "HEAD" ? nil : r
         })
         for r in refs where !r.hasSuffix("/HEAD") {   // origin/HEAD only repeats origin/main
-            if r.hasPrefix("HEAD -> ") { out.insert((String(r.dropFirst(8)), .controlAccentColor, true), at: 0) }
-            else if r == "HEAD" { out.insert(("HEAD", .controlAccentColor, true), at: 0) }
+            if r.hasPrefix("HEAD -> ") { out.insert((String(r.dropFirst(8)), .themeAccent, true), at: 0) }
+            else if r == "HEAD" { out.insert(("HEAD", .themeAccent, true), at: 0) }
             else if r.hasPrefix("tag: ") { out.append((String(r.dropFirst(5)), .systemOrange, false)) }
             else if r.contains("/") { if !locals.contains(String(r.drop { $0 != "/" }.dropFirst())) { out.append((r, .secondaryLabelColor, false)) } }
-            else { out.append((r, .controlAccentColor, false)) }
+            else { out.append((r, .themeAccent, false)) }
         }
         return out
     }

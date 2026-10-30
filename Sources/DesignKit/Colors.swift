@@ -1,5 +1,8 @@
 import AppKit
 import SwiftUI
+import os
+
+private let chosenAccent = OSAllocatedUnfairLock<NSColor?>(initialState: nil)
 
 extension NSColor {
     /// 0xRRGGBB in sRGB.
@@ -7,12 +10,13 @@ extension NSColor {
         self.init(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
     }
 
-    /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours; nil for anything else.
+    /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours, with two more digits for alpha; nil for
+    /// anything else.
     public convenience init?(hex: String) {
         var h = hex.trimmingCharacters(in: .whitespaces)
         if h.hasPrefix("#") { h.removeFirst() }
-        guard h.count == 6, let v = Int(h, radix: 16) else { return nil }
-        self.init(hex: v)
+        guard h.count == 6 || h.count == 8, let v = Int(h, radix: 16) else { return nil }
+        if h.count == 8 { self.init(hex: v >> 8, alpha: CGFloat(v & 0xFF) / 255) } else { self.init(hex: v) }
     }
 
     /// "#rrggbb" in sRGB, as CSS and themes write it (the colour as the current appearance has it).
@@ -42,7 +46,7 @@ extension NSColor {
         switch l {
         case "!", "D": .textRed
         case "U", "A": .textGreen
-        case "R", "C": .controlAccentColor
+        case "R", "C": .themeAccent
         default: .textOrange
         }
     }
@@ -50,8 +54,12 @@ extension NSColor {
     /// The accent where a glyph or a count must read as the one with something to do (↑3 to push): the label's colour
     /// when the accent is Graphite, whose grey came out lighter than the idle arrows beside it and looked disabled.
     public static let emphasis = NSColor(name: nil) { _ in
-        (NSColor.controlAccentColor.usingColorSpace(.sRGB)?.saturationComponent ?? 1) < 0.1 ? .labelColor : .controlAccentColor
+        (NSColor.themeAccent.usingColorSpace(.sRGB)?.saturationComponent ?? 1) < 0.1 ? .labelColor : .themeAccent
     }
+
+    /// The accent in the chrome: the theme's, else the system's. Native controls keep the system's, which nothing can change.
+    public static let themeAccent = NSColor(name: nil) { _ in chosenAccent.withLock { $0 } ?? .controlAccentColor }
+    public static func setThemeAccent(_ color: NSColor?) { chosenAccent.withLock { $0 = color } }
 
     /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen. Black in
     /// light appearances, white in dark: `labelColor.withAlphaComponent` is fixed to the appearance it was first read in
