@@ -34,7 +34,13 @@ enum Attach {
         sendSize()
         signal(SIGWINCH, SIG_IGN)
         let winch = DispatchSource.makeSignalSource(signal: SIGWINCH, queue: .global())
-        winch.setEventHandler { sendSize() }
+        // A panel sliding in or a window being dragged resizes the terminal on every frame, and an agent redraws its whole
+        // screen for each size: ten a second at most. Signals while suspended run this once more, so the last size gets there.
+        winch.setEventHandler {
+            sendSize()
+            winch.suspend()
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { winch.resume() }
+        }
         winch.resume()
 
         Thread.detachNewThread {   // keyboard → session
