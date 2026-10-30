@@ -107,7 +107,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.title = title; c.body = body
         c.subtitle = ss.compactMap { app.projectName(app.worktree($0.worktreeId)?.repoId) }
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
-        c.sound = .default; c.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
+        c.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure's, if one failed
+        c.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
         if !allowed, NSApp.isActive {
             Banner.show(body, action: (String(localized: "Show"), { app.workbench.focus(session: ss[0].id) }), title: title, subtitle: c.subtitle)
         }
@@ -254,13 +255,30 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Each `event.session`, as it comes: a status that changes back within a moment still gets its banner.
     func statusChanged(_ s: Session, _ old: Session?) {
         guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.agent != "shell" else { return }
+        let turn = NotifyRule.turn(s, after: old)
         // What the agent itself said with this change (a permission request, an error) beats its last reply.
-        if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary { post(s); return }
-        Task { await summarizeThenNotify(s) }
+        if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary { tell(s, turn: turn); return }
+        Task { await summarizeThenNotify(s, turn: turn) }
+    }
+
+    private var rule: NotifyRule {
+        func level(_ key: String, _ standard: NotifyRule.Level) -> NotifyRule.Level { app.settings.string(key).flatMap(NotifyRule.Level.init) ?? standard }
+        return NotifyRule(finished: level("agents.onFinish", .banner), waiting: level("agents.onWaiting", .sound), failed: level("agents.onError", .sound),
+                          quietUnder: app.settings.number("agents.quietUnder") ?? 20)
+    }
+
+    private func tell(_ s: Session, turn: TimeInterval?) {
+        if rule.level(s.status, turn: turn) != .off { post(s) }
+    }
+
+    /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.
+    private func sound(_ status: AgentStatus) -> UNNotificationSound? {
+        guard rule.level(status, turn: nil) == .sound else { return nil }
+        return UNNotificationSound(named: UNNotificationSoundName(status == .waiting ? "Ping" : status == .error ? "Basso" : "Glass"))
     }
 
     /// One-line summary for the banner and sidebar from the agent's own last reply, then the notification.
-    private func summarizeThenNotify(_ s: Session) async {
+    private func summarizeThenNotify(_ s: Session, turn: TimeInterval?) async {
         var s = s
         // Claude Code: its own last reply (the terminal around it — spinners, mode lines — reads as nonsense when summarized).
         // The Stop hook can come a moment before the transcript has the final message.
@@ -270,7 +288,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             s.summary = line
             _ = await app.quiet(SessionAnnotate(id: s.id, summary: line))
         }
-        post(s)   // other agents: no summary; the state says enough
+        tell(s, turn: turn)   // other agents: no summary; the state says enough
     }
 
     /// "I added `mul(a, b)` to `calc.py`. It returns…" → "Added mul(a, b) to calc.py".
@@ -306,7 +324,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
         c.subtitle = [wt?.displayName, m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
         c.body = s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer") : String(localized: "Ready for review")) : s.summary
-        c.sound = .default; c.userInfo = ["session": s.id]
+        c.sound = sound(s.status); c.userInfo = ["session": s.id]
         if let cat = Self.category(s) { c.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
             Banner.show(c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),

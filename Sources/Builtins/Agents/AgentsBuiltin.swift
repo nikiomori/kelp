@@ -35,6 +35,13 @@ extension Builtins {
                 s("agents.holdBanners", "Hold finished agents while I type", "boolean", true,
                   "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.",
                   group: "Notifications"),
+                s("agents.onFinish", "When an agent finishes", "enum", "banner", "Turns shorter than the time below stay quiet.",
+                  options: ["sound", "banner", "off"], group: "Notifications"),
+                s("agents.onWaiting", "When an agent needs you", "enum", "sound", "Comes at once, even while you type.",
+                  options: ["sound", "banner", "off"], group: "Notifications"),
+                s("agents.onError", "When an agent fails", "enum", "sound", options: ["sound", "banner", "off"], group: "Notifications"),
+                s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
+                  options: ["0", "10", "20", "30", "60"], group: "Notifications"),
                 s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
                   options: ["off", "70", "80", "90"], group: "Notifications")
             ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }),

@@ -217,6 +217,16 @@
         }
       }
     },
+    "%@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ с"
+          }
+        }
+      }
+    },
     "%@ wants to merge %@%@%@": {
       "localizations": {
         "en": {
@@ -1319,6 +1329,26 @@
         }
       }
     },
+    "Banner and Sound": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Баннер и звук"
+          }
+        }
+      }
+    },
+    "Banner Only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только баннер"
+          }
+        }
+      }
+    },
     "Base": {
       "extractionState": "manual",
       "localizations": {
@@ -1578,6 +1608,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите, чтобы открыть CI Runs"
+          }
+        }
+      }
+    },
+    "Comes at once, even while you type.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приходит сразу, даже пока вы печатаете."
           }
         }
       }
@@ -3407,6 +3448,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Найти…"
+          }
+        }
+      }
+    },
+    "Finished agents only; the row shows them either way.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только для законченных; строка агента покажет их в любом случае."
           }
         }
       }
@@ -8217,6 +8269,17 @@
         }
       }
     },
+    "Stay quiet for turns under": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без уведомления для ходов короче"
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "ru": {
@@ -9056,6 +9119,17 @@
         }
       }
     },
+    "Turns shorter than the time below stay quiet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ходы короче времени ниже проходят тихо."
+          }
+        }
+      }
+    },
     "Type shortcut…": {
       "localizations": {
         "ru": {
@@ -9453,6 +9527,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вывод появится, когда команда завершится."
+          }
+        }
+      }
+    },
+    "When an agent fails": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда агент завершился с ошибкой"
+          }
+        }
+      }
+    },
+    "When an agent finishes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда агент закончил"
+          }
+        }
+      }
+    },
+    "When an agent needs you": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда агент ждёт вас"
           }
         }
       }

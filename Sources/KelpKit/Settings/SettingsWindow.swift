@@ -218,6 +218,9 @@ struct SettingRow: View {
             return said[v] ?? v
         case "workbench.sidebar.order":
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
+        case "agents.onFinish", "agents.onWaiting", "agents.onError":
+            return ["sound": String(localized: "Banner and Sound"), "banner": String(localized: "Banner Only"), "off": String(localized: "Off")][v] ?? v
+        case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) seconds")
         case "sessions.hibernateMinutes":
             let m = Int(v) ?? -1
             return m == 0 ? String(localized: "Never") : m == 60 ? String(localized: "After 1 hour")

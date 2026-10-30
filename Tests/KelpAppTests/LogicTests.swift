@@ -156,6 +156,27 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(six.body.split(separator: "\n").count == 5 && six.body.hasSuffix("and 2 more"))
 }
 
+/// A finished turn: a banner, or nothing under 20 s; a question and a failure come however short the turn; settings change each.
+@Test func notifyRuleByEvent() {
+    let r = NotifyRule()
+    #expect(r.level(.done, turn: 240) == .banner)
+    #expect(r.level(.done, turn: 8) == .off)
+    #expect(r.level(.done, turn: nil) == .banner)   // Kelp just opened: a banner too many beats one missed
+    #expect(r.level(.waiting, turn: 2) == .sound)
+    #expect(r.level(.error, turn: 2) == .sound)
+    #expect(r.level(.working, turn: 240) == .off)
+    #expect(NotifyRule(finished: .sound, quietUnder: 0).level(.done, turn: 1) == .sound)
+    #expect(NotifyRule(waiting: .off).level(.waiting, turn: 60) == .off)
+
+    let start = Date(timeIntervalSince1970: 1000)
+    var worked = Session(cwd: "/x", command: "c", status: .working, createdAt: start), stopped = worked
+    stopped.status = .done; stopped.statusAt = start.addingTimeInterval(45)
+    #expect(NotifyRule.turn(stopped, after: worked) == 45)
+    #expect(NotifyRule.turn(stopped, after: nil) == nil)
+    worked.status = .waiting
+    #expect(NotifyRule.turn(stopped, after: worked) == nil)
+}
+
 /// The context card's legend: tokens as "17.6k", a part's biggest items, the conversation in its own words.
 @MainActor @Test func contextPartsReadAsALegend() {
     #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
