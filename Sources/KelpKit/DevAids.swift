@@ -263,7 +263,7 @@ extension AppDelegate {
         guard CGDisplayIsAsleep(CGMainDisplayID()) == 0, let sym = dlsym(dlopen(nil, RTLD_NOW), "CGWindowListCreateImage"),
               let img = unsafeBitCast(sym, to: Capture.self)(.null, 1 << 3, UInt32(w.windowNumber), 1)?.takeRetainedValue(),
               let png = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:]) else { return false }
-        return (try? png.write(to: URL(fileURLWithPath: path))) != nil
+        return (try? png.write(to: URL(fileURLWithPath: path), options: .atomic)) != nil
     }
 
     /// Render the layer tree (what the compositor shows); cacheDisplay misses layer-only content.
@@ -281,7 +281,8 @@ extension AppDelegate {
         ctx.setFillColor(bg); ctx.fill(CGRect(origin: .zero, size: size))   // the window frame paints this on screen
         if v.isFlipped { ctx.translateBy(x: 0, y: size.height); ctx.scaleBy(x: 1, y: -1) }
         layer.render(in: ctx)
-        if let img = ctx.makeImage() { try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path)) }
+        guard let img = ctx.makeImage(), let png = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: URL(fileURLWithPath: path), options: .atomic)
     }
 
     /// A visible label's text, or "@x,y": a point in the window, from its top-left corner (SwiftUI content has no labels).

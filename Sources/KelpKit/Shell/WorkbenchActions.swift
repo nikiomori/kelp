@@ -235,6 +235,9 @@ struct UIRequests {
         case "command":
             guard let id = e.id else { return }
             if id == "extensions.reload" { app.extensions.reload(); return }
+            if id == "window.shot", let w = app.workbench.window?.window, let path = e.args?["path"]?.string {
+                AppDelegate.snap(w, to: path); return
+            }
             guard let c = app.extensions.command(id) else { Banner.show(String(localized: "Unknown command \(id)"), style: .error); return }
             if case .object(let args)? = e.args { c.run(args) } else { c.run([:]) }
         default: break

@@ -30,6 +30,7 @@ usage: kelp <command>
                                                 --focus also brings Kelp forward and shows that workspace
   settings | settings get <key> | set <key> <json-or-text> | unset <key>
   ui state                             what the app shows: workspace, tabs, extensions, commands
+  shot [file]                          the app's window as a PNG; prints where it went (a temporary file by default)
   run <command-id> [json-args]         run an app command (ids from `kelp ui state`)
   ext list | new <id> [--name N] [--description D] | enable <id> | disable <id> | reload | path
   ext search [text]                    the extension library (github.com/nikiomori/kelp-extensions)
@@ -168,6 +169,7 @@ func plist() -> String {
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)
         case "ext": try await ext(sub, c)
         case "open": try await open(sub, c)
+        case "shot": try await shot(sub, c)
         case "routine": try await routines(sub, c)
         default: print(usage)
         }

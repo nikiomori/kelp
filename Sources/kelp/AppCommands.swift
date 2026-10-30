@@ -11,6 +11,20 @@ extension Main {
         show(try await IDE.open(target, split: split, cwd: cwd, focus: focus, client: c))
     }
 
+    /// `shot [file]`: the open window as a PNG, for an agent to look at. The app writes it, so this waits for the file.
+    static func shot(_ file: String?, _ c: RPCClient) async throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-shot-\(UUID().uuidString.prefix(8)).png")
+        let url = file.map { URL(fileURLWithPath: $0) } ?? temporary, asked = Date().timeIntervalSince1970
+        _ = try await c.call(UICommand(id: "window.shot", args: .object(["path": .string(url.path)])))
+        for _ in 0..<50 {
+            var st = stat()
+            let written = stat(url.path, &st) == 0 ? Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1e9 : 0
+            if written >= asked { print(url.path); return }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        fail("the app wrote no \(url.path)")
+    }
+
     static func settingsAndUI(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("settings", nil): show(.object(try await c.call(SettingsGet())))

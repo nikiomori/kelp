@@ -33,7 +33,8 @@ enum AgentSkills {
         0. Look in the library first: `kelp ext search <word>`. When one fits, `kelp ext install <id>` and you're done.
         1. Write `\(folder)/<id>/extension.json` (and any script or HTML it uses next to it) following the guide below.
            Prefer a `list` view fed by a shell command that prints one JSON object per line.
-        2. Run `kelp ext reload`, then `kelp ext list` — fix the manifest if it reports an error.
+        2. Run `kelp ext reload`, then `kelp ext list` — fix the manifest if it reports an error. `kelp shot` writes the open
+           window to a PNG and prints where, to see it as the user does.
         3. Tell the user where it appears (right inspector icon for panels, the + menu for tabs) and how to use it.
         4. If they want to share it, open a pull request to the library ("The library" below).
 
