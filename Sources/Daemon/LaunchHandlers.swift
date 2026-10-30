@@ -118,7 +118,7 @@ extension SessionHook: Handled {
         if let hit = notification.flatMap(Hooks.limitHit) { ls.hitLimit(hit) }
         let path = ls.transcriptPath
         let goal = path.flatMap(GoalStatus.last(inFile:))
-        let (verdict, at) = ls.stop(backgroundTasks ?? [], goal: goal)
+        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: goal)
         switch verdict {
         case .goal: if let path, let goal { Self.watchGoal(ls, path: path, after: goal, stoppedAt: at) }
         case .command: DispatchQueue.global().asyncAfter(deadline: .now() + Self.commandWait) { ls.release(at) }

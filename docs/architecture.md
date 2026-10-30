@@ -139,7 +139,7 @@ else a `NotificationCenter` name.
   files) moves to a thread of its own through `offload`, so a slow host never holds Swift's cooperative pool; at most
   128 run at once, the rest wait their turn. A quick one (`Handled.quick`: `session.hook`, `session.report`,
   `state.get`…) takes no turn: it starts no program (`Subprocess.quickOnly` fails one that would). Store writes and the
-  events they push go one at a time, in commit order. Accepting connections and the 2 Hz ticker (session ticks, keep-awake, pausing idle agents; settings.json is watched with FSEvents) have their own
+  events they push go one at a time, in commit order. Accepting connections and the 2 Hz ticker (session ticks, keep-awake, pausing idle agents, restarting finished ones into a Claude Code update; settings.json is watched with FSEvents) have their own
   queues.
 - **Ordering.** Replies to one connection can come back in any order, as in JSON-RPC and LSP; clients match them by id.
   What is only right in the order it was sent says so on its type (`Answered.inOrder`: keystrokes `session.write`,

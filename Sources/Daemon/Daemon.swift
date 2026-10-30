@@ -137,6 +137,7 @@ public final class Daemon: Sendable {
             sessions.live.all.forEach { $0.tick() }
             sessions.applyKeepAwake()
             sessions.hibernateIdle()
+            sessions.restartOutdated()
         }
         let prune = DispatchSource.makeTimerSource(queue: .global(qos: .background))
         prune.schedule(deadline: .now() + 60, repeating: 86400)   // ended sessions past `keepEnded`

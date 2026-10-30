@@ -42,6 +42,8 @@ extension LiveSession {
         var lastLifeUp = ProcessInfo.processInfo.systemUptime
         /// The last Stop was held as working (subagents, a goal, a command): the agent is quiet by design until it wakes.
         var holding = false
+        /// The last Stop left work in the background or a timer: quiet, but something will wake it. Assumed until a Stop says.
+        var parked = true
         var turnEnd = TurnEnd()
         /// What its shell tool ran (`ran`), the last `commandLimit`; `commandChanges` counts the changes, for the watchers.
         /// Limit: in memory, so a restarted background service starts the list over; the transcript keeps them all.
@@ -72,6 +74,10 @@ extension LiveSession {
         var steering: (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?)?
         /// What the user typed and hasn't sent, as far as their keys tell (arrows and history recall aren't followed).
         var typing = ""
+        /// A line was sent and no key pressed since, so the input box is empty; `typing` alone can't say (↑ brings back an old prompt).
+        var boxEmpty = false
+        /// The version an update last restarted it for (`restartAgent`).
+        var updatedTo: String?
         var sawFirstPrompt = false
 
         // Turns: written by turnWork, read by requests.
@@ -279,6 +285,7 @@ extension LiveSession {
 
         /// The user's keys into `typing`; the first line of 8 characters or more they send (once), which names the session.
         mutating func noteTyping(_ d: Data) -> String? {
+            boxEmpty = false
             let s = String(decoding: d, as: UTF8.self)
             if s.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
                 typing += s.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(of: "\u{1B}[201~", with: "")
@@ -311,7 +318,8 @@ extension LiveSession {
 
         /// Return: the line is sent. The first one of 8 characters or more, once.
         private mutating func sendLine() -> String? {
-            let line = typing.trimmingCharacters(in: .whitespacesAndNewlines); typing = ""
+            let line = typing.trimmingCharacters(in: .whitespacesAndNewlines)
+            typing = ""; boxEmpty = true
             guard !sawFirstPrompt, line.count >= 8 else { return nil }
             sawFirstPrompt = true
             return line

@@ -143,6 +143,7 @@ func plist() -> String {
                     h.cwd = v["cwd"]?.string   // where it works now: its own worktree, maybe
                     h.trigger = v["trigger"]?.string   // PreCompact: manual (/compact) or auto
                     h.backgroundTasks = v["background_tasks"]?.array   // Stop: subagents still running
+                    h.sessionCrons = v["session_crons"]?.array   // Stop: timers that will wake it
                     if ev == "command" { h.command = AgentCommand(hook: v) }   // a Bash command started or ended
                     h.notification = SessionHook.notification(of: v)
                 }

@@ -14,6 +14,7 @@ final class Sessions: Sendable {
     let pausing = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions an idle pause is stopping: input waits, then wakes them
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
+    let nextUpdateCheck = OSAllocatedUnfairLock(initialState: Date.distantPast)   // `restartOutdated`
     /// The Mac kept awake while agents work (applyKeepAwake): the ticker and a settings change both apply it.
     let sleepAssertion = OSAllocatedUnfairLock<(id: UInt32, type: String?)>(initialState: (0, nil))
     let store: Store

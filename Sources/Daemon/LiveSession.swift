@@ -371,13 +371,14 @@ final class LiveSession: Sendable {
 
     /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
     /// what runs in the background. Returns the verdict and the hook's time, which `release` checks.
-    func stop(_ tasks: [JSONValue], goal: GoalStatus?) -> (TurnEnd.Verdict, Date) {
+    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?) -> (TurnEnd.Verdict, Date) {
         state.withLock { s in
             let now = Date()
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
             s.endCommands(at: now)
             s.holding = verdict != .done
+            s.parked = !tasks.isEmpty || !crons.isEmpty
             s.record.background = running.isEmpty ? nil : running
             if case .command(let c) = verdict { s.record.awaiting = c } else { s.record.awaiting = nil }
             if case .goal(let c) = verdict { s.record.goal = c } else if goal?.met != false { s.record.goal = nil }

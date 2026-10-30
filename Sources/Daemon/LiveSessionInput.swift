@@ -88,7 +88,7 @@ extension LiveSession {
     /// issue title) is text, not a mode or command. Without it one line is typed, so `kelp send <id> /compact` still runs it.
     func type(_ text: String, enter: Bool, paste: Bool, _ s: inout State) {
         s.detector.input(); s.typedYet = true
-        if !enter { s.draftWaiting = true }   // left for the user to read and send
+        if enter { s.boxEmpty = true } else { s.draftWaiting = true }   // a draft is left for the user to read and send
         let takesPastes = s.pasteMode
         var text = Self.typeable(text)
         // Not to be sent (a draft: an issue's text, say) to a program that takes no pastes: each newline would submit a

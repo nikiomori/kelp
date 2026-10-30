@@ -9561,6 +9561,17 @@
         }
       }
     },
+    "Update idle agents": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновлять простаивающих агентов"
+          }
+        }
+      }
+    },
     "Update on Hosts": {
       "localizations": {
         "ru": {
@@ -9840,6 +9851,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Когда агент ждёт вас"
+          }
+        }
+      }
+    },
+    "When Claude Code installs an update, an agent restarts into it once its turn is over, in the same conversation. Not while it asks you something, runs anything in the background, or has text in its prompt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда Claude Code установит обновление, агент перезапустится на новой версии, как только закончит ход, и продолжит тот же разговор. Этого не случится, пока он о чём-то спрашивает, что-то выполняет в фоне или в его поле ввода есть текст."
           }
         }
       }
