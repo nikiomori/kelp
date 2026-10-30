@@ -90,9 +90,11 @@ private final class BannerCard: NSView {
                                      symbol.heightAnchor.constraint(equalToConstant: icon == nil ? 16 : 24)])
         var lines: [NSView] = []
         if let title {
-            let t = NSTextField(labelWithString: title)
+            let t = NSTextField(wrappingLabelWithString: title)   // two lines: an agent's long name keeps the "finished" at its end
             t.font = .ui(13, weight: .semibold)
-            t.lineBreakMode = .byTruncatingTail
+            t.maximumNumberOfLines = 2
+            t.cell?.truncatesLastVisibleLine = true
+            t.preferredMaxLayoutWidth = 252
             lines.append(t)
         }
         if let subtitle, !subtitle.isEmpty {
@@ -132,10 +134,13 @@ private final class BannerCard: NSView {
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.gapWide
-        column.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 10)
-        column.widthAnchor.constraint(lessThanOrEqualToConstant: 340).isActive = true
+        // Pinned, not the stack's edgeInsets: those give way to a long line, which then pushes the icon and the
+        // button to the card's very edges.
+        let padded = NSView()
+        padded.pin(column, inset: NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 10))
+        padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340).isActive = true
         buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // the button at the right edge
-        Self.ground(column, in: self)
+        Self.ground(padded, in: self)
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
     required init?(coder: NSCoder) { fatalError() }
