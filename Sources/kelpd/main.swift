@@ -15,6 +15,7 @@ do {
     // An update's exec in place (`daemon.upgrade`): what the kelpd before this one handed over, and the rest it ran reaped.
     let handover = CommandLine.arguments.firstIndex(of: "--adopt").flatMap { i in CommandLine.arguments.dropFirst(i + 1).first }.flatMap(Handover.take)
     handover?.reapOthers()
+    if let stable = Paths.seed { HomeSeed.fill(Paths.root, from: stable) }
     let d = try Daemon(root: Paths.root)
     try d.start(adopting: handover)
     for s in [SIGTERM, SIGINT, SIGHUP] {

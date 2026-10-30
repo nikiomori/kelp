@@ -12,7 +12,10 @@
 
 The three install side by side and never share a daemon, settings, projects or agents: each is an app of its own (id,
 name, Login Items entry, home; `scripts/bundle.sh <channel>`). Beta and Dev wear the blueprint icon. `kelp://` links
-open Kelp. `scripts/dev-home.sh [beta]` copies Kelp's projects, workspaces and sessions into Dev's (or Beta's) home.
+open Kelp. Started the first time, Beta and Dev copy Kelp's projects, workspaces,
+settings and sessions into their home (`HomeSeed`): a live Claude Code agent comes back paused and continues a fork of its
+conversation; any other live agent ends there, and what runs in tmux stays Kelp's. `scripts/dev-home.sh [beta]` has the
+next start copy them again.
 
 A beta is a GitHub pre-release under the tag `beta`, made again each time: GitHub's "latest" release, whose feed Kelp
 reads, never points at it, so Kelp's users never get a beta.

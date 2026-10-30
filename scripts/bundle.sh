@@ -4,7 +4,8 @@
 #   scripts/bundle.sh dev    (`make dev`): Kelp Dev, a debug build for this Mac in "dist/dev/Kelp Dev.app", signed ad hoc,
 #                            then opens it
 # Beta and Dev are apps of their own beside Kelp: their id (so defaults, notifications, Login Items entry), name, icon
-# and home (~/.kelp-<channel>: KelpHome, read by Paths.root); kelp:// links stay Kelp's.
+# and home (~/.kelp-<channel>: KelpHome, read by Paths.root), which starts as a copy of Kelp's (HomeSeed); kelp:// links
+# stay Kelp's.
 # Signing/notarization are opt-in via env:
 #   SIGN_ID="Developer ID Application: Name (TEAM)"   sign app + dmg
 #   NOTARY_PROFILE=kelp                               notarytool keychain profile (xcrun notarytool store-credentials)
@@ -84,7 +85,6 @@ if [ "$CH" = dev ]; then
   # Ad hoc, inside out; no entitlements, as a debug build runs from Xcode.
   for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP"; do codesign --force --sign - "$f"; done
   touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
-  [ -f ~/.kelp-dev/kelp.sqlite ] || scripts/dev-home.sh   # the first time: the installed Kelp's projects and workspaces
   open "$APP"; echo "built $APP"; exit 0
 fi
 STAGE=$(mktemp -d); cp -Rp "$APP" "$STAGE/"; ln -s /Applications "$STAGE/Applications"

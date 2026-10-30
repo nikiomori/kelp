@@ -186,6 +186,9 @@ import TestSupport
     #expect(claude.resumes(["claude", "--resume", "x"]))
     // A fork (Kelp Dev's copy of a session) follows the conversation it made, and the next wake resumes that one.
     #expect(claude.following(["claude", "--resume", "abc", "--fork-session"], conversation: "def") == ["claude", "--session-id", "def"])
+    #expect(claude.forking(pinned) == ["claude", "--settings", "h.json", "--resume", "abc", "--fork-session"])
+    #expect(claude.forking(["claude"]) == nil)   // no id: `following` couldn't drop the flag, and each wake would fork again
+    #expect(try #require(AgentManifest.presets.first { $0.id == "codex" }).forking(["codex", "--session-id", "abc"]) == nil)
 }
 
 @Test func hookedAgentsDontGuessFromOutput() throws {

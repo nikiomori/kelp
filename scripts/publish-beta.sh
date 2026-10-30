@@ -41,8 +41,9 @@ git tag -f beta "$C" && git push -qf origin refs/tags/beta
 gh release create beta "$DMG#Kelp Beta $V for macOS (download this)" "$D/appcast.xml#Update feed (read by the app, not a download)" \
   --verify-tag --prerelease --latest=false --title "Kelp Beta $V" --notes "$(cat <<EOF
 What's coming in Kelp, ahead of a release: **[Kelp-Beta.dmg]($URL/releases/download/beta/Kelp-Beta.dmg)** (macOS 14+).
-Kelp Beta installs beside Kelp, as an app of its own (its settings, projects and agents in ~/.kelp-beta), and updates
-itself with each new beta. It can break: for work, use [Kelp]($URL/releases/latest).
+Kelp Beta installs beside Kelp, as an app of its own (its settings, projects and agents in ~/.kelp-beta), starts with a
+copy of Kelp's (Claude Code agents continue a fork of their conversation) and updates itself with each new beta. It can
+break: for work, use [Kelp]($URL/releases/latest).
 
 ${NOTES:-No changes since the last beta.}
 EOF

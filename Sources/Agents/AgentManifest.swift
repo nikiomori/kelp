@@ -206,8 +206,15 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         guard let pin = sessionIdFlag, let r = resumeIdFlag, let i = argv.lastIndex(where: { $0 == pin || $0 == r }), i + 1 < argv.count,
               argv[i + 1].lowercased() != conversation.lowercased() else { return argv }
         var a = argv; a[i] = pin; a[i + 1] = conversation   // pinned: a wake resumes it once it's on disk, else starts it under this id
-        a.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (Kelp Dev's copies, scripts/dev-home.sh): this is it
+        a.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (`forking`): this is it
         return a
+    }
+
+    /// `argv` changed to continue a copy of its conversation (a session copied to another home, `HomeSeed`), leaving the
+    /// one it names as it is; `following` drops the flag once the copy is made. Nil when no id is pinned, or the agent can't.
+    public func forking(_ argv: [String]) -> [String]? {
+        guard id == "claude", let pin = sessionIdFlag, let r = resumeIdFlag, argv.contains(pin) || argv.contains(r) else { return nil }
+        return resuming(argv) + ["--fork-session"]
     }
 
     public static let trust = AutoAnswer(pattern: #"(?i)(do you trust|trust (the files|this folder|the contents)|one you trust|allow .* to work in this folder)"#, input: "\r",

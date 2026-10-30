@@ -194,7 +194,14 @@ extension Sessions {
     /// own "latest in this folder" finds it there.
     func resumeArgv(_ rec: Session, _ m: AgentManifest) -> [String] {
         guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = m.resumeIdFlag, let pin = m.sessionIdFlag else { return m.resuming(rec.argv) }
-        if rec.argv.contains(flag) { return rec.argv }
+        if let i = rec.argv.firstIndex(of: flag) {
+            // Nothing was typed in the session this forks (`HomeSeed`): no conversation to copy, a new one of its own.
+            if rec.argv.contains("--fork-session"), let id = rec.argv.dropFirst(i + 1).first,
+               ClaudeHistory.session(id: id, cwd: rec.cwd, root: claudeProjects(rec)) == nil {
+                return m.following(rec.argv, conversation: UUID().uuidString.lowercased())
+            }
+            return rec.argv
+        }
         if let i = rec.argv.firstIndex(of: pin), i + 1 < rec.argv.count {
             // Pinned but nothing typed yet: no conversation to resume, start it under the same id.
             return ClaudeHistory.session(id: rec.argv[i + 1], cwd: rec.cwd, root: claudeProjects(rec)) != nil ? m.resuming(rec.argv) : rec.argv
