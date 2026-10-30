@@ -85,6 +85,9 @@ package enum Builtins {
           options: ["others", "always", "never"], group: "Sidebar"),
         s("workbench.sidebar.gitBadges", "Changes and pull requests", "boolean", true,
           "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),
+        s("workbench.sidebar.projectColor", "Project color", "enum", "icon",
+          "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
+          options: ["icon", "dot", "glow", "name", "card"], group: "Sidebar"),
         s("workbench.sidebar.order", "Project order", "enum", "manual", "Agents First moves rows as agents start and stop.",
           options: ["manual", "active"], group: "Sidebar")
     ]

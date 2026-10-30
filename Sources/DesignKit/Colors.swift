@@ -62,6 +62,10 @@ extension NSColor {
     /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on it.
     /// Ask for it while drawing, it's fixed to the current appearance as `labelColor.withAlphaComponent` is.
     public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
+    /// A card's glow where it's strongest, at its edge, fading to nothing; for reading while drawing too.
+    public static func fillGlow(_ color: NSColor) -> NSColor {
+        color.withAlphaComponent(NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? 0.3 : 0.2)
+    }
     private static func grey(_ alpha: CGFloat) -> NSColor { dynamic(light: NSColor(white: 0, alpha: alpha), dark: NSColor(white: 1, alpha: alpha)) }
 }
 

@@ -83,6 +83,7 @@ final class NeedsYouZone: NSView {
         NSLayoutConstraint.activate(all)
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app] in app.projectLook } changed: { [weak self] _ in self?.update() }
     }
     required init?(coder: NSCoder) { fatalError() }
 

@@ -18,6 +18,12 @@ extension SidebarController.Node {
 extension SidebarController {
     // MARK: actions
 
+    /// What rows draw from the app's own state: a mute's bell, a project's colour.
+    func followRowLooks() {
+        track(owner: self) { [app] in app.mutes } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in app.projectLook } changed: { [weak self] _ in self?.updateVisibleCells() }
+    }
+
     func newWorkspace(_ repo: String) { app.workbench.newWorkspace(repo: repo) }
     func refreshCell(_ key: String) {
         guard let n = node(key) else { return }
@@ -46,7 +52,10 @@ extension SidebarController {
         } else if let n = workspaceNode(id) { refreshCell(n.key) }
     }
 
-    func menuDidClose(_ menu: NSMenu) { outline.menuClosed() }
+    func menuDidClose(_ menu: NSMenu) {
+        outline.menuClosed()
+        app.colorPreview = nil
+    }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         let app = self.app
@@ -96,10 +105,16 @@ extension SidebarController {
         }
     }
 
-    /// Color ▸ None or a `ProjectColor`, which the project's card takes.
+    /// A project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which reach only a menu's items.
     private func colorItem(_ menu: NSMenu, _ id: String) {
-        let shades = NSMenu(), now = colors[id]
-        func pick(_ c: ProjectColor?) { colors[id] = c; placeCards() }
+        let app = self.app, now = app.projectColors[id]
+        func pick(_ c: ProjectColor?) { app.projectColors[id] = c }
+        guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
+            let row = menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
+            row.view = ColorSwatches(chosen: now, previewing: { app.colorPreview = (id, $0) }, left: { app.colorPreview = nil }, pick: pick)
+            return
+        }
+        let shades = NSMenu()
         shades.add(String(localized: "None")) { pick(nil) }.state = now == nil ? .on : .off
         shades.addItem(.separator())
         for c in ProjectColor.allCases {

@@ -91,6 +91,10 @@ package final class AppModel {
     var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }
     /// Rows told to keep quiet: id → until when (`Mutes`).
     var mutes: [String: Date] = [:] { didSet { uiState[Mutes.key] = Mutes.value(mutes) } }
+    /// Each project's colour, by id.
+    var projectColors: [String: ProjectColor] = [:] { didSet { uiState[ProjectColor.key] = ProjectColor.value(projectColors) } }
+    /// What the dot under the pointer in a project's menu would make of it: shown, not kept.
+    var colorPreview: (project: String, color: ProjectColor?)?
     /// Puts these (siblings) in this order.
     func reorder(_ ids: [String]) { order = ids + order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
@@ -197,6 +201,7 @@ package final class AppModel {
         await uiState.load()
         if uiState.strings("sidebar.order") != order { order = uiState.strings("sidebar.order") }
         if Mutes.read(uiState[Mutes.key]) != mutes { mutes = Mutes.read(uiState[Mutes.key]) }
+        if ProjectColor.read(uiState[ProjectColor.key]) != projectColors { projectColors = ProjectColor.read(uiState[ProjectColor.key]) }
         await settings.load()
         await refresh()
         connected = client === c   // after the lists: what waits for the connection finds the projects in

@@ -35,11 +35,11 @@ enum IconTile {
     }
 
     /// A tile for a name: with `color`, its initial in white on that colour (an agent's brand); otherwise its initials
-    /// ("AS" for AgroStorage) in a quiet hue on a tint of it, picked from the name (the same name, the same hue). The
-    /// hues leave out orange, red and green: next to a row's status marks those mean asking, failed and done.
-    static func letter(_ name: String, color: NSColor? = nil, size: CGFloat = side) -> NSImage {
+    /// ("AS" for AgroStorage) in a quiet hue on a tint of it, `hue` or one picked from the name (the same name, the same
+    /// hue). The hues leave out orange, red and green: next to a row's status marks those mean asking, failed and done.
+    static func letter(_ name: String, color: NSColor? = nil, hue chosen: Hue? = nil, size: CGFloat = side) -> NSImage {
         let text = color == nil ? initials(name) : name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "?"
-        let hue = hues[name.unicodeScalars.reduce(0) { $0 + Int($1.value) } % hues.count]
+        let hue = chosen ?? hues[name.unicodeScalars.reduce(0) { $0 + Int($1.value) } % hues.count]
         let img = NSImage(size: NSSize(width: size, height: size), flipped: false) { r in
             let dark = NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             (color ?? hue.tint(dark)).setFill()
@@ -72,7 +72,7 @@ enum IconTile {
     }
 
     /// A tile's hue in both appearances: its letter (≥ 4.5:1 on its tint) and the tint under it.
-    private struct Hue {
+    struct Hue {
         let dark: Int, light: Int, gray: Bool
         func ink(_ dark: Bool) -> NSColor {
             NSColor(hex: dark ? self.dark : light)
@@ -82,9 +82,8 @@ enum IconTile {
                 : ink(dark).withAlphaComponent(dark ? 0.18 : 0.14)
         }
     }
-    private static let hues = [Hue(dark: 0x6CB4FF, light: 0x0058B8, gray: false), Hue(dark: 0x9E9CFF, light: 0x4440C0, gray: false),
-                               Hue(dark: 0xD59CFF, light: 0x8A2BB0, gray: false), Hue(dark: 0x5BD6E6, light: 0x006473, gray: false),
-                               Hue(dark: 0xD2AE88, light: 0x7A5230, gray: false), Hue(dark: 0xC7C7CC, light: 0x48484A, gray: true)]
+    private static let hues = [ProjectColor.blue.hue, ProjectColor.indigo.hue, ProjectColor.purple.hue, ProjectColor.teal.hue,
+                               ProjectColor.brown.hue, Hue(dark: 0xC7C7CC, light: 0x48484A, gray: true)]
 }
 
 extension NSImage {

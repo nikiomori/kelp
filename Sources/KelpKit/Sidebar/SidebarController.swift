@@ -147,7 +147,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
-        track(owner: self) { [app] in app.mutes } changed: { [weak self] _ in self?.updateVisibleCells() }
+        followRowLooks()
         track(owner: self) { [app] in app.settings.string("workbench.textSize") } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in ["rowHeight", "agentDetail", "agentIcons"].map { app.settings.string("workbench.sidebar." + $0) } }
             changed: { [weak self] _ in self?.updateVisibleCells() }
@@ -159,7 +159,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
     }
 
-    private func updateVisibleCells() {
+    func updateVisibleCells() {
         updateCard()
         for row in 0..<outline.numberOfRows { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
     }

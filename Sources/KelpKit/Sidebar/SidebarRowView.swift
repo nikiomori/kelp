@@ -40,7 +40,7 @@ final class SidebarOutline: NSOutlineView {
 
 /// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
 /// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
-/// plain row, on a card only once it was given a colour.
+/// plain row, on a card only when its colour needs one (`ProjectColorStyle.onCard`).
 @MainActor
 final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
@@ -192,13 +192,48 @@ final class SidebarRowView: NSTableRowView {
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// The colour the project was given; nil: the quiet grey.
-    var tint: NSColor? { didSet { if tint != oldValue { fadeBackground(to: fill) } } }
-    private var fill: NSColor { tint.map(NSColor.fillTint) ?? .fillRest }
+    /// What it shows: `color` as a fill or a glow from its left edge, on the quiet grey unless it's `plain`, a project's
+    /// own row with nothing under it.
+    struct Look: Equatable {
+        var color: ProjectColor?
+        var style: ProjectColorStyle
+        var plain: Bool
+    }
+    var look = Look(color: nil, style: .icon, plain: false) {
+        didSet {
+            guard look != oldValue else { return }
+            fadeBackground(to: fill)
+            needsDisplay = true
+        }
+    }
+    private let glow = CAGradientLayer()
+    private var fill: NSColor? {
+        if let c = look.color, look.style == .card { return .fillTint(c.color) }
+        return look.plain ? nil : .fillRest
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        glow.startPoint = CGPoint(x: 0, y: 0.5)
+        glow.endPoint = CGPoint(x: 1, y: 0.5)
+        glow.locations = [0, 0.72]   // gone before what's at the row's end: its time and marks stay on the grey
+        glow.cornerRadius = 9
+        layer?.addSublayer(glow)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func setFrameSize(_ s: NSSize) {
+        super.setFrameSize(s)
+        glow.frame = bounds
+    }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = 9
-        layer?.backgroundColor = fill.cgColor
+        layer?.backgroundColor = fill?.cgColor
+        let color = look.style == .glow ? look.color?.color : nil
+        glow.isHidden = color == nil
+        if let color { glow.colors = [NSColor.fillGlow(color).cgColor, color.withAlphaComponent(0).cgColor] }
     }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
     override var allowsVibrancy: Bool { false }

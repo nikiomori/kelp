@@ -37,6 +37,7 @@ public enum Metrics {
     /// so the system's symbols and Kelp's read as one set; regular was a hairline beside them.
     public static let iconWeight: NSFont.Weight = .medium
     public static let iconGap: CGFloat = 2        // between two icon buttons side by side
+    public static let iconGlow: CGFloat = 7       // the blur of a project's colour around its icon
 
     // Sheets
     public static let sheetWidth: CGFloat = 480

@@ -105,6 +105,7 @@ final class WindowBar: NSView {
         track(owner: self) { app.workbench.sideBySide } changed: { [weak self] in self?.showSideBySide($0) }
         track(owner: self) { app.settings.bool("workbench.sideBySideButton") ?? true } changed: { [weak self] in self?.sideBySide.isHidden = !$0 }
         track(owner: self) { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { app.projectLook } changed: { [weak self] _ in self?.update() }
         // A branch switched anywhere (a terminal too) moves the workspace's refs: the daemon pushes it.
         track(owner: self) { [weak self] in self?.info } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [weak self] in self?.dirty ?? false } changed: { [weak self] _ in self?.update() }

@@ -148,7 +148,7 @@ extension OneAtATime {
     }
 }
 
-@Test func aColourGivesAProjectACardEvenWithNothingUnderIt() throws {
+@Test func aProjectsColourShowsInTheStyleTheSettingNames() throws {
     let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())   // a folder that's there: its menu isn't Locate…
     try withSidebar(repos: [here], worktrees: [], sessions: []) { vc, o in
         #expect(vc.cards.isEmpty)
@@ -157,14 +157,22 @@ extension OneAtATime {
                                                     eventNumber: 0, clickCount: 1, pressure: 1))
         let menu = try #require(o.menu(for: click))
         vc.menuNeedsUpdate(menu)
-        let shades = try #require(menu.items.first { $0.title == "Color" }?.submenu)
-        #expect(shades.items.first { $0.state == .on }?.title == "None")
-        shades.performActionForItem(at: shades.indexOfItem(withTitle: "Blue"))
-        #expect(vc.colors["r1"] == .blue)
-        #expect(vc.cards["p:r1"]?.tint == ProjectColor.blue.color)
-        vc.app.uiState["sidebar.colors"] = .obj(["r1": .string("a colour a later build dropped")])
+        let color = try #require(menu.items.first { $0.title == "Color" })   // a row of dots, or a submenu for the keyboard
+        if let dots = color.view as? ColorSwatches { dots.pick(.blue) } else { color.submenu?.performActionForItem(at: color.submenu?.indexOfItem(withTitle: "Blue") ?? 0) }
+        #expect(vc.app.projectColors["r1"] == .blue)
+        vc.placeCards()
+        #expect(vc.cards.isEmpty)                   // on its icon: the row stays plain
+        #expect(vc.app.iconColor(folder: here.path) == .blue)
+        vc.app.settings.apply(["workbench.sidebar.projectColor": "card"])
+        vc.placeCards()
+        #expect(vc.cards["p:r1"]?.look.color == .blue)
+        #expect(vc.app.iconColor(folder: here.path) == nil)
+        vc.app.colorPreview = ("r1", nil)           // the dot under the pointer: shown, not kept
         vc.placeCards()
         #expect(vc.cards.isEmpty)
+        vc.app.colorPreview = nil
+        #expect(vc.app.projectColors["r1"] == .blue)
+        #expect(ProjectColor.read(.obj(["r1": .string("a colour a later build dropped")])).isEmpty)
     }
 }
 

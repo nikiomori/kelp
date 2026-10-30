@@ -19,6 +19,8 @@ final class SidebarCell: NSTableCellView {
     private let slot = NSView()
     /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
     private let glyph = NSImageView()
+    /// A project's colour after its name, in the Dot style.
+    private let colorDot = NSImageView()
     /// On the row that was muted (`Mutes`), not on what's inside it.
     private let muted: NSImageView = {
         let v = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
@@ -81,7 +83,7 @@ final class SidebarCell: NSTableCellView {
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [icon, title, muted, detail, summary, changes, pr, ci, trailing, b, f])
+            layout(row: [icon, title, colorDot, muted, detail, summary, changes, pr, ci, trailing, b, f])
             detail.isHidden = true   // the workspace's name shows in the hover card; here only while it's renamed
         case .section:
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
@@ -278,10 +280,15 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: busy ? .semibold : .regular)
             // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
+            showColor(id)
             toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r.map(m.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
-            if !detail.isEditable { detail.isHidden = true }
+            // Empty, it takes the row's slack (see its hugging), so a colour's dot stands right after the name.
+            if !detail.isEditable {
+                detail.stringValue = ""
+                detail.isHidden = colorDot.isHidden
+            }
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
             showSummary(folded ? node : nil)
@@ -319,6 +326,14 @@ final class SidebarCell: NSTableCellView {
             showAsk(s)
             speak(s)
         }
+    }
+
+    /// The two styles of a project's colour drawn in the row itself; the others are its icon's and its card's.
+    private func showColor(_ id: String) {
+        let look = app.projectLook, color = look.colors[id]
+        colorDot.image = look.style == .dot ? color?.dot : nil
+        colorDot.isHidden = colorDot.image == nil
+        if look.style == .name, let color { title.textColor = color.color }
     }
 
     /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the

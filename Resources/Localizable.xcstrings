@@ -14349,42 +14349,12 @@
         }
       }
     },
-    "Red": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Красный"
-          }
-        }
-      }
-    },
-    "Orange": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Оранжевый"
-          }
-        }
-      }
-    },
     "Yellow": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Жёлтый"
-          }
-        }
-      }
-    },
-    "Green": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Зелёный"
           }
         }
       }
@@ -14415,6 +14385,106 @@
           "stringUnit": {
             "state": "translated",
             "value": "Розовый"
+          }
+        }
+      }
+    },
+    "Indigo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Индиго"
+          }
+        }
+      }
+    },
+    "Teal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бирюзовый"
+          }
+        }
+      }
+    },
+    "Brown": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коричневый"
+          }
+        }
+      }
+    },
+    "Project color": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет проекта"
+          }
+        }
+      }
+    },
+    "On the Icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На иконке"
+          }
+        }
+      }
+    },
+    "Dot by the Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Точка у имени"
+          }
+        }
+      }
+    },
+    "Glow from the Edge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свечение с края"
+          }
+        }
+      }
+    },
+    "Colored Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя цветом"
+          }
+        }
+      }
+    },
+    "Filled Card": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заливка карточки"
+          }
+        }
+      }
+    },
+    "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как показывать цвет из меню строки проекта. На иконке он виден и в заголовке окна, в ⌃Tab и в «Ждут вас»."
           }
         }
       }
