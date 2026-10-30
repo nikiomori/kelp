@@ -62,6 +62,11 @@ import WorkbenchKit
     for t in Theme.looks {
         guard let term = t.terminal, let code = t.editor, let w = t.window else { Issue.record("\(t.id): a look sets all three"); continue }
         #expect(contrast(term.foreground, term.background) >= 7, "\(t.id): text")
+        // Ghostty holds colours against the background times its opacity: on a light see-through terminal they'd go black.
+        if t.appearance == "light", let opacity = term.opacity {
+            let held = (term.palette ?? []).filter { (opacity * luminance(term.background) + 0.05) / (luminance($0) + 0.05) < 2.9 }
+            #expect(held.isEmpty, "\(t.id): \(held) go black")
+        }
         #expect(contrast(code.comment ?? "", term.background) >= 2.5, "\(t.id): comments")
         if let accent = w.accent { #expect(contrast(accent, w.surface ?? "") >= 3, "\(t.id): accent") }
         #expect(w.ambient.map { WindowLook.Ambient.Kind(rawValue: $0) != nil } ?? true, "\(t.id): ambient")

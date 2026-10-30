@@ -124,6 +124,8 @@ public final class GhosttyRuntime {
     /// Under the user's Ghostty config: text keeps about 3:1 contrast with its background, so colours picked for a dark
     /// terminal (Claude Code's near-white greys) stay readable on a light one, and dark ones on a dark one. Just under 3:
     /// at 3 Nord's red, 3.06:1 by the book, came out white, and errors looked like any other text.
+    /// Limit: Ghostty holds text against the background times its opacity, so a light terminal counts as grey: at 50%,
+    /// colours over 0.14 luminance go black. A light theme that's see-through picks its palette for it (Frost does).
     private static let defaults = "minimum-contrast = 2.9\n"
 
     // App shortcuts (⌘T, ⌘D, ⌘W…) belong to Kelp; Ghostty keeps only terminal ones.
