@@ -14338,6 +14338,86 @@
           }
         }
       }
+    },
+    "Color": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет"
+          }
+        }
+      }
+    },
+    "Red": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красный"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оранжевый"
+          }
+        }
+      }
+    },
+    "Yellow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Жёлтый"
+          }
+        }
+      }
+    },
+    "Green": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зелёный"
+          }
+        }
+      }
+    },
+    "Blue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синий"
+          }
+        }
+      }
+    },
+    "Purple": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фиолетовый"
+          }
+        }
+      }
+    },
+    "Pink": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розовый"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

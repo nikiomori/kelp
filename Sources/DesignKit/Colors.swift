@@ -59,6 +59,9 @@ extension NSColor {
     public static let fillRest = grey(0.05)
     public static let fillHover = grey(0.08)
     public static let fillSelected = grey(0.12)
+    /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on it.
+    /// Ask for it while drawing, it's fixed to the current appearance as `labelColor.withAlphaComponent` is.
+    public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
     private static func grey(_ alpha: CGFloat) -> NSColor { dynamic(light: NSColor(white: 0, alpha: alpha), dark: NSColor(white: 1, alpha: alpha)) }
 }
 

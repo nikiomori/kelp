@@ -106,17 +106,25 @@ extension SidebarController {
     }
 
     /// A project's card from its row to the last row under it: one shape, so it grows and shrinks with the rows (each row
-    /// drew a slice of it, which couldn't follow a project opening). A project with nothing under it has none.
+    /// drew a slice of it, which couldn't follow a project opening). A project with nothing under it has none until it's
+    /// given a colour: then it's where the row's pill goes.
     func placeCards() {
         var shown: Set<String> = []
-        for p in roots where !p.children.isEmpty {
-            guard case .project = p.kind, case let first = outline.row(forItem: p), first >= 0,
+        let colors = colors
+        for p in roots {
+            guard case .project(let id) = p.kind, !p.children.isEmpty || colors[id] != nil, case let first = outline.row(forItem: p), first >= 0,
                   case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
             var r = SidebarRowView.band(outline.rect(ofRow: first).union(outline.rect(ofRow: last)), 6)
-            r.origin.y += 4; r.size.height -= 8   // flipped: 4 in from the first row's top and the last row's bottom
+            // Flipped: 4 in from the first row's top and the last row's bottom.
+            if p.children.isEmpty { r = r.insetBy(dx: 0, dy: 1) } else { r.origin.y += 4; r.size.height -= 8 }
             shown.insert(p.key)
-            if let card = cards[p.key] { card.animator().frame = r; continue }
+            if let card = cards[p.key] {
+                card.animator().frame = r
+                card.tint = colors[id]?.color
+                continue
+            }
             let card = ProjectCard(frame: r)
+            card.tint = colors[id]?.color
             card.autoresizingMask = .width
             outline.addSubview(card, positioned: .below, relativeTo: nil)
             cards[p.key] = card

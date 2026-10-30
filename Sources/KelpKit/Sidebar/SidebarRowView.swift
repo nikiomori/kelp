@@ -40,7 +40,7 @@ final class SidebarOutline: NSOutlineView {
 
 /// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
 /// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
-/// plain row.
+/// plain row, on a card only once it was given a colour.
 @MainActor
 final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
@@ -192,10 +192,13 @@ final class SidebarRowView: NSTableRowView {
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
+    /// The colour the project was given; nil: the quiet grey.
+    var tint: NSColor? { didSet { if tint != oldValue { fadeBackground(to: fill) } } }
+    private var fill: NSColor { tint.map(NSColor.fillTint) ?? .fillRest }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = 9
-        layer?.backgroundColor = NSColor.fillRest.cgColor
+        layer?.backgroundColor = fill.cgColor
     }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
     override var allowsVibrancy: Bool { false }

@@ -70,6 +70,7 @@ extension SidebarController {
             if let w = n.workspace { workspaceMenu(menu, w, onProject: true); menu.addItem(.separator()) }
             menu.add(String(localized: "New Workspace")) { [weak self] in self?.newWorkspace(id) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
+            colorItem(menu, id)
             if n.workspace == nil {
                 menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.path)]) }
             }
@@ -93,6 +94,20 @@ extension SidebarController {
             menu.addItem(.separator())
             menu.add(String(localized: "Stop")) { [app] in Task { await app.call(SessionKill(id: sid)) } }
         }
+    }
+
+    /// Color ▸ None or a `ProjectColor`, which the project's card takes.
+    private func colorItem(_ menu: NSMenu, _ id: String) {
+        let shades = NSMenu(), now = colors[id]
+        func pick(_ c: ProjectColor?) { colors[id] = c; placeCards() }
+        shades.add(String(localized: "None")) { pick(nil) }.state = now == nil ? .on : .off
+        shades.addItem(.separator())
+        for c in ProjectColor.allCases {
+            let i = shades.add(c.title) { pick(c) }
+            i.show(c.dot)
+            i.state = now == c ? .on : .off
+        }
+        menu.setSubmenu(shades, for: menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
     }
 
     /// Mute Notifications ▸ for how long, or Unmute once these are. A new mute goes on the first: the row itself.

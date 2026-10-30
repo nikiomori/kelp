@@ -44,6 +44,16 @@ extension NSMenu {
     }
 }
 
+extension NSMenuItem {
+    /// An image that says something, kept on macOS 27, whose menus hide the ones an item doesn't ask to show.
+    func show(_ image: NSImage?) {
+        self.image = image
+        #if compiler(>=6.4)   // the macOS 27 SDK
+        if #available(macOS 27, *) { preferredImageVisibility = .visible }
+        #endif
+    }
+}
+
 /// A double-click on a divider shares that split equally (like Terminal's and Ghostty's splits).
 final class EqualizingSplitView: NSSplitView {
     override func mouseDown(with e: NSEvent) {

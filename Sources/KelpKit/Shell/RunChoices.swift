@@ -176,7 +176,7 @@ extension ScriptsMenu {
             }
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)", column: column)
-            image(more, .symbol("ellipsis.circle"))
+            more.show(.symbol("ellipsis.circle"))
             if m.numberOfItems > 0 { m.addItem(.separator()) }
             m.addItem(more)
             m.setSubmenu(sub, for: more)
@@ -199,14 +199,14 @@ extension ScriptsMenu {
         defer {
             if let sid = r.session {
                 let stop = m.add(String(localized: "Stop \(r.name)")) { [weak self] in Task { await self?.app.call(SessionKill(id: sid)) } }
-                image(stop, Self.tinted("stop.circle.fill", .systemRed))
+                stop.show(Self.tinted("stop.circle.fill", .systemRed))
                 stop.keyEquivalent = i.keyEquivalent   // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
                 stop.keyEquivalentModifierMask = i.keyEquivalent.isEmpty ? .option : [.command, .option]
                 stop.isAlternate = true
             }
         }
         let (symbol, color) = Self.glyph(r)
-        image(i, Self.tinted(symbol, r.running ? color : .secondaryLabelColor))
+        i.show(Self.tinted(symbol, r.running ? color : .secondaryLabelColor))
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
@@ -299,23 +299,15 @@ extension ScriptsMenu {
         let what = state.found[wid]?.options.first { o in tasks.contains { $0.contains(o.command) } }?.name ?? p.command
         let url = "http://localhost:\(p.port)"
         let open = m.add(what) { [weak self] in self?.app.workbench.open(url, split: .right, workspace: wid, focus: false) }
-        image(open, agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
+        open.show(agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
         open.toolTip = String(localized: "Open \(url)")
         if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · :\(p.port)" }
         let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
             Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
         }
-        image(stop, .symbol("stop.circle"))
+        stop.show(.symbol("stop.circle"))
         stop.isAlternate = true
         stop.keyEquivalentModifierMask = .option
-    }
-
-    /// An item's image, kept on macOS 27, whose menus hide the images an item doesn't ask to show.
-    private func image(_ i: NSMenuItem, _ image: NSImage?) {
-        i.image = image
-        #if compiler(>=6.4)   // the macOS 27 SDK
-        if #available(macOS 27, *) { i.preferredImageVisibility = .visible }
-        #endif
     }
 
     /// The page a run serves, beside what you're doing.

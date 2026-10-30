@@ -148,6 +148,26 @@ extension OneAtATime {
     }
 }
 
+@Test func aColourGivesAProjectACardEvenWithNothingUnderIt() throws {
+    let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())   // a folder that's there: its menu isn't Locate…
+    try withSidebar(repos: [here], worktrees: [], sessions: []) { vc, o in
+        #expect(vc.cards.isEmpty)
+        let row = o.rect(ofRow: 0), at = o.convert(NSPoint(x: row.midX, y: row.midY), to: nil)
+        let click = try #require(NSEvent.mouseEvent(with: .rightMouseDown, location: at, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                                                    eventNumber: 0, clickCount: 1, pressure: 1))
+        let menu = try #require(o.menu(for: click))
+        vc.menuNeedsUpdate(menu)
+        let shades = try #require(menu.items.first { $0.title == "Color" }?.submenu)
+        #expect(shades.items.first { $0.state == .on }?.title == "None")
+        shades.performActionForItem(at: shades.indexOfItem(withTitle: "Blue"))
+        #expect(vc.colors["r1"] == .blue)
+        #expect(vc.cards["p:r1"]?.tint == ProjectColor.blue.color)
+        vc.app.uiState["sidebar.colors"] = .obj(["r1": .string("a colour a later build dropped")])
+        vc.placeCards()
+        #expect(vc.cards.isEmpty)
+    }
+}
+
 @Test func anEndedAgentAndAPlainTerminalAreNotListed() throws {
     let ended = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .exited, title: "Old chat")
     let shell = Session(worktreeId: "w1", cwd: "/", command: "zsh", agent: "shell", status: .idle, title: "zsh")
