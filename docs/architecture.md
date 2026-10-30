@@ -44,7 +44,7 @@ contributions, the command palette and settings.
 | editors | center tab types, listed in each pane's "+" menu and the empty workspace |
 | commands | command palette (⇧⌘P), menus, key bindings, `kelp run <id>` |
 | settings | Settings window (generated forms) and `~/.kelp/settings.json` |
-| themes | Appearance settings; drive terminal + editor colors |
+| themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
 
