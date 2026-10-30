@@ -20,6 +20,9 @@ See who needs you at a glance, and read every change right beside the agent that
 Editors gave agents a side panel. Agent apps tucked the code away, and each speaks for one vendor. Kelp is built for how
 the work goes now: several agents running, one person deciding.
 
+**Simple things should be simple.** Starting an agent, seeing who needs you and reading what it changed each take one
+step, with nothing to set up first.
+
 <table>
 <tr>
 <td width="33%" valign="top">
