@@ -19,6 +19,15 @@ final class SidebarCell: NSTableCellView {
     private let slot = NSView()
     /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
     private let glyph = NSImageView()
+    /// On the row that was muted (`Mutes`), not on what's inside it.
+    private let muted: NSImageView = {
+        let v = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
+        v.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+        v.contentTintColor = .secondaryLabelColor
+        v.toolTip = v.image?.accessibilityDescription
+        v.isHidden = true
+        return v
+    }()
     /// Under an agent that asks or failed: what it asks, or what went wrong (Settings › Appearance › What agents ask).
     private let ask = NSTextField(labelWithString: "")
     private var rowY: NSLayoutConstraint?
@@ -72,7 +81,7 @@ final class SidebarCell: NSTableCellView {
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [icon, title, detail, summary, changes, pr, ci, trailing, b, f])
+            layout(row: [icon, title, muted, detail, summary, changes, pr, ci, trailing, b, f])
             detail.isHidden = true   // the workspace's name shows in the hover card; here only while it's renamed
         case .section:
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
@@ -85,7 +94,7 @@ final class SidebarCell: NSTableCellView {
             title.textColor = .secondaryLabelColor
             // Under the project's name (its icon, 16, and the gap after it, 6, further in than the row's own 2 less the step
             // children take): between the icon and the name it lined up with nothing.
-            layout(row: [title, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
+            layout(row: [title, muted, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -108,7 +117,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
                                          mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
                                          mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
-            layout(row: [slot, icon, title, glyph, chip, trailing])
+            layout(row: [slot, icon, title, muted, glyph, chip, trailing])
             (title.superview as? NSStackView)?.setCustomSpacing(8, after: slot)
             ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
@@ -253,6 +262,7 @@ final class SidebarCell: NSTableCellView {
 
     func update() {
         defer { trailing.isHidden = trailing.stringValue.isEmpty }   // an empty label would still take its spacing
+        muted.isHidden = app.mutedUntil(node.muteIds) == nil
         updateBadges()
         let m = app
         func live(_ wid: String) -> [Session] { m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.agent != "shell" } }
@@ -349,10 +359,10 @@ final class SidebarCell: NSTableCellView {
     private func speak(_ s: Session) {
         let st = Self.shownStatus(s), project = app.projectName(app.worktree(s.worktreeId)?.repoId)
         let state = mark.isHidden ? nil : st.words
-        let line = ask.isHidden ? nil : ask.stringValue
+        let line = ask.isHidden ? nil : ask.stringValue, quiet = muted.isHidden ? nil : muted.toolTip
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel([title.stringValue, state, line, project, trailing.stringValue].compactMap { $0 }.filter { !$0.isEmpty }
+        setAccessibilityLabel([title.stringValue, state, line, quiet, project, trailing.stringValue].compactMap { $0 }.filter { !$0.isEmpty }
             .joined(separator: ", "))
         mark.announces = false
         for v in [title, ask, trailing] as [NSView] { v.setAccessibilityElement(false) }

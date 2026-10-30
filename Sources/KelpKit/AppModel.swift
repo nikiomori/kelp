@@ -89,6 +89,8 @@ package final class AppModel {
 
     /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
     var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }
+    /// Rows told to keep quiet: id → until when (`Mutes`).
+    var mutes: [String: Date] = [:] { didSet { uiState[Mutes.key] = Mutes.value(mutes) } }
     /// Puts these (siblings) in this order.
     func reorder(_ ids: [String]) { order = ids + order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
@@ -194,6 +196,7 @@ package final class AppModel {
         if await checkDaemonVersion(c) { return }
         await uiState.load()
         if uiState.strings("sidebar.order") != order { order = uiState.strings("sidebar.order") }
+        if Mutes.read(uiState[Mutes.key]) != mutes { mutes = Mutes.read(uiState[Mutes.key]) }
         await settings.load()
         await refresh()
         connected = client === c   // after the lists: what waits for the connection finds the projects in

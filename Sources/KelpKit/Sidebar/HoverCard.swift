@@ -22,9 +22,15 @@ final class HoverCard {
     /// The pointer is over a row (`key` "w:…" / "a:…"), or over nothing.
     func hover(_ key: String?, rect: NSRect, in view: NSView) {
         guard key != shownKey || !popover.isShown else { return }
-        guard let key else { pending.after(Motion.hoverClose) { [weak self] in self?.close() }; return }
+        guard let key else { pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }; return }
         let warm = popover.isShown || Date() < warmUntil
         pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in if let view { self?.show(key, rect: rect, in: view) } }
+    }
+
+    /// The pointer went into the card, whose buttons are for clicking: it stays, looked at again until the pointer leaves.
+    private func closeUnlessInside() {
+        guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else { close(); return }
+        pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
     }
 
     func close() {
@@ -56,6 +62,8 @@ final class CardModel {
     let app: AppModel
     /// A project's card: the disk its other worktrees take (nil while `du` runs).
     let repo: Repo?
+    /// Whose mute the card shows: the row's. A workspace alone in its project is that project's row too.
+    let muteIds: [String]
     var worktrees: [RepoWorktreeSizes.Item]?
     var changes: LineStats?
     var pr: GitHub.PullRequest?
@@ -75,12 +83,14 @@ final class CardModel {
             workspaceId = s.worktreeId ?? ""
             agentOnly = true
             repo = nil
+            muteIds = [s.id]
         } else if key.hasPrefix("p:"), let r = m.repo(String(key.dropFirst(2))) {
             title = m.projectName(r.id) ?? r.name; subtitle = m.projectPlace(r)
             agents = []
             workspaceId = ""
             agentOnly = false
             repo = r
+            muteIds = [r.id]
         } else if key.hasPrefix("w:"), let w = m.worktree(String(key.dropFirst(2))) {
             let r = m.repo(w.repoId)
             title = w.displayName
@@ -89,6 +99,8 @@ final class CardModel {
             workspaceId = w.id
             agentOnly = false
             repo = nil
+            let alone = m.worktrees.filter { $0.repoId == w.repoId && !$0.archived }.count == 1
+            muteIds = [w.id] + (alone ? [w.repoId] : [])
         } else { return nil }
     }
 
@@ -165,6 +177,13 @@ struct CardView: View {
             if !model.ports.isEmpty {
                 Text(String(localized: "Serving \(model.ports.map { "localhost:\($0)" }.joined(separator: ", "))"))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if let until = model.app.mutedUntil(model.muteIds) {
+                HStack(spacing: 8) {
+                    Text(Mutes.line(until: until)).font(.caption).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Unmute") { model.app.mute(model.muteIds, until: nil) }.controlSize(.small)
+                }
             }
             if let t = model.turn { Text(t).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
             if let c = model.context { ContextLine(used: c.used, window: c.window) }

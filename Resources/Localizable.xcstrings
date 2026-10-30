@@ -3556,6 +3556,26 @@
         }
       }
     },
+    "For 1 Hour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На 1 час"
+          }
+        }
+      }
+    },
+    "For Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "До конца дня"
+          }
+        }
+      }
+    },
     "Format on save": {
       "localizations": {
         "ru": {
@@ -5111,6 +5131,16 @@
         }
       }
     },
+    "Mute Notifications": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить уведомления"
+          }
+        }
+      }
+    },
     "My issues": {
       "localizations": {
         "ru": {
@@ -5920,6 +5950,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Уведомления Kelp выключены в Системных настройках, и вы не узнаете, когда агенту что-то нужно."
+          }
+        }
+      }
+    },
+    "Notifications muted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомления выключены"
+          }
+        }
+      }
+    },
+    "Notifications muted until %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомления выключены до %@"
           }
         }
       }
@@ -9136,6 +9186,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите сочетание…"
+          }
+        }
+      }
+    },
+    "Unmute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить"
+          }
+        }
+      }
+    },
+    "Unmute Notifications": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить уведомления"
+          }
+        }
+      }
+    },
+    "Until I Unmute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока не включу"
           }
         }
       }

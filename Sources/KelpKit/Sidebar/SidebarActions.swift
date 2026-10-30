@@ -3,6 +3,17 @@ import SwiftUI
 import Core
 import WorkbenchKit
 
+extension SidebarController.Node {
+    /// What muting this row names: a project's row also speaks for the workspace it stands for.
+    var muteIds: [String] {
+        switch kind {
+        case .project(let id): [id] + (workspace.map { [$0] } ?? [])
+        case .workspace(let id), .agent(let id): [id]
+        case .section: []
+        }
+    }
+}
+
 /// What the sidebar's menus and keys do.
 extension SidebarController {
     // MARK: actions
@@ -62,6 +73,7 @@ extension SidebarController {
             if n.workspace == nil {
                 menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.path)]) }
             }
+            muteItem(menu, n.muteIds)
             menu.addItem(.separator())
             if RemoteHost.of(r.path) == nil { menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) } }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
@@ -77,9 +89,22 @@ extension SidebarController {
             if m.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
             }
+            muteItem(menu, n.muteIds)
             menu.addItem(.separator())
             menu.add(String(localized: "Stop")) { [app] in Task { await app.call(SessionKill(id: sid)) } }
         }
+    }
+
+    /// Mute Notifications ▸ for how long, or Unmute once these are. A new mute goes on the first: the row itself.
+    private func muteItem(_ menu: NSMenu, _ ids: [String]) {
+        let app = self.app
+        if app.mutedUntil(ids) != nil {
+            menu.add(String(localized: "Unmute Notifications")) { app.mute(ids, until: nil) }
+            return
+        }
+        let times = NSMenu()
+        for (title, until) in Mutes.choices() { times.add(title) { app.mute(Array(ids.prefix(1)), until: until) } }
+        menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
     }
 
     /// A workspace's items, on its row or on its project's when that stands for it (`onProject`: its Rename says whose).
@@ -95,6 +120,7 @@ extension SidebarController {
         menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)]) }
         menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(w.path, forType: .string) }
         WorkspaceActions.addOpenIn(to: menu, path: w.path)
+        if !onProject { muteItem(menu, [id]) }   // the project's own item speaks for it
         menu.addItem(.separator())
         if w.path == m.repo(w.repoId)?.path {
             // A desk: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);

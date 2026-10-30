@@ -91,7 +91,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         alerts.forEach { $0() }
         // As each is now: one looked at, or that moved on (answered, at work again), has nothing left to say.
         let ready = held.filter { h in
-            app.session(h.id)?.status == h.status && !(NSApp.isActive && app.workbench.isViewing(session: h.id))
+            app.session(h.id)?.status == h.status && !(NSApp.isActive && app.workbench.isViewing(session: h.id)) && !app.isMuted(h)
         }
         held = []
         if ready.count == 1 { post(ready[0], holding: false) } else if ready.count > 1 { postHeld(ready) }
@@ -153,7 +153,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private func limitReset(_ agent: String) {
         resetWaits[agent] = nil
         guard let f = resets.end(agent) else { return }
-        let stopped = LimitResets.stopped(app.sessions, agent: agent, f)
+        let stopped = LimitResets.stopped(app.sessions, agent: agent, f).filter { !app.isMuted($0) }
         guard let first = stopped.first else { return }
         let app = self.app, ids = stopped.map(\.id)
         let c = UNMutableNotificationContent()
@@ -268,7 +268,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func tell(_ s: Session, turn: TimeInterval?) {
-        if rule.level(s.status, turn: turn) != .off { post(s) }
+        if rule.level(s.status, turn: turn) != .off, !app.isMuted(s) { post(s) }
     }
 
     /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.

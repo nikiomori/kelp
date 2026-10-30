@@ -177,6 +177,26 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(NotifyRule.turn(stopped, after: worked) == nil)
 }
 
+/// A mute reaches the agents under the row; one that ran out stops counting; "For Today" ends at midnight; it survives the store.
+@Test func mutesReachTheAgentsBelow() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try #require(TimeZone(identifier: "Europe/Helsinki"))
+    let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 30, hour: 15, minute: 20)))
+    let muted = ["workspace": now.addingTimeInterval(60), "old": now.addingTimeInterval(-60), "agent": Mutes.forever]
+    #expect(Mutes.covers(muted, ["session", "workspace", "project"], now: now))
+    #expect(Mutes.covers(muted, ["agent", nil, nil], now: now))
+    #expect(!Mutes.covers(muted, ["session", nil, "project"], now: now))
+    #expect(!Mutes.covers(muted, ["old"], now: now))
+
+    let choices = Mutes.choices(now: now, calendar: calendar).map(\.until)
+    #expect(choices[0] == now.addingTimeInterval(3600))
+    #expect(calendar.dateComponents([.day, .hour, .minute], from: choices[1]) == DateComponents(day: 31, hour: 0, minute: 0))
+    #expect(choices[2] == Mutes.forever)
+    #expect(Mutes.read(Mutes.value(muted)) == muted)
+    #expect(Mutes.read(nil).isEmpty)
+    #expect(Mutes.line(until: Mutes.forever) == "Notifications muted")
+}
+
 /// The context card's legend: tokens as "17.6k", a part's biggest items, the conversation in its own words.
 @MainActor @Test func contextPartsReadAsALegend() {
     #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
