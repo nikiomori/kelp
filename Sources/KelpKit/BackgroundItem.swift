@@ -13,15 +13,22 @@ enum BackgroundItem {
     private static var bundled: Bool { Bundle.main.bundleURL.pathExtension == "app" }
 
     /// Once: turned off in System Settings, it stays off, and the app says once per launch what that costs.
+    /// Off the main thread: each `status` waits for the system, with the window still empty at launch.
     @MainActor static func register() {
         guard bundled else { return }
-        if [.notRegistered, .notFound].contains(service.status) {
-            do { try service.register() } catch { NSLog("Kelp: the background service couldn't be added to Login Items: \(error)") }
+        Task {
+            let waiting = await Task.detached(priority: .utility) { () -> Bool in
+                let s = service
+                if [.notRegistered, .notFound].contains(s.status) {
+                    do { try s.register() } catch { NSLog("Kelp: the background service couldn't be added to Login Items: \(error)") }
+                }
+                return s.status == .requiresApproval
+            }.value
+            guard waiting, !told else { return }
+            told = true
+            Banner.show(String(localized: "Kelp isn't allowed to run in the background: quitting or updating it ends running agents."),
+                        action: (String(localized: "Open Login Items"), { SMAppService.openSystemSettingsLoginItems() }))
         }
-        guard service.status == .requiresApproval, !told else { return }
-        told = true
-        Banner.show(String(localized: "Kelp isn't allowed to run in the background: quitting or updating it ends running agents."),
-                    action: (String(localized: "Open Login Items"), { SMAppService.openSystemSettingsLoginItems() }))
     }
     @MainActor private static var told = false
 }
