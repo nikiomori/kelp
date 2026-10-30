@@ -2,15 +2,18 @@ import Foundation
 
 public enum Paths {
     public static var root: URL {
-        let e = ProcessInfo.processInfo.environment["KELP_HOME"].map { URL(fileURLWithPath: $0) }
-        // A debug build (`make dev`, .build/debug) has a home of its own and never takes the installed Kelp's, not even
-        // inherited from one of its terminals (`open` passes the shell's on): it would restart that kelpd, ending its agents.
+        let stable = home.appendingPathComponent(".kelp")
+        // Kelp Nightly and Kelp Dev name a home of their own (KelpHome, scripts/bundle.sh); so does any debug build.
         #if DEBUG
-        if let e, e.standardizedFileURL.path != home.appendingPathComponent(".kelp").path { return e }
-        return home.appendingPathComponent(".kelp-dev")
+        let own: URL? = home.appendingPathComponent(".kelp-dev")
         #else
-        return e ?? home.appendingPathComponent(".kelp")
+        let own = (Bundle.main.object(forInfoDictionaryKey: "KelpHome") as? String).map { home.appendingPathComponent($0) }
         #endif
+        // KELP_HOME picks another (tests, snapshots), but never Kelp's own for a build with its own home: one started from a
+        // Kelp terminal inherits it (`open` passes the shell's on), and would restart that kelpd, ending its agents.
+        if let e = ProcessInfo.processInfo.environment["KELP_HOME"].map({ URL(fileURLWithPath: $0) }),
+           own == nil || e.standardizedFileURL.path != stable.path { return e }
+        return own ?? stable
     }
     private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
     public static var socket: URL { root.appendingPathComponent("kelp.sock") }

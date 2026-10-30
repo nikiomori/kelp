@@ -5,17 +5,18 @@
 # (--fork-session): never the one the installed Kelp's agent writes. Any other session that could come back is ended
 # (a second agent in the same conversation, or the same tmux); routines are copied switched off (they'd run twice).
 # `make dev` runs it once, while there's no ~/.kelp-dev/kelp.sqlite; `make dev-home` copies again over Kelp Dev's own.
+# `scripts/dev-home.sh nightly` does the same for Kelp Nightly (~/.kelp-nightly).
 # The workspaces are the same folders: what Kelp Dev changes in them (or a git worktree it removes) the installed one sees.
 set -euo pipefail
-SRC=$HOME/.kelp; DST=$HOME/.kelp-dev
+CH=${1:-dev}; NAME="Kelp ${(C)CH}"; SRC=$HOME/.kelp; DST=$HOME/.kelp-$CH
 [ -f "$SRC/kelp.sqlite" ] || { echo "no $SRC/kelp.sqlite: nothing to copy"; exit 0; }
-if pgrep -qf "/Kelp Dev.app/Contents/MacOS/KelpApp"; then echo "Quit Kelp Dev first: ⌘Q"; exit 1; fi
+if pgrep -qf "/$NAME.app/Contents/MacOS/KelpApp"; then echo "Quit $NAME first: ⌘Q"; exit 1; fi
 # Its kelpd outlives the app (Login Items): asked to stop through its own socket, then waited for until it lets go of its
 # home (it holds kelpd.lock until its agents are gone).
 if [ -S "$DST/kelp.sock" ]; then
   print '{"jsonrpc":"2.0","id":1,"method":"daemon.shutdown"}' | nc -U -w 5 "$DST/kelp.sock" >/dev/null 2>&1 || true
   for _ in {1..50}; do lsof -t "$DST/kelpd.lock" >/dev/null 2>&1 || break; sleep 0.2; done
-  if lsof -t "$DST/kelpd.lock" >/dev/null 2>&1; then echo "Kelp Dev's background service is still running"; exit 1; fi
+  if lsof -t "$DST/kelpd.lock" >/dev/null 2>&1; then echo "$NAME's background service is still running"; exit 1; fi
 fi
 mkdir -p "$DST"; rm -rf "$DST"/kelp.sqlite(|-wal|-shm)(N) "$DST/history"
 sqlite3 -readonly "$SRC/kelp.sqlite" ".backup '$DST/kelp.sqlite'"   # consistent while the installed kelpd writes it

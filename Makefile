@@ -6,6 +6,10 @@ dev:
 	scripts/bundle.sh dev
 dev-home:
 	scripts/dev-home.sh
+nightly:
+	scripts/bundle.sh nightly
+publish-nightly:
+	scripts/publish-nightly.sh
 release:
 	scripts/bundle.sh
 	scripts/install.sh
@@ -13,4 +17,4 @@ install:
 	scripts/install.sh
 publish:
 	scripts/publish.sh
-.PHONY: dev dev-home release install publish
+.PHONY: dev dev-home nightly publish-nightly release install publish

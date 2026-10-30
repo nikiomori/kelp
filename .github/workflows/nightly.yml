@@ -1,0 +1,77 @@
+name: Nightly
+# Kelp Nightly: once a day, main's newest commit whose CI passed (when main moved since the last one) is built, signed,
+# notarized and published as the `nightly` pre-release with its update feed (scripts/bundle.sh nightly,
+# scripts/publish-nightly.sh). Stable releases stay `make release` + `make publish`. Setup: docs/releasing.md.
+on:
+  schedule: [{ cron: '17 2 * * *' }]   # 02:17 UTC: off the hour, when scheduled runs queue longest
+  workflow_dispatch:
+    inputs:
+      force: { description: "Build even if main hasn't moved", type: boolean, default: false }
+permissions:
+  contents: write   # the nightly tag and release
+  actions: read     # which commit's CI passed
+concurrency: { group: nightly }
+env:
+  XCODE: '26.6'
+  # As in ci.yml: Xcode 26's SwiftPM drops dependencies' asset catalogs unless it builds with Swift Build.
+  SWIFT_FLAGS: --build-system swiftbuild
+jobs:
+  nightly:
+    runs-on: macos-26
+    timeout-minutes: 90
+    environment: nightly   # its secrets, for main only
+    env:
+      GH_TOKEN: ${{ github.token }}
+      P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+      SPARKLE_KEY: ${{ secrets.SPARKLE_NIGHTLY_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # the build number counts main's commits; the notes list those since the last nightly
+      - id: pick
+        name: Pick main's newest commit that passed CI
+        run: |
+          stop() { echo "$1"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          missing=$(for s in P12 P12_PASSWORD NOTARY_KEY NOTARY_KEY_ID NOTARY_ISSUER SPARKLE_KEY; do [ -n "${!s}" ] || printf '%s ' $s; done)
+          [ -z "$missing" ] || stop "::warning::No nightly: the nightly environment lacks ${missing}(docs/releasing.md)"
+          SHA=$(gh run list --workflow ci.yml --branch main --event push --status success --limit 1 --json headSha -q '.[0].headSha')
+          [ -n "$SHA" ] || stop "::warning::No nightly: no commit on main has passed CI"
+          LAST=$(git rev-parse -q --verify 'refs/tags/nightly^{commit}' || true)
+          [ "$SHA" != "$LAST" ] || [ "${{ inputs.force }}" = true ] || stop "Nothing new since the last nightly (${LAST:0:7})"
+          git checkout -q "$SHA" && echo "go=true" >> "$GITHUB_OUTPUT"
+      - if: steps.pick.outputs.go == 'true'
+        run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
+      - if: steps.pick.outputs.go == 'true'
+        uses: actions/cache/restore@v4   # ci.yml's; on a miss bundle.sh builds it (~12 min)
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
+      - if: steps.pick.outputs.go == 'true'
+        name: Signing keychain
+        run: |
+          KC=$RUNNER_TEMP/nightly.keychain-db; PW=$(uuidgen)
+          echo "KC=$KC" >> "$GITHUB_ENV"
+          security create-keychain -p "$PW" "$KC" && security set-keychain-settings -lut 21600 "$KC" && security unlock-keychain -p "$PW" "$KC"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security import "$RUNNER_TEMP/id.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign && rm "$RUNNER_TEMP/id.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PW" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security default-keychain -d user -s "$KC"
+          echo "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials kelp-nightly --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --keychain "$KC"
+          printf '%s' "$SPARKLE_KEY" > "$RUNNER_TEMP/sparkle.key"
+          # The identity by its hash: the certificate's name stays out of the log.
+          ID=$(security find-identity -v -p codesigning "$KC" | awk '/Developer ID Application/ { print $2; exit }')
+          echo "::add-mask::$ID"; echo "SIGN_ID=$ID" >> "$GITHUB_ENV"
+      - if: steps.pick.outputs.go == 'true'
+        name: Build, sign and notarize
+        run: NOTARY_PROFILE=kelp-nightly scripts/bundle.sh nightly
+      - if: steps.pick.outputs.go == 'true'
+        name: Publish
+        run: SPARKLE_KEY_FILE=$RUNNER_TEMP/sparkle.key scripts/publish-nightly.sh
+      - if: always()
+        name: Remove the keychain and keys
+        run: |
+          [ -z "${KC:-}" ] || security delete-keychain "$KC"
+          rm -f "$RUNNER_TEMP/id.p12" "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/sparkle.key"
