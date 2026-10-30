@@ -71,8 +71,9 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let p = Process()
     p.executableURL = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd")
     p.environment = ProcessInfo.processInfo.environment.merging(["KELP_HOME": root.path]) { $1 }
+    p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice   // left running, it would hold swift test open
     try p.run()
-    defer { if p.isRunning { p.terminate() } }   // only the kelpd this test started
+    defer { if p.isRunning { kill(p.processIdentifier, SIGKILL) } }   // only the kelpd this test started; exec'd, it ignores SIGTERM at first
     func connected() async throws -> RPCClient? {
         for _ in 0..<50 { if let c = try? client(root) { return c }; try await Task.sleep(for: .milliseconds(100)) }
         return nil
