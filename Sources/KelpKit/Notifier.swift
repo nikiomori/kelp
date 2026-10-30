@@ -153,9 +153,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private func limitReset(_ agent: String) {
         resetWaits[agent] = nil
         guard let f = resets.end(agent) else { return }
+        let app = self.app
         let stopped = LimitResets.stopped(app.sessions, agent: agent, f).filter { !app.isMuted($0) }
         guard let first = stopped.first else { return }
-        let app = self.app, ids = stopped.map(\.id)
+        let ids = stopped.map(\.id)
         let c = UNMutableNotificationContent()
         let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
         c.title = String(localized: "\(name): the limit has reset")
