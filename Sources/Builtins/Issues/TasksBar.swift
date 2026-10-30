@@ -26,7 +26,7 @@ extension TasksViewController {
         bar.spacing = 6
         controls.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true
         status.widthAnchor.constraint(equalTo: bar.widthAnchor, constant: -2 * Metrics.inset).isActive = true   // else the status wraps to no width
-        controls.setContentHuggingPriority(.defaultHigh, for: .vertical)   // as tall as its views; the list takes the rest
+        bar.setHuggingPriority(.defaultHigh, for: .vertical)   // as tall as its views: over the split's holding, or the list gets no height
         return bar
     }
 
@@ -42,6 +42,7 @@ extension TasksViewController {
     /// `text` instead of the list (an error with `error`), with the buttons that aren't hidden; nil shows the list.
     func showEmpty(_ text: String?, symbol: String = "tray", error: String? = nil, title: String? = nil) {
         split.isHidden = text != nil
+        placeDivider()
         let buttons = [showAll, setupButton].filter { !$0.isHidden }
         if let error { emptyView.showError(error, text: text, buttons: buttons) }
         else if let title { emptyView.show(title, symbol: symbol, text: text, buttons: buttons) }

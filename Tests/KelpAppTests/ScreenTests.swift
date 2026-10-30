@@ -318,3 +318,18 @@ extension OneAtATime {
     #expect(main.inspector.view.isDescendant(of: split))
 }
 }
+
+/// No open pull requests: the panel starts empty, its list hidden, and an Issues list comes later. It used to get no height.
+@MainActor @Test func aListAfterAnEmptyStartTakesThePanel() throws {
+    _ = testHome
+    let vc = TasksViewController(app: AppModel(builtins: Builtins.all))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 250, height: 800), styleMask: [.titled], backing: .buffered, defer: true)   // never shown
+    window.contentViewController = vc
+    vc.view.frame = NSRect(x: 0, y: 0, width: 250, height: 800)
+    vc.view.layoutSubtreeIfNeeded()
+    #expect(vc.split.isHidden)
+    vc.showEmpty(nil)
+    vc.view.layoutSubtreeIfNeeded()
+    #expect(vc.split.frame.height > 700)
+    #expect(try #require(vc.split.arrangedSubviews.first).frame.height > 400)
+}

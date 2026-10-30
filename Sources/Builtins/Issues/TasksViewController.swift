@@ -83,8 +83,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        // Once it has a height: the list gets the larger part, details the rest.
-        guard !dividerPlaced, split.bounds.height > 100 else { return }
+        placeDivider()
+    }
+
+    /// Once it's on screen with a height (a hidden split ignores the position): the list gets the larger part, details the rest.
+    func placeDivider() {
+        guard !dividerPlaced, !split.isHidden, split.bounds.height > 100 else { return }
         dividerPlaced = true; split.setPosition(split.bounds.height * 0.55, ofDividerAt: 0)
     }
 
@@ -229,6 +233,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         t2.font = .ui(11)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = .byTruncatingTail
+        // Give way to the stack's insets: a title that doesn't fit is cut there, not pushed out past the line under it.
+        for l in [t1, t2] { l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         let s = NSStackView(views: [t1, t2])
         s.orientation = .vertical
         s.alignment = .leading
