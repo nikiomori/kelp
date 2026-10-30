@@ -4,6 +4,7 @@ import GhosttyKit
 @MainActor
 public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClient {
     public private(set) var surface: ghostty_surface_t?
+    private let link = SurfaceLink()
     public var onTitle: ((String) -> Void)?
     public var onOpenURL: ((URL) -> Void)?
     public var onExit: (() -> Void)?
@@ -46,7 +47,8 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         var cfg = ghostty_surface_config_new()
         cfg.platform_tag = GHOSTTY_PLATFORM_MACOS
         cfg.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(nsview: Unmanaged.passUnretained(self).toOpaque()))
-        cfg.userdata = Unmanaged.passUnretained(self).toOpaque()
+        link.view = self
+        cfg.userdata = Unmanaged.passUnretained(link).toOpaque()
         cfg.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2)
         cfg.wait_after_command = false
         let cKeys = env.keys.map { strdup($0) }, cValues = env.keys.map { strdup(env[$0] ?? "") }
@@ -65,12 +67,14 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
 
     isolated deinit {
         if let o = occlusionObserver { NotificationCenter.default.removeObserver(o) }
-        if let surface { ghostty_surface_free(surface) }
+        if let surface { GhosttyRuntime.shared.retire(surface, link) }
     }
 
     static func from(_ ud: UnsafeMutableRawPointer?) -> GhosttyTerminalView? {
         guard let ud else { return nil }
-        return Unmanaged<GhosttyTerminalView>.fromOpaque(ud).takeUnretainedValue()
+        let link = Unmanaged<SurfaceLink>.fromOpaque(ud).takeUnretainedValue()
+        link.heard = true
+        return link.view
     }
 
     // MARK: size, focus

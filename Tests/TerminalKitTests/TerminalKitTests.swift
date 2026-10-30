@@ -11,6 +11,40 @@ import Testing
     terminalTaken = true
 }
 
+/// A terminal closed while programs set titles (an agent's replayed history has thousands): each is a message in the app's
+/// mailbox, which only a tick on the main thread empties, so freeing the surface there waited for itself. The app stopped
+/// for good, so a hang here ends the run instead of holding it up.
+@Test @MainActor func closingATerminalLeavesTheAppRunning() async throws {
+    try await takeTerminal(); defer { terminalTaken = false }
+    let finished = DispatchSemaphore(value: 0)
+    defer { finished.signal() }
+    Thread.detachNewThread { if finished.wait(timeout: .now() + 45) == .timedOut { fatalError("closing a terminal held the main thread") } }
+    let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-titles-\(UUID().uuidString).sh")
+    try #"while :; do printf '\033]0;a title\007'; done"#.write(to: script, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: script) }
+    var closing: GhosttyTerminalView? = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
+    let stays = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
+    let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+    w.contentView = NSView(frame: w.contentLayoutRect)
+    try w.contentView?.addSubview(#require(closing)); w.contentView?.addSubview(stays)
+    w.orderFront(nil)
+    defer { w.orderOut(nil) }
+    var titles = 0
+    closing?.onTitle = { _ in titles += 1 }
+    stays.onTitle = { _ in titles += 1 }
+    let started = Date() + 15
+    while titles < 500, Date() < started { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(titles >= 500)
+    closing?.removeFromSuperview()
+    closing = nil
+    let closed = Date() + 15   // a program that went on printing would never let it go
+    repeat { try await Task.sleep(for: .milliseconds(20)) } while GhosttyRuntime.shared.retiring > 0 && Date() < closed
+    #expect(GhosttyRuntime.shared.retiring == 0)
+    let before = titles
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(titles > before)   // the one left goes on
+}
+
 @Test func copyLeavesTheTUIBehind() {
     // An agent's gutter and padding to the right edge.
     #expect(TerminalCopy.clean("  func a() {   \n      return 1\n  }  ") == "func a() {\n    return 1\n}")

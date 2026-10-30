@@ -29,6 +29,14 @@ public struct TerminalAppearance: Equatable, Sendable {
 // Terminal backend on libghostty (Metal rendering, Ghostty's input and selection). Input handling follows
 // Ghostty's own macOS SurfaceView (MIT): https://github.com/ghostty-org/ghostty/tree/main/macos/Sources/Ghostty
 
+/// A surface's way to its view (its userdata): weak, as a surface being retired has outlived the view.
+@MainActor
+final class SurfaceLink {
+    weak var view: GhosttyTerminalView?
+    /// It called back since this was last cleared (`GhosttyRuntime.retire`).
+    var heard = false
+}
+
 /// One libghostty app per process; surfaces (terminal views) hang off it.
 @MainActor
 public final class GhosttyRuntime {
@@ -54,6 +62,36 @@ public final class GhosttyRuntime {
     }
 
     func register(_ v: GhosttyTerminalView) { surfaces.add(v) }
+
+    /// Surfaces whose view is gone and which aren't freed yet.
+    private(set) var retiring = 0
+
+    /// Frees a surface whose view is gone, once its program has ended and nothing more comes from it. `ghostty_surface_free`
+    /// waits for the surface's threads, and its reader first goes through all it has read (megabytes), posting to the app's
+    /// mailbox (64 messages for all surfaces, one per title a program sets, thousands in a replayed history), which only a
+    /// tick on this thread empties: freed at once, with programs printing, the app stopped for good. So the program ends
+    /// first and the reader finishes with the ticks going on; the exit alone says little, it can come before or after that.
+    /// Limit: one that ignores its hangup and keeps printing stays until the app quits, rather than stopping it.
+    func retire(_ surface: ghostty_surface_t, _ link: SurfaceLink) {
+        retiring += 1
+        Task {
+            var quiet = 0   // looks in a row with nothing from it
+            while !(ghostty_surface_process_exited(surface) && quiet > 0), quiet < 40 {
+                Self.hangUp(surface)
+                link.heard = false
+                try await Task.sleep(for: .milliseconds(50))   // never cancelled: nothing holds this task
+                quiet = link.heard ? 0 : quiet + 1
+            }
+            ghostty_surface_free(surface)
+            retiring -= 1
+        }
+    }
+
+    /// As Ghostty stops a program: to its process group, as the `login` above it is root's and ends with it.
+    private static func hangUp(_ surface: ghostty_surface_t) {
+        let group = pid_t(truncatingIfNeeded: ghostty_surface_foreground_pid(surface))
+        if group > 1 { killpg(group, SIGHUP) }
+    }
 
     private static func makeConfig() -> ghostty_config_t? {
         let cfg = ghostty_config_new()
