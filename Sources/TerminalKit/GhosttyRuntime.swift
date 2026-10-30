@@ -9,6 +9,10 @@ public struct TerminalAppearance: Equatable, Sendable {
     public var fontFamily: String?, fontSize: Double?
     public var cursorStyle: String?
     public var optionAsAlt = false
+    /// Under 1: what's behind the terminal shows through its background.
+    public var opacity: Double?
+    /// A `TerminalShader` by name.
+    public var shader: String?
     public init() {}
 
     var configText: String {
@@ -22,6 +26,10 @@ public struct TerminalAppearance: Equatable, Sendable {
         if let v = fontSize { lines.append("font-size = \(v)") }
         if let v = cursorStyle { lines.append("cursor-style = \(v)") }
         if optionAsAlt { lines.append("macos-option-as-alt = true") }
+        if let v = opacity, v < 1 { lines.append("background-opacity = \(v)") }
+        if let v = shader.flatMap(TerminalShader.file) {   // still, so a terminal only redraws when it has something new
+            lines += ["custom-shader = \(v)", "custom-shader-animation = false"]
+        }
         return lines.joined(separator: "\n")
     }
 }
@@ -113,9 +121,10 @@ public final class GhosttyRuntime {
         setUp(cfg)
     }
 
-    /// Under the user's Ghostty config: text keeps 3:1 contrast with its background, so colours picked for a dark
-    /// terminal (Claude Code's near-white greys) stay readable on a light one, and dark ones on a dark one.
-    private static let defaults = "minimum-contrast = 3\n"
+    /// Under the user's Ghostty config: text keeps about 3:1 contrast with its background, so colours picked for a dark
+    /// terminal (Claude Code's near-white greys) stay readable on a light one, and dark ones on a dark one. Just under 3:
+    /// at 3 Nord's red, 3.06:1 by the book, came out white, and errors looked like any other text.
+    private static let defaults = "minimum-contrast = 2.9\n"
 
     // App shortcuts (⌘T, ⌘D, ⌘W…) belong to Kelp; Ghostty keeps only terminal ones.
     // ⇧↩ types a line feed: a new line in agent prompts (Claude Code, Codex) instead of sending the message.
