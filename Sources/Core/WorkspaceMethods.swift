@@ -233,6 +233,13 @@ public struct SessionLastReply: RPCMethod {
     public init(id: String) { self.id = id }
 }
 
+/// A running session's status and where it came from: a hook, the program's own report, the screen. nil: it isn't running.
+public struct SessionWhy: RPCMethod {
+    public static let name = "session.why"; public typealias Result = String?
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
 /// Clones `url` into a new folder in `parent` (`folder`, else named after the repository) → the added project; progress
 /// comes as `event.clone` {id, line}.
 public struct RepoClone: RPCMethod {

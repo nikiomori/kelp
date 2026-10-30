@@ -2,7 +2,7 @@ import Foundation
 import Core
 
 extension Main {
-    /// `session …`, `terminal …`, `wait`, `report`.
+    /// `session …`, `terminal …`, `wait`, `why`, `report`.
     static func sessions(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("session", "new"):
@@ -26,6 +26,10 @@ extension Main {
             else { fail("timed out") }
             print(s.status.rawValue)
             if s.status == .exited { exit(Int32(s.exitCode ?? 0)) }   // its command's exit code
+        case ("why", let target?):
+            let id = try await resolve(c, target, "session.list")
+            guard let why = try await c.call(SessionWhy(id: id)) else { fail("session \(id) isn't running") }
+            print(why)
         case ("report", let state?):   // inside a session: what this program is doing, on its row and tab
             guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"] else { fail("report: run it inside a Kelp session") }
             let progress = flag("--progress").flatMap { Int($0) }, kind = flag("--kind"), msg = args.joined(separator: " ")

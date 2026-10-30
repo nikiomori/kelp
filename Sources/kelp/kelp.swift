@@ -12,6 +12,7 @@ usage: kelp <command>
                                        --split opens its tab beside yours; --wait prints its id, then exits with
                                        its command's exit code when it ends
   wait <session> [--for done,waiting,idle,exited] [--timeout 10m]   until it stops working (or reaches one of those)
+  why <session>                        its status and where that came from: a hook, the program, the screen
   terminal list | read <session> [bytes] | send <session> <text> [--no-enter]
   diff [--source unstaged|staged|all|branch] | commit <msg> | merge | push
   comment add <file> <line[-line]> <text> | send <session>
@@ -161,7 +162,7 @@ func plist() -> String {
         if sub != nil { args.removeFirst() }
         switch cmd {
         case "status", "repo", "worktree": try await projects(cmd, sub, c)
-        case "session", "terminal", "wait", "report": try await sessions(cmd, sub, c)
+        case "session", "terminal", "wait", "why", "report": try await sessions(cmd, sub, c)
         case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, c)
         case "github", "linear": try await forge(cmd, sub, c)
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)

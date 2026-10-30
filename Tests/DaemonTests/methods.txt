@@ -140,6 +140,7 @@ session.restart
 session.send
 session.turn
 session.usage
+session.why
 session.write
 settings.get
 settings.set

@@ -4,6 +4,8 @@ import Core
 /// Derives agent status from output and idle time. Hook events always win over heuristics.
 public struct StatusDetector: Sendable {
     public private(set) var status: AgentStatus = .idle
+    /// Where `status` came from, for `kelp why`.
+    public private(set) var source = "the start"
     private var lastOutput: Date?
     private var tail = ""
     private var hooked = false
@@ -49,6 +51,7 @@ public struct StatusDetector: Sendable {
               now.timeIntervalSince(typedAt ?? .distantPast) > 2 else { return }
         lastOutput = now
         status = .working
+        source = "screen: it printed words"
     }
 
     /// `s` up to an escape sequence it ends inside of, and that unfinished sequence.
@@ -81,6 +84,7 @@ public struct StatusDetector: Sendable {
     public mutating func tick(at now: Date = Date()) -> AgentStatus {
         guard !hooked, status == .working, let last = lastOutput, now.timeIntervalSince(last) >= manifest.quietSeconds else { return status }
         status = asks ? .waiting : .done
+        source = "screen: quiet for \(Int(manifest.quietSeconds)) s" + (status == .waiting ? ", and its last lines ask something" : "")
         settledAt = now
         return status
     }
@@ -99,8 +103,9 @@ public struct StatusDetector: Sendable {
         case "working": status = .working
         case "waiting": status = .waiting
         case "done": status = .done
-        default: break
+        default: return
         }
+        source = "hook: \(event)"
     }
 
     /// OSC 7501 report from the agent itself: as good as a hook, heuristics are off from here.
@@ -113,11 +118,12 @@ public struct StatusDetector: Sendable {
         case "done": status = .done
         case "blocked": status = .waiting
         case "error": status = .error
-        default: break
+        default: return
         }
+        source = "reported by the program: \(state)"
     }
 
-    public mutating func exited() { status = .exited }
+    public mutating func exited() { status = .exited; source = "the program ended" }
 
     /// Attached again to a program that kept running (tmux): what it prints is its work, typed or not, once tmux's redraw
     /// of the screen in the first seconds is past (that redraw is no turn, and its end no "done").
@@ -132,7 +138,7 @@ public struct StatusDetector: Sendable {
     /// opt-in banner as "allow … to") would otherwise keep an agent idling at its prompt in Needs You until it prints again.
     /// One the agent reported itself stays: its OSC 7501 is on the screen (the handover doesn't say).
     public mutating func adopted(_ status: AgentStatus, screen: String = "", at now: Date = Date()) {
-        self.status = status; active = true
+        self.status = status; active = true; source = "taken over from the kelpd an update replaced"
         tail = String(Self.stripANSI(screen).suffix(600))
         if status == .working { lastOutput = now }   // it settles once quiet, as it would have
         guard status == .waiting, !hooked, !screen.contains(ProgramStatus.prefix) else { return }
@@ -149,11 +155,15 @@ public struct StatusDetector: Sendable {
     public mutating func interrupted(at now: Date = Date()) {
         guard !settled else { return }
         status = .idle
+        source = "screen: it says its turn was cut short"
         settledAt = now
     }
 
     /// A better guess from elsewhere (local model) that does not switch heuristics off like a hook does.
-    public mutating func override(_ s: AgentStatus) { if status != .exited && status != .hibernated { status = s } else if s == .hibernated { status = s } }
+    public mutating func override(_ s: AgentStatus) {
+        guard (status != .exited && status != .hibernated) || s == .hibernated else { return }
+        status = s; source = "set by Kelp"
+    }
 
     // TUIs often place words with cursor moves instead of spaces; keep a space there so text stays readable. Codex puts
     // each word at its own row;col ("Trust␛[5;9Hthis␛[5;14Hfolder?").

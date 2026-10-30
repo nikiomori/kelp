@@ -412,6 +412,13 @@ final class LiveSession: Sendable {
     }
 
     var commands: [AgentCommand] { state.withLock { $0.commands } }
+    /// `kelp why`: the status, where it came from, and when the agent last spoke up by itself.
+    var statusWhy: String {
+        state.withLock { s in
+            let heard = s.lastHookAt == .distantPast ? "" : ", last heard \(Int(-s.lastHookAt.timeIntervalSinceNow)) s ago"
+            return "\(s.detector.status.rawValue) (\(s.detector.source))\(heard)"
+        }
+    }
     var commandChanges: Int { state.withLock { $0.commandChanges } }
 
     /// A Stop held as working that nothing came after (`at`: its time): the goal was met, or the wait ran out.
