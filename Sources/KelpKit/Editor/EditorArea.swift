@@ -42,7 +42,7 @@ package final class EditorArea: NSViewController {
         // A run's tab follows the Run menu: its port once it prints one, its look once its files are read.
         track(owner: self) { [app] in [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url)
             + app.scripts.state.found.keys.sorted() } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
-        track(owner: self) { app.settings.string("workbench.textSize") } changed: { [weak self] _ in   // the tabs' titles take the new size
+        track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in   // the tabs' titles take the new size
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
         // The empty workspace lists the agents that work, with their icons; rebuild it when either changes.

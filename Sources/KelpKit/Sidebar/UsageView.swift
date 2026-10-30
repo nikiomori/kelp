@@ -43,6 +43,7 @@ struct UsageView: View {
                 }
             }
         }
+        .fontDesign(app.themes.chromeDesign)
         // Watched while shown: the daemon says when a plan read or the token count changed.
         .onAppear { app.watch(.limits); load() }
         .onDisappear { app.unwatch(.limits) }

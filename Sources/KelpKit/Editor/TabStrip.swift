@@ -64,7 +64,7 @@ final class TabStrip: NSView {
         stack.distribution = .fill
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 6)
         insertion.wantsLayer = true
-        insertion.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+        insertion.layer?.backgroundColor = NSColor.themeAccent.cgColor
         insertion.isHidden = true
         // Too many tabs to fit: the strip scrolls (trackpad / wheel) and the chevron lists them all, like Safari.
         overflow.image = .symbol("chevron.down", String(localized: "All Tabs"))
@@ -75,7 +75,7 @@ final class TabStrip: NSView {
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true
         unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes")); unzoom.isBordered = false
-        unzoom.contentTintColor = .controlAccentColor; unzoom.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+        unzoom.contentTintColor = .themeAccent; unzoom.symbolConfiguration = .init(pointSize: 11, weight: .medium)
         unzoom.toolTip = String(localized: "Show all panes (⇧⌘↩)")
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)
@@ -137,7 +137,9 @@ final class TabStrip: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func updateLayer() { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
+    /// The card's colour, which the strip stands on.
+    var fill: NSColor? { didSet { needsDisplay = true } }
+    override func updateLayer() { layer?.backgroundColor = (fill ?? .windowBackgroundColor).cgColor }
     override var wantsUpdateLayer: Bool { true }
 
     func set(_ items: [Item], selected: String?) {
@@ -358,7 +360,7 @@ private final class TabButton: NSControl, NSDraggingSource {
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         title.font = .ui(12, weight: active || call != nil ? .medium : .regular)
-        icon.contentTintColor = active ? .controlAccentColor : .secondaryLabelColor
+        icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
         // Chosen in the group you're in, chosen in another one (or under the pointer), nothing; faded, not switched.
         let fill = selected && groupFocused ? NSColor.fillSelected : selected || hover ? .fillHover : nil
         fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them

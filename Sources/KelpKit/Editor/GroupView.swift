@@ -56,6 +56,7 @@ final class GroupView: NSView {
             ring.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -1)
         ])
         registerForDraggedTypes([.kelpTab, .fileURL])
+        track(owner: self) { themes.look.card } changed: { [strip] in strip.fill = $0 }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -64,8 +65,8 @@ final class GroupView: NSView {
         let v = NSView()
         v.wantsLayer = true
         v.isHidden = true
-        v.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.18).cgColor
-        v.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.6).cgColor
+        v.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.18).cgColor
+        v.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
         v.layer?.borderWidth = 1
         v.layer?.cornerRadius = 6
         return v

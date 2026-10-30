@@ -1265,6 +1265,16 @@
         }
       }
     },
+    "As the Theme Has It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как в теме"
+          }
+        }
+      }
+    },
     "Ask Agent": {
       "localizations": {
         "ru": {
@@ -1627,6 +1637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать…"
+          }
+        }
+      }
+    },
+    "Classics": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Классика"
           }
         }
       }
@@ -4884,6 +4904,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вход: %@"
+          }
+        }
+      }
+    },
+    "Looks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Особые"
           }
         }
       }
@@ -8901,6 +8931,16 @@
         }
       }
     },
+    "Terminal opacity": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Непрозрачность терминала"
+          }
+        }
+      }
+    },
     "Test": {
       "extractionState": "manual",
       "localizations": {
@@ -9336,6 +9376,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите сочетание…"
+          }
+        }
+      }
+    },
+    "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ниже 100% сквозь терминалы и окно вокруг них виден рабочий стол, в любой теме."
           }
         }
       }

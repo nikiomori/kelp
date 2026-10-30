@@ -136,6 +136,22 @@ the ones after it with the same group under that heading.
               "comment": "#6272a4", "type": "#8be9fd", "number": "#bd93f9", "function": "#50fa7b" }
 }
 ```
+Without `window`, the panels and the editor area take the theme's colours. With it, the theme builds the window itself:
+```json
+{
+  "id": "sea", "name": "Sea", "appearance": "dark",
+  "terminal": { "background": "#031c20", "foreground": "#cfeee8", "opacity": 0.65, "shader": "bloom" },
+  "editor": { "background": "#031c20", "text": "#cfeee8", "opacity": 0.8 },
+  "window": { "surface": "#021316", "border": "#4de8c229", "radius": 12, "accent": "#4de8c2", "font": "mono",
+              "ambient": "motes", "ambientColors": ["#4de8c2", "#38d9d9"] }
+}
+```
+- `terminal.opacity`, `editor.opacity`: under 1, what's under them shows through and the editor area loses its fill. Settings › Appearance › Terminal opacity overrides it for any theme.
+- `terminal.shader`: `crt` (rows of light, a glow, dark corners) or `bloom` (bright text bleeds into the dark). Still images: they cost only when a terminal draws.
+- `window.surface`: the panels and the gap round the editor area: a colour, or `material` for macOS's own, with the desktop behind it. `surfaceOpacity` lets the desktop through a colour too.
+- `window.card`, `border`, `borderWidth`, `radius`: the editor area. `border` takes `#rrggbbaa`.
+- `window.accent`: the chrome's accent (native controls keep the system's). `window.font`: the chrome's face, `mono`, `serif` or `rounded`.
+- `window.ambient`: what moves behind it all, in `ambientColors`: `aurora` (slow wide lights), `motes` (specks rising), `grid` (a drafting grid, still). It stops while Kelp isn't the active app, and under Reduce Motion.
 
 ## iconThemes
 File icon themes in VS Code's format, so existing ones work unchanged:

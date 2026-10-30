@@ -47,7 +47,7 @@ final class InspectorController: NSViewController {
         more.setButtonType(.momentaryChange)
         more.widthAnchor.constraint(equalToConstant: 38).isActive = true; more.heightAnchor.constraint(equalToConstant: 24).isActive = true
         pin(moreBadge, on: more)
-        panelTitle.font = .ui(13, weight: .semibold); panelTitle.lineBreakMode = .byTruncatingTail
+        panelTitle.lineBreakMode = .byTruncatingTail
         panelTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         host.clipsToBounds = true
         let sep = NSBox()
@@ -85,8 +85,9 @@ final class InspectorController: NSViewController {
         v.onLayout = { [weak self] in self?.fold() }
         view = v
         // Panels are built with the text size of the moment: rebuilt when it changes (first, while none are built).
-        track(owner: self) { [app] in app.settings.string("workbench.textSize") } changed: { [weak self] _ in
+        track(owner: self) { [app] in app.themes.chromeText } changed: { [weak self] _ in
             guard let self else { return }
+            panelTitle.font = .ui(13, weight: .semibold)
             for (_, vc) in made { vc.view.removeFromSuperview(); vc.removeFromParent() }
             made = [:]; showSelected()
         }

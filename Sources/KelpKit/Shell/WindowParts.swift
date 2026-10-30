@@ -32,8 +32,9 @@ final class ShellSplit: NSSplitViewController {
 final class Floater: NSView {
     private static let radius: CGFloat = 12
     private let inset: CGFloat
-    /// The panel's background, the same material the window's surface is.
+    /// The panel's background, the same material the window's surface is, and the theme's colour over it.
     let box = NSVisualEffectView()
+    let tint = NSView()
     private var edge: NSLayoutConstraint?, widthC: NSLayoutConstraint?
     private var shown = false
     var width: CGFloat { didSet { widthC?.constant = width } }
@@ -52,6 +53,8 @@ final class Floater: NSView {
         box.layer?.masksToBounds = true
         box.layer?.borderWidth = 1
         pin(box)
+        tint.wantsLayer = true
+        box.pin(tint)
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -102,17 +105,21 @@ final class Floater: NSView {
 @MainActor
 final class Card: NSView {
     static let gap: CGFloat = 6
+    var look = WindowLook() { didSet { needsDisplay = true } }
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.cornerRadius = 10
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
-        layer?.borderWidth = 1
     }
     required init?(coder: NSCoder) { fatalError() }
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor; layer?.borderColor = NSColor.separatorColor.cgColor }
+    override func updateLayer() {
+        layer?.backgroundColor = (look.card ?? .windowBackgroundColor).cgColor
+        layer?.borderColor = (look.border ?? .separatorColor).cgColor
+        layer?.borderWidth = look.borderWidth
+        layer?.cornerRadius = look.radius
+    }
 }
 
 extension NSButton {
@@ -146,15 +153,22 @@ final class EdgeTrigger: NSView {
 @MainActor
 final class DropRoot: NSVisualEffectView {
     private let app: AppModel
+    private let backdrop = Backdrop()
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
         material = .sidebar
         blendingMode = .behindWindow
         state = .followsWindowActiveState
+        pin(backdrop)
         registerForDraggedTypes([.fileURL])
     }
     required init?(coder: NSCoder) { fatalError() }
+    func show(_ look: WindowLook) {
+        backdrop.show(look)
+        // What the desktop shows through stays clear with the window in the background too.
+        state = look.solid ? .inactive : look.seeThrough ? .active : .followsWindowActiveState
+    }
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { Workbench.files(s).isEmpty ? [] : .copy }
     override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
         let files = Workbench.files(s)
@@ -189,6 +203,7 @@ final class EditorHost: NSViewController {
         track { app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track { app.sessions } changed: { [weak self] _ in self?.refresh() }
         track { app.contextUsage } changed: { [weak self] _ in self?.refresh() }
+        track { app.themes.look } changed: { [weak self] in self?.card.look = $0 }
     }
 
     func show(_ id: String?) {

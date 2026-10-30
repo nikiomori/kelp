@@ -48,7 +48,7 @@ final class WindowBar: NSView {
         self.app = app; search = SearchPill(app: app)
         run = RunChip(app: app)
         super.init(frame: .zero)
-        name.font = .ui(13, weight: .semibold); name.lineBreakMode = .byTruncatingTail
+        name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.init(450), for: .horizontal)
         folder.lineBreakMode = .byTruncatingMiddle; folder.setContentCompressionResistancePriority(.init(300), for: .horizontal)
         folder.target = self
@@ -104,6 +104,11 @@ final class WindowBar: NSView {
         track(owner: self) { [app] in WindowBar.awakeMode(app) } changed: { [weak self] in self?.showAwake($0) }
         track(owner: self) { app.workbench.sideBySide } changed: { [weak self] in self?.showSideBySide($0) }
         track(owner: self) { app.settings.bool("workbench.sideBySideButton") ?? true } changed: { [weak self] in self?.sideBySide.isHidden = !$0 }
+        track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in
+            self?.name.font = .ui(13, weight: .semibold)
+            for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(12) }
+            self?.update()
+        }
         track(owner: self) { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.update() }
         track(owner: self) { app.projectLook } changed: { [weak self] _ in self?.update() }
         // A branch switched anywhere (a terminal too) moves the workspace's refs: the daemon pushes it.
@@ -270,11 +275,10 @@ final class SearchPill: PointerControl {
         super.init(frame: .zero)
         restFill = .fillRest   // a field's ground; under the pointer a step darker, held darker still
         glass.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight); glass.contentTintColor = .secondaryLabelColor
-        label.font = .ui(12)
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-        key.font = .ui(11); key.textColor = .tertiaryLabelColor
+        key.textColor = .tertiaryLabelColor
         let row = NSStackView(views: [glass, label, NSView(), key]); row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 9, bottom: 0, right: 10)
         pin(row)
@@ -282,6 +286,11 @@ final class SearchPill: PointerControl {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Open Quickly"))
+        track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in
+            self?.label.font = .ui(12)
+            self?.key.font = .ui(11)
+            self?.needsLayout = true
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 

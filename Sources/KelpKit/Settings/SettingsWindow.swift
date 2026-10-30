@@ -206,6 +206,7 @@ struct SettingRow: View {
             return v == "auto" ? String(localized: "Match System") : v == "ghostty" ? String(localized: "Ghostty config")
                 : app.themes.themes.first { $0.id == v }?.name ?? v
         case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == v }?.label ?? v
+        case "terminal.opacity": return v == "theme" ? String(localized: "As the Theme Has It") : "\(v)%"
         case "power.keepAwake":
             return ["agents": String(localized: "While agents work"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         // Each language in its own words, so it can be found whichever language Kelp is in.
@@ -261,62 +262,6 @@ private struct SettingTextField: View {
     }
 
     private func commit() { if draft != store.string(key) ?? "" { store.set(key, .string(draft)) } }
-}
-
-/// Color themes as swatch cards: the terminal's background, a sample, and the ANSI colors.
-private struct ThemeGallery: View {
-    @Binding var selection: String
-    @Environment(AppModel.self) private var app
-
-    private struct Card: Identifiable { let id: String, name: String, bg: Color, fg: Color, dots: [Color] }
-    private var cards: [Card] {
-        func card(_ t: Theme, id: String? = nil, name: String? = nil) -> Card {
-            let c = t.terminal
-            return Card(id: id ?? t.id, name: name ?? t.name, bg: Color(hex: c?.background ?? "") ?? .black, fg: Color(hex: c?.foreground ?? "") ?? .white,
-                        dots: (c?.palette ?? []).dropFirst().prefix(6).compactMap { Color(hex: $0) })
-        }
-        let all = app.themes.themes
-        let auto = all.first { $0.id == (app.themes.isDark ? "kelp.dark" : "kelp.light") }
-        return (auto.map { [card($0, id: "auto", name: "Match System")] } ?? [])
-            + [ghosttyCard(base: auto.map { card($0) })]
-            + all.map { card($0) }
-    }
-
-    /// Your Ghostty config's colours, as the terminal will have them; what it doesn't set, the Kelp theme's. A card without
-    /// swatches looked like one that failed to load.
-    private func ghosttyCard(base: Card?) -> Card {
-        let g = GhosttyConfig.load()
-        let dots = (1...6).compactMap { i in
-            g?.palette[i].flatMap { Color(hex: $0) } ?? base.flatMap { $0.dots.indices.contains(i - 1) ? $0.dots[i - 1] : nil }
-        }
-        return Card(id: "ghostty", name: "Ghostty", bg: g?.background.flatMap { Color(hex: $0) } ?? base?.bg ?? Color(nsColor: .controlBackgroundColor),
-                    fg: g?.foreground.flatMap { Color(hex: $0) } ?? base?.fg ?? .secondary, dots: dots)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Theme")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
-                ForEach(cards) { c in
-                    Button { selection = c.id } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Aa  ~ $").font(.system(size: 12, design: .monospaced)).foregroundStyle(c.fg)
-                            HStack(spacing: 3) { ForEach(Array(c.dots.enumerated()), id: \.offset) { Circle().fill($0.element).frame(width: 8, height: 8) } }
-                                .frame(height: 8)
-                            Text(c.name).font(.caption).foregroundStyle(c.fg).lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                        .background(c.bg, in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                            .strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selection == c.id ? 2 : 1))
-                    }
-                    .buttonStyle(PointerCardStyle())
-                    .accessibilityLabel(c.name).accessibilityAddTraits(selection == c.id ? .isSelected : [])
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
 }
 
 /// Installed extensions: turn them on or off, remove, create (by hand or with an agent); or the library's, to install.

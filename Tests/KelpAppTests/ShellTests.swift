@@ -36,8 +36,8 @@ import WorkbenchKit
     #expect(shortAgo(nil) == "")
 }
 
-@Test func everyBuiltinThemeIsCompleteAndUnique() {
-    let themes = Theme.popular
+@MainActor @Test func everyBuiltinThemeIsCompleteAndUnique() {
+    let themes = ThemeManager.builtin + Theme.looks + Theme.popular
     #expect(Set(themes.map(\.id)).count == themes.count)
     for t in themes {
         guard let term = t.terminal, let palette = term.palette else { Issue.record("\(t.id): no terminal colors"); continue }
@@ -46,6 +46,50 @@ import WorkbenchKit
         let colors = [term.background, term.foreground, term.cursor, term.selection].compactMap { $0 } + palette
         #expect(colors.allSatisfy { $0.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil }, "\(t.id): a color isn't #rrggbb")
     }
+}
+
+/// A look is only as good as what can be read on it: what it names must exist, its text must stand out from its card.
+@Test func everyLookNamesWhatExistsAndStaysReadable() {
+    func luminance(_ hex: String) -> Double {
+        guard let c = NSColor(hex: hex)?.usingColorSpace(.sRGB) else { return -1 }
+        let f = { (v: CGFloat) in v <= 0.03928 ? Double(v) / 12.92 : pow((Double(v) + 0.055) / 1.055, 2.4) }
+        return 0.2126 * f(c.redComponent) + 0.7152 * f(c.greenComponent) + 0.0722 * f(c.blueComponent)
+    }
+    func contrast(_ a: String, _ b: String) -> Double {
+        let l = [luminance(a), luminance(b)].sorted()
+        return (l[1] + 0.05) / (l[0] + 0.05)
+    }
+    for t in Theme.looks {
+        guard let term = t.terminal, let code = t.editor, let w = t.window else { Issue.record("\(t.id): a look sets all three"); continue }
+        #expect(contrast(term.foreground, term.background) >= 7, "\(t.id): text")
+        #expect(contrast(code.comment ?? "", term.background) >= 2.5, "\(t.id): comments")
+        if let accent = w.accent { #expect(contrast(accent, w.surface ?? "") >= 3, "\(t.id): accent") }
+        #expect(w.ambient.map { WindowLook.Ambient.Kind(rawValue: $0) != nil } ?? true, "\(t.id): ambient")
+        #expect(w.font.map { ["mono", "serif", "rounded"].contains($0) } ?? true, "\(t.id): font")
+        #expect([w.surface, w.card, w.border, w.accent].compactMap { $0 }.allSatisfy { $0 == "material" || NSColor(hex: $0) != nil }, "\(t.id): a color")
+    }
+}
+
+@MainActor @Test func aThemeBuildsItsWindow() throws {
+    let nord = try #require(Theme.popular.first { $0.id == "nord" }), kelp = try #require(ThemeManager.builtin.first)
+    #expect(ThemeManager.windowLook(nil, terminalOpacity: 1, forced: nil) == WindowLook())   // Ghostty's: the system's window
+    #expect(ThemeManager.windowLook(nil, terminalOpacity: 0.6, forced: 0.6).card == .clear)
+    #expect(ThemeManager.windowLook(kelp, terminalOpacity: 1, forced: nil) == WindowLook())
+    let own = ThemeManager.windowLook(nord, terminalOpacity: 1, forced: nil)
+    #expect(own.card == NSColor(hex: "#2e3440") && own.solid && !own.seeThrough)
+    // Settings › Terminal opacity opens up any theme: the card goes clear, the desktop comes through the surface.
+    let open = ThemeManager.windowLook(nord, terminalOpacity: 0.6, forced: 0.6)
+    #expect(open.card == .clear && open.seeThrough && !open.solid && open.surface?.alphaComponent == 0.6)
+    // A see-through look keeps its own surface when nothing forces it.
+    let sea = try #require(Theme.looks.first { $0.id == "kelp.deep-sea" })
+    let look = ThemeManager.windowLook(sea, terminalOpacity: 0.65, forced: nil)
+    #expect(look.card == .clear && look.solid && look.ambient?.kind == .motes)
+}
+
+@Test func coloursTakeAlpha() throws {
+    #expect(try #require(NSColor(hex: "#ffffff80")).alphaComponent == CGFloat(0x80) / 255)
+    #expect(try #require(NSColor(hex: "#102030")).alphaComponent == 1)
+    #expect(NSColor(hex: "#fff") == nil && NSColor(hex: "#ffffff8") == nil)
 }
 
 /// Restart from the sidebar: the new agent takes its old tab in its own workspace, which isn't the one on screen.

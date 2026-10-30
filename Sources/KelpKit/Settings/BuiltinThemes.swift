@@ -11,6 +11,10 @@ extension Theme {
     }
 
     static let popular: [Theme] = [
+        Theme("dracula", "Dracula", "dark", c: ["#282a36", "#f8f8f2", "#f8f8f2", "#44475a"],
+              ansi: ["#21222c", "#ff5555", "#50fa7b", "#f1fa8c", "#bd93f9", "#ff79c6", "#8be9fd", "#f8f8f2",
+                     "#6272a4", "#ff6e6e", "#69ff94", "#ffffa5", "#d6acff", "#ff92df", "#a4ffff", "#ffffff"],
+              code: ["#ff79c6", "#f1fa8c", "#6272a4", "#8be9fd", "#bd93f9", "#50fa7b"]),
         Theme("tokyo-night", "Tokyo Night", "dark", c: ["#1a1b26", "#c0caf5", "#c0caf5", "#283457"],
               ansi: ["#15161e", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#a9b1d6",
                      "#414868", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#c0caf5"],

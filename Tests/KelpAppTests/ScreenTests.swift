@@ -336,7 +336,8 @@ extension OneAtATime {
     _ = testHome
     let app = AppModel(builtins: Builtins.all), main = MainWindowController(app: app)
     #expect(app.workbench.window === main)   // what acts on the window (open, show, focus) reaches it through the workbench
-    let split = try #require(main.window?.contentView?.subviews.first)   // the split's view; the bar and the floaters lie over it
+    // The split's view: over the theme's backdrop, under the bar and the floaters.
+    let split = try #require(main.window?.contentView?.subviews.first { !($0 is Backdrop) })
     #expect(main.inspector.view.isDescendant(of: split))
     main.toggleFocusMode()
     #expect(!main.inspector.view.isDescendant(of: split))

@@ -16,6 +16,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let inspector: InspectorController
     private let sidebar: SidebarController
     private let split = ShellSplit()
+    private let surface: DropRoot
     private let inspectorItem: NSSplitViewItem
     private let sidebarItem: NSSplitViewItem
     /// Focus mode (⌃⌘Z): both panels away; they slide in while the pointer is at the window's edge.
@@ -41,6 +42,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         editors = EditorHost(app: app)
         sidebar = SidebarController(app: app); inspector = InspectorController(app: app)
         sidebarItem = Self.column(sidebar); inspectorItem = Self.column(inspector)
+        surface = DropRoot(app: app)
         super.init(window: w)
         app.workbench.window = self   // what acts on the window reaches it there
         // The title stays set: the Window menu, Mission Control and VoiceOver read it.
@@ -55,7 +57,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         [sidebarItem, content, inspectorItem].forEach(split.addSplitViewItem)
         split.splitView.autosaveName = "main.split"
         let root = NSViewController()
-        root.view = DropRoot(app: app)
+        root.view = surface
         root.addChild(split)
         sidebarToggle.target = self; sidebarToggle.action = #selector(toggleSidebarPanel)
         inspectorToggle.target = self; inspectorToggle.action = #selector(toggleInspectorPanel)
@@ -97,6 +99,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.delegate = self
         if w.frame.origin == .zero { w.center() }
         track { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.updateTitle() }
+        track { app.themes.look } changed: { [weak self] look in
+            self?.surface.show(look)
+            for f in [self?.leftFloat, self?.rightFloat] { f?.tint.layer?.backgroundColor = look.surface?.cgColor }
+        }
         track { app.settings.bool("workbench.sidebar.autoHide") == true } changed: { [weak self] in
             self?.setAutoHide(sidebar: true, $0)
             self?.sidebarToggle.menu = self?.autoHideMenu(String(localized: "Auto-Hide Sidebar"), "workbench.sidebar.autoHide", $0)
