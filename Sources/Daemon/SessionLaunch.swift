@@ -25,6 +25,14 @@ extension Sessions {
     /// One place for a session's environment, used to start it and to wake it: the account profile it was started with
     /// comes back with it (it used to be dropped on wake and restart, so the session returned on the default login).
     func launchEnv(_ m: AgentManifest, _ rec: Session) -> [String: String] {
+        var env = hookedEnv(m, rec)
+        env["PATH"] = Self.childPath
+        return env
+    }
+
+    /// `launchEnv` without its PATH, whose first read waits for the login shell (seconds, up to 8): what taking a running
+    /// session over needs, which happens before this kelpd answers anyone.
+    func hookedEnv(_ m: AgentManifest, _ rec: Session) -> [String: String] {
         var env = m.resolvedEnv
         if let name = rec.profile, let prof = profile(name, agent: m.id) { env[prof.key] = prof.dir }
         // Not into tmux: its server keeps the first client's environment for every pane, whichever tab they're shown in.
@@ -32,7 +40,6 @@ extension Sessions {
         env["KELP_SOCKET"] = socketPath; env["KELP_HOME"] = root.path
         // Written at each start and wake, so a session woken after an update gets this kelpd's hooks.
         if remotes.of(rec.cwd) == nil, let t = m.hooks { wire(t, m, rec, &env) }
-        env["PATH"] = Self.childPath
         return env
     }
 
