@@ -33,6 +33,8 @@ public final class CodeEditor: NSObject {
     private var loading = false
     private var described = false
     private var coloring = false
+    /// The characters colored for this text, tree and theme.
+    var colored: NSRange?
     /// The editors there are, to find the focused one (CodeEditor+Edits).
     static let all = NSHashTable<CodeEditor>.weakObjects()
 
@@ -60,7 +62,7 @@ public final class CodeEditor: NSObject {
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.frameDidChangeNotification, object: textView)
-        highlighter?.parsed = { [weak self] in self?.colorVisible(); self?.markBrackets() }
+        highlighter?.parsed = { [weak self] in self?.colored = nil; self?.colorVisible(); self?.markBrackets() }
         refreshAppearance()
         load(text)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
@@ -190,12 +192,17 @@ public final class CodeEditor: NSObject {
         }
     }
 
-    /// What's on screen and a screen around it.
+    /// What's on screen and a screen around it, unless that's colored already: a query runs on the main thread, and every
+    /// step of a scroll or of a panel sliding in comes through here.
     func colorVisible() {
         guard let highlighter, let lm = textView.layoutManager, let tc = textView.textContainer else { return }
-        let rect = textView.visibleRect.insetBy(dx: 0, dy: -textView.visibleRect.height)
-        let r = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
-        highlighter.color(r, in: textView)
+        let screen = textView.visibleRect
+        func characters(in rect: NSRect) -> NSRange { lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil) }
+        let shown = characters(in: screen)
+        if let colored, NSIntersectionRange(colored, shown).length == shown.length { return }
+        let around = characters(in: screen.insetBy(dx: 0, dy: -screen.height))
+        highlighter.color(around, in: textView)
+        colored = around
     }
 
     private func complete() {
@@ -249,6 +256,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
             highlighter?.parse(textView.string as NSString, described: described)
             described = false
             gutter?.needsDisplay = true
+            colored = nil
             scrolled()   // after the edit is laid out: the gutter's width too (resizing it in here broke the layout)
         }
     }

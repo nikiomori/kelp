@@ -325,6 +325,27 @@ extension OneAtATime {
         #expect(color("x =") == nil)   // not the block's string color: Swift's colors alone
     }
 
+    /// Each step of a scroll asked tree-sitter for three screens on the main thread, and a scroll spent most of its time there.
+    @Test func whatsColoredIsColoredOnceUntilTheTextChanges() throws {
+        let text = (0..<3000).map { "let value\($0) = \($0)" }.joined(separator: "\n")
+        let (e, tv) = editor(text, selecting: [NSRange(location: 0, length: 0)])
+        e.colorVisible()
+        let first = try #require(e.colored)
+        let screen = tv.visibleRect.height
+        tv.scroll(NSPoint(x: 0, y: screen / 2))
+        e.colorVisible()
+        #expect(e.colored == first)   // still in what's colored
+        tv.scroll(NSPoint(x: 0, y: screen * 5))
+        e.colorVisible()
+        #expect(e.colored != first)
+        // A file this size is parsed as it's typed, with no `parsed` after it: what's typed gets its colors all the same.
+        let lm = try #require(tv.layoutManager), at = try #require(e.colored).location
+        tv.setCursors([NSRange(location: at, length: 0)])
+        type(tv, "let ")
+        e.colorVisible()
+        #expect(lm.temporaryAttribute(.foregroundColor, atCharacterIndex: at, effectiveRange: nil) as? NSColor == CodeEditor.look.keyword)
+    }
+
     @Test func theContextMenuIsACodeEditorsOwn() throws {
         let (e, tv) = editor("let x = 1", selecting: [NSRange(location: 0, length: 3)])
         e.contextMenu = { m in m.addItem(withTitle: "Send to Agent", action: nil, keyEquivalent: "") }

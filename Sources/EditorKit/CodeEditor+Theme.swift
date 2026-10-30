@@ -81,6 +81,7 @@ extension CodeEditor {
         gutter?.needsDisplay = true
         highlighter?.colors = Self.captureColors(l)
         wrap(Self.wrapLines)
+        colored = nil
         colorVisible()
         tv.needsDisplay = true
     }
