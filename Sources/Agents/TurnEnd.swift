@@ -4,7 +4,7 @@ import Core
 /// What Claude Code's Stop means: the turn ended, unless the agent goes on by itself. It waits for subagents or a
 /// workflow, checks a /goal after each turn, or is woken when a command it started in the background ends (a
 /// `<task-notification>` prompt).
-public struct TurnEnd: Sendable {
+public struct TurnEnd: Codable, Sendable {
     public enum Verdict: Equatable, Sendable { case done, working, goal(String), command(String) }
 
     /// Background shells running at an earlier Stop: one that outlives a turn is a server, not something awaited.

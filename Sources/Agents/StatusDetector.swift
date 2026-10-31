@@ -8,7 +8,8 @@ public struct StatusDetector: Sendable {
     public private(set) var source = "the start"
     private var lastOutput: Date?
     private var tail = ""
-    private var hooked = false
+    /// It says its status itself (hooks, OSC 7501, `kelp report`): nothing is guessed.
+    public private(set) var hooked = false
     /// Agents without hooks: nothing counts until the user has typed something — a welcome menu isn't a question.
     private var active = false
     /// When heuristics last settled on done / waiting: the redraws that follow a finished turn ("Worked for 5.5s")
@@ -146,12 +147,14 @@ public struct StatusDetector: Sendable {
     /// Taken over from the kelpd an update replaced: its program went on as `status`, past its first input. `screen`: what it
     /// printed last. A question that kelpd read there is read again with this one's patterns: one the update fixed (Grok's
     /// opt-in banner as "allow … to") would otherwise keep an agent idling at its prompt in Needs You until it prints again.
-    /// One the agent reported itself stays: its OSC 7501 is on the screen (the handover doesn't say).
-    public mutating func adopted(_ status: AgentStatus, screen: String = "", at now: Date = clock) {
+    /// `hooked`: whether it said its status itself there, so a question it asked stays; nil from a kelpd that doesn't say,
+    /// when its OSC 7501 on the screen tells.
+    public mutating func adopted(_ status: AgentStatus, screen: String = "", hooked said: Bool? = nil, at now: Date = clock) {
         self.status = status; active = true; source = "taken over from the kelpd an update replaced"
         tail = String(Self.stripANSI(screen).suffix(600))
+        if let said { hooked = said }
         if status == .working { lastOutput = now }   // it settles once quiet, as it would have
-        guard status == .waiting, !hooked, !screen.contains(ProgramStatus.prefix) else { return }
+        guard status == .waiting, !hooked, said != nil || !screen.contains(ProgramStatus.prefix) else { return }
         self.status = asks ? .waiting : .done
         settledAt = now
     }

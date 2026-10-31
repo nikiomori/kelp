@@ -146,9 +146,19 @@ extension SessionHook: Handled {
     /// How long a command the agent waits for may run before its row says done anyway (a server TurnEnd took for a test).
     static let commandWait: TimeInterval = 600
 
+    /// What a held Stop waits for, in the kelpd that took it over: the wait ended with the one before.
+    static func waitAgain(_ ls: LiveSession) {
+        guard let at = ls.heldAgain() else { return }
+        let held = ls.snapshot
+        if held.goal != nil, let path = ls.transcriptPath, let goal = GoalStatus.last(inFile: path) {
+            watchGoal(ls, path: path, after: goal, stoppedAt: at)
+        } else if held.awaiting != nil {
+            DispatchQueue.global().asyncAfter(deadline: .now() + commandWait) { ls.release(at) }
+        }
+    }
+
     /// After a Stop with a goal open, Claude Code checks it (a model's answer, seconds): met, the turn is done; not met,
     /// it goes on and stops again. No answer within a minute: done.
-    /// Limit: these waits live in this kelpd; one replaced by an update leaves the row working until the agent's next hook.
     static func watchGoal(_ ls: LiveSession, path: String, after: GoalStatus, stoppedAt: Date, tries: Int = 30) {
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
             guard let now = GoalStatus.last(inFile: path), now.id != after.id else {

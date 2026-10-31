@@ -310,9 +310,10 @@ final class Sessions: Sendable {
             // As `liveManifest`; past startup, nothing is answered for it.
             m = wiredHooks(m, env: hookedEnv(m, rec), argv: rec.argv)
             let ls = LiveSession(record: rec, manifest: m, pty: pty, historyDir: root.appendingPathComponent("history"), callbacks: callbacks(for: rec))
-            ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [])
+            ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], status: h.status)
             try live.add(ls)
             ls.start()
+            SessionHook.waitAgain(ls)
         } catch {
             Log.session.error("\(h.id, privacy: .public) wasn't taken over: \(error)")
             pty.terminate(); pty.start()   // start: its exit is reaped

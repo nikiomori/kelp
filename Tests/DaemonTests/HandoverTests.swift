@@ -51,6 +51,31 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(next.sessions.existing(s.id)?.snapshot.status == .waiting)
 }
 
+/// What a status rests on goes along. A Stop held for its subagents stays held (it read as done 3 minutes later), a dialog
+/// answered elsewhere still clears when its tools ran, and what an agent reported itself isn't guessed at again.
+@Test func whatAStatusRestsOnGoesThroughAnUpdate() async throws {
+    let (d, c, root) = try daemon(); defer { d.stop() }
+    let held = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
+    let asking = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
+    let reporting = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
+    let subagent: JSONValue = .obj(["type": "subagent", "status": "running"])
+    _ = try await c.call(SessionHook(id: held.id, event: "working", transcript: "/p/\(held.id).jsonl"))
+    _ = try await c.call(SessionHook(id: held.id, event: "done", backgroundTasks: [subagent]))
+    _ = try await c.call(SessionHook(id: asking.id, event: "waiting", hookName: "PermissionRequest"))
+    _ = try await c.call(SessionReport(id: reporting.id, state: "blocked"))
+    #expect(try await waitFor { d.sessions.existing(reporting.id)?.snapshot.status == .waiting })
+
+    let next = try Daemon(root: root)
+    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    func live(_ s: Session) throws -> LiveSession { try #require(next.sessions.existing(s.id)) }
+    #expect(try live(held).snapshot.status == .working && live(held).state.withLock { $0.holding })
+    #expect(try live(held).transcriptPath == "/p/\(held.id).jsonl")
+    #expect(try live(reporting).snapshot.status == .waiting)   // no OSC 7501 on its screen: `kelp report` said so
+    let c2 = try client(root)
+    _ = try await c2.call(SessionHook(id: asking.id, event: "command", hookName: "PostToolBatch"))
+    #expect(try await waitFor { try live(asking).snapshot.status == .working })
+}
+
 /// A terminal made as the upgrade began, before anything read from it, is handed over too: its program isn't left to
 /// a hang-up.
 @Test func aTerminalNotStartedYetIsHandedOver() async throws {

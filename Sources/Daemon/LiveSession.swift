@@ -434,6 +434,16 @@ extension LiveSession {
     }
     var commandChanges: Int { state.withLock { $0.commandChanges } }
 
+    /// The time to `release` by, if a Stop is held (an update took the wait for it along: it starts over).
+    func heldAgain() -> Date? {
+        state.withLock { s in
+            guard s.holding else { return nil }
+            let now = Date()
+            s.lastHookAt = now
+            return now
+        }
+    }
+
     /// A Stop held as working that nothing came after (`at`: its time): the goal was met, or the wait ran out.
     func release(_ at: Date) {
         state.withLock { s in
@@ -519,19 +529,27 @@ extension LiveSession {
     func handedOver(fd: Int32) -> Handover.Session {
         state.withLock { s in
             Handover.Session(id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
-                             bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) })
+                             bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
+                             status: .init(holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
+                                           turnEnd: s.turnEnd, transcript: s.transcript))
         }
     }
 
     /// Taken over from the kelpd this one replaced: its history is the log's last `bytes` (that one's ring), in `modes`. It's
     /// long past starting up: no launch prompt, startup answer or title from its first prompt comes now.
     /// What was waiting to be typed (`pending`) is typed here once the agent is ready, as it would have been there.
-    func adopted(modes: String, bytes: Int, pending: [Handover.Prompt] = []) {
+    /// `status`: what its status rested on there; nil from a kelpd that didn't say.
+    func adopted(modes: String, bytes: Int, pending: [Handover.Prompt] = [], status: Handover.Status? = nil) {
         let history = bytes > 0 ? Data(tailOf: logURL, bytes: bytes) ?? Data() : Data()
         state.withLock { s in
             s.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
             s.ring = history; s.ringModes.read(Data(modes.utf8))
-            s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self))
+            if let status {
+                s.holding = status.holding; s.parked = status.parked
+                s.asking = status.asking
+                s.turnEnd = status.turnEnd; s.transcript = status.transcript
+            }
+            s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked)
             s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
             // A question read again and found to be none: the turn ended long ago, so one already read stays read.
             if s.detector.status != s.record.status {
