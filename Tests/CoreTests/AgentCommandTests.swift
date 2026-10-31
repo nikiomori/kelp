@@ -63,3 +63,11 @@ private func payload(_ json: String) throws -> JSONValue { try JSONDecoder().dec
     #expect(AgentCommand.short("python3 - <<'EOF'\nprint(1)\nEOF") == "python3 - <<'EOF'")
     #expect(AgentCommand.short("X=1 Y='a b'") == "X=1 Y='a b'")
 }
+
+/// Droid calls its shell tool Execute.
+@Test func droidsExecuteIsACommand() throws {
+    let v = try payload("""
+    {"hook_event_name":"PreToolUse","tool_name":"Execute","tool_use_id":"t1","tool_input":{"command":"npm test"}}
+    """)
+    #expect(AgentCommand(hook: v)?.command == "npm test")
+}

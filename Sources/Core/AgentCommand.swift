@@ -1,6 +1,6 @@
 import Foundation
 
-/// A command an agent ran with its shell tool (Claude Code's Bash), as its hooks tell it (`kelp hook command`): what it
+/// A command an agent ran with its shell tool (Claude Code's Bash, Droid's Execute), as its hooks tell it (`kelp hook command`): what it
 /// ran, how that went and the end of what it printed. The session's tab lists them (`session.commands`), its row shows the
 /// one running.
 public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
@@ -39,7 +39,8 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
     /// From a Claude Code hook's payload: PreToolUse starts it, PostToolUse / PostToolUseFailure end it. nil for any other
     /// tool or event.
     public init?(hook v: JSONValue, now: Date = Date()) {
-        guard v["tool_name"]?.string == "Bash", let id = v["tool_use_id"]?.string, let command = v["tool_input"]?["command"]?.string else { return nil }
+        guard ["Bash", "Execute"].contains(v["tool_name"]?.string) else { return nil }
+        guard let id = v["tool_use_id"]?.string, let command = v["tool_input"]?["command"]?.string else { return nil }
         self.init(id: id, command: command, description: v["tool_input"]?["description"]?.string, started: now)
         switch v["hook_event_name"]?.string {
         case "PreToolUse": return
