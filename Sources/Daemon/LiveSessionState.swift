@@ -267,10 +267,15 @@ extension LiveSession {
         /// A row that says working while the screen stood still for minutes and no hook came: a Stop (or a compaction's end) was
         /// one Kelp doesn't know of or missed, and the row would stay working, keeping the Mac awake, until the next prompt.
         /// Claude Code redraws its timer every second while it works; one held for what it waits for is quiet by design.
+        /// A menu on that screen is a question whose hook never came: it waits for the user, and its turn goes on after.
         /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would get.
         mutating func releaseStale(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
             let limit: TimeInterval = holding ? 1800 : 180
             guard hooked, detector.status == .working, up - lastLifeUp > limit else { return }
+            if menuOpen() {
+                detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen")
+                return
+            }
             holding = false
             record.goal = nil
             record.awaiting = nil

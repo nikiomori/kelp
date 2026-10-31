@@ -60,6 +60,24 @@ private func hooked() -> LiveSession.State {
     #expect(s.detector.status == .done && s.record.goal == nil)
 }
 
+/// A quiet row with a menu on screen is a question whose hook never came: it asks, and what its turn was held for stays. A menu
+/// answered since (the newer cursor is the input box's) doesn't count.
+@Test func aQuietRowWithAMenuOnScreenAsks() {
+    var s = hooked()
+    s.hook("working"); _ = s.sync()
+    s.holding = true; s.record.goal = "tests pass"
+    s.ring = Data("Do you want to proceed?\r\n❯ 1. Yes\r\n  2. No\r\n".utf8)
+    s.releaseStale(at: s.lastLifeUp + 1900)
+    #expect(s.sync()?.status == .waiting)
+    #expect(s.detector.source == "no sign of life for 1800 s, and a menu on screen")
+    #expect(s.record.unread && s.record.goal == "tests pass")
+
+    s.hook("working"); _ = s.sync()
+    s.ring += Data("\r\n❯ fix the login page\r\n".utf8)
+    s.releaseStale(at: s.lastLifeUp + 200)
+    #expect(s.sync()?.status == .done)
+}
+
 /// What no hook reports (a plain shell, a heuristic agent) isn't released by a quiet screen: its status comes from the screen.
 @Test func anAgentWithoutHooksIsNotReleased() {
     var s = LiveSession.State(record: Session(cwd: "/", command: "aider", agent: "aider"),
