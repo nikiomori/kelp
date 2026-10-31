@@ -24,6 +24,10 @@ public struct StatusDetector: Sendable {
     private let manifest: AgentManifest
     private let regexes: [NSRegularExpression]
 
+    /// What quiet is measured on: the clock that stands still while the Mac sleeps. On the wall clock a lid shut mid-turn
+    /// was hours of quiet, so the row said Done on waking, and Working again at the next line.
+    public static var clock: Date { Date(timeIntervalSinceReferenceDate: ProcessInfo.processInfo.systemUptime) }
+
     public init(manifest: AgentManifest) {
         self.manifest = manifest
         // Agents with hooks report every change themselves; guessing from output would call a TUI that redraws
@@ -36,7 +40,7 @@ public struct StatusDetector: Sendable {
     /// "working" again would be saved as ended, and the session couldn't resume.
     private var settled: Bool { status == .hibernated || status == .exited }
 
-    public mutating func output(_ chunk: String, at now: Date = Date()) {
+    public mutating func output(_ chunk: String, at now: Date = clock) {
         // The agent reports itself: nothing here is read (tick checks the same). Plain shells don't track status.
         guard !hooked, !settled, manifest.quietSeconds < 1e8 else { return }
         let (chunk, rest) = Self.wholeSequences(carry + chunk)
@@ -81,7 +85,7 @@ public struct StatusDetector: Sendable {
 
     /// Call periodically; returns the (possibly new) status.
     @discardableResult
-    public mutating func tick(at now: Date = Date()) -> AgentStatus {
+    public mutating func tick(at now: Date = clock) -> AgentStatus {
         guard !hooked, status == .working, let last = lastOutput, now.timeIntervalSince(last) >= manifest.quietSeconds else { return status }
         status = asks ? .waiting : .done
         source = "screen: quiet for \(Int(manifest.quietSeconds)) s" + (status == .waiting ? ", and its last lines ask something" : "")
@@ -132,7 +136,7 @@ public struct StatusDetector: Sendable {
 
     /// Attached again to a program that kept running (tmux): what it prints is its work, typed or not, once tmux's redraw
     /// of the screen in the first seconds is past (that redraw is no turn, and its end no "done").
-    public mutating func attachedToRunning(at now: Date = Date()) {
+    public mutating func attachedToRunning(at now: Date = clock) {
         active = true
         settledAt = now
         redrawDue = true
@@ -142,7 +146,7 @@ public struct StatusDetector: Sendable {
     /// printed last. A question that kelpd read there is read again with this one's patterns: one the update fixed (Grok's
     /// opt-in banner as "allow … to") would otherwise keep an agent idling at its prompt in Needs You until it prints again.
     /// One the agent reported itself stays: its OSC 7501 is on the screen (the handover doesn't say).
-    public mutating func adopted(_ status: AgentStatus, screen: String = "", at now: Date = Date()) {
+    public mutating func adopted(_ status: AgentStatus, screen: String = "", at now: Date = clock) {
         self.status = status; active = true; source = "taken over from the kelpd an update replaced"
         tail = String(Self.stripANSI(screen).suffix(600))
         if status == .working { lastOutput = now }   // it settles once quiet, as it would have
@@ -153,11 +157,11 @@ public struct StatusDetector: Sendable {
 
     /// The user typed into the agent: whatever it asked before is answered, only what it prints next can ask again.
     /// `typing`: keys without Return (the prompt is still being written); output in the next seconds is their echo.
-    public mutating func input(typing: Bool = false, at now: Date = Date()) { tail = ""; active = true; settledAt = nil; typedAt = typing ? now : nil }
+    public mutating func input(typing: Bool = false, at now: Date = clock) { tail = ""; active = true; settledAt = nil; typedAt = typing ? now : nil }
 
     /// The agent printed that its turn was cut short: idle at once, and its redraws in the next seconds ("Conversation
     /// interrupted") aren't new work.
-    public mutating func interrupted(at now: Date = Date()) {
+    public mutating func interrupted(at now: Date = clock) {
         guard !settled else { return }
         status = .idle
         source = "screen: it says its turn was cut short"

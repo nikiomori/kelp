@@ -46,3 +46,14 @@ import Testing
     d.override(.working)   // an ended program stays ended
     #expect(d.status == .exited && d.source == "the program ended")
 }
+
+/// Quiet is read off the clock that stands still while the Mac sleeps. Nothing here sleeps: if the detector kept the wall
+/// clock's time of a line, the time on this one would be years before it, and the agent would never read as quiet.
+@Test func quietIsMeasuredOnTheClockThatSleepsWithTheMac() {
+    let manifest = AgentManifest(id: "a", name: "A", command: "a")
+    var d = StatusDetector(manifest: manifest)
+    d.input()
+    d.output("it works on something")
+    #expect(d.status == .working)
+    #expect(d.tick(at: StatusDetector.clock.addingTimeInterval(manifest.quietSeconds + 1)) == .done)
+}
