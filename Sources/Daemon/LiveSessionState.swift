@@ -43,6 +43,10 @@ extension LiveSession {
         var lastLifeUp = ProcessInfo.processInfo.systemUptime
         /// When the latest hook heard ran (`SessionHook.at`).
         var newestHook: TimeInterval = 0
+        /// A hook or a report came: it has them, and they run.
+        var hooksSpoke = false
+        /// When a line went into an agent whose hooks haven't spoken yet: one should come now (`hooksSilent`).
+        var lineSentUp: TimeInterval?
         /// The last Stop was held as working (subagents, a goal, a command): the agent is quiet by design until it wakes.
         var holding = false
         /// The last Stop left work in the background or a timer: quiet, but something will wake it. Assumed until a Stop says.
@@ -201,6 +205,7 @@ extension LiveSession {
 
         /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
         mutating func apply(_ r: ProgramStatus.Report) {
+            spoke()
             detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10); lastHookAt = Date()
             if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if r.state == "idle" || r.state == "clear" { record.summary = "" }
             record.progress = r.progress
@@ -257,6 +262,31 @@ extension LiveSession {
                 detector.override(.working, because: "the tools it asked about ran")
             default: break
             }
+        }
+
+        static let noHooks = "No hooks from this agent: its status is read off the screen"
+
+        /// A line went in: an agent with hooks answers that with one, if they run at all.
+        mutating func expectHook() {
+            if hooked, !hooksSpoke, lineSentUp == nil { lineSentUp = ProcessInfo.processInfo.systemUptime }
+        }
+
+        /// A hook came. Whatever the row said about them being off is over.
+        mutating func spoke() {
+            guard !hooksSpoke else { return }
+            hooksSpoke = true
+            lineSentUp = nil
+            if record.summary == Self.noHooks { record.summary = "" }
+        }
+
+        /// A line went in and no hook came. They're off (disableAllHooks, a managed policy) or can't run (`kelp` not on PATH, a
+        /// version that refuses the file), and with heuristics off the row would stay Idle however long the agent worked.
+        /// A hook that comes after all turns them back off (`StatusDetector.hook`).
+        mutating func hooksSilent(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+            guard let sent = lineSentUp, up - sent > 15 else { return }
+            lineSentUp = nil
+            detector.hooksSilent()
+            record.summary = Self.noHooks
         }
 
         /// A sign of life from the agent: a hook, or what it printed.
@@ -359,6 +389,7 @@ extension LiveSession {
         private mutating func sendLine() -> String? {
             let line = typing.trimmingCharacters(in: .whitespacesAndNewlines)
             typing = ""; boxEmpty = true
+            if !line.isEmpty { expectHook() }
             guard !sawFirstPrompt, line.count >= 8 else { return nil }
             sawFirstPrompt = true
             return line

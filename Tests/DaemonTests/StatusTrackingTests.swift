@@ -188,6 +188,39 @@ private func hooked() -> LiveSession.State {
     for k in ["\u{1B}[B", "\u{1B}[9u", "\u{1B}[13;2u", "a", "0"] { #expect(!LiveSession.answersMenu(Data(k.utf8)), "\(k.debugDescription)") }
 }
 
+/// Hooks can be off without Kelp being told (disableAllHooks, a managed policy, `kelp` not on PATH). A line went in and none
+/// came: the row is read off the screen, says why, and a hook that comes after all takes that back.
+@Test func anAgentWhoseHooksStaySilentIsReadOffTheScreen() {
+    var s = hooked()
+    s.hooksSilent(at: 1e9)   // nothing was sent yet: a resumed agent sits at its prompt, and hooks have nothing to say
+    #expect(s.detector.hooked && s.sync() == nil)
+    s.expectHook()
+    let sent = try? #require(s.lineSentUp)
+    s.hooksSilent(at: (sent ?? 0) + 5)
+    #expect(s.detector.hooked)
+    s.hooksSilent(at: (sent ?? 0) + 16)
+    #expect(!s.detector.hooked && s.sync()?.status == .working && s.record.summary == LiveSession.State.noHooks)
+    s.detector.output("still working on it")
+    #expect(s.record.status == .working)
+
+    s.spoke(); s.hook("done")
+    #expect(s.detector.hooked && s.sync()?.status == .done && s.record.summary.isEmpty)
+    s.expectHook()
+    #expect(s.lineSentUp == nil)   // they spoke once: an agent between turns isn't suspect
+}
+
+/// A question a program without hooks asked and the user answered: the row doesn't wait for words that may never come.
+@Test func anAnswerToAnAgentWithoutHooksEndsItsQuestion() {
+    var d = StatusDetector(manifest: AgentManifest(id: "a", name: "A", command: "a", waitingPatterns: ["Allow\\?"]))
+    d.input()
+    d.output("Allow?", at: Date(timeIntervalSinceReferenceDate: 1000))
+    #expect(d.tick(at: Date(timeIntervalSinceReferenceDate: 2000)) == .waiting)
+    d.answered(at: Date(timeIntervalSinceReferenceDate: 3000))
+    #expect(d.status == .working)
+    d.input()
+    #expect(d.tick(at: Date(timeIntervalSinceReferenceDate: 4000)) == .done)
+}
+
 /// Claude Code blinks a dot beside the tool a dialog is about, and within 20 s the menu is out of the last bytes though it's
 /// still on screen. Seen with 2.1.316: Allow in a notification found no menu, and `kelp send`, seeing none, typed its text
 /// and pressed Enter, which said yes to the permission.

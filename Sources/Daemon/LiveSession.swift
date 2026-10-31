@@ -74,6 +74,9 @@ final class LiveSession: Sendable {
         return kittyKey(s).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
     }
 
+    /// The one key some agents take for an answer (Codex's y, a, n).
+    static func saysYesOrNo(_ d: Data) -> Bool { d.count == 1 && "yanYAN".utf8.contains(d[0]) }
+
     /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
     /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
     static func kittyKey(_ s: String) -> (key: Int, mods: Int)? {
@@ -287,6 +290,7 @@ final class LiveSession: Sendable {
         state.withLock { s in
             s.detector.tick()
             s.releaseStale()
+            s.hooksSilent()
             if let arm = s.interruptArmed {
                 if s.lastHookAt > arm.at { s.interruptArmed = nil }
                 else if Self.printedStopped(arm.seen) {
@@ -345,6 +349,8 @@ final class LiveSession: Sendable {
                 if s.record.status == .waiting, Self.answersMenu(d) {
                     s.detector.override(.working, because: "an answer typed in the terminal"); s.interruptArmed = (Date(), "")
                 }
+            } else if s.record.status == .waiting, Self.answersMenu(d) || Self.isStopKey(d) || Self.saysYesOrNo(d) {
+                s.detector.answered()
             }
             emit(s.sync() ?? read)
             if answering { s.typing = ""; return nil }
@@ -373,6 +379,7 @@ extension LiveSession {
     /// Whether a hook that ran at `at` is the latest heard, or nothing says it isn't (a caller that doesn't send the time).
     func newest(_ at: TimeInterval?) -> Bool {
         state.withLock { s in
+            s.spoke()
             guard let at else { return true }
             guard at >= s.newestHook else { return false }
             s.newestHook = at

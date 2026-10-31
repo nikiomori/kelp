@@ -134,6 +134,21 @@ public struct StatusDetector: Sendable {
         source = "reported by the program: \(state)"
     }
 
+    /// Its hooks never spoke after a prompt: from here it's read off the screen like an agent without any, until a hook comes.
+    public mutating func hooksSilent(at now: Date = clock) {
+        guard !settled else { return }
+        hooked = false; active = true
+        status = .working; source = "no hook came after a prompt, so it's read off the screen"
+        lastOutput = now
+    }
+
+    /// A question it asked was answered: it goes on, or it settles once quiet. An agent with hooks has `override`: they say the rest.
+    public mutating func answered(at now: Date = clock) {
+        guard !settled else { return }
+        status = .working; source = "an answer typed in the terminal"
+        lastOutput = now
+    }
+
     public mutating func exited() { status = .exited; source = "the program ended" }
 
     /// Attached again to a program that kept running (tmux): what it prints is its work, typed or not, once tmux's redraw
