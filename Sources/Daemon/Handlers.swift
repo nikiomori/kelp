@@ -398,17 +398,14 @@ extension SessionReport: Handled {
     }
 }
 
-/// herdr has no "done": idle after work is a finished turn.
+/// herdr has no "done": idle after work is a finished turn (`StatusDetector.program`).
 extension PaneReportAgent: Handled {
     var reportsFor: String? { paneId }
     static var quick: Bool { true }   // fx waits for the reply
     func handle(_ sessions: Sessions) throws -> Done {
         guard ["idle", "working", "blocked"].contains(state) else { throw RPCError.invalidParams("state is one of idle, working, blocked") }
         guard let ls = sessions.existing(paneId) else { return Done() }
-        // Read and changed under one lock: a hook landing in between can't make idle mean the wrong thing. Idle after a
-        // finished turn stays finished.
-        let changed = ls.report { [state] now in ProgramStatus.Report(state: state == "idle" && [.working, .done].contains(now) ? "done" : state) }
-        if changed != nil { sessions.publish(ls) }
+        if ls.report(ProgramStatus.Report(state: state)) != nil { sessions.publish(ls) }
         return Done()
     }
 }

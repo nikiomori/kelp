@@ -231,12 +231,9 @@ final class LiveSession: Sendable {
     }
 
     /// `kelp report`: the record to publish when only what it says changed (a new state goes out through `callbacks.status`).
-    func report(_ r: ProgramStatus.Report) -> Session? { report { _ in r } }
-
-    /// The report made from the status it lands on, under the same lock.
-    func report(_ make: @Sendable (AgentStatus) -> ProgramStatus.Report) -> Session? {
+    func report(_ r: ProgramStatus.Report) -> Session? {
         state.withLock { s in
-            s.apply(make(s.record.status))
+            s.apply(r)
             let changed = s.sync()
             emit(changed)
             return changed == nil ? s.record : nil
@@ -338,7 +335,9 @@ final class LiveSession: Sendable {
             var read: Session?
             if s.record.unread { s.record.unread = false; read = s.record }   // typing into it is having read it
             // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
-            if Self.isStopKey(d), s.record.status == .working || (s.hooked && s.record.status == .waiting) { s.interruptArmed = (Date(), "") }
+            if Self.isStopKey(d), s.record.status == .working || (s.hooked && s.record.status == .waiting) {
+                s.interruptArmed = (Date(), ""); s.stopKeyAt = Date()
+            }
             if s.hooked {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
                 if s.record.status == .waiting, Self.answersMenu(d) {

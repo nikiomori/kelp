@@ -52,6 +52,8 @@ extension LiveSession {
         /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
         /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?
+        /// Esc / ⌃C as it worked: an idle it reports in the seconds after is that stop, not a finished turn.
+        var stopKeyAt = Date.distantPast
 
         // Typing into it (LiveSessionInput).
         var autoAnswers: [(NSRegularExpression, AgentManifest.AutoAnswer)]
@@ -195,7 +197,7 @@ extension LiveSession {
 
         /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
         mutating func apply(_ r: ProgramStatus.Report) {
-            detector.program(r.state); lastHookAt = Date()
+            detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10); lastHookAt = Date()
             if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if r.state == "idle" || r.state == "clear" { record.summary = "" }
             record.progress = r.progress
         }

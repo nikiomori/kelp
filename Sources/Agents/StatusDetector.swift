@@ -108,12 +108,15 @@ public struct StatusDetector: Sendable {
         source = "hook: \(event)"
     }
 
-    /// OSC 7501 report from the agent itself: as good as a hook, heuristics are off from here.
-    public mutating func program(_ state: String) {
+    /// OSC 7501 report from the agent itself: as good as a hook, heuristics are off from here. Idle after work is a finished
+    /// turn, for a program with no "done" of its own, and a finished one stays so. `cutShort`: the user just stopped it, and
+    /// what they stopped themselves finished nothing.
+    public mutating func program(_ state: String, cutShort: Bool = false) {
         hooked = true
         guard !settled else { return }
         switch state {
-        case "idle", "clear": status = .idle
+        case "idle": status = !cutShort && (status == .working || status == .done) ? .done : .idle
+        case "clear": status = .idle
         case "working": status = .working
         case "done": status = .done
         case "blocked": status = .waiting

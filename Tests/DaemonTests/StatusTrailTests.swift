@@ -51,6 +51,28 @@ import Agents
     await #expect(throws: RPCError.self) { try await w.c.call(SessionTrail(id: s.id)) }
 }
 
+/// A program's own idle after work goes out as a finished turn, unread: a row that said Idle told nobody it had finished.
+/// The trail keeps what the program really said. After Esc it isn't one: a row that says done would tell them what they did.
+@Test func aProgramsIdleAfterWorkFinishesItsTurn() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "idle")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
+    _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
+    _ = try await w.c.call(SessionReport(id: s.id, state: "idle"))
+    #expect(try await waitFor(10) {
+        let listed = try await w.c.call(SessionList()).first { $0.id == s.id }
+        return listed?.status == .done && listed?.unread == true
+    })
+    #expect(try await w.c.call(SessionTrail(id: s.id)).contains("working → done  reported by the program: idle"))
+
+    func status() async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == s.id }?.status }
+    _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
+    #expect(try await waitFor(5) { try await status() == .working })
+    _ = try await w.c.call(SessionWrite(id: s.id, base64: Data([0x1B]).base64EncodedString()))
+    _ = try await w.c.call(SessionReport(id: s.id, state: "idle"))
+    #expect(try await waitFor(5) { try await status() == .idle })
+}
+
 /// The id comes from outside and names a file: only a session Kelp has gets one, read or written.
 @Test func aTrailIsOnlyASessionsOwn() async throws {
     let (d, c, root) = try daemon(); defer { d.stop() }

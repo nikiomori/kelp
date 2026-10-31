@@ -2,6 +2,24 @@ import Foundation
 import Testing
 @testable import Agents
 
+/// A program with no "done" of its own (Codex at its prompt, herdr) ends a turn with idle: that's a finished turn, told as
+/// one, and the idle that follows doesn't take it back. Idle before any work, after a question or a stop finished nothing.
+@Test func idleAfterWorkIsAFinishedTurn() throws {
+    var d = StatusDetector(manifest: try #require(AgentManifest.presets.first { $0.id == "codex" }))
+    d.program("idle")
+    #expect(d.status == .idle)
+    d.program("working"); d.program("idle")
+    #expect(d.status == .done && d.source == "reported by the program: idle")
+    d.program("idle")
+    #expect(d.status == .done)
+    d.program("clear")
+    #expect(d.status == .idle)
+    d.program("working"); d.program("idle", cutShort: true)
+    #expect(d.status == .idle)
+    d.program("blocked"); d.program("idle")
+    #expect(d.status == .idle)
+}
+
 @Test func theStatusSaysWhereItCameFrom() throws {
     let t0 = Date()
     let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
