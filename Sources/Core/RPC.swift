@@ -24,6 +24,7 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public static let updating = internalError("Kelp's background service is updating; try again in a moment.")
     /// The connection ended with no reply, or was over already.
     public static let connectionClosed = internalError("connection closed")
+    public static func noReply(_ method: String, in seconds: TimeInterval) -> RPCError { internalError("no reply to \(method) in \(Int(seconds)) s") }
 }
 
 /// A line on the wire: either a response (has `result`/`error`) or a notification/request (has `method`).

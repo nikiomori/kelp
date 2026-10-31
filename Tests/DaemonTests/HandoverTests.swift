@@ -51,6 +51,31 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(next.sessions.existing(s.id)?.snapshot.status == .waiting)
 }
 
+/// A kelpd that doesn't answer isn't waited for: the hook stays in the socket and is read when it's back, and the agent goes
+/// on. Its next one can then be read first, and the older one says nothing about now.
+@Test func aHookDoesntHoldItsAgentAndALateOneChangesNothing() async throws {
+    let (d, c, root) = try daemon(); defer { d.stop() }
+    let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
+    let quiet = socket(AF_UNIX, SOCK_STREAM, 0), path = tmp().path.prefix(40) + ".s"
+    var addr = sockaddr_un(); addr.sun_family = sa_family_t(AF_UNIX)
+    _ = withUnsafeMutableBytes(of: &addr.sun_path) { b in path.utf8.enumerated().map { b[$0] = $1 } }
+    let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(quiet, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+    #expect(bound == 0 && listen(quiet, 8) == 0)   // nobody accepts: a stopped kelpd
+    defer { close(quiet); unlink(String(path)) }
+    let started = Date()
+    try await SessionHook(id: s.id, event: "done").send(socket: String(path))
+    #expect(Date().timeIntervalSince(started) < SessionHook.replyWait + 1)
+
+    _ = try await c.call(SessionHook(id: s.id, event: "working", at: 20))
+    _ = try await c.call(SessionHook(id: s.id, event: "done", at: 30))
+    #expect(try await waitFor { d.sessions.existing(s.id)?.snapshot.status == .done })
+    _ = try await c.call(SessionHook(id: s.id, event: "waiting", at: 25))
+    _ = try await c.call(SessionHook(id: s.id, event: "command", hookName: "PreToolUse", at: 26))
+    #expect(d.sessions.existing(s.id)?.snapshot.status == .done)
+    _ = try await c.call(SessionHook(id: s.id, event: "working"))   // no time: a caller that doesn't send one
+    #expect(d.sessions.existing(s.id)?.snapshot.status == .working)
+}
+
 /// What a status rests on goes along. A Stop held for its subagents stays held (it read as done 3 minutes later), a dialog
 /// answered elsewhere still clears when its tools ran, and what an agent reported itself isn't guessed at again.
 @Test func whatAStatusRestsOnGoesThroughAnUpdate() async throws {

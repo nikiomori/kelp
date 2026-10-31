@@ -1,18 +1,24 @@
 import Foundation
 
 extension SessionHook {
+    /// How long an agent waits for its hook's reply. A kelpd that doesn't answer by then is stopped or being replaced, and
+    /// what was sent is in the socket, for it or the next one to read: the agent has work to go on with.
+    public static let replyWait: TimeInterval = 3
+
     /// Sends it, from the agent's side. An update refuses every call for seconds, then hangs up on what it hadn't answered,
     /// and a hook gets no second chance from its agent: so it goes again on a new connection, which waits in the socket's
     /// queue for the next kelpd. Sent twice, it only says the same thing twice.
     /// Limit: that queue (128 connections) is the only buffer, and no file behind it: a hook is for a running session, and
-    /// one outlives its daemon only by being handed over, which keeps the socket open. Its agent waits here meanwhile.
+    /// one outlives its daemon only by being handed over, which keeps the socket open.
     public func send(socket: String, within seconds: TimeInterval = 10) async throws {
         let end = Date().addingTimeInterval(seconds)
         while true {
             do {
                 let c = try RPCClient(socket: socket, patience: 2)
                 defer { c.close() }
-                _ = try await c.call(self)
+                _ = try await c.call(self, timeout: Self.replyWait)
+                return
+            } catch let e as RPCError where e == .noReply(Self.name, in: Self.replyWait) {
                 return
             } catch let e as RPCError where (e == .updating || e == .connectionClosed) && Date() < end {
                 try await Task.sleep(for: .milliseconds(100))

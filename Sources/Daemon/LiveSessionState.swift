@@ -41,6 +41,8 @@ extension LiveSession {
         var compactSummary: String?
         /// The last output or hook on the clock that stands still while the Mac sleeps (`releaseStale`).
         var lastLifeUp = ProcessInfo.processInfo.systemUptime
+        /// When the latest hook heard ran (`SessionHook.at`).
+        var newestHook: TimeInterval = 0
         /// The last Stop was held as working (subagents, a goal, a command): the agent is quiet by design until it wakes.
         var holding = false
         /// The last Stop left work in the background or a timer: quiet, but something will wake it. Assumed until a Stop says.

@@ -368,6 +368,16 @@ final class LiveSession: Sendable {
 }
 
 extension LiveSession {
+    /// Whether a hook that ran at `at` is the latest heard, or nothing says it isn't (a caller that doesn't send the time).
+    func newest(_ at: TimeInterval?) -> Bool {
+        state.withLock { s in
+            guard let at else { return true }
+            guard at >= s.newestHook else { return false }
+            s.newestHook = at
+            return true
+        }
+    }
+
     /// `State.hook`: the record goes out when its status or what the row says changed.
     func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil) {
         state.withLock { s in

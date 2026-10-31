@@ -112,11 +112,15 @@ extension SessionHook: Handled {
             return Done()
         }
         guard let event else { throw RPCError.invalidParams("missing event") }
-        if event == "command" {   // a tool started or ended: a Bash command for the list and the row, any for what its turn does
-            if let command {
-                if ls.ran(command) != nil { sessions.publish(ls) }
-                sessions.touchCommands(ls)
-            }
+        if event == "command", let command {   // a Bash command for the list and the row, whenever its hook arrives
+            if ls.ran(command) != nil { sessions.publish(ls) }
+            sessions.touchCommands(ls)
+        }
+        guard ls.newest(at) else {
+            ls.trail.add("\(trailLine): older than what it said since")
+            return Done()
+        }
+        if event == "command" {   // a tool started or ended: what that says of its turn
             ls.tool(hookName, agent: agentId)
             return Done()
         }
