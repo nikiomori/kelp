@@ -317,8 +317,12 @@ public enum Hooks {
         "auth_storage_failure", "plugin_notification", "elicitation_complete", "elicitation_response"
     ]
     public static func isInformational(_ payload: JSONValue) -> Bool {
-        payload["notification_type"]?.string.map(informational.contains) == true
-            || payload["message"]?.string?.hasPrefix("Claude is waiting for your input") == true
+        payload["notification_type"]?.string.map(informational.contains) == true || atPrompt(payload)
+    }
+
+    /// The agent says it has been sitting at its prompt.
+    public static func atPrompt(_ payload: JSONValue) -> Bool {
+        payload["notification_type"]?.string == "idle_prompt" || payload["message"]?.string?.hasPrefix("Claude is waiting for your input") == true
     }
 
     /// What a StopFailure says ended the turn (an overloaded API, a login gone): the row's error, unless it's a plan limit.

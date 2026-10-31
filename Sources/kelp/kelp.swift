@@ -149,6 +149,7 @@ func plist() -> String {
                     h.sessionCrons = v["session_crons"]?.array   // Stop: timers that will wake it
                     if ev == "command" { h.command = AgentCommand(hook: v) }   // a Bash command started or ended
                     h.notification = SessionHook.notification(of: v)
+                    h.goal = SessionHook.goal(of: v)
                 }
                 try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
             default:

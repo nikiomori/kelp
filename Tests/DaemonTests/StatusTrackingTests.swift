@@ -262,3 +262,47 @@ private func hooked() -> LiveSession.State {
     #expect(try await status(asks) == .waiting)
     try await hibernate(after: 0, w.c)
 }
+
+/// Two dialogs in one batch: Claude Code shows them one after another and says nothing for the second once the first is
+/// answered, so a key leaves the row asking. A batch through says all of them are.
+@Test func aKeyAnswersOneDialogOfABatch() {
+    var s = hooked()
+    s.hook("working"); s.hook("waiting", asker: ""); s.hook("waiting", asker: ""); _ = s.sync()
+    #expect(!s.answeredOne() && s.answeredOne())
+    s.hook("waiting", asker: ""); s.hook("waiting", asker: ""); _ = s.sync()
+    s.tool("PostToolBatch", agent: nil)
+    #expect(s.asking.isEmpty && s.sync()?.status == .working)
+}
+
+/// A turn cut short outside Kelp sends no hook: after the quiet, what it printed decides. A menu still open keeps it asking.
+@Test func aTurnCutShortElsewhereGoesIdleWhenItsScreenSaysSo() {
+    for status in ["working", "waiting"] {
+        var s = hooked()
+        s.hook(status); _ = s.sync()
+        s.ring = Data("⏺\r\n Interrupted · What should Claude do instead?\r\n ❯ \r\n".utf8)
+        s.releaseStale(at: s.lastLifeUp + 200)
+        #expect(s.sync()?.status == .idle)
+    }
+    var open = hooked()
+    open.hook("waiting"); _ = open.sync()
+    open.ring = Data("Do you want to proceed?\r\n ❯ 1. Yes\r\n   2. No, and tell Claude what to do differently\r\n".utf8)
+    open.releaseStale(at: open.lastLifeUp + 200)
+    #expect(open.sync() == nil && open.record.status == .waiting)
+}
+
+/// Claude Code says it sits at its prompt only after a finished turn: a row that still works or asks missed a Stop. One held
+/// for its subagents isn't that.
+@Test func anAgentAtItsPromptIsDone() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let desk = try await firstDesk(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    let idle: JSONValue = .obj(["notification_type": "idle_prompt", "message": "Claude is waiting for your input"])
+    func status() -> AgentStatus? { w.d.sessions.existing(s.id)?.snapshot.status }
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "done", backgroundTasks: [.obj(["type": "subagent"])]))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", notification: idle))
+    #expect(status() == .working)
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", notification: idle))
+    #expect(try await waitFor { status() == .done })
+}

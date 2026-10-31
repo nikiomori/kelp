@@ -58,8 +58,11 @@ extension LiveSession {
         /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
         /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?
-        /// Whose permission dialogs are open: subagents by id, "" for the main thread. Claude Code sends no hook for the answer.
-        var asking = Set<String>()
+        /// Whose permission dialogs are open, and how many: subagents by id, "" for the main thread. Claude Code sends no hook
+        /// for an answer, and none for the next dialog of a batch when the first is answered.
+        var asking: [String: Int] = [:]
+        /// The prompt that started this turn set a /goal, this one: its first Stop comes before the first check is written.
+        var goalAsked: String?
         /// Esc / ⌃C as it worked: an idle it reports in the seconds after is that stop, not a finished turn.
         var stopKeyAt = Date.distantPast
 
@@ -213,8 +216,8 @@ extension LiveSession {
 
         /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
         /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
-        /// permission dialog it is, for `tool`.
-        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil) {
+        /// permission dialog it is, for `tool`; `goal`: what the prompt set as a /goal.
+        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, goal: String? = nil) {
             heard()
             // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
             // isn't waiting for it. The next Stop says again.
@@ -235,11 +238,12 @@ extension LiveSession {
                 if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
                 compactManual = false
             case "waiting":
-                if let asker { asking.insert(asker) }
+                if let asker { asking[asker, default: 0] += 1 }
                 if let message, !message.isEmpty { record.summary = message }
                 detector.hook(event)
             case "working":
                 asking.removeAll()
+                goalAsked = goal
                 detector.hook(event)
             default: detector.hook(event)
             }
@@ -258,7 +262,7 @@ extension LiveSession {
                 guard agent == nil, [.done, .idle, .error].contains(detector.status) else { return }
                 detector.override(.working, because: "a tool started after its turn ended")
             case "PostToolBatch":
-                guard asking.remove(agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else { return }
+                guard asking.removeValue(forKey: agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else { return }
                 detector.override(.working, because: "the tools it asked about ran")
             default: break
             }
@@ -287,6 +291,13 @@ extension LiveSession {
             lineSentUp = nil
             detector.hooksSilent()
             record.summary = Self.noHooks
+        }
+
+        /// A key answered a dialog: whether none is left open. Several are shown one after another, and a question still on
+        /// screen must not read as work. Which one it answered doesn't matter: a batch's tools clear them all (`tool`).
+        mutating func answeredOne() -> Bool {
+            if let (who, open) = asking.first { asking[who] = open > 1 ? open - 1 : nil }
+            return asking.isEmpty
         }
 
         /// A sign of life from the agent: a hook, or what it printed.
@@ -322,22 +333,37 @@ extension LiveSession {
             _ = showRunning()
         }
 
-        /// A row that says working while the screen stood still for minutes and no hook came: a Stop (or a compaction's end) was
-        /// one Kelp doesn't know of or missed, and the row would stay working, keeping the Mac awake, until the next prompt.
-        /// Claude Code redraws its timer every second while it works; one held for what it waits for is quiet by design.
+        /// A row that says working or asks while the screen stood still for minutes and no hook came. A Stop (or a compaction's
+        /// end) Kelp doesn't know of or missed would leave it working, keeping the Mac awake, until the next prompt, and a turn
+        /// cut short elsewhere (Remote Control, a No there) sends no hook at all and only prints that it was. Claude Code redraws
+        /// its timer every second while it works; one held for what it waits for is quiet by design.
         /// A menu on that screen is a question whose hook never came: it waits for the user, and its turn goes on after.
         /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would get.
         mutating func releaseStale(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
             let limit: TimeInterval = holding ? 1800 : 180
-            guard hooked, detector.status == .working, up - lastLifeUp > limit else { return }
+            let status = detector.status
+            guard hooked, status == .working || status == .waiting, up - lastLifeUp > limit else { return }
+            lastLifeUp = up   // looked at; again after as long
             if menuOpen() {
-                detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen")
+                if status == .working { detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen") }
                 return
             }
+            if LiveSession.printedStopped(screen(1500)) {
+                asking.removeAll()
+                release()
+                detector.override(.idle, because: "no sign of life for \(Int(limit)) s, and it says its turn was cut short")
+                return
+            }
+            guard status == .working else { return }
+            release()
+            detector.override(.done, because: "no sign of life for \(Int(limit)) s")
+        }
+
+        /// Nothing it was held for counts any more.
+        private mutating func release() {
             holding = false
             record.goal = nil
             record.awaiting = nil
-            detector.override(.done, because: "no sign of life for \(Int(limit)) s")
         }
 
         /// The detector's status into the record; the record when it changed. Ended is final: a hook or a keystroke that

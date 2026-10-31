@@ -28,7 +28,7 @@ import Agents
         _ = try await w.c.call(SessionHook(id: s.id, event: event, notification: type.map { .obj(["notification_type": .string($0)]) }))
     }
     try await hook("working")
-    try await hook("waiting", "idle_prompt")
+    try await hook("waiting", "auth_success")
     try await hook("waiting", "permission_request")
     try await hook("done")
     _ = try await w.c.call(SessionKill(id: s.id))
@@ -37,7 +37,7 @@ import Agents
     #expect(try await waitFor(5) { try await w.c.call(SessionTrail(id: s.id)).contains("nothing runs here") })
     let trail = try await w.c.call(SessionTrail(id: s.id))
     var rest = Substring(trail)
-    for line in ["hook working", "idle → working  hook: working", "hook waiting idle_prompt: asks nothing", "hook waiting permission_request",
+    for line in ["hook working", "idle → working  hook: working", "hook waiting auth_success: asks nothing", "hook waiting permission_request",
                  "working → waiting  hook: waiting", "hook done", "stop: done", "waiting → done  hook: done", "hook working: nothing runs here"] {
         let found = try #require(rest.range(of: line), "no \(line) in\n\(trail)")
         rest = rest[found.upperBound...]

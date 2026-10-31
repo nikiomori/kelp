@@ -26,6 +26,13 @@ extension SessionHook {
         }
     }
 
+    /// What a prompt sets as a /goal. `/goal` alone shows the one set and `/goal clear` ends it.
+    public static func goal(of v: JSONValue) -> String? {
+        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string, prompt.hasPrefix("/goal ") else { return nil }
+        let condition = prompt.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
+        return condition.isEmpty || condition == "clear" ? nil : condition
+    }
+
     /// What a Claude Code hook's JSON says beyond its event, for the row or for how the turn ended.
     public static func notification(of v: JSONValue) -> JSONValue? {
         switch v["hook_event_name"]?.string {

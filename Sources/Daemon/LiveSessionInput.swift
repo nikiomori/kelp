@@ -69,7 +69,10 @@ extension LiveSession {
             s.steering = (re, Date(), .distantPast, nil)
             s.detector.input(); s.record.unread = false
             // A "No" ends the turn: the screen says so.
-            if s.hooked { s.detector.override(.working, because: "an answer from a notification"); s.interruptArmed = (Date(), "") }
+            if s.hooked {
+                s.interruptArmed = (Date(), "")
+                if s.answeredOne() { s.detector.override(.working, because: "an answer from a notification") }
+            }
             return s.sync() ?? s.record
         }
     }

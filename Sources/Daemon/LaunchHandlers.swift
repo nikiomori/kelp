@@ -109,6 +109,7 @@ extension SessionHook: Handled {
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) {
             ls.trail.add("\(trailLine): asks nothing")
+            if Hooks.atPrompt(notification), ls.newest(at) { ls.atPrompt() }
             return Done()
         }
         guard let event else { throw RPCError.invalidParams("missing event") }
@@ -127,17 +128,20 @@ extension SessionHook: Handled {
         ls.trail.add(trailLine)
         guard event == "done" else {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },
-                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil)
+                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, goal: goal)
             return Done()
         }
         let limit = notification.flatMap(Hooks.limitHit)
         if let limit { ls.hitLimit(limit) }
         let path = ls.transcriptPath
-        let goal = path.flatMap(GoalStatus.last(inFile:))
+        let last = path.flatMap(GoalStatus.last(inFile:))
+        let asked = ls.takeGoalAsked().map { GoalStatus(met: false, condition: $0, id: "") }   // its first check isn't written yet
         let failure = limit == nil ? notification.flatMap(Hooks.failure) : nil
-        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: goal, failure: failure)
+        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: asked ?? last, failure: failure)
         switch verdict {
-        case .goal: if let path, let goal { Self.watchGoal(ls, path: path, after: goal, stoppedAt: at) }
+        case .goal:
+            guard let path, let after = last ?? asked else { ls.release(at); break }
+            Self.watchGoal(ls, path: path, after: after, stoppedAt: at)
         case .command: DispatchQueue.global().asyncAfter(deadline: .now() + Self.commandWait) { ls.release(at) }
         case .done, .working: break
         }

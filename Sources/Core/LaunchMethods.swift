@@ -110,19 +110,21 @@ public struct SessionHook: RPCMethod {
     public var hookName: String?
     /// The subagent it comes from; nil: the agent's main thread.
     public var agentId: String?
+    /// What the prompt set as a /goal.
+    public var goal: String?
     /// When the hook ran, on the clock of this boot: hooks arrive out of order when one isn't waited for (a Notification)
     /// or a kelpd was away, and a late one says nothing about now.
     public var at: TimeInterval?
     enum CodingKeys: String, CodingKey {
-        case id, event, transcript, cwd, trigger, notification, command, at, backgroundTasks = "background_tasks", sessionCrons = "session_crons"
+        case id, event, transcript, cwd, trigger, notification, command, goal, at, backgroundTasks = "background_tasks", sessionCrons = "session_crons"
         case hookName = "hook_event_name", agentId = "agent_id"
     }
     public init(id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil, notification: JSONValue? = nil,
                 backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,
-                hookName: String? = nil, agentId: String? = nil, at: TimeInterval? = nil) {
+                hookName: String? = nil, agentId: String? = nil, goal: String? = nil, at: TimeInterval? = nil) {
         self.id = id; self.event = event; self.transcript = transcript; self.cwd = cwd; self.trigger = trigger
         self.notification = notification; self.backgroundTasks = backgroundTasks; self.sessionCrons = sessionCrons; self.command = command
-        self.hookName = hookName; self.agentId = agentId; self.at = at
+        self.hookName = hookName; self.agentId = agentId; self.goal = goal; self.at = at
     }
 }
 

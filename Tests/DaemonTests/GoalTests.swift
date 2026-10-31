@@ -26,6 +26,29 @@ import TestSupport
     _ = try await p.c.call("session.kill", .obj(["id": .string(s.id)]))
 }
 
+/// The first Stop of a /goal comes before its first check is written, and an older goal's answer may be the last one there:
+/// the row goes by the prompt until the check says, and doesn't flash Done, with its notification, on the way.
+@Test func aGoalsFirstStopIsntDone() async throws {
+    let p = try await world(); defer { p.d.stop() }
+    let w = try await firstDesk(p)
+    let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
+    let transcript = p.root.appendingPathComponent("\(UUID().uuidString).jsonl")
+    func line(_ id: String, met: Bool) -> String {
+        #"{"type":"attachment","uuid":"\#(id)","attachment":{"type":"goal_status","met":\#(met),"condition":"docs built"}}"# + "\n"
+    }
+    try line("old", met: true).write(to: transcript, atomically: true, encoding: .utf8)
+    func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    _ = try await p.c.call(SessionHook(id: s.id, event: "working", transcript: transcript.path, goal: "tests pass"))
+    _ = try await p.c.call(SessionHook(id: s.id, event: "done", transcript: transcript.path))
+    #expect(try await record()?.status == .working)
+    #expect(try await record()?.goal == "tests pass")
+    try (line("old", met: true) + line("new", met: true)).write(to: transcript, atomically: true, encoding: .utf8)
+    #expect(try await waitFor(10) { try await record()?.status == .done })
+    #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal  tests pass "])) == "tests pass")
+    #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal clear"])) == nil)
+    #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goals are nice"])) == nil)
+}
+
 /// A Stop while a command it started in the background runs: working, the command on the record, until it's woken.
 @Test func aStopWhileItsCommandRunsIsNotDone() async throws {
     let p = try await world(); defer { p.d.stop() }

@@ -18,7 +18,7 @@ public struct Handover: Codable, Sendable {
     /// What a session's status rests on beside its record. Lost, a Stop held for subagents read as done three minutes after
     /// an update, a dialog answered elsewhere stayed Needs You, and an agent that reports itself was guessed at again.
     struct Status: Codable, Sendable {
-        var holding: Bool, parked: Bool, hooked: Bool, asking: Set<String>, turnEnd: TurnEnd, transcript: String?
+        var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], turnEnd: TurnEnd, transcript: String?
     }
     var socket: Int32, lock: Int32
     var sessions: [Session]
