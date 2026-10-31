@@ -60,6 +60,17 @@ private func hooked() -> LiveSession.State {
     #expect(s.detector.status == .done && s.record.goal == nil)
 }
 
+/// `kelp report clear` takes back what an agent's row said. With hooks the status is theirs: it went on working, and its row
+/// said Idle until the next hook.
+@Test func aClearedReportLeavesTheStatusToTheHooks() {
+    var s = hooked()
+    s.hook("working"); _ = s.sync()
+    s.apply(.init(state: "working", msg: "Migrating table 3 of 10", progress: 30))
+    s.apply(.init(state: "clear"))
+    #expect(s.sync() == nil && s.detector.status == .working)
+    #expect(s.record.summary.isEmpty && s.record.progress == nil)
+}
+
 /// A quiet row with a menu on screen is a question whose hook never came: it asks, and what its turn was held for stays. A menu
 /// answered since (the newer cursor is the input box's) doesn't count.
 @Test func aQuietRowWithAMenuOnScreenAsks() {

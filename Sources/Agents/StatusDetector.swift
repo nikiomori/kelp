@@ -116,7 +116,9 @@ public struct StatusDetector: Sendable {
         guard !settled else { return }
         switch state {
         case "idle": status = !cutShort && (status == .working || status == .done) ? .done : .idle
-        case "clear": status = .idle
+        case "clear":   // an agent with hooks: they say what it does, and this only takes back what its row said (`kelp report clear`)
+            guard manifest.hooks == nil else { return }
+            status = .idle
         case "working": status = .working
         case "done": status = .done
         case "blocked": status = .waiting
