@@ -187,3 +187,30 @@ private func hooked() -> LiveSession.State {
     for k in ["\r", "2", "\u{1B}[Z", "\u{1B}[13u", "\u{1B}[9;2u"] { #expect(LiveSession.answersMenu(Data(k.utf8)), "\(k.debugDescription)") }
     for k in ["\u{1B}[B", "\u{1B}[9u", "\u{1B}[13;2u", "a", "0"] { #expect(!LiveSession.answersMenu(Data(k.utf8)), "\(k.debugDescription)") }
 }
+
+/// Claude Code blinks a dot beside the tool a dialog is about, and within 20 s the menu is out of the last bytes though it's
+/// still on screen. Seen with 2.1.316: Allow in a notification found no menu, and `kelp send`, seeing none, typed its text
+/// and pressed Enter, which said yes to the permission.
+@Test func aDialogHoldsTextBackHoweverLongADotBlinksBesideIt() throws {
+    var s = hooked()
+    s.startedUp = true; s.dialogSettled = true
+    s.ring = Data("Do you want to proceed?\r\n ❯ 1. Yes\r\n   2. No\r\n Esc to cancel · Tab to amend\r\n".utf8)
+    for _ in 0..<500 { s.ring.append(Data("\u{1B}[3;1H\u{1B}[38;2;1;1;1m⏺\u{1B}[3;1H\u{1B}[0m ".utf8)) }
+    #expect(!StartupQuestion.menuOpen(s.screen(1500)))
+    s.hook("waiting"); _ = s.sync()
+    #expect(s.menuOpen() && s.menuScreen().contains("2. No"))
+    #expect(!s.readyForText(submits: true) && !s.readyForText(submits: false))
+
+    // Allow from a notification: the row works from then on, and the keys still need the menu.
+    s.steering = (try NSRegularExpression(pattern: "Yes"), Date(), .distantPast, nil)
+    s.detector.override(.working); _ = s.sync()
+    #expect(s.menuOpen() && !s.readyForText(submits: true))
+    s.steering = nil; s.hook("waiting"); _ = s.sync()
+
+    // A hook said so and no menu can be read (an AskUserQuestion, say): Enter would still answer it.
+    s.ring = Data("Which one?".utf8)
+    #expect(!s.menuOpen() && !s.readyForText(submits: true))
+    s.hook("working"); _ = s.sync()
+    #expect(s.readyForText(submits: true))
+}
+

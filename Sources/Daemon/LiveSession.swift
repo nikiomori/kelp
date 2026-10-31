@@ -9,6 +9,8 @@ import GitKit
 /// daemon's callbacks, sends to clients) runs after the lock, or is queued under it where order matters (`emit`).
 final class LiveSession: Sendable {
     static let ringLimit = 1 << 20
+    /// How far back a menu is looked for (`menuScreen`): over an hour of a dot blinking.
+    static let menuReach = 256 << 10
     /// Past this the log keeps only what the ring holds: a chatty dev server must not fill the disk.
     static let logLimit = 8 << 20
 

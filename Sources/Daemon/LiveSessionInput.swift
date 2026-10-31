@@ -9,13 +9,28 @@ extension LiveSession.State {
 
     /// A numbered menu with its cursor on screen ("❯ 1. Use this and all future MCP servers"). The input box's own "❯"
     /// is followed by text, not "1.", and once a menu is answered the newer cursor is the input box's.
-    func menuOpen() -> Bool { StartupQuestion.menuOpen(screen(1500)) }
+    func menuOpen() -> Bool { StartupQuestion.menuOpen(menuScreen()) }
+
+    /// A hook says it's asking something, whether or not a menu can be read: typed text's Enter would answer it.
+    private var asks: Bool { hooked && record.status == .waiting }
+
+    /// The output a menu is read from: the last bytes, or, when it's asking or being answered, around the last cursor. TUIs
+    /// redraw only what changed, and Claude Code blinks a dot beside the tool a dialog is about, which takes the menu out of
+    /// the last bytes in 20 s or so while it's still on screen.
+    func menuScreen() -> String {
+        let reach = ring.suffix(LiveSession.menuReach)
+        let cursor = reach.range(of: Data("❯".utf8), options: .backwards) ?? reach.range(of: Data("›".utf8), options: .backwards)
+        guard asks || (hooked && steering != nil), let mark = cursor else { return screen(1500) }
+        let around = max(reach.startIndex, mark.lowerBound - 1500)..<min(reach.endIndex, mark.upperBound + 1500)
+        return StatusDetector.stripANSI(String(decoding: reach[around], as: UTF8.self))
+    }
 
     /// Nothing on screen that typed text with its Enter would answer: no question or numbered menu open (their default
-    /// is usually "Yes": trusting a project, its new MCP servers), no menu being answered, no unread draft in the input box,
-    /// and for text that's sent (`submits`) nothing the user typed and hasn't sent: its Enter would send their half line.
+    /// is usually "Yes": trusting a project, its new MCP servers, a permission), no menu being answered, no unread draft in
+    /// the input box, and for text that's sent (`submits`) nothing the user typed and hasn't sent: its Enter would send their
+    /// half line.
     func readyForText(submits: Bool) -> Bool {
-        steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !trustQuestionOpen() && !menuOpen()
+        steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !asks && !trustQuestionOpen() && !menuOpen()
     }
 }
 
@@ -26,7 +41,7 @@ extension LiveSession {
             guard let st = s.steering else { return nil }
             if Date().timeIntervalSince(st.since) > 30 { s.steering = nil; return nil }
             guard Date().timeIntervalSince(st.lastKey) > 0.7 else { return nil }
-            let screen = s.screen(1500)
+            let screen = s.menuScreen()
             // The dialog it was armed for has to be the one on screen, at every key: another menu is never pressed.
             if let must = st.screen, must.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) == nil || s.typedYet {
                 s.steering = nil; return nil
@@ -46,7 +61,7 @@ extension LiveSession {
     /// The cursor is walked to the option and Enter pressed only there (see `steer`). nil: no such menu on screen.
     func choose(_ answer: String) -> Session? {
         state.withLock { s in
-            let screen = s.screen(1500)
+            let screen = s.menuScreen()
             let pattern = answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
             let lines = screen.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>")) }
             guard AgentManifest.AutoAnswer.optionAtCursor(screen) != nil, let re = try? NSRegularExpression(pattern: pattern),
