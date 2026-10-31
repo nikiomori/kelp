@@ -24,6 +24,17 @@ import Core
     #expect(AppModel.merge(list: [stale, other], local: [done], newer: []) == [stale, other])   // nothing newer: the list
 }
 
+/// A turn that ended while the connection was down, during an update say: the list that comes after is the only word of it.
+@MainActor
+@Test func aChangeNoEventToldIsCaughtUpWith() {
+    var was = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude"); was.status = .working
+    var now = was; now.status = .done
+    let new = Session(worktreeId: "w", cwd: "/tmp", command: "codex", agent: "codex")
+    let missed = AppModel.caughtUp([now, new], local: [was])
+    #expect(missed.count == 1 && missed.first?.now.status == .done && missed.first?.was.status == .working)
+    #expect(AppModel.caughtUp([was], local: [was]).isEmpty)
+}
+
 /// Workspaces follow `event.worktree` / `event.removed`: one renamed or removed while the list was on its way keeps what the
 /// event said — a removed one doesn't come back from the older list.
 @MainActor

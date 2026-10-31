@@ -60,6 +60,13 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(t.build()[0].children.count == 2)
 }
 
+/// A paused agent's unread result is on the Needs You row: the filter finds it too.
+@Test func theNeedsYouFilterFindsAPausedAgentsResult() {
+    var t = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .hibernated, unread: true), agent("a2", in: "w2", .hibernated)])
+    t.filter = .needsYou
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1")])
+}
+
 @Test func filtersNarrowAndTheCurrentWorkspaceStays() {
     let ws = [wt("w1", "r1", "a"), wt("w2", "r1", "b"), wt("w3", "r2", "c"), wt("w4", "r2", "d")]
     let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w2", .waiting), agent("a3", in: "w3", .done, unread: true)]

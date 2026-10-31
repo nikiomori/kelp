@@ -328,7 +328,9 @@ package final class AppModel {
         let before = sessionEvents
         if let s = await quiet(SessionList()) {
             let merged = Self.merge(list: s, local: sessions, newer: Set(sessionEvents.keys.filter { sessionEvents[$0] != before[$0] }))
+            let missed = Self.caughtUp(merged, local: sessions)
             if merged != sessions { sessions = merged }
+            for (now, was) in missed { notifier?.statusChanged(now, was) }
         }
         if let r = await quiet(RoutineList()), r != routines { routines = r }
         syncContextWatches()
@@ -343,6 +345,13 @@ package final class AppModel {
         let listed = Set(list.map(\.id))
         return list.compactMap { x in newer.contains(x.id) ? kept[x.id] : x.isOlder(than: here[x.id]) ? here[x.id] : x }
             + local.filter { kept[$0.id] != nil && !listed.contains($0.id) }
+    }
+
+    /// Sessions whose status the list knows and no event told: it changed while the connection was down, during an update
+    /// say, and a turn that finished then must still be heard of. One this window has never shown isn't news.
+    static func caughtUp(_ merged: [Session], local: [Session]) -> [(now: Session, was: Session)] {
+        let here = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return merged.compactMap { s in here[s.id].flatMap { $0.status != s.status ? (s, $0) : nil } }
     }
 
     /// The daemon's events, decoded as their types on the client's reader thread, handled on the main actor.

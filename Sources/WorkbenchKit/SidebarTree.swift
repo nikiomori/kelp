@@ -45,7 +45,8 @@ public struct SidebarTree {
             switch filter {
             case .all: return true
             case .working: return agents.contains { $0.status == .working }
-            case .needsYou: return agents.contains { [.waiting, .error].contains($0.status) || ($0.status == .done && $0.unread) }
+            case .needsYou:
+                return agents.contains { [.waiting, .error].contains($0.status) || ([.done, .hibernated].contains($0.status) && $0.unread) }
             case .withPR: return hasPR(w)
             }
         }
