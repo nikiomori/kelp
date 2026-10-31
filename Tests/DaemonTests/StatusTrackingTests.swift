@@ -247,3 +247,18 @@ private func hooked() -> LiveSession.State {
     #expect(s.readyForText(submits: true))
 }
 
+/// A pause would end a question unanswered, so an agent that asks stays, however long nobody looks; one that finished goes.
+@Test func anAgentThatAsksIsntPaused() async throws {
+    let sleepy = AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"], resumeArgs: ["--resume"])
+    let w = try await world(agents: [sleepy]); defer { w.d.stop() }
+    let wt = try await desk(w, "h")
+    func started() async throws -> Session { try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self) }
+    func status(_ s: Session) async throws -> AgentStatus? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status }
+    let asks = try await started(), done = try await started()
+    _ = try await w.c.call(SessionHook(id: asks.id, event: "waiting"))
+    _ = try await w.c.call(SessionHook(id: done.id, event: "done"))
+    try await hibernate(after: 0.03, w.c)   // ~2 s
+    #expect(try await waitFor(15) { try await status(done) == .hibernated })
+    #expect(try await status(asks) == .waiting)
+    try await hibernate(after: 0, w.c)
+}

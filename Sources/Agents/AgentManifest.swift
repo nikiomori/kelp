@@ -354,7 +354,10 @@ public enum Hooks {
             if (p.info?.parentID) children.add(p.info.id);
             if (children.has(p.sessionID ?? p.info?.id)) return;
             switch (event?.type) {
-              case "session.status": if (p.status?.type === "busy") report("working"); break;
+              case "session.status":
+                if (p.status?.type === "busy") report("working");
+                if (p.status?.type === "idle") report("done");   // newer versions send only this
+                break;
               case "permission.asked": case "question.asked": report("waiting"); break;
               case "permission.replied": case "question.replied": case "question.rejected": report("working"); break;
               case "session.idle": case "session.error": report("done"); break;
