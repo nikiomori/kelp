@@ -57,3 +57,14 @@ import Testing
     #expect(d.status == .working)
     #expect(d.tick(at: StatusDetector.clock.addingTimeInterval(manifest.quietSeconds + 1)) == .done)
 }
+
+/// What ends with no hook to say so doesn't hold a turn open: a memory save running at a Stop read as working for half an hour.
+@Test func onlyWorkThatWakesTheAgentHoldsItsTurn() {
+    var end = TurnEnd()
+    for type in ["memory save", "dream", "auto-mode scan", "MCP task", "cloud session", "monitor", "something new"] {
+        #expect(end.stop([.obj(["type": .string(type), "status": "running"])], goal: nil).0 == .done)
+    }
+    for type in ["subagent", "workflow", "teammate"] {
+        #expect(end.stop([.obj(["type": .string(type), "status": "running"])], goal: nil).0 == .working)
+    }
+}
