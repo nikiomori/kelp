@@ -288,7 +288,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {
             let line = Self.firstSentence(reply)
             s.summary = line
-            _ = await app.quiet(SessionAnnotate(id: s.id, summary: line))
+            _ = await app.quiet(SessionAnnotate(id: s.id, summary: line, ifStatus: s.status.rawValue))
         }
         tell(s, turn: turn)   // other agents: no summary; the state says enough
     }

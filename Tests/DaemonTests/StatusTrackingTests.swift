@@ -306,3 +306,29 @@ private func hooked() -> LiveSession.State {
     _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", notification: idle))
     #expect(try await waitFor { status() == .done })
 }
+
+/// AskUserQuestion can ask several things: a key answers one, the form stays, and only its PostToolUse says it's through.
+@Test func aKeyDoesntEndAQuestionWithMoreToAsk() {
+    var s = hooked()
+    s.hook("working"); s.hook("waiting", question: true); _ = s.sync()
+    let through = s.answeredOne()
+    #expect(!through)
+    s.hook("working")
+    let nothingLeft = s.answeredOne()
+    #expect(nothingLeft && s.sync()?.status == .working)
+}
+
+/// A turn's summary, written a moment after it ended, isn't laid over the question the agent has gone on to ask.
+@Test func aSummaryOfATurnLeavesAQuestionAlone() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let desk = try await firstDesk(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    func summary() -> String? { w.d.sessions.existing(s.id)?.snapshot.summary }
+    _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
+    _ = try await w.c.call(SessionAnnotate(id: s.id, summary: "Added the test", ifStatus: "done"))
+    #expect(summary() == "Added the test")
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", notification: .obj(["message": "Allow rm?"])))
+    _ = try await w.c.call(SessionAnnotate(id: s.id, summary: "Added the test", ifStatus: "done"))
+    #expect(summary() == "Allow rm?")
+}

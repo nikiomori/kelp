@@ -74,6 +74,12 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(d.sessions.existing(s.id)?.snapshot.status == .done)
     _ = try await c.call(SessionHook(id: s.id, event: "working"))   // no time: a caller that doesn't send one
     #expect(d.sessions.existing(s.id)?.snapshot.status == .working)
+
+    // AskUserQuestion's end runs two hooks side by side: the tool's coming first doesn't drop the one that says the status.
+    _ = try await c.call(SessionHook(id: s.id, event: "waiting", hookName: "PreToolUse", at: 40))
+    _ = try await c.call(SessionHook(id: s.id, event: "command", hookName: "PostToolUse", at: 41.002))
+    _ = try await c.call(SessionHook(id: s.id, event: "working", hookName: "PostToolUse", at: 41.001))
+    #expect(d.sessions.existing(s.id)?.snapshot.status == .working)
 }
 
 /// What a status rests on goes along. A Stop held for its subagents stays held (it read as done 3 minutes later), a dialog

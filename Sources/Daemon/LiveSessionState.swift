@@ -61,6 +61,8 @@ extension LiveSession {
         /// Whose permission dialogs are open, and how many: subagents by id, "" for the main thread. Claude Code sends no hook
         /// for an answer, and none for the next dialog of a batch when the first is answered.
         var asking: [String: Int] = [:]
+        /// AskUserQuestion is open: a key answers one of its questions, and only its PostToolUse says that was the last.
+        var questionOpen = false
         /// The prompt that started this turn set a /goal, this one: its first Stop comes before the first check is written.
         var goalAsked: String?
         /// Esc / ⌃C as it worked: an idle it reports in the seconds after is that stop, not a finished turn.
@@ -216,8 +218,9 @@ extension LiveSession {
 
         /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
         /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
-        /// permission dialog it is, for `tool`; `goal`: what the prompt set as a /goal.
-        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, goal: String? = nil) {
+        /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened; `goal`: what the prompt set as a /goal.
+        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
+                           goal: String? = nil) {
             heard()
             // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
             // isn't waiting for it. The next Stop says again.
@@ -239,10 +242,11 @@ extension LiveSession {
                 compactManual = false
             case "waiting":
                 if let asker { asking[asker, default: 0] += 1 }
+                if question { questionOpen = true }
                 if let message, !message.isEmpty { record.summary = message }
                 detector.hook(event)
             case "working":
-                asking.removeAll()
+                nothingAsked()
                 goalAsked = goal
                 detector.hook(event)
             default: detector.hook(event)
@@ -297,7 +301,13 @@ extension LiveSession {
         /// screen must not read as work. Which one it answered doesn't matter: a batch's tools clear them all (`tool`).
         mutating func answeredOne() -> Bool {
             if let (who, open) = asking.first { asking[who] = open > 1 ? open - 1 : nil }
-            return asking.isEmpty
+            return asking.isEmpty && !questionOpen
+        }
+
+        /// Whatever it asked is over.
+        mutating func nothingAsked() {
+            asking.removeAll()
+            questionOpen = false
         }
 
         /// A sign of life from the agent: a hook, or what it printed.
@@ -349,7 +359,7 @@ extension LiveSession {
                 return
             }
             if LiveSession.printedStopped(screen(1500)) {
-                asking.removeAll()
+                nothingAsked()
                 release()
                 detector.override(.idle, because: "no sign of life for \(Int(limit)) s, and it says its turn was cut short")
                 return

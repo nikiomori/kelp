@@ -109,7 +109,7 @@ extension SessionHook: Handled {
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) {
             ls.trail.add("\(trailLine): asks nothing")
-            if Hooks.atPrompt(notification), ls.newest(at) { ls.atPrompt() }
+            if Hooks.atPrompt(notification), ls.newest(at, says: true) { ls.atPrompt() }
             return Done()
         }
         guard let event else { throw RPCError.invalidParams("missing event") }
@@ -117,7 +117,7 @@ extension SessionHook: Handled {
             if ls.ran(command) != nil { sessions.publish(ls) }
             sessions.touchCommands(ls)
         }
-        guard ls.newest(at) else {
+        guard ls.newest(at, says: event != "command") else {
             ls.trail.add("\(trailLine): older than what it said since")
             return Done()
         }
@@ -128,7 +128,7 @@ extension SessionHook: Handled {
         ls.trail.add(trailLine)
         guard event == "done" else {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },
-                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, goal: goal)
+                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, question: hookName == "PreToolUse", goal: goal)
             return Done()
         }
         let limit = notification.flatMap(Hooks.limitHit)
@@ -183,7 +183,7 @@ extension SessionAnnotate: Handled {
     /// The window's own reading of a session (its notifier's summary): no agent sets another's status or summary.
     var onlyFromKelp: String? { "Only Kelp's window annotates a session." }
     func handle(_ sessions: Sessions) throws -> Done {
-        guard let ls = sessions.existing(id) else { return Done() }
+        guard let ls = sessions.existing(id), ifStatus.map({ $0 == ls.snapshot.status.rawValue }) ?? true else { return Done() }
         if let summary { _ = ls.update { $0.summary = summary }; sessions.publish(ls) }
         if let st = status.flatMap(AgentStatus.init(rawValue:)) { ls.overrideStatus(st) }
         return Done()

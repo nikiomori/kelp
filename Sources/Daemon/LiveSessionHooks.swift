@@ -5,21 +5,24 @@ import Agents
 /// What an agent's hooks do to its session (`SessionHook`): its status, a Stop's verdict, its tools and commands.
 extension LiveSession {
     /// Whether a hook that ran at `at` is the latest heard, or nothing says it isn't (a caller that doesn't send the time).
-    func newest(_ at: TimeInterval?) -> Bool {
+    /// `says`: it says what the status is. A tool's hook doesn't, and it runs side by side with AskUserQuestion's own for the
+    /// same event: taken for the latest, it dropped that one, and the row kept asking.
+    func newest(_ at: TimeInterval?, says: Bool) -> Bool {
         state.withLock { s in
             s.spoke()
             guard let at else { return true }
             guard at >= s.newestHook else { return false }
-            s.newestHook = at
+            if says { s.newestHook = at }
             return true
         }
     }
 
     /// `State.hook`: the record goes out when its status or what the row says changed.
-    func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, goal: String? = nil) {
+    func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
+              goal: String? = nil) {
         state.withLock { s in
             let said = s.record.summary, awaited = s.record.awaiting
-            s.hook(event, trigger: trigger, message: message, asker: asker, goal: goal)
+            s.hook(event, trigger: trigger, message: message, asker: asker, question: question, goal: goal)
             emit(s.sync() ?? (s.record.summary != said || s.record.awaiting != awaited ? s.record : nil))
         }
     }
@@ -29,7 +32,7 @@ extension LiveSession {
     func atPrompt() {
         state.withLock { s in
             guard !s.holding, s.detector.status == .working || s.detector.status == .waiting else { return }
-            s.asking.removeAll()
+            s.nothingAsked()
             s.detector.override(.done, because: "it says it sits at its prompt")
             emit(s.sync())
         }
@@ -47,7 +50,7 @@ extension LiveSession {
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
             s.trail.add("stop: \(verdict)")
-            s.asking.removeAll()
+            s.nothingAsked()
             s.endCommands(at: now)
             s.holding = verdict != .done
             s.parked = !tasks.isEmpty || !crons.isEmpty

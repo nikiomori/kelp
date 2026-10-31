@@ -128,10 +128,14 @@ public struct SessionHook: RPCMethod {
     }
 }
 
-/// A summary from the UI (the agent's own last reply), and optionally a better status guess.
+/// A summary from the UI (the agent's own last reply), and optionally a better status guess. `ifStatus`: only while the
+/// session still has this status: the summary is of a turn that ended a moment ago, and the row may have moved on to a question.
 public struct SessionAnnotate: RPCMethod {
-    public static let name = "session.annotate"; public typealias Result = Done; public var id: String, summary: String?, status: String?
-    public init(id: String, summary: String? = nil, status: String? = nil) { self.id = id; self.summary = summary; self.status = status }
+    public static let name = "session.annotate"; public typealias Result = Done
+    public var id: String, summary: String?, status: String?, ifStatus: String?
+    public init(id: String, summary: String? = nil, status: String? = nil, ifStatus: String? = nil) {
+        self.id = id; self.summary = summary; self.status = status; self.ifStatus = ifStatus
+    }
 }
 /// The prompt for action `name` in workspace `id`, the project's own wording if it has one (and is trusted).
 public struct RecipeRender: RPCMethod {

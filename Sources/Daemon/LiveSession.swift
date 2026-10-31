@@ -295,7 +295,7 @@ final class LiveSession: Sendable {
                 if s.lastHookAt > arm.at { s.interruptArmed = nil }
                 else if Self.printedStopped(arm.seen) {
                     s.detector.interrupted()
-                    s.asking.removeAll()
+                    s.nothingAsked()
                     s.record.summary = "Stopped by you"
                     s.interruptArmed = nil
                 } else if Date().timeIntervalSince(arm.at) > 10 { s.interruptArmed = nil }
@@ -463,7 +463,7 @@ extension LiveSession {
             Handover.Session(id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
                              bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
                              status: .init(holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
-                                           turnEnd: s.turnEnd, transcript: s.transcript))
+                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript))
         }
     }
 
@@ -478,7 +478,7 @@ extension LiveSession {
             s.ring = history; s.ringModes.read(Data(modes.utf8))
             if let status {
                 s.holding = status.holding; s.parked = status.parked
-                s.asking = status.asking
+                s.asking = status.asking; s.questionOpen = status.questionOpen
                 s.turnEnd = status.turnEnd; s.transcript = status.transcript
             }
             s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked)
