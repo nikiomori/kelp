@@ -290,9 +290,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
 public enum Hooks {
     /// Claude-style settings file: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing),
-    /// AskUserQuestion and a permission dialog → waiting until answered; each tool as it starts and ends and each batch of
-    /// them (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn, `State.tool`). `kelp` must
-    /// be on PATH in the session.
+    /// AskUserQuestion, an MCP server's question and a permission dialog → waiting until answered; each tool as it starts
+    /// and ends and each batch of them (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn,
+    /// `State.tool`). `kelp` must be on PATH in the session.
     public static func settingsJSON() -> String {
         func entry(_ ev: String, _ matcher: String?) -> String {
             #"{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}"#
@@ -302,21 +302,28 @@ public enum Hooks {
         return #"{"hooks":{"Stop":\#(hook("done")),"Notification":\#(hook("waiting")),"UserPromptSubmit":\#(hook("working")),"StopFailure":\#(hook("done")),"#
             + #""PreToolUse":[\#(entry("waiting", "AskUserQuestion")),\#(command)],"PostToolUse":[\#(entry("working", "AskUserQuestion")),\#(command)],"#
             + #""PostToolUseFailure":[\#(command)],"PostToolBatch":[\#(command)],"PermissionRequest":\#(hook("waiting")),"#
+            + #""Elicitation":\#(hook("waiting")),"ElicitationResult":\#(hook("working")),"#
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
     }
 
     /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
     /// minute after a turn ends (Qwen Code too), a login that went through, a background agent that finished, a push Claude
     /// sent, computer use starting or ending, a resume after a plan limit, a refusal fallback, a keychain that failed, a
-    /// plugin's. Any other type (or none) is a permission or a question.
+    /// plugin's, an MCP server's question that was answered or declined. Any other type (or none) is a permission or a
+    /// question.
     static let informational: Set<String> = [
         "idle_prompt", "auth_success", "agent_completed", "push_notification", "computer_use_enter", "computer_use_exit",
         "quota_auto_resume_fired", "quota_auto_resume_stale", "quota_auto_resume_disabled", "model_refusal_fallback",
-        "auth_storage_failure", "plugin_notification"
+        "auth_storage_failure", "plugin_notification", "elicitation_complete", "elicitation_response"
     ]
     public static func isInformational(_ payload: JSONValue) -> Bool {
         payload["notification_type"]?.string.map(informational.contains) == true
             || payload["message"]?.string?.hasPrefix("Claude is waiting for your input") == true
+    }
+
+    /// What a StopFailure says ended the turn (an overloaded API, a login gone): the row's error, unless it's a plan limit.
+    public static func failure(_ payload: JSONValue) -> String? {
+        payload["notification_type"]?.string == "stop_failure" ? payload["message"]?.string ?? "" : nil
     }
 
     /// The plan limit a StopFailure says ended the turn. Only there: the same words in a reply or a file stop nothing.

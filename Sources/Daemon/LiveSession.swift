@@ -378,8 +378,9 @@ extension LiveSession {
     }
 
     /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
-    /// what runs in the background. Returns the verdict and the hook's time, which `release` checks.
-    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?) -> (TurnEnd.Verdict, Date) {
+    /// what runs in the background. `failure`: an API error ended the turn, and what it said. Returns the verdict and the
+    /// hook's time, which `release` checks.
+    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil) -> (TurnEnd.Verdict, Date) {
         state.withLock { s in
             let now = Date()
             s.heard(at: now)
@@ -392,7 +393,8 @@ extension LiveSession {
             s.record.background = running.isEmpty ? nil : running
             if case .command(let c) = verdict { s.record.awaiting = c } else { s.record.awaiting = nil }
             if case .goal(let c) = verdict { s.record.goal = c } else if goal?.met != false { s.record.goal = nil }
-            s.detector.hook(verdict == .done ? "done" : "working")
+            s.detector.hook(verdict != .done ? "working" : failure == nil ? "done" : "error")
+            if verdict == .done, let failure, !failure.isEmpty { s.record.summary = failure }
             emit(s.sync() ?? s.record)
             return (verdict, now)
         }

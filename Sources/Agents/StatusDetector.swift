@@ -99,7 +99,7 @@ public struct StatusDetector: Sendable {
         return regexes.contains { $0.firstMatch(in: tail, range: r) != nil }
     }
 
-    /// Hook event: "working" | "waiting" | "done". Once seen, heuristics are off for this session.
+    /// Hook event: "working" | "waiting" | "done" | "error". Once seen, heuristics are off for this session.
     public mutating func hook(_ event: String) {
         hooked = true
         guard !settled else { return }
@@ -107,6 +107,7 @@ public struct StatusDetector: Sendable {
         case "working": status = .working
         case "waiting": status = .waiting
         case "done": status = .done
+        case "error": status = .error
         default: return
         }
         source = "hook: \(event)"

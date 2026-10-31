@@ -102,6 +102,7 @@ import TestSupport
     #expect(Hooks.isInformational(note("push_notification")) && Hooks.isInformational(note("computer_use_exit")))
     #expect(!Hooks.isInformational(note("permission_prompt", "Claude needs your permission to use Bash")))
     #expect(!Hooks.isInformational(note("elicitation_dialog")) && !Hooks.isInformational(note("agent_needs_input")))
+    #expect(Hooks.isInformational(note("elicitation_complete")) && Hooks.isInformational(note("elicitation_response")))   // answered
     #expect(!Hooks.isInformational(note("a_type_it_has_not_had_before")))   // asked until known to ask nothing
     #expect(Hooks.isInformational(.obj(["message": "Claude is waiting for your input"])))   // Qwen Code names no type
 }
@@ -560,6 +561,8 @@ import TestSupport
     #expect(SessionHook.notification(of: .obj(["hook_event_name": "Stop"])) == nil)
     #expect(SessionHook.notification(of: .obj(["message": "Claude needs your permission"]))?["message"]?.string == "Claude needs your permission")
     #expect(Hooks.limitHit(.obj(["notification_type": "stop_failure", "message": "API Error: 500"])) == nil)
+    #expect(Hooks.failure(.obj(["notification_type": "stop_failure", "message": "API Error: 500"])) == "API Error: 500")
+    #expect(Hooks.failure(.obj(["notification_type": "permission_prompt", "message": "Claude needs your permission"])) == nil)
     #expect(Hooks.limitHit(.obj(["message": "You've hit your session limit"])) == nil)
 }
 

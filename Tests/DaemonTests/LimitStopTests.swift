@@ -95,3 +95,19 @@ private func stopped(_ p: World, _ s: Session) async throws {
     _ = after.newLimits(words)
     #expect(after.record.limitHit?.kind == "usage")
 }
+
+/// A turn an API error ended didn't finish: the row says Failed and what went wrong, and the next prompt takes that back.
+@Test func aTurnThatFailedSaysSo() async throws {
+    let p = try await world(); defer { p.d.stop() }
+    let w = try await firstDesk(p)
+    let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
+    func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    let said: JSONValue = .obj(["notification_type": "stop_failure", "message": "API Error: 529 overloaded"])
+    _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
+    _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "notification": said]))
+    #expect(try await waitFor { try await record()?.status == .error })
+    #expect(try await record()?.summary == "API Error: 529 overloaded")
+    #expect(try await record()?.limitHit == nil)
+    _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
+    #expect(try await waitFor { try await record()?.status == .working })
+}

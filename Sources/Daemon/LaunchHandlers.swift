@@ -126,10 +126,12 @@ extension SessionHook: Handled {
                     asker: hookName == "PermissionRequest" ? agentId ?? "" : nil)
             return Done()
         }
-        if let hit = notification.flatMap(Hooks.limitHit) { ls.hitLimit(hit) }
+        let limit = notification.flatMap(Hooks.limitHit)
+        if let limit { ls.hitLimit(limit) }
         let path = ls.transcriptPath
         let goal = path.flatMap(GoalStatus.last(inFile:))
-        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: goal)
+        let failure = limit == nil ? notification.flatMap(Hooks.failure) : nil
+        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: goal, failure: failure)
         switch verdict {
         case .goal: if let path, let goal { Self.watchGoal(ls, path: path, after: goal, stoppedAt: at) }
         case .command: DispatchQueue.global().asyncAfter(deadline: .now() + Self.commandWait) { ls.release(at) }

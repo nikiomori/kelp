@@ -248,7 +248,7 @@ extension LiveSession {
             lastLifeUp = ProcessInfo.processInfo.systemUptime
             switch hook {
             case "PreToolUse":
-                guard agent == nil, detector.status == .done || detector.status == .idle else { return }
+                guard agent == nil, [.done, .idle, .error].contains(detector.status) else { return }
                 detector.override(.working, because: "a tool started after its turn ended")
             case "PostToolBatch":
                 guard asking.remove(agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else { return }
