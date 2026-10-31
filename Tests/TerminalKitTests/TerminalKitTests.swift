@@ -54,6 +54,19 @@ import Testing
     #expect(TerminalCopy.clean("a b\nc") == "a b\nc")
 }
 
+/// A Markdown quote as Claude Code draws it, bar and all: the text alone is what's copied.
+@Test func copyLeavesAQuotesBarBehind() {
+    let rows = "  ▎ trained a small model\n  ▎\n  ▎ ask it for a reply\n  ▎\n  ▎ it's my first real tune"
+    let text = "trained a small model\n\nask it for a reply\n\nit's my first real tune"
+    #expect(TerminalCopy.clean(rows) == text)   // from the row's start
+    #expect(TerminalCopy.clean(String(rows.dropFirst(2)), from: 2) == text)   // from the bar
+    #expect(TerminalCopy.clean(String(rows.dropFirst(4)), from: 4) == text)   // from the text: no bar on the first row
+    #expect(TerminalCopy.clean("  ▎ one two\n  ▎ three", columns: 12) == "one two three")   // wrapped at the edge
+    // Around other text it stays apart from it, by its indent.
+    #expect(TerminalCopy.clean("Here:\n\n  ▎ a quote\n\n  Next", from: 2) == "Here:\n\n  a quote\n\nNext")
+    #expect(TerminalCopy.clean("▎▎▎ 30%\n▎ next") == "▎▎▎ 30%\n  next")   // a progress bar isn't one
+}
+
 /// A command Claude Code wrapped in its gutter (wrap-ansi, `hard`, `trim: false`, 30 columns in a 32-column terminal),
 /// copied from its first character: one line again.
 let wrappedCommand = "! cd /Users/username/projects/Kelp && swift build -c release --product kelp && swift test --parallel --quiet"

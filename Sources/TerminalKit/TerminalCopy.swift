@@ -52,7 +52,7 @@ public enum TerminalCopy {
     /// `column`: where the first line starts on screen (a selection that begins past the gutter); `columns`: the row
     /// width, to join rows a program wrapped (none without it).
     public static func clean(_ s: String, from column: Int = 0, columns: Int? = nil) -> String {
-        var lines = s.components(separatedBy: "\n").map { trimRight($0) }
+        var lines = s.components(separatedBy: "\n").map { trimRight(withoutQuoteBar($0)) }
         // A frame's sides: "│ text │" → "text", when every non-empty line has one.
         let full = lines.filter { !$0.isEmpty }
         if !full.isEmpty, full.allSatisfy({ borders.contains($0.trimmingCharacters(in: .whitespaces).first ?? " ") }) {
@@ -72,6 +72,15 @@ public enum TerminalCopy {
         lines = dedent(lines, by: m)
         lines[0] = String(lines[0].dropFirst(max(0, column - m)))
         return lines.joined(separator: "\n")
+    }
+
+    /// A quote's bar turned into the blank it is to the text: Claude Code draws a Markdown quote as a box with only its
+    /// left side, and the column stays so its rows line up with the first one and join where they were wrapped. Only a bar
+    /// alone: a row of block characters is a program's progress.
+    static func withoutQuoteBar(_ line: String) -> String {
+        let own = line.prefix(while: isBlank), rest = line.dropFirst(own.count)
+        guard rest.first == "▎", rest.dropFirst().first.map(isBlank) ?? true else { return line }
+        return own + " " + rest.dropFirst()
     }
 
     static func indent(_ lines: [String]) -> Int {
