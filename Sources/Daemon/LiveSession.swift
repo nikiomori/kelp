@@ -369,10 +369,10 @@ final class LiveSession: Sendable {
 
 extension LiveSession {
     /// `State.hook`: the record goes out when its status or what the row says changed.
-    func hook(_ event: String, trigger: String? = nil, message: String? = nil) {
+    func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil) {
         state.withLock { s in
             let said = s.record.summary, awaited = s.record.awaiting
-            s.hook(event, trigger: trigger, message: message)
+            s.hook(event, trigger: trigger, message: message, asker: asker)
             emit(s.sync() ?? (s.record.summary != said || s.record.awaiting != awaited ? s.record : nil))
         }
     }
@@ -385,6 +385,7 @@ extension LiveSession {
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
             s.trail.add("stop: \(verdict)")
+            s.asking.removeAll()
             s.endCommands(at: now)
             s.holding = verdict != .done
             s.parked = !tasks.isEmpty || !crons.isEmpty
@@ -399,12 +400,13 @@ extension LiveSession {
 
     static let commandLimit = 100
 
+    /// A tool started or ended, or a batch of them did (`kelp hook command`): `State.tool`.
+    func tool(_ hook: String?, agent: String?) { state.withLock { s in s.tool(hook, agent: agent); emit(s.sync()) } }
+
     /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
     /// record when what it runs changed.
     func ran(_ c: AgentCommand) -> Session? {
         state.withLock { s in
-            // A sign of life, not a hook that says what the turn does: an Esc that stopped this command is still read off the screen.
-            s.lastLifeUp = ProcessInfo.processInfo.systemUptime
             if let i = s.commands.lastIndex(where: { $0.id == c.id }) {
                 let started = s.commands[i].started   // the end keeps the start it was told of
                 s.commands[i] = c

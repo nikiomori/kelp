@@ -142,6 +142,7 @@ func plist() -> String {
                 var h = SessionHook(id: id, event: ev)
                 // Claude Code hooks pass a JSON payload on stdin (session id, transcript path).
                 if isatty(0) == 0, let d = try? FileHandle.standardInput.readToEnd(), let v = try? JSONDecoder().decode(JSONValue.self, from: d) {
+                    h.hookName = v["hook_event_name"]?.string; h.agentId = v["agent_id"]?.string
                     h.transcript = v["transcript_path"]?.string
                     h.cwd = v["cwd"]?.string   // where it works now: its own worktree, maybe
                     h.trigger = v["trigger"]?.string   // PreCompact: manual (/compact) or auto

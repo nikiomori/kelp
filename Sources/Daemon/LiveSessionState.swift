@@ -52,6 +52,8 @@ extension LiveSession {
         /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
         /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?
+        /// Whose permission dialogs are open: subagents by id, "" for the main thread. Claude Code sends no hook for the answer.
+        var asking = Set<String>()
         /// Esc / ⌃C as it worked: an idle it reports in the seconds after is that stop, not a finished turn.
         var stopKeyAt = Date.distantPast
 
@@ -203,8 +205,9 @@ extension LiveSession {
         }
 
         /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
-        /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash").
-        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil) {
+        /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
+        /// permission dialog it is, for `tool`.
+        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil) {
             heard()
             // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
             // isn't waiting for it. The next Stop says again.
@@ -225,9 +228,32 @@ extension LiveSession {
                 if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
                 compactManual = false
             case "waiting":
+                if let asker { asking.insert(asker) }
                 if let message, !message.isEmpty { record.summary = message }
                 detector.hook(event)
+            case "working":
+                asking.removeAll()
+                detector.hook(event)
             default: detector.hook(event)
+            }
+        }
+
+        /// A tool of the agent or of a subagent (`agent`): a sign of life, not a hook that says what the turn does, so an Esc
+        /// that stopped it is still read off the screen. Two things it does say. A tool of the main thread after its turn
+        /// ended: the turn goes on with no prompt (a Stop hook that blocked, a goal's first step, something that woke it).
+        /// The batch a permission dialog held back is through: it was answered, wherever that was, and with several dialogs
+        /// open this is the first hook that means all of them (a PostToolUse comes with the next one still open).
+        /// Limit: answered outside Kelp, a long command reads Needs You until it ends.
+        mutating func tool(_ hook: String?, agent: String?) {
+            lastLifeUp = ProcessInfo.processInfo.systemUptime
+            switch hook {
+            case "PreToolUse":
+                guard agent == nil, detector.status == .done || detector.status == .idle else { return }
+                detector.override(.working, because: "a tool started after its turn ended")
+            case "PostToolBatch":
+                guard asking.remove(agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else { return }
+                detector.override(.working, because: "the tools it asked about ran")
+            default: break
             }
         }
 

@@ -106,13 +106,20 @@ public struct SessionHook: RPCMethod {
     public var sessionCrons: [JSONValue]?
     /// `command`: what its shell tool started or finished.
     public var command: AgentCommand?
+    /// Which of the agent's hooks it is; `event` is what Kelp's hooks file makes of it.
+    public var hookName: String?
+    /// The subagent it comes from; nil: the agent's main thread.
+    public var agentId: String?
     enum CodingKeys: String, CodingKey {
         case id, event, transcript, cwd, trigger, notification, command, backgroundTasks = "background_tasks", sessionCrons = "session_crons"
+        case hookName = "hook_event_name", agentId = "agent_id"
     }
     public init(id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil, notification: JSONValue? = nil,
-                backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil) {
+                backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,
+                hookName: String? = nil, agentId: String? = nil) {
         self.id = id; self.event = event; self.transcript = transcript; self.cwd = cwd; self.trigger = trigger
         self.notification = notification; self.backgroundTasks = backgroundTasks; self.sessionCrons = sessionCrons; self.command = command
+        self.hookName = hookName; self.agentId = agentId
     }
 }
 

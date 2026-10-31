@@ -71,6 +71,48 @@ private func hooked() -> LiveSession.State {
     #expect(s.record.summary.isEmpty && s.record.progress == nil)
 }
 
+/// A tool of the main thread after its turn ended: it went on with no prompt (a Stop hook that blocked, as /goal's first step
+/// does). A subagent's says nothing of the main thread, and a row held as working stays held.
+@Test func aToolAfterTheTurnEndedMeansItWentOn() {
+    var s = hooked()
+    s.hook("done"); _ = s.sync()
+    #expect(s.record.status == .done)
+    s.tool("PreToolUse", agent: "a1")
+    s.tool("PostToolUse", agent: nil)
+    #expect(s.sync() == nil)
+    s.tool("PreToolUse", agent: nil)
+    #expect(s.sync()?.status == .working)
+    #expect(s.detector.source == "a tool started after its turn ended")
+    s.holding = true
+    s.tool("PreToolUse", agent: nil)
+    #expect(s.holding)
+}
+
+/// A permission dialog answered anywhere ends with its batch of tools. As Claude Code 2.1.316 sends it, two parallel dialogs:
+/// the first tool's PostToolUse comes with the second still open, so only the batch counts; and a subagent's stays its own.
+@Test func aPermissionIsAnsweredWhenItsToolsRan() {
+    var s = hooked()
+    s.hook("working"); _ = s.sync()
+    s.hook("waiting", asker: ""); s.tool("PreToolUse", agent: nil); s.hook("waiting", asker: ""); _ = s.sync()
+    s.tool("PostToolUse", agent: nil)
+    #expect(s.sync() == nil && s.record.status == .waiting)
+    s.tool("PostToolBatch", agent: "other")
+    #expect(s.sync() == nil)
+    s.tool("PostToolBatch", agent: nil)
+    #expect(s.sync()?.status == .working)
+    #expect(s.detector.source == "the tools it asked about ran")
+
+    s.hook("waiting", asker: ""); s.hook("waiting", asker: "a1"); _ = s.sync()
+    s.tool("PostToolBatch", agent: nil)
+    #expect(s.sync() == nil)   // the subagent's dialog is still open
+    s.tool("PostToolBatch", agent: "a1")
+    #expect(s.sync()?.status == .working)
+
+    s.hook("waiting"); _ = s.sync()   // a Notification's question: no batch answers that
+    s.tool("PostToolBatch", agent: nil)
+    #expect(s.sync() == nil && s.record.status == .waiting)
+}
+
 /// A quiet row with a menu on screen is a question whose hook never came: it asks, and what its turn was held for stays. A menu
 /// answered since (the newer cursor is the input box's) doesn't count.
 @Test func aQuietRowWithAMenuOnScreenAsks() {

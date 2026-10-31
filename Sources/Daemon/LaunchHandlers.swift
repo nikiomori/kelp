@@ -112,14 +112,18 @@ extension SessionHook: Handled {
             return Done()
         }
         guard let event else { throw RPCError.invalidParams("missing event") }
-        if event == "command" {   // a Bash command started or ended: the list and the row, not the status
-            if let command, ls.ran(command) != nil { sessions.publish(ls) }
-            sessions.touchCommands(ls)
+        if event == "command" {   // a tool started or ended: a Bash command for the list and the row, any for what its turn does
+            if let command {
+                if ls.ran(command) != nil { sessions.publish(ls) }
+                sessions.touchCommands(ls)
+            }
+            ls.tool(hookName, agent: agentId)
             return Done()
         }
         ls.trail.add(trailLine)
         guard event == "done" else {
-            ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) })
+            ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },
+                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil)
             return Done()
         }
         if let hit = notification.flatMap(Hooks.limitHit) { ls.hitLimit(hit) }
@@ -135,7 +139,7 @@ extension SessionHook: Handled {
     }
 
     /// What it says, for the session's trail.
-    private var trailLine: String { ["hook", event, trigger, notification?["notification_type"]?.string].compactMap { $0 }.joined(separator: " ") }
+    private var trailLine: String { ["hook", event, hookName, trigger, notification?["notification_type"]?.string].compactMap { $0 }.joined(separator: " ") }
 
     /// How long a command the agent waits for may run before its row says done anyway (a server TurnEnd took for a test).
     static let commandWait: TimeInterval = 600
