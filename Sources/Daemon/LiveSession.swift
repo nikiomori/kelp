@@ -34,6 +34,7 @@ final class LiveSession: Sendable {
     let state: OSAllocatedUnfairLock<State>
     private let log: FileHandle?
     private let logURL: URL
+    let trail: StatusTrail
     /// Everything written into the program, in order: text Kelp types (Enter included, see `type`) and the user's keys,
     /// so keys pressed while a send waits for its Enter land after that Enter instead of being sent with it.
     let sends = DispatchQueue(label: "kelp.session.send")
@@ -91,6 +92,7 @@ final class LiveSession: Sendable {
         var rec = record
         // A woken session goes on in the same log: what it showed before the pause stays readable.
         logURL = historyDir.appendingPathComponent("\(record.id).log")
+        trail = StatusTrail(history: historyDir, session: record.id)
         if !FileManager.default.fileExists(atPath: logURL.path) { FileManager.default.createFile(atPath: logURL.path, contents: nil) }
         do { log = try FileHandle(forWritingTo: logURL) } catch {
             log = nil   // it runs, unrecorded
@@ -102,7 +104,7 @@ final class LiveSession: Sendable {
         resumable = Sessions.resumable(record, [manifest])
         rec.pid = pty.pid
         self.callbacks = callbacks
-        state = OSAllocatedUnfairLock(initialState: State(record: rec, manifest: manifest, logSize: logSize, callbacks: callbacks))
+        state = OSAllocatedUnfairLock(initialState: State(record: rec, manifest: manifest, logSize: logSize, callbacks: callbacks, trail: trail))
         pty.onOutput = { [weak self] d in self?.handleOutput(d) }
         pty.onExit = { [weak self] code in self?.handleExit(code) }
     }
@@ -340,7 +342,7 @@ final class LiveSession: Sendable {
             if s.hooked {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
                 if s.record.status == .waiting, Self.answersMenu(d) {
-                    s.detector.override(.working); s.interruptArmed = (Date(), "")
+                    s.detector.override(.working, because: "an answer typed in the terminal"); s.interruptArmed = (Date(), "")
                 }
             }
             emit(s.sync() ?? read)
@@ -356,10 +358,17 @@ final class LiveSession: Sendable {
     func attachedToRunning() { state.withLock { $0.detector.attachedToRunning() } }
 
     /// Hibernation: the PTY dies but the record says so, so the UI shows "Paused" instead of "Exited".
-    func markHibernated() { state.withLock { s in s.detector.override(.hibernated); s.record.status = .hibernated } }
+    func markHibernated() {
+        state.withLock { s in
+            s.trail.add("\(s.record.status.rawValue) → hibernated")
+            s.detector.override(.hibernated); s.record.status = .hibernated
+        }
+    }
 
     func overrideStatus(_ status: AgentStatus) { state.withLock { s in s.detector.override(status); emit(s.sync()) } }
+}
 
+extension LiveSession {
     /// `State.hook`: the record goes out when its status or what the row says changed.
     func hook(_ event: String, trigger: String? = nil, message: String? = nil) {
         state.withLock { s in
@@ -376,6 +385,7 @@ final class LiveSession: Sendable {
             let now = Date()
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
+            s.trail.add("stop: \(verdict)")
             s.endCommands(at: now)
             s.holding = verdict != .done
             s.parked = !tasks.isEmpty || !crons.isEmpty
@@ -428,7 +438,7 @@ final class LiveSession: Sendable {
             s.holding = false
             s.record.goal = nil
             s.record.awaiting = nil
-            s.detector.hook("done")
+            s.detector.override(.done, because: "what the last Stop was held for is over")
             emit(s.sync())
         }
     }
@@ -519,6 +529,7 @@ final class LiveSession: Sendable {
             s.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
             s.ring = history; s.ringModes.read(Data(modes.utf8))
             s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self))
+            s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
             // A question read again and found to be none: the turn ended long ago, so one already read stays read.
             if s.detector.status != s.record.status {
                 s.record.status = s.detector.status

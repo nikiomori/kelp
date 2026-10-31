@@ -57,7 +57,7 @@ import Agents
 /// What the user typed and hasn't sent, followed from their keys.
 @Test func theUsersUnsentLineIsFollowedFromTheirKeys() {
     var s = LiveSession.State(record: Session(cwd: "/", command: "cat"), manifest: AgentManifest(id: "custom", name: "Custom", command: "/bin/cat"),
-                              logSize: 0, callbacks: .init())
+                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
     func keys(_ k: String) -> String? { s.noteTyping(Data(k.utf8)) }
     _ = keys("fix the"); #expect(s.typing == "fix the")
     _ = keys("\u{7F}\u{7F}"); #expect(s.typing == "fix t")
@@ -86,14 +86,16 @@ import Agents
     var recent = Session(cwd: "/tmp", command: "x", status: .exited, createdAt: Date() - week - 3600); recent.statusAt = Date() - 3600
     let paused = Session(cwd: "/tmp", command: "x", status: .hibernated, createdAt: Date() - week * 4)
     for s in [old, recent, paused] { try d.store.save(s); try Data("out".utf8).write(to: history.appendingPathComponent("\(s.id).log")) }
-    let orphan = history.appendingPathComponent("orphan.log"), fresh = history.appendingPathComponent("fresh.log")
-    try Data().write(to: orphan); try Data().write(to: fresh)
-    try fm.setAttributes([.modificationDate: Date() - 2 * 86400], ofItemAtPath: orphan.path)
+    let trail = history.appendingPathComponent("\(old.id).trail")
+    let orphan = history.appendingPathComponent("orphan.log"), orphanTrail = history.appendingPathComponent("orphan.trail")
+    let fresh = history.appendingPathComponent("fresh.log")
+    for f in [trail, orphan, orphanTrail, fresh] { try Data().write(to: f) }
+    for f in [orphan, orphanTrail] { try fm.setAttributes([.modificationDate: Date() - 2 * 86400], ofItemAtPath: f.path) }
     d.sessions.pruneEnded()
     #expect(try d.store.sessions().map(\.id).sorted() == [recent.id, paused.id].sorted())
     #expect(!fm.fileExists(atPath: history.appendingPathComponent("\(old.id).log").path))
     #expect(fm.fileExists(atPath: history.appendingPathComponent("\(recent.id).log").path))
-    #expect(!fm.fileExists(atPath: orphan.path))
+    #expect(!fm.fileExists(atPath: orphan.path) && !fm.fileExists(atPath: orphanTrail.path) && !fm.fileExists(atPath: trail.path))
     #expect(fm.fileExists(atPath: fresh.path))   // a session being created writes its log before its record
 }
 

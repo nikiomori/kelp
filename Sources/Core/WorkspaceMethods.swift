@@ -240,6 +240,14 @@ public struct SessionWhy: RPCMethod {
     public init(id: String) { self.id = id }
 }
 
+/// What a session's status went through and the hooks it heard, oldest first, a line each. Kept after it ended; empty when
+/// nothing happened yet.
+public struct SessionTrail: RPCMethod {
+    public static let name = "session.trail"; public typealias Result = String
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
 /// Clones `url` into a new folder in `parent` (`folder`, else named after the repository) → the added project; progress
 /// comes as `event.clone` {id, line}.
 public struct RepoClone: RPCMethod {

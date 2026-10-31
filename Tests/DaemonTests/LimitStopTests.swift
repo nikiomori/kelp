@@ -71,7 +71,7 @@ private func stopped(_ p: World, _ s: Session) async throws {
 @Test func wordsCountOnlyByATurnThatStopped() throws {
     func state() -> LiveSession.State {
         LiveSession.State(record: Session(cwd: "/", command: "codex", agent: "codex"), manifest: AgentManifest(id: "codex", name: "Codex", command: "codex"),
-                          logSize: 0, callbacks: .init())
+                          logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
     }
     let words = Data("You've hit your usage limit. Try again at Oct 30, 2026 3:40 PM.".utf8)
     var s = state()

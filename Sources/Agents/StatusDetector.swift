@@ -160,9 +160,9 @@ public struct StatusDetector: Sendable {
     }
 
     /// A better guess from elsewhere (local model) that does not switch heuristics off like a hook does.
-    public mutating func override(_ s: AgentStatus) {
+    public mutating func override(_ s: AgentStatus, because why: String = "set by Kelp") {
         guard (status != .exited && status != .hibernated) || s == .hibernated else { return }
-        status = s; source = "set by Kelp"
+        status = s; source = why
     }
 
     // TUIs often place words with cursor moves instead of spaces; keep a space there so text stays readable. Codex puts

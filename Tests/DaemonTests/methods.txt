@@ -138,6 +138,7 @@ session.report
 session.resize
 session.restart
 session.send
+session.trail
 session.turn
 session.usage
 session.why

@@ -89,6 +89,12 @@ final class Sessions: Sendable {
         return d
     }
 
+    /// The trail of a session Kelp has: the id names a file, as in `liveSessionOrLog`.
+    func trail(_ id: String) throws -> StatusTrail? {
+        if let ls = existing(id) { return ls.trail }
+        return try store.session(id) == nil ? nil : StatusTrail(history: root.appendingPathComponent("history"), session: id)
+    }
+
     struct Launch {
         var model: String?, effort: String?, resume = false
         var prompt: String?, title: String?
@@ -261,9 +267,11 @@ final class Sessions: Sendable {
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for s in all {
                 do { try store.delete(s) } catch { Log.store.error("couldn't delete session \(s.id, privacy: .public): \(error)") }
-                let log = root.appendingPathComponent("history/\(s.id).log")   // none when it never ran
-                if FileManager.default.fileExists(atPath: log.path) {
-                    Log.store.attempt("removing \(s.id)'s history") { try FileManager.default.removeItem(at: log) }
+                for name in ["\(s.id).log", "\(s.id).trail"] {
+                    let file = root.appendingPathComponent("history/\(name)")   // none when it never ran
+                    if FileManager.default.fileExists(atPath: file.path) {
+                        Log.store.attempt("removing \(s.id)'s history") { try FileManager.default.removeItem(at: file) }
+                    }
                 }
             }
         }

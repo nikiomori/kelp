@@ -144,6 +144,12 @@ extension SessionWhy: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> String? { sessions.existing(id)?.statusWhy }
 }
+extension SessionTrail: Handled {
+    func handle(_ sessions: Sessions) throws -> String {
+        guard let trail = try sessions.trail(id) else { throw RPCError.invalidParams("no session \(id)") }
+        return trail.read()
+    }
+}
 extension SessionRead: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 8192) } }
 extension SessionContext: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) } }
 
@@ -185,5 +191,5 @@ extension Methods {
     static let sessionMethods: [any Handled.Type] = [SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
         SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, SessionUsage.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
-        SessionCommands.self, SessionContinueAt.self, SessionWhy.self]
+        SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self]
 }

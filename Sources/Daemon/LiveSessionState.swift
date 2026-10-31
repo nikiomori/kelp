@@ -11,6 +11,7 @@ extension LiveSession {
         var detector: StatusDetector
         let hooked: Bool                 // agents with hooks report their state themselves; others may through OSC 7501
         let selfNames: [String]          // what a title that only names the program or its folder contains (TerminalTitle.topic)
+        let trail: StatusTrail
         let started = Date()
         let wantsTopic: Bool, wantsURL: Bool, wantsLimits: Bool
 
@@ -83,8 +84,9 @@ extension LiveSession {
         // Turns: written by turnWork, read by requests.
         var turnTree: String?, turnFolder: String?, turnResult: Turn?, turnStart: Date?, inTurn = false
 
-        init(record: Session, manifest: AgentManifest, logSize: Int, callbacks: Callbacks) {
+        init(record: Session, manifest: AgentManifest, logSize: Int, callbacks: Callbacks, trail: StatusTrail) {
             self.record = record
+            self.trail = trail
             detector = StatusDetector(manifest: manifest)
             hooked = manifest.hooks != nil
             selfNames = [manifest.id, manifest.name, (record.cwd as NSString).lastPathComponent]
@@ -218,7 +220,7 @@ extension LiveSession {
             case "compacted":
                 if record.summary == compacting { record.summary = compactSummary ?? "" }
                 compactSummary = nil
-                if compactManual { detector.override(.idle) }   // /compact finished: back at the prompt; an auto one carries on
+                if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
                 compactManual = false
             case "waiting":
                 if let message, !message.isEmpty { record.summary = message }
@@ -265,11 +267,12 @@ extension LiveSession {
         /// Claude Code redraws its timer every second while it works; one held for what it waits for is quiet by design.
         /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would get.
         mutating func releaseStale(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-            guard hooked, detector.status == .working, up - lastLifeUp > (holding ? 1800 : 180) else { return }
+            let limit: TimeInterval = holding ? 1800 : 180
+            guard hooked, detector.status == .working, up - lastLifeUp > limit else { return }
             holding = false
             record.goal = nil
             record.awaiting = nil
-            detector.hook("done")
+            detector.override(.done, because: "no sign of life for \(Int(limit)) s")
         }
 
         /// The detector's status into the record; the record when it changed. Ended is final: a hook or a keystroke that
@@ -277,6 +280,7 @@ extension LiveSession {
         mutating func sync() -> Session? {
             let s = detector.status
             guard s != record.status, record.status != .exited else { return nil }
+            trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")
             record.status = s
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
             if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on

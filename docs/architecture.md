@@ -23,6 +23,7 @@ contributions, the command palette and settings.
   named "Workspace N" until its first agent prompt names it; several desks share the folder.
   Closing one ends its agents and leaves the files. (Workspaces from older versions may be git worktrees.)
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
+  `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.
   Groups of tabs split right/down; drag tabs between groups or onto an edge to split.

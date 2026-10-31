@@ -12,7 +12,8 @@ usage: kelp <command>
                                        --split opens its tab beside yours; --wait prints its id, then exits with
                                        its command's exit code when it ends
   wait <session> [--for done,waiting,idle,exited] [--timeout 10m]   until it stops working (or reaches one of those)
-  why <session>                        its status and where that came from: a hook, the program, the screen
+  why <session> [--all]                its status, where that came from (a hook, the program, the screen)
+                                       and the last changes and hooks that led there
   terminal list | read <session> [bytes] | send <session> <text> [--no-enter]
   diff [--source unstaged|staged|all|branch] | commit <msg> | merge | push
   comment add <file> <line[-line]> <text> | send <session>

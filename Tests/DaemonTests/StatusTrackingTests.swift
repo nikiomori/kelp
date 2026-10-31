@@ -8,7 +8,7 @@ import Agents
 private func hooked() -> LiveSession.State {
     LiveSession.State(record: Session(cwd: "/", command: "claude", agent: "claude"),
                       manifest: AgentManifest(id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings")),
-                      logSize: 0, callbacks: .init())
+                      logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
 }
 
 /// Claude Code compacts a conversation that sits idle ("Compacted while idle…", trigger "auto"): no turn follows to end it,
@@ -50,6 +50,7 @@ private func hooked() -> LiveSession.State {
     s.releaseStale(at: t + 250); #expect(s.detector.status == .working)
     s.releaseStale(at: t + 290)
     #expect(s.sync() != nil && s.record.status == .done)
+    #expect(s.detector.source == "no sign of life for 180 s")   // no hook said so
 
     s.hook("working"); s.holding = true   // a Stop held for its subagents
     t = s.lastLifeUp
@@ -62,7 +63,8 @@ private func hooked() -> LiveSession.State {
 /// What no hook reports (a plain shell, a heuristic agent) isn't released by a quiet screen: its status comes from the screen.
 @Test func anAgentWithoutHooksIsNotReleased() {
     var s = LiveSession.State(record: Session(cwd: "/", command: "aider", agent: "aider"),
-                              manifest: AgentManifest(id: "aider", name: "Aider", command: "aider"), logSize: 0, callbacks: .init())
+                              manifest: AgentManifest(id: "aider", name: "Aider", command: "aider"), logSize: 0, callbacks: .init(),
+                              trail: .init(history: tmp(), session: "s"))
     s.detector.override(.working)
     s.releaseStale(at: s.lastLifeUp + 5000)
     #expect(s.detector.status == .working)

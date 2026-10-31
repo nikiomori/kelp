@@ -22,6 +22,8 @@ import Testing
     #expect(d.source == "hook: done")
     d.override(.working)
     #expect(d.source == "set by Kelp")
+    d.override(.done, because: "no sign of life for 180 s")
+    #expect(d.source == "no sign of life for 180 s")
     d.exited()
     d.override(.working)   // an ended program stays ended
     #expect(d.status == .exited && d.source == "the program ended")

@@ -101,16 +101,23 @@ extension SessionHook: Handled {
     var reportsFor: String? { id }
     static var quick: Bool { true }   // the agent waits for its hook
     func handle(_ sessions: Sessions) throws -> Done {
-        guard let ls = sessions.existing(id) else { return Done() }
+        guard let ls = sessions.existing(id) else {
+            try sessions.trail(id)?.add("\(trailLine): nothing runs here")
+            return Done()
+        }
         if let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
-        if let notification, Hooks.isInformational(notification) { return Done() }
+        if let notification, Hooks.isInformational(notification) {
+            ls.trail.add("\(trailLine): asks nothing")
+            return Done()
+        }
         guard let event else { throw RPCError.invalidParams("missing event") }
         if event == "command" {   // a Bash command started or ended: the list and the row, not the status
             if let command, ls.ran(command) != nil { sessions.publish(ls) }
             sessions.touchCommands(ls)
             return Done()
         }
+        ls.trail.add(trailLine)
         guard event == "done" else {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) })
             return Done()
@@ -126,6 +133,9 @@ extension SessionHook: Handled {
         }
         return Done()
     }
+
+    /// What it says, for the session's trail.
+    private var trailLine: String { ["hook", event, trigger, notification?["notification_type"]?.string].compactMap { $0 }.joined(separator: " ") }
 
     /// How long a command the agent waits for may run before its row says done anyway (a server TurnEnd took for a test).
     static let commandWait: TimeInterval = 600

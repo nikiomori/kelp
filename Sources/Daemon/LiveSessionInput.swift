@@ -53,7 +53,8 @@ extension LiveSession {
                   lines.contains(where: { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }) else { return nil }
             s.steering = (re, Date(), .distantPast, nil)
             s.detector.input(); s.record.unread = false
-            if s.hooked { s.detector.override(.working); s.interruptArmed = (Date(), "") }   // a "No" ends the turn: the screen says so
+            // A "No" ends the turn: the screen says so.
+            if s.hooked { s.detector.override(.working, because: "an answer from a notification"); s.interruptArmed = (Date(), "") }
             return s.sync() ?? s.record
         }
     }
