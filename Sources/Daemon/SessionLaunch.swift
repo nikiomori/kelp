@@ -250,20 +250,20 @@ extension Sessions {
     func publish(_ ls: LiveSession) {
         ls.inOrder { [weak self] in
             guard let self, !ls.isFinal else { return }
-            save(ls.snapshot)
+            save(ls)
         }
     }
 
     /// On the session's status queue itself (its status callback): saved there and then. Queued again it would land after
     /// a pause queued meanwhile, and over the record of the wake that followed.
-    func publishHere(_ ls: LiveSession) { if !ls.isFinal { save(ls.snapshot) } }
+    func publishHere(_ ls: LiveSession) { if !ls.isFinal { save(ls) } }
 
     /// A pause or an end, saved and said now, after every status change queued before it: one that read the record just
     /// before would otherwise write "working" over it, and a paused agent would never wake.
     func publishLast(_ ls: LiveSession) {
         let done = DispatchSemaphore(value: 0)
         ls.inOrder { [self] in
-            save(ls.snapshot)
+            save(ls)
             ls.finish()
             done.signal()
         }
@@ -288,13 +288,17 @@ extension Sessions {
     }
 
     /// Only on the session's status queue (`publish(ls)`, `publishLast`), where the snapshot is the latest.
-    private func save(_ snapshot: Session) {
+    /// Its revision goes back into the running record before anyone hears of it: `session.list` gives that record, and one
+    /// older than the app's copy is dropped, so a list read after a reconnect couldn't bring back a change it missed.
+    private func save(_ ls: LiveSession) {
         let s: Session
-        do { s = try store.update(snapshot) } catch {
+        do { s = try store.update(ls.snapshot) } catch {
             // Deleted meanwhile (closed, its project removed): not brought back. Anything else (a full disk) is logged.
-            if !(error is RecordError) { Log.store.error("couldn't save session \(snapshot.id, privacy: .public): \(error)") }
+            if !(error is RecordError) { Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)") }
             return
         }
+        let revision = s.revision
+        _ = ls.update { $0.revision = revision }
         said(s)
     }
 
