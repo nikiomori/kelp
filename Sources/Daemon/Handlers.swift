@@ -286,7 +286,7 @@ final class Slots: Sendable {
     /// `work` on a thread of its own once it has a slot (`Daemon.offload`); `quick`, at once, with no slot and no program.
     func run<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {
         let slots = quick ? quickSlots : self
-        if let slots, await !slots.acquire() { throw RPCError.internalError("Kelp's background service is updating; try again in a moment.") }
+        if let slots, await !slots.acquire() { throw RPCError.updating }
         return try await Self.onThread {
             defer { slots?.release() }
             return quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work)

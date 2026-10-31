@@ -30,6 +30,27 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(try await waitFor { try await c2.call(SessionList()).first { $0.id == s.id }?.status == .exited })
 }
 
+/// An update refuses calls, then hangs up, while the agents go on: a hook sent then waits for the next kelpd. Lost, a Stop
+/// left the row working for minutes. What's refused for another reason doesn't wait.
+@Test func aHookOutlastsAnUpdate() async throws {
+    let (d, c, root) = try daemon(); defer { d.stop() }
+    let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
+    let started = Date()
+    await #expect(throws: RPCError.self) { try await SessionHook(id: s.id, event: nil).send(socket: d.socketPath) }
+    #expect(Date().timeIntervalSince(started) < 1)
+
+    d.offloads.close()   // how an update starts
+    await #expect(throws: RPCError.updating) { try await c.call(SessionHook(id: s.id, event: "waiting")) }
+    let sent = Task { try await SessionHook(id: s.id, event: "waiting").send(socket: d.socketPath) }
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(d.sessions.existing(s.id)?.snapshot.status != .waiting)
+
+    let next = try Daemon(root: root)
+    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try await sent.value
+    #expect(next.sessions.existing(s.id)?.snapshot.status == .waiting)
+}
+
 /// A terminal made as the upgrade began, before anything read from it, is handed over too: its program isn't left to
 /// a hang-up.
 @Test func aTerminalNotStartedYetIsHandedOver() async throws {

@@ -20,6 +20,10 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public static func invalidParams(_ m: String) -> RPCError { .init(code: -32602, message: m) }
     public static func internalError(_ m: String) -> RPCError { .init(code: -32603, message: m) }
     public static let methodNotFound = RPCError(code: -32601, message: "method not found")
+    /// From a kelpd that is being replaced: the next one will answer.
+    public static let updating = internalError("Kelp's background service is updating; try again in a moment.")
+    /// The connection ended with no reply, or was over already.
+    public static let connectionClosed = internalError("connection closed")
 }
 
 /// A line on the wire: either a response (has `result`/`error`) or a notification/request (has `method`).

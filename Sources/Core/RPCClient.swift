@@ -96,7 +96,7 @@ public final class RPCClient: Sendable {
             return (s.pending, s.closeHandler)
         }
         writer.async { [fd] in _ = Darwin.close(fd) }   // the only close, after the last write (none is written once the reader is done)
-        for (_, c) in all { c.resume(throwing: RPCError.internalError("connection closed")) }
+        for (_, c) in all { c.resume(throwing: RPCError.connectionClosed) }
         done?()
     }
 
@@ -136,7 +136,7 @@ public final class RPCClient: Sendable {
                 defer { s.nextID += 1 }
                 s.pending[s.nextID] = c; return s.nextID
             }
-            guard let id else { c.resume(throwing: RPCError.internalError("connection closed")); return }
+            guard let id else { c.resume(throwing: RPCError.connectionClosed); return }
             if let timeout {
                 // Weak: every typed call has one now, and a dropped connection's client mustn't wait them out.
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
