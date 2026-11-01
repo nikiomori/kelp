@@ -382,6 +382,18 @@ package struct WorkspaceActions {
         if let w = NSApp.mainWindow { p.beginSheetModal(for: w, completionHandler: chosen) } else { p.begin(completionHandler: chosen) }
     }
 
+    /// Its last tab was closed: its row goes too, with nothing to ask. `ended`: that tab's session, still on its way out.
+    func closeEmpty(_ id: String, ended: String?) {
+        guard let w = app.worktree(id), let r = app.repo(w.repoId),
+              !app.sessions.contains(where: { $0.worktreeId == id && $0.id != ended && $0.status != .exited }),
+              let next = WorkspaceClosing.afterLastTab(of: w, rows: app.workspaces(of: r), repos: app.repos) else { return }
+        Task {
+            if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
+            await app.call(WorktreeRemove(id: id))
+            await app.refresh()
+        }
+    }
+
     /// Several at once (sidebar multi-selection): one question; each project keeps at least one workspace.
     /// Desks close; workspaces on their own branch are archived (nothing is deleted).
     func close(_ ws: [Worktree]) {

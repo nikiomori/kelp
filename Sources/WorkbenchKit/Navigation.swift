@@ -79,4 +79,12 @@ public struct WorkspaceClosing: Equatable, Sendable {
             if w.path == repos.first(where: { $0.id == w.repoId })?.path { remove.append(w.id) } else { archive.append(w.id) }
         }
     }
+
+    /// `w`'s last tab closed and nothing runs there: its row goes with it, and this is the row to show instead, the one
+    /// under it or else the one over it. Nil: it stays, being on a branch of its own or the only one in its project.
+    /// `rows`: the project's open workspaces, as the sidebar lists them.
+    public static func afterLastTab(of w: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
+        guard w.path == repos.first(where: { $0.id == w.repoId })?.path, let i = rows.firstIndex(where: { $0.id == w.id }) else { return nil }
+        return rows.dropFirst(i + 1).first ?? rows[..<i].last
+    }
 }

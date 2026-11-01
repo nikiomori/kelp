@@ -280,6 +280,10 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let one = WorkspaceClosing(picked: [b2], open: [a1, b1, b2], repos: [a, b])
     #expect(one.ids == [b2.id] && !one.keptSome)
     #expect(WorkspaceClosing(picked: [b1], open: [b1], repos: [b]).ids.isEmpty)   // a project's last workspace stays
+    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2, a3], repos: [a, b]) == a2)   // its row goes: the one under it
+    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)       // the last one: the one over it
+    #expect(WorkspaceClosing.afterLastTab(of: a3, rows: [a1, a2, a3], repos: [a, b]) == nil)  // on a branch of its own it stays
+    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1], repos: [a, b]) == nil)          // and so does a project's only one
 }
 
 @Test func replacePutsTheNewURIInTheOldTabsPlace() {

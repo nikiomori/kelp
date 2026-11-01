@@ -67,6 +67,7 @@ extension EditorArea {
         } else if let close = app.extensions.tabProvider(for: uri)?.closeUnbuilt, await !close(uri) { return false }
         guard layout.allTabs.contains(where: { $0.id == id }) else { return true }   // gone while it asked (its workspace closed)
         drop(id, session: sid)
+        if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: sid) }
         return true
     }
 
