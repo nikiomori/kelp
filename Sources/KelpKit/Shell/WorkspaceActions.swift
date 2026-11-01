@@ -47,25 +47,42 @@ package struct WorkspaceActions {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)])
     }
 
+    /// What exists only in a branch's folder: nothing about it may go without being asked.
+    private struct Work {
+        var dirty: Bool, commits: Int
+        var isAny: Bool { dirty || commits > 0 }
+        var words: [String] {
+            (dirty ? [String(localized: "It has uncommitted changes that will be lost.")] : [])
+                + (commits > 0 ? [String(localized: "\(commits) commits on this branch aren't on any other branch or remote and will be lost.")] : [])
+        }
+    }
+
+    /// Nil: can't tell (its folder is gone, say).
+    private func work(on id: String) async -> Work? {
+        guard let d = await app.quiet(WorktreeDirty(id: id)), let c = await app.quiet(WorktreeUnmerged(id: id)) else { return nil }
+        return Work(dirty: d, commits: c)
+    }
+
     func delete(_ w: Worktree) {
         Task {
-            let dirty = await app.call(WorktreeDirty(id: w.id)) ?? false
-            let commits = await app.call(WorktreeUnmerged(id: w.id)) ?? 0
+            let work = Work(dirty: await app.call(WorktreeDirty(id: w.id)) ?? false, commits: await app.call(WorktreeUnmerged(id: w.id)) ?? 0)
             let a = NSAlert(); a.messageText = String(localized: "Delete “\(w.displayName)” and its branch?")
-            var lost: [String] = []
-            if dirty { lost.append(String(localized: "It has uncommitted changes that will be lost.")) }
-            if commits > 0 { lost.append(String(localized: "\(commits) commits on this branch aren't on any other branch or remote and will be lost.")) }
-            a.informativeText = lost.isEmpty
-                ? String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop.") : lost.joined(separator: " ")
-            a.addButton(withTitle: lost.isEmpty ? String(localized: "Delete Folder and Branch") : String(localized: "Delete and Lose Changes"))
+            a.informativeText = work.isAny ? work.words.joined(separator: " ")
+                : String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop.")
+            a.addButton(withTitle: work.isAny ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch"))
                 .hasDestructiveAction = true
-            a.addButton(withTitle: String(localized: "Cancel")); a.alertStyle = lost.isEmpty ? .warning : .critical
-            guard await runSheet(a) == .alertFirstButtonReturn, await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
-            if app.workbench.workspaceId == w.id, let main = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id }) {
-                app.workbench.show(workspace: main.id)
-            }
-            await app.call(WorktreeRemove(id: w.id, force: dirty, dropCommits: commits > 0))
+            a.addButton(withTitle: String(localized: "Cancel")); a.alertStyle = work.isAny ? .critical : .warning
+            guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            await discard(w, work)
         }
+    }
+
+    private func discard(_ w: Worktree, _ work: Work) async {
+        guard await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
+        if app.workbench.workspaceId == w.id, let main = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id }) {
+            app.workbench.show(workspace: main.id)
+        }
+        await app.call(WorktreeRemove(id: w.id, force: work.dirty, dropCommits: work.commits > 0))
     }
 
     /// The project's other git worktrees with nothing uncommitted (agents leave them in `.claude/worktrees`), after one
@@ -101,12 +118,13 @@ package struct WorkspaceActions {
         }
     }
 
-    /// A desk: its agents end, the folder stays. Asks only when agents are running there.
+    /// A group: its agents end, the project's files stay. Asks only when agents are running there. One on a branch goes with
+    /// its folder and branch, and first asks if they hold the only copy of something. A project's own screen stays.
     func close(_ w: Worktree) {
-        // The project's last workspace stays (removing the project is a separate, deliberate action).
-        guard app.worktrees.filter({ $0.repoId == w.repoId && !$0.archived }).count > 1 else { NSSound.beep(); return }
+        guard let r = app.repo(w.repoId), w.id != mainWorkspace(of: r, among: app.workspaces(of: r))?.id else { NSSound.beep(); return }
         let running = app.sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.status != .hibernated }
         Task {
+            if w.path != r.path, let work = await work(on: w.id), work.isAny { await closeKeeping(w, work); return }
             if !running.isEmpty {
                 let a = NSAlert(); a.messageText = String(localized: "Close “\(w.displayName)”?")
                 a.informativeText = (running.count == 1 ? String(localized: "1 running agent stops. Files in the project are not touched.")
@@ -120,8 +138,24 @@ package struct WorkspaceActions {
             if app.workbench.workspaceId == w.id, let other = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id }) {
                 app.workbench.show(workspace: other.id)
             }
-            await app.call(WorktreeRemove(id: w.id))
+            // Refused (an agent wrote something at the last moment): back to what's still there.
+            if await app.call(WorktreeRemove(id: w.id)) == nil { app.workbench.show(workspace: w.id) }
             await app.refresh()
+        }
+    }
+
+    /// A branch with work of its own: kept unless told otherwise, as it can't be got back.
+    private func closeKeeping(_ w: Worktree, _ work: Work) async {
+        let a = NSAlert(); a.messageText = String(localized: "“\(w.displayName)” has work that's nowhere else")
+        a.informativeText = (work.words + [String(localized: "Archive keeps it, agents paused, until Window › Archived Groups brings it back.")])
+            .joined(separator: " ")
+        a.addButton(withTitle: String(localized: "Archive"))
+        a.addButton(withTitle: String(localized: "Delete and Lose Changes")).hasDestructiveAction = true
+        a.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
+        switch await runSheet(a) {
+        case .alertFirstButtonReturn: archive(w)
+        case .alertSecondButtonReturn: await discard(w, work)
+        default: break
         }
     }
 
@@ -155,20 +189,29 @@ package struct WorkspaceActions {
         for w in from { app.workbench.window?.editors.chatsLeft(w) }
     }
 
-    /// Its last tab was closed: its row goes too, with nothing to ask. `ended`: that tab's session, still on its way out.
+    /// Its last tab was closed: its row goes too, with nothing to ask. One on a branch with work of its own stays, and says
+    /// so: nothing there is decided by closing a tab. `ended`: that tab's session, still on its way out.
     func closeEmpty(_ id: String, ended: String?) {
         guard let w = app.worktree(id), let r = app.repo(w.repoId),
               !app.sessions.contains(where: { $0.worktreeId == id && $0.id != ended && $0.status != .exited }),
               let next = WorkspaceClosing.afterLastTab(of: w, rows: app.workspaces(of: r), repos: app.repos) else { return }
         Task {
+            if w.path != r.path {
+                guard let work = await work(on: id) else { return }
+                if work.isAny {
+                    Banner.show(String(localized: "“\(w.displayName)” stays: its work is only on \(w.branch). ⇧⌘W closes it."))
+                    return
+                }
+            }
             if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            await app.call(WorktreeRemove(id: id))
+            // The agent that just ended may have left something after all: then it stays, as above.
+            if await app.quiet(WorktreeRemove(id: id)) == nil { app.workbench.show(workspace: id) }
             await app.refresh()
         }
     }
 
     /// Several at once (sidebar multi-selection): one question; each project keeps at least one workspace.
-    /// Desks close; workspaces on their own branch are archived (nothing is deleted).
+    /// Desks close; one on its own branch goes if nothing is only there, else it's archived (nothing is lost).
     func close(_ ws: [Worktree]) {
         let m = app
         let plan = WorkspaceClosing(picked: ws, open: m.worktrees.filter { !$0.archived }, repos: m.repos), closing = plan.ids
@@ -188,7 +231,9 @@ package struct WorkspaceActions {
             if let id = app.workbench.workspaceId, closing.contains(id),
                let other = m.worktrees.first(where: { !$0.archived && !closing.contains($0.id) }) { app.workbench.show(workspace: other.id) }
             for id in plan.remove { await m.call(WorktreeRemove(id: id)) }
-            for id in plan.archive { await m.call(WorktreeArchive(id: id)) }
+            for id in plan.archive {
+                if await work(on: id)?.isAny == false { await m.call(WorktreeRemove(id: id)) } else { await m.call(WorktreeArchive(id: id)) }
+            }
             await m.refresh()
         }
     }

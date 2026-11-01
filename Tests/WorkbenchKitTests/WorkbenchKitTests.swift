@@ -297,7 +297,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(WorkspaceClosing(picked: [b1], open: [b1], repos: [b]).ids.isEmpty)   // a project's last workspace stays
     #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2, a3], repos: [a, b]) == a3)   // a group goes: the row under it
     #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)       // the last one: the row over it
-    #expect(WorkspaceClosing.afterLastTab(of: a3, rows: [a1, a2, a3], repos: [a, b]) == nil)  // on a branch of its own it stays
+    #expect(WorkspaceClosing.afterLastTab(of: a3, rows: [a1, a2, a3], repos: [a, b]) == a2)   // on a branch too: whether it may is the app's to ask
     #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2], repos: [a, b]) == nil)      // and so does a project's own screen
 }
 

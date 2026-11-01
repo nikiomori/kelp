@@ -28,7 +28,9 @@ contributions, the command palette and settings.
   screen you're on. A group splits the screen, not the code: chats
   on the desks of a project share its folder, and one can move between them with its agent running (`session.move`).
   A branch splits the code: New Chat on Branch (⌃⌘N) is a group on a git worktree, cut from the project's base branch,
-  and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there.
+  and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
+  only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
+  with nothing of its own it closes like any group, folder to the Trash and branch removed.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:

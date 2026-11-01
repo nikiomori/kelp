@@ -14487,6 +14487,36 @@
         }
       }
     },
+    "“%@” has work that's nowhere else": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» есть работа, которой больше нигде нет"
+          }
+        }
+      }
+    },
+    "Archive keeps it, agents paused, until Window › Archived Groups brings it back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив сохранит её и приостановит агентов, вернуть — Окно › Архивные группы."
+          }
+        }
+      }
+    },
+    "“%1$@” stays: its work is only on %2$@. ⇧⌘W closes it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%1$@» остаётся: эта работа есть только на %2$@. Закрыть: ⇧⌘W."
+          }
+        }
+      }
+    },
     "New Chat on Branch": {
       "localizations": {
         "ru": {
