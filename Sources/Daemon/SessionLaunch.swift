@@ -310,6 +310,7 @@ extension Sessions {
         if let ls = existing(s.id) { touchCommands(ls) }   // one ended with its turn or its program
         if s.status == .done || s.status == .waiting, let a = s.agent { agentUsage.planUsed(a) }
         familyHeard(s)
+        eventsHeard(s)
     }
 
     /// Its commands changed: whoever watches them reads them again.

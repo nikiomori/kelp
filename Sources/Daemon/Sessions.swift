@@ -9,6 +9,7 @@ import Agents
 final class Sessions: Sendable {
     let live = SessionTable()
     let reports = ChildReports()
+    let events = ExtensionEvents()
     let wakeLocks = WakeLocks()   // one wake per session even when several clients open it at once; pausing holds it too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)

@@ -90,7 +90,9 @@ extension RepoRemove: Handled {
 extension WorkspaceCreate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
-        return try workspaces.createDesk(in: r)
+        let w = try workspaces.createDesk(in: r)
+        workspaces.sessions.workspaceAdded(w)
+        return w
     }
 }
 
@@ -135,6 +137,7 @@ extension WorktreeCreate: Handled {
             result.setupSession = s.id
         }
         workspaces.notify(ChangedEvent.worktree)
+        workspaces.sessions.workspaceAdded(result.worktree)
         return result
     }
 }

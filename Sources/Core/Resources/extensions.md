@@ -23,7 +23,8 @@ Useful while developing: `kelp ext list`, `kelp ext reload`, `kelp ext disable <
     "themes":   [],
     "iconThemes": [],
     "agents":   [],
-    "languages": []
+    "languages": [],
+    "events":   []
   }
 }
 ```
@@ -190,6 +191,23 @@ in the file's folder (Format Document, ⌃⇧I; Settings › Editor › Format o
 `${relativeFile}` (to the workspace), `${dir}` (the file's folder), `${line}`, `${symbol}` (the function or class
 around the cursor, from the language server, else the word under it) and `${workspace}` are filled in, shell-quoted;
 any other `${…}` is left to the shell.
+
+## events
+Run a command when something happens, with Kelp's window open or closed:
+```json
+{ "on": "agent.waiting", "run": "curl -s -d \"$KELP_TITLE: $KELP_SUMMARY\" ntfy.sh/my-topic" }
+```
+| `on` | when |
+| --- | --- |
+| `agent.waiting` | an agent asks something and is still asking 2.5 s later |
+| `agent.done` | an agent's turn ended (not a child's: its parent reads that) |
+| `agent.failed` | an agent's turn failed |
+| `workspace.created` | a group or a branch was added |
+
+It runs in the background in the agent's or workspace's folder, for up to 30 seconds, without `${…}` fields. What it's
+about is in the environment: `KELP_EVENT`, `KELP_TITLE`, `KELP_WORKSPACE_ID`, and for an agent `KELP_SESSION_ID`,
+`KELP_AGENT` and `KELP_SUMMARY` (what it asks, or why it failed). Those texts come from agents: keep them in double
+quotes, and never pass them to `eval`.
 
 ## The library
 [github.com/nikiomori/kelp-extensions](https://github.com/nikiomori/kelp-extensions) holds extensions people shared,
