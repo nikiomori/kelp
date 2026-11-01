@@ -18,15 +18,13 @@ contributions, the command palette and settings.
 
 ## Concepts
 - **Project**: a folder, usually a git repository; one added without git still has files, terminals and agents (`repo.*` RPCs).
-- **Workspace**: a desk in the project's folder — its own tabs, splits and agents, nothing on disk
-  (`workspace.create`, stored as worktree records whose path is the repo path). ⌘N opens a new one instantly,
-  named "Workspace N" until its first agent prompt names it; several desks share the folder.
-  Closing one ends its agents and leaves the files. (Workspaces from older versions may be git worktrees.)
-  The word stays in the code, RPCs and CLI. In the window a project's oldest desk is the project's own screen: its
-  agents are chats, listed under the project with no heading, and it doesn't close. Every other workspace is a group,
-  made on purpose (⇧⌘N), always under its heading; closing its last tab closes it. ⌘N starts the default agent on the
-  screen you're on. A group splits the screen, not the code: chats
-  on the desks of a project share its folder, and one can move between them with its agent running (`session.move`).
+- **Workspace**: what the code, RPCs and CLI call one screen of a project: its own tabs, splits and agents, with nothing
+  on disk (`workspace.create`, stored as worktree records whose path is the repo path). In the window a project's
+  oldest workspace is the project's own screen: its agents are chats, listed under the project with no heading, and it
+  doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), always under its heading; closing its last tab
+  closes it, ending its agents and leaving the files. ⌘N starts the default agent on the screen you're on.
+  A group splits the screen, not the code: chats in a project's workspaces share its folder, and one can move between
+  them with its agent running (`session.move`).
   A branch splits the code: New Chat on Branch (⌃⌘N) is a group on a git worktree, cut from the project's base branch,
   and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
   only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
@@ -142,7 +140,7 @@ else a `NotificationCenter` name.
 - **Parts.** `Daemon` is the connections, the method registry (`Daemon.methods`) and the services it puts together,
   each keeping its own state under its own locks and given what it uses at init (none names `Daemon`):
   `AgentUsage` (what agents leave on disk: conversations, token usage, context windows, plan limits), `Forges` (pull
-  requests by branch, running clones, the trackers' clients and their keychain secrets), `Workspaces` (desks, the
+  requests by branch, running clones, the trackers' clients and their keychain secrets), `Workspaces` (their records, the
   branches they follow, the `.kelp.yaml` files the user trusts), `Watches` (what clients watch, read through a hook the
   daemon sets), `Sessions` (which run, starting, waking, pausing and deleting them, their tmux, keeping the Mac awake).
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
@@ -173,7 +171,7 @@ else a `NotificationCenter` name.
   `Clients` → a session's own lock → a `Connection`'s. A session's lock is never held while another session's is taken.
   Everything about a session that changes is one struct (`LiveSession.State`) under that lock, touched only inside
   `withLock`, so the compiler checks it; what it tells the daemon (`LiveSession.Callbacks`) is fixed at launch.
-  `Workspaces.deskLock` makes listing desks and adding a missing one a single step (taken once, never again inside),
+  `Workspaces.deskLock` makes listing workspaces and adding a missing one a single step (taken once, never again inside),
   and its `trustLock` guards trusted-configs.json.
 - **Deadlines.** Every git, gh and ssh run has a time limit (300 s by default) and is stopped with its children
   (`Subprocess`). A call waits for its reply as long as its method says (`RPCMethod.timeout`: 330 s, just past that;
@@ -235,7 +233,7 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
   presses anything while its copy of the agent asks a question.
 - Language servers run a project's own code (build scripts, `Package.swift`, its `node_modules`' TypeScript), and
   formatters can (rustup takes the toolchain a repo names): neither runs in a project until the user trusts it in
-  Kelp's window (a banner on its first file, like VS Code's Workspace Trust), the scratch desk included. Only the window
+  Kelp's window (a banner on its first file, like VS Code's Workspace Trust), the scratch workspace included. Only the window
   can record that trust (`state.set` of `lsp.*` checks the connecting program, as `scripts.trust` does). Language
   servers run in the daemon (`lsp.*`: one per project and server command, shared by every client, stopped a minute after
   its last file closes), which checks that trust itself before it starts one, whoever asks.
