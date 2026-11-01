@@ -8,10 +8,10 @@ contributions, the command palette and settings.
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
 │ Project       + ││ [Claude ●][Terminal][app.ts][Browser]    ││ ▤  ⎇  ☰  …      │
-│  ▾ Group        ││ ┌──────────────────┬──────────────────┐  ││ Files / Source  │
-│     ✻ Claude ⚙  ││ │ agent terminal   │ file / browser / │  ││ Control / Issues│
+│    ✻ Claude ✓   ││ ┌──────────────────┬──────────────────┐  ││ Files / Source  │
+│  ▾ Group        ││ │ agent terminal   │ file / browser / │  ││ Control / Issues│
 │     ✻ Codex ?   ││ │                  │ diff / ext view  │  ││ + extension     │
-│    Chat ✓       ││ └──────────────────┴──────────────────┘  ││   panels        │
+│     ✻ Claude ⚙  ││ └──────────────────┴──────────────────┘  ││   panels        │
 │ Limits          ││   groups split freely, tabs of any kind  ││                 │
 └─────────────────┘└──────────────────────────────────────────┘└─────────────────┘
 ```
@@ -22,9 +22,10 @@ contributions, the command palette and settings.
   (`workspace.create`, stored as worktree records whose path is the repo path). ⌘N opens a new one instantly,
   named "Workspace N" until its first agent prompt names it; several desks share the folder.
   Closing one ends its agents and leaves the files. (Workspaces from older versions may be git worktrees.)
-  The word stays in the code, RPCs and CLI. In the window one is a screen: an agent alone on it is a row called a
-  chat, two or more get a heading, and closing the last tab closes the row. ⌘N starts the default agent on a new
-  screen, or goes to the chat nobody has started yet.
+  The word stays in the code, RPCs and CLI. In the window a project's oldest desk is the project's own screen: its
+  agents are chats, listed under the project with no heading, and it doesn't close. Every other workspace is a group,
+  made on purpose (⇧⌘N), always under its heading; closing its last tab closes it. ⌘N starts the default agent on the
+  screen you're on, or goes to the one nobody has asked anything yet.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:

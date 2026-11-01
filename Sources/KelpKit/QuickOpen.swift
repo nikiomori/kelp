@@ -218,7 +218,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     private func pickRecent(_ n: Int) -> Bool {
-        guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Chat" else { return false }
+        guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Group" else { return false }
         panel.orderOut(nil); NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         recents[n - 1].action()
         return true
@@ -335,7 +335,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     private static func group(_ it: Item) -> String {
         if it.recent { return "Recently Used" }
-        return ["File": "Files", "Agent": "Chats", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings", "Chat": "Chats",
+        return ["File": "Files", "Agent": "Chats", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings", "Group": "Groups",
                 "Tab": "Tabs"][it.kind]
             ?? it.kind
     }
@@ -438,7 +438,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
         let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
-        let n = showingRecents && index < 6 && it.kind != "Chat" ? "⌘\(index + 1)  " : ""
+        let n = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
         let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .ui(11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.

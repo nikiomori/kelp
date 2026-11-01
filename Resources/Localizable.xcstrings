@@ -146,12 +146,12 @@
         }
       }
     },
-    "%@ asks Kelp to run these as you, in this chat's folder. ": {
+    "%@ asks Kelp to run these as you, in this folder. ": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ просит Kelp выполнить эти команды от вашего имени в папке этого чата. "
+            "value": "%@ просит Kelp выполнить эти команды от вашего имени в этой папке. "
           }
         }
       }
@@ -748,12 +748,12 @@
         }
       }
     },
-    "Agents on a schedule, each in a chat of its own.": {
+    "Agents on a schedule, each in a group of its own.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агенты по расписанию, каждый в своём чате."
+            "value": "Агенты по расписанию, каждый в своей группе."
           }
         }
       }
@@ -810,12 +810,12 @@
         }
       }
     },
-    "An agent on a schedule: at its time it starts with this prompt, in a chat of its own.": {
+    "An agent on a schedule: at its time it starts with this prompt, in a group of its own.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агент по расписанию: в своё время он запускается с этим промптом в собственном чате."
+            "value": "Агент по расписанию: в своё время он запускается с этим промптом в собственной группе."
           }
         }
       }
@@ -975,12 +975,12 @@
         }
       }
     },
-    "Add a project folder. Each chat gets its own screen: the agent, terminals and files side by side.": {
+    "Add a project folder: agents, terminals and files side by side.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Добавьте папку проекта. У каждого чата свой экран: агент, терминалы и файлы рядом."
+            "value": "Добавьте папку проекта: агенты, терминалы и файлы рядом."
           }
         }
       }
@@ -1109,12 +1109,12 @@
         }
       }
     },
-    "Each chat has its own screen here, with the terminal, editor and git next to it.": {
+    "Agents work here with the terminal, editor and git next to them.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "У каждого чата здесь свой экран, а рядом — терминал, редактор и git."
+            "value": "Здесь агенты работают рядом с терминалом, редактором и git."
           }
         }
       }
@@ -1241,12 +1241,12 @@
         }
       }
     },
-    "Archived Chats": {
+    "Archived Groups": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Архивные чаты"
+            "value": "Архивные группы"
           }
         }
       }
@@ -2059,22 +2059,22 @@
         }
       }
     },
-    "Close %lld Chats…": {
+    "Close %lld Groups…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть чаты (%lld)…"
+            "value": "Закрыть группы (%lld)…"
           }
         }
       }
     },
-    "Close %lld chats?": {
+    "Close %lld groups?": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть чаты (%lld)?"
+            "value": "Закрыть группы (%lld)?"
           }
         }
       }
@@ -2109,12 +2109,12 @@
         }
       }
     },
-    "Close All Tabs": {
+    "Close Group": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть все вкладки"
+            "value": "Закрыть группу"
           }
         }
       }
@@ -4380,12 +4380,12 @@
         }
       }
     },
-    "It stops running. Its chat and the tabs of its runs stay.": {
+    "It stops running. Its group and the tabs of its runs stay.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Она больше не запустится. Её чат и вкладки прогонов останутся."
+            "value": "Она больше не запустится. Её группа и вкладки прогонов останутся."
           }
         }
       }
@@ -5613,12 +5613,12 @@
         }
       }
     },
-    "Next Chat": {
+    "Next Group": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Следующий чат"
+            "value": "Следующая группа"
           }
         }
       }
@@ -6455,12 +6455,12 @@
         }
       }
     },
-    "Panes, tabs, chats, the sidebar and inspector: the commands of the window.": {
+    "Panes, tabs, groups, the sidebar and inspector: the commands of the window.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Панели, вкладки, чаты, боковая панель и инспектор: команды окна."
+            "value": "Панели, вкладки, группы, боковая панель и инспектор: команды окна."
           }
         }
       }
@@ -6527,12 +6527,12 @@
         }
       }
     },
-    "Pick a chat in the sidebar, or press ⌘N for a new one: a screen of its own for one task.": {
+    "Pick a chat in the sidebar, or press ⌘N for a new one.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите чат в боковой панели или нажмите ⌘N, чтобы начать новый: у каждой задачи свой экран."
+            "value": "Выберите чат в боковой панели или нажмите ⌘N, чтобы начать новый."
           }
         }
       }
@@ -6639,12 +6639,12 @@
         }
       }
     },
-    "Previous Chat": {
+    "Previous Group": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Предыдущий чат"
+            "value": "Предыдущая группа"
           }
         }
       }
@@ -7547,22 +7547,22 @@
         }
       }
     },
-    "Runs in a chat of its own, made at its first run": {
+    "Runs in a group of its own, made at its first run": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Идёт в своём чате — он появится при первом прогоне"
+            "value": "Идёт в своей группе — она появится при первом прогоне"
           }
         }
       }
     },
-    "Runs in its chat “%@”": {
+    "Runs in its group “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Идёт в своём чате «%@»"
+            "value": "Идёт в своей группе «%@»"
           }
         }
       }
@@ -8696,12 +8696,12 @@
         }
       }
     },
-    "Switch Chat": {
+    "Switch Group": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сменить чат"
+            "value": "Сменить группу"
           }
         }
       }
@@ -9926,92 +9926,92 @@
         }
       }
     },
-    "Chat 1": {
+    "Group 1": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 1"
+            "value": "Группа 1"
           }
         }
       }
     },
-    "Chat 2": {
+    "Group 2": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 2"
+            "value": "Группа 2"
           }
         }
       }
     },
-    "Chat 3": {
+    "Group 3": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 3"
+            "value": "Группа 3"
           }
         }
       }
     },
-    "Chat 4": {
+    "Group 4": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 4"
+            "value": "Группа 4"
           }
         }
       }
     },
-    "Chat 5": {
+    "Group 5": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 5"
+            "value": "Группа 5"
           }
         }
       }
     },
-    "Chat 6": {
+    "Group 6": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 6"
+            "value": "Группа 6"
           }
         }
       }
     },
-    "Chat 7": {
+    "Group 7": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 7"
+            "value": "Группа 7"
           }
         }
       }
     },
-    "Chat 8": {
+    "Group 8": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 8"
+            "value": "Группа 8"
           }
         }
       }
     },
-    "Chat 9": {
+    "Group 9": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Чат 9"
+            "value": "Группа 9"
           }
         }
       }
@@ -10390,12 +10390,12 @@
         }
       }
     },
-    "“%@” archived. Window › Archived Chats brings it back.": {
+    "“%@” archived. Window › Archived Groups brings it back.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "«%@» в архиве. Вернуть — Окно › Архивные чаты."
+            "value": "«%@» в архиве. Вернуть — Окно › Архивные группы."
           }
         }
       }
@@ -11341,12 +11341,12 @@
         }
       }
     },
-    "Each project keeps one chat.": {
+    "A project's own chats stay.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В каждом проекте остаётся один чат."
+            "value": "Чаты самого проекта останутся."
           }
         }
       }
@@ -14493,6 +14493,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Как показывать цвет из меню строки проекта. На иконке он виден и в заголовке окна, в ⌃Tab и в «Ждут вас»."
+          }
+        }
+      }
+    },
+    "New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая группа"
+          }
+        }
+      }
+    },
+    "Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группа"
+          }
+        }
+      }
+    },
+    "Groups": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группы"
           }
         }
       }

@@ -97,7 +97,9 @@ final class WindowBar: NSView {
             tools.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -48)   // clear of the inspector toggle
         ])
         track(owner: self) {
-            [-1, 1].map { app.workbench.visit($0).flatMap { app.worktree(app.workbench.history.visits[$0])?.displayName } }
+            [-1, 1].map { step in
+                app.workbench.visit(step).flatMap { app.worktree(app.workbench.history.visits[$0]) }.flatMap { app.groupName($0) ?? app.projectName($0.repoId) }
+            }
         } changed: { [weak self] in
             self?.showNav(back: $0[0], forward: $0[1])
         }
@@ -140,7 +142,8 @@ final class WindowBar: NSView {
         guard let w = worktree else { context.isHidden = true; return }
         context.isHidden = false
         if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: app) } else { icon.image = nil }
-        name.stringValue = w.displayName
+        name.stringValue = app.groupName(w) ?? ""   // a project's own screen: the folder beside it says it
+        name.isHidden = name.stringValue.isEmpty
         // The folder's name, as Xcode and Finder name a project; the whole path in its tooltip and its menu.
         let place = app.repo(w.repoId).map(app.projectPlace) ?? (w.path as NSString).abbreviatingWithTildeInPath
         let path = w.path == app.repo(w.repoId)?.path ? place : (w.path as NSString).abbreviatingWithTildeInPath

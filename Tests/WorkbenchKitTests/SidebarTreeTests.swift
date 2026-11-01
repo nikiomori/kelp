@@ -21,27 +21,8 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w1", .exited), agent("sh", in: "w1", .idle, agent: "shell")]
     let out = tree([wt("w1", "r1", "main"), wt("w2", "r1", "old"), wt("w3", "r1", "gone", archived: true)], ss).build()
     #expect(kinds(out) == [.project("r1"), .project("r2")])
-    #expect(kinds(out[0].children) == [.agent("a1"), .workspace("w2")])   // archived workspaces aren't listed
-    #expect(out[0].children[0].workspace == "w1")   // an ended agent and a plain terminal don't make it a group
-}
-
-/// A new chat never regroups the ones already there: the heading came with their second agent.
-@Test func aHeadingDoesntWaitForASecondScreen() {
-    let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle)]
-    let one = tree([wt("w1", "r1", "a")], ss).build()
-    #expect(kinds(one[0].children) == [.workspace("w1")] && one[0].workspace == nil)
-    let two = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], ss).build()
-    #expect(kinds(two[0].children) == [.workspace("w1"), .workspace("w2")])
-}
-
-@Test func aHeadingShowsOnlyWhenAScreenHoldsTwoAgents() {
-    let alone = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .working)]).build()
-    #expect(kinds(alone[0].children) == [.agent("a1"), .workspace("w2")])
-    #expect(alone[0].children[0].workspace == "w1" && alone[0].children[0].children.isEmpty)
-    let two = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle)]).build()
-    #expect(kinds(two[0].children) == [.workspace("w1"), .workspace("w2")])
-    #expect(kinds(two[0].children[0].children) == [.agent("a1"), .agent("a2")])
-    #expect(two[0].children[0].children[0].workspace == nil)   // under a heading a row is only itself
+    #expect(kinds(out[0].children) == [.workspace("w1"), .workspace("w2")])   // archived workspaces aren't listed
+    #expect(kinds(out[0].children[0].children) == [.agent("a1")])   // an ended agent and a plain terminal aren't
 }
 
 @Test func agentsFirstLiftsProjectsWithAgentsAndKeepsTheRestInOrder() {
@@ -53,10 +34,28 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(kinds(t.build()) == [.project("r3"), .project("r1"), .project("r2")])
 }
 
-@Test func aProjectWithOneWorkspaceStandsForIt() {
-    let out = tree([wt("w1", "r1", "main"), wt("w2", "r1", "old", archived: true)], [agent("a1", in: "w1", .working)]).build()
-    #expect(out[0].workspace == "w1" && kinds(out[0].children) == [.agent("a1")])   // the agents right under the project
-    #expect(out[1].workspace == nil && out[1].children.isEmpty)   // no workspace at all
+private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
+    Worktree(id: id, repoId: r.id, branch: "main", path: r.path, createdAt: Date(timeIntervalSince1970: t))
+}
+
+/// A project's own screen has no heading: its agents are the project's chats, right under the name. Nothing else moves
+/// when a group comes: it goes under them, under a heading of its own, however many agents it holds.
+@Test func aProjectsChatsHaveNoHeadingAndGroupsAlwaysDo() {
+    let chats = [agent("a1", in: "d", .working), agent("a2", in: "d", .idle)]
+    let alone = tree([desk("d", r1)], chats).build()
+    #expect(alone[0].workspace == "d" && kinds(alone[0].children) == [.agent("a1"), .agent("a2")])
+    #expect(alone[1].workspace == nil && alone[1].children.isEmpty)   // no workspace at all
+    let grouped = tree([desk("d", r1), desk("g", r1, at: 1), desk("e", r1, at: 2)], chats + [agent("a3", in: "g", .working)]).build()
+    #expect(grouped[0].workspace == "d")
+    #expect(kinds(grouped[0].children) == [.agent("a1"), .agent("a2"), .workspace("g"), .workspace("e")])
+    #expect(kinds(grouped[0].children[2].children) == [.agent("a3")])   // one agent keeps its heading, and none does too
+}
+
+/// Which desk is the project's own doesn't follow a dragged order, and a checkout elsewhere is never it.
+@Test func aProjectsOwnScreenIsItsOldestDesk() {
+    let older = desk("old", r1, at: 1), newer = desk("new", r1, at: 2), branch = wt("b", "r1", "feat")
+    #expect(mainWorkspace(of: r1, among: [branch, newer, older]) == older)
+    #expect(mainWorkspace(of: r1, among: [branch]) == nil)
 }
 
 @Test func searchKeepsWhatMatchesAndDropsEmptyProjects() {
@@ -64,8 +63,8 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     t.query = "inv"
     var out = t.build()
     #expect(kinds(out) == [.project("r1")])
-    #expect(kinds(out[0].children) == [.agent("a1")])   // the agent's title matched, not the workspace's
-    #expect(out[0].children[0].workspace == "w2")
+    #expect(kinds(out[0].children) == [.workspace("w2")])   // the agent's title matched, not the workspace's
+    #expect(kinds(out[0].children[0].children) == [.agent("a1")])
     t.query = "LOGIN"
     out = t.build()
     #expect(kinds(out[0].children) == [.workspace("w1")])   // case doesn't matter
@@ -83,7 +82,7 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
 @Test func theNeedsYouFilterFindsAPausedAgentsResult() {
     var t = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .hibernated, unread: true), agent("a2", in: "w2", .hibernated)])
     t.filter = .needsYou
-    #expect(kinds(t.build().flatMap(\.children)) == [.agent("a1")])
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1")])
 }
 
 @Test func filtersNarrowAndTheCurrentWorkspaceStays() {
@@ -91,13 +90,13 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w2", .waiting), agent("a3", in: "w3", .done, unread: true)]
     var t = tree(ws, ss)
     t.filter = .working
-    #expect(kinds(t.build().flatMap(\.children)) == [.agent("a1")])
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1")])
     t.filter = .needsYou
-    #expect(kinds(t.build().flatMap(\.children)) == [.agent("a2"), .agent("a3")])   // waiting, and done but unread
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w2"), .workspace("w3")])   // waiting, and done but unread
     t.current = "w1"
-    #expect(kinds(t.build().flatMap(\.children)) == [.agent("a1"), .agent("a2"), .agent("a3")])
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1"), .workspace("w2"), .workspace("w3")])
     t.current = nil; t.filter = .withPR; t.hasPR = { $0.id == "w3" }
-    #expect(kinds(t.build().flatMap(\.children)) == [.agent("a3")])
+    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w3")])
 }
 
 @Test func pinnedWorkspacesMoveUpInsteadOfBeingCopied() {

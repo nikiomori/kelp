@@ -78,7 +78,7 @@ final class CardModel {
         if key.hasPrefix("a:"), let s = m.session(String(key.dropFirst(2))) {
             title = app.catalog.displayName(s)
             let w = m.worktree(s.worktreeId)
-            subtitle = [w?.displayName, m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
+            subtitle = [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
             agents = [Agent(id: s.id, session: s)]
             workspaceId = s.worktreeId ?? ""
             agentOnly = true

@@ -264,19 +264,22 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(h.visits.count == 50 && h.visits.last == "w59")
 }
 
-/// ⌘N goes to the chat nobody has started: empty, or with its agent still waiting for the first prompt.
-@Test func aNewChatNobodyStartedIsUsedAgain() {
-    let named = Worktree(repoId: "r", branch: "main", path: "/p", note: "Graph")
-    let blank = Worktree(repoId: "r", branch: "main", path: "/p", note: "Workspace 2")
+/// New Group goes to the one nobody has started: empty, or with its agent still waiting for the first prompt.
+@Test func aNewGroupNobodyStartedIsUsedAgain() {
+    let r = Repo(name: "r", path: "/p"), t = Date(timeIntervalSince1970: 0)
+    let own = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Workspace 1", createdAt: t)
+    let named = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Graph", createdAt: t + 1)
+    let blank = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Workspace 2", createdAt: t + 2)
     func agent(_ status: AgentStatus, title: String = "") -> Session {
         Session(worktreeId: blank.id, cwd: "/", command: "claude", agent: "claude", status: status, title: title)
     }
-    #expect(unstartedChat(rows: [named, blank], sessions: []) == blank)
-    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.idle)]) == blank)
-    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.exited, title: "Old")]) == blank)
-    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.working)]) == nil)
-    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.idle, title: "Fix login")]) == nil)
-    #expect(unstartedChat(rows: [named], sessions: []) == nil)
+    func found(_ rows: [Worktree], _ sessions: [Session] = []) -> Worktree? { unstartedGroup(of: r, rows: rows, sessions: sessions) }
+    #expect(found([own, named, blank]) == blank)
+    #expect(found([own, named, blank], [agent(.idle)]) == blank)
+    #expect(found([own, named, blank], [agent(.exited, title: "Old")]) == blank)
+    #expect(found([own, named, blank], [agent(.working)]) == nil)
+    #expect(found([own, named, blank], [agent(.idle, title: "Fix login")]) == nil)
+    #expect(found([own, named]) == nil)   // a project's own screen isn't a group, whatever its name
 }
 
 /// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; desks (in the project's
@@ -295,10 +298,10 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let one = WorkspaceClosing(picked: [b2], open: [a1, b1, b2], repos: [a, b])
     #expect(one.ids == [b2.id] && !one.keptSome)
     #expect(WorkspaceClosing(picked: [b1], open: [b1], repos: [b]).ids.isEmpty)   // a project's last workspace stays
-    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2, a3], repos: [a, b]) == a2)   // its row goes: the one under it
-    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)       // the last one: the one over it
+    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2, a3], repos: [a, b]) == a3)   // a group goes: the row under it
+    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)       // the last one: the row over it
     #expect(WorkspaceClosing.afterLastTab(of: a3, rows: [a1, a2, a3], repos: [a, b]) == nil)  // on a branch of its own it stays
-    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1], repos: [a, b]) == nil)          // and so does a project's only one
+    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2], repos: [a, b]) == nil)      // and so does a project's own screen
 }
 
 @Test func replacePutsTheNewURIInTheOldTabsPlace() {

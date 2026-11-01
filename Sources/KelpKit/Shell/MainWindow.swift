@@ -138,7 +138,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func updateTitle() {
-        window?.title = app.worktree(app.workbench.workspaceId)?.displayName ?? String(localized: "Kelp")
+        let w = app.worktree(app.workbench.workspaceId)
+        window?.title = app.groupName(w) ?? app.projectName(w?.repoId) ?? String(localized: "Kelp")
         editors.current?.showEdited()   // a workspace with unsaved files keeps saying so after a switch
     }
 

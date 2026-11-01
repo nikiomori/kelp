@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import WorkbenchKit
 import Agents
 
 /// UI-side mirror of daemon state (observable: SwiftUI views update only what changed).
@@ -433,6 +434,12 @@ package final class AppModel {
 
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
     /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.
+    /// A group's name; nil for a project's own screen, which goes by its project's.
+    func groupName(_ w: Worktree?) -> String? {
+        guard let w else { return nil }
+        return repo(w.repoId).flatMap { mainWorkspace(of: $0, among: worktrees) }?.id == w.id ? nil : w.displayName
+    }
+
     func projectName(_ id: String?) -> String? {
         guard let r = repo(id) else { return nil }
         guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host else { return r.name }

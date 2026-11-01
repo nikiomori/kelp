@@ -31,7 +31,7 @@ final class OnboardingSheet: SheetController {
         icon.heightAnchor.constraint(equalToConstant: 56).isActive = true
         let title = NSTextField(labelWithString: String(localized: "Welcome to Kelp")); title.font = .ui(17, weight: .semibold)
         let sub = NSTextField(wrappingLabelWithString:
-                              String(localized: "Each chat has its own screen here, with the terminal, editor and git next to it."))
+                              String(localized: "Agents work here with the terminal, editor and git next to them."))
         sub.textColor = .secondaryLabelColor; sub.preferredMaxLayoutWidth = 340
         let head = NSStackView(views: [icon, NSStackView(views: [title, sub])])
         head.alignment = .top

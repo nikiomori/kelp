@@ -129,13 +129,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let m = NSMenu()
         for s in AttentionQueue(app).sessions {
-            let place = app.worktree(s.worktreeId)?.displayName ?? ""
+            let w = app.worktree(s.worktreeId), place = app.groupName(w) ?? app.projectName(w?.repoId) ?? ""
             let state = s.status == .waiting ? String(localized: "needs you") : String(localized: "finished")
             let i = m.add("\(app.catalog.displayName(s)) — \(state) · \(place)") { [app] in NSApp.activate(); app.workbench.focus(session: s.id) }
             i.image = app.catalog.icon(s.agent, size: 16)
         }
         if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newWorkspace() }
+        m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newChat() }
         return m
     }
 

@@ -60,16 +60,25 @@ public struct WorkspaceHistory: Equatable, Sendable {
     public mutating func go(to i: Int) -> String { at = i; return visits[i] }
 }
 
-/// ⌘N: a new chat nobody has started is already there, among a project's rows: its name is still the placeholder and
-/// nothing on it has been asked anything. Nil: make one.
-public func unstartedChat(rows: [Worktree], sessions: [Session]) -> Worktree? {
+/// A project's own screen: its oldest desk, the one its chats are on. It has no heading and doesn't close; every other
+/// workspace is a group.
+public func mainWorkspace(of r: Repo, among ws: [Worktree]) -> Worktree? {
+    ws.filter { $0.repoId == r.id && $0.path == r.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
+}
+
+/// An agent nobody has asked anything yet.
+public func isUnstarted(_ s: Session) -> Bool { s.agent != "shell" && s.status == .idle && s.title.isEmpty }
+
+/// New Group: one nobody has started is already there, its name still the placeholder. Nil: make one.
+public func unstartedGroup(of r: Repo, rows: [Worktree], sessions: [Session]) -> Worktree? {
     rows.first { w in
-        w.isUnnamed && sessions.allSatisfy { $0.worktreeId != w.id || $0.status == .exited || ($0.status == .idle && $0.title.isEmpty) }
+        w.isUnnamed && w.id != mainWorkspace(of: r, among: rows)?.id
+            && sessions.allSatisfy { $0.worktreeId != w.id || $0.status == .exited || isUnstarted($0) }
     }
 }
 
-/// Several workspaces closed at once (the sidebar's multi-selection): each project keeps one (the oldest picked, when
-/// every open one was), a desk in the project's folder is removed, a workspace on its own branch is archived.
+/// Several workspaces closed at once (the sidebar's multi-selection): a project's own screen stays (without one, the oldest
+/// picked, when every open one was), a desk in the project's folder is removed, a workspace on its own branch is archived.
 public struct WorkspaceClosing: Equatable, Sendable {
     public private(set) var remove: [String] = [], archive: [String] = []
     /// Some picked workspaces stay, so their project keeps one.
@@ -79,8 +88,12 @@ public struct WorkspaceClosing: Equatable, Sendable {
     /// `open`: every workspace not archived; `repos` say where each project's folder is.
     public init(picked: [Worktree], open: [Worktree], repos: [Repo]) {
         var kept = Set<String>()
-        for (repo, mine) in Dictionary(grouping: picked, by: \.repoId) where mine.count >= open.filter({ $0.repoId == repo }).count {
-            if let oldest = mine.min(by: { $0.createdAt < $1.createdAt }) { kept.insert(oldest.id) }
+        for (repo, mine) in Dictionary(grouping: picked, by: \.repoId) {
+            if let r = repos.first(where: { $0.id == repo }), let own = mainWorkspace(of: r, among: open) {
+                if mine.contains(own) { kept.insert(own.id) }
+            } else if mine.count >= open.filter({ $0.repoId == repo }).count, let oldest = mine.min(by: { $0.createdAt < $1.createdAt }) {
+                kept.insert(oldest.id)
+            }
         }
         keptSome = !kept.isEmpty
         for w in picked where !kept.contains(w.id) {
@@ -89,10 +102,11 @@ public struct WorkspaceClosing: Equatable, Sendable {
     }
 
     /// `w`'s last tab closed and nothing runs there: its row goes with it, and this is the row to show instead, the one
-    /// under it or else the one over it. Nil: it stays, being on a branch of its own or the only one in its project.
+    /// under it or else the one over it. Nil: it stays, being on a branch of its own or the project's own screen.
     /// `rows`: the project's open workspaces, as the sidebar lists them.
     public static func afterLastTab(of w: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
-        guard w.path == repos.first(where: { $0.id == w.repoId })?.path, let i = rows.firstIndex(where: { $0.id == w.id }) else { return nil }
+        guard let r = repos.first(where: { $0.id == w.repoId }), w.path == r.path, w.id != mainWorkspace(of: r, among: rows)?.id,
+              let i = rows.firstIndex(where: { $0.id == w.id }) else { return nil }
         return rows.dropFirst(i + 1).first ?? rows[..<i].last
     }
 }

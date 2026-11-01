@@ -7,7 +7,7 @@ extension Builtins {
     /// The shell's own actions (sidebar and inspector, panes, tabs, workspaces, text size, the Run menu, help) as commands,
     /// so the menu bar, Settings › Keyboard, the palette and agents (`kelp run <id>`) reach them the same way.
     package static let workbench = Builtin("kelp.workbench", "Window & Workbench",
-                                   "Panes, tabs, chats, the sidebar and inspector: the commands of the window.",
+                                   "Panes, tabs, groups, the sidebar and inspector: the commands of the window.",
                                    icon: "macwindow", essential: true) { app in
         var c = Contributions()
         c.commands = [
@@ -41,16 +41,17 @@ extension Builtins {
                 guard let e = editor(app) else { return }
                 if e.focusedContent == nil, let w = e.worktree { WorkspaceActions(app).close(w) } else { e.closeFocusedTab() }
             },
-            cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newWorkspace() },
+            cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
+            cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
             cmd("workspace.addProject", "Add Project…", "cmd+o") { app.workbench.addProject() },
             cmd("workspace.cloneRepository", "Clone Repository…") { CloneSheet.show(app) },
             cmd("workspace.addRemote", "Open over SSH…") { RemoteSheet.show(app) },
             cmd("workspace.revealInFinder", "Reveal in Finder", "opt+cmd+r") { WorkspaceActions(app).revealCurrent() },
-            cmd("workspace.close", "Close All Tabs", "shift+cmd+w") { if let w = editor(app)?.worktree { WorkspaceActions(app).close(w) } },
+            cmd("workspace.close", "Close Group", "shift+cmd+w") { if let w = editor(app)?.worktree { WorkspaceActions(app).close(w) } },
             // ⌃Tab walks the workspaces used last (⌃⇧Tab: `{"by": -1}`).
-            CommandSpec(id: "workspace.switch", title: "Switch Chat", key: "ctrl+tab") { a in app.switcher.step(a["by"]?.int ?? 1) },
-            cmd("workspace.next", "Next Chat", "ctrl+cmd+down") { app.workbench.showWorkspace(offset: 1) },
-            cmd("workspace.previous", "Previous Chat", "ctrl+cmd+up") { app.workbench.showWorkspace(offset: -1) },
+            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { a in app.switcher.step(a["by"]?.int ?? 1) },
+            cmd("workspace.next", "Next Group", "ctrl+cmd+down") { app.workbench.showWorkspace(offset: 1) },
+            cmd("workspace.previous", "Previous Group", "ctrl+cmd+up") { app.workbench.showWorkspace(offset: -1) },
             // Back and forward through the workspaces you visited.
             cmd("workspace.back", "Back", "ctrl+cmd+left") { app.workbench.goBack(-1) },
             cmd("workspace.forward", "Forward", "ctrl+cmd+right") { app.workbench.goBack(1) },
@@ -68,7 +69,7 @@ extension Builtins {
         ]
         // Like VS Code's openEditorAtIndex1…9: one id per number, so each can be rebound.
         c.commands += (1...9).map { n in cmd("editor.tab.\(n)", "Tab \(n)", "cmd+\(n)") { editor(app)?.selectTab(index: n - 1) } }
-        c.commands += (1...9).map { n in cmd("workspace.select.\(n)", "Chat \(n)", "ctrl+\(n)") { app.workbench.showWorkspace(number: n) } }
+        c.commands += (1...9).map { n in cmd("workspace.select.\(n)", "Group \(n)", "ctrl+\(n)") { app.workbench.showWorkspace(number: n) } }
         return c
     }
 

@@ -91,7 +91,7 @@ extension AppDelegate {
     private func fileMenu(_ b: MenuBuilder) {
         let app = self.app
         let file = b.sub("File")
-        b.add(file, "workspace.new", "agents.new", "terminal.new", "terminal.tmux")
+        b.add(file, "workspace.new", "workspace.newGroup", "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
         for a in app.catalog.installed(app.catalog.all) { with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) } }
         with.addItem(.separator())
@@ -189,8 +189,8 @@ extension AppDelegate {
         b.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
         for n in 1...9 { b.add(win, "workspace.select.\(n)").forEach { $0.isHidden = n > 1; $0.allowsKeyEquivalentWhenHidden = true } }
         win.addItem(.separator())
-        let archived = NSMenu(title: "Archived Chats"); archived.delegate = archivedMenu
-        win.setSubmenu(archived, for: win.addItem(withTitle: "Archived Chats", action: nil, keyEquivalent: ""))
+        let archived = NSMenu(title: "Archived Groups"); archived.delegate = archivedMenu
+        win.setSubmenu(archived, for: win.addItem(withTitle: "Archived Groups", action: nil, keyEquivalent: ""))
         win.addItem(.separator())
         win.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = win

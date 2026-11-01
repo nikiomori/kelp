@@ -291,11 +291,11 @@ final class WelcomeView: NSView {
         let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos
-            ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one: a screen of its own for one task.")
-            : String(localized: "Add a project folder. Each chat gets its own screen: the agent, terminals and files side by side."))
+            ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")
+            : String(localized: "Add a project folder: agents, terminals and files side by side."))
         body.alignment = .center; body.textColor = .secondaryLabelColor
         let button = ClosureButton(title: hasRepos ? String(localized: "New Chat") : String(localized: "Add Project…")) { [app] in
-            hasRepos ? app.workbench.newWorkspace() : app.workbench.addProject()
+            hasRepos ? app.workbench.newChat() : app.workbench.addProject()
         }
         button.bezelStyle = .push
         button.keyEquivalent = "\r"

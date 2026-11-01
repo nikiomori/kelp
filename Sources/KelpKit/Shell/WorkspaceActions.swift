@@ -160,10 +160,10 @@ package struct WorkspaceActions {
         let running = m.sessions.filter { s in s.worktreeId.map(closing.contains) == true && s.status != .exited && s.status != .hibernated }
         let a = NSAlert()
         let name = ws.first { $0.id == closing[0] }?.displayName ?? ""
-        a.messageText = closing.count == 1 ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) chats?")
+        a.messageText = closing.count == 1 ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) groups?")
         a.informativeText = (running.isEmpty ? "" : running.count == 1 ? String(localized: "1 running session stops. ")
             : String(localized: "\(running.count) running sessions stop. "))
-            + String(localized: "Files in the projects are not touched.") + (plan.keptSome ? " " + String(localized: "Each project keeps one chat.") : "")
+            + String(localized: "Files in the projects are not touched.") + (plan.keptSome ? " " + String(localized: "A project's own chats stay.") : "")
         let close = a.addButton(withTitle: running.isEmpty ? String(localized: "Close")
             : running.count == 1 ? String(localized: "Stop 1 Session and Close") : String(localized: "Stop \(running.count) Sessions and Close"))
         close.hasDestructiveAction = !running.isEmpty; a.addButton(withTitle: String(localized: "Cancel"))
@@ -185,7 +185,7 @@ package struct WorkspaceActions {
                let other = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id && !$0.archived }) { app.workbench.show(workspace: other.id) }
             if await app.call(WorktreeArchive(id: w.id)) != nil {
                 await app.refresh()
-                Banner.show(String(localized: "“\(w.displayName)” archived. Window › Archived Chats brings it back."))
+                Banner.show(String(localized: "“\(w.displayName)” archived. Window › Archived Groups brings it back."))
             }
         }
     }

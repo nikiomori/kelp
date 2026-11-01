@@ -189,7 +189,7 @@ final class WorkspaceSwitcher {
         let icon = NSImageView(image: .symbol("folder"))
         if let r = m.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: m) }
         icon.widthAnchor.constraint(equalToConstant: 22).isActive = true; icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let name = label(w.displayName, .ui(13, weight: .semibold))
+        let name = label(m.groupName(w) ?? m.projectName(w.repoId) ?? w.displayName, .ui(13, weight: .semibold))
         let repo = m.repo(w.repoId)
         // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
         let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "),

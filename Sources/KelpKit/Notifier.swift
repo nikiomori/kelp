@@ -325,7 +325,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.title = app.catalog.displayName(s) + (s.limitHit != nil ? String(localized: " hit its limit")
             : s.status == .waiting ? String(localized: " needs you")
             : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
-        c.subtitle = [wt?.displayName, m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
+        c.subtitle = [m.groupName(wt), m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
         c.body = s.limitHit.map(LimitStop.banner) ?? (s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer")
                                                                            : String(localized: "Ready for review")) : s.summary)
         c.sound = sound(s.limitHit == nil ? s.status : .waiting); c.userInfo = ["session": s.id]

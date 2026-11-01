@@ -26,7 +26,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         if let repo { ProjectIcon.show(repo.path, in: icon, app: app, initial: false) }
         icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
-        let title = NSTextField(labelWithString: w.displayName)
+        let title = NSTextField(labelWithString: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName)
         title.font = .ui(20, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.alignment = .center

@@ -1,9 +1,10 @@
 import Foundation
 import Core
 
-/// What the sidebar lists, decided without a window: projects → workspaces → agents, narrowed by a filter and a search,
-/// with what you pinned lifted above the projects; a workspace with one agent is that agent's row, a heading shows when a
-/// screen holds two and only then, however many screens its project has. What needs you is in the line over the list (`Inbox`).
+/// What the sidebar lists, decided without a window: projects → their chats, then their groups → the chats in those,
+/// narrowed by a filter and a search, with what you pinned lifted above the projects. A project's chats are the agents on
+/// its own screen (`mainWorkspace`), with no heading; every other workspace is a group someone made, always with its
+/// heading. What needs you is in the line over the list (`Inbox`).
 /// The raw values are the menu's English titles (and what UserDefaults keeps).
 public enum SidebarFilter: String, Sendable, CaseIterable {
     case all = "All Chats", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
@@ -14,8 +15,7 @@ public struct SidebarItem: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), section(String) }
     public var kind: Kind
     public var children: [SidebarItem] = []
-    /// What this row stands for: on a project with one workspace that workspace, its agents right under the name; on an
-    /// agent alone in its workspace that workspace, with no heading over the row.
+    /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
     public var workspace: String?
 }
 
@@ -62,24 +62,19 @@ public struct SidebarTree {
             guard whole || !kept.isEmpty else { return nil }
             return SidebarItem(kind: .workspace(w.id), children: kept.map { SidebarItem(kind: .agent($0.id)) })
         }
-        func row(_ i: SidebarItem) -> SidebarItem {
-            guard i.children.count == 1, case .workspace(let id) = i.kind else { return i }
-            return SidebarItem(kind: i.children[0].kind, workspace: id)
-        }
         let live = workspaces.filter { !$0.archived }
         var out: [SidebarItem] = []
         let pinnedItems = pinned.compactMap { id in
-            workspaces.first { $0.id == id }.flatMap { w in projects.first { $0.id == w.repoId }.flatMap { workspace(w, $0).map(row) } }
+            workspaces.first { $0.id == id }.flatMap { w in projects.first { $0.id == w.repoId }.flatMap { workspace(w, $0) } }
         }
         if !pinnedItems.isEmpty { out.append(SidebarItem(kind: .section("Pinned"), children: pinnedItems)) }
         let listed = projects.compactMap { r -> SidebarItem? in
-            let mine = live.filter { $0.repoId == r.id && !pinned.contains($0.id) }
-            let kids = mine.compactMap { workspace($0, r) }
-            if kids.isEmpty && narrowed { return nil }
-            if mine.count == 1, let only = kids.first, only.children.count < 2 {
-                return SidebarItem(kind: .project(r.id), children: only.children, workspace: mine[0].id)
-            }
-            return SidebarItem(kind: .project(r.id), children: kids.map(row))
+            let own = mainWorkspace(of: r, among: live).flatMap { pinned.contains($0.id) ? nil : $0 }
+            let chats = own.flatMap { workspace($0, r) }?.children ?? []
+            let groups = live.filter { w in w.repoId == r.id && w.id != mainWorkspace(of: r, among: live)?.id && !pinned.contains(w.id) }
+                .compactMap { workspace($0, r) }
+            if chats.isEmpty && groups.isEmpty && narrowed { return nil }
+            return SidebarItem(kind: .project(r.id), children: chats + groups, workspace: own?.id)
         }
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
         out += activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed

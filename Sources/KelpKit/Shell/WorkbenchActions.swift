@@ -162,26 +162,42 @@ extension Workbench {
     }
 
     /// New isolated workspace in the project on screen (or the first one).
-    func newWorkspace(repo: String? = nil) {
+    /// ⌘N: an agent ready for its first prompt on the screen you're on; from a project's row, on that project's own.
+    func newChat(repo: String? = nil) {
         Task {
             // Right after launch the project list may not be in yet: ⌘N must not turn into "Add Project".
             let m = app
             await m.waitForConnection()
-            guard let rid = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else { addProject(); return }
-            var id = m.repo(rid).flatMap { unstartedChat(rows: m.workspaces(of: $0), sessions: m.sessions) }?.id
-            if id == nil { id = await app.call(WorkspaceCreate(repoId: rid))?.id }
-            guard let id else { return }
-            // A chat is an agent ready for its first prompt, started before the row shows: an empty row turning into it
-            // would read as a folder. With no agent on this Mac the empty screen offers to install one.
-            var agent = m.sessions.first { $0.worktreeId == id && $0.agent != "shell" && $0.status != .exited }
-            if agent == nil, let a = m.catalog.startable {
-                var p = SessionCreate(worktreeId: id, agent: a)
-                if let g = terminalGrid { p.cols = g.cols; p.rows = g.rows }
-                agent = await app.call(p)
-            }
-            await app.refresh()
-            if let agent { focus(session: agent.id) } else { show(workspace: id) }
+            let here = repo == nil ? m.worktree(workspaceId) : nil
+            guard let rid = repo ?? here?.repoId ?? m.repos.first?.id else { addProject(); return }
+            guard let id = here?.id ?? m.repo(rid).flatMap({ mainWorkspace(of: $0, among: m.worktrees) })?.id else { return }
+            await startChat(on: id)
         }
+    }
+
+    /// ⇧⌘N: a screen of its own under a heading, named by its first prompt, with an agent ready on it.
+    func newGroup(repo: String? = nil) {
+        Task {
+            let m = app
+            await m.waitForConnection()
+            guard let rid = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else { addProject(); return }
+            var id = m.repo(rid).flatMap { unstartedGroup(of: $0, rows: m.workspaces(of: $0), sessions: m.sessions) }?.id
+            if id == nil { id = await app.call(WorkspaceCreate(repoId: rid))?.id }
+            if let id { await startChat(on: id) }
+        }
+    }
+
+    /// The agent nobody has asked anything yet on that screen, else a new one of the default agent, before anything shows:
+    /// it comes as a row of its own. With no agent on this Mac the empty screen offers to install one.
+    private func startChat(on id: String) async {
+        var chat = app.sessions.first { $0.worktreeId == id && isUnstarted($0) }
+        if chat == nil, let a = app.catalog.startable {
+            var p = SessionCreate(worktreeId: id, agent: a)
+            if let g = terminalGrid { p.cols = g.cols; p.rows = g.rows }
+            chat = await app.call(p)
+        }
+        await app.refresh()
+        if let chat { focus(session: chat.id) } else { show(workspace: id) }
     }
 }
 

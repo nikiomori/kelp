@@ -38,8 +38,8 @@ struct RoutineDetail: View {
         let next = routine.enabled
             ? routine.next(after: week.now).map { String(localized: "Next: \($0.formatted(.dateTime.weekday(.abbreviated).hour().minute()))") }
             : String(localized: "Off")
-        let place = app.worktree(routine.worktreeId).map { String(localized: "Runs in its chat “\($0.displayName)”") }
-            ?? String(localized: "Runs in a chat of its own, made at its first run")
+        let place = app.worktree(routine.worktreeId).map { String(localized: "Runs in its group “\($0.displayName)”") }
+            ?? String(localized: "Runs in a group of its own, made at its first run")
         let wake = routine.onWake ? String(localized: "Missed while the Mac slept: runs once it wakes")
             : String(localized: "Missed while the Mac slept: skipped")
         return Text([next, place, wake, String(localized: "Asks for permission as usual")].compactMap { $0 }.joined(separator: " · "))
@@ -58,7 +58,7 @@ struct RoutineDetail: View {
         Task {
             let a = NSAlert()
             a.messageText = String(localized: "Delete “\(r.name)”?")
-            a.informativeText = String(localized: "It stops running. Its chat and the tabs of its runs stay.")
+            a.informativeText = String(localized: "It stops running. Its group and the tabs of its runs stay.")
             a.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
             a.addButton(withTitle: String(localized: "Cancel"))
             if await runSheet(a) == .alertFirstButtonReturn { await app.call(RoutineDelete(id: r.id)) }

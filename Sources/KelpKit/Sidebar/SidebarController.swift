@@ -14,7 +14,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     final class Node: NSObject {
         let kind: SidebarItem.Kind
         var children: [Node] = []
-        /// The workspace this row stands for: a project's only one, or an agent's when it's alone there (SidebarItem.workspace).
+        /// A project's own screen, which its row stands for (SidebarItem.workspace).
         var workspace: String?
         init(_ k: SidebarItem.Kind) { kind = k }
         var key: String {
@@ -29,8 +29,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var id: String? {
             switch kind {
             case .project(let id), .workspace(let id): id
-            case .agent: workspace
-            case .section: nil
+            default: nil
             }
         }
     }
@@ -273,7 +272,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         showNoMatch(!projects.isEmpty && !next.contains { if case .project = $0.kind { true } else { false } })
         search.isHidden = projects.isEmpty
         if nextShape == shape { updateVisibleCells(); return }
-        let before = rowLevels()
+        let before = shownRows()
         roots = next; shape = nextShape
         syncing = true
         outline.reloadData()
@@ -396,7 +395,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let pad = pads(n)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
         if arriving.contains(n.key) { return 0.01 + pad.top + pad.bottom }
-        let base = { if case .workspace = n.kind, !n.children.isEmpty { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
+        let base = { if case .workspace = n.kind { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
         return TextSize.of(base + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
     }
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
@@ -482,7 +481,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
 /// Finding rows.
 extension SidebarController {
-    /// The row for a workspace: its own, or the project's or agent's that stands for it.
+    /// The row for a workspace: its own, or its project's when that stands for it.
     func workspaceNode(_ id: String) -> Node? { find { $0.key == "w:" + id || $0.workspace == id } }
 
     func node(_ key: String) -> Node? { find { $0.key == key } }

@@ -64,11 +64,11 @@ package enum Help {
     Source Control waits for `git init`). File › Clone Repository… and Open over SSH… are the other ways in.
 
     ## Shortcuts
-    ⌘N chat · ⌥⌘T agent · ⌘T terminal · ⇧⌘B browser · ⌘P open file · ⇧⌘P commands · ⌘D / ⇧⌘D split ·
+    ⌘N chat · ⇧⌘N group · ⌥⌘T agent · ⌘T terminal · ⇧⌘B browser · ⌘P open file · ⇧⌘P commands · ⌘D / ⇧⌘D split ·
     ⌃⌘T agents side by side / as tabs · ⇧⌘↩ maximize pane · ⌘1…9 tabs · ⇧⌘] / ⇧⌘[ or ⌃⇥ / ⌃⇧⇥ next / previous tab · \
     ⌘] / ⌘[ next / previous pane · ⌥⌘←→↑↓ pane on that side ·
-    ⌃1…9 chats · ⌃⌘↓ / ⌃⌘↑ next / previous chat · ⇧⌘U agent that needs you · ⌘F find · ⌥⌘R reveal in Finder ·
-    ⌘0 sidebar · ⌥⌘0 right panel · ⌘S save · ⌘W close tab · ⇧⌘W close all tabs. Shortcuts work on any keyboard layout.
+    ⌃1…9 groups · ⌃⌘↓ / ⌃⌘↑ next / previous group · ⇧⌘U agent that needs you · ⌘F find · ⌥⌘R reveal in Finder ·
+    ⌘0 sidebar · ⌥⌘0 right panel · ⌘S save · ⌘W close tab · ⇧⌘W close group. Shortcuts work on any keyboard layout.
     """
 
     package static var location: URL { Paths.root.appendingPathComponent("HELP.md") }

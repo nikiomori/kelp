@@ -18,17 +18,16 @@ extension QuickOpen {
                                       image: TabURI.scheme(uri) == "file" ? app.fileIcons.image(title) : nil))
                 }
             }
-            // An agent alone on its screen is that screen: its row below goes there.
-            func agents(_ w: Worktree) -> Int { app.sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" }.count }
-            for w in app.worktrees where !w.archived && agents(w) != 1 {
+            for w in app.worktrees where !w.archived && app.groupName(w) != nil {
                 let repo = app.projectName(w.repoId) ?? ""
-                items.append(Item(kind: "Chat", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
+                items.append(Item(kind: "Group", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
                                   action: { app.workbench.show(workspace: w.id) }))
             }
             for s in app.sessions where s.status != .exited {
                 let wt = app.worktree(s.worktreeId)
                 items.append(Item(kind: s.agent == "shell" ? "Terminal" : "Agent", icon: "terminal", title: app.catalog.displayName(s),
-                                  detail: "\(s.status.words) · \(shortAgo(s.statusAt ?? s.createdAt)) · \(wt?.displayName ?? "")",
+                                  detail: [s.status.words, shortAgo(s.statusAt ?? s.createdAt), app.groupName(wt) ?? app.projectName(wt?.repoId) ?? ""]
+                                      .joined(separator: " · "),
                                   action: { app.workbench.focus(session: s.id) },
                                   split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
                                   session: s))
@@ -109,7 +108,7 @@ extension QuickOpen {
         var out = (queue + rest).prefix(6).map { s -> Item in
             let w = m.worktree(s.worktreeId)
             return Item(kind: s.status.words, icon: "terminal", title: app.catalog.displayName(s),
-                        detail: [w?.displayName, m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · "),
+                        detail: [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · "),
                         action: { app.workbench.focus(session: s.id) },
                         split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
                         session: s)
@@ -117,7 +116,7 @@ extension QuickOpen {
         var seen: Set<String> = []   // each workspace once, at its last visit
         for id in app.workbench.history.visits.reversed() where id != app.workbench.workspaceId && seen.insert(id).inserted {
             guard let w = m.worktree(id) else { continue }
-            out.append(Item(kind: "Chat", icon: "arrow.triangle.branch", title: w.displayName,
+            out.append(Item(kind: "Group", icon: "arrow.triangle.branch", title: m.groupName(w) ?? m.projectName(w.repoId) ?? w.displayName,
                             detail: m.projectName(w.repoId) ?? "", action: { app.workbench.show(workspace: w.id) }))
             if out.count >= 10 { break }
         }

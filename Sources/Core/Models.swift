@@ -164,10 +164,10 @@ extension Worktree {
     /// The name people see: their own, or the branch.
     public var displayName: String {
         if note.isEmpty { return branch }
-        return isUnnamed ? String(localized: "New Chat") : note
+        return isUnnamed ? String(localized: "New Group") : note
     }
 
-    /// "Workspace 3", the name a new desk keeps until its first prompt names it: a new chat to people. The stored name
+    /// "Workspace 3", the name a new desk keeps until its first prompt names it: a new group to people. The stored name
     /// stays as the daemon wrote it (Workspaces.placeholderName knows it by that).
     public var isUnnamed: Bool { note.hasPrefix("Workspace ") && Int(note.dropFirst("Workspace ".count)) != nil }
 }

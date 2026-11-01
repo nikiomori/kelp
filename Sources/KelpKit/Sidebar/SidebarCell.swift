@@ -68,7 +68,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat (⌘N)")) { [weak owner] in owner?.newWorkspace(id) }
+            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat (⌘N)")) { [weak owner] in owner?.newChat(id) }
             b.isHidden = true
             // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
             NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
@@ -92,8 +92,7 @@ final class SidebarCell: NSTableCellView {
             layout(row: [icon, title, count, NSView()])
         case .workspace:
             // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
-            // With none yet it's a row like the others, waiting for its first chat.
-            title.font = node.children.isEmpty ? .ui(13) : .ui(11, weight: .semibold)
+            title.font = .ui(11, weight: .semibold)
             title.textColor = .secondaryLabelColor
             // Under the project's name (its icon, 16, and the gap after it, 6, further in than the row's own 2 less the step
             // children take): between the icon and the name it lined up with nothing.
@@ -120,7 +119,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
                                          mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
                                          mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
-            layout(row: [slot, icon, title, muted, glyph, chip, changes, pr, ci, trailing])
+            layout(row: [slot, icon, title, muted, glyph, chip, trailing])
             (title.superview as? NSStackView)?.setCustomSpacing(8, after: slot)
             ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
@@ -219,8 +218,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent: node.workspace.flatMap(app.rowBadges.folder(workspace:))
-        case .section: nil
+        case .agent, .section: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
