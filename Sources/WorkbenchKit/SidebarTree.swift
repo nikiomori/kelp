@@ -2,7 +2,8 @@ import Foundation
 import Core
 
 /// What the sidebar lists, decided without a window: projects → workspaces → agents, narrowed by a filter and a search,
-/// with what you pinned lifted above the projects; a project with one workspace skips that level. What needs you is in the line over the list (`Inbox`).
+/// with what you pinned lifted above the projects; a project with one workspace skips that level, and a workspace with one
+/// agent is that agent's row: a heading shows only when a screen holds two. What needs you is in the line over the list (`Inbox`).
 /// The raw values are the menu's English titles (and what UserDefaults keeps).
 public enum SidebarFilter: String, Sendable, CaseIterable {
     case all = "All Workspaces", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
@@ -13,7 +14,8 @@ public struct SidebarItem: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), section(String) }
     public var kind: Kind
     public var children: [SidebarItem] = []
-    /// On a project with one workspace: that workspace. The project's row stands for it, its agents right under the name.
+    /// What this row stands for: on a project with one workspace that workspace, its agents right under the name; on an
+    /// agent alone in its workspace that workspace, with no heading over the row.
     public var workspace: String?
 }
 
@@ -60,10 +62,14 @@ public struct SidebarTree {
             guard whole || !kept.isEmpty else { return nil }
             return SidebarItem(kind: .workspace(w.id), children: kept.map { SidebarItem(kind: .agent($0.id)) })
         }
+        func row(_ i: SidebarItem) -> SidebarItem {
+            guard i.children.count == 1, case .workspace(let id) = i.kind else { return i }
+            return SidebarItem(kind: i.children[0].kind, workspace: id)
+        }
         let live = workspaces.filter { !$0.archived }
         var out: [SidebarItem] = []
         let pinnedItems = pinned.compactMap { id in
-            workspaces.first { $0.id == id }.flatMap { w in projects.first { $0.id == w.repoId }.flatMap { workspace(w, $0) } }
+            workspaces.first { $0.id == id }.flatMap { w in projects.first { $0.id == w.repoId }.flatMap { workspace(w, $0).map(row) } }
         }
         if !pinnedItems.isEmpty { out.append(SidebarItem(kind: .section("Pinned"), children: pinnedItems)) }
         let listed = projects.compactMap { r -> SidebarItem? in
@@ -71,7 +77,7 @@ public struct SidebarTree {
             let kids = mine.compactMap { workspace($0, r) }
             if kids.isEmpty && narrowed { return nil }
             if mine.count == 1, let only = kids.first { return SidebarItem(kind: .project(r.id), children: only.children, workspace: mine[0].id) }
-            return SidebarItem(kind: .project(r.id), children: kids)
+            return SidebarItem(kind: .project(r.id), children: kids.map(row))
         }
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
         out += activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed

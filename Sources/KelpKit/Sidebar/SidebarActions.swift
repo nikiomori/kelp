@@ -7,8 +7,8 @@ extension SidebarController.Node {
     /// What muting this row names: a project's row also speaks for the workspace it stands for.
     var muteIds: [String] {
         switch kind {
-        case .project(let id): [id] + (workspace.map { [$0] } ?? [])
-        case .workspace(let id), .agent(let id): [id]
+        case .project(let id), .agent(let id): [id] + (workspace.map { [$0] } ?? [])
+        case .workspace(let id): [id]
         case .section: []
         }
     }
@@ -102,6 +102,7 @@ extension SidebarController {
             muteItem(menu, n.muteIds)
             menu.addItem(.separator())
             menu.add(String(localized: "Stop")) { [app] in Task { await app.call(SessionKill(id: sid)) } }
+            if let w = n.workspace { menu.addItem(.separator()); workspaceMenu(menu, w, onAgent: true) }
         }
     }
 
@@ -137,8 +138,9 @@ extension SidebarController {
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
     }
 
-    /// A workspace's items, on its row or on its project's when that stands for it (`onProject`: its Rename says whose).
-    private func workspaceMenu(_ menu: NSMenu, _ id: String, onProject: Bool = false) {
+    /// A workspace's items, on its row or on the row that stands for it: its project's (`onProject`: its Rename says whose)
+    /// or its only agent's (`onAgent`: that row's Rename and mute are the agent's).
+    private func workspaceMenu(_ menu: NSMenu, _ id: String, onProject: Bool = false, onAgent: Bool = false) {
         let app = self.app, m = app
         guard let w = m.worktree(id) else { return }
         let pinned = self.pinned.contains(id)
@@ -146,11 +148,11 @@ extension SidebarController {
             guard let self else { return }
             self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
         }
-        menu.add(onProject ? String(localized: "Rename Workspace") : String(localized: "Rename")) { [weak self] in self?.startRename(id) }
+        if !onAgent { menu.add(onProject ? String(localized: "Rename Workspace") : String(localized: "Rename")) { [weak self] in self?.startRename(id) } }
         menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)]) }
         menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(w.path, forType: .string) }
         WorkspaceActions.addOpenIn(to: menu, path: w.path)
-        if !onProject { muteItem(menu, [id]) }   // the project's own item speaks for it
+        if !onProject && !onAgent { muteItem(menu, [id]) }   // the row's own item speaks for it
         menu.addItem(.separator())
         if w.path == m.repo(w.repoId)?.path {
             // A desk: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);
@@ -165,6 +167,35 @@ extension SidebarController {
         } else {
             menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
             menu.add(String(localized: "Delete Workspace & Branch…")) { WorkspaceActions(app).delete(w) }
+        }
+    }
+}
+
+extension SidebarController {
+    /// The menu for several selected rows: what applies to all of them.
+    func bulkMenu(_ menu: NSMenu, _ nodes: [Node]) {
+        let app = self.app
+        let m = app
+        let ws = nodes.compactMap { n -> Worktree? in
+            if case .workspace(let id) = n.kind { m.worktree(id) } else { n.workspace.flatMap(m.worktree) }
+        }
+        let picked = nodes.compactMap { n -> String? in
+            switch n.kind {
+            case .agent(let id): id
+            default: nil
+            }
+        }
+        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.agent != "shell" && s.status != .exited }.map(\.id)
+        let agents = Array(Set(picked + inside))
+        if agents.contains(where: { m.session($0)?.unread == true }) {
+            menu.add(String(localized: "Mark as Read")) {
+                for id in agents where m.session(id)?.unread == true { Task { await m.call(SessionMarkRead(id: id)) } }
+            }
+        }
+        if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Workspaces…")) { WorkspaceActions(app).close(ws) } }
+        if !picked.isEmpty {
+            menu.addItem(.separator())
+            menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) { AgentActions(app).stop(Array(Set(picked))) }
         }
     }
 }

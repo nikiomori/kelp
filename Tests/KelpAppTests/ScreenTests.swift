@@ -57,11 +57,27 @@ extension OneAtATime {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Fix login bug")
     try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing", note: "Billing rewrite")], sessions: [agent]) { _, o in
         let r = rows(of: o)
-        #expect(r.count == 4)                                   // project, two workspaces, one agent under the first
+        #expect(r.count == 3)                                   // project, the agent alone on its screen, an empty workspace
         #expect(r[0].contains("Atlas"))
-        #expect(r[1].contains("feat/login") && r[2].contains("Fix login bug"))   // the agent sits right under its workspace
-        #expect(r.flatMap { $0 }.contains("Billing rewrite"))   // a note is the workspace's name
-        #expect(r.flatMap { $0 }.contains("Fix login bug"))
+        #expect(r[1].contains("Fix login bug") && !r[1].contains("feat/login"))   // no heading over one agent
+        #expect(r[2].contains("Billing rewrite"))               // a note is the workspace's name
+    }
+    let second = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Write tests")
+    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent, second]) { _, o in
+        let r = rows(of: o)
+        #expect(r.count == 5)                                   // two agents on one screen: their heading shows
+        #expect(r[1].contains("feat/login") && r[2].contains("Fix login bug"))
+    }
+}
+
+/// The row of an agent alone in its workspace picks that workspace: reached any other way, the sidebar shows it picked.
+@Test func theAgentAloneInAWorkspaceIsItsRow() throws {
+    let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Fix login bug")
+    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent]) { vc, o in
+        let row = try #require(vc.workspaceNode("w1"))
+        #expect(row.key == "a:" + agent.id && row.id == "w1")   // a drag moves the workspace
+        #expect(o.row(forItem: row) == 1)
+        #expect(row.muteIds == [agent.id, "w1"])
     }
 }
 
@@ -89,7 +105,7 @@ extension OneAtATime {
 @Test func aProjectFoldsFromItsChevronAndSaysWhatItsAgentsDo() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Fix login bug")
     try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent]) { vc, o in
-        #expect(o.numberOfRows == 4)
+        #expect(o.numberOfRows == 3)
         func fold() throws -> NSButton {
             let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
             func find(_ v: NSView) -> NSButton? {
@@ -103,7 +119,7 @@ extension OneAtATime {
         #expect(rows(of: o)[0].contains("1"))                   // and how many of its agents need you
         #expect(vc.app.uiState.strings("sidebar.collapsed") == ["p:r1"])   // kept for the next launch
         try fold().performClick(nil)
-        #expect(o.numberOfRows == 4)                            // its workspaces open as they were
+        #expect(o.numberOfRows == 3)                            // its rows open as they were
         #expect(vc.app.uiState.strings("sidebar.collapsed").isEmpty)
     }
 }

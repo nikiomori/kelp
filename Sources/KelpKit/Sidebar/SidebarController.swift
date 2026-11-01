@@ -14,7 +14,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     final class Node: NSObject {
         let kind: SidebarItem.Kind
         var children: [Node] = []
-        /// A project's only workspace, which its row stands for (SidebarItem.workspace).
+        /// The workspace this row stands for: a project's only one, or an agent's when it's alone there (SidebarItem.workspace).
         var workspace: String?
         init(_ k: SidebarItem.Kind) { kind = k }
         var key: String {
@@ -29,7 +29,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var id: String? {
             switch kind {
             case .project(let id), .workspace(let id): id
-            default: nil
+            case .agent: workspace
+            case .section: nil
             }
         }
     }
@@ -286,17 +287,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         for w in p.children where !collapsed.contains(w.key) { outline.expandItem(w) }
     }
 
-    /// The row for a workspace: its own, or its project's when that stands for it.
-    func workspaceNode(_ id: String) -> Node? { node("w:" + id) ?? roots.first { $0.workspace == id } }
-
-    func node(_ key: String) -> Node? {
-        func find(_ ns: [Node]) -> Node? { for n in
-            ns { if n.key == key { return n }; if let f = find(n.children) { return f } }
-            return nil
-        }
-        return find(roots)
-    }
-
     /// The row of what's on screen: the agent whose tab has focus, else its workspace. Several rows picked stay picked.
     private func syncSelection() {
         guard let id = app.workbench.workspaceId, let w = workspaceNode(id), outline.selectedRowIndexes.count <= 1 else { return }
@@ -400,7 +390,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard let n = item as? Node else { return TextSize.of(rowBase) }
         if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
-        let base = { if case .workspace = n.kind { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
+        let base = { if case .workspace = n.kind, !n.children.isEmpty { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
         return TextSize.of(base + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
     }
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
@@ -484,6 +474,22 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 }
 
+/// Finding rows.
+extension SidebarController {
+    /// The row for a workspace: its own, or the project's or agent's that stands for it.
+    func workspaceNode(_ id: String) -> Node? { find { $0.key == "w:" + id || $0.workspace == id } }
+
+    func node(_ key: String) -> Node? { find { $0.key == key } }
+
+    private func find(_ test: (Node) -> Bool) -> Node? {
+        func look(_ ns: [Node]) -> Node? { for n in
+            ns { if test(n) { return n }; if let f = look(n.children) { return f } }
+            return nil
+        }
+        return look(roots)
+    }
+}
+
 /// A row picked opens what it stands for.
 extension SidebarController {
     func outlineViewSelectionDidChange(_ n: Notification) {
@@ -498,35 +504,6 @@ extension SidebarController {
             if id != app.workbench.workspaceId { clickFold.opened = true }   // this click opens it; it doesn't fold it too
             app.workbench.show(workspace: id)
         case .section: break
-        }
-    }
-}
-
-extension SidebarController {
-    /// The menu for several selected rows: what applies to all of them.
-    func bulkMenu(_ menu: NSMenu, _ nodes: [Node]) {
-        let app = self.app
-        let m = app
-        let ws = nodes.compactMap { n -> Worktree? in
-            if case .workspace(let id) = n.kind { m.worktree(id) } else { n.workspace.flatMap(m.worktree) }
-        }
-        let picked = nodes.compactMap { n -> String? in
-            switch n.kind {
-            case .agent(let id): id
-            default: nil
-            }
-        }
-        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.agent != "shell" && s.status != .exited }.map(\.id)
-        let agents = Array(Set(picked + inside))
-        if agents.contains(where: { m.session($0)?.unread == true }) {
-            menu.add(String(localized: "Mark as Read")) {
-                for id in agents where m.session(id)?.unread == true { Task { await m.call(SessionMarkRead(id: id)) } }
-            }
-        }
-        if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Workspaces…")) { WorkspaceActions(app).close(ws) } }
-        if !picked.isEmpty {
-            menu.addItem(.separator())
-            menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) { AgentActions(app).stop(Array(Set(picked))) }
         }
     }
 }

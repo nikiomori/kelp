@@ -12,7 +12,8 @@ final class SidebarOutline: NSOutlineView {
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var r = padded(super.frameOfCell(atColumn: column, row: row), row)
         // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
-        let x = Self.lead + (level(forRow: row) > 0 ? Self.step : 0)
+        // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
+        let x = Self.lead + CGFloat(min(level(forRow: row), 2)) * Self.step
         r.origin.x = x; r.size.width = bounds.width - 8 - x
         return r
     }
