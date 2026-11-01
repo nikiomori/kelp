@@ -67,3 +67,29 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
     let r = ChildReports()
     #expect(r.isNewReply("first", of: "a") && !r.isNewReply("first", of: "a") && r.isNewReply("second", of: "a") && r.isNewReply("first", of: "b"))
 }
+
+/// An agent's own subagents are on its record while they run: a hook says each start and end, and a turn that's over takes
+/// the rest along, as nothing says when one is cut short. A Stop that waits for one leaves it working, with them.
+@Test func anAgentsSubagentsAreOnItsRecordWhileTheyRun() async throws {
+    let f = try await family(); defer { f.w.d.stop() }
+    let id = f.parent.id, c = f.w.c
+    func hook(_ name: String, _ agent: String, kind: String?) async throws {
+        var h = SessionHook(id: id, event: "subagent", hookName: name, agentId: agent)
+        h.agentType = kind
+        _ = try await c.call(h)
+    }
+    func kinds() async throws -> [String] { try await c.call(SessionList()).first { $0.id == id }?.subagentKinds ?? [] }
+    _ = try await c.call(SessionHook(id: id, event: "working"))
+    try await hook("SubagentStart", "a1", kind: "Explore")
+    try await hook("SubagentStart", "a2", kind: "Plan")
+    #expect(try await waitFor(5) { try await kinds() == ["Explore", "Plan"] })
+    try await hook("SubagentStop", "a1", kind: "Explore")
+    #expect(try await waitFor(5) { try await kinds() == ["Plan"] })
+    let waitsForIt: JSONValue = .obj(["id": "a2", "type": "subagent", "status": "running"])
+    _ = try await c.call(SessionHook(id: id, event: "done", backgroundTasks: [waitsForIt]))
+    #expect(try await f.status(id) == .working)
+    #expect(try await kinds() == ["Plan"])
+    _ = try await c.call(SessionHook(id: id, event: "done", backgroundTasks: []))
+    #expect(try await waitFor(5) { try await f.status(id) == .done })
+    #expect(try await kinds() == [])
+}

@@ -174,6 +174,9 @@ struct CardView: View {
                     if let b = a.session.background, !b.isEmpty {
                         Text("In the background: \(b.joined(separator: ", "))").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
                     }
+                    if !a.session.subagentKinds.isEmpty {
+                        Text("Subagents: \(a.session.subagentKinds.joined(separator: ", "))").font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 }
             }

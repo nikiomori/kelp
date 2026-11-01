@@ -130,6 +130,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var continueAt: Date?
     /// The agent that started it (`kelp session new --agent`): it hears how this one is doing and takes it along when it ends.
     public var parent: String?
+    /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
+    public var subagents: [String: String]?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {
@@ -138,6 +140,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         self.title = title; self.titleManual = titleManual; self.summary = summary; self.argv = argv
     }
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
+    /// What its subagents at work are.
+    public var subagentKinds: [String] { subagents?.values.sorted() ?? [] }
     /// The folder the agent works in now.
     public var currentDir: String { workDir ?? cwd }
     /// Ended here, its agent maybe still running on the host: a remote agent's tmux session outlives the ssh that showed it

@@ -150,6 +150,7 @@ public final class Store: Sendable {
             try db.alter(table: "session") { t in t.add(column: "limitHit", .text); t.add(column: "continueAt", .datetime) }
         }
         m.registerMigration("v19") { db in try db.alter(table: "session") { t in t.add(column: "parent", .text) } }
+        m.registerMigration("v20") { db in try db.alter(table: "session") { t in t.add(column: "subagents", .text) } }
         return m
     }
 

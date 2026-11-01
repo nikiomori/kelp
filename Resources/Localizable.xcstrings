@@ -8675,6 +8675,16 @@
         }
       }
     },
+    "Subagents: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субагенты: %@"
+          }
+        }
+      }
+    },
     "Summary of earlier work": {
       "extractionState": "manual",
       "localizations": {

@@ -330,7 +330,7 @@ final class SidebarCell: NSTableCellView {
             mark.progress = s.progress.map { Double($0) / 100 }
             trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
             showChip(s)
-            family.show(m.sessions.children(of: sid))
+            family.show(m.sessions.children(of: sid), subagents: s.subagentKinds)
             showState(s)
             showAsk(s)
             speak(s)

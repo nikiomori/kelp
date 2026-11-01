@@ -384,6 +384,7 @@ extension LiveSession {
             trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")
             record.status = s
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
+            if s != .working && s != .waiting { record.subagents = nil }   // a Stop that waits for one stays working; cut short, none ends by a hook
             if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on
             return record
         }

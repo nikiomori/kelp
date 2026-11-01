@@ -2,13 +2,13 @@ import AppKit
 import Core
 import DesignKit
 
-/// On an agent's row, the agents it started: the most urgent one's mark and how many, so they take no rows of their own.
-/// Over it the hover card lists them; a click picks one, its tab opens.
+/// On an agent's row, the agents it started and its own subagents: the most urgent one's mark and how many, so they take no
+/// rows of their own. Over it the hover card lists them; a click picks one, its tab opens (a subagent has none).
 @MainActor
 final class ChildrenBadge: PointerControl {
     private let app: AppModel
     private let mark = StatusMark(size: 12), count = NSTextField(labelWithString: "")
-    private var kids: [Session] = []
+    private var kids: [Session] = [], subagents: [String] = []
 
     init(app: AppModel) {
         self.app = app
@@ -28,12 +28,13 @@ final class ChildrenBadge: PointerControl {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func show(_ kids: [Session]) {
-        self.kids = kids
-        isHidden = kids.isEmpty
-        mark.status = AgentStatus.mostUrgent(kids.map(SidebarCell.shownStatus))
-        count.stringValue = "\(kids.count)"
-        setAccessibilityLabel(String(localized: "\(kids.count) agents it started"))
+    func show(_ kids: [Session], subagents: [String]) {
+        self.kids = kids; self.subagents = subagents
+        let n = kids.count + subagents.count
+        isHidden = n == 0
+        mark.status = AgentStatus.mostUrgent(kids.map(SidebarCell.shownStatus) + (subagents.isEmpty ? [] : [.working]))
+        count.stringValue = "\(n)"
+        setAccessibilityLabel(String(localized: "\(n) agents it started"))
     }
 
     override func clicked() {
@@ -42,6 +43,7 @@ final class ChildrenBadge: PointerControl {
             let id = k.id
             m.add(app.catalog.displayName(k) + " · " + k.statusWords) { app.workbench.focus(session: id) }
         }
+        for name in subagents { m.addItem(withTitle: name + " · " + AgentStatus.working.words, action: nil, keyEquivalent: "") }   // no action: greyed
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 4), in: self)
     }
 }

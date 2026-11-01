@@ -111,6 +111,8 @@ public struct SessionHook: RPCMethod {
     public var hookName: String?
     /// The subagent it comes from; nil: the agent's main thread.
     public var agentId: String?
+    /// `subagent`: what kind it is, when it starts.
+    public var agentType: String?
     /// What the prompt set as a /goal.
     public var goal: String?
     /// When the hook ran, on the clock of this boot: hooks arrive out of order when one isn't waited for (a Notification)
@@ -118,7 +120,7 @@ public struct SessionHook: RPCMethod {
     public var at: TimeInterval?
     enum CodingKeys: String, CodingKey {
         case id, event, transcript, cwd, trigger, notification, command, goal, at, backgroundTasks = "background_tasks", sessionCrons = "session_crons"
-        case hookName = "hook_event_name", agentId = "agent_id"
+        case hookName = "hook_event_name", agentId = "agent_id", agentType = "agent_type"
     }
     public init(id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil, notification: JSONValue? = nil,
                 backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,

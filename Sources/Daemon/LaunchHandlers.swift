@@ -122,6 +122,11 @@ extension SessionHook: Handled {
             if ls.ran(command) != nil { sessions.publish(ls) }
             sessions.touchCommands(ls)
         }
+        if event == "subagent" {   // who runs says nothing of the turn: its Stop does
+            ls.trail.add(trailLine)
+            if ls.subagent(agentId, kind: hookName == "SubagentStart" ? agentType ?? "" : nil) { sessions.publish(ls) }
+            return Done()
+        }
         guard ls.newest(at, says: event != "command") else {
             ls.trail.add("\(trailLine): older than what it said since")
             return Done()

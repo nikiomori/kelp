@@ -64,6 +64,18 @@ extension LiveSession {
         }
     }
 
+    /// One of its subagents started (`kind` says what it is) or ended (nil). Whether the record changed.
+    func subagent(_ id: String?, kind: String?) -> Bool {
+        state.withLock { s in
+            s.heard()
+            guard let id, s.record.subagents?[id] != kind else { return false }
+            var running = s.record.subagents ?? [:]
+            running[id] = kind
+            s.record.subagents = running.isEmpty ? nil : running
+            return true
+        }
+    }
+
     static let commandLimit = 100
 
     /// A tool started or ended, or a batch of them did (`kelp hook command`): `State.tool`.

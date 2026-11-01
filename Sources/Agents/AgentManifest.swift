@@ -294,7 +294,7 @@ public enum Hooks {
     /// Claude-style settings file: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing),
     /// AskUserQuestion, an MCP server's question and a permission dialog → waiting until answered; each tool as it starts
     /// and ends and each batch of them (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn,
-    /// `State.tool`). `kelp` must be on PATH in the session.
+    /// `State.tool`); each subagent as it starts and ends. `kelp` must be on PATH in the session.
     public static func settingsJSON() -> String {
         func entry(_ ev: String, _ matcher: String?) -> String {
             #"{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}"#
@@ -305,6 +305,7 @@ public enum Hooks {
             + #""PreToolUse":[\#(entry("waiting", "AskUserQuestion")),\#(command)],"PostToolUse":[\#(entry("working", "AskUserQuestion")),\#(command)],"#
             + #""PostToolUseFailure":[\#(command)],"PostToolBatch":[\#(command)],"PermissionRequest":\#(hook("waiting")),"#
             + #""Elicitation":\#(hook("waiting")),"ElicitationResult":\#(hook("working")),"#
+            + #""SubagentStart":\#(hook("subagent")),"SubagentStop":\#(hook("subagent")),"#
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
     }
 
