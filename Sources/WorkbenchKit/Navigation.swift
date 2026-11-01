@@ -66,15 +66,10 @@ public func mainWorkspace(of r: Repo, among ws: [Worktree]) -> Worktree? {
     ws.filter { $0.repoId == r.id && $0.path == r.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
 }
 
-/// An agent nobody has asked anything yet.
-public func isUnstarted(_ s: Session) -> Bool { s.agent != "shell" && s.status == .idle && s.title.isEmpty }
-
-/// New Group: one nobody has started is already there, its name still the placeholder. Nil: make one.
-public func unstartedGroup(of r: Repo, rows: [Worktree], sessions: [Session]) -> Worktree? {
-    rows.first { w in
-        w.isUnnamed && w.id != mainWorkspace(of: r, among: rows)?.id
-            && sessions.allSatisfy { $0.worktreeId != w.id || $0.status == .exited || isUnstarted($0) }
-    }
+/// Where a new chat in `r` goes: the screen you're on when it's that project's, else the project's own.
+public func newChatScreen(in r: Repo, current: Worktree?, rows: [Worktree]) -> Worktree? {
+    if let current, current.repoId == r.id { return current }
+    return mainWorkspace(of: r, among: rows) ?? rows.first { $0.repoId == r.id && !$0.archived }
 }
 
 /// Several workspaces closed at once (the sidebar's multi-selection): a project's own screen stays (without one, the oldest

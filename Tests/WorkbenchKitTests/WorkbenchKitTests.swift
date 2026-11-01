@@ -264,22 +264,19 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(h.visits.count == 50 && h.visits.last == "w59")
 }
 
-/// New Group goes to the one nobody has started: empty, or with its agent still waiting for the first prompt.
-@Test func aNewGroupNobodyStartedIsUsedAgain() {
-    let r = Repo(name: "r", path: "/p"), t = Date(timeIntervalSince1970: 0)
-    let own = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Workspace 1", createdAt: t)
-    let named = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Graph", createdAt: t + 1)
-    let blank = Worktree(repoId: r.id, branch: "main", path: "/p", note: "Workspace 2", createdAt: t + 2)
-    func agent(_ status: AgentStatus, title: String = "") -> Session {
-        Session(worktreeId: blank.id, cwd: "/", command: "claude", agent: "claude", status: status, title: title)
-    }
-    func found(_ rows: [Worktree], _ sessions: [Session] = []) -> Worktree? { unstartedGroup(of: r, rows: rows, sessions: sessions) }
-    #expect(found([own, named, blank]) == blank)
-    #expect(found([own, named, blank], [agent(.idle)]) == blank)
-    #expect(found([own, named, blank], [agent(.exited, title: "Old")]) == blank)
-    #expect(found([own, named, blank], [agent(.working)]) == nil)
-    #expect(found([own, named, blank], [agent(.idle, title: "Fix login")]) == nil)
-    #expect(found([own, named]) == nil)   // a project's own screen isn't a group, whatever its name
+/// A new chat stays where you are: only from another project does it go to that project's own screen.
+@Test func aNewChatStaysOnTheScreenYoureOn() {
+    let a = Repo(name: "a", path: "/a"), b = Repo(name: "b", path: "/b"), t = Date(timeIntervalSince1970: 0)
+    let own = Worktree(repoId: a.id, branch: "main", path: "/a", createdAt: t)
+    let group = Worktree(repoId: a.id, branch: "main", path: "/a", createdAt: t + 1)
+    let other = Worktree(repoId: b.id, branch: "main", path: "/b", createdAt: t)
+    let rows = [own, group, other]
+    #expect(newChatScreen(in: a, current: group, rows: rows) == group)
+    #expect(newChatScreen(in: a, current: own, rows: rows) == own)
+    #expect(newChatScreen(in: a, current: other, rows: rows) == own)
+    #expect(newChatScreen(in: a, current: nil, rows: rows) == own)
+    let branch = Worktree(repoId: a.id, branch: "feat", path: "/wt", createdAt: t)
+    #expect(newChatScreen(in: a, current: nil, rows: [branch]) == branch)   // no desk: still somewhere
 }
 
 /// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; desks (in the project's
