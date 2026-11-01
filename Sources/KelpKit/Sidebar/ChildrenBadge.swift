@@ -8,7 +8,7 @@ import DesignKit
 final class ChildrenBadge: PointerControl {
     private let app: AppModel
     private let mark = StatusMark(size: 12), count = NSTextField(labelWithString: "")
-    private var kids: [Session] = [], subagents: [String] = []
+    private var kids: [Session] = [], subagents: [Subagent] = []
 
     init(app: AppModel) {
         self.app = app
@@ -28,7 +28,7 @@ final class ChildrenBadge: PointerControl {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func show(_ kids: [Session], subagents: [String]) {
+    func show(_ kids: [Session], subagents: [Subagent]) {
         self.kids = kids; self.subagents = subagents
         let n = kids.count + subagents.count
         isHidden = n == 0
@@ -43,8 +43,16 @@ final class ChildrenBadge: PointerControl {
             let id = k.id
             m.add(app.catalog.displayName(k) + " · " + k.statusWords) { app.workbench.focus(session: id) }
         }
-        for name in subagents { m.addItem(withTitle: name + " · " + AgentStatus.working.words, action: nil, keyEquivalent: "") }   // no action: greyed
+        for a in subagents { m.addItem(withTitle: a.words, action: nil, keyEquivalent: "") }   // no action: greyed
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 4), in: self)
+    }
+}
+
+extension Subagent {
+    /// "Explore · Counts Swift files": what's known of it.
+    var words: String {
+        let known = [kind, task ?? ""].filter { !$0.isEmpty }
+        return known.isEmpty ? String(localized: "Subagent") : known.joined(separator: " · ")
     }
 }
 

@@ -129,20 +129,37 @@ extension LiveSession {
         // What a chunk of output says. Whether a chunk has a sequence at all is asked of its bytes: String.contains
         // compares Characters, and on a stream of output that was most of the daemon's time.
 
-        /// OSC 7501 reports (true: the agent asked whether Kelp reads them) and ConEmu progress.
+        /// OSC 7501 reports (true: the agent asked whether Kelp reads them) and ConEmu progress. An agent with hooks is read
+        /// for its subagents alone: only there does it say what each does. Its status stays its hooks'.
         mutating func readReports(_ text: String, _ d: Data) -> Bool {
             var probe = false
-            if !hooked, d.range(of: Data(ProgramStatus.prefix.utf8)) != nil || !oscCarry.isEmpty {
+            if d.range(of: Data(ProgramStatus.prefix.utf8)) != nil || !oscCarry.isEmpty {
                 for m in ProgramStatus.scan(text, carry: &oscCarry) {
                     switch m {
                     case .query: probe = true
-                    case .report(let r) where r.id == nil: apply(r)   // children (subagents) aren't shown
+                    case .report(let r) where r.id != nil: subagentReported(r)
+                    case .report(let r) where !hooked: apply(r)
                     default: break
                     }
                 }
             }
             if d.range(of: Data(ProgramStatus.conEmuPrefix.utf8)) != nil, let p = ProgramStatus.conEmuProgress(text).last { record.progress = p }
             return probe
+        }
+
+        /// A hook knows a subagent's kind and may come first, so a report adds no more than it knows.
+        private mutating func subagentReported(_ r: ProgramStatus.Report) {
+            guard let id = r.id else { return }
+            var running = record.subagents ?? [:], tasks = record.subagentTasks ?? [:]
+            if r.state == "working" || r.state == "blocked" {
+                if running[id] == nil { running[id] = "" }
+                if let title = r.title { tasks[id] = title }
+            } else {
+                running[id] = nil
+                tasks[id] = nil
+            }
+            record.subagents = running.isEmpty ? nil : running
+            record.subagentTasks = tasks.isEmpty ? nil : tasks
         }
 
         /// A new topic from the terminal title the agent sets.

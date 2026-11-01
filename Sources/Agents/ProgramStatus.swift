@@ -19,10 +19,12 @@ public enum ProgramStatus {
         public var state: String
         public var kind: String?
         public var msg: String?
+        /// What the child does, shown beside it.
+        public var title: String?
         /// 0–100, while it works.
         public var progress: Int?
-        public init(id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, progress: Int? = nil) {
-            self.id = id; self.state = state; self.kind = kind; self.msg = msg; self.progress = progress
+        public init(id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, title: String? = nil, progress: Int? = nil) {
+            self.id = id; self.state = state; self.kind = kind; self.msg = msg; self.title = title; self.progress = progress
         }
     }
     public enum Message: Equatable, Sendable { case query, report(Report) }
@@ -44,11 +46,14 @@ public enum ProgramStatus {
             pairs[k] = v
         }
         guard let state = pairs["state"], states.contains(state) else { return nil }
-        let msg = pairs["msg"].flatMap { $0.count <= 2732 ? Data(base64Encoded: padded($0)) : nil }
-            .flatMap { String(data: $0, encoding: .utf8) }
-            .flatMap { $0.unicodeScalars.contains { $0.value < 0x20 || (0x7F...0x9F).contains($0.value) } ? nil : $0 }
+        func text(_ key: String) -> String? {
+            pairs[key].flatMap { $0.count <= 2732 ? Data(base64Encoded: padded($0)) : nil }
+                .flatMap { String(data: $0, encoding: .utf8) }
+                .flatMap { $0.unicodeScalars.contains { $0.value < 0x20 || (0x7F...0x9F).contains($0.value) } ? nil : $0 }
+        }
         let progress = state == "working" ? pairs["progress"].flatMap { Int($0) }.map { min(100, max(0, $0)) } : nil
-        return .report(Report(id: pairs["id"], state: state, kind: state == "blocked" ? pairs["kind"] : nil, msg: msg, progress: progress))
+        let kind = state == "blocked" ? pairs["kind"] : nil
+        return .report(Report(id: pairs["id"], state: state, kind: kind, msg: text("msg"), title: text("title"), progress: progress))
     }
 
     public static let conEmuPrefix = "\u{1B}]9;4;"

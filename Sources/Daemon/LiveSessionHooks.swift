@@ -72,6 +72,8 @@ extension LiveSession {
             var running = s.record.subagents ?? [:]
             running[id] = kind
             s.record.subagents = running.isEmpty ? nil : running
+            if kind == nil { s.record.subagentTasks?[id] = nil }
+            if s.record.subagentTasks?.isEmpty == true { s.record.subagentTasks = nil }
             return true
         }
     }

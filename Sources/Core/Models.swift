@@ -81,6 +81,12 @@ public struct LimitHit: Codable, Sendable, Equatable {
     public init(kind: String, resets: String?, at: Date = Date()) { self.kind = kind; self.resets = resets; self.at = at }
 }
 
+/// A subagent at work inside an agent. `kind` is empty when only a terminal report told of it.
+public struct Subagent: Sendable, Equatable, Identifiable {
+    public var id: String, kind: String, task: String?
+    public init(id: String, kind: String, task: String?) { self.id = id; self.kind = kind; self.task = task }
+}
+
 public struct Session: Codable, Sendable, Equatable, Revised {
     public var id: String
     public var revision: Int?
@@ -92,7 +98,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         didSet {
             guard status != oldValue else { return }
             statusAt = Date()
-            if status != .working && status != .waiting { subagents = nil }   // a Stop that waits for one stays working; cut short, none ends by a hook
+            // A Stop that waits for one stays working; cut short, none says it ended.
+            if status != .working && status != .waiting { subagents = nil; subagentTasks = nil }
         }
     }
     /// When `status` last changed ("working for 4m", "done 2h ago"); nil for sessions from before it was kept.
@@ -138,6 +145,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var parent: String?
     /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
     public var subagents: [String: String]?
+    /// What each of them does, by the same id, when the agent says (OSC 7501's `title`).
+    public var subagentTasks: [String: String]?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {
@@ -146,8 +155,11 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         self.title = title; self.titleManual = titleManual; self.summary = summary; self.argv = argv
     }
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
-    /// What its subagents at work are.
-    public var subagentKinds: [String] { subagents?.values.sorted() ?? [] }
+    /// Its subagents at work, in an order that doesn't change while they run.
+    public var runningSubagents: [Subagent] {
+        (subagents ?? [:]).map { Subagent(id: $0.key, kind: $0.value, task: subagentTasks?[$0.key]) }
+            .sorted { ($0.kind, $0.task ?? "", $0.id) < ($1.kind, $1.task ?? "", $1.id) }
+    }
     /// The folder the agent works in now.
     public var currentDir: String { workDir ?? cwd }
     /// Ended here, its agent maybe still running on the host: a remote agent's tmux session outlives the ssh that showed it

@@ -135,7 +135,7 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
         h.agentType = kind
         _ = try await c.call(h)
     }
-    func kinds() async throws -> [String] { try await c.call(SessionList()).first { $0.id == id }?.subagentKinds ?? [] }
+    func kinds() async throws -> [String] { try await c.call(SessionList()).first { $0.id == id }?.runningSubagents.map(\.kind) ?? [] }
     _ = try await c.call(SessionHook(id: id, event: "working"))
     try await hook("SubagentStart", "a1", kind: "Explore")
     try await hook("SubagentStart", "a2", kind: "Plan")
@@ -155,4 +155,26 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
 @Test func aDaemonOutsideAnAppIsAllowedInTheBackground() async throws {
     let w = try await world(); defer { w.d.stop() }
     #expect(try await w.c.call(DaemonBackgroundAllowed()))
+}
+
+/// A terminal report says what a subagent does, and a hook what kind it is: the same id, so the two make one. An agent with
+/// hooks is read for this alone, its own state in a report changes nothing.
+@Test(arguments: [false, true]) func aSubagentsTaskComesFromItsReport(hooked: Bool) async throws {
+    let task = Data("Counts files".utf8).base64EncodedString()
+    func report(_ body: String) -> String { "printf '\\033]7501;\(body)\\007'; " }
+    let script = report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "sleep 2; " + report("state=clear:id=a1") + "cat"
+    let agent = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script], hooks: hooked ? .settingsFlag("--settings") : nil)
+    let w = try await world(agents: [agent]); defer { w.d.stop() }
+    let s = try await w.c.call(SessionCreate(worktreeId: try await firstDesk(w).id, agent: "fake"))
+    func now() async throws -> Session? { try await w.c.call(SessionList()).first { $0.id == s.id } }
+    #expect(try await waitFor(5) { try await now()?.runningSubagents.first?.task == "Counts files" })
+    var start = SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1")
+    start.agentType = "Explore"
+    _ = try await w.c.call(start)
+    #expect(try await now()?.runningSubagents == [Subagent(id: "a1", kind: "Explore", task: "Counts files")])
+    #expect(try await now()?.status == (hooked ? .idle : .waiting))
+    #expect(try await waitFor(5) {
+        let after = try await now()
+        return after?.subagents == nil && after?.subagentTasks == nil
+    })
 }

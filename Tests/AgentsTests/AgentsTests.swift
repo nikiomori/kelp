@@ -310,6 +310,7 @@ import TestSupport
     #expect(next == [.report(.init(id: "sub/1", state: "working", kind: nil, msg: nil))])
     #expect(carry.isEmpty)
     #expect(ProgramStatus.parse("state=sleeping") == nil)
+    #expect(ProgramStatus.parse("state=working:id=a1:title=Q291bnQ") == .report(.init(id: "a1", state: "working", title: "Count")))
     #expect(ProgramStatus.parse("state=working:progress=140") == .report(.init(state: "working", progress: 100)))
     #expect(ProgramStatus.parse("state=done:progress=40") == .report(.init(state: "done")))   // only work in progress has one
     // ConEmu's bar: a percent, gone (0), indeterminate (3); one cut off at the end of a read is left out.

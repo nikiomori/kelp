@@ -8675,12 +8675,12 @@
         }
       }
     },
-    "Subagents: %@": {
+    "Subagent": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Субагенты: %@"
+            "value": "Субагент"
           }
         }
       }

@@ -151,6 +151,7 @@ public final class Store: Sendable {
         }
         m.registerMigration("v19") { db in try db.alter(table: "session") { t in t.add(column: "parent", .text) } }
         m.registerMigration("v20") { db in try db.alter(table: "session") { t in t.add(column: "subagents", .text) } }
+        m.registerMigration("v21") { db in try db.alter(table: "session") { t in t.add(column: "subagentTasks", .text) } }
         return m
     }
 
