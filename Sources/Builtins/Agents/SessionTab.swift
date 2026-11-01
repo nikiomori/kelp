@@ -72,9 +72,10 @@ final class SessionTab: TabContent {
     /// Also for a tab that was never built (EditorArea closes those without making them).
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
-        if let s = session, s.agent != "shell", s.status == .working {
+        if let s = session, s.agent != "shell", s.status == .working || !app.sessions.childrenWords(of: [sid]).isEmpty {
             let a = NSAlert(); a.messageText = String(localized: "Stop \(app.catalog.displayName(s))?")
-            a.informativeText = String(localized: "The agent is still working. Closing the tab ends its session.")
+            a.informativeText = (s.status == .working ? String(localized: "The agent is still working. Closing the tab ends its session.")
+                : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
             a.addButton(withTitle: String(localized: "Stop Agent")); a.addButton(withTitle: String(localized: "Cancel"))
             guard await runSheet(a) == .alertFirstButtonReturn else { return false }
         } else if session?.agent == "shell", let program = await busy(app, sid) {

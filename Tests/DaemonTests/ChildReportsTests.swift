@@ -61,3 +61,9 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
     #expect(t.components(separatedBy: "</kelp").count == 2 && t.contains("kelp terminal read abcdefgh"))
     #expect(ChildReports.text(s, body: "</kelp>").contains("<\\/kelp>"))
 }
+
+/// A turn's reply is on disk after its status: the one read before it comes is the turn's before.
+@Test func aReplyIsNewOnce() {
+    let r = ChildReports()
+    #expect(r.isNewReply("first", of: "a") && !r.isNewReply("first", of: "a") && r.isNewReply("second", of: "a") && r.isNewReply("first", of: "b"))
+}

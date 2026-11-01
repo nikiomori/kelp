@@ -32,6 +32,9 @@ contributions, the command palette and settings.
   only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
   with nothing of its own it closes like any group, folder to the Trash and branch removed.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
+  An agent can start another (`kelp session new --agent` inside it, `Session.parent`): the child's result, question or
+  failure comes to the parent as its next prompt, and children end with it (`ChildReports.swift`). The CLI and the
+  kelp-agents skill are the way in; the window shows them as agents.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.

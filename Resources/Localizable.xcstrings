@@ -14517,6 +14517,66 @@
         }
       }
     },
+    "%lld agents they started end too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запущенные агенты тоже завершатся: %lld."
+          }
+        }
+      }
+    },
+    "Closing the tab ends its session.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрытие вкладки завершит его сессию."
+          }
+        }
+      }
+    },
+    "Report back to the parent agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отчёт агенту, который запустил"
+          }
+        }
+      }
+    },
+    "When an agent starts another with kelp, the other's result or question comes to it as input.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда агент запускает другого через kelp, результат или вопрос второго приходит первому во ввод."
+          }
+        }
+      }
+    },
+    "Hand work to other agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передавать работу другим агентам"
+          }
+        }
+      }
+    },
+    "Claude Code can start another agent with kelp and gets its result back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code может запустить другого агента через kelp и получить его результат."
+          }
+        }
+      }
+    },
     "New Chat on Branch": {
       "localizations": {
         "ru": {

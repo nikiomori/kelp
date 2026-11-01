@@ -5,7 +5,7 @@ import os
 
 /// What an agent's children have told it, and which sessions are only restarting.
 final class ChildReports: Sendable {
-    private struct State { var told: [String: AgentStatus] = [:], restarting: Set<String> = [] }
+    private struct State { var told: [String: AgentStatus] = [:], replies: [String: String] = [:], restarting: Set<String> = [] }
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// A status from before this daemon was told before it, or will be found by asking.
     private let started = Date()
@@ -21,6 +21,15 @@ final class ChildReports: Sendable {
             guard [.done, .error, .waiting, .exited].contains(s.status), (s.statusAt ?? .distantPast) >= started,
                   st.told[s.id] != s.status, !(s.status == .exited && st.told[s.id] == .done) else { return false }
             st.told[s.id] = s.status
+            return true
+        }
+    }
+
+    /// Whether `reply` is one not reported yet, and now it is.
+    func isNewReply(_ reply: String, of id: String) -> Bool {
+        state.withLock { st in
+            if st.replies[id] == reply { return false }
+            st.replies[id] = reply
             return true
         }
     }
@@ -57,12 +66,29 @@ extension Sessions {
     }
 
     private func reportBody(_ s: Session) -> String {
-        func tail() -> String { Log.session.attempt("reading what \(s.id) printed") { try printed(s.id, bytes: 1500) } ?? "" }
+        // What it printed, without the blank lines a redrawn screen leaves. Limit: an agent with no transcript to read (Codex
+        // and the rest) reports this, spinner frames and all; its own log, once Kelp reads those, would be cleaner.
+        func tail() -> String {
+            let text = Log.session.attempt("reading what \(s.id) printed") { try printed(s.id, bytes: 1500) } ?? ""
+            return text.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.suffix(30).joined(separator: "\n")
+        }
         switch s.status {
-        case .done: return existing(s.id).flatMap(agentUsage.transcript(of:)).flatMap(AgentUsage.lastReply(transcript:)) ?? tail()
+        case .done: return finalReply(s) ?? tail()
         case .exited: return "Exit code \(s.exitCode ?? 0)\n" + tail()
         default: return s.summary.isEmpty ? tail() : s.summary
         }
+    }
+
+    /// The reply that ended its turn. It's on disk a moment after the status says done (the Stop hooks run first), and until
+    /// then the last one there is the turn's before. Off the caller's queue, so waiting here holds nobody.
+    private func finalReply(_ s: Session) -> String? {
+        var reply: String?
+        for _ in 0..<8 {
+            reply = existing(s.id).flatMap(agentUsage.transcript(of:)).flatMap(AgentUsage.lastReply(transcript:))
+            if let reply, reports.isNewReply(reply, of: s.id) { return reply }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return reply   // the same words twice: they're this turn's as well
     }
 
     /// As its next prompt, when it can take one. A prompt someone is typing there comes first: tried again until it's sent.

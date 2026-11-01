@@ -145,6 +145,14 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var connectionLost: Bool { status == .exited && tmux != nil && (exitCode ?? 0) != 0 }
 }
 
+extension [Session] {
+    /// For a question about ending `ids`: the agents they started end with them. Empty when there are none.
+    public func childrenWords(of ids: [String]) -> String {
+        let n = filter { $0.parent.map(ids.contains) == true && $0.status != .exited && !ids.contains($0.id) }.count
+        return n == 0 ? "" : " " + String(localized: "\(n) agents they started end too.")
+    }
+}
+
 public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public enum State: String, Codable, Sendable { case open, sent, resolved }
     public var id: String
