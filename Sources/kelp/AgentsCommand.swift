@@ -92,7 +92,8 @@ extension Main {
     }
 
     private static func runAttach(_ id: String) {
-        let me = CommandLine.arguments[0], argv = [me, "attach", id, "--detach"].map { strdup($0) } + [nil]
+        let me = CommandLine.arguments[0], words = [me, "attach", id, "--detach"]
+        let argv = words.map { strdup($0) } + [nil]
         defer { argv.forEach { free($0) } }
         var pid: pid_t = 0, status: Int32 = 0
         // Not `Process`: it starts a process group of its own, and that can't read this terminal.
