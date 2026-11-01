@@ -25,6 +25,15 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(out[0].children[0].workspace == "w1")   // an ended agent and a plain terminal don't make it a group
 }
 
+/// A new chat never regroups the ones already there: the heading came with their second agent.
+@Test func aHeadingDoesntWaitForASecondScreen() {
+    let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle)]
+    let one = tree([wt("w1", "r1", "a")], ss).build()
+    #expect(kinds(one[0].children) == [.workspace("w1")] && one[0].workspace == nil)
+    let two = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], ss).build()
+    #expect(kinds(two[0].children) == [.workspace("w1"), .workspace("w2")])
+}
+
 @Test func aHeadingShowsOnlyWhenAScreenHoldsTwoAgents() {
     let alone = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .working)]).build()
     #expect(kinds(alone[0].children) == [.agent("a1"), .workspace("w2")])
@@ -67,7 +76,7 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
 @Test func aWorkspaceNameMatchKeepsAllItsAgents() {
     var t = tree([wt("w1", "r1", "login")], [agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle)])
     t.query = "login"
-    #expect(t.build()[0].children.count == 2)
+    #expect(t.build()[0].children[0].children.count == 2)
 }
 
 /// A paused agent's unread result is on the Needs You row: the filter finds it too.

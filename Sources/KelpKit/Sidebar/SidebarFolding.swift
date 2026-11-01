@@ -136,6 +136,53 @@ extension SidebarController {
         }
     }
 
+    /// Each row on show and how deep it is.
+    func rowLevels() -> [String: Int] {
+        var out: [String: Int] = [:]
+        for row in 0..<outline.numberOfRows { if let n = outline.item(atRow: row) as? Node { out[n.key] = outline.level(forRow: row) } }
+        return out
+    }
+
+    /// After a reload: rows that came open out and fade in while the rows below make room, and a row that went under a
+    /// heading (or came out from one) slides there, so it can be seen where things went. More than a few new rows is the
+    /// list being narrowed or filled, not something happening: those just show.
+    func settle(from old: [String: Int]) {
+        guard !old.isEmpty, !Motion.reduced, outline.window?.isVisible == true else { return }
+        let now = rowLevels(), came = now.keys.filter { old[$0] == nil }
+        guard came.count <= 3 else { return }
+        let moved = now.filter { key, level in old[key].map { $0 != level } ?? false }
+        arriving = Set(came)
+        instantly { updateCard() }
+        outline.layoutSubtreeIfNeeded()
+        arriving = []
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            updateCard()
+        }
+        for key in came { if let v = rowView(key) { Self.play(v, "opacity", from: 0, to: 1) } }
+        for (key, level) in moved {
+            guard let n = node(key), case let row = outline.row(forItem: n), row >= 0,
+                  let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: false) else { continue }
+            Self.play(cell, "transform.translation.x", from: CGFloat((old[key] ?? level) - level) * SidebarOutline.step, to: 0)
+        }
+    }
+
+    private func rowView(_ key: String) -> NSTableRowView? {
+        node(key).flatMap { n in outline.rowView(atRow: outline.row(forItem: n), makeIfNecessary: false) }
+    }
+
+    /// From a value of its own: set first and animated after, it would start from what the view shows now (see `open`).
+    private static func play(_ v: NSView, _ path: String, from: CGFloat, to: CGFloat) {
+        v.wantsLayer = true
+        let a = CABasicAnimation(keyPath: path)
+        a.fromValue = from
+        a.toValue = to
+        a.duration = Motion.appear
+        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        v.layer?.add(a, forKey: "settle")
+    }
+
     /// `change` with nothing animated: the rows and cards go straight where they end up.
     func instantly(_ change: () -> Void) {
         NSAnimationContext.runAnimationGroup { ctx in

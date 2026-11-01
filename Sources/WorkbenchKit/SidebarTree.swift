@@ -2,8 +2,8 @@ import Foundation
 import Core
 
 /// What the sidebar lists, decided without a window: projects → workspaces → agents, narrowed by a filter and a search,
-/// with what you pinned lifted above the projects; a project with one workspace skips that level, and a workspace with one
-/// agent is that agent's row: a heading shows only when a screen holds two. What needs you is in the line over the list (`Inbox`).
+/// with what you pinned lifted above the projects; a workspace with one agent is that agent's row, a heading shows when a
+/// screen holds two and only then, however many screens its project has. What needs you is in the line over the list (`Inbox`).
 /// The raw values are the menu's English titles (and what UserDefaults keeps).
 public enum SidebarFilter: String, Sendable, CaseIterable {
     case all = "All Chats", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
@@ -76,7 +76,9 @@ public struct SidebarTree {
             let mine = live.filter { $0.repoId == r.id && !pinned.contains($0.id) }
             let kids = mine.compactMap { workspace($0, r) }
             if kids.isEmpty && narrowed { return nil }
-            if mine.count == 1, let only = kids.first { return SidebarItem(kind: .project(r.id), children: only.children, workspace: mine[0].id) }
+            if mine.count == 1, let only = kids.first, only.children.count < 2 {
+                return SidebarItem(kind: .project(r.id), children: only.children, workspace: mine[0].id)
+            }
             return SidebarItem(kind: .project(r.id), children: kids.map(row))
         }
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }

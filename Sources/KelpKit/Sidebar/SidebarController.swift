@@ -42,6 +42,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// the outline still shows them. The number tells this fold from a later one of the same row.
     var folding: [String: Int] = [:]
     var folds = 0
+    /// Rows that just came, at no height until they open out (`settle`).
+    var arriving: Set<String> = []
     /// Each project's card, under its rows (`placeCards`).
     var cards: [String: ProjectCard] = [:]
     var roots: [Node] = []
@@ -271,6 +273,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         showNoMatch(!projects.isEmpty && !next.contains { if case .project = $0.kind { true } else { false } })
         search.isHidden = projects.isEmpty
         if nextShape == shape { updateVisibleCells(); return }
+        let before = rowLevels()
         roots = next; shape = nextShape
         syncing = true
         outline.reloadData()
@@ -279,6 +282,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
         syncSelection()
         placeNeedsYou()
+        settle(from: before)
     }
 
     /// A project and the workspaces in it that weren't folded (their children wait until the project opens).
@@ -390,6 +394,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard let n = item as? Node else { return TextSize.of(rowBase) }
         if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
+        // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
+        if arriving.contains(n.key) { return 0.01 + pad.top + pad.bottom }
         let base = { if case .workspace = n.kind, !n.children.isEmpty { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
         return TextSize.of(base + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
     }
