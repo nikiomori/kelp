@@ -14577,6 +14577,26 @@
         }
       }
     },
+    "Started": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустил"
+          }
+        }
+      }
+    },
+    "%lld agents it started": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запущенные агенты: %lld"
+          }
+        }
+      }
+    },
     "New Chat on Branch": {
       "localizations": {
         "ru": {

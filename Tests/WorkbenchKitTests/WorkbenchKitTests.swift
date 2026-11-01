@@ -308,3 +308,23 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(l.focusedGroup?.tabs.map(\.uri) == ["session:b", "file:///x"] && l.focusedGroup?.tabs.last == b)
     #expect(l.replace("session:gone", with: "session:c") == nil)
 }
+
+/// A child is found through its parent's row, and needs you there; on another screen it keeps a row of its own.
+@Test func childrenLiveOnTheirParentsRow() {
+    let r = Repo(id: "r", name: "a", path: "/a")
+    let w = Worktree(id: "w", repoId: "r", branch: "main", path: "/a"), other = Worktree(id: "o", repoId: "r", branch: "b", path: "/b")
+    let parent = Session(id: "p", worktreeId: "w", cwd: "/a", command: "x", agent: "claude", status: .working, title: "Graph")
+    var kid = Session(id: "k", worktreeId: "w", cwd: "/a", command: "x", agent: "codex", status: .waiting, title: "reviewer")
+    var away = Session(id: "f", worktreeId: "o", cwd: "/b", command: "x", agent: "codex", status: .done, title: "far")
+    kid.parent = "p"; away.parent = "p"
+    func agents(_ t: SidebarTree) -> [String] {
+        func walk(_ i: SidebarItem) -> [String] { (({ if case .agent(let a) = i.kind { [a] } else { [] } })()) + i.children.flatMap(walk) }
+        return t.build().flatMap(walk)
+    }
+    var t = SidebarTree(projects: [r], workspaces: [w, other], sessions: [parent, kid, away])
+    #expect(agents(t) == ["p", "f"])
+    t.query = "reviewer"
+    #expect(agents(t) == ["p"])
+    t.query = ""; t.filter = .needsYou
+    #expect(agents(t) == ["p"])
+}

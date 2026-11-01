@@ -298,7 +298,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         if id != revealed, let p = outline.parent(forItem: w) as? Node, isCollapsed(p) { open(p) }
         revealed = id
         let tab = app.workbench.focusedTab ?? ""
-        let agent = TabURI.scheme(tab) == "session" ? w.children.first { $0.key == "a:" + TabURI.body(tab) } : nil
+        // A child has no row: its parent's stands for it.
+        let on = TabURI.body(tab), parent = app.session(on)?.parent ?? ""
+        let agent = TabURI.scheme(tab) == "session" ? w.children.first { $0.key == "a:" + on || $0.key == "a:" + parent } : nil
         let row = agent.map { outline.row(forItem: $0) }.flatMap { $0 >= 0 ? $0 : nil } ?? outline.row(forItem: w)
         guard row >= 0 else { return }
         if outline.selectedRow != row {
@@ -410,7 +412,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     private func hasAsk(_ n: Node) -> Bool {
         guard case .agent(let id) = n.kind, let s = app.session(id) else { return false }
-        return SidebarCell.askLine(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou") != nil
+        return SidebarCell.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
     private func pads(_ n: Node) -> (top: CGFloat, bottom: CGFloat) {

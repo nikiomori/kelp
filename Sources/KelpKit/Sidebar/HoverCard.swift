@@ -71,6 +71,8 @@ final class CardModel {
     var context: (used: Int, window: Int)?
     var parts: SessionContextParts.Parts?
     var ports: [Int] = []
+    /// An agent's card: the agents it started.
+    var children: [Agent] = []
 
     init?(_ key: String, app: AppModel) {
         self.app = app
@@ -80,6 +82,7 @@ final class CardModel {
             let w = m.worktree(s.worktreeId)
             subtitle = [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
             agents = [Agent(id: s.id, session: s)]
+            children = m.sessions.children(of: s.id).map { Agent(id: $0.id, session: $0) }
             workspaceId = s.worktreeId ?? ""
             agentOnly = true
             repo = nil
@@ -172,6 +175,18 @@ struct CardView: View {
                         Text("In the background: \(b.joined(separator: ", "))").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
                     }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                }
+            }
+            if !model.children.isEmpty {
+                Text("Started").font(.caption).foregroundStyle(.secondary)
+                ForEach(model.children) { a in
+                    HStack(spacing: 6) {
+                        StatusIcon(status: a.session.markStatus).font(.caption)
+                        Text(model.app.catalog.displayName(a.session)).font(.callout).lineLimit(1)
+                        Text(model.app.catalog.name(a.session.agent)).font(.caption).foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        Text(shortAgo(a.session.statusAt ?? a.session.createdAt)).font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+                    }
                 }
             }
             if !model.ports.isEmpty {

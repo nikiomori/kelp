@@ -4,7 +4,8 @@ import Core
 /// What the sidebar lists, decided without a window: projects → their chats, then their groups → the chats in those,
 /// narrowed by a filter and a search, with what you pinned lifted above the projects. A project's chats are the agents on
 /// its own screen (`mainWorkspace`), with no heading; every other workspace is a group someone made, always with its
-/// heading. What needs you is in the line over the list (`Inbox`).
+/// heading. An agent's children stand on its row, not on rows of their own. What needs you is in the line over the list
+/// (`Inbox`).
 /// The raw values are the menu's English titles (and what UserDefaults keeps).
 public enum SidebarFilter: String, Sendable, CaseIterable {
     case all = "All Chats", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
@@ -48,7 +49,9 @@ public struct SidebarTree {
             case .all: return true
             case .working: return agents.contains { $0.status == .working }
             case .needsYou:
-                return agents.contains { [.waiting, .error].contains($0.status) || ([.done, .hibernated].contains($0.status) && $0.unread) }
+                return agents.contains {   // a child's result is its parent's to read
+                    [.waiting, .error].contains($0.status) || ($0.parent == nil && [.done, .hibernated].contains($0.status) && $0.unread)
+                }
             case .withPR: return hasPR(w)
             }
         }
@@ -57,8 +60,11 @@ public struct SidebarTree {
             let agents = sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" }
             guard passes(w, agents) else { return nil }
             let whole = hit(w.displayName, w.branch, r.name)
-            // "needs", "working", "done" act as filters
-            let kept = whole ? agents : agents.filter { hit($0.title, $0.agent ?? "", $0.summary, statusLabel($0.status)) }
+            // "needs", "working", "done" act as filters; a child is found on its parent's row. One on another screen keeps a
+            // row there: it's what that screen holds.
+            func found(_ s: Session) -> Bool { hit(s.title, s.agent ?? "", s.summary, statusLabel(s.status)) }
+            let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
+            let kept = whole ? rows : rows.filter { a in found(a) || agents.contains { $0.parent == a.id && found($0) } }
             guard whole || !kept.isEmpty else { return nil }
             return SidebarItem(kind: .workspace(w.id), children: kept.map { SidebarItem(kind: .agent($0.id)) })
         }

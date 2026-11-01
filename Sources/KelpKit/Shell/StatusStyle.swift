@@ -236,6 +236,7 @@ struct AttentionQueue {
     var sessions: [Session] {
         app.sessions
             .filter(SidebarCell.wantsYou)   // what the summary counts, a paused agent's unread result too
+            .filter { $0.parent == nil || SidebarCell.shownStatus($0) != .done }   // a child's result goes to its parent, not you
             .filter { app.worktree($0.worktreeId).map { !$0.archived } == true }   // in a workspace on the sidebar (an archived one isn't loaded)
             .sorted {
                 (SidebarCell.shownStatus($0) == .done ? 1 : 0, $0.statusAt ?? $0.createdAt)

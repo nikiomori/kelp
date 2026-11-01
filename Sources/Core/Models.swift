@@ -146,6 +146,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 }
 
 extension [Session] {
+    /// The agents `id` started that haven't ended.
+    public func children(of id: String) -> [Session] { filter { $0.parent == id && $0.status != .exited } }
+
     /// For a question about ending `ids`: the agents they started end with them. Empty when there are none.
     public func childrenWords(of ids: [String]) -> String {
         let n = filter { $0.parent.map(ids.contains) == true && $0.status != .exited && !ids.contains($0.id) }.count

@@ -35,6 +35,8 @@ final class SidebarCell: NSTableCellView {
     private var rowY: NSLayoutConstraint?
     /// What an agent goes on with by itself: its /goal, or a command it started in the background.
     private let chip = Chip()
+    /// An agent's: the agents it started.
+    private lazy var family = ChildrenBadge(app: app)
     private var add: NSButton?
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
@@ -122,7 +124,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
                                          mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
                                          mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
-            layout(row: [slot, icon, title, muted, glyph, chip, trailing])
+            layout(row: [slot, icon, title, muted, glyph, chip, family, trailing])
             (title.superview as? NSStackView)?.setCustomSpacing(8, after: slot)
             ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
@@ -328,6 +330,7 @@ final class SidebarCell: NSTableCellView {
             mark.progress = s.progress.map { Double($0) / 100 }
             trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
             showChip(s)
+            family.show(m.sessions.children(of: sid))
             showState(s)
             showAsk(s)
             speak(s)
@@ -358,7 +361,7 @@ final class SidebarCell: NSTableCellView {
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ s: Session) {
-        let line = Self.askLine(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou")
+        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions)
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
@@ -409,7 +412,8 @@ final class SidebarCell: NSTableCellView {
     private func showSummary(_ folded: SidebarController.Node?) {
         summary.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let ids = folded.map { n in n.children.flatMap { $0.children.isEmpty ? [$0] : $0.children } } ?? []
-        let agents = ids.compactMap { n -> Session? in if case .agent(let id) = n.kind { app.session(id) } else { nil } }
+        let rows = ids.compactMap { n -> Session? in if case .agent(let id) = n.kind { app.session(id) } else { nil } }
+        let agents = rows.flatMap { [$0] + app.sessions.children(of: $0.id).filter { $0.status != .done } }   // what's done there is the parent's to read
         let shown = agents.map(Self.shownStatus)
         let asking = shown.filter { [.waiting, .error].contains($0) }
         let groups: [(AgentStatus?, Int)] = [(AgentStatus.mostUrgent(asking), asking.count), (.working, shown.filter { $0 == .working }.count),
