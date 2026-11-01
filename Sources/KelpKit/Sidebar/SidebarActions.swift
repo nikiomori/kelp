@@ -35,8 +35,12 @@ extension SidebarController {
         }
         show(m.add(String(localized: "New Chat")) { app.workbench.newChat(repo: id) }, key: "workspace.new")
         show(m.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }, key: "workspace.newGroup")
+        if onThisMac(id) { show(m.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) }, key: "workspace.newBranch") }
         return m
     }
+
+    /// A remote project's branches would need its git on the host: there it works in its folder.
+    private func onThisMac(_ project: String) -> Bool { app.repo(project).map { RemoteHost.of($0.path) == nil } ?? false }
 
     /// Where a chat can go: among the screens of its folder. One on a branch has its own files and stays.
     func moveItems(_ menu: NSMenu, chat sid: String) {
@@ -114,6 +118,7 @@ extension SidebarController {
             if let w = n.workspace { workspaceMenu(menu, w, onProject: true); menu.addItem(.separator()) }
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
+            if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             if n.workspace == nil {

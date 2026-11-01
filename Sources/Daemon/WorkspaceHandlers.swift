@@ -99,7 +99,11 @@ extension WorktreeCreate: Handled {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         // Its git would run on this Mac, not the host: a remote project's workspaces are desks in its folder.
         guard workspaces.remotes.of(r.path) == nil else {
-            throw RPCError.invalidParams("Remote projects work in their folder (New Workspace); branches in worktrees aren't available there yet.")
+            throw RPCError.invalidParams("Remote projects work in their folder: branches in worktrees aren't available there yet.")
+        }
+        // Opened without Git: said in words, not as git's refusal.
+        do { _ = try Git.root(of: r.path, remotes: workspaces.remotes) } catch {
+            throw RPCError.invalidParams("“\(r.name)” isn't a Git repository, so it has no branches.")
         }
         let auto = try workspaces.nextWorkspace(in: r)
         let branch = try clientRef(branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch

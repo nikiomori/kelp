@@ -21,3 +21,25 @@ import GitKit
     }
     #expect(try await now()?.worktreeId == desk.id)
 }
+
+/// New Chat on Branch asks for no name: the first prompt gives one to the group and the branch, in any language.
+@Test func theFirstPromptNamesAChatsGroupAndBranch() async throws {
+    let (d, c, _, repo) = try await world(); defer { d.stop() }
+    let w: Worktree = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "setup": false]), as: Worktree.self)
+    #expect(w.isUnnamed && w.branch == "ws-2")
+    _ = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 60", "prompt": "почини вход"]), as: Session.self)
+    func now() async throws -> Worktree? {
+        try await c.call("worktree.list", .obj(["repoId": .string(repo.id)]), as: [Worktree].self).first { $0.id == w.id }
+    }
+    #expect(try await waitFor { try await now()?.branch == "pocini-vhod" })
+    let named = try await now()
+    #expect(named?.note == "Почини вход" && named?.path == w.path)
+    #expect(Git.branchExists(repo.path, "pocini-vhod") && !Git.branchExists(repo.path, "ws-2"))
+}
+
+@Test func aBranchNameComesOutInLatinLetters() {
+    #expect(Naming.slug("Add a dark-mode toggle to Settings!") == "add-dark-mode-toggle-settings")
+    #expect(Naming.slug("исправь объект в логине") == "isprav-obekt-v-logine")
+    #expect(Naming.slug("修复登录") == "xiu-fu-deng-lu")
+    #expect(Naming.slug("🎉🎉") == "")
+}

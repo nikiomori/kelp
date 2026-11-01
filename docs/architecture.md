@@ -27,6 +27,8 @@ contributions, the command palette and settings.
   made on purpose (⇧⌘N), always under its heading; closing its last tab closes it. ⌘N starts the default agent on the
   screen you're on. A group splits the screen, not the code: chats
   on the desks of a project share its folder, and one can move between them with its agent running (`session.move`).
+  A branch splits the code: New Chat on Branch (⌃⌘N) is a group on a git worktree, cut from the project's base branch,
+  and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:

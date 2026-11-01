@@ -144,10 +144,11 @@ final class WindowBar: NSView {
         if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: app) } else { icon.image = nil }
         name.stringValue = app.groupName(w) ?? ""   // a project's own screen: the folder beside it says it
         name.isHidden = name.stringValue.isEmpty
-        // The folder's name, as Xcode and Finder name a project; the whole path in its tooltip and its menu.
+        // The project's folder, as Xcode and Finder name a project, on a branch too: its own folder's name is no more than
+        // the branch's first one, beside the chip with the real one. The whole path in its tooltip and its menu.
         let place = app.repo(w.repoId).map(app.projectPlace) ?? (w.path as NSString).abbreviatingWithTildeInPath
         let path = w.path == app.repo(w.repoId)?.path ? place : (w.path as NSString).abbreviatingWithTildeInPath
-        folder.title = (path as NSString).lastPathComponent
+        folder.title = (place as NSString).lastPathComponent
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }

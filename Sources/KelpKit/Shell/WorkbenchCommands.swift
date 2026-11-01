@@ -43,6 +43,7 @@ extension Builtins {
             },
             cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
             cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
+            cmd("workspace.newBranch", "New Chat on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },
             cmd("workspace.addProject", "Add Project…", "cmd+o") { app.workbench.addProject() },
             cmd("workspace.cloneRepository", "Clone Repository…") { CloneSheet.show(app) },
             cmd("workspace.addRemote", "Open over SSH…") { RemoteSheet.show(app) },

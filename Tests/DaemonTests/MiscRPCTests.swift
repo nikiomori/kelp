@@ -510,6 +510,8 @@ func trustQuestionStandIn() -> String {
     let desk = try #require(try await w.c.call("worktree.list", .obj(["repoId": .string(r.id)]), as: [Worktree].self).first)
     #expect(try await w.c.call("files.list", .obj(["id": .string(desk.id)]), as: [String].self) == ["a.txt"])
     #expect(try ProjectFiles.search(plain, query: "hello").map(\.path) == ["a.txt"])
+    do { _ = try await w.c.call("worktree.create", .obj(["repoId": .string(r.id)])); Issue.record("a branch without Git") }
+    catch let e as RPCError { #expect(e.message.contains("isn't a Git repository")) }
     #expect(try await w.c.call("repo.add", .obj(["path": .string(plain), "init": false]), as: Repo.self).id == r.id)   // once
     let other = tmp().path
     _ = try await w.c.call("repo.add", .obj(["path": .string(other), "init": true]), as: Repo.self)

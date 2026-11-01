@@ -178,11 +178,30 @@ extension Workbench {
     /// ⇧⌘N: a screen of its own under a heading, named by its first prompt, with an agent on it.
     func newGroup(repo: String? = nil) {
         Task {
-            let m = app
-            await m.waitForConnection()
-            guard let rid = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else { addProject(); return }
+            guard let rid = await project(repo) else { return }
             if let id = await app.call(WorkspaceCreate(repoId: rid))?.id { await startChat(on: id) }
         }
+    }
+
+    /// ⌃⌘N: the same with code of its own, a new branch from the project's base in its own folder. The first prompt names
+    /// both. A .kelp.yaml not yet trusted asks once the chat is there, so its setup waits for nobody.
+    func newBranch(repo: String? = nil) {
+        Task {
+            guard let rid = await project(repo), let made = await app.call(WorktreeCreate(repoId: rid)) else { return }
+            let id = made.worktree.id
+            await startChat(on: id)
+            if made.setupNeedsTrust == true, let info = await app.scripts.load(id), info.setup != nil {
+                await app.scripts.runKelp(id, "setup", info)
+            }
+        }
+    }
+
+    /// The project a new screen goes to: the one asked for, the one on screen, or the first; with none, adding one.
+    private func project(_ repo: String?) async -> String? {
+        let m = app
+        await m.waitForConnection()
+        guard let id = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else { addProject(); return nil }
+        return id
     }
 
     /// A new agent of the default kind, started before anything shows: it comes as a row of its own. With no agent on this

@@ -64,6 +64,8 @@ extension OneAtATime {
         #expect(r[0].contains("Atlas"))
         #expect(r[1].contains("feat/login") && r[2].contains("Fix login bug"))   // the agent sits right under its workspace
         #expect(r.flatMap { $0 }.contains("Billing rewrite"))   // a note is the workspace's name
+        #expect(r.flatMap { $0 }.contains("feat/billing"))      // and its branch stands beside it, not twice when they're one
+        #expect(r[1].filter { $0 == "feat/login" }.count == 1)
         #expect(r.flatMap { $0 }.contains("Fix login bug"))
     }
 }
@@ -76,7 +78,7 @@ extension OneAtATime {
     let inGroup = Session(worktreeId: "g", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "In group")
     let onBranch = Session(worktreeId: "b", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "On a branch")
     try withSidebar(repos: [project], worktrees: [own("w1"), group, there], sessions: [here, inGroup, onBranch]) { vc, _ in
-        #expect(vc.addMenu(project: "r1").items.map(\.title) == ["New Chat", "New Group"])
+        #expect(vc.addMenu(project: "r1").items.map(\.title) == ["New Chat", "New Group", "New Chat on Branch"])
         @MainActor func items(_ s: Session) -> [String] {
             let m = NSMenu()
             vc.moveItems(m, chat: s.id)

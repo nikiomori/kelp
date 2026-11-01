@@ -14487,6 +14487,16 @@
         }
       }
     },
+    "New Chat on Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый чат на ветке"
+          }
+        }
+      }
+    },
     "New Group": {
       "localizations": {
         "ru": {

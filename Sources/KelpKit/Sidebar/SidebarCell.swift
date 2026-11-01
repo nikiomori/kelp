@@ -37,6 +37,7 @@ final class SidebarCell: NSTableCellView {
     private let chip = Chip()
     private var add: NSButton?
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
+    /// A heading's: the branch its folder is on, when it has code of its own.
     private let detail = NSTextField(labelWithString: "")
     private let summary = NSStackView()
     private var fold: NSButton?
@@ -94,11 +95,11 @@ final class SidebarCell: NSTableCellView {
             layout(row: [icon, title, count, NSView()])
         case .workspace:
             // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
-            title.font = .ui(11, weight: .semibold)
-            title.textColor = .secondaryLabelColor
+            title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
             // Under the project's name (its icon, 16, and the gap after it, 6, further in than the row's own 2 less the step
             // children take): between the icon and the name it lined up with nothing.
-            layout(row: [title, muted, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
+            styleBranch()
+            layout(row: [title, icon, detail, muted, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -304,6 +305,9 @@ final class SidebarCell: NSTableCellView {
             let agents = live(id)
             title.stringValue = w.displayName
             title.textColor = selected ? .labelColor : .secondaryLabelColor
+            let onBranch = w.path != m.repo(w.repoId)?.path && w.branch != w.displayName
+            detail.stringValue = onBranch ? w.branch : ""
+            detail.isHidden = !onBranch; icon.isHidden = !onBranch
             showFold()
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
@@ -515,5 +519,16 @@ final class Chip: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = Metrics.radiusXS
         layer?.backgroundColor = NSColor.fillRest.cgColor
+    }
+}
+
+extension SidebarCell {
+    /// A heading's branch: quieter than its name, and what gives way first.
+    fileprivate func styleBranch() {
+        icon.image = .symbol("arrow.triangle.branch"); icon.contentTintColor = .tertiaryLabelColor
+        icon.symbolConfiguration = .init(pointSize: 10, weight: .medium)
+        detail.font = .ui(11); detail.textColor = .tertiaryLabelColor
+        detail.lineBreakMode = .byTruncatingMiddle
+        detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
     }
 }
