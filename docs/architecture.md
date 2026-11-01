@@ -23,7 +23,8 @@ contributions, the command palette and settings.
   named "Workspace N" until its first agent prompt names it; several desks share the folder.
   Closing one ends its agents and leaves the files. (Workspaces from older versions may be git worktrees.)
   The word stays in the code, RPCs and CLI. In the window one is a screen: an agent alone on it is a row called a
-  chat, two or more get a heading, and closing the last tab closes the row.
+  chat, two or more get a heading, and closing the last tab closes the row. ⌘N starts the default agent on a new
+  screen, or goes to the chat nobody has started yet.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:

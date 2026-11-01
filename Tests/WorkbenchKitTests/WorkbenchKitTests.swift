@@ -264,6 +264,21 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(h.visits.count == 50 && h.visits.last == "w59")
 }
 
+/// ⌘N goes to the chat nobody has started: empty, or with its agent still waiting for the first prompt.
+@Test func aNewChatNobodyStartedIsUsedAgain() {
+    let named = Worktree(repoId: "r", branch: "main", path: "/p", note: "Graph")
+    let blank = Worktree(repoId: "r", branch: "main", path: "/p", note: "Workspace 2")
+    func agent(_ status: AgentStatus, title: String = "") -> Session {
+        Session(worktreeId: blank.id, cwd: "/", command: "claude", agent: "claude", status: status, title: title)
+    }
+    #expect(unstartedChat(rows: [named, blank], sessions: []) == blank)
+    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.idle)]) == blank)
+    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.exited, title: "Old")]) == blank)
+    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.working)]) == nil)
+    #expect(unstartedChat(rows: [named, blank], sessions: [agent(.idle, title: "Fix login")]) == nil)
+    #expect(unstartedChat(rows: [named], sessions: []) == nil)
+}
+
 /// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; desks (in the project's
 /// folder) are removed, workspaces on a branch of their own archived; a project with others open loses only the picked.
 @Test func closingSeveralWorkspacesKeepsOnePerProject() {

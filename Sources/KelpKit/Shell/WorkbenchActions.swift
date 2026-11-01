@@ -168,15 +168,19 @@ extension Workbench {
             let m = app
             await m.waitForConnection()
             guard let rid = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else { addProject(); return }
-            // A new chat nobody has started is already there: not a second row beside it.
-            let rows = m.repo(rid).map(m.workspaces(of:)) ?? []
-            if let w = rows.first(where: { w in w.isUnnamed && !m.sessions.contains { $0.worktreeId == w.id && $0.status != .exited } }) {
-                show(workspace: w.id)
-                return
+            var id = m.repo(rid).flatMap { unstartedChat(rows: m.workspaces(of: $0), sessions: m.sessions) }?.id
+            if id == nil { id = await app.call(WorkspaceCreate(repoId: rid))?.id }
+            guard let id else { return }
+            // A chat is an agent ready for its first prompt, started before the row shows: an empty row turning into it
+            // would read as a folder. With no agent on this Mac the empty screen offers to install one.
+            var agent = m.sessions.first { $0.worktreeId == id && $0.agent != "shell" && $0.status != .exited }
+            if agent == nil, let a = m.catalog.startable {
+                var p = SessionCreate(worktreeId: id, agent: a)
+                if let g = terminalGrid { p.cols = g.cols; p.rows = g.rows }
+                agent = await app.call(p)
             }
-            guard let id = await app.call(WorkspaceCreate(repoId: rid))?.id else { return }
             await app.refresh()
-            show(workspace: id)
+            if let agent { focus(session: agent.id) } else { show(workspace: id) }
         }
     }
 }

@@ -60,6 +60,14 @@ public struct WorkspaceHistory: Equatable, Sendable {
     public mutating func go(to i: Int) -> String { at = i; return visits[i] }
 }
 
+/// ⌘N: a new chat nobody has started is already there, among a project's rows: its name is still the placeholder and
+/// nothing on it has been asked anything. Nil: make one.
+public func unstartedChat(rows: [Worktree], sessions: [Session]) -> Worktree? {
+    rows.first { w in
+        w.isUnnamed && sessions.allSatisfy { $0.worktreeId != w.id || $0.status == .exited || ($0.status == .idle && $0.title.isEmpty) }
+    }
+}
+
 /// Several workspaces closed at once (the sidebar's multi-selection): each project keeps one (the oldest picked, when
 /// every open one was), a desk in the project's folder is removed, a workspace on its own branch is archived.
 public struct WorkspaceClosing: Equatable, Sendable {
