@@ -12,6 +12,7 @@ comment.add
 comment.list
 comment.send
 comment.setState
+daemon.backgroundAllowed
 daemon.info
 daemon.shutdown
 daemon.upgrade

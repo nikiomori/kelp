@@ -15,7 +15,11 @@ extension Main {
     ]
 
     static func agents(_ c: RPCClient) async throws {
-        let warning = try await backgroundWarning(c)
+        // What ends these agents, said where someone away from the Mac will read it.
+        var warning: String?
+        do {
+            if try await !c.call(DaemonBackgroundAllowed()) { warning = "Quitting Kelp ends these: allow it in Login Items" }
+        } catch {}   // an older kelpd can't say
         guard isatty(0) == 1, isatty(1) == 1 else {
             for r in try await board(c).rows { print("\(r.title)  [\(r.id.prefix(8))]\n  \(r.detail)") }
             if let warning { print(warning) }
@@ -98,18 +102,6 @@ extension Main {
         var pid: pid_t = 0, status: Int32 = 0
         // Not `Process`: it starts a process group of its own, and that can't read this terminal.
         if posix_spawnp(&pid, me, nil, nil, argv, environ) == 0 { waitpid(pid, &status, 0) }
-    }
-
-    /// What ends these agents, said where someone away from the Mac will read it. nil too for a kelpd outside an app (a dev
-    /// build's), which has no such item.
-    private static func backgroundWarning(_ c: RPCClient) async throws -> String? {
-        let app = URL(fileURLWithPath: try await c.call(DaemonInfo()).path).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        guard app.pathExtension == "app", let id = Bundle(url: app)?.bundleIdentifier else { return nil }
-        let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        p.arguments = ["print", "gui/\(getuid())/dev.kelp.kelpd\(id.dropFirst("dev.kelp.app".count))"]
-        p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
-        try p.run(); p.waitUntilExit()
-        return p.terminationStatus == 0 ? nil : "Quitting Kelp ends these: allow it in Login Items"
     }
 
     private static func put(_ s: String) { _ = s.withCString { Darwin.write(1, $0, strlen($0)) } }

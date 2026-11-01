@@ -14,6 +14,14 @@ public struct DaemonInfo: RPCMethod {
     public init() {}
 }
 
+/// False when Kelp's switch in Login Items is off: macOS then ends the daemon and its agents with the app. Asked here, not
+/// in the CLI: a `kelp` linked onto the PATH can't tell which app it belongs to, and kelpd runs from inside it.
+public struct DaemonBackgroundAllowed: RPCMethod {
+    public static let name = "daemon.backgroundAllowed"
+    public typealias Result = Bool
+    public init() {}
+}
+
 /// What the app restores (`UIState`): `key` → its value or null; `prefix` → {key: value} for every key that starts with it.
 public struct StateGet: RPCMethod {
     public static let name = "state.get"

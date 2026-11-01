@@ -150,3 +150,9 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
     #expect(try await waitFor(5) { try await f.status(id) == .done })
     #expect(try await kinds() == [])
 }
+
+/// Only an app has a switch in Login Items: a kelpd outside one is never held back by it.
+@Test func aDaemonOutsideAnAppIsAllowedInTheBackground() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    #expect(try await w.c.call(DaemonBackgroundAllowed()))
+}

@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import os
 import Core
 import GitKit
@@ -137,7 +138,7 @@ extension Daemon {
 
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
-        let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self,
+        let sync: [any Handled.Type] = [DaemonInfo.self, DaemonBackgroundAllowed.self, StateGet.self, StateSet.self, SessionRename.self,
                                         SessionMove.self, SessionContextWindow.self, SessionContextParts.self,
                                         WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self, GitDiscardHunk.self,
                                         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self,
@@ -308,6 +309,15 @@ final class Slots: Sendable {
         }
         guard let r = handed.withLock({ $0 }) else { throw RPCError.internalError("no result") }
         return try r.get()
+    }
+}
+
+extension DaemonBackgroundAllowed: Handled {
+    /// Off the reader: each `status` waits for the system. A kelpd outside an app (a build's) has no such switch.
+    func handle(_: NoService) throws -> Bool {
+        let app = Bundle.main.bundleURL, suffix = (Bundle.main.bundleIdentifier ?? "").dropFirst("dev.kelp.app".count)
+        guard app.pathExtension == "app" else { return true }
+        return SMAppService.agent(plistName: "dev.kelp.kelpd\(suffix).plist").status != .requiresApproval
     }
 }
 
