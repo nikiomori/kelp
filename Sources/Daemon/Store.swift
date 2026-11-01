@@ -149,6 +149,7 @@ public final class Store: Sendable {
         m.registerMigration("v18") { db in
             try db.alter(table: "session") { t in t.add(column: "limitHit", .text); t.add(column: "continueAt", .datetime) }
         }
+        m.registerMigration("v19") { db in try db.alter(table: "session") { t in t.add(column: "parent", .text) } }
         return m
     }
 

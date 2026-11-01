@@ -8,10 +8,13 @@ usage: kelp <command>
   repo add [path] [--init | --no-git] | repo list
                                        a folder outside a repository needs one: git init it, or add it without git
   worktree create <branch> [--repo id] [--base b] | list | current | note <text> | remove <id> [--force] [--drop-commits] | archive <id>
-  session new [--agent id] [--worktree id] [--cmd "..."] [--split right|down] [--wait] | list
+  session new [--agent id] [--worktree id] [--cmd "..."] [--prompt text] [--title t] [--model m] [--split right|down] [--wait] [--outlive] | list
+                                       from inside an agent, --agent starts its child: its news comes to the agent as input, and it ends
+                                       with the agent. --outlive: not a child
                                        --split opens its tab beside yours; --wait prints its id, then exits with
                                        its command's exit code when it ends
   wait <session> [--for done,waiting,idle,exited] [--timeout 10m]   until it stops working (or reaches one of those)
+  wait --children all|any [--timeout 10m]   inside an agent: until its children stopped
   why <session> [--all]                its status, where that came from (a hook, the program, the screen)
                                        and the last changes and hooks that led there
   terminal list | read <session> [bytes] | send <session> <text> [--no-enter]

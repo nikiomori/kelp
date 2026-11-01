@@ -6,8 +6,10 @@ extension Main {
     static func sessions(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("session", "new"):
-            let wait = has("--wait"), split = flag("--split")
-            var p = SessionCreate(agent: flag("--agent"), command: flag("--cmd"))
+            let wait = has("--wait"), split = flag("--split"), outlive = has("--outlive")
+            var p = SessionCreate(agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"), title: flag("--title"))
+            // Inside an agent, an agent it starts is its child; the daemon ignores this for anything else.
+            if !outlive { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let w = flag("--worktree") { p.worktreeId = try await resolve(c, w, "worktree.list") }
             else if let w = try? await currentWorktree(c) { p.worktreeId = w.id }
@@ -26,6 +28,12 @@ extension Main {
             else { fail("timed out") }
             print(s.status.rawValue)
             if s.status == .exited { exit(Int32(s.exitCode ?? 0)) }   // its command's exit code
+        case ("wait", nil):
+            guard let how = flag("--children"), ["all", "any"].contains(how), let me = ProcessInfo.processInfo.environment["KELP_SESSION"] else {
+                fail("wait --children all|any, inside an agent")
+            }
+            let kids = try await waitChildren(c, of: me, all: how == "all", timeout: flag("--timeout").map(duration))
+            kids.forEach { print($0.id.prefix(8), $0.displayTitle, "·", $0.status.rawValue) }
         case ("why", let target?):
             let id = try await resolve(c, target, "session.list")
             let why = try await c.call(SessionWhy(id: id)), trail = try await c.call(SessionTrail(id: id)).split(separator: "\n")
@@ -64,6 +72,23 @@ extension Main {
             guard let s = try await c.call(SessionList()).first(where: { $0.id == id }) else { fail("no session \(id)") }
             if done(s) || s.status == .exited || s.status == .hibernated { return s }
             if let end, Date() > end { return nil }
+            try await Task.sleep(for: .milliseconds(500))
+        }
+    }
+
+    /// Until all of this agent's working children stopped, or (`all` false) one of them. Fails with none to wait for: only
+    /// children that haven't stopped yet count, so a report read earlier doesn't end the wait at once.
+    static func waitChildren(_ c: RPCClient, of me: String, all: Bool, timeout: TimeInterval?) async throws -> [Session] {
+        func stopped(_ s: Session) -> Bool { ![.working, .idle].contains(s.status) }
+        func kids() async throws -> [Session] { try await c.call(SessionList()).filter { $0.parent == me } }
+        let watched = Set(try await kids().filter { !stopped($0) }.map(\.id))
+        guard !watched.isEmpty else { fail("no children working") }
+        let end = timeout.map { Date().addingTimeInterval($0) }
+        while true {
+            let now = try await kids().filter { watched.contains($0.id) }
+            let over = now.filter(stopped)
+            if all ? over.count == now.count : !over.isEmpty { return over }
+            if let end, Date() > end { fail("timed out") }
             try await Task.sleep(for: .milliseconds(500))
         }
     }

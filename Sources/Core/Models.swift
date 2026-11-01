@@ -128,6 +128,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var limitHit: LimitHit?
     /// When Kelp types "continue" into it, if it still stands where the limit left it (`session.continueAt`).
     public var continueAt: Date?
+    /// The agent that started it (`kelp session new --agent`): it hears how this one is doing and takes it along when it ends.
+    public var parent: String?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {

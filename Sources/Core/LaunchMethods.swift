@@ -16,15 +16,16 @@ public protocol LaunchOptions {
 }
 
 /// A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`;
-/// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`).
+/// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that
+/// started this agent, if it is one (see `Session.parent`).
 public struct SessionCreate: RPCMethod, LaunchOptions {
     public static let name = "session.create"; public typealias Result = Session
-    public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?
+    public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?
     public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
     public init(cwd: String? = nil, worktreeId: String? = nil, agent: String? = nil, command: String? = nil, tmux: String? = nil,
                 model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil, profile: String? = nil, draft: Bool? = nil,
-                openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil) {
-        self.cwd = cwd; self.worktreeId = worktreeId; self.agent = agent; self.command = command; self.tmux = tmux
+                openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil, parent: String? = nil) {
+        self.cwd = cwd; self.worktreeId = worktreeId; self.agent = agent; self.command = command; self.tmux = tmux; self.parent = parent
         self.model = model; self.effort = effort; self.prompt = prompt; self.title = title; self.profile = profile; self.draft = draft
         self.openURLs = openURLs; self.cols = cols; self.rows = rows
     }

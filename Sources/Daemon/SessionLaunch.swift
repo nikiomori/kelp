@@ -308,6 +308,7 @@ extension Sessions {
         watches.touched(.init(topic: .context, key: s.id), tag: s.status.rawValue)   // a turn ended or began: how full now
         if let ls = existing(s.id) { touchCommands(ls) }   // one ended with its turn or its program
         if s.status == .done || s.status == .waiting, let a = s.agent { agentUsage.planUsed(a) }
+        familyHeard(s)
     }
 
     /// Its commands changed: whoever watches them reads them again.

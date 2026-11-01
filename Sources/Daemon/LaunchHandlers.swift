@@ -25,6 +25,7 @@ extension SessionCreate: Handled {
         if let worktreeId, dir == nil { dir = try sessions.store.worktree(named: worktreeId).path }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
+        o.parent = try sessions.parent(parent, of: self)
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
             let name = Tmux.name(tmux)
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
@@ -42,6 +43,8 @@ extension SessionCreate: Handled {
 extension SessionRestart: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.invalidParams("no session") }
+        sessions.reports.restarting(id, true)   // it comes back: its children stay, and its parent hears nothing
+        defer { sessions.reports.restarting(id, false) }
         // One copy of the conversation at a time: the resumed agent starts once the old one is gone (SIGKILL after 2 s).
         // Under its wake lock, and a paused one marked ended there: a tab opening it meanwhile can't wake a second copy.
         // If the new one can't start, the old one still ends as Ended. The record is read there, as it is then (a rename
@@ -54,6 +57,7 @@ extension SessionRestart: Handled {
         }
         let m = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var o = Sessions.Launch(self); o.title = old.titleManual ? old.title : nil
+        o.parent = old.parent
         if o.profile == nil { o.profile = old.profile }   // the same account unless told otherwise
         // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
@@ -61,6 +65,7 @@ extension SessionRestart: Handled {
         // The new session pins an id of its own, never the old one's.
         o.argv = Sessions.withoutSessionId(resume != false ? sessions.resumeArgv(old, m) : old.argv, flag: m.sessionIdFlag)
         let s = try sessions.spawn(cwd: old.cwd, manifest: m, worktreeId: old.worktreeId, o)
+        try sessions.passChildren(of: old.id, to: s.id)
         sessions.discard(old, keepTmux: old.tmux == nil || resume != false)   // its exit, still to come, doesn't save it again
         return s
     }

@@ -8,6 +8,7 @@ import Agents
 /// Mac kept awake while agents work. Paused and ended ones are only in the store.
 final class Sessions: Sendable {
     let live = SessionTable()
+    let reports = ChildReports()
     let wakeLocks = WakeLocks()   // one wake per session even when several clients open it at once; pausing holds it too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
@@ -105,6 +106,7 @@ final class Sessions: Sendable {
         var argv: [String]?   // restart: reuse exactly
         var tmux: String?   // restart: the host's tmux session the old one's agent still runs in
         var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
+        var parent: String?   // the agent that started it
 
         /// A terminal size: anything out of range is clamped, nothing (or 0) is 120 × 32.
         static func size(cols: Int?, rows: Int?) -> (cols: UInt16, rows: UInt16) {
@@ -150,6 +152,7 @@ final class Sessions: Sendable {
         if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) { argv += [flag, rec.id.lowercased()] }
         rec.argv = argv
         rec.profile = o.profile
+        rec.parent = o.parent
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
         if !local, o.onHostInTmux || !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
         let env = launchEnv(manifest, rec)
