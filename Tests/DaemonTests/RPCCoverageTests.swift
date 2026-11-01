@@ -266,7 +266,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"{\"id\":\"$1\",\"state\":\"$2\"}}"; read -u $REPLY line; print -r -- "$line"; exec {REPLY}>&-; }"#
     let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(say); r \(other.id) blocked; r $KELP_SESSION done; cat'")
     #expect(try await waitFor(10) { try await sessions(r).first { $0.id == me.id }?.status == .done })
-    #expect(try await r.c.call(SessionRead(id: me.id)).contains("only its own status"))
+    // The status comes over the socket, the refusal it printed through the terminal, which can be behind it.
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("only its own status") })
     #expect(try await sessions(r).first { $0.id == other.id }?.status != .waiting)
     _ = try await r.c.call(SessionReport(id: other.id, state: "blocked"))   // this test process is in no session
     #expect(try await waitFor { try await sessions(r).first { $0.id == other.id }?.status == .waiting })
