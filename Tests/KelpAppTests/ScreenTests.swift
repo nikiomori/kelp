@@ -68,6 +68,26 @@ extension OneAtATime {
     }
 }
 
+/// The + on a project's row offers both things, and a chat's menu says where it can go.
+@Test func aProjectsPlusOffersAChatAndAGroupAndAChatCanMove() throws {
+    let group = Worktree(id: "g", repoId: "r1", branch: "main", path: project.path, note: "Merge", createdAt: Date(timeIntervalSinceNow: 60))
+    let there = Worktree(id: "b", repoId: "r1", branch: "feat", path: "/tmp/kelp-screen-atlas/b")
+    let here = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Here")
+    let inGroup = Session(worktreeId: "g", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "In group")
+    let onBranch = Session(worktreeId: "b", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "On a branch")
+    try withSidebar(repos: [project], worktrees: [own("w1"), group, there], sessions: [here, inGroup, onBranch]) { vc, _ in
+        #expect(vc.addMenu(project: "r1").items.map(\.title) == ["New Chat", "New Group"])
+        @MainActor func items(_ s: Session) -> [String] {
+            let m = NSMenu()
+            vc.moveItems(m, chat: s.id)
+            return m.items.map(\.title).filter { !$0.isEmpty }
+        }
+        #expect(items(here) == ["Move to New Group", "Move to Group"])
+        #expect(items(inGroup) == ["Move to New Group", "Back to Project"])
+        #expect(items(onBranch) == [])   // its files are elsewhere
+    }
+}
+
 @Test func aRemoteProjectNamedLikeAnotherSaysItsMachineAndItsRowRenamesTheProject() throws {
     let folder = Paths.root.appendingPathComponent("remote/beet/infra")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

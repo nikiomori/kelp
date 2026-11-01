@@ -5551,16 +5551,6 @@
         }
       }
     },
-    "New chat (⌘N)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Новый чат (⌘N)"
-          }
-        }
-      }
-    },
     "Next Change (⌥↓)": {
       "localizations": {
         "ru": {
@@ -14523,6 +14513,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Группы"
+          }
+        }
+      }
+    },
+    "New chat or group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый чат или группа"
+          }
+        }
+      }
+    },
+    "Move to New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вынести в новую группу"
+          }
+        }
+      }
+    },
+    "Move to Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести в группу"
+          }
+        }
+      }
+    },
+    "Back to Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть в проект"
+          }
+        }
+      }
+    },
+    "Move %lld Chats to New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вынести чаты (%lld) в новую группу"
           }
         }
       }

@@ -25,6 +25,41 @@ extension SidebarController {
     }
 
     func newChat(_ repo: String) { app.workbench.newChat(repo: repo) }
+
+    /// The + on a project's row: the two things it can hold, with the keys that make them where you are.
+    func addMenu(project id: String) -> NSMenu {
+        let m = NSMenu(), app = app
+        func show(_ i: NSMenuItem, key command: String) {
+            guard let k = app.extensions.command(command)?.key.flatMap(KeySpec.init) else { return }
+            i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags
+        }
+        show(m.add(String(localized: "New Chat")) { app.workbench.newChat(repo: id) }, key: "workspace.new")
+        show(m.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }, key: "workspace.newGroup")
+        return m
+    }
+
+    /// Where a chat can go: among the screens of its folder. One on a branch has its own files and stays.
+    func moveItems(_ menu: NSMenu, chat sid: String) {
+        let app = self.app
+        guard let w = movable(sid), let r = app.repo(w.repoId) else { return }
+        let own = mainWorkspace(of: r, among: app.worktrees)
+        menu.add(String(localized: "Move to New Group")) { Task { await WorkspaceActions(app).newGroup(from: [sid]) } }
+        if let own, own.id != w.id {
+            menu.add(String(localized: "Back to Project")) { Task { await WorkspaceActions(app).move([sid], to: own.id) } }
+        }
+        let groups = app.workspaces(of: r).filter { $0.path == r.path && $0.id != w.id && $0.id != own?.id }
+        if !groups.isEmpty {
+            let list = NSMenu()
+            for g in groups { list.add(g.displayName) { Task { await WorkspaceActions(app).move([sid], to: g.id) } } }
+            menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Move to Group"), action: nil, keyEquivalent: ""))
+        }
+        menu.addItem(.separator())
+    }
+
+    private func movable(_ sid: String) -> Worktree? {
+        guard let w = app.session(sid).flatMap({ app.worktree($0.worktreeId) }), w.path == app.repo(w.repoId)?.path else { return nil }
+        return w
+    }
     func refreshCell(_ key: String) {
         guard let n = node(key) else { return }
         let row = outline.row(forItem: n)
@@ -95,6 +130,7 @@ extension SidebarController {
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.addItem(.separator())
+            moveItems(menu, chat: sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.setSubmenu(AgentActions(app).handoffMenu(sid), for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             if m.session(sid)?.unread == false {
@@ -192,6 +228,9 @@ extension SidebarController {
             }
         }
         if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Groups…")) { WorkspaceActions(app).close(ws) } }
+        if picked.count > 1, Set(picked.compactMap { movable($0)?.repoId }).count == 1, picked.allSatisfy({ movable($0) != nil }) {
+            menu.add(String(localized: "Move \(picked.count) Chats to New Group")) { Task { await WorkspaceActions(app).newGroup(from: picked) } }
+        }
         if !picked.isEmpty {
             menu.addItem(.separator())
             menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) { AgentActions(app).stop(Array(Set(picked))) }

@@ -50,10 +50,16 @@ extension EditorArea {
     func reconcile() {
         let mine = app.sessions.filter { $0.worktreeId == workspaceId }
         let known = Set(app.sessions.map(\.id))
-        var changed = false
+        var changed = false, movedOut = false
         for t in layout.allTabs where TabURI.scheme(t.uri) == "session" {
             let sid = TabURI.body(t.uri)
             let s = app.session(sid)
+            if let w = s?.worktreeId, w != workspaceId {   // gone to another screen: its tab goes with it
+                contents[t.id] = nil
+                layout.remove(t.id)
+                changed = true; movedOut = true
+                continue
+            }
             // Ended while Kelp was closed (or deleted): nothing to show. Ended now: keep it, the tab offers Restart.
             // A lost connection stays too: its agent still runs on the host, reached by Reconnect, ended by closing the tab.
             if !known.contains(sid) || (!reconciledOnce && s?.status == .exited && s?.connectionLost != true) {
@@ -68,6 +74,7 @@ extension EditorArea {
             layout.manual = manual
             changed = true
         }
+        if movedOut, layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: nil) }
         let shown = Set(layout.allTabs.filter { TabURI.scheme($0.uri) == "session" }.map { TabURI.body($0.uri) })
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
         for s in mine where s.status != .exited && !shown.contains(s.id) && !closed.contains(s.id) && !app.scripts.isHidden(s.id) {

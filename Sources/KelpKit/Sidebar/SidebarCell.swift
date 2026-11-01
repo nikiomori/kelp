@@ -68,7 +68,9 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat (⌘N)")) { [weak owner] in owner?.newChat(id) }
+            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat or group")) { [weak self, weak owner] in
+                if let b = self?.add { owner?.addMenu(project: id).popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b) }
+            }
             b.isHidden = true
             // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
             NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),

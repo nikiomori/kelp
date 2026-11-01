@@ -137,7 +137,8 @@ extension Daemon {
 
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
-        let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self, SessionContextWindow.self, SessionContextParts.self,
+        let sync: [any Handled.Type] = [DaemonInfo.self, StateGet.self, StateSet.self, SessionRename.self,
+                                        SessionMove.self, SessionContextWindow.self, SessionContextParts.self,
                                         WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self, GitDiscardHunk.self,
                                         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self,
                                         RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self]

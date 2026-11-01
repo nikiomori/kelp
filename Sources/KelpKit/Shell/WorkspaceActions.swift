@@ -139,6 +139,22 @@ package struct WorkspaceActions {
         if let w = NSApp.mainWindow { p.beginSheetModal(for: w, completionHandler: chosen) } else { p.begin(completionHandler: chosen) }
     }
 
+    /// Chats off to a group of their own, named after the first. Their agents go on where they are.
+    func newGroup(from chats: [String]) async {
+        guard let first = chats.first.flatMap(app.session), let w = app.worktree(first.worktreeId),
+              let made = await app.call(WorkspaceCreate(repoId: w.repoId)) else { return }
+        await app.call(WorktreeNote(id: made.id, note: app.catalog.displayName(first)))
+        await move(chats, to: made.id)
+    }
+
+    func move(_ chats: [String], to id: String) async {
+        let from = Set(chats.compactMap { app.session($0)?.worktreeId }).subtracting([id])
+        for s in chats { await app.call(SessionMove(id: s, worktreeId: id)) }
+        await app.refresh()
+        if let s = chats.first { app.workbench.focus(session: s) }
+        for w in from { app.workbench.window?.editors.chatsLeft(w) }
+    }
+
     /// Its last tab was closed: its row goes too, with nothing to ask. `ended`: that tab's session, still on its way out.
     func closeEmpty(_ id: String, ended: String?) {
         guard let w = app.worktree(id), let r = app.repo(w.repoId),

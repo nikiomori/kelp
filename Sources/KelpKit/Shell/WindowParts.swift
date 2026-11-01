@@ -242,6 +242,15 @@ final class EditorHost: NSViewController {
         if l.tab(uri: uri) == nil { _ = l.add(uri, to: l.focusedGroup?.id); l.save(id, to: app.uiState) }
     }
 
+    /// Chats went from a workspace that may not be on screen, the same two ways: a group left with no tab closes.
+    func chatsLeft(_ id: String) {
+        if let a = areas[id] { a.reconcile(); return }
+        var l = WorkspaceLayout.load(id, from: app.uiState)
+        for t in l.allTabs where TabURI.scheme(t.uri) == "session" && app.session(TabURI.body(t.uri))?.worktreeId != id { l.remove(t.id) }
+        l.save(id, to: app.uiState)
+        if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
+    }
+
     /// A restarted session into its old tab in a workspace that isn't on screen, the same two ways.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
         if let a = areas[id] { a.replace(old, with: new, focus: false); return }

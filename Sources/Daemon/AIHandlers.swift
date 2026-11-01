@@ -38,6 +38,26 @@ extension Sessions {
     }
 }
 
+extension SessionMove: Handled {
+    func handle(_ sessions: Sessions) throws -> Done {
+        guard let to = try sessions.store.worktree(worktreeId), !to.archived else { throw RPCError.invalidParams("no worktree") }
+        try sessions.wakeLocks.withLock(id) {
+            guard let s = try sessions.existing(id)?.snapshot ?? sessions.store.sessions().first(where: { $0.id == id }) else {
+                throw RPCError.invalidParams("no session")
+            }
+            // Its process keeps its folder: a workspace elsewhere is other files, which only a new agent can have.
+            guard let from = try s.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {
+                throw RPCError.invalidParams("Only a screen of the same folder can take it.")
+            }
+            if let ls = sessions.existing(id) {
+                _ = ls.update { $0.worktreeId = worktreeId }
+                sessions.publish(ls)
+            } else { try sessions.change(id) { $0.worktreeId = worktreeId } }
+        }
+        return Done()
+    }
+}
+
 extension SessionRename: Handled {
     func handle(_ sessions: Sessions) throws -> Done {
         // Under its wake lock: a paused record read here and saved back must not land over a wake that started meanwhile.

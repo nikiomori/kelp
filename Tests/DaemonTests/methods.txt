@@ -132,6 +132,7 @@ session.lastReply
 session.list
 session.markRead
 session.markUnread
+session.move
 session.read
 session.rename
 session.report
