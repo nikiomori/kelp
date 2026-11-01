@@ -33,7 +33,7 @@ contributions, the command palette and settings.
   with nothing of its own it closes like any group, folder to the Trash and branch removed.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   An agent can start another (`kelp session new --agent` inside it, `Session.parent`): the child's result, question or
-  failure comes to the parent as its next prompt, and children end with it (`ChildReports.swift`). The CLI and the
+  failure comes to the parent as its next prompt once it rests, and children end with it (`ChildReports.swift`). The CLI and the
   kelp-agents skill are the way in. In the sidebar children take no rows: a badge on the parent's counts them, its own
   subagents at work too (`Session.subagents`, from Claude Code's hooks; they have no tab), what one
   asks is its second line, and its result is the parent's to read, so a finished child neither notifies nor needs you.

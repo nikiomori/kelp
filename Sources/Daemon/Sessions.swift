@@ -278,6 +278,7 @@ final class Sessions: Sendable {
                 }
             }
         }
+        familyLeft(all)
     }
 
     /// Every running one, as the daemon stops: paused (a resumable agent comes back paused, not as a second copy) or
@@ -313,7 +314,7 @@ final class Sessions: Sendable {
             // As `liveManifest`; past startup, nothing is answered for it.
             m = wiredHooks(m, env: hookedEnv(m, rec), argv: rec.argv)
             let ls = LiveSession(record: rec, manifest: m, pty: pty, historyDir: root.appendingPathComponent("history"), callbacks: callbacks(for: rec))
-            ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], status: h.status)
+            ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], reports: h.reports ?? [], status: h.status)
             try live.add(ls)
             ls.start()
             SessionHook.waitAgain(ls)

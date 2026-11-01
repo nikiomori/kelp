@@ -105,7 +105,21 @@ final class AgentUsage: Sendable {
     func lastReply(of ls: LiveSession) -> String? {
         let s = ls.snapshot
         guard s.agent == "codex" else { return transcript(of: ls).flatMap(Self.lastReply(transcript:)) }
+        if let open = Self.openRollout(pid: s.pid) { return CodexHistory.lastReply(rollout: open) }
         return agentRoots().codex.lazy.compactMap { CodexHistory.lastReply(cwd: s.cwd, since: s.createdAt, root: $0) }.first
+    }
+
+    /// The conversation a running Codex has open, the one thing that says whose it is when two work in a folder. The program
+    /// behind its node wrapper holds it: another process of its group.
+    private static func openRollout(pid: Int32) -> URL? {
+        func lines(_ argv: [String]) -> [Substring] {
+            let out = Log.session.attempt("asking \(argv[0])") { try Subprocess.run(argv, cwd: "/", env: [:], timeLimit: 5) }
+            return String(decoding: out?.stdout ?? Data(), as: UTF8.self).split(whereSeparator: \.isNewline)
+        }
+        let group = lines(["/usr/bin/pgrep", "-g", String(pid)]).joined(separator: ",")
+        guard !group.isEmpty else { return nil }
+        return lines(["/usr/sbin/lsof", "-nP", "-Fn", "-p", group])
+            .first { $0.hasPrefix("n") && $0.contains("/rollout-") && $0.hasSuffix(".jsonl") }.map { URL(fileURLWithPath: String($0.dropFirst())) }
     }
 
     /// Claude Code's window for `model`. Transcripts don't name it: 1M for the models that have it natively (Claude Code's

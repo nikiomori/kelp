@@ -82,20 +82,23 @@ public enum CodexHistory {
         rollouts(root).compactMap(parse).sorted { $0.updated > $1.updated }
     }
 
-    /// What the conversation begun in `cwd` since `since` ended its last turn with. Codex tells Kelp no conversation's id, so
-    /// it's the newest there with a finished turn.
-    /// Limit: two Codex chats begun in one folder can read each other's, and a resumed one, begun before `since`, reads none.
-    public static func lastReply(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot) -> String? {
-        let real = Paths.real(cwd) ?? cwd
-        for url in rollouts(root: root, since: since, now: now) {
-            guard let c = parse(url), (Paths.real(c.cwd) ?? c.cwd) == real, let lines = JSONL.headAndTail(url)?.lines else { continue }
-            for line in lines.reversed() {
-                guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete" else { continue }
-                if let text = (p["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return text }
-                break   // it ended with nothing to say (cut short)
-            }
+    /// What the conversation in `rollout` ended its last turn with; nil before one ended, or if it ended with nothing to say.
+    public static func lastReply(rollout url: URL) -> String? {
+        for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
+            guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete" else { continue }
+            let text = (p["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text?.isEmpty == false ? text : nil
         }
         return nil
+    }
+
+    /// For one that isn't running any more, which no open file names: the newest conversation begun in `cwd` since `since`
+    /// with a finished turn.
+    /// Limit: two Codex chats begun in one folder can read each other's here, and a resumed one, begun before `since`, reads none.
+    public static func lastReply(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot) -> String? {
+        let real = Paths.real(cwd) ?? cwd
+        func here(_ url: URL) -> Bool { parse(url).map { (Paths.real($0.cwd) ?? $0.cwd) == real } ?? false }
+        return rollouts(root: root, since: since, now: now).lazy.filter(here).compactMap(lastReply(rollout:)).first
     }
 
     /// Those begun since `since`, newest first: a file's name says when, in local time, like its folder's.

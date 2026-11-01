@@ -67,8 +67,9 @@ package struct WorkspaceActions {
         Task {
             let work = Work(dirty: await app.call(WorktreeDirty(id: w.id)) ?? false, commits: await app.call(WorktreeUnmerged(id: w.id)) ?? 0)
             let a = NSAlert(); a.messageText = String(localized: "Delete “\(w.displayName)” and its branch?")
-            a.informativeText = work.isAny ? work.words.joined(separator: " ")
-                : String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop.")
+            a.informativeText = (work.isAny ? work.words.joined(separator: " ")
+                : String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop."))
+                + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == w.id }.map(\.id))
             a.addButton(withTitle: work.isAny ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch"))
                 .hasDestructiveAction = true
             a.addButton(withTitle: String(localized: "Cancel")); a.alertStyle = work.isAny ? .critical : .warning

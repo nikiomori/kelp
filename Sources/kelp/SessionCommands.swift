@@ -87,7 +87,7 @@ extension Main {
         while true {
             let now = try await kids().filter { watched.contains($0.id) }
             let over = now.filter(stopped)
-            if all ? over.count == now.count : !over.isEmpty { return over }
+            if all ? over.count == now.count : !over.isEmpty || now.count < watched.count { return over }   // one closed has stopped too
             if let end, Date() > end { fail("timed out") }
             try await Task.sleep(for: .milliseconds(500))
         }

@@ -13,12 +13,14 @@ public struct Handover: Codable, Sendable {
         var id: String, pid: Int32, fd: Int32, modes: String, bytes: Int
         var pending: [Prompt]?
         var status: Status?
+        var reports: [String]?
     }
     struct Prompt: Codable, Sendable { var text: String, draft: Bool, paste: Bool }
     /// What a session's status rests on beside its record. Lost, a Stop held for subagents read as done three minutes after
     /// an update, a dialog answered elsewhere stayed Needs You, and an agent that reports itself was guessed at again.
     struct Status: Codable, Sendable {
         var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], questionOpen: Bool, turnEnd: TurnEnd, transcript: String?
+        var boxEmpty: Bool?
     }
     var socket: Int32, lock: Int32
     var sessions: [Session]

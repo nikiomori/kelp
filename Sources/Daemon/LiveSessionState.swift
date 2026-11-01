@@ -75,6 +75,8 @@ extension LiveSession {
         /// Text waiting until the program is ready (drawn, quiet, no question open), first in first out: the launch
         /// prompt, then whatever was sent while it waited.
         var pendingPrompts: [(text: String, draft: Bool, paste: Bool)] = []
+        /// What its children said, for when it rests (`takesReport`).
+        var reports: [String] = []
         /// Someone answered the agent's first question (the user typed, or Kelp's auto-answer pressed its key): from then
         /// on a trust dialog's words left in the scrollback no longer hold the launch prompt back.
         var dialogSettled = false
@@ -384,7 +386,6 @@ extension LiveSession {
             trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")
             record.status = s
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
-            if s != .working && s != .waiting { record.subagents = nil }   // a Stop that waits for one stays working; cut short, none ends by a hook
             if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on
             return record
         }

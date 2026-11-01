@@ -32,6 +32,13 @@ extension LiveSession.State {
     func readyForText(submits: Bool) -> Bool {
         steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !asks && !trustQuestionOpen() && !menuOpen()
     }
+
+    /// A child's report waits until the agent rests at an empty prompt. In a turn, its Enter could land on a dialog that opened
+    /// meanwhile, and nobody sent it to be answered like that; ↑ leaves an old prompt in the box with nothing typed.
+    func takesReport() -> Bool {
+        !reports.isEmpty && pendingPrompts.isEmpty && [.done, .idle, .error].contains(record.status) && (boxEmpty || !typedYet)
+            && readyForText(submits: true)
+    }
 }
 
 extension LiveSession {
@@ -100,6 +107,9 @@ extension LiveSession {
             else { s.pendingPrompts.append((text, !enter, false)); s.sawFirstPrompt = true }
         }
     }
+
+    /// A child's news, typed when `takesReport` says so; nothing the agent does until then loses it.
+    func report(_ text: String) { state.withLock { $0.reports.append(text) } }
 
     /// Type text into the agent, now (the gate is `submit`). Multi-line text goes as a bracketed paste so TUIs don't
     /// submit each line. Called inside `state.withLock`: the write is queued under it, so the order of these calls is the

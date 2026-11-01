@@ -116,8 +116,9 @@ extension Sessions {
         let minutes = settings.number("sessions.hibernateMinutes") ?? 0
         guard minutes > 0 else { return }
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
+        let parents = Set(live.all.compactMap(\.snapshot.parent))   // what their children say next would find nobody
         let candidates = live.all.filter { ls in
-            ls.resumable && [.done, .idle].contains(ls.snapshot.status) && ls.snapshot.continueAt == nil
+            !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status) && ls.snapshot.continueAt == nil
                 && !ls.isAttached && ls.idleSeconds > minutes * 60
         }.map { ($0, $0.inputs) }
         // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.

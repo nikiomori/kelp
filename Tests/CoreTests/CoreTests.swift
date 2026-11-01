@@ -381,6 +381,11 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(try r.times(after: at("2026-10-26 08:00"), through: at("2026-10-29 09:00"), calendar: cal).count == 4)
 }
 
+@Test func childrenReachDownThroughTheTree() {
+    func one(_ id: String, _ parent: String?) -> Session { var s = Session(id: id, cwd: "/", command: ""); s.parent = parent; return s }
+    #expect([one("a", nil), one("b", "a"), one("c", "b")].children(of: "a").map(\.id) == ["b", "c"])
+}
+
 @Test func theAgentBoardPutsWhoNeedsYouFirst() {
     let repo = Repo(id: "r", name: "kelp", path: "/p"), w = Worktree(id: "w", repoId: "r", branch: "main", path: "/p")
     func agent(_ id: String, _ status: AgentStatus, at t: Double, kind: String? = "claude") -> Session {

@@ -5,7 +5,9 @@ import os
 
 /// What an agent's children have told it, and which sessions are only restarting.
 final class ChildReports: Sendable {
-    private struct State { var told: [String: AgentStatus] = [:], replies: [String: String] = [:], restarting: Set<String> = [] }
+    private struct State {
+        var told: [String: AgentStatus] = [:], replies: [String: String] = [:], said: [String: String] = [:], restarting: Set<String> = []
+    }
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// A status from before this daemon was told before it, or will be found by asking.
     private let started = Date()
@@ -25,6 +27,10 @@ final class ChildReports: Sendable {
         }
     }
 
+    /// What a Stop hook says the turn ended with, for the report that follows it.
+    func said(_ reply: String, by id: String) { state.withLock { $0.said[id] = reply } }
+    func takeSaid(by id: String) -> String? { state.withLock { $0.said.removeValue(forKey: id) } }
+
     /// Whether `reply` is one not reported yet, and now it is.
     func isNewReply(_ reply: String, of id: String) -> Bool {
         state.withLock { st in
@@ -38,8 +44,9 @@ final class ChildReports: Sendable {
     static func text(_ s: Session, body: String, most: Int = 4000) -> String {
         let name = s.displayTitle.filter { !"\"<>\n".contains($0) }
         let cut = body.count > most ? "…" + body.suffix(most) + "\n(cut: kelp terminal read \(s.id.prefix(8)) shows more)" : body
-        return "<kelp from=\"\(name) \(s.id.prefix(8))\" status=\"\(s.status.rawValue)\">\n"
-            + cut.replacingOccurrences(of: "</kelp", with: "<\\/kelp") + "\n</kelp>"
+        // As it will be typed: a control character taken out later would close the tag again.
+        let safe = LiveSession.typeable(cut).replacingOccurrences(of: "<(/?kelp)", with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
+        return "<kelp from=\"\(name) \(s.id.prefix(8))\" status=\"\(s.status.rawValue)\">\n" + safe + "\n</kelp>"
     }
 }
 
@@ -60,12 +67,13 @@ extension Sessions {
         guard news || s.status == .exited else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
-            if news, let parent = s.parent { tell(parent, ChildReports.text(s, body: reportBody(s))) }
+            if news, let parent = s.parent, let body = reportBody(s) { existing(parent)?.report(ChildReports.text(s, body: body)) }
             if s.status == .exited { endChildren(of: s.id) }
         }
     }
 
-    private func reportBody(_ s: Session) -> String {
+    /// nil: nothing to report after all.
+    private func reportBody(_ s: Session) -> String? {
         // What it printed, without the blank lines a redrawn screen leaves. Limit: an agent whose replies Kelp can't read
         // reports this, spinner frames and all.
         func tail() -> String {
@@ -73,14 +81,19 @@ extension Sessions {
             return text.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.suffix(30).joined(separator: "\n")
         }
         switch s.status {
-        case .done: return finalReply(s) ?? tail()
+        case .done:
+            if let said = reports.takeSaid(by: s.id) { return said.isEmpty ? tail() : said }
+            let reply = finalReply(s)
+            // It went on: a program that says "idle" for a second as a turn starts (Codex) hadn't stopped, and the real stop reports.
+            return existing(s.id)?.snapshot.status == .working ? nil : reply ?? tail()
         case .exited: return "Exit code \(s.exitCode ?? 0)\n" + tail()
         default: return s.summary.isEmpty ? tail() : s.summary
         }
     }
 
-    /// The reply that ended its turn. It's on disk a moment after the status says done (the Stop hooks run first), and until
-    /// then the last one there is the turn's before. Off the caller's queue, so waiting here holds nobody.
+    /// The reply that ended its turn, for an agent whose Stop doesn't say it. It's on disk a moment after the status says
+    /// done, and until then the last one there is the turn's before. Off the caller's queue, so waiting here holds nobody.
+    /// Limit: without a Stop that says it, a turn that spoke before its last tool call can report those words.
     private func finalReply(_ s: Session) -> String? {
         var reply: String?
         for _ in 0..<8 {
@@ -91,13 +104,18 @@ extension Sessions {
         return reply   // the same words twice: they're this turn's as well
     }
 
-    /// As its next prompt, when it can take one. A prompt someone is typing there comes first: tried again until it's sent.
-    /// A parent that ended or paused hears nothing: `kelp session list` has it all when it's back.
-    private func tell(_ parent: String, _ text: String, tries: Int = 120) {
-        guard let p = existing(parent) else { return }
-        do { try p.submit(text, enter: true) } catch {
-            guard tries > 0 else { Log.session.error("a report for \(parent, privacy: .public) couldn't be sent: \(error)"); return }
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) { [weak self] in self?.tell(parent, text, tries: tries - 1) }
+    /// Deleted, not ended (their workspace closed): no exit gets saved for them, so what one does happens here.
+    func familyLeft(_ all: [Session]) {
+        let ids = Set(all.map(\.id)), left = all.filter { $0.status != .exited && !reports.isRestarting($0.id) }
+        guard !left.isEmpty else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            for var s in left {
+                endChildren(of: s.id)
+                guard let parent = s.parent, !ids.contains(parent), settings["agents.childReports"]?.bool != false else { continue }
+                s.status = .exited
+                existing(parent)?.report(ChildReports.text(s, body: "Closed by the user"))
+            }
         }
     }
 

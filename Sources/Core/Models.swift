@@ -88,7 +88,13 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var cwd: String
     public var command: String
     public var agent: String?
-    public var status: AgentStatus { didSet { if status != oldValue { statusAt = Date() } } }
+    public var status: AgentStatus {
+        didSet {
+            guard status != oldValue else { return }
+            statusAt = Date()
+            if status != .working && status != .waiting { subagents = nil }   // a Stop that waits for one stays working; cut short, none ends by a hook
+        }
+    }
     /// When `status` last changed ("working for 4m", "done 2h ago"); nil for sessions from before it was kept.
     public var statusAt: Date?
     public var unread: Bool
@@ -150,8 +156,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 }
 
 extension [Session] {
-    /// The agents `id` started that haven't ended.
-    public func children(of id: String) -> [Session] { filter { $0.parent == id && $0.status != .exited } }
+    /// The agents `id` started that haven't ended, and those they started.
+    public func children(of id: String) -> [Session] { filter { $0.parent == id && $0.status != .exited }.flatMap { [$0] + children(of: $0.id) } }
 
     /// For a question about ending `ids`: the agents they started end with them. Empty when there are none.
     public func childrenWords(of ids: [String]) -> String {

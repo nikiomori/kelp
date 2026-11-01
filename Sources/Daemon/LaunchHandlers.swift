@@ -111,6 +111,7 @@ extension SessionHook: Handled {
             return Done()
         }
         if let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
+        if let reply, ls.snapshot.parent != nil { sessions.reports.said(reply, by: id) }   // before the status its report goes out on
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) {
             ls.trail.add("\(trailLine): asks nothing")

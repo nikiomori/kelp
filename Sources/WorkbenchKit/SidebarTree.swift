@@ -64,7 +64,7 @@ public struct SidebarTree {
             // row there: it's what that screen holds.
             func found(_ s: Session) -> Bool { hit(s.title, s.agent ?? "", s.summary, statusLabel(s.status)) }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
-            let kept = whole ? rows : rows.filter { a in found(a) || agents.contains { $0.parent == a.id && found($0) } }
+            let kept = whole ? rows : rows.filter { a in found(a) || agents.children(of: a.id).contains(where: found) }
             guard whole || !kept.isEmpty else { return nil }
             return SidebarItem(kind: .workspace(w.id), children: kept.map { SidebarItem(kind: .agent($0.id)) })
         }

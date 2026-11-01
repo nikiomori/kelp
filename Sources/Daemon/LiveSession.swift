@@ -311,6 +311,7 @@ final class LiveSession: Sendable {
                 s.pendingPrompts.removeFirst()
                 type(p.text, enter: !p.draft, paste: p.paste, &s)   // queued here, under the lock: nothing sent meanwhile gets ahead
             }
+            if quiet, settled, !s.letGo, s.takesReport() { type(s.reports.removeFirst(), enter: true, paste: false, &s) }
         }
     }
 
@@ -463,7 +464,8 @@ extension LiveSession {
             Handover.Session(id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
                              bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
                              status: .init(holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
-                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript))
+                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty),
+                             reports: s.reports)
         }
     }
 
@@ -471,15 +473,17 @@ extension LiveSession {
     /// long past starting up: no launch prompt, startup answer or title from its first prompt comes now.
     /// What was waiting to be typed (`pending`) is typed here once the agent is ready, as it would have been there.
     /// `status`: what its status rested on there; nil from a kelpd that didn't say.
-    func adopted(modes: String, bytes: Int, pending: [Handover.Prompt] = [], status: Handover.Status? = nil) {
+    func adopted(modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [], status: Handover.Status? = nil) {
         let history = bytes > 0 ? Data(tailOf: logURL, bytes: bytes) ?? Data() : Data()
         state.withLock { s in
             s.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
+            s.reports = reports
             s.ring = history; s.ringModes.read(Data(modes.utf8))
             if let status {
                 s.holding = status.holding; s.parked = status.parked
                 s.asking = status.asking; s.questionOpen = status.questionOpen
                 s.turnEnd = status.turnEnd; s.transcript = status.transcript
+                s.boxEmpty = status.boxEmpty ?? false
             }
             s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked)
             s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
