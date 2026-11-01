@@ -50,3 +50,11 @@ import Testing
     #expect(IDE.workspace(cwd: dir, among: all, own: "w3")?.id == "w1")   // its workspace isn't here
     #expect(IDE.workspace(cwd: "/elsewhere", among: all, own: "w2") == nil)
 }
+
+/// The daemon's placeholder is a new chat to people; a name someone gave it, or a first prompt did, stays.
+@Test func aDeskNobodyNamedIsANewChat() {
+    func desk(_ note: String) -> Worktree { Worktree(repoId: "r", branch: "main", path: "/p", note: note) }
+    #expect(desk("Workspace 3").isUnnamed && desk("Workspace 3").displayName != "Workspace 3")
+    #expect(!desk("Workspace plans").isUnnamed && desk("Workspace plans").displayName == "Workspace plans")
+    #expect(!desk("").isUnnamed && desk("").displayName == "main")
+}

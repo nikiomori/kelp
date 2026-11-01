@@ -163,10 +163,11 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
 extension Worktree {
     /// The name people see: their own, or the branch.
     public var displayName: String {
-        guard !note.isEmpty else { return branch }
-        // "Workspace 3", the name a new desk keeps until its first prompt names it, is a new chat to people; the stored
-        // name stays as the daemon wrote it (Workspaces.placeholderName knows it by that).
-        if note.hasPrefix("Workspace "), Int(note.dropFirst("Workspace ".count)) != nil { return String(localized: "New Chat") }
-        return note
+        if note.isEmpty { return branch }
+        return isUnnamed ? String(localized: "New Chat") : note
     }
+
+    /// "Workspace 3", the name a new desk keeps until its first prompt names it: a new chat to people. The stored name
+    /// stays as the daemon wrote it (Workspaces.placeholderName knows it by that).
+    public var isUnnamed: Bool { note.hasPrefix("Workspace ") && Int(note.dropFirst("Workspace ".count)) != nil }
 }
