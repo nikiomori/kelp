@@ -59,6 +59,10 @@ extension RPCMethod {
     }
 }
 
+/// A method for Kelp's own window and tools: `kelp schema` lists it as such, and a client of someone else's gets no promise
+/// about it. Its name and shape still stay, for an older app (Tests/DaemonTests/methods.txt, rpc.json).
+public protocol InternalMethod: RPCMethod {}
+
 /// The result of a method that answers null.
 public struct Done: Codable, Sendable {
     public init() {}

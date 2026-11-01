@@ -11,9 +11,10 @@ public struct RepoAdd: RPCMethod {
     public static let notARepository = RPCError(
         code: -32003, message: "Not a Git repository: add it with init true (git init there) or false (as it is, without git); kelp repo add --init or --no-git.")
 }
+/// All projects.
 public struct RepoList: RPCMethod { public static let name = "repo.list"; public typealias Result = [Repo]; public init() {} }
 /// The scratch project's workspace, made (with a git repo of its own) the first time.
-public struct ScratchEnsure: RPCMethod { public static let name = "scratch.ensure"; public typealias Result = Worktree; public init() {} }
+public struct ScratchEnsure: InternalMethod { public static let name = "scratch.ensure"; public typealias Result = Worktree; public init() {} }
 /// The project's folder moved: the project and its desks point at `path`.
 public struct RepoRelocate: RPCMethod {
     public static let name = "repo.relocate"; public typealias Result = Repo; public var id: String, path: String
@@ -31,6 +32,7 @@ public struct RepoRemove: RPCMethod {
     public init(id: String) { self.id = id }
 }
 
+/// A new group in the project: a screen of its own in the project's folder.
 public struct WorkspaceCreate: RPCMethod {
     public static let name = "workspace.create"; public typealias Result = Worktree; public var repoId: String
     public init(repoId: String) { self.repoId = repoId }
@@ -62,6 +64,7 @@ public struct WorktreeCreate: RPCMethod {
         }
     }
 }
+/// Workspaces, of project `repoId` when given; `archived` lists those instead.
 public struct WorktreeList: RPCMethod {
     public static let name = "worktree.list"; public typealias Result = [Worktree]; public var repoId: String?, archived: Bool?
     public init(repoId: String? = nil, archived: Bool? = nil) { self.repoId = repoId; self.archived = archived }
@@ -78,6 +81,7 @@ public struct WorktreeRemove: RPCMethod {
     public var id: String, force: Bool?, dropCommits: Bool?
     public init(id: String, force: Bool? = nil, dropCommits: Bool? = nil) { self.id = id; self.force = force; self.dropCommits = dropCommits }
 }
+/// Brings an archived workspace back.
 public struct WorktreeUnarchive: RPCMethod {
     public static let name = "worktree.unarchive"; public typealias Result = Done
     public var id: String
@@ -89,12 +93,14 @@ public struct WorktreeUnmerged: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// Whether its folder has uncommitted changes.
 public struct WorktreeDirty: RPCMethod {
     public static let name = "worktree.dirty"; public typealias Result = Bool
     public var id: String
     public init(id: String) { self.id = id }
 }
 
+/// All sessions, or those of workspace `worktreeId`.
 public struct SessionList: RPCMethod {
     public static let name = "session.list"; public typealias Result = [Session]; public var worktreeId: String?
     public init(worktreeId: String? = nil) { self.worktreeId = worktreeId }
@@ -105,6 +111,7 @@ public struct SessionAttach: RPCMethod {
     public init(id: String) { self.id = id }
     public struct Result: Codable, Sendable, Equatable { public var history: String; public init(history: String) { self.history = history } }
 }
+/// This connection stops following the session (`session.attach`). The session keeps running.
 public struct SessionDetach: RPCMethod {
     public static let name = "session.detach"; public typealias Result = Done
     public var id: String
@@ -120,10 +127,12 @@ public struct SessionSend: RPCMethod {
     public static let name = "session.send"; public typealias Result = Done; public var id: String, text: String, enter: Bool?
     public init(id: String, text: String, enter: Bool? = nil) { self.id = id; self.text = text; self.enter = enter }
 }
+/// The size of its terminal.
 public struct SessionResize: RPCMethod {
     public static let name = "session.resize"; public typealias Result = Done; public var id: String, cols: Int?, rows: Int?
     public init(id: String, cols: Int?, rows: Int?) { self.id = id; self.cols = cols; self.rows = rows }
 }
+/// Ends the session.
 public struct SessionKill: RPCMethod {
     public static let name = "session.kill"; public typealias Result = Done
     public var id: String
@@ -135,10 +144,11 @@ public struct SessionChoose: RPCMethod {
     public init(id: String, answer: String) { self.id = id; self.answer = answer }
 }
 /// Kept in the login keychain, read when the agent starts. No `value`: deleted.
-public struct AgentSetSecret: RPCMethod {
+public struct AgentSetSecret: InternalMethod {
     public static let name = "agent.setSecret"; public typealias Result = Done; public var agent: String, key: String, value: String?
     public init(agent: String, key: String, value: String? = nil) { self.agent = agent; self.key = key; self.value = value }
 }
+/// The ports the workspace's sessions listen on.
 public struct PortsList: RPCMethod {
     public static let name = "ports.list"; public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
@@ -156,6 +166,7 @@ public struct PortsStop: RPCMethod {
     public static let name = "ports.stop"; public typealias Result = Done; public var worktreeId: String, pid: Int?
     public init(worktreeId: String, pid: Int?) { self.worktreeId = worktreeId; self.pid = pid }
 }
+/// CPU and memory of each running session's processes.
 public struct SessionUsage: RPCMethod {
     public static let name = "session.usage"
     public init() {}
@@ -190,18 +201,20 @@ public struct SessionContext: RPCMethod {
     public static let name = "session.context"; public typealias Result = String; public var id: String, bytes: Int?
     public init(id: String, bytes: Int? = nil) { self.id = id; self.bytes = bytes }
 }
+/// Clears its unread mark.
 public struct SessionMarkRead: RPCMethod {
     public static let name = "session.markRead"; public typealias Result = Done
     public var id: String
     public init(id: String) { self.id = id }
 }
 /// "continue" typed into a session a plan limit stopped, by the daemon, so Kelp's window can be closed by then. nil takes it back.
-public struct SessionContinueAt: RPCMethod {
+public struct SessionContinueAt: InternalMethod {
     public static let name = "session.continueAt"; public typealias Result = Done
     public var id: String, at: Date?
     public init(id: String, at: Date?) { self.id = id; self.at = at }
 }
 
+/// Sets its unread mark.
 public struct SessionMarkUnread: RPCMethod {
     public static let name = "session.markUnread"; public typealias Result = Done
     public var id: String

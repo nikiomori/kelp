@@ -90,7 +90,7 @@ public struct FilesCreate: RPCMethod {
 
 /// A remote project's file copied to this Mac for a viewer that reads a file (an image, a PDF, what Quick Look shows) →
 /// the copy's path; a file here → its own path. Refused like `files.read` (a pipe, past the size limit), text or not.
-public struct FilesFetch: RPCMethod {
+public struct FilesFetch: InternalMethod {
     public static let name = "files.fetch"; public typealias Result = String; public var path: String
     public init(path: String) { self.path = path }
 }

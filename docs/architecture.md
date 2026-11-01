@@ -108,6 +108,10 @@ files change.
 The app talks to the daemon only through JSON-RPC. IDE actions requested by agents go
 `kelp` → daemon `ui.*` → `event.ui` to the app. The app publishes what it shows with
 `ui.publish` so agents can ask (`ui.state`).
+The daemon's API is written down in `Sources/Core/Resources/rpc.json` (OpenRPC, shown by `kelp schema`). It's read from the
+types and their comments by `Tests/DaemonTests/RPCSchemaTests.swift`, which fails when a method or field goes or changes
+type; new ones go in with `KELP_WRITE_SCHEMA=1 swift test --filter rpcSchema`. An `InternalMethod` is for Kelp's own window
+and tools: another client gets no promise about it.
 What it restores that names the daemon's records — each workspace's layout (`layout/<id>`), the sidebar's order, pins
 and folds, the last workspace — is in the daemon's database (`state.get` / `state.set`, the app's `UIState`), like Zed's
 workspace DB: each `KELP_HOME` has its own, and removing a workspace removes its layout. Per-Mac view preferences

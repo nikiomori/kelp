@@ -2,7 +2,7 @@ import Foundation
 
 /// One resumable conversation of a CLI coding agent, read from its on-disk transcript (AgentData reads them).
 public struct AgentSessionInfo: Codable, Sendable, Equatable, Identifiable {
-    public enum Agent: String, Codable, Sendable { case claude, codex }
+    public enum Agent: String, Codable, Sendable, CaseIterable { case claude, codex }
     public var agent: Agent
     public var id: String
     public var cwd: String

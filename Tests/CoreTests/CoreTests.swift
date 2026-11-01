@@ -401,3 +401,20 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(rows[0].detail == "Needs you · kelp · Allow rm? ]52;c;x ", "an escape in what an agent printed isn't sent to the terminal")
     #expect(AgentBoard.paused(all) == 1)
 }
+
+/// `kelp schema`, from the document that ships: a method by name, a type by part of its, and what isn't there.
+@Test func theSchemaReadsAsText() throws {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Sources/Core/Resources/rpc.json")
+    let doc = try JSONDecoder().decode(JSONValue.self, from: Data(contentsOf: file))
+    let choose = RPCSchema.text(doc, "session.choose").components(separatedBy: "\n")
+    #expect(choose.first == "session.choose")
+    #expect(choose.contains { $0.hasPrefix("  answer") && $0.contains("string") && $0.contains("required") })
+    #expect(choose.last == "→ boolean")
+    #expect(RPCSchema.text(doc, "agentstatus") == "AgentStatus: " + AgentStatus.allCases.map(\.rawValue).joined(separator: ", "))
+    #expect(RPCSchema.text(doc, "session.lis").hasPrefix("session.list"))
+    #expect(RPCSchema.text(doc, "nope") == "Nothing named nope")
+    #expect(RPCSchema.text(doc, "state.get").contains("Kelp's own"))
+    let all = RPCSchema.text(doc)
+    #expect(try #require(all.range(of: "session.list")).lowerBound < #require(all.range(of: "lsp.open")).lowerBound)   // ours come last
+}

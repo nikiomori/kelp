@@ -31,14 +31,14 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
 /// what this connection watches already reads it again now (after a push: the CI run it started shows within seconds).
-public struct WatchStart: RPCMethod, Hashable {
+public struct WatchStart: InternalMethod, Hashable {
     public static let name = "watch.start"; public typealias Result = Done
     public var topic: WatchTopic, key: String
     public init(_ topic: WatchTopic, _ key: String = "") { self.topic = topic; self.key = key }
 }
 
 /// Stops it; a connection that goes away stops all of its own.
-public struct WatchStop: RPCMethod {
+public struct WatchStop: InternalMethod {
     public static let name = "watch.stop"; public typealias Result = Done
     public var topic: WatchTopic, key: String
     public init(_ topic: WatchTopic, _ key: String = "") { self.topic = topic; self.key = key }

@@ -51,7 +51,7 @@ public struct Worktree: Codable, Sendable, Equatable, Revised {
     }
 }
 
-public enum AgentStatus: String, Codable, Sendable {
+public enum AgentStatus: String, Codable, Sendable, CaseIterable {
     case idle, working, waiting, done, exited
     /// Process stopped to save memory; resumes its conversation when opened again.
     case hibernated
@@ -179,7 +179,7 @@ extension [Session] {
 }
 
 public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
-    public enum State: String, Codable, Sendable { case open, sent, resolved }
+    public enum State: String, Codable, Sendable, CaseIterable { case open, sent, resolved }
     public var id: String
     public var worktreeId: String
     public var file: String

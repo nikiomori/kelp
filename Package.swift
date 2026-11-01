@@ -21,7 +21,7 @@ let package = Package(
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
     ],
     targets: [
-        .target(name: "Core", resources: [.copy("Resources/extensions.md")]),   // docs/extensions.md links here
+        .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json")]),   // docs link to both
         .target(name: "GitKit", dependencies: ["Core"]),
         .target(name: "Agents", dependencies: ["Core"]),
         .target(name: "AgentData", dependencies: ["Core"]),

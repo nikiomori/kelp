@@ -3,21 +3,25 @@ import Foundation
 // Source control, files and review comments of a workspace (`id` is its worktree id). Results are Core's values
 // (GitValues), as GitKit returns them in the daemon.
 
+/// The changed files of workspace `id`.
 public struct GitStatus: RPCMethod {
     public static let name = "git.status"; public typealias Result = [FileChange]
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// The project's branches, and which is checked out in workspace `id`.
 public struct GitBranches: RPCMethod {
     public static let name = "git.branches"; public typealias Result = BranchInfo
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// Lines added and removed in the working tree, by kind of file.
 public struct GitLineStats: RPCMethod {
     public static let name = "git.lineStats"; public typealias Result = LineStats
     public var id: String
     public init(id: String) { self.id = id }
 }
+/// Pushes the workspace's branch.
 public struct GitPush: RPCMethod {
     public static let name = "git.push"; public typealias Result = Done
     public var id: String
@@ -49,11 +53,13 @@ public struct GitUnsynced: RPCMethod {
     public var id: String, limit: Int?
     public init(id: String, limit: Int? = nil) { self.id = id; self.limit = limit }
 }
+/// Stages `files`.
 public struct GitStage: RPCMethod {
     public static let name = "git.stage"; public typealias Result = Done
     public var id: String, files: [String]?
     public init(id: String, files: [String]? = nil) { self.id = id; self.files = files }
 }
+/// Unstages `files`.
 public struct GitUnstage: RPCMethod {
     public static let name = "git.unstage"; public typealias Result = Done
     public var id: String, files: [String]?
@@ -83,6 +89,7 @@ public struct GitMerge: RPCMethod {
     public var id: String, keepConflicts: Bool?
     public init(id: String, keepConflicts: Bool? = nil) { self.id = id; self.keepConflicts = keepConflicts }
 }
+/// Checks out `branch` in workspace `id`; `create` makes it, `remote` takes it from origin.
 public struct GitSwitch: RPCMethod {
     public static let name = "git.switch"; public typealias Result = Done
     public var id: String, branch: String, create: Bool?, remote: Bool?
@@ -90,6 +97,7 @@ public struct GitSwitch: RPCMethod {
         self.id = id; self.branch = branch; self.create = create; self.remote = remote
     }
 }
+/// The history as graph rows, at most `limit`; `more`: there's more.
 public struct GitGraph: RPCMethod {
     public static let name = "git.graph"
     public struct Result: Codable, Sendable, Equatable {
@@ -99,6 +107,7 @@ public struct GitGraph: RPCMethod {
     public var id: String, limit: Int?
     public init(id: String, limit: Int? = nil) { self.id = id; self.limit = limit }
 }
+/// The files `commit` changed.
 public struct GitCommitFiles: RPCMethod {
     public static let name = "git.commitFiles"; public typealias Result = [FileChange]
     public var id: String, commit: String
@@ -106,7 +115,7 @@ public struct GitCommitFiles: RPCMethod {
 }
 /// The picture of a commit author's account on the project's GitHub or GitLab (through gh / glab), as image data.
 /// nil: no account has the email, or the project isn't on either.
-public struct GitAuthorAvatar: RPCMethod {
+public struct GitAuthorAvatar: InternalMethod {
     public static let name = "git.authorAvatar"; public typealias Result = Data?
     public var id: String, email: String
     public init(id: String, email: String) { self.id = id; self.email = email }
@@ -117,6 +126,7 @@ public struct GitCommitDetails: RPCMethod {
     public var id: String, commit: String
     public init(id: String, commit: String) { self.id = id; self.commit = commit }
 }
+/// Throws away the changes to `files` in workspace `id`.
 public struct GitDiscard: RPCMethod {
     public static let name = "git.discard"; public typealias Result = Done
     public var id: String, files: [String]?
@@ -128,6 +138,7 @@ public struct GitRemoteOp: RPCMethod {
     public var id: String, op: String
     public init(id: String, op: String) { self.id = id; self.op = op }
 }
+/// Stashes the changes of workspace `id`, or brings the last stash back with `pop`.
 public struct GitStash: RPCMethod {
     public static let name = "git.stash"; public typealias Result = Done
     public var id: String, pop: Bool?
@@ -166,6 +177,7 @@ public struct FilesIgnored: RPCMethod {
     public var id: String, folder: String?
     public init(id: String, folder: String? = nil) { self.id = id; self.folder = folder }
 }
+/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set.
 public struct FilesSearch: RPCMethod {
     public static let name = "files.search"; public typealias Result = [SearchMatch]
     public var id: String, query: String, regex: Bool?, `case`: Bool?
@@ -180,6 +192,7 @@ public struct CommentAdd: RPCMethod {
         self.id = id; self.file = file; self.start = start; self.end = end; self.quote = quote; self.text = text
     }
 }
+/// The workspace's review comments.
 public struct CommentList: RPCMethod {
     public static let name = "comment.list"; public typealias Result = [DiffComment]
     public var id: String

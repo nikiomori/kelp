@@ -4,7 +4,7 @@ import Foundation
 /// ran, how that went and the end of what it printed. The session's tab lists them (`session.commands`), its row shows the
 /// one running.
 public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
-    public enum Outcome: String, Codable, Sendable {
+    public enum Outcome: String, Codable, Sendable, CaseIterable {
         /// Exited 0.
         case ok
         /// Exited with another code (`exitCode`), or the tool refused it or timed out (`output` says why).

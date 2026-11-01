@@ -83,7 +83,7 @@ extension FileChange {
 }
 
 public struct DiffLine: Codable, Sendable, Equatable {
-    public enum Kind: String, Codable, Sendable { case context, add, del }
+    public enum Kind: String, Codable, Sendable, CaseIterable { case context, add, del }
     public var kind: Kind
     public var text: String
     public var oldLine: Int?

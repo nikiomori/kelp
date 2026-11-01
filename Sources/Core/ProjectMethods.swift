@@ -106,13 +106,13 @@ public enum Unopenable: Codable, Sendable, Equatable {
 
 /// A file in a remote project's folder, read on the host. Fails with an `Unopenable` error where a tab here would refuse
 /// the file (a pipe, past the size limit, not UTF-8).
-public struct FilesReadRemote: RPCMethod {
+public struct FilesReadRemote: InternalMethod {
     public static let name = "files.readRemote"; public typealias Result = String; public var path: String
     public init(path: String) { self.path = path }
 }
 /// Writes `text` to that file on the host → null; → {changed: its text there} instead, unwritten, when it's no longer `base`
 /// (an agent there edited it since it was read).
-public struct FilesWriteRemote: RPCMethod {
+public struct FilesWriteRemote: InternalMethod {
     public static let name = "files.writeRemote"
     public struct Changed: Codable, Sendable, Equatable {
         public var changed: String
@@ -125,22 +125,22 @@ public struct FilesWriteRemote: RPCMethod {
 /// A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's
 /// folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and
 /// looked for again in the background.
-public struct RepoIcon: RPCMethod {
+public struct RepoIcon: InternalMethod {
     public static let name = "repo.icon"; public typealias Result = String?; public var path: String
     public init(path: String) { self.path = path }
 }
 
 /// All settings (settings.json's keys, flat and dotted).
-public struct SettingsGet: RPCMethod { public static let name = "settings.get"; public typealias Result = [String: JSONValue]; public init() {} }
+public struct SettingsGet: InternalMethod { public static let name = "settings.get"; public typealias Result = [String: JSONValue]; public init() {} }
 /// A null `value` resets the key → all settings.
-public struct SettingsSet: RPCMethod {
+public struct SettingsSet: InternalMethod {
     public static let name = "settings.set"; public typealias Result = [String: JSONValue]; public var key: String, value: JSONValue?
     public init(key: String, value: JSONValue?) { self.key = key; self.value = value }
 }
 
 /// Per account: Claude's 5-hour block, today and the week; Codex's limits (cached for a minute unless `force`); the plan
 /// limits the agents' own /usage screens show.
-public struct UsageGet: RPCMethod {
+public struct UsageGet: InternalMethod {
     public static let name = "usage.get"
     /// Tokens and their API price over a span (dates as seconds since 1970).
     public struct Block: Codable, Sendable, Equatable {
@@ -188,7 +188,7 @@ public struct UsageGet: RPCMethod {
     public init(force: Bool? = nil) { self.force = force }
 }
 /// What Claude Code used over `days`, by day, model and project, priced as the API would.
-public struct UsageReport: RPCMethod {
+public struct UsageReport: InternalMethod {
     public static let name = "usage.report"
     public struct Group: Codable, Sendable, Equatable {
         public var name: String, cost: Double, tokens: Int
@@ -207,7 +207,7 @@ public struct UsageReport: RPCMethod {
 /// What each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code, Copilot): by
 /// day and agent, and by agent, model and project, priced as the API would (Grok as it says itself; 0 for a model with no
 /// list price).
-public struct UsageAgents: RPCMethod {
+public struct UsageAgents: InternalMethod {
     public static let name = "usage.agents"
     public struct Day: Codable, Sendable, Hashable {
         public var day: String, agent: String, cost: Double, tokens: Int

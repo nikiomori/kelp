@@ -33,7 +33,7 @@ public struct SessionCreate: RPCMethod, LaunchOptions {
 
 /// The tmux sessions on the workspace's machine (a remote project's host), the last used first; none while tmux runs
 /// no server there.
-public struct TmuxList: RPCMethod {
+public struct TmuxList: InternalMethod {
     public static let name = "tmux.list"; public typealias Result = [Tmux.Session]
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
@@ -99,7 +99,7 @@ public struct HistoryResume: RPCMethod, LaunchOptions {
 }
 
 /// From a running agent's hooks (`kelp hook`): `event`, and what Claude Code's hook payload says.
-public struct SessionHook: RPCMethod {
+public struct SessionHook: InternalMethod {
     public static let name = "session.hook"; public typealias Result = Done
     public var id: String, event: String?, transcript: String?, cwd: String?, trigger: String?, notification: JSONValue?
     public var backgroundTasks: [JSONValue]?
@@ -135,7 +135,7 @@ public struct SessionHook: RPCMethod {
 
 /// A summary from the UI (the agent's own last reply), and optionally a better status guess. `ifStatus`: only while the
 /// session still has this status: the summary is of a turn that ended a moment ago, and the row may have moved on to a question.
-public struct SessionAnnotate: RPCMethod {
+public struct SessionAnnotate: InternalMethod {
     public static let name = "session.annotate"; public typealias Result = Done
     public var id: String, summary: String?, status: String?, ifStatus: String?
     public init(id: String, summary: String? = nil, status: String? = nil, ifStatus: String? = nil) {
@@ -143,12 +143,12 @@ public struct SessionAnnotate: RPCMethod {
     }
 }
 /// The prompt for action `name` in workspace `id`, the project's own wording if it has one (and is trusted).
-public struct RecipeRender: RPCMethod {
+public struct RecipeRender: InternalMethod {
     public static let name = "recipe.render"; public typealias Result = String; public var id: String, name: String, vars: [String: String]?
     public init(id: String, name: String, vars: [String: String]? = nil) { self.id = id; self.name = name; self.vars = vars }
 }
 /// The agents on this Mac and their versions.
-public struct AgentsVersions: RPCMethod {
+public struct AgentsVersions: InternalMethod {
     public static let name = "agents.versions"; public typealias Result = [Item]
     public struct Item: Codable, Sendable, Equatable {
         /// nil: not found, or it printed no version (`latest`: not on npm, or npm isn't installed).
@@ -162,7 +162,7 @@ public struct AgentsVersions: RPCMethod {
 /// process; the app starts none. Login-shell PATH, `cwd` (the home folder when it's gone), `stdin`, and `timeLimit`
 /// after which it's stopped with everything it started. `extensionId`: an extension's folder in ~/.kelp/extensions —
 /// refused once that extension is off or gone.
-public struct ProcessRun: RPCMethod {
+public struct ProcessRun: InternalMethod {
     public static let name = "process.run"
     /// The run's own limit ends it, and the daemon answers then: a notebook may compute for hours.
     public static var timeout: TimeInterval? { nil }
@@ -179,21 +179,22 @@ public struct ProcessRun: RPCMethod {
 }
 /// Where each command is on the login-shell PATH the daemon gives programs (`process.run`, sessions): command → absolute
 /// path, the ones not found left out. The app asks instead of reading that PATH itself, which starts the user's shell.
-public struct ProcessWhich: RPCMethod {
+public struct ProcessWhich: InternalMethod {
     public static let name = "process.which"; public typealias Result = [String: String]
     public var commands: [String]
     public init(commands: [String]) { self.commands = commands }
 }
 /// The login shell's PATH read again, after an installer changed the shell profile: `process.which` and new sessions
 /// then find what it installed. Answered once the shell has been asked (seconds, with a slow profile).
-public struct ProcessRefreshPath: RPCMethod {
+public struct ProcessRefreshPath: InternalMethod {
     public static let name = "process.refreshPath"; public typealias Result = Done
     public init() {}
 }
 /// "pong".
 public struct Ping: RPCMethod { public static let name = "ping"; public typealias Result = String; public init() {} }
-public struct DaemonShutdown: RPCMethod { public static let name = "daemon.shutdown"; public typealias Result = Done; public init() {} }
+/// Stops the daemon, and the agents with it.
+public struct DaemonShutdown: InternalMethod { public static let name = "daemon.shutdown"; public typealias Result = Done; public init() {} }
 /// The kelpd binary now at the running one's path (an update put it there) takes over in the same process: running
 /// sessions carry on, their programs never stop. Answered first; then every connection drops, and the socket answers
 /// again once the new one is up.
-public struct DaemonUpgrade: RPCMethod { public static let name = "daemon.upgrade"; public typealias Result = Done; public init() {} }
+public struct DaemonUpgrade: InternalMethod { public static let name = "daemon.upgrade"; public typealias Result = Done; public init() {} }

@@ -2,7 +2,7 @@ import Foundation
 
 /// The extension library (`IDE.libraryIndex`): what it holds, from its index.json. Settings' `extensions.library` names
 /// another index (a team's own library, a fork being tested).
-public struct ExtensionLibrary: RPCMethod {
+public struct ExtensionLibrary: InternalMethod {
     public static let name = "extension.library"
     public typealias Result = [Entry]
     public struct Entry: Codable, Sendable, Equatable {
@@ -28,7 +28,7 @@ public struct ExtensionLibrary: RPCMethod {
 /// Downloads an extension from GitHub (`IDE.librarySource` reads the forms) into a new temporary folder named by its
 /// id, with `.kelp-source.json` saying where it came from. Nothing is installed: the caller shows what it runs, then
 /// moves it in (`IDE.installExtension`).
-public struct ExtensionFetch: RPCMethod {
+public struct ExtensionFetch: InternalMethod {
     public static let name = "extension.fetch"
     public struct Result: Codable, Sendable, Equatable {
         public var folder: String

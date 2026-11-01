@@ -35,7 +35,7 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
 
     /// One run: its agent's session, and how it went.
     public struct Run: Codable, Sendable, Equatable, Identifiable {
-        public enum Outcome: String, Codable, Sendable {
+        public enum Outcome: String, Codable, Sendable, CaseIterable {
             case running
             /// The agent waits for an answer (a permission, a question): `summary` is what it asks.
             case asked
@@ -94,28 +94,29 @@ public struct RoutinesEvent: RPCEvent, Equatable {
     public init(routines: [Routine], runs: [Routine.Run]) { self.routines = routines; self.runs = runs }
 }
 
-public struct RoutineList: RPCMethod {
+/// All routines and their recent runs.
+public struct RoutineList: InternalMethod {
     public static let name = "routine.list"; public typealias Result = RoutinesEvent
     public init() {}
 }
 
 /// Adds the routine (no id) or changes it. A new one, one switched on and one with a new schedule count from now:
 /// nothing before is run.
-public struct RoutineSet: RPCMethod {
+public struct RoutineSet: InternalMethod {
     public static let name = "routine.set"; public typealias Result = Routine
     public var routine: Routine
     public init(routine: Routine) { self.routine = routine }
 }
 
 /// The routine and its runs; its workspace and their sessions stay.
-public struct RoutineDelete: RPCMethod {
+public struct RoutineDelete: InternalMethod {
     public static let name = "routine.delete"; public typealias Result = Done
     public var id: String
     public init(id: String) { self.id = id }
 }
 
 /// Runs it now, off schedule (Run Now).
-public struct RoutineRun: RPCMethod {
+public struct RoutineRun: InternalMethod {
     public static let name = "routine.run"; public typealias Result = Routine.Run
     public var id: String
     public init(id: String) { self.id = id }

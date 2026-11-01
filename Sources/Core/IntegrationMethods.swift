@@ -37,6 +37,7 @@ public struct GitHubIssues: RPCMethod {
         self.worktreeId = worktreeId; self.repoId = repoId; self.filter = filter
     }
 }
+/// The checks of `pr`, else of the workspace's own PR.
 public struct GitHubChecks: RPCMethod {
     public static let name = "github.checks"; public typealias Result = [GitHub.Check]
     public var worktreeId: String?, repoId: String?, pr: Int?
@@ -48,16 +49,19 @@ public struct GitHubFailedLog: RPCMethod {
     public var worktreeId: String?, repoId: String?, runId: Int?
     public init(worktreeId: String? = nil, repoId: String? = nil, runId: Int?) { self.worktreeId = worktreeId; self.repoId = repoId; self.runId = runId }
 }
+/// The review comments of `pr`, else of the workspace's own PR.
 public struct GitHubReviewComments: RPCMethod {
     public static let name = "github.reviewComments"; public typealias Result = [GitHub.ReviewComment]
     public var worktreeId: String?, repoId: String?, pr: Int?
     public init(worktreeId: String? = nil, repoId: String? = nil, pr: Int?) { self.worktreeId = worktreeId; self.repoId = repoId; self.pr = pr }
 }
+/// The GitHub projects of the repository.
 public struct GitHubProjects: RPCMethod {
     public static let name = "github.projects"; public typealias Result = [GitHub.Project]
     public var worktreeId: String?, repoId: String?
     public init(worktreeId: String? = nil, repoId: String? = nil) { self.worktreeId = worktreeId; self.repoId = repoId }
 }
+/// Project `number` of `owner`: its items.
 public struct GitHubProjectItems: RPCMethod {
     public static let name = "github.projectItems"; public typealias Result = [GitHub.ProjectItem]
     public var owner: String, number: Int?
@@ -100,21 +104,25 @@ public struct CIRunsList: RPCMethod {
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
+/// The jobs of `run`.
 public struct CIJobs: RPCMethod {
     public static let name = "ci.jobs"; public typealias Result = [CIRuns.Job]
     public var worktreeId: String, run: Int?
     public init(worktreeId: String, run: Int?) { self.worktreeId = worktreeId; self.run = run }
 }
+/// The log of `job`, as text.
 public struct CILog: RPCMethod {
     public static let name = "ci.log"; public typealias Result = String
     public var worktreeId: String, job: Int?
     public init(worktreeId: String, job: Int?) { self.worktreeId = worktreeId; self.job = job }
 }
+/// Runs `run` again.
 public struct CIRerun: RPCMethod {
     public static let name = "ci.rerun"; public typealias Result = Done
     public var worktreeId: String, run: Int?
     public init(worktreeId: String, run: Int?) { self.worktreeId = worktreeId; self.run = run }
 }
+/// Starts `workflow` on `branch`, with `inputs` if it takes any.
 public struct CIDispatch: RPCMethod {
     public static let name = "ci.dispatch"; public typealias Result = Done
     public var worktreeId: String, workflow: String, branch: String, inputs: [String: String]?
@@ -144,15 +152,18 @@ public struct LinearIssues: RPCMethod {
     public var teamId: String?
     public init(teamId: String? = nil) { self.teamId = teamId }
 }
+/// The teams of the connected Linear account.
 public struct LinearTeams: RPCMethod {
     public static let name = "linear.teams"; public typealias Result = [LinearTeam]
     public init() {}
 }
+/// Team `teamId`'s workflow states.
 public struct LinearStates: RPCMethod {
     public static let name = "linear.states"; public typealias Result = [LinearState]
     public var teamId: String
     public init(teamId: String) { self.teamId = teamId }
 }
+/// Moves issue `issueId` to state `stateId`.
 public struct LinearSetState: RPCMethod {
     public static let name = "linear.setState"; public typealias Result = Done
     public var issueId: String, stateId: String
@@ -185,11 +196,13 @@ public struct JiraIssues: RPCMethod {
     public var jql: String?
     public init(jql: String? = nil) { self.jql = jql }
 }
+/// The transitions issue `key` can take now.
 public struct JiraTransitions: RPCMethod {
     public static let name = "jira.transitions"; public typealias Result = [JiraTransition]
     public var key: String
     public init(key: String) { self.key = key }
 }
+/// Moves issue `key` along transition `id`.
 public struct JiraTransitionIssue: RPCMethod {
     public static let name = "jira.transition"; public typealias Result = Done
     public var key: String, id: String
@@ -202,6 +215,7 @@ public struct BitbucketSetCredentials: RPCMethod {
     public var user: String, token: String
     public init(user: String, token: String) { self.user = user; self.token = token }
 }
+/// Whether a Bitbucket account is connected.
 public struct BitbucketStatus: RPCMethod {
     public static let name = "bitbucket.status"
     public struct Result: Codable, Sendable, Equatable {

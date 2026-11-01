@@ -3,7 +3,7 @@ import Foundation
 // RPC methods declared as types (see `RPCMethod`). The daemon answers them in `Handled` conformances.
 
 /// The running daemon: the app compares it with the kelpd it ships to spot a stale one after an update.
-public struct DaemonInfo: RPCMethod {
+public struct DaemonInfo: InternalMethod {
     public static let name = "daemon.info"
     public struct Result: Codable, Sendable {
         public var path: String, binaryMTime: Double?, pid: Int, liveSessions: Int   // no binaryMTime before 2026-10-19
@@ -16,14 +16,14 @@ public struct DaemonInfo: RPCMethod {
 
 /// False when Kelp's switch in Login Items is off: macOS then ends the daemon and its agents with the app. Asked here, not
 /// in the CLI: a `kelp` linked onto the PATH can't tell which app it belongs to, and kelpd runs from inside it.
-public struct DaemonBackgroundAllowed: RPCMethod {
+public struct DaemonBackgroundAllowed: InternalMethod {
     public static let name = "daemon.backgroundAllowed"
     public typealias Result = Bool
     public init() {}
 }
 
 /// What the app restores (`UIState`): `key` → its value or null; `prefix` → {key: value} for every key that starts with it.
-public struct StateGet: RPCMethod {
+public struct StateGet: InternalMethod {
     public static let name = "state.get"
     public typealias Result = JSONValue
     public var key: String?, prefix: String?
@@ -31,7 +31,7 @@ public struct StateGet: RPCMethod {
 }
 
 /// A nil (or null) value deletes the key.
-public struct StateSet: RPCMethod {
+public struct StateSet: InternalMethod {
     public static let name = "state.set"
     public typealias Result = Done
     public var key: String, value: JSONValue?
@@ -47,6 +47,7 @@ public struct SessionMove: RPCMethod {
     public init(id: String, worktreeId: String) { self.id = id; self.worktreeId = worktreeId }
 }
 
+/// Sets its title.
 public struct SessionRename: RPCMethod {
     public static let name = "session.rename"
     public typealias Result = Done
@@ -69,7 +70,7 @@ public struct SessionContextWindow: RPCMethod {
 /// What fills a Claude Code conversation's context since its last compaction: the base it starts with (system prompt,
 /// tools, CLAUDE.md, skills: the first request) and the parts after it, estimated from the transcript and scaled so that
 /// base + parts make the tokens the last reply counted. nil when that isn't known (other agents, no reply yet).
-public struct SessionContextParts: RPCMethod {
+public struct SessionContextParts: InternalMethod {
     public static let name = "session.contextParts"
     public enum Kind: String, Codable, Sendable, CaseIterable {
         /// What Read returned, by file.
@@ -124,7 +125,7 @@ public struct SessionContextParts: RPCMethod {
 
 /// The project's other git worktrees (agents' `.claude/worktrees/…`, older Kelp workspaces) and the disk each takes,
 /// biggest first: they grow with every build and nothing in the folder itself shows it.
-public struct RepoWorktreeSizes: RPCMethod {
+public struct RepoWorktreeSizes: InternalMethod {
     public static let name = "repo.worktreeSizes"
     public struct Item: Codable, Sendable, Equatable {
         public var path: String, bytes: Int
@@ -139,7 +140,7 @@ public struct RepoWorktreeSizes: RPCMethod {
 
 /// Removes those of `paths` that are still clean, as `git worktree remove` without --force does (one with changes,
 /// untracked files or a lock stays), each with its branch when that branch's commits are on another one too.
-public struct RepoRemoveWorktrees: RPCMethod {
+public struct RepoRemoveWorktrees: InternalMethod {
     public static let name = "repo.removeWorktrees"
     public struct Result: Codable, Sendable {
         public var removed: [String], kept: [String: String]   // kept: path → why
@@ -174,7 +175,7 @@ public struct GitDiscardHunk: RPCMethod {
 /// The folders in `path` on `host` (~ is the host's home), over the host's shared SSH connection: the folder's full
 /// path there, whether it's in a git repository, and its subfolders, hidden ones left out, each marked when it's a
 /// repository. A host Kelp can't reach fails here, with ssh's reason.
-public struct RemoteListFolders: RPCMethod {
+public struct RemoteListFolders: InternalMethod {
     public static let name = "remote.listFolders"
     public struct Folder: Codable, Sendable, Equatable {
         public var name: String, git: Bool
@@ -201,7 +202,7 @@ public struct SessionReport: RPCMethod {
 
 /// herdr's agent report, which fx sends to `HERDR_SOCKET_PATH` (kelpd's socket for it): `pane_id` is the session, `state`
 /// idle, working or blocked. herdr's other calls (`pane.rename`…) aren't Kelp's: refused.
-public struct PaneReportAgent: RPCMethod {
+public struct PaneReportAgent: InternalMethod {
     public static let name = "pane.report_agent"; public typealias Result = Done
     public var paneId: String, state: String
     enum CodingKeys: String, CodingKey { case paneId = "pane_id", state }
@@ -210,7 +211,7 @@ public struct PaneReportAgent: RPCMethod {
 
 /// Whether this connection wants the daemon's broadcast events. `kelp attach`'s control connection only sends sizes:
 /// without this, every open terminal would be one more reader of every event.
-public struct ClientEvents: RPCMethod {
+public struct ClientEvents: InternalMethod {
     public static let name = "client.events"; public typealias Result = Done
     public var events: Bool
     public init(events: Bool) { self.events = events }

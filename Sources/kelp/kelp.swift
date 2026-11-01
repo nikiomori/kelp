@@ -47,6 +47,7 @@ usage: kelp <command>
               [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
                                        missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
   routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
+  schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
 """
 
 // Internal: the daemon starts agents through this so the PTY becomes their controlling terminal
@@ -142,6 +143,9 @@ func plist() -> String {
                 let detachKey = has("--detach")
                 guard let id = args.first else { fail("kelp attach <session>") }
                 Attach.run(id, detachKey: detachKey)
+            case "schema":   // no daemon: the file ships with this binary
+                guard let file = IDE.resource("rpc", "json") else { fail("this build has no schema") }
+                print(has("--openrpc") ? file : RPCSchema.text(try JSONDecoder().decode(JSONValue.self, from: Data(file.utf8)), args.first))
             case "hook":   // inside an agent session: report status to the daemon
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else { fail("hook: needs KELP_SESSION and an event") }
                 var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)

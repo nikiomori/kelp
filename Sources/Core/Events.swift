@@ -34,7 +34,7 @@ public struct DevServerEvent: RPCEvent {
 
 /// Projects or workspaces changed: read the lists again. The params are just the word. Still sent for clients that read
 /// lists; the changed records themselves come as `event.repo` / `event.worktree` / `event.removed`.
-public enum ChangedEvent: String, RPCEvent {
+public enum ChangedEvent: String, RPCEvent, CaseIterable {
     public static let name = "event.changed"
     case repo, worktree
 }

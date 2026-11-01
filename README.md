@@ -161,6 +161,7 @@ kelp terminal list | read <id> | send <id> "run the tests" | context <id>
 kelp diff | commit "msg" | merge | push
 kelp ext search | install <id>                         # the extension library
 kelp install                                           # run the daemon as a LaunchAgent
+kelp schema session.create                             # the daemon's API; --openrpc for all of it
 ```
 
 Claude Code sessions get Kelp's skills for this (Settings › Agents): ask the agent for a panel, a setting or a theme.

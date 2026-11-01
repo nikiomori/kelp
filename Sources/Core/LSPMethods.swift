@@ -40,7 +40,7 @@ public enum LSPRefusal: Codable, Sendable, Equatable {
 
 /// A file a tab shows, given to its server (started now when it isn't running). Fails with an `LSPRefusal` when no server
 /// may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.
-public struct LSPOpen: RPCMethod {
+public struct LSPOpen: InternalMethod {
     public static let name = "lsp.open"; public typealias Result = Done
     /// The UI state key listing the projects the user trusted for language servers and formatters (only Kelp's window
     /// writes it).
@@ -51,29 +51,31 @@ public struct LSPOpen: RPCMethod {
     }
 }
 /// The file's whole text now (sent as a notification while typing).
-public struct LSPChange: RPCMethod {
+public struct LSPChange: InternalMethod {
     public static let name = "lsp.change"; public typealias Result = Done
     public var root: String, path: String, text: String
     public init(root: String, path: String, text: String) { self.root = root; self.path = path; self.text = text }
 }
-public struct LSPClose: RPCMethod {
+/// A tab showing the file closed.
+public struct LSPClose: InternalMethod {
     public static let name = "lsp.close"; public typealias Result = Done
     public var root: String, path: String
     public init(root: String, path: String) { self.root = root; self.path = path }
 }
 /// Positions are 1-based lines and columns.
-public struct LSPDefinition: RPCMethod {
+public struct LSPDefinition: InternalMethod {
     public static let name = "lsp.definition"; public typealias Result = CodeLocation?
     public var root: String, path: String, line: Int, column: Int
     public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
 }
-public struct LSPCompletion: RPCMethod {
+/// Completions at a position, 1-based.
+public struct LSPCompletion: InternalMethod {
     public static let name = "lsp.completion"; public typealias Result = [CodeCompletion]
     public var root: String, path: String, line: Int, column: Int
     public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
 }
 /// The innermost function, method, class or module around a line (Test at Cursor's `${symbol}`).
-public struct LSPSymbol: RPCMethod {
+public struct LSPSymbol: InternalMethod {
     public static let name = "lsp.symbol"; public typealias Result = String?
     public var root: String, path: String, line: Int
     public init(root: String, path: String, line: Int) { self.root = root; self.path = path; self.line = line }

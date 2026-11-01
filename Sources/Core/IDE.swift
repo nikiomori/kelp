@@ -103,16 +103,18 @@ public enum IDE {
         return folder
     }
 
-    /// The extension authoring guide (Resources/extensions.md; docs/extensions.md links to it). Found by hand, not with
-    /// Bundle.module, which stops the process when the bundle isn't where it looks (`kelp` run through a symlink).
-    public static let extensionGuide: String = {
+    /// The extension authoring guide (Resources/extensions.md; docs/extensions.md links to it).
+    public static let extensionGuide = resource("extensions", "md") ?? ""
+
+    /// A file of Resources/. Found by hand, not with Bundle.module, which stops the process when the bundle isn't where it
+    /// looks (`kelp` run through a symlink).
+    public static func resource(_ name: String, _ ext: String) -> String? {
         let exe = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
         let dirs = [Bundle.main.resourceURL, Bundle(for: BundleToken.self).resourceURL, exe?.appendingPathComponent("../Resources"), exe]
-        let doc = dirs.lazy.compactMap {
-            $0.flatMap { Bundle(url: $0.appendingPathComponent("Kelp_Core.bundle")) }?.url(forResource: "extensions", withExtension: "md")
-        }
-        return doc.first.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
-    }()
+        let bundles = dirs.lazy.compactMap { $0.flatMap { Bundle(url: $0.appendingPathComponent("Kelp_Core.bundle")) } }
+        let found = bundles.compactMap { $0.url(forResource: name, withExtension: ext) }
+        return found.first.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+    }
     private final class BundleToken {}
 
     /// EXTENSIONS.md, rewritten when missing or older than this build's guide.
