@@ -52,10 +52,10 @@ Droid · Kilo Code · Qwen Code · Kimi · Pi · oh-my-pi · Crush · Hermes · 
 
 ### 1. Start your agents
 
-<kbd>⌘N</kbd> opens a workspace, a clean desk in your project. Each agent gets a pane of its own, and four make a 2×2
+<kbd>⌘N</kbd> opens a new chat on a screen of its own. Another agent on that screen gets a pane beside it, and four make a 2×2
 grid. Every one is the real CLI in a real terminal, with your config and your plan.
 
-<img src="docs/screenshots/agents-and-editor.png" alt="Three agents at work in split panes of one workspace, beside the file they're changing open in the editor; every workspace's agents in the sidebar" />
+<img src="docs/screenshots/agents-and-editor.png" alt="Three agents at work in split panes of one screen, beside the file they're changing open in the editor; every workspace's agents in the sidebar" />
 
 ### 2. Get on with your day
 
@@ -101,7 +101,7 @@ hands one to a new agent.
 </td>
 <td valign="top">
 <b>Routines</b><br/>
-An agent on a schedule, in a workspace of its own. A run missed while the Mac slept happens when it wakes.
+An agent on a schedule, in a chat of its own. A run missed while the Mac slept happens when it wakes.
 </td>
 <td valign="top">
 <b>Usage</b><br/>

@@ -16,9 +16,9 @@ final class PortsView: NSView {
     init(app: AppModel) {
         self.app = app; ports = Watched(.ports, in: app)
         super.init(frame: .zero)
-        let title = NSTextField(labelWithString: String(localized: "Running in This Workspace")); title.font = .ui(13, weight: .semibold)
+        let title = NSTextField(labelWithString: String(localized: "Running on This Screen")); title.font = .ui(13, weight: .semibold)
         hint.textColor = .secondaryLabelColor; hint.font = .ui(12)
-        hint.stringValue = String(localized: "Servers you start in this workspace's terminals and agents show up here. Or type an address above.")
+        hint.stringValue = String(localized: "Servers you start in this screen's terminals and agents show up here. Or type an address above.")
         list.orientation = .vertical
         list.alignment = .leading
         list.spacing = 6

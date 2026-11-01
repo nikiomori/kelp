@@ -171,7 +171,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard on else { return }
         noMatch.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let what = query.isEmpty ? "“\(loc(filter.rawValue))”" : "“\(query)”" + (filter == .all ? "" : String(localized: " in “\(loc(filter.rawValue))”"))
-        let t = NSTextField(wrappingLabelWithString: String(localized: "No workspaces match \(what)."))
+        let t = NSTextField(wrappingLabelWithString: String(localized: "No chats match \(what)."))
         t.alignment = .center
         t.textColor = .secondaryLabelColor
         let b = ClosureButton(title: String(localized: "Show All")) { [weak self] in

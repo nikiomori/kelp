@@ -5,7 +5,7 @@ import KelpKit
 extension Builtins {
 
     /// Agents on a schedule: the project's routines as a tab (from "+", the empty workspace and the command palette).
-    package static let routines = Builtin("kelp.routines", "Routines", "Agents on a schedule, each in a workspace of its own.",
+    package static let routines = Builtin("kelp.routines", "Routines", "Agents on a schedule, each in a chat of its own.",
                                           icon: "clock.arrow.circlepath") { app in
         var c = Contributions()
         c.tabs = [TabProvider(schemes: ["routines"]) { RoutinesTab(uri: $0, app: app) }]

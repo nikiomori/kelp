@@ -68,7 +68,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = IconButton(.symbol("plus"), tip: String(localized: "New workspace (⌘N)")) { [weak owner] in owner?.newWorkspace(id) }
+            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat (⌘N)")) { [weak owner] in owner?.newWorkspace(id) }
             b.isHidden = true
             // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
             NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
@@ -84,7 +84,7 @@ final class SidebarCell: NSTableCellView {
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
             layout(row: [icon, title, colorDot, muted, detail, summary, changes, pr, ci, trailing, b, f])
-            detail.isHidden = true   // the workspace's name shows in the hover card; here only while it's renamed
+            detail.isHidden = true
         case .section:
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
             count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
@@ -472,16 +472,13 @@ final class SidebarCell: NSTableCellView {
     /// The workspace's name: its own row's title, or the grey name beside its project's; with `project` the project's own
     /// name, without the machine its row may add.
     func beginEditing(delegate: NSTextFieldDelegate, project: Bool = false) {
-        let field = node.workspace == nil || project ? title : detail
-        if project, case .project(let id) = node.kind {
-            title.stringValue = app.repo(id)?.name ?? ""
-        } else if let w = node.workspace.flatMap(app.worktree) { detail.stringValue = w.displayName; detail.isHidden = false }
-        field.isEditable = true
-        field.isSelectable = true
-        field.drawsBackground = true
-        field.delegate = delegate
-        window?.makeFirstResponder(field)
-        field.currentEditor()?.selectAll(nil)
+        if project, case .project(let id) = node.kind { title.stringValue = app.repo(id)?.name ?? "" }
+        title.isEditable = true
+        title.isSelectable = true
+        title.drawsBackground = true
+        title.delegate = delegate
+        window?.makeFirstResponder(title)
+        title.currentEditor()?.selectAll(nil)
     }
 }
 

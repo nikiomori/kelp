@@ -165,7 +165,7 @@ struct AgentsSettings: View {
             }
             Spacer()
             Button("Start \(m.name)") {
-                guard let e = app.workbench.editor else { Banner.show(String(localized: "Open a workspace to start \(m.name) there.")); return }
+                guard let e = app.workbench.editor else { Banner.show(String(localized: "Open a chat to start \(m.name) there.")); return }
                 e.newAgent(m.id)
                 app.workbench.bringToFront()
             }
@@ -261,7 +261,7 @@ struct AgentsSettings: View {
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
         guard let e = app.workbench.editor else {
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string)
-            Banner.show(String(localized: "Open a workspace to run it there — the command is on the clipboard: \(cmd)")); return
+            Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)")); return
         }
         e.run(command: cmd, title: title, cwd: folder)
         app.workbench.bringToFront()

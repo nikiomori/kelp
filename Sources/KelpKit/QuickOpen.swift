@@ -110,7 +110,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     private func list(query: String) {
         stopChoosing()
         tmuxLoad?.cancel(); tmux = nil
-        field.placeholderString = commandsOnly ? String(localized: "Run a command") : String(localized: "Search workspaces, agents, tabs, files and commands")
+        field.placeholderString = commandsOnly ? String(localized: "Run a command") : String(localized: "Search chats, tabs, files and commands")
         let label = commandsOnly ? String(localized: "Commands") : String(localized: "Search")
         field.setAccessibilityLabel(label)
         (field.cell as? NSSearchFieldCell)?.searchButtonCell?.image = NSImage(systemSymbolName: commandsOnly ? "command" : "magnifyingglass",
@@ -218,7 +218,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     private func pickRecent(_ n: Int) -> Bool {
-        guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Workspace" else { return false }
+        guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Chat" else { return false }
         panel.orderOut(nil); NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         recents[n - 1].action()
         return true
@@ -335,7 +335,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     private static func group(_ it: Item) -> String {
         if it.recent { return "Recently Used" }
-        return ["File": "Files", "Agent": "Agents", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings", "Workspace": "Workspaces",
+        return ["File": "Files", "Agent": "Chats", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings", "Chat": "Chats",
                 "Tab": "Tabs"][it.kind]
             ?? it.kind
     }
@@ -438,7 +438,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
         let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
-        let n = showingRecents && index < 6 && it.kind != "Workspace" ? "⌘\(index + 1)  " : ""
+        let n = showingRecents && index < 6 && it.kind != "Chat" ? "⌘\(index + 1)  " : ""
         let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .ui(11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.

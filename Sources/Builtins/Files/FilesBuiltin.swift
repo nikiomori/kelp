@@ -79,7 +79,7 @@ extension Builtins {
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },
-                      cmd("files.findInWorkspace", "Find in Workspace…", "shift+cmd+f") {
+                      cmd("files.findInWorkspace", "Find in Project…", "shift+cmd+f") {
                           app.workbench.showPanel("files")
                           DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findInFiles() }   // after the panel is built
                       },

@@ -146,12 +146,12 @@
         }
       }
     },
-    "%@ asks Kelp to run these as you, in the workspace's folder. ": {
+    "%@ asks Kelp to run these as you, in this chat's folder. ": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ просит Kelp выполнить эти команды от вашего имени в папке рабочей области. "
+            "value": "%@ просит Kelp выполнить эти команды от вашего имени в папке этого чата. "
           }
         }
       }
@@ -748,13 +748,12 @@
         }
       }
     },
-    "Agents on a schedule, each in a workspace of its own.": {
-      "extractionState": "manual",
+    "Agents on a schedule, each in a chat of its own.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агенты по расписанию, каждый в своём воркспейсе."
+            "value": "Агенты по расписанию, каждый в своём чате."
           }
         }
       }
@@ -811,13 +810,12 @@
         }
       }
     },
-    "An agent on a schedule: at its time it starts with this prompt, in a workspace of its own.": {
-      "extractionState": "manual",
+    "An agent on a schedule: at its time it starts with this prompt, in a chat of its own.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агент по расписанию: в своё время он запускается с этим промптом в собственном воркспейсе."
+            "value": "Агент по расписанию: в своё время он запускается с этим промптом в собственном чате."
           }
         }
       }
@@ -977,12 +975,12 @@
         }
       }
     },
-    "Add a project folder. Each task gets its own workspace: agents, terminals and files side by side.": {
+    "Add a project folder. Each chat gets its own screen: the agent, terminals and files side by side.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Добавьте папку проекта. Каждая задача получает свою рабочую область: агенты, терминалы и файлы рядом."
+            "value": "Добавьте папку проекта. У каждого чата свой экран: агент, терминалы и файлы рядом."
           }
         }
       }
@@ -1111,12 +1109,12 @@
         }
       }
     },
-    "Agents work in their own workspaces here, with the terminal, editor and git next to them.": {
+    "Each chat has its own screen here, with the terminal, editor and git next to it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Здесь агенты работают в своих рабочих областях, а рядом — терминал, редактор и git."
+            "value": "У каждого чата здесь свой экран, а рядом — терминал, редактор и git."
           }
         }
       }
@@ -1131,13 +1129,12 @@
         }
       }
     },
-    "All Workspaces": {
-      "extractionState": "manual",
+    "All Chats": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Все рабочие области"
+            "value": "Все чаты"
           }
         }
       }
@@ -1244,13 +1241,12 @@
         }
       }
     },
-    "Archived Workspaces": {
-      "extractionState": "manual",
+    "Archived Chats": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Архивные рабочие области"
+            "value": "Архивные чаты"
           }
         }
       }
@@ -2063,32 +2059,22 @@
         }
       }
     },
-    "Close %lld Workspaces…": {
+    "Close %lld Chats…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть рабочие области (%lld)…"
+            "value": "Закрыть чаты (%lld)…"
           }
         }
       }
     },
-    "Close %lld workspaces?": {
+    "Close %lld chats?": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть рабочие области (%lld)?"
-          }
-        }
-      }
-    },
-    "Close 1 workspace?": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Закрыть рабочую область?"
+            "value": "Закрыть чаты (%lld)?"
           }
         }
       }
@@ -2123,12 +2109,12 @@
         }
       }
     },
-    "Close Workspace": {
+    "Close All Tabs": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть рабочую область"
+            "value": "Закрыть все вкладки"
           }
         }
       }
@@ -2842,22 +2828,22 @@
         }
       }
     },
-    "Delete Workspace & Branch…": {
+    "Delete Folder & Branch…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить рабочую область и ветку…"
+            "value": "Удалить папку и ветку…"
           }
         }
       }
     },
-    "Delete Workspace and Branch": {
+    "Delete Folder and Branch": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить рабочую область и ветку"
+            "value": "Удалить папку и ветку"
           }
         }
       }
@@ -3084,12 +3070,12 @@
         }
       }
     },
-    "Each of its %lld worktrees has uncommitted changes, is locked or is a Kelp workspace.": {
+    "Each of its %lld worktrees has uncommitted changes, is locked or is in use in Kelp.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В каждом из его worktree (%lld) есть незакоммиченные изменения, или он заблокирован, или это workspace Kelp."
+            "value": "В каждом из его worktree (%lld) есть незакоммиченные изменения, или он заблокирован, или он используется в Kelp."
           }
         }
       }
@@ -3521,13 +3507,12 @@
         }
       }
     },
-    "Find in Workspace…": {
-      "extractionState": "manual",
+    "Find in Project…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Найти в рабочей области…"
+            "value": "Найти в проекте…"
           }
         }
       }
@@ -4395,13 +4380,12 @@
         }
       }
     },
-    "It stops running. Its workspace and the tabs of its runs stay.": {
-      "extractionState": "manual",
+    "It stops running. Its chat and the tabs of its runs stay.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Она больше не запустится. Её воркспейс и вкладки прогонов останутся."
+            "value": "Она больше не запустится. Её чат и вкладки прогонов останутся."
           }
         }
       }
@@ -5517,12 +5501,12 @@
         }
       }
     },
-    "New Workspace": {
+    "New Chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новая рабочая область"
+            "value": "Новый чат"
           }
         }
       }
@@ -5567,12 +5551,12 @@
         }
       }
     },
-    "New workspace (⌘N)": {
+    "New chat (⌘N)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новая рабочая область (⌘N)"
+            "value": "Новый чат (⌘N)"
           }
         }
       }
@@ -5629,13 +5613,12 @@
         }
       }
     },
-    "Next Workspace": {
-      "extractionState": "manual",
+    "Next Chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Следующая рабочая область"
+            "value": "Следующий чат"
           }
         }
       }
@@ -5721,42 +5704,42 @@
         }
       }
     },
-    "No agent in this workspace": {
+    "No agent on this screen": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В этой рабочей области нет агента"
+            "value": "На этом экране нет агента"
           }
         }
       }
     },
-    "No agent in this workspace — the element details were copied to the clipboard.": {
+    "No agent on this screen — the element details were copied to the clipboard.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В этой рабочей области нет агента — данные элемента скопированы в буфер обмена."
+            "value": "На этом экране нет агента — данные элемента скопированы в буфер обмена."
           }
         }
       }
     },
-    "No agent in this workspace. Start one with ⌥⌘T, then ask again.": {
+    "No agent on this screen. Start one with ⌥⌘T, then ask again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В этой рабочей области нет агента. Запустите его (⌥⌘T) и попросите снова."
+            "value": "На этом экране нет агента. Запустите его (⌥⌘T) и попросите снова."
           }
         }
       }
     },
-    "No agent in this workspace. Start one with ⌥⌘T, then send again.": {
+    "No agent on this screen. Start one with ⌥⌘T, then send again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В этой рабочей области нет агента. Запустите его (⌥⌘T) и отправьте снова."
+            "value": "На этом экране нет агента. Запустите его (⌥⌘T) и отправьте снова."
           }
         }
       }
@@ -5932,12 +5915,12 @@
         }
       }
     },
-    "No workspaces match %@.": {
+    "No chats match %@.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Нет рабочих областей по запросу %@."
+            "value": "Нет чатов по запросу %@."
           }
         }
       }
@@ -6315,13 +6298,12 @@
         }
       }
     },
-    "Open Workspace In": {
-      "extractionState": "manual",
+    "Open Folder In": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открыть рабочую область в"
+            "value": "Открыть папку в"
           }
         }
       }
@@ -6346,12 +6328,12 @@
         }
       }
     },
-    "Open a workspace to run it there — the command is on the clipboard: %@": {
+    "Open a chat to run it there — the command is on the clipboard: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Откройте рабочую область, чтобы запустить там — команда в буфере обмена: %@"
+            "value": "Откройте чат, чтобы запустить там — команда в буфере обмена: %@"
           }
         }
       }
@@ -6473,13 +6455,12 @@
         }
       }
     },
-    "Panes, tabs, workspaces, the sidebar and inspector: the commands of the window.": {
-      "extractionState": "manual",
+    "Panes, tabs, chats, the sidebar and inspector: the commands of the window.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Панели, вкладки, рабочие области, боковая панель и инспектор: команды окна."
+            "value": "Панели, вкладки, чаты, боковая панель и инспектор: команды окна."
           }
         }
       }
@@ -6546,12 +6527,12 @@
         }
       }
     },
-    "Pick a workspace in the sidebar, or press ⌘N for a new one — a clean desk in the project for one task and its agents.": {
+    "Pick a chat in the sidebar, or press ⌘N for a new one: a screen of its own for one task.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите рабочую область в боковой панели или нажмите ⌘N, чтобы создать новую — чистый стол в проекте для одной задачи и её агентов."
+            "value": "Выберите чат в боковой панели или нажмите ⌘N, чтобы начать новый: у каждой задачи свой экран."
           }
         }
       }
@@ -6658,13 +6639,12 @@
         }
       }
     },
-    "Previous Workspace": {
-      "extractionState": "manual",
+    "Previous Chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Предыдущая рабочая область"
+            "value": "Предыдущий чат"
           }
         }
       }
@@ -7497,12 +7477,12 @@
         }
       }
     },
-    "Running agent sessions end. Workspaces, history and settings are kept.": {
+    "Running agent sessions end. Projects, history and settings are kept.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сессии агентов завершатся. Рабочие области, история и настройки сохранятся."
+            "value": "Сессии агентов завершатся. Проекты, история и настройки сохранятся."
           }
         }
       }
@@ -7527,12 +7507,12 @@
         }
       }
     },
-    "Running in This Workspace": {
+    "Running on This Screen": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Запущено в этой рабочей области"
+            "value": "Запущено на этом экране"
           }
         }
       }
@@ -7567,24 +7547,22 @@
         }
       }
     },
-    "Runs in a workspace of its own, made at its first run": {
-      "extractionState": "manual",
+    "Runs in a chat of its own, made at its first run": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Идёт в своём воркспейсе — он появится при первом прогоне"
+            "value": "Идёт в своём чате — он появится при первом прогоне"
           }
         }
       }
     },
-    "Runs in its workspace “%@”": {
-      "extractionState": "manual",
+    "Runs in its chat “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Идёт в своём воркспейсе «%@»"
+            "value": "Идёт в своём чате «%@»"
           }
         }
       }
@@ -7751,12 +7729,12 @@
         }
       }
     },
-    "Select a workspace": {
+    "Select a chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите рабочую область"
+            "value": "Выберите чат"
           }
         }
       }
@@ -7851,12 +7829,12 @@
         }
       }
     },
-    "Servers you start in this workspace's terminals and agents show up here. Or type an address above.": {
+    "Servers you start in this screen's terminals and agents show up here. Or type an address above.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Здесь появятся серверы, запущенные в терминалах и агентах этой рабочей области. Или введите адрес выше."
+            "value": "Здесь появятся серверы, запущенные в терминалах и агентах этого экрана. Или введите адрес выше."
           }
         }
       }
@@ -8718,13 +8696,12 @@
         }
       }
     },
-    "Switch Workspace": {
-      "extractionState": "manual",
+    "Switch Chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сменить рабочую область"
+            "value": "Сменить чат"
           }
         }
       }
@@ -9939,122 +9916,102 @@
         }
       }
     },
-    "Workspace": {
-      "extractionState": "manual",
+    "Chat": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область"
+            "value": "Чат"
           }
         }
       }
     },
-    "Workspace 1": {
-      "extractionState": "manual",
+    "Chat 1": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 1"
+            "value": "Чат 1"
           }
         }
       }
     },
-    "Workspace 2": {
-      "extractionState": "manual",
+    "Chat 2": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 2"
+            "value": "Чат 2"
           }
         }
       }
     },
-    "Workspace 3": {
-      "extractionState": "manual",
+    "Chat 3": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 3"
+            "value": "Чат 3"
           }
         }
       }
     },
-    "Workspace 4": {
-      "extractionState": "manual",
+    "Chat 4": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 4"
+            "value": "Чат 4"
           }
         }
       }
     },
-    "Workspace 5": {
-      "extractionState": "manual",
+    "Chat 5": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 5"
+            "value": "Чат 5"
           }
         }
       }
     },
-    "Workspace 6": {
-      "extractionState": "manual",
+    "Chat 6": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 6"
+            "value": "Чат 6"
           }
         }
       }
     },
-    "Workspace 7": {
-      "extractionState": "manual",
+    "Chat 7": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 7"
+            "value": "Чат 7"
           }
         }
       }
     },
-    "Workspace 8": {
-      "extractionState": "manual",
+    "Chat 8": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 8"
+            "value": "Чат 8"
           }
         }
       }
     },
-    "Workspace 9": {
-      "extractionState": "manual",
+    "Chat 9": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочая область 9"
-          }
-        }
-      }
-    },
-    "Workspace or agent": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Рабочая область или агент"
+            "value": "Чат 9"
           }
         }
       }
@@ -10433,12 +10390,12 @@
         }
       }
     },
-    "“%@” archived. Window › Archived Workspaces brings it back.": {
+    "“%@” archived. Window › Archived Chats brings it back.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "«%@» в архиве. Вернуть — Окно › Архивные рабочие области."
+            "value": "«%@» в архиве. Вернуть — Окно › Архивные чаты."
           }
         }
       }
@@ -11063,16 +11020,15 @@
       },
       "extractionState": "manual"
     },
-    "Workspaces": {
+    "Chats": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочие области"
+            "value": "Чаты"
           }
         }
-      },
-      "extractionState": "manual"
+      }
     },
     "Tabs": {
       "localizations": {
@@ -11385,12 +11341,12 @@
         }
       }
     },
-    "Each project keeps one workspace.": {
+    "Each project keeps one chat.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В каждом проекте остаётся одна рабочая область."
+            "value": "В каждом проекте остаётся один чат."
           }
         }
       }
@@ -12096,12 +12052,12 @@
         }
       }
     },
-    "Search workspaces, agents, tabs, files and commands": {
+    "Search chats, tabs, files and commands": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочие области, агенты, вкладки, файлы и команды"
+            "value": "Чаты, вкладки, файлы и команды"
           }
         }
       }
@@ -12872,12 +12828,12 @@
         }
       }
     },
-    "Open a workspace to start %@ there.": {
+    "Open a chat to start %@ there.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Откройте рабочее пространство, чтобы запустить в нём %@."
+            "value": "Откройте чат, чтобы запустить в нём %@."
           }
         }
       }
@@ -13535,16 +13491,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переименовать проект"
-          }
-        }
-      }
-    },
-    "Rename Workspace": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Переименовать рабочую область"
           }
         }
       }
@@ -14255,16 +14201,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл на диске больше не текст (другая кодировка или двоичный). «Оставить мою» запишет вашу версию поверх него."
-          }
-        }
-      }
-    },
-    "Workspace %lld": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Рабочая область %lld"
           }
         }
       }

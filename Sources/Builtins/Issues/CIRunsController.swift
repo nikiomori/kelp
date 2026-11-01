@@ -298,7 +298,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func askAgent() {
         guard let w = worktree, let j = shownJob else { return }
         guard FileActions(app).targetAgent != nil else {
-            Banner.show(String(localized: "No agent in this workspace. Start one with ⌥⌘T, then ask again."), style: .error)
+            Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)
             return
         }
         GitFix(app).send("fixCI", worktree: w, vars: ["check": j.job.name, "error": shownLog])

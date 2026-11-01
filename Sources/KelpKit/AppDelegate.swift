@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             i.image = app.catalog.icon(s.agent, size: 16)
         }
         if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "New Workspace")) { [app] in NSApp.activate(); app.workbench.newWorkspace() }
+        m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newWorkspace() }
         return m
     }
 

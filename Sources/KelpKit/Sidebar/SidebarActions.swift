@@ -77,7 +77,7 @@ extension SidebarController {
             }
             // Standing for its only workspace: that workspace's items first, then the project's.
             if let w = n.workspace { workspaceMenu(menu, w, onProject: true); menu.addItem(.separator()) }
-            menu.add(String(localized: "New Workspace")) { [weak self] in self?.newWorkspace(id) }
+            menu.add(String(localized: "New Chat")) { [weak self] in self?.newWorkspace(id) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             if n.workspace == nil {
@@ -138,8 +138,8 @@ extension SidebarController {
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
     }
 
-    /// A workspace's items, on its row or on the row that stands for it: its project's (`onProject`: its Rename says whose)
-    /// or its only agent's (`onAgent`: that row's Rename and mute are the agent's).
+    /// A workspace's items, on its row or on the row that stands for it, its project's (`onProject`) or its only agent's
+    /// (`onAgent`), where Rename and mute are that row's own.
     private func workspaceMenu(_ menu: NSMenu, _ id: String, onProject: Bool = false, onAgent: Bool = false) {
         let app = self.app, m = app
         guard let w = m.worktree(id) else { return }
@@ -148,7 +148,7 @@ extension SidebarController {
             guard let self else { return }
             self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
         }
-        if !onAgent { menu.add(onProject ? String(localized: "Rename Workspace") : String(localized: "Rename")) { [weak self] in self?.startRename(id) } }
+        if !onProject && !onAgent { menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) } }
         menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)]) }
         menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(w.path, forType: .string) }
         WorkspaceActions.addOpenIn(to: menu, path: w.path)
@@ -160,13 +160,13 @@ extension SidebarController {
             let more = m.worktrees.filter { $0.repoId == w.repoId && $0.path == w.path && !$0.archived }.count > 1
             let archive = menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
             archive.isEnabled = more
-            let close = menu.add(String(localized: "Close Workspace")) { WorkspaceActions(app).close(w) }
+            let close = menu.add(String(localized: "Close All Tabs")) { WorkspaceActions(app).close(w) }
             close.isAlternate = true
             close.keyEquivalentModifierMask = .option
             close.isEnabled = more
         } else {
             menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
-            menu.add(String(localized: "Delete Workspace & Branch…")) { WorkspaceActions(app).delete(w) }
+            menu.add(String(localized: "Delete Folder & Branch…")) { WorkspaceActions(app).delete(w) }
         }
     }
 }
@@ -192,7 +192,7 @@ extension SidebarController {
                 for id in agents where m.session(id)?.unread == true { Task { await m.call(SessionMarkRead(id: id)) } }
             }
         }
-        if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Workspaces…")) { WorkspaceActions(app).close(ws) } }
+        if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Chats…")) { WorkspaceActions(app).close(ws) } }
         if !picked.isEmpty {
             menu.addItem(.separator())
             menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) { AgentActions(app).stop(Array(Set(picked))) }

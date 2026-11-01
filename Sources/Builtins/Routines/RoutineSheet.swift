@@ -42,7 +42,7 @@ struct RoutineFormView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
             Text(editing ? String(localized: "Edit Routine") : String(localized: "New Routine")).font(.headline)
-            Text("An agent on a schedule: at its time it starts with this prompt, in a workspace of its own.")
+            Text("An agent on a schedule: at its time it starts with this prompt, in a chat of its own.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             fields
             HStack {

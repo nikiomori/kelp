@@ -301,7 +301,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             words = [:]
             files.reloadData()
             table.reloadData()
-            status.stringValue = String(localized: "No agent in this workspace"); return
+            status.stringValue = String(localized: "No agent on this screen"); return
         }
         let asked = asking, request = diffRequest()
         basis = request.basis(app.git[wid])

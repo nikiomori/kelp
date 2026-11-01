@@ -6,7 +6,7 @@ import Core
 /// agent is that agent's row: a heading shows only when a screen holds two. What needs you is in the line over the list (`Inbox`).
 /// The raw values are the menu's English titles (and what UserDefaults keeps).
 public enum SidebarFilter: String, Sendable, CaseIterable {
-    case all = "All Workspaces", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
+    case all = "All Chats", working = "Working", needsYou = "Needs You", withPR = "With a Pull Request"
 }
 
 public struct SidebarItem: Equatable, Sendable {

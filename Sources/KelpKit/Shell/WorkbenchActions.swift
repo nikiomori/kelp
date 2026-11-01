@@ -300,7 +300,7 @@ package struct WorkspaceActions {
             if commits > 0 { lost.append(String(localized: "\(commits) commits on this branch aren't on any other branch or remote and will be lost.")) }
             a.informativeText = lost.isEmpty
                 ? String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop.") : lost.joined(separator: " ")
-            a.addButton(withTitle: lost.isEmpty ? String(localized: "Delete Workspace and Branch") : String(localized: "Delete and Lose Changes"))
+            a.addButton(withTitle: lost.isEmpty ? String(localized: "Delete Folder and Branch") : String(localized: "Delete and Lose Changes"))
                 .hasDestructiveAction = true
             a.addButton(withTitle: String(localized: "Cancel")); a.alertStyle = lost.isEmpty ? .warning : .critical
             guard await runSheet(a) == .alertFirstButtonReturn, await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
@@ -320,7 +320,7 @@ package struct WorkspaceActions {
             guard !clean.isEmpty else {
                 a.messageText = String(localized: "No clean worktrees in “\(r.name)”")
                 a.informativeText = all.isEmpty ? String(localized: "The project has no other git worktrees.")
-                    : String(localized: "Each of its \(all.count) worktrees has uncommitted changes, is locked or is a Kelp workspace.")
+                    : String(localized: "Each of its \(all.count) worktrees has uncommitted changes, is locked or is in use in Kelp.")
                 _ = await runSheet(a); return
             }
             let size = WorktreeSizes.size(clean.reduce(0) { $0 + $1.bytes })
@@ -402,10 +402,11 @@ package struct WorkspaceActions {
         guard !closing.isEmpty else { NSSound.beep(); return }
         let running = m.sessions.filter { s in s.worktreeId.map(closing.contains) == true && s.status != .exited && s.status != .hibernated }
         let a = NSAlert()
-        a.messageText = closing.count == 1 ? String(localized: "Close 1 workspace?") : String(localized: "Close \(closing.count) workspaces?")
+        let name = ws.first { $0.id == closing[0] }?.displayName ?? ""
+        a.messageText = closing.count == 1 ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) chats?")
         a.informativeText = (running.isEmpty ? "" : running.count == 1 ? String(localized: "1 running session stops. ")
             : String(localized: "\(running.count) running sessions stop. "))
-            + String(localized: "Files in the projects are not touched.") + (plan.keptSome ? " " + String(localized: "Each project keeps one workspace.") : "")
+            + String(localized: "Files in the projects are not touched.") + (plan.keptSome ? " " + String(localized: "Each project keeps one chat.") : "")
         let close = a.addButton(withTitle: running.isEmpty ? String(localized: "Close")
             : running.count == 1 ? String(localized: "Stop 1 Session and Close") : String(localized: "Stop \(running.count) Sessions and Close"))
         close.hasDestructiveAction = !running.isEmpty; a.addButton(withTitle: String(localized: "Cancel"))
@@ -427,7 +428,7 @@ package struct WorkspaceActions {
                let other = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id && !$0.archived }) { app.workbench.show(workspace: other.id) }
             if await app.call(WorktreeArchive(id: w.id)) != nil {
                 await app.refresh()
-                Banner.show(String(localized: "“\(w.displayName)” archived. Window › Archived Workspaces brings it back."))
+                Banner.show(String(localized: "“\(w.displayName)” archived. Window › Archived Chats brings it back."))
             }
         }
     }
@@ -477,7 +478,7 @@ package struct FileActions {
     /// Types the reference into the agent's prompt without pressing Return, and shows the agent.
     package func sendToAgent(_ path: String, lines: ClosedRange<Int>? = nil) {
         guard let s = targetAgent else {
-            Banner.show(String(localized: "No agent in this workspace. Start one with ⌥⌘T, then send again."), style: .error)
+            Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
             return
         }
         Task { await app.call(SessionSend(id: s.id, text: reference(path, lines: lines) + " ", enter: false)) }

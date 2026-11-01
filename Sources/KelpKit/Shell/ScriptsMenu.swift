@@ -164,7 +164,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     private func askTrust(_ info: ScriptsList.Result) async -> Bool {
         let a = NSAlert()
         a.messageText = String(localized: "Run this project's commands?")
-        a.informativeText = String(localized: "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in the workspace's folder. ")
+        a.informativeText = String(localized: "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in this chat's folder. ")
             + String(localized: "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
         a.accessoryView = Self.trustText(info)
         a.addButton(withTitle: String(localized: "Trust and Run")); a.addButton(withTitle: String(localized: "Cancel"))

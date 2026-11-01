@@ -288,13 +288,13 @@ final class WelcomeView: NSView {
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "folder.badge.plus"))
         icon.symbolConfiguration = .init(pointSize: 40, weight: .light); icon.contentTintColor = .tertiaryLabelColor
-        let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a workspace") : String(localized: "Welcome to Kelp"))
+        let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos
-            ? String(localized: "Pick a workspace in the sidebar, or press ⌘N for a new one — a clean desk in the project for one task and its agents.")
-            : String(localized: "Add a project folder. Each task gets its own workspace: agents, terminals and files side by side."))
+            ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one: a screen of its own for one task.")
+            : String(localized: "Add a project folder. Each chat gets its own screen: the agent, terminals and files side by side."))
         body.alignment = .center; body.textColor = .secondaryLabelColor
-        let button = ClosureButton(title: hasRepos ? String(localized: "New Workspace") : String(localized: "Add Project…")) { [app] in
+        let button = ClosureButton(title: hasRepos ? String(localized: "New Chat") : String(localized: "Add Project…")) { [app] in
             hasRepos ? app.workbench.newWorkspace() : app.workbench.addProject()
         }
         button.bezelStyle = .push

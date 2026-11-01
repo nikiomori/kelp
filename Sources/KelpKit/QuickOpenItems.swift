@@ -18,9 +18,11 @@ extension QuickOpen {
                                       image: TabURI.scheme(uri) == "file" ? app.fileIcons.image(title) : nil))
                 }
             }
-            for w in app.worktrees where !w.archived {
+            // An agent alone on its screen is that screen: its row below goes there.
+            func agents(_ w: Worktree) -> Int { app.sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" }.count }
+            for w in app.worktrees where !w.archived && agents(w) != 1 {
                 let repo = app.projectName(w.repoId) ?? ""
-                items.append(Item(kind: "Workspace", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
+                items.append(Item(kind: "Chat", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
                                   action: { app.workbench.show(workspace: w.id) }))
             }
             for s in app.sessions where s.status != .exited {
@@ -115,7 +117,7 @@ extension QuickOpen {
         var seen: Set<String> = []   // each workspace once, at its last visit
         for id in app.workbench.history.visits.reversed() where id != app.workbench.workspaceId && seen.insert(id).inserted {
             guard let w = m.worktree(id) else { continue }
-            out.append(Item(kind: "Workspace", icon: "arrow.triangle.branch", title: w.displayName,
+            out.append(Item(kind: "Chat", icon: "arrow.triangle.branch", title: w.displayName,
                             detail: m.projectName(w.repoId) ?? "", action: { app.workbench.show(workspace: w.id) }))
             if out.count >= 10 { break }
         }

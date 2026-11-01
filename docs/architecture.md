@@ -8,10 +8,10 @@ contributions, the command palette and settings.
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
 │ Project       + ││ [Claude ●][Terminal][app.ts][Browser]    ││ ▤  ⎇  ☰  …      │
-│  ▾ Workspace 1  ││ ┌──────────────────┬──────────────────┐  ││ Files / Source  │
+│  ▾ Group        ││ ┌──────────────────┬──────────────────┐  ││ Files / Source  │
 │     ✻ Claude ⚙  ││ │ agent terminal   │ file / browser / │  ││ Control / Issues│
 │     ✻ Codex ?   ││ │                  │ diff / ext view  │  ││ + extension     │
-│  ▸ Workspace 2 ✓││ └──────────────────┴──────────────────┘  ││   panels        │
+│    Chat ✓       ││ └──────────────────┴──────────────────┘  ││   panels        │
 │ Limits          ││   groups split freely, tabs of any kind  ││                 │
 └─────────────────┘└──────────────────────────────────────────┘└─────────────────┘
 ```
@@ -19,9 +19,11 @@ contributions, the command palette and settings.
 ## Concepts
 - **Project**: a folder, usually a git repository; one added without git still has files, terminals and agents (`repo.*` RPCs).
 - **Workspace**: a desk in the project's folder — its own tabs, splits and agents, nothing on disk
-  (`workspace.create`, stored as worktree records whose path is the repo path). "+" opens a new one instantly,
+  (`workspace.create`, stored as worktree records whose path is the repo path). ⌘N opens a new one instantly,
   named "Workspace N" until its first agent prompt names it; several desks share the folder.
   Closing one ends its agents and leaves the files. (Workspaces from older versions may be git worktrees.)
+  The word stays in the code, RPCs and CLI. In the window one is a screen: an agent alone on it is a row called a
+  chat, two or more get a heading, and closing the last tab closes the row.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:
