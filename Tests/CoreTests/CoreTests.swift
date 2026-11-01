@@ -380,3 +380,19 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let r = Routine(name: "r", repoId: "p", agent: "a", prompt: "x", every: .daily, time: 9 * 60)
     #expect(try r.times(after: at("2026-10-26 08:00"), through: at("2026-10-29 09:00"), calendar: cal).count == 4)
 }
+
+@Test func theAgentBoardPutsWhoNeedsYouFirst() {
+    let repo = Repo(id: "r", name: "kelp", path: "/p"), w = Worktree(id: "w", repoId: "r", branch: "main", path: "/p")
+    func agent(_ id: String, _ status: AgentStatus, at t: Double, kind: String? = "claude") -> Session {
+        Session(id: id, worktreeId: "w", cwd: "/p", command: "", agent: kind, status: status, createdAt: Date(timeIntervalSince1970: t), title: id)
+    }
+    var child = agent("child", .waiting, at: 3)
+    child.parent = "first"; child.summary = "Allow rm?\u{1B}]52;c;x\u{7}"
+    let all = [agent("first", .working, at: 1), agent("second", .working, at: 2), child, agent("gone", .exited, at: 4),
+               agent("paused", .hibernated, at: 5), agent("term", .working, at: 6, kind: "shell"), agent("done", .done, at: 7)]
+    let rows = AgentBoard.rows(all, worktrees: [w], repos: [repo])
+    #expect(rows.map(\.id) == ["child", "first", "second", "done"])
+    #expect(rows[0].title == "first › child")
+    #expect(rows[0].detail == "Needs you · kelp · Allow rm? ]52;c;x ", "an escape in what an agent printed isn't sent to the terminal")
+    #expect(AgentBoard.paused(all) == 1)
+}

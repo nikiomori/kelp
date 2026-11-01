@@ -133,6 +133,16 @@ drag Kelp to Applications; it updates itself (Kelp › Check for Updates…). Ke
 Login Items & Extensions: that's what lets agents outlast the app. Kelp's terminals have `kelp` on their PATH; for
 other terminals: `ln -s /Applications/Kelp.app/Contents/MacOS/kelp /usr/local/bin/kelp`.
 
+### From your phone
+
+Agents go on with Kelp's window closed, and `kelp agents` shows them in any terminal: who needs you comes first, `y` or
+`n` answers a permission request, Enter opens the agent and Ctrl+\ comes back. To reach it from a phone:
+
+1. Link `kelp` as above and turn on System Settings › General › Sharing › Remote Login.
+2. Keep Kelp allowed in Login Items, and the Mac awake while you're away from it.
+3. Connect with any SSH app, then run `kelp agents`. [Tailscale](https://tailscale.com) reaches the Mac from outside your
+   network without opening a port.
+
 **Kelp Beta** is what's coming, ahead of a release (Routines, for one): [`Kelp-Beta.dmg`](https://github.com/nikiomori/kelp/releases/download/beta/Kelp-Beta.dmg).
 It installs beside Kelp as an app of its own (its settings, projects and agents in `~/.kelp-beta`) and updates itself
 with each new beta. It can break; Kelp is unaffected.

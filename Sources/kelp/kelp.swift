@@ -22,7 +22,9 @@ usage: kelp <command>
   comment add <file> <line[-line]> <text> | send <session>
   session restart|rename <id> [title]|handoff <id> [--agent a]
   terminal context <session>          bounded transcript (for pasting elsewhere)
-  attach <session>                     make this terminal the session's terminal (detach: close it)
+  attach <session> [--detach]          make this terminal the session's terminal (detach: close it, or Ctrl+\\ with --detach)
+  agents                               who runs and who needs you, live, for a narrow terminal: Enter opens one, Ctrl+\\ comes
+                                       back, y/n answers a permission request. Printed once when it isn't a terminal
   hook <working|waiting|done>          (called by agent hooks inside a session)
   report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
                                        inside a session: what you're doing, on your row and tab
@@ -137,8 +139,9 @@ func plist() -> String {
                 _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["unload", u.path])
                 try? FileManager.default.removeItem(at: u)
             case "attach":
+                let detachKey = has("--detach")
                 guard let id = args.first else { fail("kelp attach <session>") }
-                Attach.run(id)
+                Attach.run(id, detachKey: detachKey)
             case "hook":   // inside an agent session: report status to the daemon
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else { fail("hook: needs KELP_SESSION and an event") }
                 var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)
@@ -170,6 +173,7 @@ func plist() -> String {
         switch cmd {
         case "status", "repo", "worktree": try await projects(cmd, sub, c)
         case "session", "terminal", "wait", "why", "report": try await sessions(cmd, sub, c)
+        case "agents": try await agents(c)
         case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, c)
         case "github", "linear": try await forge(cmd, sub, c)
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)

@@ -4,7 +4,9 @@ import Core
 /// `kelp attach <session>`: this terminal becomes the session's terminal (like `tmux attach`).
 /// The libghostty view runs it, so Ghostty renders and the daemon keeps owning the process.
 enum Attach {
-    static func run(_ sessionId: String) -> Never {
+    /// `detachKey`: Ctrl+\ ends it, for a terminal with no tab to close. Its other spelling is what a terminal sends to an
+    /// agent that asked for the kitty keyboard.
+    static func run(_ sessionId: String, detachKey: Bool = false) -> Never {
         let socket = ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path
         guard let fd = try? Unix.connect(socket, patience: 2) else { fail("kelp attach: daemon not reachable at \(socket)") }
         var ws = winsize()   // a paused agent wakes at this size, so its first screen isn't drawn for another width
@@ -43,12 +45,19 @@ enum Attach {
         }
         winch.resume()
 
+        let original = saved
         Thread.detachNewThread {   // keyboard → session
             var buf = [UInt8](repeating: 0, count: 16384)
             while true {
                 let n = read(0, &buf, buf.count)
                 if n <= 0 { break }
-                if !Unix.writeAll(fd, Data(buf[0..<n])) { break }
+                let keys = Data(buf[0..<n])
+                if detachKey, keys.contains(0x1C) || keys.range(of: Data("\u{1B}[92;5".utf8)) != nil {
+                    var s = original
+                    if isTTY { tcsetattr(0, TCSANOW, &s) }
+                    exit(0)
+                }
+                if !Unix.writeAll(fd, keys) { break }
             }
         }
         var buf = [UInt8](repeating: 0, count: 65536)   // session → screen
