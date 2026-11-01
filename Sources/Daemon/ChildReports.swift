@@ -66,8 +66,8 @@ extension Sessions {
     }
 
     private func reportBody(_ s: Session) -> String {
-        // What it printed, without the blank lines a redrawn screen leaves. Limit: an agent with no transcript to read (Codex
-        // and the rest) reports this, spinner frames and all; its own log, once Kelp reads those, would be cleaner.
+        // What it printed, without the blank lines a redrawn screen leaves. Limit: an agent whose replies Kelp can't read
+        // reports this, spinner frames and all.
         func tail() -> String {
             let text = Log.session.attempt("reading what \(s.id) printed") { try printed(s.id, bytes: 1500) } ?? ""
             return text.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.suffix(30).joined(separator: "\n")
@@ -84,7 +84,7 @@ extension Sessions {
     private func finalReply(_ s: Session) -> String? {
         var reply: String?
         for _ in 0..<8 {
-            reply = existing(s.id).flatMap(agentUsage.transcript(of:)).flatMap(AgentUsage.lastReply(transcript:))
+            reply = existing(s.id).flatMap(agentUsage.lastReply(of:))
             if let reply, reports.isNewReply(reply, of: s.id) { return reply }
             Thread.sleep(forTimeInterval: 0.5)
         }

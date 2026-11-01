@@ -182,8 +182,7 @@ extension SessionTurn: Handled {
 
 extension SessionLastReply: Handled {
     func handle(_ sessions: Sessions) throws -> String? {
-        guard let t = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)) else { return nil }
-        return AgentUsage.lastReply(transcript: t)
+        sessions.existing(id).flatMap(sessions.agentUsage.lastReply(of:))
     }
 }
 

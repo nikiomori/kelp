@@ -161,9 +161,9 @@ final class Routines: Sendable {
         return true
     }
 
-    /// The first line of the agent's last reply (Claude Code), else what its row says.
+    /// The first line of the agent's last reply, else what its row says.
     private func reply(_ s: Session) -> String {
-        let text = sessions.existing(s.id).flatMap(sessions.agentUsage.transcript(of:)).flatMap(AgentUsage.lastReply(transcript:))
+        let text = sessions.existing(s.id).flatMap(sessions.agentUsage.lastReply(of:))
         let line = text?.split(whereSeparator: \.isNewline).first.map { $0.replacingOccurrences(of: "`", with: "").trimmingCharacters(in: .whitespaces) }
         return String((line ?? s.summary).prefix(200))
     }

@@ -101,6 +101,13 @@ final class AgentUsage: Sendable {
             .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    /// What its last turn ended with, if the agent keeps that somewhere Kelp can read.
+    func lastReply(of ls: LiveSession) -> String? {
+        let s = ls.snapshot
+        guard s.agent == "codex" else { return transcript(of: ls).flatMap(Self.lastReply(transcript:)) }
+        return agentRoots().codex.lazy.compactMap { CodexHistory.lastReply(cwd: s.cwd, since: s.createdAt, root: $0) }.first
+    }
+
     /// Claude Code's window for `model`. Transcripts don't name it: 1M for the models that have it natively (Claude Code's
     /// catalog says `native_1m`), else 1M once the model was seen past 200k tokens here (an older model with the [1m] opt-in;
     /// in the newest transcripts, then in any reading), else 200k.

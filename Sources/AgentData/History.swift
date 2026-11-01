@@ -82,6 +82,33 @@ public enum CodexHistory {
         rollouts(root).compactMap(parse).sorted { $0.updated > $1.updated }
     }
 
+    /// What the conversation begun in `cwd` since `since` ended its last turn with. Codex tells Kelp no conversation's id, so
+    /// it's the newest there with a finished turn.
+    /// Limit: two Codex chats begun in one folder can read each other's, and a resumed one, begun before `since`, reads none.
+    public static func lastReply(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot) -> String? {
+        let real = Paths.real(cwd) ?? cwd
+        for url in rollouts(root: root, since: since, now: now) {
+            guard let c = parse(url), (Paths.real(c.cwd) ?? c.cwd) == real, let lines = JSONL.headAndTail(url)?.lines else { continue }
+            for line in lines.reversed() {
+                guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete" else { continue }
+                if let text = (p["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return text }
+                break   // it ended with nothing to say (cut short)
+            }
+        }
+        return nil
+    }
+
+    /// Those begun since `since`, newest first: a file's name says when, in local time, like its folder's.
+    private static func rollouts(root: URL, since: Date, now: Date) -> [URL] {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyy/MM/dd"
+        let found = Set([since, now].map(stamp.string)).flatMap { rollouts(root.appendingPathComponent($0)) }
+        stamp.dateFormat = "yyyy-MM-dd'T'HH-mm-ss"
+        let first = "rollout-" + stamp.string(from: since)
+        return found.filter { $0.lastPathComponent >= first }.sorted { $0.lastPathComponent > $1.lastPathComponent }
+    }
+
     static func rollouts(_ root: URL) -> [URL] {
         let all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey])?.allObjects as? [URL] ?? []
         return all.filter { $0.lastPathComponent.hasPrefix("rollout-") && $0.pathExtension == "jsonl" }

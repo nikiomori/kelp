@@ -136,6 +136,36 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect(Pricing.cost(model: "llama-3", tokens: m) == 0)
 }
 
+@Test func aCodexChatsLastReplyIsItsFolders() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let start = Date(), f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy/MM/dd"
+    let day = root.appendingPathComponent(f.string(from: start))
+    f.dateFormat = "yyyy-MM-dd'T'HH-mm-ss"
+    try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)
+    func rollout(after seconds: TimeInterval, cwd: String, replies: [String?]) throws {
+        func line(_ o: [String: Any]) throws -> String { String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self) }
+        let meta: [String: Any] = ["id": UUID().uuidString, "cwd": cwd]
+        var lines = [try line(["type": "session_meta", "payload": meta])]
+        for r in replies {
+            let said: Any = r ?? NSNull()
+            let payload: [String: Any] = ["type": "task_complete", "last_agent_message": said]
+            lines.append(try line(["type": "event_msg", "payload": payload]))
+        }
+        let name = "rollout-\(f.string(from: start.addingTimeInterval(seconds)))-\(UUID().uuidString).jsonl"
+        try lines.joined(separator: "\n").write(to: day.appendingPathComponent(name), atomically: true, encoding: .utf8)
+    }
+    try rollout(after: -5, cwd: "/work/a", replies: ["from before it started"])
+    try rollout(after: 0, cwd: "/work/a", replies: ["first", "second"])
+    try rollout(after: 1, cwd: "/work/b", replies: ["another folder"])
+    #expect(CodexHistory.lastReply(cwd: "/work/a", since: start, root: root) == "second")
+    try rollout(after: 2, cwd: "/work/a", replies: [nil])
+    #expect(CodexHistory.lastReply(cwd: "/work/a", since: start, root: root) == "second", "a turn cut short says nothing")
+    #expect(CodexHistory.lastReply(cwd: "/work/none", since: start, root: root) == nil)
+}
+
 @Test func codexSessionsAndLimits() throws {
     let root = tmp()
     let id1 = "019f47f3-8f9b-7823-98a3-9195ae68d901", id2 = "019f47f3-8f9b-7823-98a3-9195ae68d902"

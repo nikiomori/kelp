@@ -227,7 +227,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
               sessionIdFlag: "--session-id", resumeIdFlag: "--resume"),
         // Its conversation in its own process, which ends with the tab: in Codex's shared background server (0.157 on) it
         // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
-        .init(id: "codex", name: "Codex", command: "codex", args: ["--no-daemon"], modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
+        // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
+        .init(id: "codex", name: "Codex", command: "codex", args: ["--no-daemon", "-c", "check_for_update_on_startup=false"],
+              modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
               effortArgs: ["low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
                            "high": ["-c", "model_reasoning_effort=high"]],
               autoAnswers: [trust], resumeArgs: ["resume", "--last"]),
