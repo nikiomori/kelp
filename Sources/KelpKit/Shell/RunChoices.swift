@@ -209,6 +209,8 @@ extension ScriptsMenu {
         i.show(Self.tinted(symbol, r.running ? color : .secondaryLabelColor))
         i.state = r.current ? .on : .off
         i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
+        // What it runs is the project's file's to say: seen before it's picked, not only on a hover.
+        if #available(macOS 14.4, *) { i.subtitle = String((r.detail ?? r.command).prefix(80)) }
         let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let hidden = r.session.map(isHidden) == true ? [String(localized: "hidden")] : []
         let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : []) + hidden
