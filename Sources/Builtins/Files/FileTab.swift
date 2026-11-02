@@ -123,6 +123,7 @@ final class FileTab: SavableTab {
         lastSaved = text
         known = (f.stamp, text)
         let bar = EditorStatusBar(url: url, text: text)
+        bar.contextMenu = { [app] in EditorStatusBar.menu(app) }
         bar.show(cursor: e.cursor)
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)

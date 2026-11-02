@@ -61,6 +61,7 @@ final class AgentSummary: NSView {
         sheen.layer?.cornerCurve = .continuous
         for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
         capsule.translatesAutoresizingMaskIntoConstraints = false; addSubview(capsule)
+        capsule.contextMenu = { [weak self] in self.map { NeedsYouZone.viewMenu($0.app) } }
         capsule.press = { [weak self] in if self?.asking == true { self?.app.workbench.showNextNeedingAttention() } }
         capsule.look = { [weak self] hovering, pressed in   // only the capsule that goes somewhere answers
             guard let self else { return }
@@ -162,6 +163,8 @@ final class AgentSummary: NSView {
 private final class Pressable: PointerControl {
     var press: () -> Void = {}
     var look: (_ hovering: Bool, _ pressed: Bool) -> Void = { _, _ in }
+    var contextMenu: (() -> NSMenu?)?
     override func clicked() { press() }
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
     override func showPointer(hovering: Bool, pressed: Bool) { look(hovering, pressed) }
 }

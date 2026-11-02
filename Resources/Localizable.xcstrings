@@ -758,12 +758,32 @@
         }
       }
     },
+    "Add Comment…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить комментарий…"
+          }
+        }
+      }
+    },
     "After the Counts": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "После счётчиков"
+          }
+        }
+      }
+    },
+    "Agent Icons": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значки агентов"
           }
         }
       }
@@ -784,6 +804,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Агенты по расписанию, каждый в своей группе."
+          }
+        }
+      }
+    },
+    "Agents Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки агентов…"
           }
         }
       }
@@ -816,6 +846,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Агенты рядом. Нажмите, чтобы показать их вкладками (⌃⌘T)"
+          }
+        }
+      }
+    },
+    "All Agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все агенты"
           }
         }
       }
@@ -1395,6 +1435,16 @@
         }
       }
     },
+    "At the bottom of the sidebar: the fullest limit, or a row for each agent.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внизу сайдбара: самый полный лимит или строка на каждого агента."
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "ru": {
@@ -1595,6 +1645,16 @@
         }
       }
     },
+    "Changes and Pull Requests": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения и pull request’ы"
+          }
+        }
+      }
+    },
     "Choose What to Run (⌃⌘R)": {
       "localizations": {
         "ru": {
@@ -1622,6 +1682,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "CI"
+          }
+        }
+      }
+    },
+    "CI in the Popover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI в поповере"
+          }
+        }
+      }
+    },
+    "CI on the Chip": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI на чипе"
+          }
+        }
+      }
+    },
+    "CI Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки CI…"
           }
         }
       }
@@ -1684,6 +1774,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "заметки Claude Code"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить"
           }
         }
       }
@@ -1817,6 +1917,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать адрес"
+          }
+        }
+      }
+    },
+    "Copy Branch Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать имя ветки"
+          }
+        }
+      }
+    },
+    "Copy Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать команду"
+          }
+        }
+      }
+    },
+    "Copy Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать строку"
           }
         }
       }
@@ -3263,6 +3393,16 @@
         }
       }
     },
+    "Editor Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки редактора…"
+          }
+        }
+      }
+    },
     "Edit…": {
       "extractionState": "manual",
       "localizations": {
@@ -3791,6 +3931,16 @@
         }
       }
     },
+    "Format on Save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Форматировать при сохранении"
+          }
+        }
+      }
+    },
     "Forward": {
       "localizations": {
         "ru": {
@@ -3828,6 +3978,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свободно"
+          }
+        }
+      }
+    },
+    "Fullest Limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Самый полный лимит"
           }
         }
       }
@@ -3995,6 +4155,16 @@
         }
       }
     },
+    "Hash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хэш"
+          }
+        }
+      }
+    },
     "Heading 1": {
       "localizations": {
         "ru": {
@@ -4056,6 +4226,16 @@
         }
       }
     },
+    "Hide Commands Bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть полосу команд"
+          }
+        }
+      }
+    },
     "Hide in Run Menu": {
       "localizations": {
         "ru": {
@@ -4094,6 +4274,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скрыть остальные"
+          }
+        }
+      }
+    },
+    "Hide Plan Limits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть лимиты"
           }
         }
       }
@@ -4343,6 +4533,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Значки инспектора"
+          }
+        }
+      }
+    },
+    "Inspector Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки инспектора…"
           }
         }
       }
@@ -4887,6 +5087,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Лимит:"
+          }
+        }
+      }
+    },
+    "Limits Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки лимитов…"
+          }
+        }
+      }
+    },
+    "Limits to show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Какие лимиты показывать"
           }
         }
       }
@@ -5476,6 +5696,16 @@
         }
       }
     },
+    "Needs You Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки Needs You…"
+          }
+        }
+      }
+    },
     "Needs your input": {
       "localizations": {
         "ru": {
@@ -5834,6 +6064,16 @@
         }
       }
     },
+    "Open File at Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть файл на строке"
+          }
+        }
+      }
+    },
     "Open Page": {
       "localizations": {
         "ru": {
@@ -5850,6 +6090,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть рядом"
+          }
+        }
+      }
+    },
+    "Open Usage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть расход"
           }
         }
       }
@@ -6787,6 +7037,16 @@
         }
       }
     },
+    "Plan limits are hidden. Settings › Agents brings them back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимиты скрыты. Вернуть можно в Настройки › Agents."
+          }
+        }
+      }
+    },
     "Pop Stash": {
       "localizations": {
         "ru": {
@@ -6875,6 +7135,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя профиля (например, work)"
+          }
+        }
+      }
+    },
+    "Project Color": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет проекта"
+          }
+        }
+      }
+    },
+    "Project Order": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок проектов"
           }
         }
       }
@@ -7446,6 +7726,26 @@
         }
       }
     },
+    "Reset Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время сброса"
+          }
+        }
+      }
+    },
+    "Reset time beside a limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время сброса рядом с лимитом"
+          }
+        }
+      }
+    },
     "Reset to Default": {
       "localizations": {
         "ru": {
@@ -7596,6 +7896,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Рутины"
+          }
+        }
+      }
+    },
+    "Row Height": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота строк"
           }
         }
       }
@@ -7838,6 +8148,16 @@
         }
       }
     },
+    "Save Automatically": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранять автоматически"
+          }
+        }
+      }
+    },
     "Saved": {
       "localizations": {
         "ru": {
@@ -7928,6 +8248,16 @@
         }
       }
     },
+    "Second Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вторая строка"
+          }
+        }
+      }
+    },
     "Select All": {
       "localizations": {
         "ru": {
@@ -7995,6 +8325,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отправить комментарии ревью агенту"
+          }
+        }
+      }
+    },
+    "Send Selection to Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить выделенное агенту"
           }
         }
       }
@@ -8406,6 +8746,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Текст боковой панели и инспектора"
+          }
+        }
+      }
+    },
+    "Sidebar Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки сайдбара…"
           }
         }
       }
@@ -9291,12 +9641,32 @@
         }
       }
     },
+    "The button is hidden. Settings › Appearance brings it back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка скрыта. Вернуть можно в Настройки › Appearance."
+          }
+        }
+      }
+    },
     "The checkout and branch %@ are removed. Running agents stop.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Checkout и ветка %@ удаляются. Запущенные агенты остановятся."
+          }
+        }
+      }
+    },
+    "The commands bar is hidden. Settings › Agents brings it back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полоса команд скрыта. Вернуть можно в Настройки › Agents."
           }
         }
       }
@@ -9572,6 +9942,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Доверяйте, только если знаете, откуда этот проект. Kelp спросит снова, если файл изменится."
+          }
+        }
+      }
+    },
+    "Turn Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить"
+          }
+        }
+      }
+    },
+    "Turn On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить"
           }
         }
       }
@@ -9954,6 +10344,16 @@
         }
       }
     },
+    "Warn At": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предупреждать при"
+          }
+        }
+      }
+    },
     "Web Link": {
       "localizations": {
         "ru": {
@@ -10302,6 +10702,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Worktree"
+          }
+        }
+      }
+    },
+    "Wrap Long Lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переносить длинные строки"
           }
         }
       }

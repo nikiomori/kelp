@@ -222,6 +222,8 @@ struct SettingRow: View {
         case "workbench.ci.branchChip":
             let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
             return said[v] ?? v
+        case "usage.limits": return v == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
+        case "usage.alertAt": return v == "off" ? String(localized: "Off") : "\(v)%"
         case "workbench.sidebar.order":
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "agents.onFinish", "agents.onWaiting", "agents.onError":

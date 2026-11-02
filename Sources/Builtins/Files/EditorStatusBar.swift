@@ -11,6 +11,9 @@ final class EditorStatusBar: NSView {
     private let place = NSTextField(labelWithString: "")
     private let format = NSTextField(labelWithString: "")
     private let indent: String
+    /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
+    var contextMenu: (() -> NSMenu)?
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
     /// Off in a Markdown preview: there's no cursor to place, and how the source is indented says nothing.
     var editing = true {
         didSet { place.isHidden = !editing; layoutFormat() }
@@ -51,5 +54,18 @@ final class EditorStatusBar: NSView {
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""
+    }
+}
+
+extension EditorStatusBar {
+    /// How the editor behaves.
+    static func menu(_ app: AppModel) -> NSMenu {
+        let m = NSMenu()
+        m.addToggle("editor.wordWrap", app, title: String(localized: "Wrap Long Lines"))
+        m.addToggle("editor.autoSave", app, title: String(localized: "Save Automatically"))
+        m.addToggle("editor.formatOnSave", app, title: String(localized: "Format on Save"))
+        m.addItem(.separator())
+        m.addSettingsLink(String(localized: "Editor Settings…"), section: "editor", app)
+        return m
     }
 }

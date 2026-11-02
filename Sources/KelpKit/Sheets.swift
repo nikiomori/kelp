@@ -71,6 +71,18 @@ package struct AgentActions {
 
     /// "Hand Off to ▸ Codex": a new agent in the same workspace gets what this one did (its conversation, or the
     /// terminal's text) as a brief typed into its prompt, not sent. ⌥ hands over the full transcript instead of the latest part.
+    /// What a session's row offers wherever it shows outside its project's list: Needs You, Activity.
+    package func addSessionItems(to m: NSMenu, _ sid: String) {
+        m.add(String(localized: "Rename…")) { rename(sid) }
+        if app.session(sid)?.agent != "shell" {
+            m.setSubmenu(handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            m.add(String(localized: "Copy Context")) { copyContext(sid) }
+        }
+        m.addItem(.separator())
+        m.add(String(localized: "Restart")) { restart(sid) }
+        m.add(String(localized: "Stop…")) { stop([sid]) }
+    }
+
     package func handoffMenu(_ sid: String) -> NSMenu {
         let m = NSMenu()
         for a in app.catalog.installed(app.catalog.all) {

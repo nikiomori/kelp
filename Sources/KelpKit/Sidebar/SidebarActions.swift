@@ -97,7 +97,7 @@ extension SidebarController {
         let app = self.app
         menu.removeAllItems()
         card.close()
-        guard let n = outline.item(atRow: outline.menuRow) as? Node else { return }
+        guard let n = outline.item(atRow: outline.menuRow) as? Node else { return emptySpaceMenu(menu) }
         let m = app
         let picked = outline.selectedRowIndexes
         if picked.count > 1, picked.contains(outline.menuRow) {
@@ -123,7 +123,7 @@ extension SidebarController {
             menu.addItem(.separator())
             if RemoteHost.of(r.path) == nil { menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) } }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
-        case .section: return
+        case .section: emptySpaceMenu(menu)
         case .workspace(let id): workspaceMenu(menu, id)
         case .agent(let sid):
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
@@ -139,6 +139,23 @@ extension SidebarController {
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Stop…")) { AgentActions(app).stop([sid]) }
         }
+    }
+
+    /// Under the rows: the ways in, as the + shows them, and how the list looks.
+    private func emptySpaceMenu(_ menu: NSMenu) {
+        let app = self.app
+        for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
+            if let c = app.extensions.command(id) { menu.add(c.title) { app.extensions.run(id) } }
+        }
+        menu.addItem(.separator())
+        menu.addChoiceMenu("workbench.sidebar.order", app, title: String(localized: "Project Order"))
+        menu.addChoiceMenu("workbench.sidebar.rowHeight", app, title: String(localized: "Row Height"))
+        menu.addChoiceMenu("workbench.sidebar.projectColor", app, title: String(localized: "Project Color"))
+        menu.addChoiceMenu("workbench.sidebar.agentIcons", app, title: String(localized: "Agent Icons"))
+        menu.addToggle("workbench.sidebar.gitBadges", app, title: String(localized: "Changes and Pull Requests"))
+        menu.addItem(.separator())
+        menu.addToggle("workbench.sidebar.autoHide", app, title: String(localized: "Auto-Hide Sidebar"))
+        menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", app)
     }
 
     /// A project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which reach only a menu's items.

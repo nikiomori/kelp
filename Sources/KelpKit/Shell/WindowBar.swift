@@ -59,6 +59,7 @@ final class WindowBar: NSView {
         branch.addSubview(ciMark)
         ciMark.centerYAnchor.constraint(equalTo: branch.centerYAnchor).isActive = true
         pr.target = self; pr.action = #selector(openPR)
+        for b in [branch, back, forward] { b.menu = NSMenu(); b.menu?.delegate = self }
         context.setViews([icon, name, folder, branch, pr], in: .leading)
         context.spacing = 2
         context.setCustomSpacing(7, after: icon)
@@ -67,7 +68,10 @@ final class WindowBar: NSView {
         awake.target = self; awake.action = #selector(toggleAwake)
         sideBySide.target = self; sideBySide.action = #selector(toggleSideBySide)
         let hide = NSMenu()
-        hide.add(String(localized: "Hide Button")) { app.settings.set("workbench.sideBySideButton", .bool(false)) }
+        hide.add(String(localized: "Hide Button")) {
+            app.settings.set("workbench.sideBySideButton", .bool(false))
+            Banner.show(String(localized: "The button is hidden. Settings › Appearance brings it back."))
+        }
         sideBySide.menu = hide
         back.target = self
         back.action = #selector(goBack)
@@ -268,6 +272,35 @@ final class WindowBar: NSView {
 
 extension WindowBar: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) { closedAt = Date() }
+}
+
+extension WindowBar: NSMenuDelegate {
+    func menuNeedsUpdate(_ m: NSMenu) {
+        m.removeAllItems()
+        if m === branch.menu { branchItems(m) } else { placeItems(m, step: m === back.menu ? -1 : 1) }
+    }
+
+    /// The branch chip: the name, and where its CI shows.
+    func branchItems(_ m: NSMenu) {
+        let app = app
+        if let name = info?.current {
+            m.add(String(localized: "Copy Branch Name")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(name, forType: .string) }
+        }
+        if let w = worktree, app.rowBadges.prs[badgeFolder?.id ?? ""] == nil {
+            m.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: w.id) }
+        }
+        if !m.items.isEmpty { m.addItem(.separator()) }
+        m.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
+        m.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
+        m.addItem(.separator())
+        m.addSettingsLink(String(localized: "CI Settings…"), section: "appearance", app)
+    }
+
+    /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.
+    private func placeItems(_ m: NSMenu, step: Int) {
+        let app = app
+        for (i, name) in app.workbench.places(step).prefix(10) { m.add(name) { app.workbench.go(to: i) } }
+    }
 }
 
 /// Open Quickly as a place to click: it looks like a search field and opens the ⌘P palette (files, agents, commands).

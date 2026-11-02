@@ -451,3 +451,56 @@ extension OneAtATime {
         #expect(items(chat).contains("Hand Off to"))
     }
 }
+
+/// Right-clicking a part of the window sets how it looks: pointing at a choice shows it, leaving puts back what was
+/// there, and a click keeps it.
+@MainActor @Test func aPartOfTheWindowSetsItsLookFromItsMenu() throws {
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: []) { vc, _ in
+        let app = vc.app, key = "workbench.sidebar.needsYou"
+        app.extensions.reload()   // the choices come from the settings extensions declare
+        @MainActor func now() -> String? { app.settings.string(key) }
+        let m = NeedsYouZone.viewMenu(app)
+        #expect(m.items.first { $0.title == "Count" }?.state == .on)
+        let tabs = try #require(m.items.first { $0.title == "Tabs" })
+        let other = try #require(m.items.first { $0.title == "Automatic" })
+        m.delegate?.menu?(m, willHighlight: tabs)
+        #expect(now() == "tabs")
+        m.delegate?.menu?(m, willHighlight: other)
+        #expect(now() == "automatic")
+        m.delegate?.menu?(m, willHighlight: nil)
+        #expect(now() == "count")
+        m.performActionForItem(at: m.index(of: tabs))
+        #expect(now() == "tabs")
+    }
+}
+
+/// The empty space under the rows offers the ways in and how the list looks.
+@MainActor @Test func theSidebarsEmptySpaceSetsHowTheListLooks() throws {
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: []) { vc, o in
+        vc.app.extensions.reload()
+        let menu = try #require(o.menu)
+        vc.menuNeedsUpdate(menu)
+        let titles = menu.items.map(\.title)
+        #expect(titles.contains("Project Order") && titles.contains("Row Height") && titles.contains("Sidebar Settings…"))
+        #expect(menu.items.first { $0.title == "Project Order" }?.submenu?.items.map(\.title) == ["As You Arrange Them", "Agents First"])
+    }
+}
+
+/// Back's and Forward's lists: every place that way once, nearest first, and never the one on screen.
+@MainActor @Test func backListsThePlacesBehind() throws {
+    let group = Worktree(id: "g", repoId: "r1", branch: "main", path: project.path, note: "Merge")
+    try withSidebar(repos: [project], worktrees: [own("w1"), group], sessions: []) { vc, _ in
+        let bench = vc.app.workbench
+        for id in ["w1", "g", "w1"] { bench.history.visit(id) }
+        bench.workspaceId = "w1"
+        #expect(bench.places(-1).map(\.0) == [1])
+        #expect(bench.places(1).isEmpty)
+    }
+}
+
+@Test func aCommitsPageFollowsItsSite() {
+    func page(_ forge: String) -> GitWebPages.Pages { .init(forge: forge, repo: "https://x/r", ci: "", pulls: "", issues: "") }
+    #expect(page("github").commitURL("abc") == "https://x/r/commit/abc")
+    #expect(page("gitlab").commitURL("abc") == "https://x/r/-/commit/abc")
+    #expect(page("bitbucket").commitURL("abc") == "https://x/r/commits/abc")
+}

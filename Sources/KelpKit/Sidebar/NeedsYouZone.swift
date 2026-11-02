@@ -59,6 +59,7 @@ final class NeedsYouZone: NSView {
         chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .secondaryLabelColor
         header.setAccessibilityElement(true)
         header.press = { [weak self] in self?.fold() }
+        header.contextMenu = { [weak self] in self.map { Self.viewMenu($0.app) } }
         let heading = NSStackView(views: [mark, title, NSView(), count, chevron])
         heading.spacing = 6
         heading.detachesHiddenViews = true
@@ -133,10 +134,16 @@ final class NeedsYouZone: NSView {
             guard i < n else { continue }
             if i >= agentsShown {
                 r.more(shown.count - agentsShown) { [app] in app.workbench.showNextNeedingAttention() }
+                r.contextMenu = nil
                 continue
             }
             let s = shown[i]
             r.show(s, app: app) { [app] in app.workbench.focus(session: s.id) }
+            r.contextMenu = { [app] in
+                let m = NSMenu()
+                AgentActions(app).addSessionItems(to: m, s.id)
+                return m
+            }
             if new.contains(s.id), !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 r.alphaValue = 0
                 NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; r.animator().alphaValue = 1 }
@@ -144,6 +151,20 @@ final class NeedsYouZone: NSView {
         }
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { flash() }
         updated()
+    }
+
+    /// Its heading's, and the capsule's when it stands in for the zone: how who waits for you shows.
+    static func viewMenu(_ app: AppModel) -> NSMenu {
+        let m = NSMenu()
+        if !Inbox.current(app).shown.isEmpty {
+            m.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
+            m.addItem(.separator())
+        }
+        m.addChoices("workbench.sidebar.needsYou", app, heading: String(localized: "Needs You"))
+        m.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
+        m.addItem(.separator())
+        m.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", app)
+        return m
     }
 
     /// The chevron: the zone down to its heading, or open again; kept across launches.
@@ -210,7 +231,9 @@ extension Inbox {
 @MainActor
 private class Pressable: PointerControl {
     var press: () -> Void = {}
+    var contextMenu: (() -> NSMenu?)?
     override func clicked() { press() }
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
 }
 
 /// One agent in the zone: its project's icon, its name, when, its mark.

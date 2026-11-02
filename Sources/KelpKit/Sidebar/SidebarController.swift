@@ -102,8 +102,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             MainActor.assumeIsolated { self?.keepOpenInView(); self?.placeNeedsYou() }   // queue: .main
         }
 
-        let footer = NSHostingView(rootView: UsageView(app: app))   // agent limits, when any agent reports them
-        footer.sizingOptions = [.intrinsicContentSize]
+        let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
         let v = NSView()
         search.placeholderString = String(localized: "Search")
         search.delegate = self

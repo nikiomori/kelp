@@ -22,6 +22,19 @@ extension Workbench {
     }
 
     /// ⌃⌘← / ⌃⌘→: the workspace shown before / after this one (closed ones are skipped).
+    /// The places Back (-1) or Forward (1) can reach, nearest first: where each is in the history, and its name.
+    func places(_ step: Int) -> [(Int, String)] {
+        var seen = Set([workspaceId ?? ""]), out: [(Int, String)] = []
+        var i = history.at + step
+        while history.visits.indices.contains(i) {
+            let id = history.visits[i]
+            if seen.insert(id).inserted, let w = app.worktree(id) { out.append((i, app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName)) }
+            i += step
+        }
+        return out
+    }
+    func go(to i: Int) { show(workspace: history.go(to: i), remember: false) }
+
     func goBack(_ step: Int) {
         guard let i = visit(step) else { NSSound.beep(); return }
         show(workspace: history.go(to: i), remember: false)
@@ -324,6 +337,16 @@ package struct FileActions {
             return
         }
         Task { await app.call(SessionSend(id: s.id, text: reference(path, lines: lines) + " ", enter: false)) }
+        app.workbench.focus(session: s.id)
+    }
+
+    /// Words into the agent's prompt, not sent: the user adds what to do with them.
+    package func sendToAgent(text: String) {
+        guard let s = targetAgent else {
+            Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
+            return
+        }
+        Task { await app.call(SessionSend(id: s.id, text: text + " ", enter: false)) }
         app.workbench.focus(session: s.id)
     }
 

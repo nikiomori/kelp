@@ -9,7 +9,7 @@ import TerminalKit
 /// one shows what it printed. There from its first command on and never goes: a terminal that grew and shrank with each
 /// would redraw the agent every time.
 @MainActor
-final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
+final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     private let app: AppModel
     private let watched: Watched
     private let header = Header()
@@ -40,11 +40,13 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
         table.dataSource = self
         table.delegate = self
         table.target = self; table.action = #selector(clickedRow)
+        table.menu = NSMenu(); table.menu?.delegate = self
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         popover.behavior = .transient
         header.press = { [weak self] in self?.fold(self?.unfolded == true) }
+        header.contextMenu = { [weak self] in self?.headerMenu() }
         for v in [line, header, scroll] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         let h = heightAnchor.constraint(equalToConstant: 0), lh = scroll.heightAnchor.constraint(equalToConstant: 0)
         height = h; listHeight = lh
@@ -151,11 +153,37 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
         if window == nil { clock?.invalidate(); clock = nil } else { tick() }   // no clock for a tab out of sight
     }
 
-    @objc private func clickedRow() {
-        guard commands.indices.contains(table.clickedRow) else { return }
-        let c = commands[table.clickedRow]
-        popover.contentViewController = CommandOutput(c)
-        popover.show(relativeTo: table.rect(ofRow: table.clickedRow), of: table, preferredEdge: .minY)
+    @objc private func clickedRow() { showOutput(table.clickedRow) }
+    private func showOutput(_ row: Int) {
+        guard commands.indices.contains(row) else { return }
+        popover.contentViewController = CommandOutput(commands[row])
+        popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
+    }
+
+    /// A command's row.
+    func menuNeedsUpdate(_ m: NSMenu) {
+        m.removeAllItems()
+        let row = table.clickedRow
+        guard commands.indices.contains(row) else { return }
+        m.add(String(localized: "Show Output")) { [weak self] in self?.showOutput(row) }
+        addCopy(to: m, commands[row])
+    }
+    private func addCopy(to m: NSMenu, _ c: AgentCommand) {
+        m.add(String(localized: "Copy Command")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.command, forType: .string) }
+    }
+    /// The bar's own line: its last command, and the way to turn the bar off.
+    private func headerMenu() -> NSMenu {
+        let m = NSMenu(), app = app
+        if let last = commands.last {
+            addCopy(to: m, last)
+            m.addItem(.separator())
+        }
+        m.add(String(localized: "Hide Commands Bar")) {
+            app.settings.set("agents.commandsBar", .bool(false))
+            Banner.show(String(localized: "The commands bar is hidden. Settings › Agents brings it back."))
+        }
+        m.addSettingsLink(String(localized: "Agents Settings…"), section: "agents", app)
+        return m
     }
 
     func numberOfRows(in t: NSTableView) -> Int { commands.count }
@@ -172,6 +200,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
 private final class Header: PointerControl {
     let row = CommandRow(), chevron = NSImageView()
     var press: () -> Void = {}
+    var contextMenu: (() -> NSMenu?)?
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
 
     init() {
         super.init(frame: .zero)
