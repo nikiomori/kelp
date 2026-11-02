@@ -686,6 +686,16 @@
         }
       }
     },
+    "A project's changes and history show here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появятся изменения и история проекта."
+          }
+        }
+      }
+    },
     "A notification when a plan limit reaches this, and again at 95. “off”: none.": {
       "extractionState": "manual",
       "localizations": {
@@ -5660,6 +5670,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Панелей нет"
+          }
+        }
+      }
+    },
+    "No Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет проекта"
           }
         }
       }

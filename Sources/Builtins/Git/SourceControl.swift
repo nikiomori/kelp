@@ -40,6 +40,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
     let empty = EmptyStateView()
+    var headerBar: NSView?
 
     var worktreeId: String?
     var changes: [FileChange] = []
@@ -96,6 +97,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         moreButton = bar.more
         stats.font = .uiDigits(10, weight: .medium)
         let header = bar.header(branchButton)
+        headerBar = header
 
         let box = commitBox(); commitArea = box
         let scroll = list(outline), graphScroll = list(graphOutline)
@@ -136,6 +138,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         empty.place(in: v, under: header)
         view = v
         updateHeader()   // NSButton's own "Button" title must not show while the branch loads
+        if app.workbench.workspaceId == nil { showNoProject(true) }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.bind($0) }
         track(owner: self) { [weak self, app] in app.git[self?.worktreeId ?? ""] } changed: { [weak self] in self?.apply($0) }
         track(owner: self) { [weak self, app] in app.ci[self?.worktreeId ?? ""] } changed: { [weak self] in self?.applyCI($0) }

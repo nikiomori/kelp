@@ -9,6 +9,7 @@ extension SourceControlController {
     func bind(_ wid: String?) {
         guard wid != worktreeId else { return }
         worktreeId = wid
+        showNoProject(wid == nil)
         changes = []
         info = nil
         commits = []
@@ -68,12 +69,24 @@ extension SourceControlController {
         if graphStale || commits.isEmpty { Task { await loadGraph() } } else if changed { rebuildChanges() }
     }
 
+    private func hideBox(_ hide: Bool) {
+        for v in [commitArea, separator, moreButton] { v?.isHidden = hide }
+        outline.enclosingScrollView?.isHidden = hide
+        layoutGraph()
+    }
+
+    /// No project on screen: no branch to name and nothing to commit, so no header or box to leave empty.
+    func showNoProject(_ none: Bool) {
+        hideBox(none)
+        headerBar?.isHidden = none
+        empty.show(none ? String(localized: "No Project") : nil, symbol: "folder",
+                   text: String(localized: "A project's changes and history show here."))
+    }
+
     /// Nothing git can show here: say why instead of an empty commit box.
     private func showError(_ message: String?) {
-        for v in [commitArea, separator, moreButton] { v?.isHidden = message != nil }
-        outline.enclosingScrollView?.isHidden = message != nil
+        hideBox(message != nil)
         if message == nil { empty.show(nil) }
-        layoutGraph()
         guard let message else { return }
         let notRepo = message.contains("not a git repository")
         // The command that makes git work again, selectable.
