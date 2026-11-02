@@ -12,7 +12,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
     private final class Item: NSObject {
-        enum Kind { case run(CIRuns.Run), job(CIRuns.Job, run: Int), step(CIRuns.Step) }
+        enum Kind { case run(CIRuns.Run), job(CIRuns.Job, run: Int), step(CIRuns.Step), fold(CIRuns.StepRow, job: Int) }
         let kind: Kind
         var children: [Item]?
         init(_ k: Kind) { kind = k }
@@ -20,6 +20,15 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             switch kind {
             case .run(let r): r.id
             case .job(let j, _): j.id
+            case .step, .fold: nil
+            }
+        }
+        /// What stays open across a refresh, which makes every item anew.
+        var key: String? {
+            switch kind {
+            case .run(let r): "run \(r.id)"
+            case .job(let j, _): "job \(j.id)"
+            case .fold(let f, let job): "fold \(job) \(f.steps.first?.name ?? "")"
             case .step: nil
             }
         }
@@ -168,17 +177,16 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             branchName = e.result?.branch ?? ""
             branch.stringValue = branchName
             // What was open stays open across a refresh, its jobs read again.
-            let openRuns = Set(runs.filter { outline.isItemExpanded($0) }.compactMap(\.id))
-            let openJobs = Set(runs.flatMap { $0.children ?? [] }.filter { outline.isItemExpanded($0) }.compactMap(\.id))
+            let open = Set(runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
             runs = (e.result?.runs ?? []).map { Item(.run($0)) }
             workflows = e.result?.workflows ?? []
             workflowsButton.isHidden = workflows.isEmpty
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             outline.reloadData()
-            for run in runs where openRuns.contains(run.id ?? -1) {
+            for run in runs where open.contains(run.key ?? "") {
                 await expand(run, openFailed: false)
-                for job in run.children ?? [] where openJobs.contains(job.id ?? -1) { outline.expandItem(job) }
+                for item in openBelow(run) where open.contains(item.key ?? "") { outline.expandItem(item) }
                 if let job = run.children?.first(where: { $0.id == selected }) {
                     outline.selectRowIndexes([outline.row(forItem: job)], byExtendingSelection: false)
                 }
@@ -191,6 +199,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             }
         }
     }
+
+    /// A run's jobs and the folds of their steps, top down, as they have to be opened.
+    private func openBelow(_ run: Item) -> [Item] { (run.children ?? []).flatMap { [$0] + ($0.children ?? []) } }
 
     /// `setup`: gh or glab isn't installed or signed in; what it says, and the button that runs the fix in a terminal.
     private func show(note text: String?, setup: Forge.Setup? = nil, failed: Bool = false) {
@@ -220,7 +231,12 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             guard let jobs = await app.call(CIJobs(worktreeId: w, run: run.id)) else { return }   // the banner says why; asked again next time
             item.children = jobs.map { j in
                 let i = Item(.job(j, run: run.id))
-                i.children = j.steps.map { Item(.step($0)) }
+                i.children = CIRuns.rows(j.steps).map { row in
+                    if case .one(let step) = row { return Item(.step(step)) }
+                    let fold = Item(.fold(row, job: j.id))
+                    fold.children = row.steps.map { Item(.step($0)) }
+                    return fold
+                }
                 return i
             }
             outline.reloadItem(item, reloadChildren: true)
@@ -303,7 +319,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let i = item as? Item else { return false }
         if case .step = i.kind { return false }
-        return i.children.map { !$0.isEmpty } ?? true
+        return i.children.map { !$0.isEmpty } ?? true   // a fold, a job with steps, a run not yet read
     }
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         TextSize.of({ if case .run? = (item as? Item)?.kind { Metrics.rowTwoLine } else { Metrics.row } }())
@@ -322,41 +338,67 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     func outlineView(_ o: NSOutlineView, viewFor c: NSTableColumn?, item: Any) -> NSView? {
         guard let i = item as? Item else { return nil }
         switch i.kind {
-        case .run(let r):
-            let t = NSTextField(labelWithString: r.title)
-            t.font = .ui(12)
-            t.lineBreakMode = .byTruncatingTail
-            // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
-            let several = Set(runs.compactMap { if case .run(let x) = $0.kind { x.workflow } else { nil } }).count > 1
-            let parts = [r.status == "completed" ? nil : CIRunLook.words(r.status, nil), several ? r.workflow : nil,
-                         r.event == "push" ? nil : r.event, CIRunLook.ago(r.createdAt)]
-            let s = NSTextField(labelWithString: parts.compactMap { $0 }.joined(separator: " · ")); s.font = .ui(11)
-            s.textColor = .secondaryLabelColor; s.lineBreakMode = .byTruncatingTail
-            let text = NSStackView(views: [t, s])
-            text.orientation = .vertical
-            text.alignment = .leading
-            text.spacing = Metrics.lineGap
-            for x in [t, s, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-            return row([CIRunLook.mark(r.status, r.conclusion), text])
+        case .run(let r): return runRow(r)
         case .job(let j, _):
-            let t = NSTextField(labelWithString: j.name)
-            t.font = .ui(12)
-            t.lineBreakMode = .byTruncatingTail
-            t.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            guard j.status != "completed", !j.steps.isEmpty else { return row([CIRunLook.mark(j.status, j.conclusion), t]) }
-            // How far it got: "6/12" steps.
-            let n = NSTextField(labelWithString: "\(j.steps.filter { $0.status == "completed" }.count)/\(j.steps.count)")
-            n.font = .uiDigits(11, weight: .regular); n.textColor = .tertiaryLabelColor
-            return row([CIRunLook.mark(j.status, j.conclusion), t, NSView(), n])
+            let done = j.steps.filter { $0.status == "completed" }.count
+            let right = j.status == "completed" || j.steps.isEmpty ? j.seconds().map(ciSpan) : "\(done)/\(j.steps.count)"
+            return row(CIRunLook.mark(j.status, j.conclusion), j.name, font: .ui(12), color: .labelColor, right: right)
         case .step(let s):
-            let t = NSTextField(labelWithString: s.name)
-            t.font = .ui(11)
-            t.lineBreakMode = .byTruncatingTail
             // The step running now reads like a title; done ones grey, the ones still to come quieter still.
-            t.textColor = s.status == "in_progress" ? .labelColor : s.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
-            t.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            return row([CIRunLook.mark(s.status, s.conclusion), t])
+            let color: NSColor = s.status == "in_progress" ? .labelColor : s.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
+            let r = row(CIRunLook.mark(s.status, s.conclusion), s.shortName, font: .ui(11), color: color, right: s.seconds().map(ciSpan))
+            r.toolTip = s.name
+            return r
+        case .fold(let f, _): return foldRow(f)
         }
+    }
+
+    /// The title, then `CIRunMeta`: which run, how long, when. The whole title is in the tooltip, as a commit's first line
+    /// rarely fits.
+    private func runRow(_ r: CIRuns.Run) -> NSView {
+        let t = NSTextField(labelWithString: r.title)
+        t.font = .ui(12)
+        t.lineBreakMode = .byTruncatingTail
+        // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
+        let several = Set(runs.compactMap { if case .run(let x) = $0.kind { x.workflow } else { nil } }).count > 1
+        let meta = CIRunMeta(r, extras: [several ? r.workflow : nil, r.event == "push" ? nil : r.event].compactMap { $0 })
+        let text = NSStackView(views: [t, meta])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = Metrics.lineGap
+        for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
+        let cell = row([CIRunLook.mark(r.status, r.conclusion), text])
+        cell.toolTip = r.title
+        return cell
+    }
+
+    /// "8 steps passed  2m 04s": a chevron opens them.
+    private func foldRow(_ f: CIRuns.StepRow) -> NSView {
+        let n = f.steps.count
+        let seconds = f.steps.compactMap { $0.seconds() }.reduce(0, +)
+        switch f {
+        case .passed:
+            return row(CIRunLook.mark("completed", "success"), String(localized: "\(n) steps passed"), font: .ui(11), color: .secondaryLabelColor, right: ciSpan(seconds))
+        case .skipped:
+            return row(CIRunLook.mark("completed", "skipped"), String(localized: "\(n) steps skipped"), font: .ui(11), color: .tertiaryLabelColor, right: nil)
+        case .upcoming, .one:
+            return row(CIRunLook.mark("queued", nil), String(localized: "\(n) steps to go"), font: .ui(11), color: .tertiaryLabelColor, right: nil)
+        }
+    }
+
+    /// A row of one line: mark, name, and on the right a number.
+    private func row(_ mark: NSView, _ name: String, font: NSFont, color: NSColor, right: String?) -> NSView {
+        let t = NSTextField(labelWithString: name)
+        t.font = font
+        t.textColor = color
+        t.lineBreakMode = .byTruncatingTail
+        t.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        guard let right else { return row([mark, t]) }
+        let n = NSTextField(labelWithString: right)
+        n.font = .uiDigits(11)
+        n.textColor = .secondaryLabelColor
+        return row([mark, t, NSView(), n])
     }
 
     private func row(_ views: [NSView]) -> NSView {
@@ -386,7 +428,7 @@ extension CIRunsController {
             }
             addLink(menu, r.url)
         case .job(let j, _): if let u = j.url { addLink(menu, u) }
-        case .step: break
+        case .step, .fold: break
         }
     }
 

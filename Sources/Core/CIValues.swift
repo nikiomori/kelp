@@ -97,3 +97,49 @@ public enum CIRuns {
         public init(file: String, name: String, inputs: [Input]) { self.file = file; self.name = name; self.inputs = inputs }
     }
 }
+
+extension CIRuns.Step {
+    /// Seconds it took, or has taken so far.
+    public func seconds(now: Date = Date()) -> Double? {
+        CIRuns.seconds(from: startedAt, to: status == "completed" ? completedAt : nil, now: now)
+    }
+
+    /// A step's name without what GitHub adds to it: "Run actions/checkout@11d5960" reads "checkout". A step named in
+    /// its workflow stays as written.
+    public var shortName: String {
+        let post = name.hasPrefix("Post Run ")
+        guard post || name.hasPrefix("Run ") else { return name }
+        let rest = name.dropFirst(post ? "Post Run ".count : "Run ".count)
+        let short = rest.wholeMatch(of: /[\w.-]+\/([\w.-]+)(?:\/\S*)?@\S+/).map { String($0.1) } ?? String(rest)
+        return post ? "Post " + short : short
+    }
+}
+
+extension CIRuns.Job {
+    public func seconds(now: Date = Date()) -> Double? {
+        CIRuns.seconds(from: startedAt, to: status == "completed" ? completedAt : nil, now: now)
+    }
+}
+
+extension CIRuns {
+    /// A job's steps as a list reads them: what failed or is running on its own, the rest folded by how it went.
+    public enum StepRow: Equatable, Sendable {
+        case one(Step), passed([Step]), skipped([Step]), upcoming([Step])
+        public var steps: [Step] {
+            switch self {
+            case .one(let s): [s]
+            case .passed(let s), .skipped(let s), .upcoming(let s): s
+            }
+        }
+    }
+
+    public static func rows(_ steps: [Step]) -> [StepRow] {
+        let upcoming = steps.filter { !["completed", "in_progress"].contains($0.status) }
+        let done = steps.filter { $0.status == "completed" && !$0.failed }
+        let skipped = done.filter { ["skipped", "cancelled"].contains($0.conclusion) }
+        let passed = done.filter { !["skipped", "cancelled"].contains($0.conclusion) }
+        let ones = steps.filter { $0.failed || $0.status == "in_progress" }
+        func fold(_ s: [Step], _ row: ([Step]) -> StepRow) -> [StepRow] { s.count > 1 ? [row(s)] : s.map(StepRow.one) }
+        return fold(passed, StepRow.passed) + ones.map(StepRow.one) + fold(skipped, StepRow.skipped) + fold(upcoming, StepRow.upcoming)
+    }
+}

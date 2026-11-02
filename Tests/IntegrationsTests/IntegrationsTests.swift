@@ -340,3 +340,21 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(CIRuns.date("2026-11-02T10:45:38.123Z") != nil && CIRuns.seconds(from: nil, to: nil) == nil)
     #expect(CIRuns.Run(id: 1, title: "", workflow: "", status: "", conclusion: nil, event: "", url: "", createdAt: "x", sha: "2f2111f0aa").shortSHA == "2f2111f")
 }
+
+@Test func stepsLoseWhatGitHubAddsToTheirNames() {
+    func short(_ n: String) -> String { CIRuns.Step(name: n, status: "completed", conclusion: "success").shortName }
+    #expect(short("Run actions/checkout@11d5960a326750d5838078e36cf38b85af67726") == "checkout")
+    #expect(short("Post Run actions/cache/restore@v4") == "Post cache")
+    #expect(short("Run swift build $SWIFT_BUILD --build-tests") == "swift build $SWIFT_BUILD --build-tests")
+    #expect(short("Set up job") == "Set up job" && short("Post Cache SwiftPM") == "Post Cache SwiftPM")
+}
+
+@Test func aJobsStepsFoldAroundWhatMatters() {
+    func s(_ n: String, _ status: String = "completed", _ c: String? = "success") -> CIRuns.Step { .init(name: n, status: status, conclusion: c) }
+    let failedJob = [s("a"), s("b"), s("Test", "completed", "failure"), s("c", "completed", "skipped"), s("d", "completed", "skipped"), s("e")]
+    #expect(CIRuns.rows(failedJob) == [.passed([s("a"), s("b"), s("e")]), .one(failedJob[2]), .skipped([failedJob[3], failedJob[4]])])
+    let running = [s("a"), s("b"), s("t", "in_progress", nil), s("x", "queued", nil), s("y", "pending", nil)]
+    #expect(CIRuns.rows(running) == [.passed([s("a"), s("b")]), .one(running[2]), .upcoming([running[3], running[4]])])
+    #expect(CIRuns.rows([s("only")]) == [.one(s("only"))])   // one step folds nothing away
+    #expect(CIRuns.rows([]) == [])
+}
