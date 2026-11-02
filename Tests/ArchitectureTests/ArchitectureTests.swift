@@ -228,6 +228,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Notifier.swift": "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later",
         "KelpKit/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
+        "KelpKit/AgentStripViews.swift": "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift": "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
         "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
         "Builtins/Agents/UsageTab.swift": "a \"still reading\" hint after 3 s",

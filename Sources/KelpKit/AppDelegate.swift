@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var main: MainWindowController!
     private(set) lazy var notifier = Notifier(app: app)
     private lazy var dockIcon = DockIcon(app: app)
+    private lazy var agentStrip = AgentStrip(app: app)
     /// Files and links opened while Kelp starts (nil once it has).
     private var pendingOpens: [URL]? = []
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
@@ -43,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.scratch.registerHotKey()
         app.notifier = notifier; notifier.start()
         dockIcon.start()
+        agentStrip.start()
         buildMenu()
         // Glances are timed only while some finished agent is still unread: no clock runs the rest of the time.
         track(owner: self) { [app] in app.sessions.contains { Self.readOnSight($0) } } changed: { [weak self] any in self?.timeGlances(any) }

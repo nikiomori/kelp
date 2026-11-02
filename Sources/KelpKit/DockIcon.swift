@@ -78,7 +78,7 @@ final class DockIcon {
     /// The agents in the order to deal with them.
     static func cells(_ sessions: [Session]) -> [DockFace.Cell] { sessions.compactMap(cell).sorted() }
 
-    private static func cell(_ s: Session) -> DockFace.Cell? {
+    static func cell(_ s: Session) -> DockFace.Cell? {
         guard s.isChat else { return nil }
         switch SidebarCell.shownStatus(s) {
         case .waiting: return .asks

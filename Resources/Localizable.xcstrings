@@ -3691,6 +3691,17 @@
         }
       }
     },
+    "Dock": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Док"
+          }
+        }
+      }
+    },
     "Dock hiding": {
       "localizations": {
         "ru": {
@@ -6941,6 +6952,16 @@
         }
       }
     },
+    "Open Kelp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть Kelp"
+          }
+        }
+      }
+    },
     "Open Page": {
       "localizations": {
         "ru": {
@@ -9644,6 +9665,27 @@
         }
       }
     },
+    "Show agents above the Dock": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать агентов над Доком"
+          }
+        }
+      }
+    },
+    "Show Agents Above the Dock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать агентов над Доком"
+          }
+        }
+      }
+    },
     "Show All": {
       "localizations": {
         "ru": {
@@ -11839,6 +11881,16 @@
         }
       }
     },
+    "When Needed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда нужно"
+          }
+        }
+      }
+    },
     "Where is “%@” now?": {
       "localizations": {
         "ru": {
@@ -11908,6 +11960,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "С pull request'ом"
+          }
+        }
+      }
+    },
+    "With Kelp behind another app: answer an agent from there.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда Kelp за другим приложением: отвечать агенту прямо оттуда."
           }
         }
       }
