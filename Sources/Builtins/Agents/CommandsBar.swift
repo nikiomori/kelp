@@ -92,6 +92,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
         unfolded = !fold
         if fold { popover.close() }
         layOut()
+        header.chevron.turn(from: .pi)
         if unfolded, !commands.isEmpty { table.scrollRowToVisible(commands.count - 1) }
     }
 

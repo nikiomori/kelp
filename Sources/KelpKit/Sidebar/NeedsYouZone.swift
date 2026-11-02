@@ -151,6 +151,7 @@ final class NeedsYouZone: NSView {
         guard !shown.isEmpty else { return }
         folded.toggle(); UserDefaults.standard.set(folded, forKey: Self.foldedKey)
         update()
+        chevron.turn(from: folded ? -.pi / 2 : .pi / 2)
     }
 
     /// A question came in: the heading lights up and fades back.

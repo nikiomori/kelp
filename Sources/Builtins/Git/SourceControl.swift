@@ -68,6 +68,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         return c
     }()
     private var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
+    /// The section a click just folded or opened: its rebuilt cell's chevron turns.
+    private var turning: Section?
     private(set) var roots: [Node] = []
     private var graphRoots: [Node] = []
     /// The workspace's git and its branch's CI, watched while the panel is on screen (the daemon pushes changes).
@@ -337,7 +339,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     private func toggle(_ s: Section) {
         if collapsed.contains(s.rawValue) { collapsed.remove(s.rawValue) } else { collapsed.insert(s.rawValue) }
         UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed")
+        turning = s
         if s == .graph { layoutGraph() } else { rebuildChanges() }
+        DispatchQueue.main.async { [weak self] in self?.turning = nil }   // the outline asks for the cell when it lays out
     }
 
     private func roots(of o: NSOutlineView) -> [Node] { o === graphOutline ? graphRoots : roots }
@@ -366,6 +370,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             let cell = SectionCell(title: loc(s.rawValue), count: n.files.count, expanded: !collapsed.contains(s.rawValue), actions: sectionActions(s, n),
                                    detail: n === roots.first && !stats.isHidden ? stats.attributedStringValue : nil)
             cell.toolTip = n === roots.first && !stats.isHidden ? stats.toolTip : nil
+            cell.turnsIn = turning == s
             return cell
         case .file(let f, let s):
             return FileCell(f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, s),

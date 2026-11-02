@@ -280,7 +280,13 @@ private final class TabButton: NSControl, NSDraggingSource {
     /// What its agent runs in the background, whatever it's doing: the command it waits for, or how many (a dev server).
     private let chip = Chip()
     private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
-    private var hover = false { didSet { updateLook() } }
+    private var hover = false {
+        didSet {
+            if hover != oldValue { slot.crossfade() }   // the close button takes the icon's place in a fade, as a row's "+" comes in
+            updateLook()
+        }
+    }
+    private let slot = NSView()
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
@@ -302,7 +308,6 @@ private final class TabButton: NSControl, NSDraggingSource {
         editedDot.image = .symbol("circle.fill", String(localized: "Edited")); editedDot.symbolConfiguration = .init(pointSize: 9, weight: .bold)
         editedDot.contentTintColor = .labelColor
         // One slot at the start: the agent's state while there's something to see, else the tab's icon; the close button on hover.
-        let slot = NSView()
         for v in [icon, mark, close, editedDot] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
             NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])

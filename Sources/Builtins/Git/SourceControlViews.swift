@@ -39,7 +39,23 @@ private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailin
 final class SectionCell: NSTableCellView, Hoverable {
     private let chevron = NSImageView()
     private let actions: NSStackView
-    var expanded = true { didSet { showChevron() } }
+    var expanded = true {
+        didSet {
+            showChevron()
+            if expanded != oldValue { chevron.turn(from: Self.turn(expanded)) }
+        }
+    }
+    /// Where the chevron starts when it turns: from what it showed. `Self.turn(expanded)` for one just rebuilt.
+    static func turn(_ expanded: Bool) -> CGFloat { expanded ? .pi / 2 : -.pi / 2 }
+    /// The section was folded or opened by a click: its new cell's chevron turns there once it has a size.
+    var turnsIn = false
+    override func layout() {
+        super.layout()
+        if turnsIn {
+            turnsIn = false
+            chevron.turn(from: Self.turn(expanded))
+        }
+    }
     private func showChevron() { chevron.image = .symbol(expanded ? "chevron.down" : "chevron.right") }
     init(title: String, count: Int?, expanded: Bool, actions a: [RowAction], detail: NSAttributedString? = nil) {
         actions = actionButtons(a)
@@ -57,7 +73,10 @@ final class SectionCell: NSTableCellView, Hoverable {
         self.expanded = expanded; showChevron()   // didSet doesn't run in init
     }
     required init?(coder: NSCoder) { fatalError() }
-    func setHover(_ on: Bool) { actions.isHidden = !on }
+    func setHover(_ on: Bool) {
+        actions.superview?.crossfade()
+        actions.isHidden = !on
+    }
 }
 
 /// A section's file count on a grey capsule, as VS Code's: beside "+6 −2" a bare "3" ran into it.
@@ -177,7 +196,10 @@ final class FileCell: NSTableCellView, Hoverable {
         toolTip = f.path
     }
     required init?(coder: NSCoder) { fatalError() }
-    func setHover(_ on: Bool) { actions.isHidden = !on }
+    func setHover(_ on: Bool) {
+        actions.superview?.crossfade()
+        actions.isHidden = !on
+    }
 }
 
 final class NoteCell: NSTableCellView {

@@ -50,6 +50,7 @@ extension NSView {
     /// A turn: the view starts `angle` radians round from how it's drawn (counter-clockwise) and comes back, so a
     /// chevron just changed from ⌄ to › seems to turn there, as a disclosure triangle does.
     public func turn(from angle: CGFloat) {
+        wantsLayer = true
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
         let a = CABasicAnimation(keyPath: "transform")
         a.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
