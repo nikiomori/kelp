@@ -74,7 +74,7 @@ final class StartPrompt: NSView, NSTextViewDelegate {
 
     private func fit() {
         guard let lm = text.layoutManager, let tc = text.textContainer, let font = text.font else { return }
-        lm.ensureLayout(for: tc)
+        lm.ensureLayout(forCharacterRange: NSRange(location: 0, length: text.textStorage?.length ?? 0))
         let line = lm.defaultLineHeight(for: font), used = max(lm.usedRect(for: tc).height, line)
         height.constant = min(ceil(used), ceil(line * Self.mostLines))
     }

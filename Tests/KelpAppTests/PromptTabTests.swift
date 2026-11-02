@@ -33,6 +33,8 @@ extension AppOfItsOwn {
 
 extension AppOfItsOwn {
     @Test func theFirstTaskFieldGrowsToSixLinesAndKeepsWhatsTyped() {
+        UserDefaults.standard.set("Always", forKey: "AppleShowScrollBars")   // with a mouse: the scroller takes its width
+        defer { UserDefaults.standard.removeObject(forKey: "AppleShowScrollBars") }
         let field = StartPrompt(placeholder: "", accessibilityLabel: "")
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
         window.contentView = field
