@@ -23,8 +23,15 @@ extension Builtins {
         c.editors = [EditorSpec(id: "git.review", title: "Review Changes", icon: "plus.forwardslash.minus",
                                 uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })]
         c.settings = [SettingsSection(id: "git", title: "Git", icon: "arrow.triangle.branch", specs: [
-            s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names, e.g. “niko/”.")
-        ])]
+            s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names, e.g. “niko/”."),
+            // Where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
+            s("workbench.ci.branchChip", "On the branch chip", "enum", "icon",
+              "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
+              options: ["icon", "end", "off"], group: "CI"),
+            s("workbench.ci.sidebar", "Beside folders", "boolean", true,
+              "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.", group: "CI"),
+            s("workbench.ci.popover", "In the branch popover", "boolean", true, "The newest run of each workflow; a click opens CI Runs.", group: "CI")
+        ], order: 80)]
         c.commands = [
             CommandSpec(id: "git.review", title: "Git: Review Changes", key: "shift+cmd+r") { _ in
                 if let w = app.workbench.workspaceId { app.workbench.open(DiffTab.uri(w)) }

@@ -18,7 +18,7 @@ extension Builtins {
         }, PanelSpec(id: "ci", title: "CI Runs", icon: "checkmark.seal", extensionId: "kelp.issues", badge: { failed.badge }) { CIRunsController(app: app) }]
         c.settings = [SettingsSection(id: "integrations", title: "Integrations", icon: "link", specs: [],
                                       custom: { AnyView(IntegrationsSettings(app: app)) },
-                                      keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"])]
+                                      keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90)]
         // The workspace's project on GitHub / GitLab / Bitbucket, in the default browser.
         c.commands = [cmd("forge.openRepo", "Open Repository in Browser") { Forge.open(app, \.repo) },
                       cmd("forge.openCI", "Open CI/CD in Browser") { Forge.open(app, \.ci) },

@@ -117,6 +117,8 @@ package struct SettingSpec: Codable, Identifiable {
     var range: [Double]?
     /// A heading over this row and the ones after it that share it ("Sidebar"); nil: the section's first, untitled group.
     var group: String?
+    /// Left out of the window: it's set on the thing itself (a menu), and stays in settings.json and Quick Open.
+    var hidden: Bool?
     package var id: String { key }
 
     var bounds: ClosedRange<Double>? {
@@ -133,7 +135,8 @@ package struct SettingsSection: Identifiable {
                  specs: [SettingSpec],
                  custom: (@MainActor () -> AnyView)? = nil,
                  keywords: [String] = [],
-                 fillsPane: Bool = false) {
+                 fillsPane: Bool = false,
+                 order: Int = 100) {
         self.id = id
         self.title = title
         self.icon = icon
@@ -141,6 +144,7 @@ package struct SettingsSection: Identifiable {
         self.custom = custom
         self.keywords = keywords
         self.fillsPane = fillsPane
+        self.order = order
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
@@ -148,13 +152,15 @@ package struct SettingsSection: Identifiable {
     var keywords: [String]
     /// `custom` is the whole page, as tall as the window, not rows in a form: a list with its details beside it.
     var fillsPane: Bool
+    /// Its place in Settings' list; an extension's sections come after Kelp's.
+    var order: Int
     /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
-        specs.reduce(into: []) { g, s in
+        specs.filter { $0.hidden != true }.reduce(into: []) { g, s in
             if let last = g.indices.last, g[last].0 == s.group { g[last].1.append(s) } else { g.append((s.group, [s])) }
         }
     }
-    /// Optional custom UI under the generated rows (accounts, integrations…).
+    /// Sections of its own under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
     var custom: (@MainActor () -> AnyView)?
 }
 

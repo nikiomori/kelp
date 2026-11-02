@@ -31,8 +31,8 @@ package enum Builtins {
     }
 
     package static func s(_ key: String, _ title: String, _ type: String, _ def: JSONValue?, _ desc: String? = nil, options: [String]? = nil,
-                          range: [Double]? = nil, group: String? = nil) -> SettingSpec {
-        SettingSpec(key: key, title: title, type: type, default: def, description: desc, options: options, range: range, group: group)
+                          range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil) -> SettingSpec {
+        SettingSpec(key: key, title: title, type: type, default: def, description: desc, options: options, range: range, group: group, hidden: hidden)
     }
 
     package static let appearance = Builtin("kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
@@ -43,40 +43,39 @@ package enum Builtins {
               options: ["system", "en", "ru"]),
             s("workbench.theme", "Color Theme", "theme", "auto",
               "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
+            s("workbench.textSize", "Text size", "enum", "normal",
+              "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
+              options: ["normal", "large", "larger"]),
             s("terminal.opacity", "Terminal opacity", "enum", "theme",
               "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
               options: ["theme", "100", "90", "80", "70", "60", "50", "40"]),
             s("workbench.iconTheme", "File Icon Theme", "enum", .string(FileIcon.standard),
-              "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…"),
-            s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
-              options: ["left", "center", "right"]),
-            s("workbench.inspectorIconsPosition", "Inspector icons position", "enum", "top",
-              "Level with the tabs or under the panel. Drag an icon to move it; right-click the icons to hide them.",
-              options: ["top", "bottom"]),
-            s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge."),
+              "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…")
+        ], order: 10), SettingsSection(id: "window", title: "Window", icon: "macwindow", specs: [
             s("workbench.sideBySideButton", "Agents Side by Side button", "boolean", true,
-              "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.")
-        ] + sidebar + ci), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
-                            custom: { AnyView(KeyboardSettings()) })]
+              "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way."),
+            s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
+              options: ["agents", "usage", "icon"])
+        ] + sidebar + inspector, order: 20), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
+                                                             custom: { AnyView(Section { KeyboardSettings() }) }, order: 95)]
         return c
     }
 
-    /// Appearance › CI: where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
-    private static let ci = [
-        s("workbench.ci.branchChip", "On the branch chip", "enum", "icon",
-          "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
-          options: ["icon", "end", "off"], group: "CI"),
-        s("workbench.ci.sidebar", "Beside folders", "boolean", true,
-          "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.", group: "CI"),
-        s("workbench.ci.popover", "In the branch popover", "boolean", true, "The newest run of each workflow; a click opens CI Runs.", group: "CI")
+    /// Window › Inspector. Where the icons sit is set on the icons, in their menu.
+    private static let inspector = [
+        s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge.",
+          group: "Inspector"),
+        s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
+          options: ["left", "center", "right"], group: "Inspector", hidden: true),
+        s("workbench.inspectorIconsPosition", "Inspector icons position", "enum", "top",
+          "Level with the tabs or under the panel. Drag an icon to move it; right-click the icons to hide them.",
+          options: ["top", "bottom"], group: "Inspector", hidden: true)
     ]
 
-    /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.
+    /// Window › Sidebar: what people see differently in the list, each read where the sidebar draws it.
     private static let sidebar = [
         s("workbench.sidebar.autoHide", "Auto-hide sidebar", "boolean", false, "Comes in while the pointer is at the window's left edge, like the Dock.",
           group: "Sidebar"),
-        s("workbench.textSize", "Text size", "enum", "normal", "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
-          options: ["normal", "large", "larger"], group: "Sidebar"),
         s("workbench.sidebar.rowHeight", "Row height", "enum", "system",
           "Match System follows Sidebar icon size in System Settings › Appearance.", options: ["system", "compact", "regular", "large"], group: "Sidebar"),
         s("workbench.sidebar.agentDetail", "What agents ask", "enum", "needsYou",

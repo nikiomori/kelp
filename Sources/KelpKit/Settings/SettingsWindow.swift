@@ -48,7 +48,7 @@ struct SettingsView: View {
             // Nothing is selected while search fills the pane; picking a section ends the search.
             List(selection: Binding(get: { query.isEmpty ? selection : nil }, set: { if let s = $0 { open(s) } })) {
                 Section {
-                    ForEach(registry.all.settings) { s in
+                    ForEach(sections) { s in
                         Label { Text(loc(s.title)) } icon: { SettingsIcon(symbol: s.icon, id: s.id) }.tag(Optional(s.id))
                     }
                 }
@@ -78,6 +78,8 @@ struct SettingsView: View {
         .searchable(text: $query, placement: .sidebar, prompt: "Search settings")
         .frame(minWidth: 720, minHeight: 480)
     }
+
+    private var sections: [SettingsSection] { registry.all.settings.sorted { $0.order < $1.order } }
 
     private var title: String {
         if !query.isEmpty { return String(localized: "Search") }
@@ -111,7 +113,7 @@ private struct SectionForm: View {
                     Section { ForEach(groups[i].1) { SettingRow(spec: $0) } }
                 }
             }
-            if let custom = section.custom { Section { custom() } }
+            section.custom?()
         }
         .formStyle(.grouped)
     }

@@ -19,15 +19,6 @@ extension Builtins {
             SettingsSection(id: "agents", title: "Agents", icon: "sparkles", specs: [
                 s("agents.default", "Default agent", "enum", "claude",
                   "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.", options: app.catalog.all.map(\.id)),
-                // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
-                s("agents.skills.extensions", "Write Kelp extensions", "boolean", true,
-                  "Ask Claude Code for a panel, tab or command: it knows how to make one.", group: "Claude Code skills"),
-                s("agents.skills.settings", "Change Kelp settings", "boolean", true,
-                  "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
-                s("agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
-                  "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
-                s("agents.skills.agents", "Hand work to other agents", "boolean", true,
-                  "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills"),
                 s("agents.commandsBar", "Show the commands an agent runs", "boolean", false,
                   "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."),
                 s("agents.editInKelp", "Edit agent prompts in Kelp", "boolean", true,
@@ -40,34 +31,41 @@ extension Builtins {
                   "When an agent starts another with kelp, the other's result or question comes to it as input."),
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),
                 s("usage.readPlans", "Show plan limits", "boolean", true,
-                  "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens."),
+                  "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.", group: "Plan limits"),
                 s("usage.limits", "Limits to show", "enum", "fullest", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
-                  options: ["fullest", "all"]),
-                s("usage.resets", "Reset time beside a limit", "boolean", true),
-                s("agents.holdBanners", "Hold finished agents while I type", "boolean", true,
-                  "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.",
-                  group: "Notifications"),
-                s("agents.onFinish", "When an agent finishes", "enum", "banner", "Turns shorter than the time below stay quiet.",
-                  options: ["sound", "banner", "off"], group: "Notifications"),
-                s("agents.onWaiting", "When an agent needs you", "enum", "sound", "Comes at once, even while you type.",
-                  options: ["sound", "banner", "off"], group: "Notifications"),
-                s("agents.remindAfter", "Remind once if an agent still waits (min)", "enum", "10", "Not after you opened it or muted its row.",
-                  options: ["off", "5", "10", "30"], group: "Notifications"),
-                s("agents.onError", "When an agent fails", "enum", "sound", options: ["sound", "banner", "off"], group: "Notifications"),
-                s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
-                  options: ["0", "10", "20", "30", "60"], group: "Notifications"),
-                s("phone.url", "Phone notifications (ntfy address)", "string", "",
-                  "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.",
-                  group: "Notifications"),
-                s("phone.details", "Show what the agent says on the phone", "boolean", false, "Off: the agent's and the workspace's names only.",
-                  group: "Notifications"),
+                  options: ["fullest", "all"], group: "Plan limits"),
+                s("usage.resets", "Reset time beside a limit", "boolean", true, group: "Plan limits"),
                 s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
-                  options: ["off", "70", "80", "90"], group: "Notifications"),
-                s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
-                  options: ["agents", "usage", "icon"], group: "Notifications")
-            ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }, keywords: ["Accounts"]),
+                  options: ["off", "70", "80", "90"], group: "Plan limits"),
+                // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
+                s("agents.skills.extensions", "Write Kelp extensions", "boolean", true,
+                  "Ask Claude Code for a panel, tab or command: it knows how to make one.", group: "Claude Code skills"),
+                s("agents.skills.settings", "Change Kelp settings", "boolean", true,
+                  "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
+                s("agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
+                  "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
+                s("agents.skills.agents", "Hand work to other agents", "boolean", true,
+                  "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills")
+            ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30),
+            SettingsSection(id: "notifications", title: "Notifications", icon: "bell", specs: [
+                s("agents.holdBanners", "Hold finished agents while I type", "boolean", true,
+                  "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once."),
+                s("agents.onFinish", "When an agent finishes", "enum", "banner", "Turns shorter than the time below stay quiet.",
+                  options: ["sound", "banner", "off"]),
+                s("agents.onWaiting", "When an agent needs you", "enum", "sound", "Comes at once, even while you type.",
+                  options: ["sound", "banner", "off"]),
+                s("agents.remindAfter", "Remind once if an agent still waits (min)", "enum", "10", "Not after you opened it or muted its row.",
+                  options: ["off", "5", "10", "30"]),
+                s("agents.onError", "When an agent fails", "enum", "sound", options: ["sound", "banner", "off"]),
+                s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
+                  options: ["0", "10", "20", "30", "60"]),
+                s("phone.url", "Phone notifications (ntfy address)", "string", "",
+                  "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.", group: "Phone"),
+                s("phone.details", "Show what the agent says on the phone", "boolean", false, "Off: the agent's and the workspace's names only.",
+                  group: "Phone")
+            ], order: 50),
             SettingsSection(id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
-                            custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name), fillsPane: true),
+                            custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name), fillsPane: true, order: 40),
             SettingsSection(id: "terminal", title: "Terminal", icon: "terminal", specs: [
                 s("terminal.fontFamily", "Font", "font", "", "Default: the theme's / Ghostty's font."),
                 s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),
@@ -81,7 +79,7 @@ extension Builtins {
                   "New terminals run in a tmux session of their own (on the host, for a remote project): it keeps running when Kelp quits or "
                     + "updates, and the tab attaches to it again; after a dropped SSH connection, Restart does. Closing the tab ends the session. "
                     + "Needs tmux; without it here, terminals are plain shells.")
-            ])
+            ], order: 60)
         ]
         c.commands = [
             CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in

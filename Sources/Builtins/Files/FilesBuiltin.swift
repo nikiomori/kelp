@@ -38,7 +38,7 @@ extension Builtins {
             s("editor.lsp", "Language servers (completion, jump to definition)", "boolean", true),
             s("editor.formatOnSave", "Format on save", "boolean", false, "⌘S runs Format Document first, for languages that have a formatter."),
             s("markdown.defaultMode", "Default Markdown mode", "enum", "preview", options: ["preview", "edit", "split"])
-        ])]
+        ], order: 70)]
         let ts = LanguageSpec.Server(command: "typescript-language-server", args: ["--stdio"], install: "npm i -g typescript-language-server typescript")
         c.languages = [
             LanguageSpec(id: "swift", extensions: ["swift"], server: .init(command: "xcrun", args: ["sourcekit-lsp"]), format: "swift format -"),

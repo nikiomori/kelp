@@ -1,4 +1,6 @@
+import AppKit
 import Testing
+@testable import KelpApp
 @testable import KelpKit
 
 @MainActor @Test func aPickerListsAValueFromOutsideItsChoices() {
@@ -27,4 +29,17 @@ import Testing
     #expect(SettingsSearch.find("account", in: sections).first?.section.id == "agents")
     #expect(SettingsSearch.find("integrations", in: sections).map(\.screens) == [["Integrations"]])
     #expect(SettingsSearch.find("nothing here", in: sections).isEmpty)
+}
+
+@MainActor @Test func settingsHaveTheirShelves() {
+    _ = testHome
+    _ = NSApplication.shared   // the theme applies to NSApp
+    let m = AppModel(builtins: Builtins.all)
+    m.extensions.reload()
+    let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
+    #expect(sections.prefix(10).map(\.id) == ["appearance", "window", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
+    let window = sections.first { $0.id == "window" }
+    #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
+    #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == false)
+    #expect(sections.first { $0.id == "git" }?.groups.map(\.0) == [nil, "CI"])
 }

@@ -162,7 +162,7 @@ final class AgentSummary: NSView {
         }
         m.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
         m.addItem(.separator())
-        m.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", app)
+        m.addSettingsLink(String(localized: "Needs You Settings…"), section: "window", app)
         return m
     }
 }

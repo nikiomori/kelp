@@ -384,17 +384,3 @@ private struct ColumnSegments: NSViewRepresentable {
         @objc func changed(_ s: NSSegmentedControl) { selection.wrappedValue = s.selectedSegment }
     }
 }
-
-/// Settings › Agents: where the agents are, and how many are on this Mac.
-struct CatalogLink: View {
-    let app: AppModel
-    var body: some View {
-        let all = app.catalog.all.count, have = app.catalog.all.filter { app.availability.ids.contains($0.id) }.count
-        LabeledContent {
-            Button("Open Catalog") { app.extensions.run("workbench.openSettings", ["section": .string("catalog")]) }
-        } label: {
-            Text("Agent Catalog")
-            Text("\(have) installed · \(all - have) more to install")
-        }
-    }
-}

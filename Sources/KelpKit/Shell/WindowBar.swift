@@ -293,7 +293,7 @@ extension WindowBar: NSMenuDelegate {
         m.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
         m.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
         m.addItem(.separator())
-        m.addSettingsLink(String(localized: "CI Settings…"), section: "appearance", app)
+        m.addSettingsLink(String(localized: "CI Settings…"), section: "git", app)
     }
 
     /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.

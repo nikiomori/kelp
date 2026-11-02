@@ -37,28 +37,32 @@ struct AccountsSettings: View {
     @State private var newAgent = "claude"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Table(profiles, selection: $selection) {
-                TableColumn("Name", value: \.name)
-                TableColumn("Agent", value: \.agent).width(80)
-                TableColumn("Config folder", value: \.dir)
+        Section("Accounts") {
+            if profiles.isEmpty {
+                Text("No profiles yet: agents use their own login.").foregroundStyle(.secondary)
+            } else {
+                Table(profiles, selection: $selection) {
+                    TableColumn("Name", value: \.name)
+                    TableColumn("Agent") { Text(app.catalog.name($0.agent)) }.width(100)
+                    TableColumn("Config folder", value: \.dir)
+                }
             }
             HStack {
-                Picker("", selection: $newAgent) { Text("Claude Code").tag("claude"); Text("Codex").tag("codex") }.labelsHidden().frame(width: 130)
-                TextField("Profile name (e.g. work)", text: $newName).frame(width: 200)
+                Picker("", selection: $newAgent) { Text("Claude Code").tag("claude"); Text("Codex").tag("codex") }.labelsHidden().fixedSize()
+                TextField("Profile name", text: $newName, prompt: Text("Profile name")).labelsHidden().textFieldStyle(.roundedBorder).frame(minWidth: 110)
                 Button("Add") {
                     let n = newName.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
                     profiles.append(AccountProfile(name: n, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: n)))
                     newName = ""; Task { await Accounts.save(app, profiles) }
                 }
+                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Spacer()
                 Button("Log In…") { login() }.disabled(selection == nil)
                 Button("Remove…") { remove() }.disabled(selection == nil)
             }
             Text("Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(.secondary)
         }
-        .padding(16)
         .task { profiles = await Accounts.load(app) }
     }
 
