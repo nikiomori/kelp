@@ -41,7 +41,7 @@ enum StripModel {
     /// a finished agent can wait for a look, and it would otherwise keep the strip up all day in another app.
     static func shows(_ items: [StripItem], mode: String?, comesFor: String?, front: Bool) -> Bool {
         guard !front, mode != "off" else { return false }
-        if mode == "always" { return !items.isEmpty }
+        guard mode == "needed" else { return !items.isEmpty }   // Always, the default: it's where you see them working
         let loudest: DockFace.Cell = switch comesFor {
         case "questions": .asks
         case "all": .done
@@ -63,8 +63,8 @@ enum StripModel {
     static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
 
-/// A strip of workspaces over the Dock, for when Kelp is behind another app: the one whose agent asks opens into a pill, and a
-/// click answers from a card with Kelp left where it is. It sits at the foot of the visible screen and under the Dock's level:
+/// A strip of workspaces over the Dock, for when Kelp is behind another app: their agents at a glance, the one that asks opened
+/// into a pill, and a click answers from a card with Kelp left where it is. It sits at the foot of the visible screen and under the Dock's level:
 /// a Dock that stays reserves its room, and a hidden one slides over the strip and away.
 @MainActor
 final class AgentStrip {

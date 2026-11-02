@@ -12593,13 +12593,13 @@
         }
       }
     },
-    "With Kelp behind another app: answer an agent from there.": {
+    "With Kelp behind another app: see them work and answer from there.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Когда Kelp за другим приложением: отвечать агенту прямо оттуда."
+            "value": "Когда Kelp за другим приложением: видеть их работу и отвечать прямо оттуда."
           }
         }
       }

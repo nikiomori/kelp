@@ -45,7 +45,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
         StripModel.shows(items, mode: mode, comesFor: comes, front: front)
     }
     #expect(shows(asking, "needed"))
-    #expect(shows(asking, nil))   // the default
+    #expect(shows(working, nil))   // the default: it's where you see them working
     #expect(!shows(asking, "needed", front: true))
     #expect(!shows(asking, "off"))
     #expect(!shows(working, "needed"))
