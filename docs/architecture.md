@@ -70,7 +70,7 @@ Every action of the app is a command with an id (`workbench.toggleSidebar`, `edi
 VS Code and Zed: the menu bar is laid out by id (`AppDelegate.buildMenu`), settings.json `keys` rebinds by id, and agents
 run the same ids with `kelp run`.
 
-Built-ins (Agents, Files, Git, Issues, Browser, Activity) can be turned off like any other extension. Each is a
+Built-ins (Agents, Files, Git, Issues, Browser, Activity, Routines) can be turned off like any other extension. Each is a
 module of its own (`Sources/Builtins/<Feature>`, target `Builtin<Feature>`) that depends on KelpKit — the shell — and on
 no other built-in. It sees only what KelpKit declares `package`: the contribution types (`TabContent`, `PanelSpec`,
 `CommandSpec`…), `AppModel` and its one error path, `app.workbench` (open a URI, show a panel), shared views and

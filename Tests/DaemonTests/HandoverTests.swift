@@ -36,7 +36,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let s = new.state.withLock { ($0.pasteMode, $0.draftWaiting, $0.typing, $0.hooksSpoke, $0.readyForText(submits: true)) }
     #expect(s.0 && s.1 && s.2 == "half a li" && s.3 && !s.4)
     // A kelpd that didn't say leaves the modes it was in.
-    new.adopted(modes: "\u{1B}[?2004h", bytes: 0, status: Handover.Status(holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(), transcript: nil))
+    let older = Handover.Status(holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(), transcript: nil)
+    new.adopted(modes: "\u{1B}[?2004h", bytes: 0, status: older)
     #expect(new.state.withLock { $0.pasteMode })
 }
 
