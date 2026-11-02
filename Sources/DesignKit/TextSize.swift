@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Settings › Appearance › Text size: larger text in the app's own chrome (sidebar, inspector, tabs, bars, popovers)
 /// for people who want it; code (the terminal, the editor, a diff) has its own font size. Set as settings change, before
@@ -33,4 +34,11 @@ extension NSFont {
     }
     /// Monospaced, for short machine text in the chrome (a command to run, a hash): `code-xs`.
     public static func uiMono(_ size: CGFloat, weight: Weight = .regular) -> NSFont { .monospacedSystemFont(ofSize: TextSize.of(size), weight: weight) }
+}
+
+/// The same fonts for SwiftUI views, so they follow Text size and the look's font too.
+@MainActor
+extension Font {
+    public static func ui(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.ui(size, weight: weight) as CTFont) }
+    public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.uiMono(size, weight: weight) as CTFont) }
 }

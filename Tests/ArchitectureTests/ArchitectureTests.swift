@@ -280,6 +280,16 @@ private func codeOnly(_ s: String) -> String {
     })
 }
 
+/// Sizes come from DesignKit, not from a number at the call. Each count is a ceiling that only goes down: what's left is a
+/// tile's fixed glyph, an icon row's point size, radii concentric with another (9 in a row, 14 and 16 in glass), and
+/// `NSImage.symbol` itself with the colourful icons that need a weight.
+@Test func chromeTakesItsSizesFromDesignKit() throws {
+    let chrome = ["Sources/KelpKit", "Sources/Builtins"]
+    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 2)
+    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 4)
+    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 2)
+}
+
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {

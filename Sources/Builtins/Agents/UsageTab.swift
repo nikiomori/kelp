@@ -268,7 +268,7 @@ struct UsageReportView: View {
         let ids = series.map(\.id)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(.system(size: TextSize.of(13), weight: .semibold))
+                Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(.ui(13, weight: .semibold))
                 if sel != nil { Button("Show All") { selected = nil }.controlSize(.small) }
                 Spacer()
                 Picker("", selection: $byCost) {
@@ -328,7 +328,7 @@ struct UsageReportView: View {
     /// A model's dot is its agent's colour (the chosen agent's when there is one).
     private func groups(_ title: String, _ rows: [UsageReport.Group], model: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: TextSize.of(13), weight: .semibold))
+            Text(title).font(.ui(13, weight: .semibold))
             ForEach(rows.prefix(8), id: \.name) { r in
                 HStack(spacing: 8) {
                     if model, let owner = sel ?? series.first(where: { $0.models.contains { $0.name == r.name } })?.id {

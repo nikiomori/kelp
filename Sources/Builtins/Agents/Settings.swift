@@ -189,7 +189,7 @@ struct AgentsSettings: View {
             }.buttonStyle(PointerButtonStyle()).help("Copy")
         }
         .padding(8)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Metrics.radiusSM))
     }
 
     @ViewBuilder private func versionRow(_ m: AgentManifest) -> some View {
@@ -218,7 +218,7 @@ struct AgentsSettings: View {
 
     /// How Kelp starts it: binary, arguments, environment (and a provider's variables).
     @ViewBuilder private func launch(_ m: AgentManifest) -> some View {
-        Text("Launch").font(.system(size: TextSize.of(13), weight: .semibold))
+        Text("Launch").font(.ui(13, weight: .semibold))
         Form {
             TextField("Command", text: $command)
             TextField("Arguments", text: $args, prompt: Text("space separated"))

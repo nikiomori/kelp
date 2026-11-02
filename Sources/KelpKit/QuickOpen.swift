@@ -113,8 +113,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         field.placeholderString = commandsOnly ? String(localized: "Run a command") : String(localized: "Search chats, tabs, files and commands")
         let label = commandsOnly ? String(localized: "Commands") : String(localized: "Search")
         field.setAccessibilityLabel(label)
-        (field.cell as? NSSearchFieldCell)?.searchButtonCell?.image = NSImage(systemSymbolName: commandsOnly ? "command" : "magnifyingglass",
-                                                                             accessibilityDescription: label)
+        (field.cell as? NSSearchFieldCell)?.searchButtonCell?.image = .symbol(commandsOnly ? "command" : "magnifyingglass", label)
         // The keys it knows, under the list (they're not written anywhere else).
         keys.stringValue = commandsOnly ? String(localized: "↑↓ Select    ↩ Run    ⌫ Everything")
             : String(localized: "↑↓ Select    ↩ Open    ⇧↩ Open in a Split    > Commands    # Pull Requests")
@@ -442,7 +441,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")); kind.font = .ui(11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
-        let tick = NSImageView(image: NSImage(systemSymbolName: "checkmark", accessibilityDescription: String(localized: "Current")) ?? NSImage())
+        let tick = NSImageView(image: .symbol("checkmark", String(localized: "Current")))
         tick.contentTintColor = .themeAccent; tick.isHidden = !it.checked
         // A command's shortcut: at the end of the title's line, as in a menu.
         let key = NSTextField(labelWithString: it.key)
