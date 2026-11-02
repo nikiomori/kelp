@@ -5120,6 +5120,16 @@
         }
       }
     },
+    "In Selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В выделении"
+          }
+        }
+      }
+    },
     "in the background": {
       "localizations": {
         "ru": {
@@ -8121,6 +8131,16 @@
         }
       }
     },
+    "Preserve Case": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранять регистр"
+          }
+        }
+      }
+    },
     "Preview": {
       "localizations": {
         "ru": {
@@ -8897,6 +8917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Повтор"
+          }
+        }
+      }
+    },
+    "Replace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить"
           }
         }
       }

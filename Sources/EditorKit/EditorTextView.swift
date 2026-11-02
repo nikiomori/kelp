@@ -29,6 +29,11 @@ public final class EditorTextView: NSTextView {
     /// Asks the app for completion items; they come back later, to `showCompletions`.
     var onComplete: (() -> Void)?
     var completions: [CodeEditor.Completion] = []
+    /// The menu's Find items.
+    var onFind: ((NSFindPanelAction) -> Void)?
+    /// What the find bar found, top to bottom, and the one it's on.
+    var findMarks: [NSRange] = [] { didSet { needsDisplay = true } }
+    var findCurrent: NSRange? { didSet { needsDisplay = true } }
     /// What `CodeEditor.problems` comes to in the text, top to bottom.
     var problemMarks: [ProblemMark] = []
     private var presenting = false
@@ -266,8 +271,13 @@ public final class EditorTextView: NSTextView {
 
     // MARK: Drawing
 
+    public override func performFindPanelAction(_ sender: Any?) {
+        onFind?(NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) ?? .showFindPanel)
+    }
+
     public override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawFindMarks(in: rect)
         guard cursors.count == 1, selectedRange().length == 0, lineHighlight.alphaComponent > 0 else { return }
         var line = caretRect(at: selectedRange().location)
         line.origin.x = 0

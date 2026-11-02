@@ -22,25 +22,6 @@ struct SearchOptions: Equatable {
     }
 }
 
-/// One of the toggles, in the bar beside the field: filled while on.
-final class SearchToggle: PointerButton {
-    var isOn = false { didSet { restFill = isOn ? .fillSelected : nil } }
-
-    init(_ title: String, tip: String, action: @escaping () -> Void) {
-        super.init(frame: .zero)
-        self.title = title
-        font = .uiMono(11)
-        toolTip = tip
-        setAccessibilityLabel(tip)
-        onClick = action
-        setContentHuggingPriority(.required, for: .horizontal)
-        setContentCompressionResistancePriority(.required, for: .horizontal)
-        widthAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
-        heightAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
-    }
-    required init?(coder: NSCoder) { fatalError("not from a nib") }
-}
-
 extension FilesPanel {
     func toggle(_ option: WritableKeyPath<SearchOptions, Bool>) {
         searchOptions[keyPath: option].toggle()
@@ -54,7 +35,7 @@ extension FilesPanel {
 
     /// They come with a search: an empty field keeps its room for the name of what you're after, unless one is on.
     func showSearchOptions() {
-        let keys: [(SearchToggle, Bool)] = [(caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord), (regexToggle, searchOptions.regex)]
+        let keys: [(TextToggle, Bool)] = [(caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord), (regexToggle, searchOptions.regex)]
         let shown = !byName && (!search.stringValue.isEmpty || searchOptions != SearchOptions())
         for (button, on) in keys {
             button.isOn = on

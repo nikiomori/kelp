@@ -48,6 +48,8 @@ public final class CodeEditor: NSObject {
     public var problems: [Problem] = [] { didSet { if problems != oldValue { problemsChanged() } } }
     /// Lines with a problem; true where one is an error.
     var problemLines: [Int: Bool] = [:]
+    /// ⌘F's, once it's been asked for.
+    var findBar: FindBar?
     /// Prose, whatever `wrapLines` says.
     public var alwaysWraps = false
     /// Top to bottom. Set by the tab; typing moves them along.
@@ -118,8 +120,7 @@ public final class CodeEditor: NSObject {
         tv.isRichText = false
         tv.importsGraphics = false
         tv.allowsUndo = true
-        tv.usesFindBar = true
-        tv.isIncrementalSearchingEnabled = true
+        tv.usesFindPanel = true   // the menu's Find items reach `performFindPanelAction`; what they open is Kelp's own bar
         tv.smartInsertDeleteEnabled = false
         for off in [\NSTextView.isAutomaticQuoteSubstitutionEnabled, \.isAutomaticDashSubstitutionEnabled, \.isAutomaticTextReplacementEnabled,
                     \.isAutomaticSpellingCorrectionEnabled, \.isAutomaticLinkDetectionEnabled, \.isContinuousSpellCheckingEnabled,
@@ -141,6 +142,7 @@ public final class CodeEditor: NSObject {
         }
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
+        tv.onFind = { [weak self] in self?.find($0) }
     }
 
     /// The text, without an undo step or a change event: what was on disk, at first or after it changed there.
@@ -310,7 +312,11 @@ public final class CodeEditor: NSObject {
 extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     public func undoManager(for view: NSTextView) -> UndoManager? { undo }
 
-    public func textDidChange(_ notification: Notification) { if !loading { onChange?(textView.string) } }
+    public func textDidChange(_ notification: Notification) {
+        guard !loading else { return }
+        onChange?(textView.string)
+        findBar?.textChanged()
+    }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         gutter?.needsDisplay = true

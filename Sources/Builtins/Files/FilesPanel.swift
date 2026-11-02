@@ -459,9 +459,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// What the field looks through: names narrow the tree in place, contents list matches instead of it.
     var byName = UserDefaults.standard.bool(forKey: "files.searchByName")
     private(set) lazy var resultsTop = resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
-    private(set) lazy var caseToggle = SearchToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
-    private(set) lazy var wordToggle = SearchToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }
-    private(set) lazy var regexToggle = SearchToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.toggle(\.regex) }
+    private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
+    private(set) lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }
+    private(set) lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.toggle(\.regex) }
     /// Under the field: a pattern that isn't valid, while the last results stay.
     let patternError = NSTextField(labelWithString: "")
 }
