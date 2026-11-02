@@ -23,6 +23,7 @@ final class FileRules {
         let language = editor.languageId
         detected = app.settings.bool("editor.detectIndentation", language: language) != false ? Indentation.detect(editor.text) : nil
         bar.indentMenu = { [weak self] in self?.menu() ?? NSMenu() }
+        editor.snippetSource = { await Snippets.load(app: app, language: language, root: root, path: path) }
         track(owner: self) { [settings = app.settings] in
             [settings.number("editor.tabSize", language: language), settings.bool("editor.insertSpaces", language: language) == false ? 1 : 0]
         } changed: { [weak self] _ in self?.apply() }

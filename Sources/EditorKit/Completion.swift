@@ -54,8 +54,33 @@ enum Snippet {
     static func parse(_ s: String) -> (text: String, stops: [[NSRange]]) {
         var out = "", found: [Int: [NSRange]] = [:]
         read(Array(s.unicodeScalars), into: &out, &found)
+        mirror(&out, &found)
         let order = found.keys.filter { $0 != 0 }.sorted() + (found[0] == nil ? [] : [0])
         return (out, order.compactMap { found[$0] })
+    }
+
+    /// A stop's empty places show what its placeholder says: `${1:name} = $1` starts as `name = name`.
+    private static func mirror(_ text: inout String, _ found: inout [Int: [NSRange]]) {
+        let s = NSMutableString(string: text)
+        for n in found.keys.sorted() {
+            while let places = found[n], let model = places.first(where: { $0.length > 0 }), let k = places.firstIndex(where: { $0.length == 0 }) {
+                let value = s.substring(with: model), at = places[k].location, added = (value as NSString).length
+                s.insert(value, at: at)
+                found = found.mapValues { list in
+                    list.map { r in
+                        if r.location >= at { return NSRange(location: r.location + added, length: r.length) }
+                        return NSMaxRange(r) > at ? NSRange(location: r.location, length: r.length + added) : r
+                    }
+                }
+                found[n]?[k] = NSRange(location: at, length: added)
+            }
+        }
+        text = s as String
+    }
+
+    /// Multi-line text takes the indent of the line it goes in, its tabs the file's indent.
+    static func fitted(_ s: String, indent: String, unit: String) -> String {
+        s.replacingOccurrences(of: "\t", with: unit).replacingOccurrences(of: "\n", with: "\n" + indent)
     }
 
     private static func read(_ c: [Unicode.Scalar], into out: inout String, _ found: inout [Int: [NSRange]]) {

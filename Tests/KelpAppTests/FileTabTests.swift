@@ -266,3 +266,20 @@ extension AppOfItsOwn {
     #expect(Breadcrumbs.children(of: "Sources", in: paths).map(\.name) == ["b", "a.swift"])
     #expect(Breadcrumbs.children(of: "Sources", in: paths).map(\.isFolder) == [true, false])
 }
+
+/// What VS Code writes goes in as it is: a comment, a prefix list, a body of lines.
+@Test func snippetsReadVSCodesFormat() throws {
+    let text = """
+    {
+      // a comment
+      "Test": { "prefix": ["test", "tt"], "body": ["func test$1() {", "\\t$0", "}"], "description": "A test" },
+      "One": { "prefix": "one", "body": "$TM_FILENAME_BASE ${TM_FILENAME}" },
+      "Broken": { "prefix": "x" },
+    }
+    """
+    let all = try Snippets.read(text, path: "/p/a.swift")
+    #expect(all.map(\.label) == ["one", "test", "tt"])
+    #expect(all[0].insert == "a a.swift")
+    #expect(all[1].insert.contains("\n") && all[1].snippet && all[1].documentation == "A test" && all[1].detail == "Test")
+    #expect(throws: (any Error).self) { try Snippets.read("{", path: "/p/a.swift") }
+}

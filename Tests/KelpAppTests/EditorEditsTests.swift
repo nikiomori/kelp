@@ -289,7 +289,7 @@ extension OneAtATime {
     @Test func aSnippetsStopsFollowTab() {
         let (e, tv) = editor("", selecting: [NSRange(location: 0, length: 0)])
         e.accept(.init(label: "f", insert: "func ${1:name}($2) -> $1 {\n\t$0\n}", snippet: true))
-        #expect(e.text == "func name() -> name {\n\t\n}" || e.text.hasPrefix("func name() -> "))
+        #expect(e.text == "func name() -> name {\n    \n}")
         #expect(tv.cursors.count == 2)
         tv.insertText("go", replacementRange: NSRange(location: NSNotFound, length: 0))
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
@@ -297,11 +297,11 @@ extension OneAtATime {
         #expect(tv.selectedRange().location == 8)
         tv.insertText("a", replacementRange: NSRange(location: NSNotFound, length: 0))
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
-        #expect(e.text == "func go(a) -> go {\n\t\n}")
-        #expect(tv.selectedRange().location == 20)
+        #expect(e.text == "func go(a) -> go {\n    \n}")
+        #expect(tv.selectedRange().location == 23)
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // past the last stop
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // over: a Tab is a tab again
-        #expect(e.text.contains("\t "))
+        #expect(e.text != "func go(a) -> go {\n    \n}")
     }
 
     @Test func returnOnTheLastLineShownBringsTheNewLineIntoView() throws {

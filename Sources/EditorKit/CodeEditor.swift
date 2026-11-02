@@ -38,9 +38,9 @@ public final class CodeEditor: NSObject {
     }
     public var onSelection: (() -> Void)?
     /// Completion items come from the app (LSP); the text view shows them in its completion list.
-    public var completionProvider: ((Int, Int) async -> [Completion])? {
-        didSet { textView.onComplete = completionProvider == nil ? nil : { [weak self] in self?.showCompletions() } }
-    }
+    public var completionProvider: ((Int, Int) async -> [Completion])?
+    /// This file's snippets, joining the server's or standing in when there's none.
+    public var snippetSource: (() async -> [Completion])?
 
     var lineIndex = LineIndex()
     var lineCount = 1
@@ -192,6 +192,7 @@ public final class CodeEditor: NSObject {
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
         tv.onFind = { [weak self] in self?.find($0) }
+        tv.onComplete = { [weak self] in self?.showCompletions() }
         (scroll as? EditorScrollView)?.sticky.onLine = { [weak self] in self?.goTo(line: $0 + 1) }
         tv.onTyped = { [weak self] in self?.typed($0) }
         tv.onCommand = { [weak self] in self?.handle($0) ?? false }

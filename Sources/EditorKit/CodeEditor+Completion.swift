@@ -5,15 +5,30 @@ import AppKit
 extension CodeEditor {
     /// ⌃Space, a trigger character or Esc.
     public func showCompletions() {
-        guard let provider = completionProvider, let (line, column) = cursor else { return }
-        let at = textView.selectedRange().location, s = textView.string as NSString
+        guard completionProvider != nil || snippetSource != nil, let (line, column) = cursor else { return }
+        let provider = completionProvider, at = textView.selectedRange().location, s = textView.string as NSString
         let start = min(Self.word(at: at, in: s).location, at)
+        let member = start > 0 && s.character(at: start - 1) == 46   // after a dot: a member, not a snippet
         Task { [weak self] in
-            let items = await provider(line, column)
-            guard let self, !items.isEmpty, textView.selectedRange().location >= start else { return }
-            completing = (start, items)
-            refreshCompletions()
+            var items = await provider?(line, column) ?? []
+            if !member, let own = await self?.snippetSource?() { items += own }
+            self?.open(items, from: start)
         }
+    }
+
+    /// Only the snippets for this file: a way to see them.
+    public func showSnippets() {
+        let at = textView.selectedRange().location, start = min(Self.word(at: at, in: textView.string as NSString).location, at)
+        Task { [weak self] in
+            guard let items = await self?.snippetSource?(), !items.isEmpty else { return NSSound.beep() }
+            self?.open(items, from: start)
+        }
+    }
+
+    private func open(_ items: [Completion], from start: Int) {
+        guard !items.isEmpty, textView.selectedRange().location >= start else { return }
+        completing = (start, items)
+        refreshCompletions()
     }
 
     /// The word typed since it opened narrows it; a cursor gone from that word closes it.
@@ -55,7 +70,9 @@ extension CodeEditor {
         let start = c.edit.map { range($0, in: s).location } ?? completing?.start ?? at
         let own = NSRange(location: min(start, at), length: at - min(start, at))
         closeCompletions()
-        let (text, stops) = c.snippet ? Snippet.parse(c.insert) : (c.insert, [])
+        let line = s.lineRange(for: NSRange(location: own.location, length: 0))
+        let indent = s.substring(with: line).prefix { $0 == " " || $0 == "\t" }
+        let (text, stops) = c.snippet ? Snippet.parse(Snippet.fitted(c.insert, indent: String(indent), unit: tv.indentUnit)) : (c.insert, [])
         let edits = ([(own, text)] + c.more.map { (range($0, in: s), $0.text) }).sorted { $0.0.location < $1.0.location }
         tv.replace(edits.map(\.0), with: edits.map(\.1))
         let before = edits.prefix { $0.0.location < own.location }.reduce(0) { $0 + ($1.1 as NSString).length - $1.0.length }

@@ -52,3 +52,31 @@ import Testing
     e.goTo(line: 1)
     #expect(e.scopesAtCursor.isEmpty)
 }
+
+@Test func aMirrorShowsItsPlaceholder() {
+    let (text, stops) = Snippet.parse("let ${1:name} = $1 + $1;$0")
+    #expect(text == "let name = name + name;")
+    #expect(stops[0].map(\.location) == [4, 11, 18] && stops[0].map(\.length) == [4, 4, 4])
+    #expect(stops[1].first?.location == 23)
+    let before = Snippet.parse("$1 ${1:ab}")
+    #expect(before.text == "ab ab" && before.stops[0].map(\.location).sorted() == [0, 3])
+}
+
+/// With no language server too, in the line's indent, and not after a dot.
+@MainActor @Test func aSnippetGoesInWhereTheCursorIs() async throws {
+    let e = opened("    te", "s.swift")
+    let snippet = CodeEditor.Completion(label: "test", insert: "func ${1:a}() {\n\t$0\n}", kind: "snippet", snippet: true)
+    e.snippetSource = { [snippet] }
+    e.textView.setSelectedRange(NSRange(location: 6, length: 0))
+    e.showCompletions()
+    for _ in 0..<100 where e.completing == nil { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(e.completing?.items == [snippet])
+    e.accept(snippet)
+    #expect(e.text == "    func a() {\n        \n    }")
+    #expect(e.textView.selectedRange() == NSRange(location: 9, length: 1))
+    e.setText("a.")
+    e.textView.setSelectedRange(NSRange(location: 2, length: 0))
+    e.showCompletions()
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(e.completing == nil)
+}

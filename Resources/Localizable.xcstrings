@@ -166,6 +166,16 @@
         }
       }
     },
+    "%@ can't be read: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ не читается: %2$@"
+          }
+        }
+      }
+    },
     "%@ changed on disk": {
       "localizations": {
         "ru": {
@@ -5835,6 +5845,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вставить ссылку"
+          }
+        }
+      }
+    },
+    "Insert Snippet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить сниппет"
           }
         }
       }

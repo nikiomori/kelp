@@ -143,6 +143,7 @@ extension Builtins {
                       cmd("editor.outdent", "Outdent", "cmd+[") { CodeEditor.focused?.indent(out: true) },
                       cmd("editor.fold", "Fold", "opt+cmd+[") { CodeEditor.focused?.fold() },
                       cmd("editor.unfold", "Unfold", "opt+cmd+]") { CodeEditor.focused?.unfold() },
+                      cmd("editor.insertSnippet", "Insert Snippet") { CodeEditor.focused?.showSnippets() },
                       cmd("editor.unfoldAll", "Unfold All") { CodeEditor.focused?.unfoldAll() },
                       cmd("editor.foldAll", "Fold All") { CodeEditor.focused?.foldAll() },
                       cmd("editor.foldLevel2", "Fold Level 2") { CodeEditor.focused?.foldAll(level: 2) },
