@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// SwiftUI's side of `PointerButton`, for settings and extension panels: under the pointer a grey fill fades in, held it
-/// darkens and the button dips, as Kelp's AppKit controls do. Reduce Motion: the fills change, nothing moves.
+/// darkens at once and the button dips by `Motion.pressDip`, as Kelp's AppKit controls do. Reduce Motion: the fills change,
+/// nothing moves.
 public struct PointerButtonStyle: ButtonStyle {
     private let radius: CGFloat
     public init(radius: CGFloat = Metrics.radiusSM) { self.radius = radius }
@@ -11,6 +12,7 @@ public struct PointerButtonStyle: ButtonStyle {
         let configuration: ButtonStyleConfiguration
         let radius: CGFloat
         @State private var hovering = false
+        @State private var size = CGSize.zero
         var body: some View {
             configuration.label
                 .padding(.horizontal, 4)
@@ -18,10 +20,12 @@ public struct PointerButtonStyle: ButtonStyle {
                 .background(RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear)))
                 .contentShape(Rectangle())
-                .scaleEffect(configuration.isPressed && !Motion.reduced ? 0.94 : 1)
+                .animation(configuration.isPressed || Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: configuration.isPressed)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
+                .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
                 .animation(Motion.reduced ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
                 .onHover { hovering = $0 }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         }
     }
 }
@@ -36,15 +40,17 @@ public struct PointerCardStyle: ButtonStyle {
         let configuration: ButtonStyleConfiguration
         let radius: CGFloat
         @State private var hovering = false
+        @State private var size = CGSize.zero
         var body: some View {
             configuration.label
                 .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(Color.primary.opacity(hovering ? 0.35 : 0), lineWidth: 1))
                 .contentShape(Rectangle())
-                .scaleEffect(configuration.isPressed && !Motion.reduced ? 0.97 : 1)
+                .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
                 .animation(Motion.reduced ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
                 .onHover { hovering = $0 }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         }
     }
 }

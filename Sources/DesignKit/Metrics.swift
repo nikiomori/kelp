@@ -58,6 +58,9 @@ public enum Motion {
     public static let hoverClose: TimeInterval = 0.2
 
     public static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    /// What a press scales a view of `size` to: 4 pt off its longer side, and no more than 10 %. A share alone took 90 pt
+    /// off a bar under a terminal for the 2 pt it takes off an icon.
+    public static func pressDip(_ size: CGSize) -> CGFloat { 1 - min(0.1, 4 / max(size.width, size.height, 1)) }
     /// `d`, or 0 when the person asked for less motion.
     public static func duration(_ d: TimeInterval) -> TimeInterval { reduced ? 0 : d }
 }

@@ -391,7 +391,7 @@ final class PanelIcon: NSButton {
             layer?.shadowRadius = 1.5
             layer?.shadowOffset = CGSize(width: 0, height: -0.5)
         } else {
-            fadeBackground(to: on || isHighlighted ? .fillSelected : hover ? .fillHover : nil)   // held, it darkens
+            fadeBackground(to: on || isHighlighted ? .fillSelected : hover ? .fillHover : nil, held: isHighlighted)   // held, it darkens
             layer?.shadowOpacity = 0
         }
         contentTintColor = on ? .labelColor : .secondaryLabelColor

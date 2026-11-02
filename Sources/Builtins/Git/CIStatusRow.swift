@@ -58,7 +58,7 @@ final class CIStatusRow: NSView {
     private func showFill() {
         wantsLayer = true
         layer?.cornerRadius = Metrics.radiusSM
-        fadeBackground(to: pressed ? .fillSelected : hover ? .fillHover : nil)
+        fadeBackground(to: pressed ? .fillSelected : hover ? .fillHover : nil, held: pressed)
     }
     override func mouseEntered(with e: NSEvent) { hover = true; showFill() }
     override func mouseExited(with e: NSEvent) {

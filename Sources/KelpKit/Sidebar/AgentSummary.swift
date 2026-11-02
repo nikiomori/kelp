@@ -64,7 +64,7 @@ final class AgentSummary: NSView {
         capsule.press = { [weak self] in if self?.asking == true { self?.app.workbench.showNextNeedingAttention() } }
         capsule.look = { [weak self] hovering, pressed in   // only the capsule that goes somewhere answers
             guard let self else { return }
-            sheen.fadeBackground(to: !asking ? nil : pressed ? .fillSelected : hovering ? .fillHover : nil)
+            sheen.fadeBackground(to: !asking ? nil : pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
         }
         capsule.setAccessibilityElement(true)
         let lh = line.heightAnchor.constraint(equalToConstant: 0)

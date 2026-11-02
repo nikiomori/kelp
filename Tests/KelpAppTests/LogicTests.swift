@@ -584,3 +584,11 @@ extension OneAtATime {
     #expect(week.marks(off, runs: [], day: week.days[4]).isEmpty)
     #expect(RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15)) == "Every hour at :15")
 }
+
+/// A press takes 4 pt off a long control and at most a tenth off a small one, or a bar under a terminal shrinks by 90 pt.
+@MainActor @Test func aPressDipsByPointsNotByShare() {
+    func taken(_ w: CGFloat, _ h: CGFloat = 24) -> CGFloat { (1 - Motion.pressDip(CGSize(width: w, height: h))) * max(w, h) }
+    #expect(abs(taken(22, 22) - 2.2) < 0.01)
+    #expect(abs(taken(180) - 4) < 0.01)
+    #expect(abs(taken(900) - 4) < 0.01)
+}

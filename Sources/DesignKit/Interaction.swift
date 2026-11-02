@@ -1,18 +1,20 @@
 import AppKit
 
-/// How a control answers the pointer: its fill fades in and out (not switched), a press dips it and lets it spring
-/// back. Nothing moves under Reduce Motion; the fills still change, at once.
+/// How a control answers the pointer: its fill fades in and out (not switched), held it darkens in the first frame, and
+/// a click dips it and lets it spring back. Nothing moves under Reduce Motion; the fills still change, at once.
 @MainActor
 extension NSView {
-    /// The layer's background becomes `color` (nil: none) over `Motion.fast`, from wherever it is now.
-    public func fadeBackground(to color: NSColor?) {
+    /// The layer's background becomes `color` (nil: none) over `Motion.fast`, from wherever it is now. `held`: a press,
+    /// which shows at once: faded, a quick click would be over before it was seen.
+    public func fadeBackground(to color: NSColor?, held: Bool = false) {
         wantsLayer = true
         guard let layer else { return }
         var new: CGColor?
         effectiveAppearance.performAsCurrentDrawingAppearance { new = color?.cgColor }
         let old = layer.presentation()?.backgroundColor ?? layer.backgroundColor
         layer.backgroundColor = new
-        guard !Motion.reduced, old != new else { return }
+        if held { layer.removeAnimation(forKey: "fade") }
+        guard !held, !Motion.reduced, old != new else { return }
         let a = CABasicAnimation(keyPath: "backgroundColor")
         a.fromValue = old ?? NSColor.clear.cgColor
         a.toValue = new ?? NSColor.clear.cgColor
@@ -31,12 +33,13 @@ extension NSView {
         layer?.add(t, forKey: "crossfade")
     }
 
-    /// A press: the view dips to 90 % about its centre and springs back.
+    /// A click: the view dips about its centre by `Motion.pressDip` and springs back, a little past where it was.
     public func pressBounce() {
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
         func scaled(_ s: CGFloat) -> CATransform3D { aboutCentre(CATransform3DMakeScale(s, s, 1)) }
+        let dip = Motion.pressDip(bounds.size)
         let a = CAKeyframeAnimation(keyPath: "transform")
-        a.values = [CATransform3DIdentity, scaled(0.9), scaled(1.03), CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
+        a.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
         a.keyTimes = [0, 0.3, 0.7, 1]
         a.duration = Motion.appear
         a.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),

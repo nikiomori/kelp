@@ -426,9 +426,9 @@ private final class TabButton: NSControl, NSDraggingSource {
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }
     override func mouseDown(with e: NSEvent) {
-        pressBounce()   // a click answers as every control's does; dragging on from here moves the tab
         if let id = item?.id { strip?.onSelect?(id) }
     }
+    override func mouseUp(with e: NSEvent) { pressBounce() }   // a click springs as every control's does; a drag never comes here
     override func accessibilityPerformPress() -> Bool { if let id = item?.id { strip?.onSelect?(id) }; return true }
     override func otherMouseUp(with e: NSEvent) { closeTapped() }
     override func menu(for event: NSEvent) -> NSMenu? { item.flatMap { strip?.onMenu?($0.id) } }

@@ -327,7 +327,7 @@ private final class StartRow: NSView {
 
     override func mouseEntered(with e: NSEvent) { hover = true; fadeBackground(to: .fillHover) }
     override func mouseExited(with e: NSEvent) { hover = false; fadeBackground(to: nil) }
-    override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected) }
+    override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected, held: true) }
     override func mouseUp(with e: NSEvent) {
         fadeBackground(to: hover ? .fillHover : nil)
         if bounds.contains(convert(e.locationInWindow, from: nil)) { pressBounce(); action() }

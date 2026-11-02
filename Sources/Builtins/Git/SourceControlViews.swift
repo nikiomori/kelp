@@ -118,7 +118,7 @@ final class GraphBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    private func showFill() { fill.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil) }
+    private func showFill() { fill.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed) }
     override func mouseEntered(with e: NSEvent) { setHovering(true) }
     override func mouseExited(with e: NSEvent) { setHovering(false) }
     private func setHovering(_ on: Bool) {
