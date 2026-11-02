@@ -41,12 +41,12 @@ final class StripPanel: NSPanel {
 /// A workspace on the strip: its project's tile with its state in the corner, and in a pill what its agent asks.
 final class StripButton: PointerControl {
     static let stripHeight: CGFloat = 40
-    private static let height: CGFloat = 32, tile: CGFloat = 24
+    private static let height: CGFloat = 32, tile: CGFloat = 24, markInset: CGFloat = 2
 
     var onClick: (() -> Void)?
     var onMenu: (() -> NSMenu)?
-    private let icon = NSImageView(), mark = StatusMark(size: 12), halo = NSView(), label = NSTextField(labelWithString: "")
-    private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 3)
+    private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
+    private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
 
@@ -55,10 +55,8 @@ final class StripButton: PointerControl {
         layer?.cornerRadius = Self.height / 2
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
-        halo.wantsLayer = true
-        halo.layer?.cornerRadius = 7
-        halo.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.72).cgColor
-        for v in [glow, icon, label, halo, mark] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [glow, icon, label, mark] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        notch()
         let closed = trailingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4)
         trailing = closed
         NSLayoutConstraint.activate([
@@ -67,13 +65,24 @@ final class StripButton: PointerControl {
             icon.widthAnchor.constraint(equalToConstant: Self.tile), icon.heightAnchor.constraint(equalToConstant: Self.tile),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Metrics.gapWide),
             label.centerYAnchor.constraint(equalTo: centerYAnchor), label.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
-            halo.widthAnchor.constraint(equalToConstant: 14), halo.heightAnchor.constraint(equalToConstant: 14),
-            halo.centerXAnchor.constraint(equalTo: icon.trailingAnchor, constant: -2), halo.centerYAnchor.constraint(equalTo: icon.bottomAnchor, constant: -2),
-            mark.centerXAnchor.constraint(equalTo: halo.centerXAnchor), mark.centerYAnchor.constraint(equalTo: halo.centerYAnchor)
+            mark.centerXAnchor.constraint(equalTo: icon.trailingAnchor, constant: -Self.markInset),
+            mark.centerYAnchor.constraint(equalTo: icon.bottomAnchor, constant: -Self.markInset)
         ])
         pin(glow)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// The mark sits in a bite out of the tile's corner, so it reads on the strip's own glass in any theme, with no disc of its own.
+    private func notch() {
+        icon.wantsLayer = true
+        let bite = CAShapeLayer(), side = Self.tile, around = Self.markInset + 6
+        let path = CGMutablePath()
+        path.addRect(CGRect(x: 0, y: 0, width: side, height: side))
+        path.addEllipse(in: CGRect(x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around))
+        bite.path = path
+        bite.fillRule = .evenOdd
+        icon.layer?.mask = bite
+    }
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
