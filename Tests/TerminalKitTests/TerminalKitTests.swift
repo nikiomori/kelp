@@ -195,6 +195,7 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
 /// Programs may copy (OSC 52: Claude Code over ssh), flagged so that `confirmClipboard` keeps those lines from running on
 /// ⌘V where pastes aren't bracketed — which needs paste protection on.
 @Test func programCopiesAreFlagged() throws {
+    #expect(!GhosttyRuntime.overrides.contains("font_size"))   // ⌘+ and ⌘− are Kelp's: they change every terminal, not the focused one
     #expect(GhosttyRuntime.overrides.contains("clipboard-write = ask"))
     #expect(GhosttyRuntime.overrides.contains("clipboard-paste-protection = true"))
     // And Ghostty takes every line of Kelp's settings (a wrong key or value would be dropped with a diagnostic).

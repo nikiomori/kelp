@@ -128,17 +128,14 @@ public final class GhosttyRuntime {
     /// colours over 0.14 luminance go black. A light theme that's see-through picks its palette for it (Frost does).
     private static let defaults = "minimum-contrast = 2.9\n"
 
-    // App shortcuts (⌘T, ⌘D, ⌘W…) belong to Kelp; Ghostty keeps only terminal ones.
+    // App shortcuts (⌘T, ⌘D, ⌘W…) belong to Kelp; Ghostty keeps only terminal ones. Text size too: Ghostty's would change
+    // one terminal, Kelp's commands change them all and the editor.
     // ⇧↩ types a line feed: a new line in agent prompts (Claude Code, Codex) instead of sending the message.
     static let overrides = """
         keybind = clear
         keybind = super+c=copy_to_clipboard
         keybind = super+v=paste_from_clipboard
         keybind = super+a=select_all
-        keybind = super+equal=increase_font_size:1
-        keybind = super+plus=increase_font_size:1
-        keybind = super+minus=decrease_font_size:1
-        keybind = super+zero=reset_font_size
         keybind = super+k=clear_screen
         keybind = shift+page_up=scroll_page_up
         keybind = shift+page_down=scroll_page_down

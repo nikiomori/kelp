@@ -458,7 +458,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     @objc public func paste(_ sender: Any?) { ghosttyAction("paste_from_clipboard") }
     @objc public override func selectAll(_ sender: Any?) { ghosttyAction("select_all") }
 
-    /// ⌘-keys: Ghostty's own bindings (copy, paste, font size) go to the terminal; everything else to the menus.
+    /// ⌘-keys: Ghostty's own bindings (copy, paste, scrolling) go to the terminal; everything else to the menus.
     public override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.type == .keyDown, window?.firstResponder === self, let surface else { return false }
         var k = keyEvent(event, GHOSTTY_ACTION_PRESS)
