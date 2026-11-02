@@ -31,6 +31,20 @@ extension AppOfItsOwn {
         for _ in 0..<200 where !ok() { try await Task.sleep(for: .milliseconds(25)) }
     }
 
+    /// The close sheet says Save writes a deleted file at its old place again, and it does: it used to leave the tab open with
+    /// no word. A plain save still doesn't write over what it hasn't seen.
+    @Test func saveInTheCloseSheetPutsADeletedFileBack() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig)
+        tab.editor?.setText("mine\n")
+        tab.editor?.onChange?("mine\n")
+        try FileManager.default.removeItem(atPath: p)
+        #expect(await !tab.writeAndClose())
+        #expect(await tab.writeAndClose(answering: .missing))
+        #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
+    }
+
     @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let p = try file("one\n")

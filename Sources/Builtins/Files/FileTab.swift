@@ -198,7 +198,7 @@ final class FileTab: SavableTab {
         a.addButton(withTitle: String(localized: "Cancel"))
         a.addButton(withTitle: String(localized: "Don't Save"))
         switch await runSheet(a) {
-        case .alertFirstButtonReturn: return await writeAndClose()
+        case .alertFirstButtonReturn: return await writeAndClose(answering: action)
         case .alertThirdButtonReturn: discarded = true; return true
         default: return false
         }
@@ -305,7 +305,8 @@ final class FileTab: SavableTab {
     }
 
     /// Closing with a save: the tab waits until the file has it, and stays (with its edits) when that failed.
-    private func writeAndClose() async -> Bool { await serially { [self] in await write() } }
+    /// `answering`: what the sheet said it does, so a Save that puts a deleted file back or replaces an agent's version does.
+    func writeAndClose(answering action: FileSync.Action = .write) async -> Bool { await serially { [self] in await write(overAnything: action != .write) } }
 
     var pendingSave: Task<Void, Never>? { saving.map { s in Task { _ = await s.value } } }
 
