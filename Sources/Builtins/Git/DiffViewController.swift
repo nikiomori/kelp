@@ -178,6 +178,12 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         Task { await load() }
     }
 
+    /// Every file of a commit, the same as picking it under Commit…
+    func showCommit(_ hash: String) {
+        commitHash = hash
+        source.selectItem(at: 4)
+    }
+
     /// One file, VS Code's diff editor: no file list, just this file's changes.
     func showFile(_ path: String, source: String, commit: String?) {
         single = (path, source, commit)

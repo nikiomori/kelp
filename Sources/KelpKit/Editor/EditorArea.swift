@@ -294,6 +294,7 @@ package final class EditorArea: NSViewController {
         case "preview": return .init(id: t.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil, toolTip: body)
         case "usage": return .init(id: t.id, title: String(localized: "Usage"), icon: .symbol("chart.bar"), status: nil, toolTip: nil)
         case "routines": return .init(id: t.id, title: String(localized: "Routines"), icon: .symbol("clock.arrow.circlepath"), status: nil, toolTip: nil)
+        case "cilog": return .init(id: t.id, title: String(localized: "Log"), icon: .symbol("doc.text"), status: nil, toolTip: nil)
         default:
             let v = DeclarativeExtension.viewInfo(t.uri)
             return .init(id: t.id, title: v?.title ?? body, icon: .symbol(v?.icon ?? "puzzlepiece.extension"), status: nil, toolTip: t.uri)

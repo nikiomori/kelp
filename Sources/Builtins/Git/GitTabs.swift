@@ -5,8 +5,9 @@ import EditorKit
 import WorkbenchKit
 import KelpKit
 
-/// "diff:<workspace>" (every change) or "diff:<workspace>?file=<path>[&source=unstaged|staged][&commit=<hash>]" (one file,
-/// like VS Code's diff editor: "name (Working Tree)", "name (Index)", "name (abc1234)").
+/// "diff:<workspace>" (every change), "diff:<workspace>?commit=<hash>" (a commit's) or
+/// "diff:<workspace>?file=<path>[&source=unstaged|staged][&commit=<hash>]" (one file, like VS Code's diff editor:
+/// "name (Working Tree)", "name (Index)", "name (abc1234)").
 @MainActor
 final class DiffTab: TabContent {
     let worktreeId: String, app: AppModel
@@ -15,7 +16,9 @@ final class DiffTab: TabContent {
     private(set) var uri: String
     var view: NSView { controller.view }
     var title: String {
-        guard let file else { return source == "turn" ? String(localized: "Last Turn") : String(localized: "Changes") }
+        guard let file else {
+            return commit.map { String($0.prefix(7)) } ?? (source == "turn" ? String(localized: "Last Turn") : String(localized: "Changes"))
+        }
         let what = commit.map { String($0.prefix(7)) } ?? (source == "staged" ? String(localized: "Index")
             : source == "branch" ? String(localized: "Branch vs base") : String(localized: "Working Tree"))
         return "\((file as NSString).lastPathComponent) (\(what))"
@@ -33,7 +36,9 @@ final class DiffTab: TabContent {
         source = item("source")
         commit = item("commit")
         _ = controller.view
-        if let file { controller.showFile(file, source: source ?? "unstaged", commit: commit) } else if source == "turn" { controller.showLastTurn() }
+        if let file {
+            controller.showFile(file, source: source ?? "unstaged", commit: commit)
+        } else if let commit { controller.showCommit(commit) } else if source == "turn" { controller.showLastTurn() }
         controller.show(worktree: worktreeId)
         // Its workspace's git, pushed when its files change (a commit's diff doesn't change): read the diff again if it
         // changed what the diff is read from.
