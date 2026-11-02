@@ -143,7 +143,7 @@ extension SidebarController {
             }
             muteItem(menu, n.muteIds)
             menu.addItem(.separator())
-            menu.add(String(localized: "Stop")) { [app] in Task { await app.call(SessionKill(id: sid)) } }
+            menu.add(String(localized: "Stop…")) { AgentActions(app).stop([sid]) }
         }
     }
 

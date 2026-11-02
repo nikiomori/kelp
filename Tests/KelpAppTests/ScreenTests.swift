@@ -416,3 +416,22 @@ extension OneAtATime {
     #expect(vc.split.frame.height > 700)
     #expect(try #require(vc.split.arrangedSubviews.first).frame.height > 400)
 }
+
+/// A chat's row stops its agent the way everything else does, with the question.
+@MainActor @Test func stoppingAChatFromItsRowAsksFirst() throws {
+    let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())
+    let chat = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Here")
+    try withSidebar(repos: [here], worktrees: [own("w1")], sessions: [chat]) { vc, o in
+        let menus = try (0..<o.numberOfRows).map { row -> [String] in
+            let r = o.rect(ofRow: row), at = o.convert(NSPoint(x: r.midX, y: r.midY), to: nil)
+            let click = try #require(NSEvent.mouseEvent(with: .rightMouseDown, location: at, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                                                        eventNumber: 0, clickCount: 1, pressure: 1))
+            let menu = try #require(o.menu(for: click))
+            vc.menuNeedsUpdate(menu)
+            return menu.items.map(\.title)
+        }
+        let items = try #require(menus.first { $0.contains("Hand Off to") })
+        #expect(items.contains("Stop…"))
+        #expect(!items.contains("Stop"))   // the word that ended it at once
+    }
+}
