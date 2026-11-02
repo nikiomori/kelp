@@ -194,7 +194,8 @@ final class StartView: NSView {
     }
 
     private func followPlans(in stack: NSStackView, after field: NSView?) {
-        planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        // Not in the stack when the default agent isn't installed: there is no field for it to sit under.
+        if field != nil { planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         planBar.spacing = Metrics.gapWide
         planLine.font = .ui(12)
         planLine.textColor = .secondaryLabelColor
