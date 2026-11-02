@@ -2,6 +2,23 @@ import Foundation
 import Testing
 @testable import Core
 
+/// An archive can ship the file Kelp writes as a symlink, before anyone reviewed it: the link is replaced, not written through.
+@Test func theSourceFileIsNotWrittenThroughAnArchivesSymlink() throws {
+    let work = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kelp-lib-\(UUID().uuidString.prefix(6))")
+    let top = work.appendingPathComponent("repo-main"), victim = work.appendingPathComponent("victim")
+    defer { try? FileManager.default.removeItem(at: work) }
+    try FileManager.default.createDirectory(at: top, withIntermediateDirectories: true)
+    try Data("mine".utf8).write(to: victim)
+    try Data(#"{"id":"docker"}"#.utf8).write(to: top.appendingPathComponent("extension.json"))
+    try FileManager.default.createSymbolicLink(atPath: top.appendingPathComponent(IDE.sourceFile).path, withDestinationPath: victim.path)
+    let archive = work.appendingPathComponent("a.tgz")
+    let r = try Subprocess.run(["/usr/bin/tar", "-czf", archive.path, "-C", work.path, "repo-main"], cwd: work.path, env: [:], timeLimit: 20)
+    #expect(r.status == 0)
+    try FileManager.default.removeItem(at: top)
+    _ = try IDE.unpackExtension(archive, path: "", source: "https://github.com/me/repo", work: work)
+    #expect(try String(contentsOf: victim, encoding: .utf8) == "mine")
+}
+
 @Test func gitHubFoldersAreRead() {
     #expect(IDE.librarySource("https://github.com/me/exts")! == ("me/exts", "HEAD", ""))
     #expect(IDE.librarySource("github.com/me/exts.git/")! == ("me/exts", "HEAD", ""))

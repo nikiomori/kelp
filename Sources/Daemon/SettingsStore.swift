@@ -3,7 +3,8 @@ import os
 import Core
 
 /// `settings.json` in the Kelp home: one flat object with dotted keys (VS Code style).
-/// Hand edits are picked up by `reloadIfChanged`; a file that doesn't parse is ignored and the last good settings stay.
+/// Hand edits are picked up by `reloadIfChanged`; a file that doesn't parse is ignored and the last good settings stay,
+/// also when it broke while Kelp wasn't running (`lastGood`): extensions turned off mustn't start again because of a comma.
 final class SettingsStore: Sendable {
     let url: URL
     /// The settings and the file's date as last read or written, held only to copy them: the ticker reads settings twice
@@ -11,6 +12,7 @@ final class SettingsStore: Sendable {
     private let state = OSAllocatedUnfairLock<(values: [String: JSONValue], mtime: Date?)>(initialState: ([:], nil))
     /// The file's reads and writes, one at a time (a set's read, merge and write stay together).
     let file = NSLock()
+    private var lastGood: URL { url.deletingLastPathComponent().appendingPathComponent("settings.last-good.json") }
 
     /// config.json keys from before settings.json; read once, when settings.json doesn't exist yet.
     static let legacyKeys = ["hibernateMinutes": "sessions.hibernateMinutes", "keepAwake": "power.keepAwake", "profiles": "accounts.profiles"]
@@ -59,11 +61,22 @@ final class SettingsStore: Sendable {
         defer { file.unlock() }
         let m = modified()
         guard m != state.withLock({ $0.mtime }) else { return false }
-        let o: [String: JSONValue]? = (try? Data(contentsOf: url)).flatMap {
-            if case .object(let o)? = try? JSONDecoder().decode(JSONValue.self, from: $0) { o } else { nil }
-        }
-        state.withLock { st in st.mtime = m; if let o { st.values = o } }
+        let read = Self.read(url), o = read?.values
+        if let read, o != state.withLock({ $0.values }) { remember(read.data) }
+        // Nothing read yet, so nothing to stay: the start of a daemon with a broken file.
+        let kept = o == nil && state.withLock({ $0.values.isEmpty }) ? Self.read(lastGood)?.values : nil
+        if kept != nil { Log.store.fault("settings.json doesn't parse: running on the last settings that did") }
+        state.withLock { st in st.mtime = m; if let v = o ?? kept { st.values = v } }
         return o != nil
+    }
+
+    private static func read(_ u: URL) -> (data: Data, values: [String: JSONValue])? {
+        guard let d = try? Data(contentsOf: u), case .object(let o)? = try? JSONDecoder().decode(JSONValue.self, from: d) else { return nil }
+        return (d, o)
+    }
+
+    private func remember(_ d: Data) {
+        Log.store.attempt("keeping the last good settings") { try d.write(to: lastGood, options: .atomic) }
     }
 
     /// The date of the file a symlink points at: the link's own never changes on an edit.
@@ -75,7 +88,9 @@ final class SettingsStore: Sendable {
     private func write(_ values: [String: JSONValue]) throws {
         let e = JSONEncoder(); e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // To where a symlink points (settings.json kept in a dotfiles repo): an atomic write would replace the link itself.
-        try (e.encode(JSONValue.object(values)) + Data("\n".utf8)).write(to: url.resolvingSymlinksInPath(), options: .atomic)
+        let data = try e.encode(JSONValue.object(values)) + Data("\n".utf8)
+        try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
+        remember(data)
         let m = modified()   // our own write isn't a hand edit
         state.withLock { $0 = (values, m) }
     }

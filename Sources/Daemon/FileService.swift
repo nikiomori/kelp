@@ -228,10 +228,12 @@ struct FileService: Sendable {
             if stamp != base { return .init(conflict: .init(stamp: stamp, text: String(data: now, encoding: .utf8))) }
         }
         // Sent to a file beside it, then copied over it on the host once all of it came (a dropped connection ends the
-        // upload as if it were done: its size tells), so the file keeps its mode, owner and links and is never half.
+        // upload as if it were done: its size tells), so the file keeps its mode, owner and links. Limit: a disk that fills up
+        // during that copy leaves it short, so the copy beside it stays then, and the error says where.
         let tmp = RemoteHost.quote(path + ".kelp-XXXXXX")
-        let script = "t=$(mktemp \(tmp)) || exit 1; cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ] && cat \"$t\" > \(file); "
-            + "s=$?; rm -f \"$t\"; exit $s"
+        let script = "t=$(mktemp \(tmp)) || exit 1; "
+            + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
+            + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
         try Git.runData(remote.sshArgs(tty: false) + ["sh -c " + RemoteHost.quote(script)], cwd: NSHomeDirectory(), stdin: data, executable: remote.ssh)
         return .init(stamp: Self.digest(data))
     }

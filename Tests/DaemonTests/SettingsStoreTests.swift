@@ -9,6 +9,19 @@ private func home() throws -> URL {
     return d
 }
 
+/// A file broken while Kelp wasn't running: extensions turned off stay off, a daemon starts on what last parsed, and the file,
+/// the user's work in progress, isn't written over.
+@Test func aBrokenFileAtStartFallsBackToTheLastGoodSettings() throws {
+    let root = tmp()
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let first = SettingsStore(root: root)
+    _ = try first.set("extensions.disabled", .array(["bad"]))
+    let file = root.appendingPathComponent("settings.json")
+    try Data("{ broken".utf8).write(to: file)
+    #expect(SettingsStore(root: root)["extensions.disabled"] == .array(["bad"]))
+    #expect(try String(contentsOf: file, encoding: .utf8) == "{ broken")
+}
+
 @Test func aFreshHomeStartsEmptyAndWritesTheFile() throws {
     let d = try home()
     let s = SettingsStore(root: d)

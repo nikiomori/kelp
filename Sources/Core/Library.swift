@@ -75,7 +75,8 @@ extension IDE {
         try Paths.ensure(dest.deletingLastPathComponent())
         try fm.moveItem(at: folder, to: dest)
         let e = JSONEncoder(); e.outputFormatting = .withoutEscapingSlashes
-        try e.encode(["source": source]).write(to: dest.appendingPathComponent(sourceFile))
+        // Replaced, not written through: an archive can ship this name as a symlink, and nothing has reviewed it yet.
+        try e.encode(["source": source]).write(to: dest.appendingPathComponent(sourceFile), options: .atomic)
         return dest
     }
 
