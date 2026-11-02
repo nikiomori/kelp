@@ -16,7 +16,10 @@ final class RoutinesTab: KelpKit.TabContent {   // not SwiftUI's
     var icon: NSImage? { .symbol("clock.arrow.circlepath") }
     init(uri: String, app: AppModel) {
         self.uri = uri
-        view = NSHostingView(rootView: RoutinesView(app: app, repoId: TabURI.body(uri)))
+        let routines = RoutinesView(app: app, repoId: TabURI.body(uri))
+        let host = NSHostingView(rootView: routines.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
+        view = host
     }
     func focus() {}
 }

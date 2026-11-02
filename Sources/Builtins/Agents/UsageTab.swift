@@ -14,7 +14,11 @@ final class UsageTab: KelpKit.TabContent {   // not SwiftUI's
     let view: NSView
     var title: String { String(localized: "Usage") }
     var icon: NSImage? { .symbol("chart.bar") }
-    init(app: AppModel) { view = NSHostingView(rootView: UsageReportView(app: app)) }
+    init(app: AppModel) {
+        let host = NSHostingView(rootView: UsageReportView(app: app).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
+        view = host
+    }
     func focus() {}
 }
 
@@ -283,11 +287,14 @@ struct UsageReportView: View {
         let total = byCost ? money(cost, tokens) : String(localized: "\(count(tokens)) tokens")
         return VStack(alignment: .leading, spacing: 8) {
             Text("\(total) in the last year · \(days.count) active days").font(.caption).foregroundStyle(.secondary)
-            YearBoard(values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green) { day in
-                let when = day.formatted(.dateTime.month(.wide).day())
-                guard let d = days[day] else { return String(localized: "No usage on \(when)") }
-                return String(localized: "\(when): \(money(d.cost, d.tokens)) · \(count(d.tokens)) tokens")
+            ScrollView(.horizontal, showsIndicators: false) {   // a year is wider than a narrow pane: this week stays in view
+                YearBoard(values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green) { day in
+                    let when = day.formatted(.dateTime.month(.wide).day())
+                    guard let d = days[day] else { return String(localized: "No usage on \(when)") }
+                    return String(localized: "\(when): \(money(d.cost, d.tokens)) · \(count(d.tokens)) tokens")
+                }
             }
+            .defaultScrollAnchor(.trailing)
         }
     }
 
