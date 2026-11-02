@@ -31,3 +31,10 @@ public struct UICommand: InternalMethod {
     public var id: String, args: JSONValue?
     public init(id: String, args: JSONValue? = nil) { self.id = id; self.args = args }
 }
+
+/// An agent's prompt in a tab of the app (`kelp edit`, the tab's `prompt:` URI).
+public enum Prompts {
+    /// Beside the file: written when the tab closes.
+    public static let done = ".kelp-done"
+    public static func uriBody(_ path: String) -> String { path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path }
+}

@@ -69,6 +69,7 @@ package enum Help {
     ⌃⌘T agents side by side / as tabs · ⇧⌘↩ maximize pane · ⌘1…9 tabs · ⇧⌘] / ⇧⌘[ or ⌃⇥ / ⌃⇧⇥ next / previous tab · \
     ⌘] / ⌘[ next / previous pane · ⌥⌘←→↑↓ pane on that side ·
     ⌃1…9 groups · ⌃⌘↓ / ⌃⌘↑ next / previous group · ⇧⌘U agent that needs you · ⌘F find · ⌥⌘R reveal in Finder ·
+    Ctrl+G in an agent opens its prompt in a tab, for long text; closing the tab puts it back, for you to send.
     ⌘0 sidebar · ⌥⌘0 right panel · ⌘S save · ⌘W close tab · ⇧⌘W close group. Shortcuts work on any keyboard layout.
     """
 

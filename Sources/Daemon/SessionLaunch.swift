@@ -39,10 +39,20 @@ extension Sessions {
         if let name = rec.profile, let prof = profile(name, agent: m.id) { env[prof.key] = prof.dir }
         // Not into tmux: its server keeps the first client's environment for every pane, whichever tab they're shown in.
         if Tmux.session(rec.argv) == nil { env["KELP_SESSION"] = rec.id }
+        if let v = promptEditor(m, rec, given: env["VISUAL"]) { env["VISUAL"] = v }
         env["KELP_SOCKET"] = socketPath; env["KELP_HOME"] = root.path
         // Written at each start and wake, so a session woken after an update gets this kelpd's hooks.
         if remotes.of(rec.cwd) == nil, let t = m.hooks { wire(t, m, rec, &env) }
         return env
+    }
+
+    /// A long prompt, handed to the agent's external editor (Ctrl+G), opens in a Kelp tab: only the name, since agents split
+    /// the string at spaces. Not for a shell, which has no prompt to hand over, nor on a host, which has no `kelp`.
+    private func promptEditor(_ m: AgentManifest, _ rec: Session, given: String?) -> String? {
+        let mine = given ?? ProcessInfo.processInfo.environment["VISUAL"]
+        guard mine == nil, m.id != "shell", remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
+              settings["agents.editInKelp"]?.bool != false else { return nil }
+        return "kelp edit --wait"
     }
 
     /// Kelp's plugin dir for an agent; its hooks file is this with ".json".

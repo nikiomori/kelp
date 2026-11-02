@@ -7,7 +7,7 @@ import WorkbenchKit
 extension EditorArea {
     /// Before the tab leaves the layout, while it still has a place.
     func rememberClosing(_ id: String) {
-        guard let t = layout.allTabs.first(where: { $0.id == id }), TabURI.scheme(t.uri) != "untitled" else { return }
+        guard let t = layout.allTabs.first(where: { $0.id == id }), !["untitled", "prompt"].contains(TabURI.scheme(t.uri)) else { return }
         let uri = (contents[id] as? SavableTab).map(\.reopenURI) ?? t.uri
         guard let uri else { return }   // nothing left of it
         let session = TabURI.scheme(t.uri) == "session" ? app.session(TabURI.body(t.uri)) : nil

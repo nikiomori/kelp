@@ -187,6 +187,7 @@ func plist() -> String {
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)
         case "ext": try await ext(sub, c)
         case "open": try await open(sub, c)
+        case "edit": try await edit(sub, c)
         case "shot": try await shot(sub, c)
         case "routine": try await routines(sub, c)
         default: print(usage)

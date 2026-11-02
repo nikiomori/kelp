@@ -30,6 +30,8 @@ extension Builtins {
                   "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills"),
                 s("agents.commandsBar", "Show the commands an agent runs", "boolean", false,
                   "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."),
+                s("agents.editInKelp", "Edit agent prompts in Kelp", "boolean", true,
+                  "Ctrl+G in an agent opens its prompt in a tab here. For agents started from now on."),
                 s("sessions.hibernateMinutes", "Pause idle agents", "number", 0, "Paused agents free memory and resume the same conversation.",
                   options: ["0", "15", "30", "60", "240"]),
                 s("agents.updateIdle", "Update idle agents", "boolean", true,

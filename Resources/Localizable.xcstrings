@@ -1948,6 +1948,16 @@
         }
       }
     },
+    "Closing this tab puts the text in the agent's prompt": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрытие вкладки вернёт текст в поле агента"
+          }
+        }
+      }
+    },
     "Comes at once, even while you type.": {
       "extractionState": "manual",
       "localizations": {
@@ -3079,6 +3089,16 @@
         }
       }
     },
+    "Ctrl+G in an agent opens its prompt in a tab here. For agents started from now on.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ctrl+G в агенте открывает его промпт во вкладке. Для агентов, запущенных после включения."
+          }
+        }
+      }
+    },
     "Cursor": {
       "extractionState": "manual",
       "shouldTranslate": false
@@ -3466,6 +3486,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменить %@"
+          }
+        }
+      }
+    },
+    "Edit agent prompts in Kelp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Править промпты агентов в Kelp"
           }
         }
       }
@@ -7400,7 +7430,6 @@
       }
     },
     "Prompt": {
-      "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {

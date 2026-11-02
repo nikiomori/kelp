@@ -80,7 +80,7 @@ extension CodeEditor {
         gutter?.fit(lines: lineCount)   // a bigger font needs a wider one
         gutter?.needsDisplay = true
         highlighter?.colors = Self.captureColors(l)
-        wrap(Self.wrapLines)
+        wrap(Self.wrapLines || alwaysWraps)
         colored = nil
         colorVisible()
         tv.needsDisplay = true

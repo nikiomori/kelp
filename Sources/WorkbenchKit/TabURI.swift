@@ -1,4 +1,5 @@
 import Foundation
+import Core
 
 /// URI helpers: "session:ID", "file:///abs#L12", "diff:path", "https://…", "ext:id/view".
 public enum TabURI {
@@ -18,6 +19,10 @@ public enum TabURI {
     public static func file(_ path: String, line: Int? = nil) -> String {
         "file://" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path) + (line.map { "#L\($0)" } ?? "")
     }
+    /// A prompt an agent handed over (`kelp edit`). The file beside it, with `promptDone` added, says the tab has closed.
+    public static func prompt(_ path: String) -> String { "prompt:" + Core.Prompts.uriBody(path) }
+    public static func promptPath(_ uri: String) -> String { body(uri).removingPercentEncoding ?? body(uri) }
+    public static let promptDone = Core.Prompts.done
     /// A workspace's changes: all of them, one file's, a source's ("staged", "turn"…) or a commit's.
     public static func diff(_ worktree: String, file: String? = nil, source: String? = nil, commit: String? = nil) -> String {
         var c = URLComponents()

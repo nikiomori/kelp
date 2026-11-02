@@ -25,7 +25,8 @@ extension Builtins {
                                        icon: "doc.text", essential: true) { app in
         var c = Contributions()
         c.tabs = [TabProvider(schemes: ["file"], make: { FileTab(uri: $0, app: app) }, menu: { FileTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),
-                  TabProvider(schemes: ["untitled"]) { UntitledTab(uri: $0, app: app) }]
+                  TabProvider(schemes: ["untitled"]) { UntitledTab(uri: $0, app: app) },
+                  TabProvider(schemes: ["prompt"]) { PromptTab(uri: $0, app: app) }]
         c.panels = [PanelSpec(id: "files", title: "Files", icon: "folder", extensionId: "kelp.files") { FilesPanel(app: app) }]
         c.editors = [EditorSpec(id: "files.new", title: "New File", icon: "doc.badge.plus") { _ in UntitledTab.next(app) }]
         c.settings = [SettingsSection(id: "editor", title: "Editor", icon: "doc.text", specs: [

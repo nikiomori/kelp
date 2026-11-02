@@ -44,6 +44,8 @@ public final class CodeEditor: NSObject {
 
     var lineIndex = LineIndex()
     var lineCount = 1
+    /// Prose, whatever `wrapLines` says.
+    public var alwaysWraps = false
     /// Top to bottom. Set by the tab; typing moves them along.
     public var changeMarks: [ChangeMark] = [] {
         didSet {
