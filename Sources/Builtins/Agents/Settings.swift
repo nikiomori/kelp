@@ -62,7 +62,7 @@ struct AgentsSettings: View {
                 }
                 if !updates.isEmpty {
                     Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
-                        .font(.caption).foregroundStyle(Color.textOrange)
+                        .font(.subheadline).foregroundStyle(Color.textOrange)
                 }
             }
             .frame(width: min(250, pane.size.width * 0.4))
@@ -94,7 +94,7 @@ struct AgentsSettings: View {
                 HStack(spacing: 0) {
                     Text(caption).foregroundStyle(.secondary)
                     if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
-                }.font(.caption)
+                }.font(.subheadline)
             }
         }.tag(Optional(a.id))
     }
@@ -181,7 +181,7 @@ struct AgentsSettings: View {
     private func status(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).fontWeight(.medium)
-            Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -238,7 +238,7 @@ struct AgentsSettings: View {
         }
         .formStyle(.columns)   // already inside Settings' grouped section: a second card in it would nest boxes
         Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
-            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 
     /// One remote project's folder per host: a command run in it runs on that host, in its login shell.

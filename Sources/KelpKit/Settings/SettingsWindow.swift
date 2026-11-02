@@ -136,7 +136,7 @@ private struct SearchResults: View {
                     }
                 }
             }
-            if keys { Section("Keyboard") { KeyboardSettings(query: query) } }
+            if keys { KeyboardSettings(query: query) }
         }
         .formStyle(.grouped)
     }
@@ -363,15 +363,16 @@ private struct ExtensionsSettings: View {
         }
     }
 
-    /// Two groups, each named once: Kelp's own parts, then what was installed (with its version). "Built-in" on every row
-    /// and a bold sentence over the list made three sizes of text in one card.
+    /// What can be turned off, then what was installed (with its version). The parts Kelp can't run without are named under
+    /// the list: as rows they were a third of it and did nothing.
     @ViewBuilder private var installed: some View {
         Section {
-            ForEach(registry.extensions.filter(\.builtin)) { row($0) }
+            ForEach(registry.extensions.filter { $0.builtin && !$0.essential }) { row($0) }
         } header: {
             Text("Built-in")
         } footer: {
-            Text("The browser, git and issues are extensions too. Turn off what you don't use.").font(.caption).foregroundStyle(.secondary)
+            let always = registry.extensions.filter(\.essential).map { loc($0.name) }.joined(separator: ", ")
+            Text("Turn off what you don't use. Always on: \(always).").font(.subheadline).foregroundStyle(.secondary)
         }
         let added = registry.extensions.filter { !$0.builtin }
         if !added.isEmpty {
@@ -380,30 +381,33 @@ private struct ExtensionsSettings: View {
         Section {
             Text(String(localized: "To add one, install it from the Library, or ask Claude Code in an agent tab, e.g. “make a Kelp panel that lists my Docker containers”. ")
                  + String(localized: "It knows how through the extensions skill (Settings › Agents)."))
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(.secondary)
             HStack {
                 Button("How Extensions Work") { app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md")) }
                     .buttonStyle(.link)
                 Spacer()
                 Button("Install…") { picking = true }
                     .help("A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder")
-                Button("Show in Finder") { NSWorkspace.shared.open(ExtensionRegistry.userDir) }
-                Button("Reload") { registry.reload() }
+                Menu {
+                    Button("Show in Finder") { NSWorkspace.shared.open(ExtensionRegistry.userDir) }
+                    Button("Reload Extensions") { registry.reload() }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             }
         }
     }
 
     private func row(_ e: ExtensionInfo) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: e.icon).font(.title3).foregroundStyle(e.error == nil ? Color.accentColor : .orange).frame(width: 24)
+            Image(systemName: e.icon).font(.title3).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(loc(e.name)).fontWeight(.medium)
-                    if !e.builtin { Text(e.version).font(.caption).foregroundStyle(.secondary) }
+                    if !e.builtin { Text(e.version).font(.subheadline).foregroundStyle(.secondary) }
                 }
-                if !e.description.isEmpty { Text(loc(e.description)).font(.caption).foregroundStyle(.secondary) }
-                if let err = e.error { Text(err).font(.caption).foregroundStyle(Color.textOrange).textSelection(.enabled) }
-                if let u = e.unavailable { Text(u).font(.caption).foregroundStyle(.tertiary) }
+                if !e.description.isEmpty { Text(loc(e.description)).font(.subheadline).foregroundStyle(.secondary) }
+                if let err = e.error { Text(err).font(.subheadline).foregroundStyle(Color.textOrange).textSelection(.enabled) }
+                if let u = e.unavailable { Text(u).font(.subheadline).foregroundStyle(.secondary) }
             }
             Spacer()
             if let p = e.path, !e.builtin {
@@ -417,10 +421,8 @@ private struct ExtensionsSettings: View {
                 } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).fixedSize()
             }
-            if e.essential { Text("Required").font(.caption).foregroundStyle(.secondary) } else {
-                Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) }))
-                    .toggleStyle(.switch).labelsHidden()
-            }
+            Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) }))
+                .toggleStyle(.switch).labelsHidden()
         }
         .padding(.vertical, 2)
     }

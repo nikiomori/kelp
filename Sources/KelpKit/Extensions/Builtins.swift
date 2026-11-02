@@ -57,7 +57,7 @@ package enum Builtins {
             s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
               options: ["agents", "usage", "icon"])
         ] + sidebar + inspector, order: 20), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
-                                                             custom: { AnyView(Section { KeyboardSettings() }) }, order: 95)]
+                                                             custom: { AnyView(KeyboardSettings()) }, order: 95)]
         return c
     }
 

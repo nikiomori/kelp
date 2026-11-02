@@ -140,8 +140,8 @@ enum KeyBindings {
     }()
 }
 
-/// The Keyboard page: every command, its shortcut, click to record a new one. Settings' own search filters it
-/// (`query`), so the page has no second search field.
+/// The Keyboard page: every command, its shortcut, click to record a new one. Menus start folded, what you changed above
+/// them; Settings' own search lists what it finds by menu (`query`), so the page has no second search field.
 struct KeyboardSettings: View {
     var query = ""
     @Environment(AppModel.self) private var app
@@ -149,33 +149,49 @@ struct KeyboardSettings: View {
     @State private var recording: String?
     @State private var warning: [String: String] = [:]
     @State private var monitor: Any?
+    @State private var open: Set<String> = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if query.isEmpty {
-                HStack {
-                    Text("Click a shortcut, then press the new keys. ⌫ removes it, Esc keeps it.").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Restore Defaults…") {
-                        Task {
-                            let question = NSAlert(question: String(localized: "Restore every shortcut to Kelp's default?"),
-                                                   detail: String(localized: "The shortcuts you set are lost."),
-                                                   action: String(localized: "Restore Defaults"))
-                            guard await runSheet(question) == .alertFirstButtonReturn else { return }
-                            KeyBindings.resetAll(app.settings)
-                            later()
-                        }
-                    }
-                    .disabled(KeyBindings.overrides(app.settings).isEmpty)
+        Group {
+            if query.isEmpty { page } else {
+                ForEach(groups, id: \.0) { menu, items in
+                    Section("\(String(localized: "Keyboard")) › \(menu)") { ForEach(items) { e in row(e) } }
                 }
-            }
-            ForEach(groups, id: \.0) { menu, items in
-                Text(menu).font(.ui(13, weight: .semibold)).padding(.top, 6)
-                ForEach(items) { e in row(e) }
             }
         }
         .onAppear { entries = KeyBindings.entries() }
         .onDisappear { stop() }
+    }
+
+    @ViewBuilder private var page: some View {
+        Section {
+            LabeledContent {
+                Button("Restore Defaults…") { restore() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
+            } label: {
+                Text("Click a shortcut, then press the new keys.")
+                Text("⌫ removes it, Esc keeps it.")
+            }
+        }
+        let changed = entries.filter { KeyBindings.overrides(app.settings)[$0.id] != nil }
+        if !changed.isEmpty { Section("Changed by you") { ForEach(changed) { e in row(e) } } }
+        Section("Menus") {
+            ForEach(groups, id: \.0) { menu, items in
+                DisclosureGroup(isExpanded: Binding(get: { open.contains(menu) }, set: { if $0 { open.insert(menu) } else { open.remove(menu) } })) {
+                    ForEach(items) { e in row(e) }
+                } label: { LabeledContent(menu) { Text("\(items.count)").monospacedDigit().foregroundStyle(.secondary) } }
+            }
+        }
+    }
+
+    private func restore() {
+        Task {
+            let question = NSAlert(question: String(localized: "Restore every shortcut to Kelp's default?"),
+                                   detail: String(localized: "The shortcuts you set are lost."),
+                                   action: String(localized: "Restore Defaults"))
+            guard await runSheet(question) == .alertFirstButtonReturn else { return }
+            KeyBindings.resetAll(app.settings)
+            later()
+        }
     }
 
     private var groups: [(String, [KeyBindings.Entry])] {
@@ -190,12 +206,12 @@ struct KeyboardSettings: View {
             HStack {
                 Text(e.title)
                 Spacer()
-                if e.key != e.defaultKey {
+                if KeyBindings.overrides(app.settings)[e.id] != nil {
                     Button("Default") {
                         KeyBindings.set(e.id, nil, in: app.settings)
                         warning[e.id] = nil
                         later()
-                    }.buttonStyle(.link).font(.caption)
+                    }.buttonStyle(.link).font(.subheadline)
                         .help(e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") } ?? String(localized: "Kelp's default: none"))
                 }
                 // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
@@ -211,7 +227,7 @@ struct KeyboardSettings: View {
                 }
                 .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
-            if let w = warning[e.id] { Text(w).font(.caption).foregroundStyle(Color.textOrange) }
+            if let w = warning[e.id] { Text(w).font(.subheadline).foregroundStyle(Color.textOrange) }
         }
     }
 
