@@ -91,7 +91,7 @@ extension SourceControlController {
         guard !known.isEmpty else { return }
         let new = list.prefix { !known.contains($0.hash) }
         guard !new.isEmpty, new.count <= 12 else { return }
-        arriving = Dictionary(uniqueKeysWithValues: new.reversed().enumerated().map { ($1.hash, Double($0) * 0.05) })
+        arriving = Dictionary(uniqueKeysWithValues: new.reversed().enumerated().map { ($1.hash, Double($0) * Motion.stagger) })
     }
 
     func commitPlaces() -> [String: NSPoint] {

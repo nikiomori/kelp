@@ -315,6 +315,8 @@ private func codeOnly(_ s: String) -> String {
 @Test func looksComeFromTheDesignSystem() throws {
     let typed = try matches(#"(cornerRadius|[dD]uration) = \d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
     #expect(typed.count <= 6, "\(typed)")
+    let delays = try matches(#"\.now\(\) \+ 0\.\d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
+    #expect(delays.count <= 2, "\(delays)")   // a dev aid's, and key bindings read back: neither is motion
 }
 
 /// Who may call a method is the method's to say (`onlyFromKelp`), checked in one place for every call: a handler that

@@ -4,6 +4,7 @@ import Testing
 import Core
 import GitKit
 import Daemon
+import DesignKit
 @testable import KelpApp
 @testable import KelpKit
 @testable import BuiltinAgents
@@ -74,6 +75,16 @@ extension AppOfItsOwn {
     #expect(vc.work[here]?.running == 1)
     vc.end(here, syncing: true)
     #expect(!vc.busy && vc.syncing == nil)
+}
+
+/// The button's glow follows its capsule wherever the button sits: it used to be moved off by the button's own place.
+@Test func theCommitButtonsGlowStaysOnIt() throws {
+    let b = SplitPushButton(title: "Commit", arrowTip: ""), host = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    host.addSubview(b)
+    b.frame = NSRect(x: 60, y: 40, width: 120, height: 28)
+    b.layout()
+    let glow = try #require(b.subviews.first { $0 is EdgeGlow })
+    #expect(abs(glow.frame.midX - b.bounds.midX) < 4 && abs(glow.frame.midY - b.bounds.midY) < 4, "\(glow.frame)")
 }
 
 /// A commit that went in with a push that didn't: not a push that worked.

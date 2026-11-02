@@ -146,7 +146,7 @@ extension SourceControlController {
             let before = unpushed
             unpushed = Git.unpushed(list, remotes: Set(info?.remote ?? []))
             let landed = list.filter { before.contains($0.hash) && !unpushed.contains($0.hash) }.reversed()
-            landing = Dictionary(uniqueKeysWithValues: landed.enumerated().map { ($1.hash, Double(min($0, 12)) * 0.05) })
+            landing = Dictionary(uniqueKeysWithValues: landed.enumerated().map { ($1.hash, Double(min($0, 12)) * Motion.stagger) })
         }
         loadingMore = false
         let places = arriving.isEmpty ? [:] : commitPlaces()

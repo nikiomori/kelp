@@ -53,6 +53,8 @@ public enum Motion {
     public static let disappear: TimeInterval = 0.4
     public static let press: TimeInterval = 0.3   // a click's dip and spring
     public static let linger: TimeInterval = 1.5  // "Copied" stays, a banner stays after the pointer leaves it
+    public static let stagger: TimeInterval = 0.05  // between things that come one after another
+    public static let settle: TimeInterval = 0.1    // a row that just got its place, before it moves
 
     // What goes on while a state lasts, one way (a breath is this there and this back).
     public static let spin: TimeInterval = 1      // the ring's turn: working

@@ -243,7 +243,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         super.init(frame: .zero)
         if let arrival, !Motion.reduced {
             alphaValue = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 + arrival) { [weak self] in self?.arrive() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + arrival) { [weak self] in self?.arrive() }
         }
         let unpushed = pushed == false
         let g = GraphView()
@@ -279,7 +279,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.contentTintColor = .secondaryLabelColor
         up.toolTip = notPushed
         up.isHidden = !unpushed && delay == nil
-        if let delay { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 + delay) { [weak self] in self?.land() } }
+        if let delay { DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + delay) { [weak self] in self?.land() } }
         // A row with a branch or tag leaves out the scope: the badge says where the commit is, the words keep their room.
         let badges = Self.badges(c.refs)
         scope.isHidden = !badges.isEmpty

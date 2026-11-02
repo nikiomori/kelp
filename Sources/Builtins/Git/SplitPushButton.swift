@@ -85,7 +85,7 @@ final class SplitPushButton: NSButton {
     /// The capsule, not the frame around it, follows the glow.
     override func layout() {
         super.layout()
-        glow.frame = alignmentRect(forFrame: bounds).offsetBy(dx: -frame.origin.x, dy: -frame.origin.y)
+        glow.frame = alignmentRect(forFrame: frame).offsetBy(dx: -frame.origin.x, dy: -frame.origin.y)
         glow.radius = glow.frame.height / 2
     }
 
