@@ -256,12 +256,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Each `event.session`, as it comes: a status that changes back within a moment still gets its banner.
     func statusChanged(_ s: Session, _ old: Session?) {
         guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.agent != "shell" else { return }
-        if s.parent != nil, s.status == .done { return }   // its parent reads it and goes on: that's the one to tell you
+        if Self.leftToItsParent(s) { return }
         let turn = NotifyRule.turn(s, after: old)
         // What the agent itself said with this change (a permission request, an error) beats its last reply.
         if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary { tell(s, turn: turn); return }
         Task { await summarizeThenNotify(s, turn: turn) }
     }
+
+    /// A child that finished: its parent reads it and goes on, and that's the one to tell you. One a plan limit stopped
+    /// hasn't finished, and only you can decide what's next.
+    static func leftToItsParent(_ s: Session) -> Bool { s.parent != nil && s.status == .done && s.limitHit == nil }
 
     private var rule: NotifyRule {
         func level(_ key: String, _ standard: NotifyRule.Level) -> NotifyRule.Level { app.settings.string(key).flatMap(NotifyRule.Level.init) ?? standard }

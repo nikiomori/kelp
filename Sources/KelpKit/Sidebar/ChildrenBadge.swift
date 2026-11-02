@@ -28,11 +28,17 @@ final class ChildrenBadge: PointerControl {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// What it shows for an agent: one a plan limit stopped hasn't finished, whatever its status says, and Kelp isn't
+    /// continuing it by itself: someone has to decide.
+    static func status(_ s: Session) -> AgentStatus {
+        s.status == .done && s.limitHit != nil && s.continueAt == nil ? .waiting : SidebarCell.shownStatus(s)
+    }
+
     func show(_ kids: [Session], subagents: [Subagent]) {
         self.kids = kids; self.subagents = subagents
         let n = kids.count + subagents.count
         isHidden = n == 0
-        mark.status = AgentStatus.mostUrgent(kids.map(SidebarCell.shownStatus) + (subagents.isEmpty ? [] : [.working]))
+        mark.status = AgentStatus.mostUrgent(kids.map(Self.status) + (subagents.isEmpty ? [] : [.working]))
         count.stringValue = "\(n)"
         setAccessibilityLabel(String(localized: "\(n) agents it started"))
     }
@@ -41,7 +47,8 @@ final class ChildrenBadge: PointerControl {
         let m = NSMenu(), app = app
         for k in kids {
             let id = k.id
-            m.add(app.catalog.displayName(k) + " · " + k.statusWords) { app.workbench.focus(session: id) }
+            let name = app.catalog.displayName(k), stopped = Self.status(k) == .waiting && k.status == .done
+            m.add(stopped ? LimitStop.title(name, k) : name + " · " + k.statusWords) { app.workbench.focus(session: id) }
         }
         for a in subagents { m.addItem(withTitle: a.words, action: nil, keyEquivalent: "") }   // no action: greyed
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 4), in: self)

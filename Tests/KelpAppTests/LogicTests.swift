@@ -194,6 +194,21 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(six.body.split(separator: "\n").count == 5 && six.body.hasSuffix("and 2 more"))
 }
 
+/// A child that finished is its parent's to read. One a plan limit stopped isn't: a banner, and its mark on the parent's row.
+@MainActor @Test func aLimitStoppedChildIsYours() {
+    var s = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude")
+    s.parent = "p"
+    s.status = .done
+    #expect(Notifier.leftToItsParent(s) && ChildrenBadge.status(s) == .done)
+    s.limitHit = LimitHit(kind: "5-hour", resets: "3:40pm", at: Date())
+    #expect(!Notifier.leftToItsParent(s) && ChildrenBadge.status(s) == .waiting)
+    s.continueAt = Date().addingTimeInterval(60)   // it goes on by itself
+    #expect(ChildrenBadge.status(s) == .done)
+    s.parent = nil
+    s.limitHit = nil
+    #expect(!Notifier.leftToItsParent(s))
+}
+
 /// A finished turn: a banner, or nothing under 20 s; a question and a failure come however short the turn; settings change each.
 @Test func notifyRuleByEvent() {
     let r = NotifyRule()

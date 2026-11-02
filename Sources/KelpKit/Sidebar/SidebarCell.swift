@@ -413,8 +413,9 @@ final class SidebarCell: NSTableCellView {
         summary.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let ids = folded.map { n in n.children.flatMap { $0.children.isEmpty ? [$0] : $0.children } } ?? []
         let rows = ids.compactMap { n -> Session? in if case .agent(let id) = n.kind { app.session(id) } else { nil } }
-        let agents = rows.flatMap { [$0] + app.sessions.children(of: $0.id).filter { $0.status != .done } }   // what's done there is the parent's to read
-        let shown = agents.map(Self.shownStatus)
+        // What's done there is the parent's to read.
+        let agents = rows.flatMap { [$0] + app.sessions.children(of: $0.id).filter { ChildrenBadge.status($0) != .done || $0.status != .done } }
+        let shown = agents.map(ChildrenBadge.status)
         let asking = shown.filter { [.waiting, .error].contains($0) }
         let groups: [(AgentStatus?, Int)] = [(AgentStatus.mostUrgent(asking), asking.count), (.working, shown.filter { $0 == .working }.count),
                                              (.done, agents.filter { Self.isNews($0) && Self.shownStatus($0) == .done }.count)]
