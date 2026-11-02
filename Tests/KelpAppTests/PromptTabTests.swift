@@ -38,7 +38,7 @@ extension AppOfItsOwn {
         window.contentView = field
         var kept = ""
         field.onChange = { kept = $0 }
-        field.value = "one"
+        field.value = "x"   // one character: one row at any width, and the field may not be laid out yet
         window.layoutIfNeeded()
         let one = field.fittingSize.height
         field.value = "1\n2\n3"

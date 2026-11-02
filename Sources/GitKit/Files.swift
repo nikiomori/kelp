@@ -87,7 +87,7 @@ extension ProjectFiles {
             r = try Git.runPart(a + ["--", query, "."], cwd: root, executable: rg, ok: [0, 1], limit: searchOutput)   // 1 = no matches
         } else {
             a = ["grep", "-n", "-z", "--untracked", "-I"]
-            if !regex { a.append("-F") }
+            a.append(regex ? "-E" : "-F")   // the same patterns as rg's, near enough: ( is a group, not a character
             if !caseSensitive { a.append("-i") }
             if wholeWord { a.append("-w") }
             do { r = try Git.runPart(a + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes) } catch where outsideGit(error) {
