@@ -117,7 +117,9 @@ final class FileTab: SavableTab {
     private func loaded(_ f: FilesRead.Result, in box: NSView) {
         let app = self.app
         let text = f.text
-        let e = CodeEditor(text: text, url: url, editable: text.utf8.count <= CodeEditor.readOnlyLimit)
+        let editable = CodeEditor.canEdit(text)
+        if !editable { Banner.show(String(localized: "\(title) opens read only: it's too large, or its lines too long, to edit here.")) }
+        let e = CodeEditor(text: text, url: url, editable: editable)
         e.view.clipsToBounds = true
         editor = e
         lastSaved = text

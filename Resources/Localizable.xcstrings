@@ -12051,6 +12051,16 @@
         }
       }
     },
+    "%@ opens read only: it's too large, or its lines too long, to edit here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ открыт только для чтения: файл слишком большой или в нём слишком длинные строки."
+          }
+        }
+      }
+    },
     "%@ was moved or deleted. ⌘S asks before writing it there again.": {
       "localizations": {
         "ru": {

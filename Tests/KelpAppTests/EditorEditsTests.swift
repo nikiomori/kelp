@@ -59,6 +59,15 @@ extension OneAtATime {
         #expect(same.old == NSRange(location: 2, length: 2) && same.new == NSRange(location: 2, length: 0))
     }
 
+    @Test func aFileWithAVeryLongLineIsOnlyShown() {
+        let line = String(repeating: "x", count: 99_999)
+        #expect(CodeEditor.canEdit(""))
+        #expect(CodeEditor.canEdit(line + "\n" + line + "\n" + line))
+        #expect(!CodeEditor.canEdit(line + "\n" + line + "xx\nend"))
+        #expect(!CodeEditor.canEdit("start\n" + line + "xxx"))
+        #expect(!CodeEditor.canEdit(String(repeating: "short\n", count: CodeEditor.readOnlyLimit / 5)))
+    }
+
     @Test func aFileOfVeryLongLinesIsNotColoredAndAHugeOneIsNotParsed() {
         let long = "[" + String(repeating: "1,", count: CodeEditor.colorSpan) + "1]"
         let (e, tv) = editor(long, "long.json", selecting: [NSRange(location: 0, length: 0)])

@@ -9,6 +9,24 @@ public final class CodeEditor: NSObject {
     /// More characters than this around the screen aren't colored: only a file of very long lines has that many, each token
     /// a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s, after every keystroke).
     static let colorSpan = 200_000
+    /// A line longer than this makes each keystroke lay all of it out again, in TextKit itself (200 KB: 230 ms; 2 MB: over a
+    /// second, for every key): such a file is shown, not edited.
+    static let longestEditableLine = 100_000
+
+    /// Whether editing `text` keeps the window responsive.
+    public static func canEdit(_ text: String) -> Bool {
+        var s = text
+        guard s.utf8.count <= readOnlyLimit else { return false }
+        return s.withUTF8 { b in
+            guard var p = b.baseAddress else { return true }
+            let end = p + b.count
+            while end - p > longestEditableLine {
+                guard let hit = memchr(p, 10, longestEditableLine) else { return false }
+                p = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
+            }
+            return true
+        }
+    }
     public let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll = NSScrollView()
     public var view: NSView { scroll }
