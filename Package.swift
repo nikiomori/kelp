@@ -64,8 +64,7 @@ let package = Package(
         .testTarget(name: "GitKitTests", dependencies: ["GitKit", "WorkbenchKit", "TestSupport"]),   // diffs as parsed, then as rows
         .testTarget(name: "AgentsTests", dependencies: ["Agents", "TestSupport"]),
         .testTarget(name: "AgentDataTests", dependencies: ["AgentData", "TestSupport"]),
-        // The pinned method and event names: read by the tests from their own folder, not resources.
-        .testTarget(name: "DaemonTests", dependencies: ["Daemon", "Agents", "TestSupport"], exclude: ["methods.txt", "events.txt"]),
+        .testTarget(name: "DaemonTests", dependencies: ["Daemon", "Agents", "TestSupport"]),
         .testTarget(name: "LSPKitTests", dependencies: ["LSPKit"]),
         .testTarget(name: "IntegrationsTests", dependencies: ["Integrations", "TestSupport"]),
         .testTarget(name: "MarkdownTests", dependencies: ["Markdown"]),
