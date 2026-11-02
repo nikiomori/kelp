@@ -21,7 +21,7 @@ extension UsageGet: Handled {
             claude.append(Claude(account: i == 0 ? "Default" : names[min(i, names.count - 1)],
                                  today: AgentUsage.block(UsageIndex.block(rows, from: today, to: now)),
                                  week: AgentUsage.block(UsageIndex.block(rows, from: weekStart, to: now)),
-                                 block: usage.usageIndex.currentBlock(roots: [r], now: now).map(AgentUsage.block)))
+                                 block: usage.usageIndex.currentBlock(roots: [r], now: now, fresh: true).map(AgentUsage.block)))
         }
         let live = usage.codexLive.withLock { $0.limits }
         for (i, r) in roots.codex.enumerated() where i == 0 || FileManager.default.fileExists(atPath: r.path) {

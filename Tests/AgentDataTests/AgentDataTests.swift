@@ -424,3 +424,18 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
     let url = try write(dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
     #expect(try SubagentTranscript.journal(url).report == "Done, nothing found.")
 }
+
+/// The index is megabytes and some log always grew: it reaches the disk once, then every few minutes.
+@Test func theUsageIndexIsNotRewrittenOnEveryRead() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let f = dir.appendingPathComponent("s.jsonl"), cache = dir.appendingPathComponent("cache.json")
+    try "{}\n".write(to: f, atomically: true, encoding: .utf8)
+    let idx = UsageIndex(cache: cache)
+    _ = idx.rows(roots: [dir], since: .distantPast)
+    let first = try Data(contentsOf: cache)
+    let h = try FileHandle(forWritingTo: f); try h.seekToEnd(); try h.write(contentsOf: Data("{}\n".utf8)); try h.close()
+    _ = idx.rows(roots: [dir], since: .distantPast)
+    #expect(try Data(contentsOf: cache) == first)
+}

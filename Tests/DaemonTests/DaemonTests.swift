@@ -539,8 +539,17 @@ final class NoteBox: @unchecked Sendable {
     d.agentUsage.planUsed("claude")
     let due = try #require(d.agentUsage.plans.withLock { $0 }["claude"]?.at).addingTimeInterval(every).timeIntervalSinceNow
     #expect(due > 25 && due <= 30)
-    d.agentUsage.plans.withLock { $0["claude"]?.at = .distantPast }
+    // Read a moment ago: turns ending in a row wait for the gap, and asking twice doesn't shorten it.
+    d.agentUsage.plans.withLock { $0["claude"] = .init(at: Date(), readAt: Date()) }
+    d.agentUsage.planUsed("claude"); d.agentUsage.planUsed("claude")
+    let gap = try #require(d.agentUsage.plans.withLock { $0 }["claude"]?.at).addingTimeInterval(every).timeIntervalSinceNow
+    #expect(gap > AgentUsage.planGap - 5 && gap <= AgentUsage.planGap)
+    // A failing probe keeps to its own wait.
+    d.agentUsage.plans.withLock { $0["claude"] = .init(at: Date(), fails: 2) }
+    let waiting = try #require(d.agentUsage.plans.withLock { $0 }["claude"]?.at)
     d.agentUsage.planUsed("claude")
+    #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == waiting)
+    d.agentUsage.plans.withLock { $0["claude"]?.at = .distantPast }
     #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == .distantPast)
 }
 

@@ -21,6 +21,8 @@ extension AgentUsage {
         var readings: [ClaudeLimits.Reading] = []
         var at: Date?, readAt: Date?
         var running = false
+        /// Probes in a row that read nothing: each waits twice as long.
+        var fails = 0
         /// Limits a session saw run out that `/usage` doesn't show (Cursor's Free plan reads 0% after its last request): held
         /// over the probe's readings until the probe's reset date for that limit moves on.
         var hits: [ClaudeLimits.Reading] = []
@@ -106,22 +108,30 @@ extension AgentUsage {
                 }
                 plans.withLock { [readings] plans in
                     if !readings.isEmpty { plans[probe.agent]?.read(readings) }
-                    // A failed probe retries in 2 minutes rather than waiting a whole round.
-                    plans[probe.agent]?.at = readings.isEmpty ? Date().addingTimeInterval(120 - probe.every) : Date()
+                    // A failed probe retries in 2 minutes rather than waiting a whole round, then less often: one that
+                    // can't read this plan would run every 2 minutes for as long as Kelp is open.
+                    let fails = readings.isEmpty ? (plans[probe.agent]?.fails ?? 0) + 1 : 0
+                    plans[probe.agent]?.fails = fails
+                    let wait = min(120 * pow(2, Double(fails - 1)), probe.every)
+                    plans[probe.agent]?.at = fails > 0 ? Date().addingTimeInterval(wait - probe.every) : Date()
                     plans[probe.agent]?.running = false
                 }
             }
         }
     }
 
+    /// A probe costs what starting the agent costs (Claude: 7.5 s of CPU and 400 MB), so turns ending close together share one.
+    static let planGap: TimeInterval = 300
+
     /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
-    /// (up to 10 minutes late for Claude). The UI's next `usage.get` starts the read.
+    /// (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next `usage.get` starts the read.
     func planUsed(_ agent: String) {
         if agent == "codex" { codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) } }
         guard let p = Self.planProbes.first(where: { $0.agent == agent }) else { return }
         plans.withLock { plans in
-            guard let at = plans[agent]?.at else { return }
-            plans[agent]?.at = min(at, Date().addingTimeInterval(30 - p.every))
+            guard let s = plans[agent], let at = s.at, s.fails == 0 else { return }   // a failing probe keeps to its own wait
+            let due = max(Date().addingTimeInterval(30), (s.readAt ?? .distantPast).addingTimeInterval(Self.planGap))
+            plans[agent]?.at = min(at, due.addingTimeInterval(-p.every))
         }
     }
 

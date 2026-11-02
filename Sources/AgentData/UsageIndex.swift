@@ -36,6 +36,9 @@ public final class UsageIndex: Sendable {
     private let format: UsageFormat
     /// Path → what's been read of it. Updates hold the lock while they read (one at a time: the first one reads gigabytes).
     private let files: OSAllocatedUnfairLock<[String: FileState]>
+    /// The index on disk may lag this much (it's megabytes, and some log always grew): a crash only reads those bytes again.
+    private static let saveEvery: TimeInterval = 600
+    private let saved = OSAllocatedUnfairLock(initialState: (at: Date.distantPast, pending: false))
 
     public init(cache: URL, format: UsageFormat = .claude) {
         cacheURL = cache
@@ -53,9 +56,10 @@ public final class UsageIndex: Sendable {
     }
 
     /// The 5-hour block `now` falls in (nil when the last one reset), from transcripts changed in the last 10 hours.
-    public func currentBlock(roots: [URL], now: Date = Date()) -> ClaudeUsage.Block? {
+    /// `fresh`: `rows` just read them, from at least that far back: a walk of the folder is not done twice.
+    public func currentBlock(roots: [URL], now: Date = Date(), fresh: Bool = false) -> ClaudeUsage.Block? {
         let since = now.addingTimeInterval(-10 * 3600).timeIntervalSince1970
-        let hours = files.withLock { update(&$0, roots: roots, since: Date(timeIntervalSince1970: since)) }
+        let hours = files.withLock { fresh ? Self.under(roots, $0) : update(&$0, roots: roots, since: Date(timeIntervalSince1970: since)) }
             .flatMap { $0.hours ?? [:] }.compactMap { key, t -> Hour? in
             let p = key.split(separator: "|", maxSplits: 1)
             guard p.count == 2, let h = Double(p[0]), h > since - 3600 else { return nil }
@@ -93,8 +97,18 @@ public final class UsageIndex: Sendable {
                 known[f.path] = st; changed = true
             }
         }
-        if changed, let d = try? JSONEncoder().encode(known) { try? d.write(to: cacheURL, options: .atomic) }
-        // These roots only (one account). The enumerator may report /private/var/… for /var/… (and the other way round).
+        let save = saved.withLock { [changed] s -> Bool in
+            s.pending = s.pending || changed
+            guard s.pending, Date().timeIntervalSince(s.at) >= Self.saveEvery else { return false }
+            s = (Date(), false)
+            return true
+        }
+        if save, let d = try? JSONEncoder().encode(known) { try? d.write(to: cacheURL, options: .atomic) }
+        return Self.under(roots, known)
+    }
+
+    /// The files under `roots` alone (one account's). The enumerator may report /private/var/… for /var/… (and the other way round).
+    private static func under(_ roots: [URL], _ known: [String: FileState]) -> [FileState] {
         func plain(_ p: String) -> String { p.hasPrefix("/private/") ? String(p.dropFirst("/private".count)) : p }
         let prefixes = roots.map { plain($0.path) + "/" }
         return known.filter { path, _ in prefixes.contains { plain(path).hasPrefix($0) } }.map(\.value)
