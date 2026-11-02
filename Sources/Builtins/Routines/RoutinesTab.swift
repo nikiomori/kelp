@@ -68,7 +68,7 @@ struct RoutinesView: View {
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.callout).foregroundStyle(.secondary)
             Spacer()
-            Button(String(localized: "New Routine…")) { newRoutine() }.controlSize(.small)
+            if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() }.controlSize(.small) }   // else it's under No Routines
         }
         .padding(.horizontal, Metrics.inset)
         .frame(height: Metrics.contentBar)

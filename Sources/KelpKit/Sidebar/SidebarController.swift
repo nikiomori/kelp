@@ -213,15 +213,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     override func mouseExited(with e: NSEvent) { card.hover(nil, rect: .zero, in: outline) }
 
     private func buildEmpty() {
-        let app = self.app
         let icon = NSImageView(image: .symbol("folder.badge.plus")); icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
         let t = NSTextField(labelWithString: String(localized: "No Projects")); t.font = .ui(13, weight: .semibold)
         let d = NSTextField(wrappingLabelWithString: String(localized: "Add a project folder to start."))
         d.textColor = .secondaryLabelColor
         d.alignment = .center
-        let b = ClosureButton(title: String(localized: "Add Project…")) { app.workbench.addProject() }; b.bezelStyle = .push
-        [icon, t, d, b].forEach { empty.addArrangedSubview($0) }
+        [icon, t, d].forEach { empty.addArrangedSubview($0) }   // Add Project… is in the middle of the window
         empty.orientation = .vertical; empty.spacing = 8
     }
 
