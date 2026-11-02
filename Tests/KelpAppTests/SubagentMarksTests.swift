@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import Foundation
 import Testing
@@ -50,4 +51,16 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
     #expect(Subagent(id: "a", kind: "Explore", task: "Reviews").shownKind == "Explore")
     #expect(Subagent(id: "a", kind: "Explore", task: nil).shownKind == nil)
     #expect(Subagent(id: "a", kind: "Explore", task: nil).title == "Explore")
+}
+
+/// A click on the dots doesn't wait out the half second a resting pointer does.
+@MainActor @Test func aRowsCardOpensAtOnceWhenAsked() async throws {
+    let rig = try await AppRig(); defer { rig.done() }
+    let vc = NSViewController(); vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+    rig.show(vc, 200, 200)
+    let card = HoverCard(app: rig.app)
+    card.open("p:" + rig.project.id, rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
+    #expect(card.shownKey == "p:" + rig.project.id)
+    card.close()
+    #expect(card.shownKey == nil)
 }
