@@ -202,6 +202,13 @@ final class CommitCell: NSTableCellView, Hoverable {
 
     /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
     /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
+    /// The scope, while the row can spare it: in a narrow panel the subject keeps the room.
+    private var scopeLabel: NSTextField?
+    override func layout() {
+        scopeLabel?.isHidden = bounds.width < TextSize.of(340)
+        super.layout()
+    }
+
     init(_ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil) {
         let s = CommitSubject(c.subject)
         subject = NSTextField(labelWithString: s.text)
@@ -244,6 +251,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         // A row with a branch or tag leaves out the scope: the badge says where the commit is, the words keep their room.
         let badges = Self.badges(c.refs)
         scope.isHidden = !badges.isEmpty
+        scopeLabel = badges.isEmpty ? scope : nil
         let row = NSStackView(views: badges + [mark, bang, subject].compactMap { $0 } + [NSView(), scope, up, date])
         row.spacing = 5
         row.alignment = .centerY
