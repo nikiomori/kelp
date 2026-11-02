@@ -519,6 +519,26 @@
         }
       }
     },
+    "%lld files not committed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Незакоммиченных файлов: %lld"
+          }
+        }
+      }
+    },
+    "%lld files not committed on %@. The project's menu can switch it later.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Незакоммиченных файлов на %2$@: %1$lld. Переключить можно позже в меню проекта."
+          }
+        }
+      }
+    },
     "%lld found": {
       "localizations": {
         "ru": {
@@ -976,6 +996,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Уже запущено"
+          }
+        }
+      }
+    },
+    "An agent is at work in the folder, so it stays on %@. The project's menu can switch it later.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В папке работает агент, поэтому она остаётся на %@. Переключить можно позже в меню проекта."
+          }
+        }
+      }
+    },
+    "An agent is at work in this folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этой папке работает агент"
           }
         }
       }
@@ -7307,6 +7347,16 @@
         }
       }
     },
+    "PR #%lld merged": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR #%lld слит"
+          }
+        }
+      }
+    },
     "Preview": {
       "localizations": {
         "ru": {
@@ -9636,6 +9686,26 @@
         }
       }
     },
+    "Switch to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти на %@"
+          }
+        }
+      }
+    },
+    "Switch to %@ and Pull": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти на %@ и выполнить Pull"
+          }
+        }
+      }
+    },
     "Sync": {
       "localizations": {
         "ru": {
@@ -10052,6 +10122,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Последний запуск каждого workflow; щелчок открывает CI Runs."
+          }
+        }
+      }
+    },
+    "The project folder is still on %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка проекта всё ещё на %@."
           }
         }
       }

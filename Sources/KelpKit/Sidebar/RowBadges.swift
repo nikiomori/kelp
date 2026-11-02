@@ -13,6 +13,7 @@ package final class RowBadges {
     var stats: [String: LineStats] { app.git.compactMapValues(\.stats) }
     var prs: [String: GitHub.PullRequest] { app.prs }
     @ObservationIgnored private var following: [WatchTopic: Set<String>] = [:]
+    @ObservationIgnored private var readPRs: [String: GitHub.PullRequest] = [:]
     @ObservationIgnored private var states: [String: CIRuns.State] = [:]
     @ObservationIgnored private var branches: [String: BranchInfo] = [:]
     /// Folders whose CI passed while Kelp watched and that haven't been on screen since: the sidebar's quiet ✓.
@@ -28,6 +29,12 @@ package final class RowBadges {
             if let id = $0, self?.unseen.remove(id) != nil { self?.show(id) }
         }
         track(owner: self) { app.git.compactMapValues(\.branches) } changed: { [weak self] in self?.pushes($0) }
+        track(owner: self) { app.prs } changed: { [weak self] in self?.prsRead($0) }
+    }
+
+    private func prsRead(_ now: [String: GitHub.PullRequest]) {
+        for id in MergedPR.justMerged(now, was: readPRs).keys { app.worktree(id).map(MergedPR(app: app).tell) }
+        readPRs = readPRs.merging(now) { $1 }   // a folder not read for a moment is still the same PR's
     }
 
     /// Settings › Appearance › Changes and pull requests off: no git or PR is watched for the badges, gh isn't asked; CI

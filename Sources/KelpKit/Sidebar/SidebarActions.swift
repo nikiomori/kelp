@@ -111,6 +111,7 @@ extension SidebarController {
                 menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(r) }
                 return
             }
+            if let w = app.rowBadges.folder(project: id) { MergedPR(app: app).addItems(to: menu, w) }
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
