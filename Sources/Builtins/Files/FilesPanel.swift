@@ -8,7 +8,8 @@ import KelpKit
 
 /// The workspace's files: tree with git status (click opens a tab), file operations, and project search.
 @MainActor
-final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
+final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate,
+                        NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
@@ -51,7 +52,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.onSpace = { [weak self] in self?.togglePreview() }
         outline.onReturn = { [weak self] in self?.rename() }
         outline.onDelete = { [weak self] in self?.trashSelected() }
-        outline.menu = treeMenu()
+        outline.menu = NSMenu()
+        outline.menu?.delegate = self
         leftScroll.documentView = outline
         leftScroll.hasVerticalScroller = true
         leftScroll.drawsBackground = false
@@ -93,9 +95,31 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.reloadIcons() }
     }
 
-    /// The tree's right-click menu, grouped like Finder's: open, create, change, locate, hand to the agent.
-    private func treeMenu() -> NSMenu {
-        let m = NSMenu()
+    func menuNeedsUpdate(_ m: NSMenu) { fill(m, row: outline.clickedRow) }
+
+    /// The tree's right-click menu. Over empty space `clickedRow` is -1 and `selectedNode` answers with the selected row,
+    /// so what acts on a row isn't offered there: Move to Trash would reach a file nobody clicked.
+    func fill(_ m: NSMenu, row: Int) {
+        m.removeAllItems()
+        if row >= 0 { rowItems(m) } else if worktree != nil { folderItems(m) }
+    }
+
+    /// For the project's folder, from the empty space under its files.
+    private func folderItems(_ m: NSMenu) {
+        let root = root
+        m.add(String(localized: "New File")) { [weak self] in self?.addFile(in: "") }
+        m.add(String(localized: "New Folder…")) { [weak self] in self?.addFolder(in: "") }
+        m.add(String(localized: "New from Template…")) { [weak self] in self?.addFromTemplate(in: "") }
+        m.addItem(.separator())
+        m.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: root)]) }
+        let openIn = NSMenu()
+        WorkspaceActions.addOpenIn(to: openIn, path: { root }, prefix: "")
+        if !openIn.items.isEmpty { m.addItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: "").submenu = openIn }
+        m.add(String(localized: "Copy Path")) { [weak self] in self?.copyText(root) }
+    }
+
+    /// For a file or folder, grouped like Finder's: open, create, change, locate, hand to the agent.
+    private func rowItems(_ m: NSMenu) {
         for group in [[("Open", #selector(openSelected))],
                       [("New File", #selector(newFile)),
                        (String(localized: "New Folder…"), #selector(newFolder)), (String(localized: "New from Template…"), #selector(newFromTemplate))],
@@ -112,7 +136,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         if !openIn.items.isEmpty, let i = m.items.firstIndex(where: { $0.action == #selector(reveal) }) {
             m.insertItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: "", at: i + 1).submenu = openIn
         }
-        return m
     }
 
     /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
@@ -358,8 +381,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         openFile(n.path, focus: false)
     }
     /// Like Finder's new folder: "untitled" appears with its name selected; type one and it opens.
-    @objc func newFile() {
-        let made = create(in: URL(fileURLWithPath: root).appendingPathComponent(selectedDir).path, undo: String(localized: "New File")), root = root
+    @objc func newFile() { addFile(in: selectedDir) }
+    private func addFile(in dir: String) {
+        let made = create(in: URL(fileURLWithPath: root).appendingPathComponent(dir).path, undo: String(localized: "New File")), root = root
         Task {
             guard let path = await made.value else { return }
             let rel = String(path.dropFirst(root.count + 1))
@@ -367,7 +391,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
     }
     /// Markdown templates from <repo>/.kelp/templates and ~/.kelp/templates with {{date}}, {{branch}}, {{title}}…
-    @objc func newFromTemplate() {
+    @objc func newFromTemplate() { addFromTemplate(in: selectedDir) }
+    private func addFromTemplate(in dir: String) {
         let repo = app.repo(worktree?.repoId)
         let dirs = [URL(fileURLWithPath: root).appendingPathComponent(".kelp/templates"), Paths.root.appendingPathComponent("templates")]
         let all = dirs.flatMap { Templates.list(in: $0) }
@@ -393,16 +418,16 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             var file = name.stringValue; if (file as NSString).pathExtension.isEmpty { file += ".md" }
             let title = (file as NSString).deletingPathExtension.replacingOccurrences(of: "-", with: " ")
             let body = Templates.expand(text, vars: ["branch": worktree?.branch ?? "", "title": title, "repo": repo?.name ?? ""])
-            let rel = selectedDir.isEmpty ? file : selectedDir + "/" + file
+            let rel = dir.isEmpty ? file : dir + "/" + file
             // Its folders made too; a name that's taken fails rather than being written over.
             guard await app.call(FilesCreate(path: root + "/" + rel, text: body)) != nil else { return }
             reloadTree(); openFile(rel)
         }
     }
 
-    @objc func newFolder() { Task { await newFolderNamed() } }
-    private func newFolderNamed() async {
-        let dir = selectedDir
+    @objc func newFolder() { addFolder(in: selectedDir) }
+    private func addFolder(in dir: String) { Task { await newFolderNamed(in: dir) } }
+    private func newFolderNamed(in dir: String) async {
         guard let name = await prompt(String(localized: "New folder"), String(localized: "In /\(dir)")), !name.isEmpty else { return }
         let path = URL(fileURLWithPath: root).appendingPathComponent(dir).appendingPathComponent(name).path
         guard await app.call(FilesCreate(path: path, folder: true)) != nil else { return }

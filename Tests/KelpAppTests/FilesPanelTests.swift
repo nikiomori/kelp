@@ -124,3 +124,35 @@ extension AppOfItsOwn {
         panel.viewDidDisappear()
     }
 }
+
+/// A right-click on the empty space under the tree is about the project's folder, not about the row that happens to be
+/// selected: nothing in its menu reaches that row, and a new file lands at the top.
+extension AppOfItsOwn {
+    @Test func theEmptySpaceUnderTheTreeLeavesTheSelectedFileAlone() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        try FileManager.default.createDirectory(atPath: rig.repo + "/sub", withIntermediateDirectories: true)
+        try rig.write("sub/a.txt", "x")
+        let panel = FilesPanel(app: rig.app)
+        rig.show(panel, 300, 500)
+        panel.worktree = rig.workspace
+        panel.reloadTree()
+        for _ in 0..<200 where panel.outline.numberOfRows == 0 { try await Task.sleep(for: .milliseconds(20)) }
+        panel.outline.expandItem(nil, expandChildren: true)
+        let file = (0..<panel.outline.numberOfRows).first { (panel.outline.item(atRow: $0) as? FileNode)?.path == "sub/a.txt" }
+        panel.outline.selectRowIndexes([try #require(file)], byExtendingSelection: false)
+
+        let onRow = NSMenu(), onNothing = NSMenu()
+        panel.fill(onRow, row: try #require(file))
+        panel.fill(onNothing, row: -1)
+        #expect(onRow.items.map(\.title).contains("Move to Trash"))
+        #expect(!onNothing.items.map(\.title).contains("Move to Trash"))
+        #expect(!onNothing.items.map(\.title).contains("Rename"))
+        #expect(!onNothing.items.map(\.title).contains("Send to Agent"))
+
+        let new = try #require(onNothing.items.first { $0.title == "New File" })
+        new.target.map { _ = $0.perform(new.action, with: new) }
+        for _ in 0..<200 where !FileManager.default.fileExists(atPath: rig.repo + "/untitled") { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(FileManager.default.fileExists(atPath: rig.repo + "/untitled"))
+        #expect(!FileManager.default.fileExists(atPath: rig.repo + "/sub/untitled"))
+    }
+}
