@@ -44,17 +44,31 @@ extension DiffViewController {
             }
         }
     }
-    private func selectedFilePath() -> String? {
-        let r = files.clickedRow >= 0 ? files.clickedRow : files.selectedRow
-        return diffs.indices.contains(r) ? diffs[r].path : nil
+    // MARK: menus
+
+    func menuNeedsUpdate(_ m: NSMenu) {
+        if m === files.menu { fileMenu(m, row: files.clickedRow) } else { lineMenu(m, row: table.clickedRow) }
     }
-    @objc func stageFile() { fileOp { GitStage(id: $0, files: [$1]) } }
-    @objc func unstageFile() { fileOp { GitUnstage(id: $0, files: [$1]) } }
-    /// `make`: the method for the workspace's id and the selected file.
-    private func fileOp<M: RPCMethod>(_ make: (String, String) -> M) {
-        guard let wid = worktreeId, let p = selectedFilePath() else { return }
-        let m = make(wid, p)
-        Task { await app.call(m); await load() }
+
+    /// Stage or Unstage as the file stands; a commit's or a turn's diff has nothing to stage.
+    func fileMenu(_ m: NSMenu, row: Int) {
+        m.removeAllItems()
+        let live = single?.commit == nil && (0...2).contains(source.indexOfSelectedItem)
+        guard live, let wid = worktreeId, diffs.indices.contains(row) else { return }
+        let path = diffs[row].path
+        guard let c = changes.first(where: { $0.path == path }) else { return }
+        if c.unstaged || !c.staged { m.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) } }
+        if c.staged { m.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) } }
+    }
+    private func fileOp<M: RPCMethod>(_ m: M) { Task { await app.call(m); await load() } }
+
+    /// A comment's next state; the other rows have no menu.
+    func lineMenu(_ m: NSMenu, row: Int) {
+        m.removeAllItems()
+        guard rows.indices.contains(row), case .comment(let c) = rows[row] else { return }
+        func state(_ title: String, _ s: String) { m.add(title) { [weak self] in self?.setComment(c.id, s) } }
+        if c.state != .resolved { state(String(localized: "Mark Resolved"), "resolved") }
+        if c.state != .open { state(String(localized: "Reopen"), "open") }
     }
 
     @objc func addComment() {
@@ -77,9 +91,8 @@ extension DiffViewController {
         }
     }
 
-    @objc func setCommentState(_ m: NSMenuItem) {
-        guard table.clickedRow >= 0, case .comment(let c) = rows[table.clickedRow] else { NSSound.beep(); return }
-        let set = CommentSetState(id: c.id, state: m.representedObject as? String ?? "")
+    private func setComment(_ id: String, _ state: String) {
+        let set = CommentSetState(id: id, state: state)
         Task { await app.call(set); await load() }
     }
 

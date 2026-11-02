@@ -109,3 +109,39 @@ extension AppOfItsOwn {
         #expect(open.count == 1)
     }
 }
+
+/// A diff's menus offer what the row under the pointer can take: nothing on a plain line, one state on a comment, and
+/// Stage or Unstage as the file stands.
+extension AppOfItsOwn {
+    @Test func aDiffsMenusOfferOnlyWhatTheRowCanTake() async throws {
+        let rig = try await AppRig(files: ["f.txt": "one\n", "g.txt": "two\n"]); defer { rig.done() }
+        try rig.write("f.txt", "changed\n")
+        try rig.write("g.txt", "changed\n")
+        let wt = rig.workspace
+        _ = await rig.app.call(GitStage(id: wt.id, files: ["g.txt"]))
+        _ = await rig.app.call(CommentAdd(id: wt.id, file: "f.txt", start: 1, end: 1, quote: "changed", text: "why"))
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: wt.id)
+        await vc.load()
+
+        func fileItems(_ path: String) throws -> [String] {
+            let m = NSMenu()
+            vc.fileMenu(m, row: try #require(vc.diffs.firstIndex { $0.path == path }))
+            return m.items.map(\.title)
+        }
+        #expect(try fileItems("f.txt") == ["Stage"])
+        #expect(try fileItems("g.txt") == ["Unstage"])
+        vc.fileMenu(NSMenu(), row: -1)
+
+        func lineItems(_ row: Int) -> [String] {
+            let m = NSMenu()
+            vc.lineMenu(m, row: row)
+            return m.items.map(\.title)
+        }
+        let comment = try #require(vc.rows.firstIndex { if case .comment = $0 { true } else { false } })
+        #expect(lineItems(comment) == ["Mark Resolved"])
+        let plain = try #require(vc.rows.indices.first { $0 != comment })
+        #expect(lineItems(plain).isEmpty)
+    }
+}

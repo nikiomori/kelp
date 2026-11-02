@@ -13,7 +13,7 @@ final class DiffTable: NSTableView {
 /// Diffs the way VS Code shows them: side by side (or inline), whole-line red / green, the changed words darker,
 /// hatching where one side has no line. One file (from Source Control) or every change with review comments for the agent.
 @MainActor
-final class DiffViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+final class DiffViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
@@ -77,9 +77,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         files.style = .sourceList
         files.headerView = nil
         fc.resizingMask = .autoresizingMask; files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows as wide as the pane
-        let fm = NSMenu(); fm.addItem(withTitle: String(localized: "Stage"), action: #selector(stageFile), keyEquivalent: "").target = self
-        fm.addItem(withTitle: String(localized: "Unstage"), action: #selector(unstageFile), keyEquivalent: "").target = self
-        files.menu = fm
+        files.menu = NSMenu(); files.menu?.delegate = self
         let fs = NSScrollView()
         fs.documentView = files
         fs.hasVerticalScroller = true
@@ -96,13 +94,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         table.backgroundColor = CodeEditor.page.background; table.floatsGroupRows = false
         NotificationCenter.default.addObserver(self, selector: #selector(columnsResized), name: NSTableView.columnDidResizeNotification, object: table)
         table.onKey = { [weak self] e in self?.key(e) ?? false }
-        let cm = NSMenu()
-        for (t, st) in [(String(localized: "Mark Resolved"), "resolved"), (String(localized: "Reopen"), "open")] {
-            let i = cm.addItem(withTitle: t, action: #selector(setCommentState(_:)), keyEquivalent: "")
-            i.target = self
-            i.representedObject = st
-        }
-        table.menu = cm
+        table.menu = NSMenu(); table.menu?.delegate = self
         let ts = NSScrollView()
         ts.documentView = table
         ts.hasVerticalScroller = true
