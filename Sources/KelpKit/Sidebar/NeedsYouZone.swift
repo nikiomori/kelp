@@ -97,11 +97,9 @@ final class NeedsYouZone: NSView {
             }
         }
         let agents = app.sessions.filter { $0.agent != "shell" && $0.status != .exited }
-        let asks = { (s: Session) in SidebarCell.shownStatus(s) != .done }
-        let asking = shown.filter(asks)
-        let questions = Set(inbox.queue.filter(asks).map(\.id))
-        let new = seen.map { s in asking.filter { !s.contains($0.id) }.map(\.id) } ?? []
-        seen = (seen ?? questions).union(asking.map(\.id)).union(inbox.viewing).intersection(questions)
+        let questions = Set(inbox.queue.map(\.id))
+        let new = seen.map { s in shown.filter { !s.contains($0.id) }.map(\.id) } ?? []
+        seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
         let busy = agents.filter { $0.status == .working }.count
         isHidden = busy == 0 && shown.isEmpty   // nothing to say: no empty band over the list
@@ -179,7 +177,8 @@ final class NeedsYouZone: NSView {
 extension Inbox {
     /// Who needs you now: the agent on screen isn't counted.
     @MainActor static func current(_ app: AppModel) -> Inbox {
-        var inbox = Inbox(queue: AttentionQueue(app).sessions)
+        // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
+        var inbox = Inbox(queue: AttentionQueue(app).sessions.filter { SidebarCell.shownStatus($0) != .done })
         let tab = app.workbench.focusedTab ?? ""
         if TabURI.scheme(tab) == "session" { inbox.viewing = [TabURI.body(tab)] }
         return inbox

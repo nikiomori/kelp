@@ -267,13 +267,12 @@ extension OneAtATime {
 
 /// Laid out narrow first (as the window opens), then at its width: the capsule's words are whole, inside its glass.
 @Test func theCapsuleTakesItsWordsBackWhenTheSidebarWidens() throws {
-    let done = (1...6).map { i in
-        var s = Session(worktreeId: "w\(i)", cwd: "/", command: "claude", agent: "claude", status: .done, title: "Report \(i)")
+    let asks = (1...6).map { i in
+        var s = Session(worktreeId: "w\(i)", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask \(i)")
         s.statusAt = Date() - 60
-        s.unread = true
         return s
     }
-    try withSidebar(repos: [project], worktrees: (1...6).map { desk("w\($0)", "b\($0)") }, sessions: done) { vc, _ in
+    try withSidebar(repos: [project], worktrees: (1...6).map { desk("w\($0)", "b\($0)") }, sessions: asks) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
         let title = try #require(textFields(line).first { $0.stringValue == "6 need you" })
         let capsule = try #require(title.superview?.superview)
@@ -286,12 +285,28 @@ extension OneAtATime {
     }
 }
 
+/// Too narrow for the whole line (a large Text size): one line still, saying how many need you, never two inside the capsule.
+@Test func theCapsuleDropsWhoWorksWhenItsLineWontFit() throws {
+    var ask = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask")
+    ask.statusAt = Date() - 60
+    let work = Session(worktreeId: "w2", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Work")
+    try withSidebar(repos: [project], worktrees: [desk("w1", "b1"), desk("w2", "b2")], sessions: [ask, work]) { vc, _ in
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        vc.view.layoutSubtreeIfNeeded()
+        #expect(textFields(line).contains { $0.stringValue.hasSuffix("1 working") })
+        vc.view.frame.size.width = 120
+        vc.view.layoutSubtreeIfNeeded()
+        line.layoutSubtreeIfNeeded()
+        #expect(textFields(line).contains { $0.stringValue == "1 need you" })
+    }
+}
+
 @MainActor private func textFields(_ v: NSView) -> [NSTextField] {
     if let t = v as? NSTextField { return [t] }
     return v.subviews.flatMap(textFields)
 }
 
-@Test func theLineOverTheListCountsWhatAskedAndWhatFinished() throws {
+@Test func theLineOverTheListCountsWhatAskedNotWhatFinished() throws {
     func agent(_ w: String, _ status: AgentStatus, _ title: String) -> Session {
         var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: title, summary: "Question")
         s.statusAt = Date() - 60
@@ -301,7 +316,7 @@ extension OneAtATime {
     let sessions = [agent("w1", .waiting, "Ask"), agent("w2", .done, "Report A"), agent("w3", .done, "Report B"), agent("w4", .done, "Put away")]
     // w4 is archived: the daemon doesn't list it, its agent stays in the session list.
     try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, o in
-        #expect(texts(vc.view).contains("3 need you"))   // a question and two reports nobody has read; not the archived one's
+        #expect(texts(vc.view).contains("1 need you"))   // the question: finished reports nobody has read ask for nothing; nor the archived one's
         let listed: [String] = rows(of: o).flatMap { $0 }
         #expect(listed.contains("Report A") && listed.contains("Report B"))   // each on its own row
     }

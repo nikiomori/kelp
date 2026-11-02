@@ -40,6 +40,8 @@ final class AgentSummary: NSView {
     /// Questions already shown or looked at: one that isn't lights the capsule as it comes in.
     private var seen: Set<String>?
     private var settleTimer: Timer?
+    /// What the line says, and the words that matter when that doesn't fit the sidebar (a large Text size).
+    private var wording: (full: NSAttributedString, short: NSAttributedString)?
     /// After each update: who needs you may have changed (Automatic looks whether they are all in view).
     var updated: () -> Void = {}
 
@@ -47,6 +49,7 @@ final class AgentSummary: NSView {
         self.app = app
         super.init(frame: .zero)
         title.lineBreakMode = .byTruncatingTail
+        title.maximumNumberOfLines = 1
         // A step over defaultLow: tied with it, the window's first narrow layout cut the words and the capsule kept them cut.
         title.setContentCompressionResistancePriority(.defaultLow + 1, for: .horizontal)
         let content = NSStackView(views: [mark, title])
@@ -87,6 +90,19 @@ final class AgentSummary: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    override func layout() {
+        fitWords()
+        super.layout()
+    }
+
+    /// The whole line while it fits between the capsule's insets, else only how many need you.
+    private func fitWords() {
+        guard let wording else { return }
+        let room = bounds.width - 16 - 10 - 12 - mark.fittingSize.width - 6
+        let words = wording.full.size().width <= room ? wording.full : wording.short
+        if title.attributedStringValue != words { title.attributedStringValue = words }
+    }
+
     func update() {
         let inbox = Inbox.current(app)
         let shown = inbox.shown
@@ -98,9 +114,8 @@ final class AgentSummary: NSView {
         }
         let agents = app.sessions.filter { $0.agent != "shell" && $0.status != .exited }
         let busy = agents.filter { $0.status == .working }.count
-        let asks = { (s: Session) in SidebarCell.shownStatus(s) != .done }
-        let questions = Set(inbox.queue.filter(asks).map(\.id)), new = shown.filter(asks).map(\.id).filter { !(seen ?? questions).contains($0) }
-        seen = (seen ?? questions).union(shown.filter(asks).map(\.id)).union(inbox.viewing).intersection(questions)
+        let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
+        seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
         isHidden = busy == 0 && shown.isEmpty   // nothing to say: no empty band over the list
         lineHeight?.constant = isHidden ? 0 : TextSize.of(30)
@@ -111,19 +126,25 @@ final class AgentSummary: NSView {
         NSLayoutConstraint.activate(asking ? centered : leading)
         mark.status = asking ? AgentStatus.mostUrgent(shown.map(SidebarCell.shownStatus)) : busy > 0 ? .working : nil
         mark.unread = true
-        let t = NSMutableAttributedString()
+        // Its own paragraph style: the field's line break mode doesn't reach an attributed string, which would wrap.
+        let oneLine = NSMutableParagraphStyle(); oneLine.lineBreakMode = .byTruncatingTail
+        let t = NSMutableAttributedString(), counted = NSMutableAttributedString()
         if asking {
-            t.append(NSAttributedString(string: String(localized: "\(shown.count) need you"),
-                                        attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.labelColor]))
+            counted.append(NSAttributedString(string: String(localized: "\(shown.count) need you"),
+                                              attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.labelColor,
+                                                           .paragraphStyle: oneLine]))
+            t.append(counted)
             if busy > 0 {
                 t.append(NSAttributedString(string: "  ·  " + String(localized: "\(busy) working"),
-                                            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor]))
+                                            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: oneLine]))
             }
         } else if busy > 0 {
             t.append(NSAttributedString(string: String(localized: "\(busy) working"),
-                                        attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
+                                        attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: oneLine]))
+            counted.append(t)
         }
-        title.attributedStringValue = t
+        wording = (t, counted)
+        fitWords()
         capsule.setAccessibilityRole(asking ? .button : .staticText)
         capsule.setAccessibilityLabel(asking ? String(localized: "Agents that need you: \(shown.count). Show the next one.") : title.stringValue)
         capsule.toolTip = asking ? String(localized: "Show the next agent that needs you (⇧⌘U)") : nil
