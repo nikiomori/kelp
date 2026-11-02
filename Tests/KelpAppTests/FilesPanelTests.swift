@@ -145,12 +145,17 @@ extension AppOfItsOwn {
         panel.fill(onRow, row: try #require(file))
         panel.fill(onNothing, row: -1)
         #expect(onRow.items.map(\.title).contains("Move to Trash"))
+        #expect(!onRow.items.map(\.title).contains("New File"))   // that's a folder's
+        let folder = NSMenu()
+        panel.fill(folder, row: try #require(panel.outline.row(forItem: panel.outline.parent(forItem: panel.outline.item(atRow: try #require(file))))))
+        #expect(folder.items.map(\.title).first == "New File")
+        #expect(folder.items.map(\.title).contains("Move to Trash"))
         #expect(!onNothing.items.map(\.title).contains("Move to Trash"))
         #expect(!onNothing.items.map(\.title).contains("Rename"))
         #expect(!onNothing.items.map(\.title).contains("Send to Agent"))
 
         let new = try #require(onNothing.items.first { $0.title == "New File" })
-        new.target.map { _ = $0.perform(new.action, with: new) }
+        onNothing.performActionForItem(at: onNothing.index(of: new))
         for _ in 0..<200 where !FileManager.default.fileExists(atPath: rig.repo + "/untitled") { try await Task.sleep(for: .milliseconds(20)) }
         #expect(FileManager.default.fileExists(atPath: rig.repo + "/untitled"))
         #expect(!FileManager.default.fileExists(atPath: rig.repo + "/sub/untitled"))

@@ -97,45 +97,45 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
 
     func menuNeedsUpdate(_ m: NSMenu) { fill(m, row: outline.clickedRow) }
 
-    /// The tree's right-click menu. Over empty space `clickedRow` is -1 and `selectedNode` answers with the selected row,
-    /// so what acts on a row isn't offered there: Move to Trash would reach a file nobody clicked.
+    /// The tree's right-click menu, for what's under the pointer. Over empty space `clickedRow` is -1 and `selectedNode`
+    /// answers with the selected row, so nothing here goes through it: Move to Trash would reach a file nobody clicked.
     func fill(_ m: NSMenu, row: Int) {
         m.removeAllItems()
-        if row >= 0 { rowItems(m) } else if worktree != nil { folderItems(m) }
+        guard worktree != nil else { return }
+        guard let n = outline.item(atRow: row) as? FileNode else { return folderItems(m, "") }
+        if n.children == nil { fileItems(m, n.path) } else { folderItems(m, n.path) }
     }
 
-    /// For the project's folder, from the empty space under its files.
-    private func folderItems(_ m: NSMenu) {
-        let root = root
-        m.add(String(localized: "New File")) { [weak self] in self?.addFile(in: "") }
-        m.add(String(localized: "New Folder…")) { [weak self] in self?.addFolder(in: "") }
-        m.add(String(localized: "New from Template…")) { [weak self] in self?.addFromTemplate(in: "") }
+    /// What goes into a folder, the project's own over empty space.
+    private func folderItems(_ m: NSMenu, _ dir: String) {
+        m.add(String(localized: "New File")) { [weak self] in self?.addFile(in: dir) }
+        m.add(String(localized: "New Folder…")) { [weak self] in self?.addFolder(in: dir) }
+        m.add(String(localized: "New from Template…")) { [weak self] in self?.addFromTemplate(in: dir) }
         m.addItem(.separator())
-        m.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: root)]) }
-        let openIn = NSMenu()
-        WorkspaceActions.addOpenIn(to: openIn, path: { root }, prefix: "")
-        if !openIn.items.isEmpty { m.addItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: "").submenu = openIn }
-        m.add(String(localized: "Copy Path")) { [weak self] in self?.copyText(root) }
+        if dir.isEmpty { return WorkspaceActions.addLocate(to: m, path: root) }
+        changeItems(m, dir)
     }
 
-    /// For a file or folder, grouped like Finder's: open, create, change, locate, hand to the agent.
-    private func rowItems(_ m: NSMenu) {
-        for group in [[("Open", #selector(openSelected))],
-                      [("New File", #selector(newFile)),
-                       (String(localized: "New Folder…"), #selector(newFolder)), (String(localized: "New from Template…"), #selector(newFromTemplate))],
-                      [("Rename", #selector(rename)), (String(localized: "Move to Trash"), #selector(trashSelected)),
-                       (String(localized: "Quick Look"), #selector(togglePreview))],
-                      [("Reveal in Finder", #selector(reveal)), ("Copy Path", #selector(copyPath)),
-                       (String(localized: "Copy Relative Path"), #selector(copyRelativePath))],
-                      [("Send to Agent", #selector(insertPath)), ("Copy Web Link", #selector(copyWebLink))]] {
-            if !m.items.isEmpty { m.addItem(.separator()) }
-            for (t, a) in group { m.addItem(withTitle: loc(t), action: a, keyEquivalent: "").target = self }
-        }
-        let openIn = NSMenu()
-        WorkspaceActions.addOpenIn(to: openIn, path: { [weak self] in self?.selectedPath }, prefix: "")
-        if !openIn.items.isEmpty, let i = m.items.firstIndex(where: { $0.action == #selector(reveal) }) {
-            m.insertItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: "", at: i + 1).submenu = openIn
-        }
+    private func fileItems(_ m: NSMenu, _ rel: String) {
+        let app = app, path = root + "/" + rel, wid = worktree?.id
+        m.add(String(localized: "Open")) { [weak self] in self?.openFile(rel) }
+        m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path), split: .right) }
+        if let wid, status[rel] != nil { m.add(String(localized: "Open Changes")) { app.workbench.open(TabURI.diff(wid, file: rel)) } }
+        m.addItem(withTitle: String(localized: "Quick Look"), action: #selector(togglePreview), keyEquivalent: "").target = self
+        m.addItem(.separator())
+        changeItems(m, rel)
+    }
+
+    /// A file's and a folder's alike: hand it over, name it, find it, throw it away.
+    private func changeItems(_ m: NSMenu, _ rel: String) {
+        let app = app, path = root + "/" + rel
+        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
+        m.add(String(localized: "Rename")) { [weak self] in self?.beginRename(rel) }
+        m.addItem(.separator())
+        WorkspaceActions.addLocate(to: m, path: path, copies: [(String(localized: "Relative Path"), { @MainActor [weak self] in self?.copyText(rel) }),
+                                                               (String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })])
+        m.addItem(.separator())
+        m.add(String(localized: "Move to Trash")) { [weak self] in self?.trash({ [path] }, undo: String(localized: "Move to Trash")) }
     }
 
     /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
@@ -368,7 +368,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { QLPreviewPanel.shared().reloadData() }
     }
 
-    private var selectedPath: String? { selectedNode.map { root + "/" + $0.path } }
     var selectedNode: FileNode? { (outline.clickedRow >= 0 ? outline.item(atRow: outline.clickedRow) : outline.item(atRow: outline.selectedRow)) as? FileNode }
     var selectedDir: String {
         guard let n = selectedNode else { return "" }
@@ -442,23 +441,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let path = URL(fileURLWithPath: root).appendingPathComponent(n.path).path
         trash({ [path] }, undo: String(localized: "Move to Trash"))
     }
-    @objc private func reveal() {
-        guard let n = selectedNode else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: root).appendingPathComponent(n.path)])
-    }
-    @objc private func copyPath() { copyText(selectedPath) }
-    @objc private func copyRelativePath() { copyText(selectedNode?.path) }
-    private func copyText(_ text: String?) {
-        guard let text else { return }
+    private func copyText(_ text: String) {
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
-    }
-    @objc private func insertPath() {
-        guard let p = selectedPath else { NSSound.beep(); return }
-        FileActions(app).sendToAgent(p)
-    }
-    @objc private func copyWebLink() {
-        guard let p = selectedPath else { NSSound.beep(); return }
-        FileActions(app).copyWebLink(p)
     }
     /// The files couldn't be listed (a folder moved away, git refusing it): say why where the tree would be, not an empty tree.
     let loadError = EmptyStateView()
