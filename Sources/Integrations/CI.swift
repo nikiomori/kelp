@@ -34,14 +34,27 @@ extension CIRuns {
     }
 
     /// The failed steps' output of a job (the whole log if nothing failed), its last ~12 KB.
-    public static func log(cwd: String, job: Int) throws -> String {
-        if GitLab.isGitLab(cwd: cwd) {
-            return GitHub.tail(readable(String(bytes: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd), encoding: .utf8) ?? ""))
-        }
-        let failed = (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap { String(bytes: $0, encoding: .utf8) } ?? ""
-        if !failed.isEmpty { return GitHub.tail(readable(failed)) }
-        return GitHub.tail(readable(String(bytes: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), encoding: .utf8) ?? ""))
+    public static func log(cwd: String, job: Int) throws -> String { GitHub.tail(try failedText(cwd: cwd, job: job)) }
+
+    /// What broke in a job, read from its log before the tail is cut.
+    public static func report(cwd: String, job: Int) throws -> Report {
+        located(report(log: try failedText(cwd: cwd, job: job)), cwd: cwd)
     }
+
+    /// What broke in a run; `attempt`: a run's earlier try, which is how a failure that came back can be told from a fluke.
+    public static func report(cwd: String, run: Int, attempt: Int?) throws -> Report {
+        let args = ["run", "view", String(run)] + (attempt.map { ["--attempt", String($0)] } ?? []) + ["--log-failed"]
+        return located(report(log: readable(String(decoding: try GitHub.gh(args, cwd: cwd), as: UTF8.self))), cwd: cwd)
+    }
+
+    private static func failedText(cwd: String, job: Int) throws -> String {
+        if GitLab.isGitLab(cwd: cwd) { return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd)) }
+        let failed = (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap { String(bytes: $0, encoding: .utf8) } ?? ""
+        if !failed.isEmpty { return readable(failed) }
+        return readable(String(bytes: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), encoding: .utf8) ?? "")
+    }
+
+    private static func wholeLog(trace: Data) -> String { readable(String(bytes: trace, encoding: .utf8) ?? "") }
 
     /// gh writes every log line as "job⇥step⇥timestamp text": keep the text, with a "▸ step" line where each step
     /// begins, and drop terminal color codes and the runner's ##[group] markers.

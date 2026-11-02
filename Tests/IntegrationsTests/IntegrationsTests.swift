@@ -262,3 +262,71 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(GitHub.noreplyAvatar("ada@users.noreply.github.com")?.absoluteString == "https://github.com/ada.png?size=64")
     #expect(GitHub.noreplyAvatar("ada@example.com") == nil)
 }
+
+// The lines below are from real runs: Pretype's XCTest, Kelp's Swift Testing and compiler errors, a killed process.
+@Test func aFailedLogSaysWhatBrokeWhereverItSits() {
+    let noise = (0..<4000).map { "Test Case '-[App.A test\($0)]' started.\nTest Case '-[App.A test\($0)]' passed (0.001 seconds)." }
+    let log = ["▸ Test", "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' started.",
+               #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:284: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "sept""#,
+               #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:285: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "rip" - a lookalike"#,
+               "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' failed (7.741 seconds)."] + noise
+        + ["Error: Process completed with exit code 1."]
+    let r = CIRuns.report(log: log.joined(separator: "\n"))
+    #expect(r.failures == [CIRuns.Failure(test: "testAFinishedPrefixOfRealWords", suite: "DanishSpellingTests", file: "Tests/PretypeTests/TextShapingTests.swift",
+                                          line: 284, messages: [#"XCTAssertNil failed: "sept""#, #":285 XCTAssertNil failed: "rip" - a lookalike"#])])
+    #expect(r.tests == 4001)
+    #expect(!r.log.contains("testAFinishedPrefixOfRealWords"))   // the tail lost it: this is why the log is read whole
+    #expect(r.forAgent.hasPrefix("Tests/PretypeTests/TextShapingTests.swift:284 DanishSpellingTests.testAFinishedPrefixOfRealWords\n  XCTAssertNil"))
+    #expect(r.exitCode == nil && r.lastLines.isEmpty)
+}
+
+@Test func swiftTestingIssuesAreOneFailureEach() {
+    let r = CIRuns.report(log: """
+        ✔ Test passes() passed after 0.1 seconds.
+        ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:244:5: Expectation failed: try await waitFor(30)
+        ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:250:5: Expectation failed: done
+        ✘ Test hibernateAndWake() failed after 74.017 seconds with 2 issues.
+        ✘ Test run with 336 tests in 1 suite failed after 74.030 seconds with 2 issues.
+        """)
+    #expect(r.failures == [CIRuns.Failure(test: "hibernateAndWake()", file: "DaemonTests.swift", line: 244,
+                                          messages: ["Expectation failed: try await waitFor(30)", ":250 Expectation failed: done"])])
+    #expect(r.tests == 336)
+}
+
+@Test func compilerErrorsAreOnePerLineAndTheBuildsEchoIsSkipped() {
+    let error = "cannot convert value of type 'String' to expected element type"
+    let r = CIRuns.report(log: """
+        /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:56: error: \(error)
+        /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:70: error: \(error)
+        error: SwiftCompile normal arm64 /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift failed with a nonzero exit code
+        """)
+    #expect(r.failures == [CIRuns.Failure(file: "Sources/kelp/AgentsCommand.swift", line: 95, messages: [error])])
+}
+
+@Test func aTestThatDiesWithoutALineStillHasItsName() {
+    let r = CIRuns.report(log: "Test Case '-[App.Suite testCrash]' started.\nTest Case '-[App.Suite testCrash]' failed (1.0 seconds).")
+    #expect(r.failures == [CIRuns.Failure(test: "testCrash", suite: "Suite")] && r.tests == 1)
+}
+
+@Test func aLogInNoKnownFormatEndsWithItsLastLines() {
+    let r = CIRuns.report(log: """
+        ▸ UI smoke
+        start: ok
+        file: ok
+        terminal: ok
+        terminal: the command didn't run
+        Error: Process completed with exit code 1.
+        """)
+    #expect(r.failures.isEmpty && r.exitCode == 1)
+    #expect(r.lastLines == ["file: ok", "terminal: ok", "terminal: the command didn't run"])
+    let killed = CIRuns.report(log: "✔ Test a() passed after 1 seconds.\n/tmp/x.sh: line 5: 10186 Killed: 9\nError: Process completed with exit code 137.\n")
+    #expect(killed.exitCode == 137 && killed.lastLines.last == "/tmp/x.sh: line 5: 10186 Killed: 9")
+    #expect(CIRuns.report(log: "").lastLines.isEmpty)
+    #expect(CIRuns.repoPath("/builds/group/app/src/a.c") == "src/a.c" && CIRuns.repoPath("Tests/A.swift") == "Tests/A.swift")
+}
+
+@Test func tooManyFailuresAreCounted() {
+    let log = (0..<130).map { "/tmp/a.c:\($0):1: error: e\($0)" }.joined(separator: "\n")
+    let r = CIRuns.report(log: log)
+    #expect(r.failures.count == 100 && r.more == 30 && r.summary.hasSuffix("+30"))
+}

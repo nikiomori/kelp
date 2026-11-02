@@ -89,7 +89,7 @@ extension GitHub {
 
     /// Failed-step logs of a workflow run, last ~12 KB.
     public static func failedLog(cwd: String, runId: Int) throws -> String {
-        tail(String(decoding: try gh(["run", "view", String(runId), "--log-failed"], cwd: cwd), as: UTF8.self))
+        try CIRuns.report(cwd: cwd, run: runId, attempt: nil).forAgent
     }
 
     /// Inline review comments plus non-empty top-level review bodies.

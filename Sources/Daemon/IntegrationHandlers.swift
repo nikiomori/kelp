@@ -48,5 +48,6 @@ extension GitHubPRMerge: LocalForge {}
 extension CIRunsList: LocalForge {}
 extension CIJobs: LocalForge {}
 extension CILog: LocalForge {}
+extension CIFailures: LocalForge {}
 extension CIRerun: LocalForge {}
 extension CIDispatch: LocalForge {}

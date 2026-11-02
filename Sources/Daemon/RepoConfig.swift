@@ -51,7 +51,7 @@ public enum Recipes {
         "fixPush": "`git push` failed. Fix the cause (e.g. rebase on the remote branch, resolve conflicts) and push again.\n\nError:\n{error}",
         "pr": "Open a pull request for branch {branch} with `gh pr create`. Write a short title and a description: problem, changes, how to test. {linkedIssue}",
         "resolveConflicts": "Merge {base} into this branch, resolve all conflicts ({files}), run the tests, and commit.",
-        "fixCI": "CI check \"{check}\" failed on this branch. Here is the log tail; fix the cause and push.\n\n{error}",
+        "fixCI": "CI check \"{check}\" failed on this branch. Here is what broke and the log tail; fix the cause and push.\n\n{error}",
         "review": "Address these review comments from the pull request:\n\n{comments}",
         "issue": "{title}\n\n{body}\n\n(Issue: {url})"
     ]

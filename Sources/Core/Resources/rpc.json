@@ -217,6 +217,34 @@
         ],
         "type" : "object"
       },
+      "CIRuns.Failure" : {
+        "description" : "One thing that broke: a test, or a compiler's error (no `test`), with where and what, read from a job's log.",
+        "properties" : {
+          "file" : {
+            "description" : "Relative to the project where the log says enough to tell.",
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "integer"
+          },
+          "messages" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "suite" : {
+            "type" : "string"
+          },
+          "test" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "messages"
+        ],
+        "type" : "object"
+      },
       "CIRuns.Job" : {
         "properties" : {
           "conclusion" : {
@@ -246,6 +274,46 @@
           "name",
           "status",
           "steps"
+        ],
+        "type" : "object"
+      },
+      "CIRuns.Report" : {
+        "description" : "What a failed log says. `failures` comes from the whole log, before `log` keeps only its tail.",
+        "properties" : {
+          "exitCode" : {
+            "description" : "For a log in no known format: how it ended, and the lines before that.",
+            "type" : "integer"
+          },
+          "failures" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CIRuns.Failure"
+            },
+            "type" : "array"
+          },
+          "lastLines" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "log" : {
+            "description" : "The log's tail.",
+            "type" : "string"
+          },
+          "more" : {
+            "description" : "Failures left out past the cap.",
+            "type" : "integer"
+          },
+          "tests" : {
+            "description" : "Tests that ran, when the log counts them.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "failures",
+          "lastLines",
+          "log",
+          "more"
         ],
         "type" : "object"
       },
@@ -3454,6 +3522,47 @@
         "name" : "result",
         "schema" : {
           "type" : "null"
+        }
+      }
+    },
+    {
+      "description" : "What broke in `job`, or in `run` (its `attempt`, if not the latest), read from the failed log: the tests or compiler errors with their files and lines, and the log's tail.",
+      "name" : "ci.failures",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "attempt",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "job",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "run",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/CIRuns.Report"
         }
       }
     },

@@ -116,6 +116,15 @@ public struct CILog: RPCMethod {
     public var worktreeId: String, job: Int?
     public init(worktreeId: String, job: Int?) { self.worktreeId = worktreeId; self.job = job }
 }
+/// What broke in `job`, or in `run` (its `attempt`, if not the latest), read from the failed log: the tests or compiler
+/// errors with their files and lines, and the log's tail.
+public struct CIFailures: RPCMethod {
+    public static let name = "ci.failures"; public typealias Result = CIRuns.Report
+    public var worktreeId: String, job: Int?, run: Int?, attempt: Int?
+    public init(worktreeId: String, job: Int? = nil, run: Int? = nil, attempt: Int? = nil) {
+        self.worktreeId = worktreeId; self.job = job; self.run = run; self.attempt = attempt
+    }
+}
 /// Runs `run` again.
 public struct CIRerun: RPCMethod {
     public static let name = "ci.rerun"; public typealias Result = Done

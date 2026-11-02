@@ -51,6 +51,13 @@ extension CIJobs: Handled {
 extension CILog: Handled {
     func handle(_ forges: Forges) throws -> String { try CIRuns.log(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0) }
 }
+extension CIFailures: Handled {
+    func handle(_ forges: Forges) throws -> CIRuns.Report {
+        let path = try forges.store.worktree(named: worktreeId).path
+        if let job { return try CIRuns.report(cwd: path, job: job) }
+        return try CIRuns.report(cwd: path, run: run ?? 0, attempt: attempt)
+    }
+}
 extension CIRerun: Handled {
     func handle(_ forges: Forges) throws -> Done { try CIRuns.rerunFailed(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0); return Done() }
 }
@@ -287,7 +294,7 @@ extension BitbucketStatus: AsyncHandled {
 
 extension Methods {
     static let integrationMethods: [any Handled.Type] = [GitHubBranchPR.self, GitHubForge.self, CIRunsList.self, CIJobs.self, CILog.self,
-        CIRerun.self, CIDispatch.self, GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
+        CIFailures.self, CIRerun.self, CIDispatch.self, GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
         GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self]
     static let asyncMethods: [any AsyncHandled.Type] = [GitHubPRs.self, GitHubPRCreate.self, GitHubPRMerge.self, LinearSetKey.self,
         LinearStatus.self, LinearIssues.self, LinearTeams.self, LinearStates.self, LinearSetState.self, JiraSetCredentials.self, JiraStatus.self,

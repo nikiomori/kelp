@@ -104,6 +104,8 @@ private func rig() async throws -> World { _ = fakeGh; return try await world() 
     #expect(jobs.first?["name"]?.string == "build" && jobs.first?["steps"]?.array?.first?["name"]?.string == "Compile")
     let log = try await r.c.call("ci.log", .obj(["worktreeId": .string(wt.id), "job": 5])).string ?? ""
     #expect(log.contains("error: boom") && !log.contains("2026-10-20T10:00:00Z"))   // the timestamp column is stripped
+    let report = try await r.c.call("ci.failures", .obj(["worktreeId": .string(wt.id), "job": 5]))
+    #expect(report["log"]?.string?.contains("error: boom") == true)
     _ = try await r.c.call("ci.rerun", .obj(["worktreeId": .string(wt.id), "run": 99]))
     #expect(calls().contains("run rerun 99 --failed"))
     _ = try await r.c.call("ci.dispatch", .obj(["worktreeId": .string(wt.id), "workflow": "ci.yml", "branch": "feat/x", "inputs": .object(["b": "2", "a": "1"])]))
