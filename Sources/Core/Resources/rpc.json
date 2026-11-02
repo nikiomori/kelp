@@ -7199,6 +7199,16 @@
           }
         },
         {
+          "name" : "ended_tasks",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
           "name" : "event",
           "required" : false,
           "schema" : {

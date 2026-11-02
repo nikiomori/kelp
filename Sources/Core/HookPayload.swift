@@ -33,6 +33,14 @@ extension SessionHook {
         return condition.isEmpty || condition == "clear" ? nil : condition
     }
 
+    /// The ids in a prompt that says background work ended: Claude Code wakes the agent with a `<task-notification>`, whether
+    /// it sits at its prompt or works on. The only sign of a background shell's end: no hook says so.
+    public static func endedTasks(of v: JSONValue) -> [String]? {
+        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string,
+              prompt.hasPrefix("<task-notification>") else { return nil }
+        return prompt.matches(of: /<(?:task|tool-use)-id>([^<]+)</).map { String($0.1) }
+    }
+
     /// What a Claude Code hook's JSON says beyond its event, for the row or for how the turn ended.
     public static func notification(of v: JSONValue) -> JSONValue? {
         switch v["hook_event_name"]?.string {

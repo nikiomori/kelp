@@ -30,6 +30,17 @@ extension LiveSession {
         }
     }
 
+    /// Background shells ended: they leave the record now, not at the next Stop. Whether it changed.
+    func tasksEnded(_ ids: [String]) -> Bool {
+        state.withLock { s in
+            let gone = s.turnEnd.ended(ids), left = s.record.background?.filter { !gone.contains($0) }
+            guard left != s.record.background else { return false }
+            s.record.background = left?.isEmpty == true ? nil : left
+            if let awaited = s.record.awaiting, gone.contains(awaited) { s.record.awaiting = nil }
+            return true
+        }
+    }
+
     /// It says it has sat at its prompt for a minute. Claude Code says so only after a finished turn: not with a dialog open,
     /// not after Esc (2.1.316), so a row still working or asking missed a Stop. Droid says it instead of a Stop when Esc stopped it.
     func atPrompt() {
@@ -101,6 +112,7 @@ extension LiveSession {
                 if s.commands.count > Self.commandLimit { s.commands.removeFirst(s.commands.count - Self.commandLimit) }
             }
             _ = s.newCommands()
+            if c.outcome == .background { s.turnEnd.started(c.id, command: c.command) }
             let moved = c.outcome == .background && s.sentToBackground(c.command)
             let shown = s.showRunning()
             return moved || shown ? s.record : nil

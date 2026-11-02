@@ -46,6 +46,9 @@ import TestSupport
     #expect(try await waitFor(10) { try await record()?.status == .done })
     #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal  tests pass "])) == "tests pass")
     #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal clear"])) == nil)
+    let ended = "<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<status>completed</status>"
+    #expect(SessionHook.endedTasks(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": .string(ended)])) == ["b1", "toolu_1"])
+    #expect(SessionHook.endedTasks(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "run <task-id>b1</task-id>"])) == nil)
     #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goals are nice"])) == nil)
 }
 
@@ -70,8 +73,8 @@ import TestSupport
 }
 
 /// A server left from an earlier turn is listed but never waited for; tests it sends to the background mid-turn are on
-/// the record at once, as what it waits for, while it asks too.
-@Test func aServerIsNotAwaitedButTestsSentToTheBackgroundAre() async throws {
+/// the record at once, while it asks too. It waits for them only once a Stop says so, and they go when told they ended.
+@Test func aServerIsNotAwaitedAndTestsAreOnceItsTurnStops() async throws {
     let p = try await world(); defer { p.d.stop() }
     let w = try await firstDesk(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
@@ -91,7 +94,15 @@ import TestSupport
     _ = try await p.c.call(SessionHook(id: s.id, event: "command", command: tests))
     try await hook("waiting")
     #expect(try await waitFor { try await record()?.status == .waiting })
-    #expect(try await record()?.awaiting == "npm test")
+    #expect(try await record()?.awaiting == nil)   // it works on: nothing is held for them yet
     #expect(try await record()?.background == ["npm run dev", "npm test"])
+    let tasks: [JSONValue] = [server, .obj(["id": "b2", "type": "shell", "status": "running", "command": "npm test"])]
+    try await hook("done", tasks)
+    #expect(try await waitFor { try await record()?.awaiting == "npm test" })
+    var ended = SessionHook(id: s.id, event: "working")
+    ended.endedTasks = ["b2", "t1"]
+    _ = try await p.c.call(ended)
+    #expect(try await waitFor { try await record()?.background == ["npm run dev"] })
+    #expect(try await record()?.awaiting == nil)
     _ = try await p.c.call("session.kill", .obj(["id": .string(s.id)]))
 }

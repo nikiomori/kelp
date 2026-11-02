@@ -12,7 +12,20 @@ public struct TurnEnd: Codable, Sendable {
     private static let wakesIt: Set = ["subagent", "workflow", "teammate"]
     /// Background shells running at an earlier Stop: one that outlives a turn is a server, not something awaited.
     private var seen: Set<String> = []
+    /// What each background shell runs, by its task id and the tool call that started it: the prompt saying one ended
+    /// names both. Optional: a kelpd handing over from a version without it.
+    private var shells: [String: String]?
     public init() {}
+
+    /// A command sent to the background, as its tool call ended.
+    public mutating func started(_ id: String, command: String) { shells = (shells ?? [:]).merging([id: command]) { $1 } }
+
+    /// The commands of the shells a `<task-notification>` says ended (`SessionHook.endedTasks`).
+    public mutating func ended(_ ids: [String]) -> [String] {
+        let gone = Set(ids.compactMap { shells?[$0] })
+        shells = shells?.filter { !gone.contains($0.value) }
+        return gone.sorted()
+    }
 
     /// `tasks`: the Stop's `background_tasks`; `goal`: the transcript's last goal_status. Also returns the commands still
     /// running in the background, for the row.
@@ -21,6 +34,7 @@ public struct TurnEnd: Codable, Sendable {
         let running = shells.map { $0["command"]?.string ?? $0["description"]?.string ?? "" }
         let fresh = shells.filter { !seen.contains($0["id"]?.string ?? "") }.compactMap { $0["command"]?.string }
         seen = Set(shells.compactMap { $0["id"]?.string })
+        for s in shells { if let id = s["id"]?.string, let c = s["command"]?.string { started(id, command: c) } }
         if tasks.contains(where: { Self.wakesIt.contains($0["type"]?.string ?? "") }) { return (.working, running) }
         if let goal, !goal.met { return (.goal(goal.condition), running) }
         if let awaited = fresh.first(where: { !Self.looksLikeServer($0) }) { return (.command(awaited), running) }

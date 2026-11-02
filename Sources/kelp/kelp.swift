@@ -161,6 +161,7 @@ func plist() -> String {
                     if ev == "command" { h.command = AgentCommand(hook: v) }   // a Bash command started or ended
                     h.notification = SessionHook.notification(of: v)
                     h.goal = SessionHook.goal(of: v)
+                    h.endedTasks = SessionHook.endedTasks(of: v)
                     if h.hookName == "Stop" { h.reply = v["last_assistant_message"]?.string }
                 }
                 try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)

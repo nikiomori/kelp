@@ -357,12 +357,10 @@ extension LiveSession {
         }
 
         /// A command it sent to the background mid-turn: on the record now, not only at the next Stop, so asking meanwhile
-        /// still shows it runs; the one it waits for unless it looks like a server. Whether the record changed.
-        /// Limit: its end isn't told; it stays listed until that Stop says what still runs.
+        /// still shows it runs. It isn't waiting for it yet: it works on, and only a Stop says it waits. Whether the record changed.
         mutating func sentToBackground(_ command: String) -> Bool {
             guard record.background?.contains(command) != true else { return false }
             record.background = (record.background ?? []) + [command]
-            if record.awaiting == nil, !TurnEnd.looksLikeServer(command) { record.awaiting = command }
             return true
         }
 
