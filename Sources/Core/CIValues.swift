@@ -103,6 +103,13 @@ public enum CIRuns {
     }
 }
 
+extension CIRuns {
+    /// The line (from 1) where a step begins in a job's readable log, which marks each with "▸ step".
+    public static func line(ofStep step: String, in log: String) -> Int? {
+        log.split(separator: "\n", omittingEmptySubsequences: false).firstIndex { $0 == "▸ " + step }.map { $0 + 1 }
+    }
+}
+
 extension CIRuns.Step {
     /// Seconds it took, or has taken so far.
     public func seconds(now: Date = Date()) -> Double? {
@@ -146,5 +153,40 @@ extension CIRuns {
         let ones = steps.filter { $0.failed || $0.status == "in_progress" }
         func fold(_ s: [Step], _ row: ([Step]) -> StepRow) -> [StepRow] { s.count > 1 ? [row(s)] : s.map(StepRow.one) }
         return fold(passed, StepRow.passed) + ones.map(StepRow.one) + fold(skipped, StepRow.skipped) + fold(upcoming, StepRow.upcoming)
+    }
+}
+
+extension CIRuns {
+    /// How long this workflow usually takes: the middle of its green runs, the newest five. Failed runs stop early and say
+    /// nothing about it. Nil under three.
+    public static func typicalSeconds(_ runs: [Run], workflow: String) -> Double? {
+        let green = runs.filter { $0.workflow == workflow && $0.conclusion == "success" }.prefix(5).compactMap { $0.seconds() }.sorted()
+        guard green.count >= 3 else { return nil }
+        return green.count % 2 == 1 ? green[green.count / 2] : (green[green.count / 2 - 1] + green[green.count / 2]) / 2
+    }
+
+    /// A workflow's last dozen runs, oldest first, and the newest green one when the latest isn't.
+    public struct History: Equatable, Sendable {
+        public var runs: [Run], lastGreen: Run?, greenInARow: Int
+    }
+
+    /// Of the workflow that matters now: the one that failed, else the newest. Nil with one run: no history to show.
+    public static func history(_ runs: [Run]) -> History? {
+        let now = latest(runs)
+        guard let workflow = (now.first(where: \.failed) ?? now.first)?.workflow else { return nil }
+        let own = runs.filter { $0.workflow == workflow }
+        guard own.count > 1 else { return nil }
+        let row = own.prefix { $0.conclusion == "success" }.count
+        return History(runs: own.prefix(12).reversed(), lastGreen: row > 0 ? nil : own.first { $0.conclusion == "success" }, greenInARow: row)
+    }
+}
+
+extension CIRuns.Report {
+    /// Whether an earlier try broke the same way: then it's the code, not a fluke of the runner.
+    public func failsLike(_ other: CIRuns.Report) -> Bool {
+        func names(_ r: CIRuns.Report) -> Set<String> {
+            Set(r.failures.map { [$0.suite, $0.test, $0.test == nil ? $0.place : nil].compactMap { $0 }.joined(separator: ".") })
+        }
+        return !failures.isEmpty && names(self) == names(other)
     }
 }

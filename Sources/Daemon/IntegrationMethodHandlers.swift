@@ -51,6 +51,9 @@ extension CIJobs: Handled {
 extension CILog: Handled {
     func handle(_ forges: Forges) throws -> String { try CIRuns.log(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0) }
 }
+extension CIFullLog: Handled {
+    func handle(_ forges: Forges) throws -> String { try CIRuns.fullLog(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0) }
+}
 extension CIFailures: Handled {
     func handle(_ forges: Forges) throws -> CIRuns.Report {
         let path = try forges.store.worktree(named: worktreeId).path
@@ -303,7 +306,7 @@ extension BitbucketStatus: AsyncHandled {
 
 extension Methods {
     static let integrationMethods: [any Handled.Type] = [GitHubBranchPR.self, GitHubForge.self, CIRunsList.self, CIJobs.self, CILog.self,
-        CIFailures.self, CIRerun.self, CIRerunAll.self, CIRerunJob.self, CIRunCancel.self, CIDispatch.self,
+        CIFullLog.self, CIFailures.self, CIRerun.self, CIRerunAll.self, CIRerunJob.self, CIRunCancel.self, CIDispatch.self,
         GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
         GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self]
     static let asyncMethods: [any AsyncHandled.Type] = [GitHubPRs.self, GitHubPRCreate.self, GitHubPRMerge.self, LinearSetKey.self,

@@ -19,6 +19,8 @@ final class CIJobPane: NSObject {
     private let app: AppModel
     private var worktree: String?
     private var report: CIRuns.Report?
+    /// What the run's earlier try says of this failure.
+    private var note: String?
     private let log = NSTextView(), failures = CIFailuresView()
     private let logScroll = NSScrollView()
     private let title = NSTextField(labelWithString: "")
@@ -30,8 +32,8 @@ final class CIJobPane: NSObject {
     private lazy var stopButton = IconButton(.symbol("stop.circle"), tip: String(localized: "Cancel Run…")) { [weak self] in
         if let self, let j = shown, let run = runOf?(j.run) { actions?.cancel(run) }
     }
-    private lazy var webButton = IconButton(.symbol("globe"), tip: String(localized: "Open in Browser")) { [weak self] in
-        if let u = self?.shown?.job.url { Forge.open(u) }
+    private lazy var fullLogButton = IconButton(.symbol("arrow.up.forward.square"), tip: String(localized: "Open Full Log")) { [weak self] in
+        if let self, let j = shown, let worktree { CILogTab.open(app, worktree: worktree, job: j.job) }
     }
     private var actions: CIActions? { worktree.map { CIActions(app: app, worktree: $0) { [weak self] in self?.onChange?() } } }
 
@@ -60,7 +62,7 @@ final class CIJobPane: NSObject {
         failures.onFix = { [weak self] in self?.fix($0) }
         view.orientation = .vertical
         view.spacing = 0
-        view.setViews([Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, webButton]), logScroll, failures], in: .top)
+        view.setViews([Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, fullLogButton]), logScroll, failures], in: .top)
         for v in [logScroll, failures] { v.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
     }
 
@@ -75,6 +77,7 @@ final class CIJobPane: NSObject {
         shown = (job, run)
         self.worktree = worktree
         report = nil
+        note = nil
         log.string = ""
         arrange()
         // gh hands out a job's log only once it's over; the next refresh after that brings it.
@@ -91,13 +94,25 @@ final class CIJobPane: NSObject {
             log.string = r.value?.log ?? r.error ?? ""
             log.scrollToEndOfDocument(nil)
             arrange()
+            await compareWithEarlierTry(job, run: run, in: worktree)
         }
+    }
+
+    /// From the second try on: did the last one break the same way? That tells the code from a fluke of the runner, at the
+    /// price of one more log, read only for the job on show.
+    private func compareWithEarlierTry(_ job: CIRuns.Job, run: Int, in worktree: String) async {
+        guard job.failed, let now = report, let attempt = runOf?(run)?.attempt, attempt > 1 else { return }
+        let before = await app.quiet(CIFailures(worktreeId: worktree, run: run, attempt: attempt - 1))   // a remark: without it, none
+        guard shown?.job.id == job.id, let before, !before.failures.isEmpty else { return }
+        note = now.failsLike(before) ? String(localized: "The same failed on attempt \(attempt - 1).")
+                                     : String(localized: "Attempt \(attempt - 1) failed differently.")
+        arrange()
     }
 
     /// A refresh brought the same job: nothing new to read.
     func keep(_ job: CIRuns.Job, run: Int) { shown = (job, run) }
 
-    private var canShowFailure: Bool { shown?.job.failed == true && report.map(failures.show) == true }
+    private var canShowFailure: Bool { shown?.job.failed == true && report.map { failures.show($0, note: note) } == true }
 
     /// What this job can show and do. A green job has nothing to fix and only its log to read.
     private func arrange() {
@@ -107,8 +122,10 @@ final class CIJobPane: NSObject {
         rerunButton.isHidden = !failed
         stopButton.isHidden = shown?.job.status == "completed"
         copyButton.isHidden = shown?.job.status != "completed"
+        fullLogButton.isHidden = copyButton.isHidden
         title.isHidden = why
-        title.stringValue = shown?.job.name ?? ""
+        // While it runs, what it's doing.
+        title.stringValue = shown?.job.steps.first { $0.status == "in_progress" }?.shortName ?? shown?.job.name ?? ""
         let showFailure = why && mode.selectedSegment == 0
         failures.isHidden = !showFailure
         logScroll.isHidden = showFailure

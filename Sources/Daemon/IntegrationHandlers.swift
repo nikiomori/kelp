@@ -49,6 +49,7 @@ extension CIRunsList: LocalForge {}
 extension CIJobs: LocalForge {}
 extension CILog: LocalForge {}
 extension CIFailures: LocalForge {}
+extension CIFullLog: LocalForge {}
 extension CIRerun: LocalForge {}
 extension CIRerunAll: LocalForge {}
 extension CIRerunJob: LocalForge {}

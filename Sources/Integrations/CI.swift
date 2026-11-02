@@ -46,6 +46,12 @@ extension CIRuns {
     /// The failed steps' output of a job (the whole log if nothing failed), its last ~12 KB.
     public static func log(cwd: String, job: Int) throws -> String { GitHub.tail(try failedText(cwd: cwd, job: job)) }
 
+    /// Every step of a job.
+    public static func fullLog(cwd: String, job: Int) throws -> String {
+        if GitLab.isGitLab(cwd: cwd) { return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd)) }
+        return readable(String(decoding: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), as: UTF8.self))
+    }
+
     /// What broke in a job, read from its log before the tail is cut.
     public static func report(cwd: String, job: Int) throws -> Report {
         located(report(log: try failedText(cwd: cwd, job: job)), cwd: cwd)

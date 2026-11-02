@@ -3631,6 +3631,33 @@
       }
     },
     {
+      "description" : "The whole log of `job`, every step of it, as text.",
+      "name" : "ci.fullLog",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "job",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    {
       "description" : "The jobs of `run`.",
       "name" : "ci.jobs",
       "paramStructure" : "by-name",

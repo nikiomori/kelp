@@ -362,3 +362,38 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(CIRuns.rows([s("only")]) == [.one(s("only"))])   // one step folds nothing away
     #expect(CIRuns.rows([]) == [])
 }
+
+@Test func aStepsLineInTheLog() {
+    #expect(CIRuns.line(ofStep: "Test", in: "▸ Set up job\nx\n\n▸ Test\nboom") == 4)
+    #expect(CIRuns.line(ofStep: "Lint", in: "▸ Test") == nil)
+}
+
+private func run(_ n: Int, _ conclusion: String?, minutes: Int = 10, workflow: String = "CI") -> CIRuns.Run {
+    CIRuns.Run(id: n, title: "", workflow: workflow, status: conclusion == nil ? "in_progress" : "completed", conclusion: conclusion, event: "push", url: "",
+               createdAt: "", number: n, startedAt: "2026-11-02T10:00:00Z", updatedAt: "2026-11-02T10:\(String(format: "%02d", minutes)):00Z")
+}
+
+@Test func aWorkflowsUsualTimeIsThatOfItsGreenRuns() {
+    let runs = [run(1, "success", minutes: 8), run(2, "success", minutes: 14), run(3, "failure", minutes: 1), run(4, "success", minutes: 30), run(5, "success", minutes: 16)]
+    #expect(CIRuns.typicalSeconds(runs, workflow: "CI").map { Int($0) } == 15 * 60)
+    #expect(CIRuns.typicalSeconds([run(1, "success"), run(2, "success"), run(3, "failure")], workflow: "CI") == nil)
+    #expect(CIRuns.typicalSeconds([run(1, "success"), run(2, "success"), run(3, "success")], workflow: "Deploy") == nil)
+}
+
+@Test func aBranchsHistorySaysWhenItWasLastGreen() {
+    let red = CIRuns.history([run(4, "failure"), run(3, "success"), run(2, "success"), run(1, "failure")])
+    #expect(red?.runs.map(\.id) == [1, 2, 3, 4] && red?.lastGreen?.id == 3 && red?.greenInARow == 0)
+    let green = CIRuns.history([run(3, "success"), run(2, "success"), run(1, "failure")])
+    #expect(green?.lastGreen == nil && green?.greenInARow == 2)
+    #expect(CIRuns.history([run(1, "failure")]) == nil && CIRuns.history([]) == nil)
+    #expect(CIRuns.history((0..<20).map { run($0, "failure") })?.runs.count == 12)
+    let two = CIRuns.history([run(9, "success", workflow: "Deploy"), run(2, "failure"), run(1, "success")])
+    #expect(two?.runs.map(\.id) == [1, 2])   // the one that failed is what's on your mind
+}
+
+@Test func twoTriesFailAlikeWhenTheSameThingsBroke() {
+    let a = CIRuns.Failure(test: "t", suite: "S", file: "a.swift", line: 1), b = CIRuns.Failure(test: "u", suite: "S")
+    #expect(CIRuns.Report(failures: [a, b]).failsLike(CIRuns.Report(failures: [b, a])))
+    #expect(!CIRuns.Report(failures: [a]).failsLike(CIRuns.Report(failures: [a, b])))
+    #expect(!CIRuns.Report().failsLike(CIRuns.Report()))
+}

@@ -30,12 +30,12 @@ final class CIFailuresView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// False: the log said nothing to show here.
-    @discardableResult func show(_ r: CIRuns.Report) -> Bool {
+    /// False: the log said nothing to show here. `note`: what the run's earlier try says of this.
+    @discardableResult func show(_ r: CIRuns.Report, note: String? = nil) -> Bool {
         let rows: [NSView] = r.failures.map { f in
             FailureRow(f, open: { [weak self] in self?.onOpen?(f) }, fix: { [weak self] in self?.onFix?(f) })
         } + (r.more > 0 ? [Self.caption(String(localized: "\(r.more) more in the log"))] : [])
-        list.setViews(rows.isEmpty ? Self.ending(r) : Self.count(r) + rows, in: .top)
+        list.setViews((rows.isEmpty ? Self.ending(r) : Self.count(r) + rows) + (note.map { [Self.caption($0)] } ?? []), in: .top)
         for v in list.arrangedSubviews { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Metrics.gap).isActive = true }
         return !list.arrangedSubviews.isEmpty
     }

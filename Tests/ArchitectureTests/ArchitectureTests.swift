@@ -234,6 +234,7 @@ private func codeOnly(_ s: String) -> String {
         "Builtins/Agents/UsageTab.swift": "a \"still reading\" hint after 3 s",
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
         "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
+        "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
         "Builtins/Files/FileTab.swift": "typing settles before the language server hears it",
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Git/CommitCard.swift": "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",

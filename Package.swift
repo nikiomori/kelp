@@ -45,7 +45,7 @@ let package = Package(
         .target(name: "BuiltinFiles", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "Markdown", "WorkbenchKit"], path: "Sources/Builtins/Files"),
         .target(name: "BuiltinGit", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Git"),
         .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
-        .target(name: "BuiltinIssues", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
+        .target(name: "BuiltinIssues", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
         .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
         .target(name: "BuiltinRoutines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Routines"),
         .executableTarget(

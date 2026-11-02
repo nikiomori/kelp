@@ -16,6 +16,7 @@ extension Builtins {
             track(owner: t) { app.workbench.workspaceId } changed: { [weak t] in t?.show(worktree: $0) }
             return t
         }, PanelSpec(id: "ci", title: "CI Runs", icon: "checkmark.seal", extensionId: "kelp.issues", badge: { failed.badge }) { CIRunsController(app: app) }]
+        c.tabs = [TabProvider(schemes: ["cilog"]) { CILogTab(uri: $0, app: app) }]
         c.settings = [SettingsSection(id: "integrations", title: "Integrations", icon: "link", specs: [],
                                       custom: { AnyView(IntegrationsSettings(app: app)) },
                                       keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90)]
