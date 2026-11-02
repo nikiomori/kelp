@@ -63,7 +63,7 @@ extension CodeEditor {
     public func refreshAppearance() {
         let l = Self.look, f = Self.font, tv = textView
         let para = NSMutableParagraphStyle()
-        para.defaultTabInterval = 4 * (" " as NSString).size(withAttributes: [.font: f]).width
+        para.defaultTabInterval = CGFloat(tabWidth) * (" " as NSString).size(withAttributes: [.font: f]).width
         para.tabStops = []
         tv.typingAttributes = [.font: f, .foregroundColor: l.text, .paragraphStyle: para]
         tv.defaultParagraphStyle = para

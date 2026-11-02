@@ -2,9 +2,14 @@ import AppKit
 import Core
 import EditorKit
 import KelpKit
+import WorkbenchKit
 
 /// What a file's tab says beside its text: its right-click menu and what the language server found.
 extension FileTab {
+    var selectedText: String? { editor?.selectedText }
+    var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
+    var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
+
     func contextMenu(_ m: NSMenu) {
         let app = self.app, path = self.path
         let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }

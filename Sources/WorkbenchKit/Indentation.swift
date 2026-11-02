@@ -26,4 +26,31 @@ public enum Indentation: Equatable, Sendable {
         let step = [8, 4, 3, 2].first { s in Double(widths.filter { $0 % s == 0 }.count) >= 0.9 * Double(widths.count) } ?? 1
         return .spaces(step)
     }
+
+    /// `text` with each line's leading whitespace in this indentation, the same depth with `tabSize` columns to a level.
+    public func applied(to text: String, tabSize: Int) -> String {
+        text.components(separatedBy: "\n").map { line -> String in   // not split(): "\r\n" is one Character to it
+            let lead = line.prefix { $0 == " " || $0 == "\t" }
+            let columns = lead.reduce(0) { $1 == "\t" ? $0 + tabSize - $0 % tabSize : $0 + 1 }
+            let indent: String
+            switch self {
+            case .tabs: indent = String(repeating: "\t", count: columns / tabSize) + String(repeating: " ", count: columns % tabSize)
+            case .spaces: indent = String(repeating: " ", count: columns)
+            }
+            return indent + line.dropFirst(lead.count)
+        }.joined(separator: "\n")
+    }
+
+    /// What Save tidies: spaces and tabs at line ends, and a last line without a newline.
+    public static func cleaned(_ text: String, trim: Bool, finalNewline: Bool) -> String {
+        var out = !trim ? text : text.components(separatedBy: "\n").map { line -> String in
+            var l = Substring(line)
+            let cr = l.last == "\r"
+            if cr { l = l.dropLast() }
+            while l.last == " " || l.last == "\t" { l = l.dropLast() }
+            return cr ? l + "\r" : String(l)
+        }.joined(separator: "\n")
+        if finalNewline, !out.isEmpty, !out.hasSuffix("\n") { out += "\n" }
+        return out
+    }
 }

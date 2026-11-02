@@ -1,5 +1,7 @@
 import Core
 import EditorKit
+import WorkbenchKit
+@testable import BuiltinFiles
 import Testing
 @testable import KelpKit
 
@@ -30,5 +32,18 @@ extension OneAtATime {
         s.set("editor.wordWrap", .bool(true), language: "swift")
         #expect(s.bool("editor.wordWrap") == true)
         #expect(s.bool("editor.wordWrap", language: "markdown") == false)   // still its own
+    }
+}
+
+extension AppOfItsOwn {
+    /// A project's .editorconfig comes before what the file does and the settings.
+    @Test func aProjectsEditorconfigSetsAFilesIndentation() async throws {
+        let rig = try await AppRig(files: [".editorconfig": "root = true\n[*.txt]\nindent_style = tab\nindent_size = 8\n", "a.txt": "    x\n"]); defer { rig.done() }
+        rig.app.worktrees = [rig.workspace]
+        let tab = FileTab(uri: TabURI.file(rig.workspace.path + "/a.txt"), app: rig.app)
+        await tab.loading?.value
+        let e = try #require(tab.editor)
+        for _ in 0..<200 where e.tabWidth != 8 { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(e.tabWidth == 8)
     }
 }

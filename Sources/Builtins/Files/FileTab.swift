@@ -19,6 +19,8 @@ final class FileTab: SavableTab {
     private(set) var markdown: MarkdownTab?
     private var notebook: NotebookTab?
     private var changeBars: ChangeBars?
+    /// Its indentation and what Save tidies.
+    private(set) var rules: FileRules?
     weak var statusBar: EditorStatusBar?
     /// What the file was last read or written as; a compare against the one before is moot.
     private var lastSaved = "" { didSet { comparing?.cancel() } }
@@ -164,6 +166,7 @@ final class FileTab: SavableTab {
         }
         if focusWhenLoaded { focus() }
         changeBars = ChangeBars(app: app, path: path, editor: e) { [weak self] in self?.isEdited == true }
+        rules = FileRules(app: app, path: path, root: root, editor: e, bar: bar)
         guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
         let p = path
         version.key = p
@@ -203,9 +206,6 @@ final class FileTab: SavableTab {
         }
         editor.goTo(line: line); editor.focus()
     }
-    var selectedText: String? { editor?.selectedText }
-    var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
-    var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
     // MARK: saving
 
     private func edited(_ t: String) {

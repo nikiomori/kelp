@@ -33,6 +33,11 @@ extension Builtins {
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),
             s("editor.fontSize", "Font size", "number", 13, range: [8, 40]),
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
+            s("editor.tabSize", "Tab size", "number", 4, "Spaces to a level. A file's own indentation and its .editorconfig come first."),
+            s("editor.insertSpaces", "Indent with spaces", "boolean", true),
+            s("editor.detectIndentation", "Detect indentation from the file", "boolean", true),
+            s("files.trimTrailingWhitespace", "Trim trailing whitespace on save", "boolean", false),
+            s("files.insertFinalNewline", "End files with a newline on save", "boolean", false),
             s("editor.wrappingIndent", "Wrapped lines continue", "enum", "same", "At the left edge, at their line's indentation, or one level past it.",
               options: ["none", "same", "indent"]),
             s("editor.autoSave", "Save automatically", "boolean", false,
@@ -73,6 +78,7 @@ extension Builtins {
                       cmd("editor.save", "Save", "cmd+s") {
                           guard let t = app.workbench.editor?.focusedContent as? SavableTab else { NSSound.beep(); return }
                           Task {
+                              (t as? FileTab)?.rules?.cleanUpForSave()
                               let language = (t as? FileTab)?.editor?.languageId
                               if let file = t as? FileTab, app.settings.bool("editor.formatOnSave", language: language) == true, file.language?.format != nil {
                                   await file.format()

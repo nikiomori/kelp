@@ -2588,6 +2588,26 @@
         }
       }
     },
+    "Convert File to Spaces": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Преобразовать файл в пробелы"
+          }
+        }
+      }
+    },
+    "Convert File to Tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Преобразовать файл в табуляцию"
+          }
+        }
+      }
+    },
     "Copied %@": {
       "localizations": {
         "ru": {
@@ -3918,6 +3938,16 @@
         }
       }
     },
+    "Detect indentation from the file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Определять отступы по файлу"
+          }
+        }
+      }
+    },
     "Discard %lld Changes": {
       "localizations": {
         "ru": {
@@ -4262,6 +4292,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Почта"
+          }
+        }
+      }
+    },
+    "End files with a newline on save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершать файл переводом строки при сохранении"
           }
         }
       }
@@ -5525,6 +5565,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "В заголовке окна, справа от поиска; правый клик по ней скрывает её. ⌃⌘T работает в любом случае."
+          }
+        }
+      }
+    },
+    "Indent Using Spaces": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отступы пробелами"
+          }
+        }
+      }
+    },
+    "Indent Using Tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отступы табуляцией"
+          }
+        }
+      }
+    },
+    "Indent with spaces": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отступы пробелами"
           }
         }
       }
@@ -10659,6 +10729,16 @@
         }
       }
     },
+    "Spaces to a level. A file's own indentation and its .editorconfig come first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пробелов на уровень. Сначала учитываются отступы файла и .editorconfig."
+          }
+        }
+      }
+    },
     "Split": {
       "localizations": {
         "ru": {
@@ -11331,6 +11411,16 @@
         }
       }
     },
+    "Tab size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер табуляции"
+          }
+        }
+      }
+    },
     "Table": {
       "localizations": {
         "ru": {
@@ -11826,6 +11916,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Инструменты"
+          }
+        }
+      }
+    },
+    "Trim trailing whitespace on save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убирать пробелы в конце строк при сохранении"
           }
         }
       }
@@ -12567,6 +12667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Слово целиком"
+          }
+        }
+      }
+    },
+    "Width: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина: %lld"
           }
         }
       }

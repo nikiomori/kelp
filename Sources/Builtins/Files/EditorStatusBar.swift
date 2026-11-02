@@ -18,22 +18,28 @@ final class EditorStatusBar: NSView {
     private let problem = NSTextField(labelWithString: "")
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
-    private let indent: String
+    /// The indentation in use: a click offers another, or converts the file.
+    private let indentButton = PointerButton()
+    var indentMenu: (() -> NSMenu)?
     /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
     var contextMenu: (() -> NSMenu)?
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
     /// Off in a Markdown preview: there's no cursor to place, and how the source is indented says nothing.
     var editing = true {
-        didSet { place.isHidden = !editing; layoutFormat() }
+        didSet {
+            place.isHidden = !editing
+            indentButton.isHidden = !editing
+        }
     }
 
     init(url: URL, text: String) {
-        indent = switch Indentation.detect(text) {
-        case .tabs?: String(localized: "Tab Indentation")
-        case .spaces(let n)?: String(localized: "Spaces: \(n)")
-        case nil: ""
-        }
         super.init(frame: .zero)
+        indentButton.font = .ui(11)
+        indentButton.padding = Metrics.gap
+        indentButton.onClick = { [weak self] in
+            guard let self, let b = Optional(indentButton), let m = indentMenu?() else { return }
+            m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
+        }
         layoutFormat()
         let kind = NSTextField(labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription ?? url.pathExtension.uppercased())
         for l in [kind, place, format] {
@@ -55,7 +61,7 @@ final class EditorStatusBar: NSView {
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        let row = NSStackView(views: [kind, place, problems, problem, NSView(), wrap, format]); row.spacing = 16
+        let row = NSStackView(views: [kind, place, problems, problem, NSView(), wrap, indentButton, format]); row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
@@ -70,10 +76,17 @@ final class EditorStatusBar: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func layoutFormat() {
-        format.stringValue = ["UTF-8", editing ? indent : ""].filter { !$0.isEmpty }.joined(separator: "  ·  ")
+        format.stringValue = "UTF-8"
     }
 
     func show(wrapping: Bool) { wrap.isHidden = !wrapping }
+
+    func show(indent: Indentation) {
+        indentButton.title = switch indent {
+        case .tabs: String(localized: "Tab Indentation")
+        case .spaces(let n): String(localized: "Spaces: \(n)")
+        }
+    }
 
     func show(errors: Int, warnings: Int) {
         problems.isHidden = errors + warnings == 0
