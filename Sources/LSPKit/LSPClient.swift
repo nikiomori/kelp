@@ -99,9 +99,6 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// After this many requests in a row go unanswered the server counts as exited (the manager starts a new one).
     static let timeoutsToGiveUp = 3
     public var isRunning: Bool { state.withLock { !$0.exited } }
-    public var isIdle: Bool { state.withLock { $0.opened.isEmpty } }
-    /// Open documents and how many tabs hold each (to open them again in a restarted server).
-    public var openDocuments: [String: Int] { state.withLock { $0.opened } }
 
     private func fail(_ e: RPCError) {
         let all = state.withLock { s in defer { s.pending = [:] }; s.exited = true; return s.pending }

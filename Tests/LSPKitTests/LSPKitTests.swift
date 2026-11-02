@@ -37,9 +37,9 @@ import Core
     c.onIdle = { idle.add() }
     c.open("/x.swift", text: "", languageId: "swift"); c.open("/x.swift", text: "", languageId: "swift")
     c.close("/x.swift")
-    #expect(c.openDocuments == ["/x.swift": 1] && idle.count == 0)
+    #expect(idle.count == 0)
     c.close("/x.swift")
-    #expect(c.isIdle && idle.count == 1)
+    #expect(idle.count == 1)
     c.close("/x.swift")   // not open: nothing to close
     c.terminate()
 }
