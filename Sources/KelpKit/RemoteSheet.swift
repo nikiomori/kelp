@@ -54,6 +54,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         host.stringValue = UserDefaults.standard.string(forKey: "remote.host") ?? ""
         for f in [host, path] as [NSView] { f.widthAnchor.constraint(equalToConstant: 340).isActive = true }
         grid.column(at: 0).xPlacement = .trailing
+        grid.yPlacement = .center   // a combo box has no first baseline for the grid to line its label up with
         grid.rowSpacing = 10
         grid.columnSpacing = 8
         // The fields don't move when the folder row and the list come and go.

@@ -62,6 +62,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
                                       [NSTextField(labelWithString: String(localized: "Clone into:")), row]])
         row.widthAnchor.constraint(equalTo: field.widthAnchor).isActive = true
         grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .firstBaseline
         grid.rowSpacing = 10
         grid.columnSpacing = 8
         bar.style = .bar

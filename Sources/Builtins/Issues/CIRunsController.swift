@@ -326,6 +326,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         let a = NSAlert(); a.messageText = String(localized: "Run “\(wf.name)” on \(branchName)?")
         var fields: [(String, NSView)] = []
         let form = NSGridView()
+        form.rowAlignment = .firstBaseline
         for input in wf.inputs {
             let control: NSView
             if !input.options.isEmpty {
