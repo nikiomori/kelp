@@ -44,16 +44,19 @@ extension DiffViewController {
         p.lineBreakMode = text.utf16.count > 4000 ? .byCharWrapping : .byWordWrapping
         return p
     }
+    /// What a row shows of a line: a text field takes seconds over a megabyte, and nobody reads that far along one line.
+    static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
     func codeCell(_ l: DiffLine, file f: Int, marker: Bool) -> NSTextField {
         let prefix = prefix(l, marker: marker)
-        let s = NSMutableAttributedString(attributedString: Highlighter.attributed(prefix + l.text, ext: ext(f), font: font))
+        let text = Self.shown(l.text)
+        let s = NSMutableAttributedString(attributedString: Highlighter.attributed(prefix + text, ext: ext(f), font: font))
         let key = l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
-        if let key, let r = words[key], r.length > 0, r.location + r.length <= (l.text as NSString).length {
+        if let key, let r = words[key], r.length > 0, r.location + r.length <= (text as NSString).length {
             s.addAttribute(.backgroundColor, value: l.kind == .add ? Self.addWord : Self.delWord,
                            range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
         // Its own paragraph style, the same `height(of:)` measures with: the field's mode doesn't reach an attributed string.
-        s.addAttribute(.paragraphStyle, value: Self.wrap(l.text), range: NSRange(location: 0, length: s.length))
+        s.addAttribute(.paragraphStyle, value: Self.wrap(text), range: NSRange(location: 0, length: s.length))
         let t = NSTextField(labelWithAttributedString: s)
         t.maximumNumberOfLines = 0
         if let c = tint(l.kind) { t.drawsBackground = true; t.backgroundColor = c }
@@ -148,9 +151,10 @@ extension DiffViewController {
         func lines(_ l: DiffLine?, _ column: String, marker: Bool) -> Int {
             guard let l, let c = table.tableColumn(withIdentifier: .init(column)) else { return 1 }
             let fit = max(1, Int((c.width - 4) / Self.charWidth(font)))
-            let n = l.text.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
+            let shown = Self.shown(l.text)
+            let n = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
             guard n > fit else { return 1 }   // most lines: no need to measure
-            guard l.text.utf16.count <= 4000 else { return (n + fit - 1) / fit }
+            guard shown.utf16.count <= Highlighter.maxColored else { return (n + fit - 1) / fit }
             // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
             let text = NSAttributedString(string: prefix(l, marker: marker) + l.text, attributes: [.font: font, .paragraphStyle: Self.wrap(l.text)])
             let tall = text.boundingRect(with: NSSize(width: c.width - 4, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin).height

@@ -25,11 +25,12 @@ enum Highlighter {
 
     /// Keyword, number, string and comment patterns, compiled once per language: a diff paints each row as it scrolls in.
     @MainActor private static var patterns: [String: [NSRegularExpression]] = [:]
+    static let maxColored = 4000
 
     @MainActor static func attributed(_ s: String, ext: String, font: NSFont) -> NSAttributedString {
         let a = NSMutableAttributedString(string: s, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         let lang = alias[ext] ?? ext
-        guard let kw = keywords[lang] else { return a }
+        guard s.utf16.count <= maxColored, let kw = keywords[lang] else { return a }   // a minified line: 2 MB took 25 s
         let res = patterns[lang] ?? [#"\b(\#(kw.joined(separator: "|")))\b"#, #"\b\d+(\.\d+)?\b"#, #""(\\.|[^"\\])*"|'(\\.|[^'\\])*'"#,
                                      lang == "py" || lang == "yaml" ? #"#.*$"# : #"//.*$"#].compactMap { try? NSRegularExpression(pattern: $0) }
         patterns[lang] = res

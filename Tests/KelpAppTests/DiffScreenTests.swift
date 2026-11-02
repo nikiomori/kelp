@@ -147,3 +147,20 @@ extension AppOfItsOwn {
         #expect(lineItems(line).contains("Add Comment…"))
     }
 }
+
+/// A minified line in a diff: the regexes were quadratic in it, a text field takes seconds over a megabyte.
+@MainActor @Test func aVeryLongDiffLineIsCutAndLeftUncolored() {
+    let long = "let a = 1; " + String(repeating: "x", count: Highlighter.maxColored)
+    let font = NSFont.systemFont(ofSize: 12)
+    func colored(_ s: String) -> Bool {
+        var found = false
+        Highlighter.attributed(s, ext: "js", font: font).enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: 3)) { c, _, _ in
+            found = found || (c as? NSColor) != .labelColor
+        }
+        return found
+    }
+    #expect(colored("let a = 1;"))
+    #expect(!colored(long))
+    #expect(DiffViewController.shown("short") == "short")
+    #expect(DiffViewController.shown(String(repeating: "y", count: 30_000)).utf16.count == 20_001)
+}
