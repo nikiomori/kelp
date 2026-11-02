@@ -41,6 +41,11 @@ final class TabStrip: NSView {
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     private let stack = NSStackView()
     private let scroll = NSScrollView()
+    private lazy var edgeMask: CAGradientLayer = {
+        let g = CAGradientLayer()
+        g.startPoint = CGPoint(x: 0, y: 0.5); g.endPoint = CGPoint(x: 1, y: 0.5)
+        return g
+    }()
     private let overflow = PointerButton(frame: .zero)
     private let add = CapsuleSegment()
     /// The default agent, one click away beside "+" (no list to pick from); the two share one capsule.
@@ -96,6 +101,9 @@ final class TabStrip: NSView {
         trailing.spacing = 6
         trailing.detachesHiddenViews = true
         scroll.documentView = stack
+        scroll.wantsLayer = true
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(stripScrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         scroll.drawsBackground = false
         scroll.hasHorizontalScroller = false
         scroll.hasVerticalScroller = false
@@ -167,11 +175,27 @@ final class TabStrip: NSView {
         if abs((addLead?.constant ?? 0) - x) > 0.5 { addLead?.constant = x }
         overflow.isHidden = natural <= room + 1
         super.layout()
+        fadeEdges()
         // Squeezed (a narrower window, the inspector opening): the chosen tab is scrolled back into view.
         if bounds.width != laidOutWidth {
             laidOutWidth = bounds.width
             DispatchQueue.main.async { [weak self] in self?.revealSelected() }
         }
+    }
+
+    /// Tabs cut by the strip's ends fade out there, so a cut one reads as "more this way", not as a broken tab.
+    private func fadeEdges() {
+        let clip = scroll.contentView.bounds
+        let cutLeft = clip.minX > 0.5, cutRight = clip.maxX < stack.frame.maxX - 0.5
+        guard cutLeft || cutRight else { scroll.layer?.mask = nil; return }
+        let fade = 20 / max(scroll.bounds.width, 40)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        edgeMask.frame = scroll.bounds
+        edgeMask.colors = [cutLeft ? NSColor.clear.cgColor : NSColor.black.cgColor, NSColor.black.cgColor, NSColor.black.cgColor,
+                           cutRight ? NSColor.clear.cgColor : NSColor.black.cgColor]
+        edgeMask.locations = [0, NSNumber(value: fade), NSNumber(value: 1 - fade), 1]
+        scroll.layer?.mask = edgeMask
+        CATransaction.commit()
     }
 
     /// Keeps the selected tab in view when the strip is scrolled or squeezed.
@@ -182,6 +206,7 @@ final class TabStrip: NSView {
     }
 
     @objc private func unzoomTapped() { onUnzoom?() }
+    @objc private func stripScrolled() { fadeEdges() }
     /// The agent "+" would start first (nil: no agent CLI found, the button hides).
     func setNewAgent(icon: NSImage?, name: String) {
         newAgent.isHidden = icon == nil
@@ -295,11 +320,15 @@ private final class TabButton: NSControl, NSDraggingSource {
         pin(edgeGlow)   // over the row, as the pane's ring is over its content; clicks go through it
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 28),
-            widthAnchor.constraint(lessThanOrEqualToConstant: 300), widthAnchor.constraint(greaterThanOrEqualToConstant: 110),
+            widthAnchor.constraint(lessThanOrEqualToConstant: 300), widthAnchor.constraint(greaterThanOrEqualToConstant: 76),
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16)
         ])
-        // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it).
+        // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it). Under that
+        // again its comfortable width: a short title gives up its air before a long one loses letters.
         title.setContentCompressionResistancePriority(.init(240), for: .horizontal)
+        let comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
+        comfortable.priority = .init(239)
+        comfortable.isActive = true
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         // VoiceOver: a tab like NSTabView's (radio button, tab subrole); the close button only exists on hover, so it's an action.
         setAccessibilityElement(true)
