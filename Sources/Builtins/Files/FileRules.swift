@@ -26,7 +26,25 @@ final class FileRules {
         track(owner: self) { [settings = app.settings] in
             [settings.number("editor.tabSize", language: language), settings.bool("editor.insertSpaces", language: language) == false ? 1 : 0]
         } changed: { [weak self] _ in self?.apply() }
+        track(owner: self) { [settings = app.settings] in
+            [settings.string("editor.rulers", language: language) ?? "", settings.string("editor.renderWhitespace", language: language) ?? "",
+             "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)"]
+        } changed: { [weak self] _ in self?.applyLooks() }
         Task { [weak self] in await self?.readConfig() }
+    }
+
+    /// `"80, 120"`, as Settings has it.
+    static func columns(_ text: String?) -> [Int] {
+        (text ?? "").split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 }
+    }
+
+    private func applyLooks() {
+        guard let e = editor else { return }
+        let language = e.languageId, s = app.settings
+        e.rulers = Self.columns(s.string("editor.rulers", language: language))
+        e.whitespace = EditorTextView.WhitespaceMarks(rawValue: s.string("editor.renderWhitespace", language: language) ?? "") ?? .selection
+        let column = Int(s.number("editor.wordWrapColumn", language: language) ?? 0)
+        e.wrapColumn = column > 0 ? column : nil
     }
 
     private var tabSize: Int {

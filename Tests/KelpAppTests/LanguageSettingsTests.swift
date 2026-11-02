@@ -47,3 +47,9 @@ extension AppOfItsOwn {
         #expect(e.tabWidth == 8)
     }
 }
+
+@MainActor @Test func rulersAreWhateverNumbersTheSettingHas() {
+    #expect(FileRules.columns("80, 120") == [80, 120])
+    #expect(FileRules.columns("  100") == [100])
+    #expect(FileRules.columns("") == [] && FileRules.columns(nil) == [])
+}

@@ -66,6 +66,19 @@ public final class CodeEditor: NSObject {
     var selectionSteps: [NSRange] = []
     /// The selection they led to.
     var selectionGrown: NSRange?
+    /// Wraps here at the latest, when it wraps at all (`editor.wordWrapColumn`).
+    public var wrapColumn: Int? {
+        didSet { if wrapColumn != oldValue { refreshAppearance() } }
+    }
+    /// Thin lines at these columns.
+    public var rulers: [Int] {
+        get { textView.rulerColumns }
+        set { textView.rulerColumns = newValue }
+    }
+    public var whitespace: EditorTextView.WhitespaceMarks {
+        get { textView.whitespaceMarks }
+        set { textView.whitespaceMarks = newValue }
+    }
     /// How wide a tab shows.
     public private(set) var tabWidth = 4
     /// This file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.
@@ -312,6 +325,7 @@ public final class CodeEditor: NSObject {
             gutter?.fit(lines: lineCount)
             colorVisible()
             showProblemTips()
+            fitWrapColumn()
         }
     }
 

@@ -58,7 +58,7 @@ package final class SettingsStore {
         for s in app.extensions.all.settings { if let spec = s.specs.first(where: { $0.key == key }) { return spec.default } }
         return nil
     }
-    package func string(_ key: String) -> String? { value(key)?.string }
+    package func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
     package func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
     package func number(_ key: String, language: String? = nil) -> Double? {
         guard let n = value(key, language: language)?.number else { return nil }

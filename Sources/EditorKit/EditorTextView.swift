@@ -28,6 +28,9 @@ public final class EditorTextView: NSTextView {
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items.
     var onComplete: (() -> Void)?
+    /// Where thin lines stand across the text.
+    var rulerColumns: [Int] = [] { didSet { needsDisplay = true } }
+    var whitespaceMarks = WhitespaceMarks.selection { didSet { needsDisplay = true } }
     /// What the list or a snippet takes before the text does.
     var onCommand: ((Selector) -> Bool)?
     /// A key that went in as text, and the pointer moving.
@@ -261,6 +264,7 @@ public final class EditorTextView: NSTextView {
 
     public override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawRulers(in: rect)
         drawFindMarks(in: rect)
         guard cursors.count == 1, selectedRange().length == 0, lineHighlight.alphaComponent > 0 else { return }
         var line = caretRect(at: selectedRange().location)
@@ -274,6 +278,7 @@ public final class EditorTextView: NSTextView {
         super.draw(dirtyRect)
         drawCapsules(in: dirtyRect)
         drawProblems(in: dirtyRect)
+        drawWhitespace(in: dirtyRect)
         guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         // Only the carets in what's drawn: ⇧⌘L on a common word in a big file makes thousands.
         let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)

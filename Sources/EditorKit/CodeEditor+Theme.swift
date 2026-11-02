@@ -87,16 +87,26 @@ extension CodeEditor {
         tv.needsDisplay = true
     }
 
+    /// The column, or the view's edge when that comes first: a container that doesn't track the view needs telling.
+    func fitWrapColumn() {
+        let tv = textView
+        guard let tc = tv.textContainer, !tc.widthTracksTextView, !tv.isHorizontallyResizable, let wrapColumn else { return }
+        let space = (" " as NSString).size(withAttributes: [.font: Self.font]).width
+        let width = min(tv.bounds.width - 2 * tv.textContainerInset.width, CGFloat(wrapColumn) * space + 2 * tc.lineFragmentPadding)
+        if abs(tc.size.width - width) > 0.5 { tc.size = NSSize(width: width, height: .greatestFiniteMagnitude) }
+    }
+
     /// Long lines run past the edge (the view widens, a horizontal scroller shows) or wrap at it.
     private func wrap(_ on: Bool) {
         let tv = textView
         guard let tc = tv.textContainer else { return }
-        tc.widthTracksTextView = on
+        tc.widthTracksTextView = on && wrapColumn == nil
         tv.isHorizontallyResizable = !on
         tv.autoresizingMask = [.width]
         scroll.hasHorizontalScroller = !on
         tc.containerSize = NSSize(width: on ? tv.bounds.width : CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         if on { tv.frame.size.width = scroll.contentSize.width }
+        fitWrapColumn()
         guard let c = tc as? WrappingContainer else { return }
         let hanging = on ? Self.wrappingIndent : .none, space = (" " as NSString).size(withAttributes: [.font: Self.font]).width
         guard c.hanging != hanging || c.space != space else { return }

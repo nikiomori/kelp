@@ -76,3 +76,27 @@ extension OneAtATime {
     e.scroll(toLine: 120)
     #expect(abs(e.topLine - 120) <= 1)
 }
+
+@MainActor @Test func wrappingStopsAtItsColumnOrTheEdge() throws {
+    _ = NSApplication.shared
+    let e = CodeEditor(text: String(repeating: "word ", count: 100), url: URL(fileURLWithPath: "/t.swift"))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = e.view
+    e.view.layoutSubtreeIfNeeded()
+    e.wrapsHere = true
+    e.wrapColumn = 20
+    let tc = try #require(e.textView.textContainer)
+    let wide = tc.size.width
+    #expect(wide < 300)
+    e.wrapColumn = 10
+    #expect(tc.size.width < wide)
+    e.wrapColumn = 1000
+    #expect(tc.size.width <= e.textView.bounds.width)
+    e.wrapColumn = nil
+    #expect(tc.widthTracksTextView)
+}
+
+@Test func spacesNobodyMeansToHaveAreKnown() {
+    #expect(EditorTextView.isUnusualSpace(0xA0) && EditorTextView.isUnusualSpace(0x200B) && EditorTextView.isUnusualSpace(0xFEFF))
+    #expect(!EditorTextView.isUnusualSpace(32) && !EditorTextView.isUnusualSpace(9) && !EditorTextView.isUnusualSpace(97))
+}

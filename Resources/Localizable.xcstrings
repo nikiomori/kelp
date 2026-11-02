@@ -9891,6 +9891,16 @@
         }
       }
     },
+    "Rulers at columns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Линейки на колонках"
+          }
+        }
+      }
+    },
     "Run": {
       "localizations": {
         "ru": {
@@ -10804,6 +10814,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать сведения языкового сервера при наведении"
+          }
+        }
+      }
+    },
+    "Show whitespace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать пробелы"
           }
         }
       }
@@ -12093,6 +12113,16 @@
         }
       }
     },
+    "Thin lines at these columns, e.g. “80, 120”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкие линии на этих колонках, например «80, 120»."
+          }
+        }
+      }
+    },
     "This can't be undone.": {
       "localizations": {
         "ru": {
@@ -12378,6 +12408,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пока не включу"
+          }
+        }
+      }
+    },
+    "Unusual spaces, such as no-break ones, always show.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Необычные пробелы, например неразрывные, видны всегда."
           }
         }
       }
@@ -13144,6 +13184,16 @@
         }
       }
     },
+    "Wrap at column": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переносить на колонке"
+          }
+        }
+      }
+    },
     "Wrap Long Lines": {
       "localizations": {
         "ru": {
@@ -13171,6 +13221,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Продолжение перенесённых строк"
+          }
+        }
+      }
+    },
+    "Wrapping stops here on a wide screen. 0: at the window's edge.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На широком экране перенос будет здесь. 0: по краю окна."
           }
         }
       }
