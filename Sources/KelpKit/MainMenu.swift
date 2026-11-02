@@ -143,7 +143,8 @@ extension AppDelegate {
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
     /// and ⌘D, ⌘[ ⌘] are Split Right and the panes outside the editor (inside, the editor takes them first: EditorBox).
     private func selectionMenu(_ b: MenuBuilder) {
-        b.add(b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "-", "editor.moveLinesUp", "editor.moveLinesDown",
+        b.add(b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.expandSelection", "editor.shrinkSelection",
+              "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds", "-", "editor.moveLinesUp", "editor.moveLinesDown",
               "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "-", "editor.toggleComment", "editor.indent", "editor.outdent")
     }
 

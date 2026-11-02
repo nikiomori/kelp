@@ -112,6 +112,11 @@ extension Builtins {
                       // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D, ⌘[ ⌘]: see EditorBox.
                       cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") { CodeEditor.focused?.addNextOccurrence() },
                       cmd("editor.selectAllOccurrences", "Select All Occurrences", "shift+cmd+l") { CodeEditor.focused?.selectAllOccurrences() },
+                      cmd("editor.expandSelection", "Expand Selection", "ctrl+shift+cmd+right") { CodeEditor.focused?.expandSelection() },
+                      cmd("editor.shrinkSelection", "Shrink Selection", "ctrl+shift+cmd+left") { CodeEditor.focused?.shrinkSelection() },
+                      cmd("editor.cursorAbove", "Add Cursor Above", "ctrl+opt+up") { CodeEditor.focused?.addCursor(above: true) },
+                      cmd("editor.cursorBelow", "Add Cursor Below", "ctrl+opt+down") { CodeEditor.focused?.addCursor(above: false) },
+                      cmd("editor.cursorsAtLineEnds", "Add Cursors to Line Ends", "shift+opt+i") { CodeEditor.focused?.cursorsAtLineEnds() },
                       cmd("editor.moveLinesUp", "Move Line Up", "opt+up") { CodeEditor.focused?.moveLines(down: false) },
                       cmd("editor.moveLinesDown", "Move Line Down", "opt+down") { CodeEditor.focused?.moveLines(down: true) },
                       cmd("editor.copyLinesUp", "Copy Line Up", "shift+opt+up") { CodeEditor.focused?.copyLines(down: false) },

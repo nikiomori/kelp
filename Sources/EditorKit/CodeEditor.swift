@@ -50,6 +50,10 @@ public final class CodeEditor: NSObject {
     var problemLines: [Int: Bool] = [:]
     /// ⌘F's, once it's been asked for.
     var findBar: FindBar?
+    /// What each Expand Selection grew from, for Shrink.
+    var selectionSteps: [NSRange] = []
+    /// The selection they led to.
+    var selectionGrown: NSRange?
     /// How wide a tab shows.
     public private(set) var tabWidth = 4
     /// This file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.

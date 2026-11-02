@@ -162,3 +162,52 @@ extension CodeEditor {
         }
     }
 }
+
+/// Selecting by what the code is, and more cursors.
+extension CodeEditor {
+    /// ⌃⇧⌘→: the next syntax node around the selection; with no grammar, the word, the line, then everything.
+    public func expandSelection() {
+        let tv = textView, s = tv.string as NSString, now = tv.selectedRange()
+        guard let next = wider(than: now, in: s), next != now else { return }
+        if now != selectionGrown { selectionSteps = [] }   // moved by hand since: those steps led somewhere else
+        selectionSteps.append(now)
+        selectionGrown = next
+        tv.setSelectedRange(next)
+    }
+
+    /// ⌃⇧⌘←: back the way it grew.
+    public func shrinkSelection() {
+        guard textView.selectedRange() == selectionGrown, let last = selectionSteps.popLast() else { return }
+        selectionGrown = last
+        textView.setSelectedRange(last)
+    }
+
+    private func wider(than r: NSRange, in s: NSString) -> NSRange? {
+        if let root = highlighter?.tree?.rootNode, var n = root.descendant(in: UInt32(r.location * 2)..<UInt32(NSMaxRange(r) * 2)) {
+            while n.range.length <= r.length || NSIntersectionRange(n.range, r) != r, let up = n.parent { n = up }
+            if n.range.length > r.length { return n.range }
+        }
+        let word = r.length == 0 ? Self.word(at: r.location, in: s) : r
+        if word != r, word.length > 0 { return word }
+        let line = s.lineRange(for: r)
+        return line != r ? line : NSRange(location: 0, length: s.length)
+    }
+
+    /// One more cursor on the line above or below each, at the same column.
+    public func addCursor(above: Bool) {
+        let tv = textView, s = tv.string as NSString
+        tv.setCursors(tv.cursors + tv.cursors.map { NSRange(location: MultiCursor.vertical(s, $0.location, up: above), length: 0) })
+    }
+
+    /// ⌥⇧I: a cursor at the end of every line of the selection.
+    public func cursorsAtLineEnds() {
+        let tv = textView, s = tv.string as NSString, r = tv.selectedRange()
+        var ends: [NSRange] = [], at = r.location
+        repeat {
+            let end = MultiCursor.lineEnd(s, at)
+            ends.append(NSRange(location: end, length: 0))
+            at = NSMaxRange(s.lineRange(for: NSRange(location: at, length: 0)))
+        } while at < NSMaxRange(r)
+        tv.setCursors(ends)
+    }
+}

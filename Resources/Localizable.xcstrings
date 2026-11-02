@@ -1105,6 +1105,36 @@
         }
       }
     },
+    "Add Cursor Above": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить курсор выше"
+          }
+        }
+      }
+    },
+    "Add Cursor Below": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить курсор ниже"
+          }
+        }
+      }
+    },
+    "Add Cursors to Line Ends": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить курсоры в концы строк"
+          }
+        }
+      }
+    },
     "Added to branches Kelp names, e.g. “you/”.": {
       "extractionState": "manual",
       "localizations": {
@@ -4447,6 +4477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "код %lld"
+          }
+        }
+      }
+    },
+    "Expand Selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расширить выделение"
           }
         }
       }
@@ -10544,6 +10584,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать на телефоне слова агента"
+          }
+        }
+      }
+    },
+    "Shrink Selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сузить выделение"
           }
         }
       }
