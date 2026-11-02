@@ -104,8 +104,14 @@ final class SettingsEvents: Sendable {
         self.sessions = sessions
     }
 
-    func changed() {
-        queue.async { [self] in
+    func changed() { queue.async(execute: announce) }
+
+    /// A set's event goes out before its reply: the app stops holding a key back at the reply, and an event after it
+    /// would put an older value back, for the next ⌘+ to count from. (Never from `queue`, as the file watch delivers.)
+    func changedBeforeReply() { queue.sync(execute: announce) }
+
+    private var announce: @Sendable () -> Void {
+        { [self] in
             clients.notify(SettingsEvent(settings: store.values))
             sessions.applyKeepAwake()
         }
@@ -138,7 +144,7 @@ extension SettingsSet: Handled {
     static var inOrder: Bool { true }
     func handle(_ settings: SettingsEvents) throws -> [String: JSONValue] {
         let all = try settings.store.set(key, value)
-        settings.changed()
+        settings.changedBeforeReply()
         return all
     }
 }

@@ -13,6 +13,8 @@ package final class SettingsStore {
     /// Keys with a set still on its way: the daemon's answer to an older one (a colour dragged, a stepper held) mustn't
     /// put back a value the user already moved past.
     private var inFlight: [String: Int] = [:]
+    /// The last set on its way: each waits for the one before, as calls leave on threads of their own and could pass it.
+    private var lastSet: Task<Void, Never>?
 
     func load() async {
         if let o = await app.call(SettingsGet()) { received(o) }   // else a banner: what's shown may not be settings.json
@@ -61,7 +63,8 @@ package final class SettingsStore {
         var next = values; next[key] = v
         apply(next)   // optimistic; the daemon's echo confirms
         inFlight[key, default: 0] += 1
-        Task {
+        lastSet = Task { [lastSet] in
+            await lastSet?.value
             let error = await app.tryCall(SettingsSet(key: key, value: v)).error
             inFlight[key] = inFlight[key].flatMap { $0 > 1 ? $0 - 1 : nil }
             // Not saved: say so and show what settings.json really holds again, instead of a value that reverts later.

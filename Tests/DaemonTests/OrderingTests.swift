@@ -42,6 +42,12 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     let file = try JSONDecoder().decode(JSONValue.self, from: Data(contentsOf: root.appendingPathComponent("settings.json")))
     #expect(file["terminal.fontSize"] == .int(10 + n))
     #expect(lines.last { $0["method"] == "event.settings" }?["params"]?["settings"]?["terminal.fontSize"] == .int(10 + n))
+    // A set's event comes before its reply: the app stops holding the key back at the reply, so a later event would put an older value back.
+    var heard = 0
+    for line in lines {
+        if let v = line["params"]?["settings"]?["terminal.fontSize"]?.int { heard = v }
+        if let id = line["id"]?.int { #expect(heard >= 10 + id) }
+    }
 }
 
 /// Sends written one after another reach the agent in that order. (A busy program gets queued text one at a time, once it
