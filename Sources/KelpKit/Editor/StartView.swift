@@ -37,12 +37,17 @@ final class StartView: NSView, NSTextFieldDelegate {
         folder.lineBreakMode = .byTruncatingMiddle
         folder.isHidden = folder.stringValue.isEmpty
 
-        // The default agent first, then the others (two columns when there are many: people often have a dozen).
-        let agents = app.catalog.installed(app.catalog.all).sorted { ($0.id == def ? 0 : 1, $0.name) < ($1.id == def ? 0 : 1, $1.name) }
-        let tiles = agents.map { a in
+        // The default agent first, then those in use, then the others (two columns: people often have a dozen). Six at
+        // most, the rest behind one row: however many there are, Terminal stays on screen.
+        let started = Set(app.sessions.map(\.agent))
+        let first = def
+        let rank = { (a: AgentManifest) in (a.id == first ? 0 : 1, started.contains(a.id) ? 0 : 1, a.name) }
+        let agents = app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
+        var tiles = agents.prefix(Self.agentRows).map { a in
             StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, detail: a.id == def ? String(localized: "Default") : nil,
                      shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in self?.onAgent?(a.id) }
         }
+        if agents.count > Self.agentRows { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
         // In two columns the default agent still runs across the card, its ⌥⌘T at the right edge with ⌘T and the rest.
         let lead = agents.first?.id == def ? 1 : 0
         let rows = agentRows(agents, tiles: tiles, lead: lead)
@@ -94,6 +99,24 @@ final class StartView: NSView, NSTextFieldDelegate {
         }
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private static let agentRows = 6
+
+    /// The agents past the first six, in a menu under its row.
+    private func moreAgents(_ rest: [AgentManifest]) -> StartRow {
+        weak var row: StartRow?
+        let more = StartRow(image: .symbol("ellipsis.circle"), title: String(localized: "More Agents…"), shortcut: nil) { [weak self] in
+            guard let self, let row else { return }
+            let menu = NSMenu()
+            for a in rest {
+                let item = menu.add(a.name) { [weak self] in self?.onAgent?(a.id) }
+                item.show(self.app.catalog.icon(a.id, size: 16))
+            }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: row)
+        }
+        row = more
+        return more
+    }
 
     /// The agents to start, in two columns after the first `lead` when there are many; with none, what to install; then
     /// the catalog.

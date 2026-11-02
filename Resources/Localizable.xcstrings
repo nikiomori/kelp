@@ -5674,6 +5674,16 @@
         }
       }
     },
+    "More Agents…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие агенты…"
+          }
+        }
+      }
+    },
     "No Project": {
       "localizations": {
         "ru": {
