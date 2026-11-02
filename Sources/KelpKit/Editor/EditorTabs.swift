@@ -215,12 +215,14 @@ extension EditorArea {
         let app = self.app
         let m = NSMenu()
         let agents = app.catalog.installed(app.catalog.all)
+        let notes = app.planNotes, column = ScriptsMenu.column(agents.map(\.name))
         for a in agents {
             let item = m.add(a.name) { [weak self] in
                 if let group { self?.layout.focused = group }
                 self?.newAgent(a.id)
             }
             item.image = app.catalog.icon(a.id)
+            if let n = notes[a.id] { item.attributedTitle = ScriptsMenu.title(a.name, note: n.text, column: column, noteColor: n.color) }
         }
         if agents.isEmpty { m.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())

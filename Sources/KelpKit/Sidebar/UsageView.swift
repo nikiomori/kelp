@@ -220,9 +220,20 @@ struct UsageView: View {
 extension AppModel {
     /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
     /// Plan column (kept coming with `watchingPlans`).
-    package var plans: [String: (limits: [(label: String, used: Double, resets: String?)], readAt: Date?)] {
-        Dictionary(UsageView.rows(self).map { r in (r.id, (r.lines.sorted { $0.used > $1.used }.map { ($0.label, $0.used, $0.resets) }, r.readAt)) },
-                   uniquingKeysWith: { a, _ in a })
+    package var plans: [String: (limits: [(label: String, used: Double, resets: String?)], readAt: Date?, note: (text: String, color: NSColor)?)] {
+        let notes = planNotes
+        return Dictionary(UsageView.rows(self).map { r in
+            let limits = r.lines.sorted { $0.used > $1.used }.map { (label: $0.label, used: $0.used, resets: $0.resets) }
+            return (r.id, (limits, r.readAt, notes[r.id].map { ($0.text, $0.color) }))
+        }, uniquingKeysWith: { a, _ in a })
+    }
+
+    /// What's said beside an agent where agents are chosen; nothing once plan limits are turned off.
+    var planNotes: [String: PlanNote] {
+        guard settings.bool("usage.readPlans") != false else { return [:] }
+        return Dictionary(UsageView.rows(self).compactMap { r in
+            PlanNote(fullest: r.main.map { (label: $0.label, used: $0.used, resets: $0.resets) }, readAt: r.readAt).map { (r.id, $0) }
+        }, uniquingKeysWith: { a, _ in a })
     }
 }
 

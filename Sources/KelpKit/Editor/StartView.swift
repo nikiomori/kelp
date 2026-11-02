@@ -16,6 +16,11 @@ final class StartView: NSView, NSTextFieldDelegate {
     var onInstall: ((AgentManifest) -> Void)?
     private let prompt = NSTextField()
     private let def: String
+    /// The rows of the agents on show, whose plan limits follow the daemon: the view isn't made again, what's typed stays.
+    private var agentRowsById: [String: StartRow] = [:]
+    private let planLine = NSTextField(wrappingLabelWithString: "")
+    private let planSwitch = PointerButton()
+    private lazy var planBar = NSStackView(views: [planLine, planSwitch])
 
     private let app: AppModel
     init(app: AppModel, worktree w: Worktree) {
@@ -44,8 +49,10 @@ final class StartView: NSView, NSTextFieldDelegate {
         let rank = { (a: AgentManifest) in (a.id == first ? 0 : 1, started.contains(a.id) ? 0 : 1, a.name) }
         let agents = app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
         var tiles = agents.prefix(Self.agentRows).map { a in
-            StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, detail: a.id == def ? String(localized: "Default") : nil,
-                     shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in self?.onAgent?(a.id) }
+            let row = StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, detail: a.id == def ? String(localized: "Default") : nil,
+                               shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in self?.onAgent?(a.id) }
+            agentRowsById[a.id] = row
+            return row
         }
         if agents.count > Self.agentRows { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
         // In two columns the default agent still runs across the card, its ⌥⌘T at the right edge with ⌘T and the rest.
@@ -61,7 +68,7 @@ final class StartView: NSView, NSTextFieldDelegate {
 
         var views: [NSView] = [icon, title, folder]
         let field = agents.contains { $0.id == def } ? promptField() : nil
-        if let field { views.append(field) }
+        if let field { views += [field, planBar] }
         views += [open, card, hint]
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
@@ -69,7 +76,9 @@ final class StartView: NSView, NSTextFieldDelegate {
         stack.spacing = 4
         stack.detachesHiddenViews = true
         stack.setCustomSpacing(14, after: icon); stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
-        if let field { stack.setCustomSpacing(22, after: field) }
+        if let field {
+            stack.setCustomSpacing(22, after: planBar)
+        }
         stack.setCustomSpacing(6, after: open); stack.setCustomSpacing(14, after: card)
         // In a scroll view: a low window scrolls the list rather than growing to hold it.
         let page = FlippedView(); page.translatesAutoresizingMaskIntoConstraints = false
@@ -97,6 +106,7 @@ final class StartView: NSView, NSTextFieldDelegate {
         if tiles.count > 5 {
             tiles.dropFirst(lead).forEach { $0.widthAnchor.constraint(equalTo: card.widthAnchor, multiplier: 0.5, constant: -6).isActive = true }
         }
+        followPlans(in: stack, after: field)
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -168,6 +178,46 @@ final class StartView: NSView, NSTextFieldDelegate {
             others.append(StartRow(image: .symbol(e.icon), title: e.title, shortcut: key) { e.open(IDEContext.of(app), in: app) })
         }
         return others
+    }
+
+    private func followPlans(in stack: NSStackView, after field: NSView?) {
+        planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        planBar.spacing = Metrics.gapWide
+        planLine.font = .ui(12)
+        planLine.textColor = .secondaryLabelColor
+        planSwitch.padding = Metrics.gap
+        planSwitch.restFill = .fillRest
+        planSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
+        showPlans(in: stack, after: field)
+        track(owner: self) { [app] in app.limits } changed: { [weak self, weak stack] _ in
+            if let stack { self?.showPlans(in: stack, after: field) }
+        }
+    }
+
+    /// Each agent's plan beside its name; under the field, what to know when the default agent is nearly out.
+    private func showPlans(in stack: NSStackView, after field: NSView?) {
+        let notes = app.planNotes
+        for (id, row) in agentRowsById {
+            row.show(lead: id == def ? String(localized: "Default") : nil, note: notes[id])
+        }
+        let name = app.catalog.all.first { $0.id == def }?.name ?? def
+        let warning = notes[def]?.warning(for: name)
+        planLine.stringValue = warning ?? ""
+        let others = agentRowsById.keys.filter { $0 != def }
+        let other = warning == nil ? nil : PlanNote.roomiest(Array(others), notes: notes)
+        planBar.isHidden = warning == nil
+        planSwitch.isHidden = other == nil
+        if let other, let n = app.catalog.all.first(where: { $0.id == other })?.name {
+            planSwitch.title = String(localized: "Start in \(n)")
+            planSwitch.onClick = { [weak self] in self?.start(other) }
+        }
+        if let field { stack.setCustomSpacing(planBar.isHidden ? 22 : 8, after: field) }
+    }
+
+    /// With what was typed, if anything.
+    private func start(_ agent: String) {
+        let text = prompt.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { onAgent?(agent) } else { onPrompt?(agent, text) }
     }
 
     /// The default agent's icon and a field: Return starts the agent with the text.
@@ -292,6 +342,16 @@ private final class RunSlot: NSStackView {
 private final class StartRow: NSView {
     private let action: () -> Void
     private var hover = false
+    private let more = NSTextField(labelWithString: "")
+
+    /// `lead` in grey; the plan in its colour after it.
+    func show(lead: String?, note: PlanNote?) {
+        let text = NSMutableAttributedString(string: [lead, note == nil ? nil : ""].compactMap { $0 }.joined(separator: " · "),
+                                             attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
+        if let note { text.append(NSAttributedString(string: note.text, attributes: [.font: NSFont.ui(12), .foregroundColor: note.color])) }
+        more.attributedStringValue = text
+        more.isHidden = text.length == 0
+    }
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
         self.action = action
@@ -304,7 +364,7 @@ private final class StartRow: NSView {
         label.font = .ui(13)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let more = NSTextField(labelWithString: detail ?? "")
+        more.stringValue = detail ?? ""
         more.textColor = .secondaryLabelColor
         more.font = .ui(12)
         more.lineBreakMode = .byTruncatingTail; more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins

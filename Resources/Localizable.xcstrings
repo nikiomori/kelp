@@ -217,12 +217,52 @@
         }
       }
     },
+    "%@ is at %@ until %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@ до %3$@."
+          }
+        }
+      }
+    },
+    "%@ is at %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@."
+          }
+        }
+      }
+    },
     "%@ is at %lld %%": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@: %2$lld %%"
+          }
+        }
+      }
+    },
+    "%@ is full until %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ заполнен до %2$@."
+          }
+        }
+      }
+    },
+    "%@ is full.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ заполнен."
           }
         }
       }
@@ -4098,6 +4138,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свободно"
+          }
+        }
+      }
+    },
+    "Full": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заполнен"
           }
         }
       }
@@ -9153,6 +9203,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В индексе"
+          }
+        }
+      }
+    },
+    "Start in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить в %@"
           }
         }
       }

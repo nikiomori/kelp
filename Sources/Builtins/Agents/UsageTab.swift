@@ -53,7 +53,7 @@ struct UsageReportView: View {
     static let ownPrice: Set = ["grok", "pi", "omp", "opencode", "kilo"]
 
     var body: some View {
-        let lines = agentLines(app.plans)
+        let lines = agentLines(app.plans.mapValues { (limits: $0.limits, readAt: $0.readAt) })
         // As wide as the pane up to 1000, and the table's own width at least: a narrower pane scrolls sideways, from the left.
         GeometryReader { pane in
             ScrollView([.vertical, .horizontal]) {

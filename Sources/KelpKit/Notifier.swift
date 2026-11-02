@@ -25,6 +25,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         ], intentIdentifiers: [])])
         center?.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in Task { @MainActor in self.checkAllowed() } }
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.updateBadge() }
+        // For as long as Kelp runs: what shows the limits comes and goes (a hidden sidebar), and their warnings mustn't.
+        app.watch(.limits)
         track(owner: self) { [app] in app.limits } changed: { [weak self] u in self?.limitsChanged(u) }
         // Typing: a key in one of Kelp's windows while it is the key one (a bare modifier isn't a keyDown).
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in

@@ -283,13 +283,12 @@ extension ScriptsMenu {
     }
 
     /// A name, and in grey at `column` what tells it apart.
-    static func title(_ name: String, note: String, column: CGFloat, dim: Bool = false) -> NSAttributedString {
+    static func title(_ name: String, note: String, column: CGFloat, dim: Bool = false, noteColor: NSColor = .secondaryLabelColor) -> NSAttributedString {
         let tab = NSMutableParagraphStyle()
         tab.tabStops = [NSTextTab(textAlignment: .left, location: column)]
         let t = NSMutableAttributedString(string: name, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
                                                                      .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor])
-        t.append(NSAttributedString(string: "\t" + note, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
-                                                                       .foregroundColor: NSColor.secondaryLabelColor]))
+        t.append(NSAttributedString(string: "\t" + note, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab, .foregroundColor: noteColor]))
         return t
     }
 

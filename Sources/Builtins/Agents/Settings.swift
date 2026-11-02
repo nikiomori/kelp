@@ -84,7 +84,10 @@ struct AgentsSettings: View {
                     Text(a.name).foregroundStyle(have ? .primary : .secondary)
                     if updates.contains(where: { $0.id == a.id }) { Circle().fill(.orange).frame(width: 6, height: 6).help("Update available") }
                 }
-                Text(caption).font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 0) {
+                    Text(caption).foregroundStyle(.secondary)
+                    if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
+                }.font(.caption)
             }
         }.tag(Optional(a.id))
     }
