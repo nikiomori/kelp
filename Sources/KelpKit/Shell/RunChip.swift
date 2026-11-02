@@ -3,19 +3,19 @@ import Core
 import DesignKit
 
 /// The title bar's run control, Xcode's Run and scheme in one capsule: ▶ runs what ⌘R would (■ stops what runs here),
-/// the name opens the Run list, ":5173" opens the page a run serves — only then, never by itself. A name nothing ran
-/// yet is a guess, dimmed. Hidden while the project offers nothing to run.
+/// the name opens the Run list. A name nothing ran yet is a guess, dimmed. Hidden while the project offers nothing to
+/// run. The page it serves has a capsule of its own (`PageChip`).
 @MainActor
 final class RunChip: NSStackView {
-    struct Look: Equatable { var name: String, guess: Bool, running: Bool, port: String?, tip: String }
+    struct Look: Equatable { var name: String, guess: Bool, running: Bool }
 
     private let app: AppModel
-    private let go = PointerButton(frame: .zero), name = PointerButton(frame: .zero), page = PointerButton(frame: .zero)
+    private let go = PointerButton(frame: .zero), name = PointerButton(frame: .zero)
 
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        for b in [go, name, page] {
+        for b in [go, name] {
             b.radius = nil   // a capsule, as the capsule it sits in
             b.font = .ui(12)
             b.setContentCompressionResistancePriority(.init(320), for: .horizontal)
@@ -33,11 +33,7 @@ final class RunChip: NSStackView {
         name.lineBreakMode = .byTruncatingTail
         name.onClick = { [weak self] in self?.app.scripts.choose() }
         name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")
-        page.padding = 4
-        page.font = .uiDigits(12)
-        page.contentTintColor = .secondaryLabelColor
-        page.onClick = { [weak self] in self?.openPage() }
-        setViews([go, name, page], in: .leading)
+        setViews([go, name], in: .leading)
         spacing = 0
         detachesHiddenViews = true
         wantsLayer = true
@@ -64,11 +60,9 @@ final class RunChip: NSStackView {
         let s = app.scripts
         guard let wid = app.workbench.workspaceId, let current = s.current(wid) else { return nil }
         let live = s.running(in: wid)
-        let url = live.lazy.compactMap { s.state.active[$0]?.url }.first
-        let port = url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let label = s.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
         let host = app.worktree(wid).flatMap { RemoteHost.of($0.path)?.host }
-        return Look(name: label + (host.map { " · \($0)" } ?? ""), guess: current.guess, running: !live.isEmpty, port: port, tip: url ?? "")
+        return Look(name: label + (host.map { " · \($0)" } ?? ""), guess: current.guess, running: !live.isEmpty)
     }
 
     private func show(_ l: Look?) {
@@ -79,19 +73,10 @@ final class RunChip: NSStackView {
         go.toolTip = l.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
         name.attributedTitle = NSAttributedString(string: l.name, attributes: [.font: NSFont.ui(12),
                                                                               .foregroundColor: l.guess ? NSColor.secondaryLabelColor : .labelColor])
-        page.isHidden = l.port == nil
-        page.title = l.port ?? ""
-        page.toolTip = String(localized: "Open \(l.tip)")
     }
 
     private func goClicked() {
         let s = app.scripts
         if s.canStop { s.stop() } else { s.run("run") }
-    }
-
-    private func openPage() {
-        let s = app.scripts
-        guard let wid = app.workbench.workspaceId, let sid = s.running(in: wid).first(where: { s.state.active[$0]?.url != nil }) else { return }
-        app.scripts.openPage(sid)
     }
 }

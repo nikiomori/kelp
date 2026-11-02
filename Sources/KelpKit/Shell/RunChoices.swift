@@ -56,12 +56,39 @@ extension ScriptsMenu {
 
     /// How a run's tab stands out among terminals: its purpose's symbol in colour (green ▶ for a server) and a glow of
     /// that colour, the port it serves after its name. nil for any other session.
-    func look(_ s: Session) -> (icon: NSImage?, glow: NSColor?, port: String?)? {
+    func look(_ s: Session) -> (icon: NSImage?, glow: NSColor?)? {
         guard let wid = s.worktreeId, let c = choice(of: s), var r = rows(wid).first(where: { $0.id == c }) else { return nil }
         r.running = false   // its purpose's mark, not the menu's "running" circle
         let (symbol, color) = Self.glyph(r)
-        let port = state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
-        return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color, port)
+        return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color)
+    }
+
+    /// What the workspace serves, its main page first: the title bar's capsule, ⇧⌘O and the sidebar's card.
+    func pages(_ wid: String) -> [ServedPage] {
+        ServedPages.list(printed: running(in: wid).compactMap { state.active[$0]?.url }, ports: app.ports[wid] ?? [])
+    }
+
+    /// The port after a tab's name: what its run printed, else what its session listens on.
+    func port(of s: Session) -> Int? {
+        state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }
+            ?? s.worktreeId.flatMap { app.ports[$0] }?.first { $0.session == s.id && ServedPages.listed($0) }?.port
+    }
+
+    /// A page beside what you're doing, or the tab that shows it; what isn't one (a database) gets its address copied.
+    func open(_ p: ServedPage, in wid: String) {
+        guard p.isWeb else {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(p.address, forType: .string)
+            Banner.show(String(localized: "Copied \(p.address)"))
+            return
+        }
+        app.workbench.open(p.url, split: .right, workspace: wid, focus: false)
+    }
+
+    /// ⇧⌘O: the main page of the workspace on screen.
+    func openPage() {
+        guard let wid = app.workbench.workspaceId, let p = pages(wid).first else { NSSound.beep(); return }
+        open(p, in: wid)
     }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
 
@@ -119,7 +146,7 @@ extension ScriptsMenu {
 
     /// The Run menu under the chip, as Xcode's scheme menu: a section per file, what ⌘R runs checked, what runs now said
     /// under its name. Shown with what's known; the files are read again for next time (at once if nothing is known yet).
-    func choose() {
+    func choose(from button: NSView? = nil) {
         guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }
         Task { [weak self] in
             guard let self else { return }
@@ -128,7 +155,7 @@ extension ScriptsMenu {
             if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
             let m = menu(wid)
             // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
-            if let a = anchor, a.window != nil { m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a) }
+            if let a = button ?? anchor, a.window != nil { m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a) }
             else if let v = app.workbench.window?.window?.contentView {
                 m.popUp(positioning: nil, at: NSPoint(x: v.bounds.midX - 120, y: v.bounds.maxY - 40), in: v)
             }
@@ -151,8 +178,7 @@ extension ScriptsMenu {
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
-        // ssh is a remote project's forwarding, not a server.
-        let elsewhere = (state.ports[wid] ?? []).filter { p in p.command != "ssh" && app.session(p.session).map { choice(of: $0) == nil } ?? false }
+        let elsewhere = (state.ports[wid] ?? []).filter { p in ServedPages.listed(p) && app.session(p.session).map { choice(of: $0) == nil } ?? false }
         if !elsewhere.isEmpty {
             m.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for p in elsewhere { server(p, in: m, wid) }
@@ -299,10 +325,10 @@ extension ScriptsMenu {
         let agent = s?.agent.flatMap { id in ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id } }
         let tasks = s?.background ?? []
         let what = state.found[wid]?.options.first { o in tasks.contains { $0.contains(o.command) } }?.name ?? p.command
-        let url = "http://localhost:\(p.port)"
-        let open = m.add(what) { [weak self] in self?.app.workbench.open(url, split: .right, workspace: wid, focus: false) }
+        let page = ServedPage(p)
+        let open = m.add(what) { [weak self] in self?.open(page, in: wid) }
         open.show(agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
-        open.toolTip = String(localized: "Open \(url)")
+        open.toolTip = String(localized: "Open \(page.url)")
         if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · :\(p.port)" }
         let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
             Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
@@ -310,12 +336,6 @@ extension ScriptsMenu {
         stop.show(.symbol("stop.circle"))
         stop.isAlternate = true
         stop.keyEquivalentModifierMask = .option
-    }
-
-    /// The page a run serves, beside what you're doing.
-    func openPage(_ sid: String) {
-        guard let r = state.active[sid], let url = r.url else { return }
-        app.workbench.open(url, split: .right, workspace: r.workspace, focus: false)
     }
 
     struct Row {

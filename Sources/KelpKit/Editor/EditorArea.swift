@@ -40,9 +40,12 @@ package final class EditorArea: NSViewController {
         view = NSView()
         track(owner: self) { [app] in app.extensions.revision } changed: { [weak self] _ in self?.extensionsChanged() }
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
-        // A run's tab follows the Run menu: its port once it prints one, its look once its files are read.
-        track(owner: self) { [app] in [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url)
-            + app.scripts.state.found.keys.sorted() } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
+        // A run's tab follows the Run menu: its port once it prints one, its look once its files are read. Any session's
+        // follows what it listens on.
+        track(owner: self) { [weak self, app] in
+            [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url) + app.scripts.state.found.keys.sorted()
+                + (app.ports[self?.workspaceId ?? ""] ?? []).map { "\($0.port) \($0.session)" }
+        } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
         track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in   // the tabs' titles take the new size
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
@@ -244,14 +247,16 @@ package final class EditorArea: NSViewController {
     /// Files with unsaved changes in this workspace (asked about on quit; the workspace isn't dropped from memory).
     var editedFiles: [SavableTab] { contents.values.compactMap { $0 as? SavableTab }.filter(\.isEdited) }
 
-    /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour, a glow of that colour, its port.
+    /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour and a glow of that colour. Any
+    /// session's tab says the port it serves, a label only: the title bar's capsule opens it.
     private func runLook(_ item: TabStrip.Item, _ t: TabRef) -> TabStrip.Item {
-        guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)), s.status != .exited,
-              let look = app.scripts.look(s) else { return item }
+        guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)), s.status != .exited else { return item }
         var item = item
-        item.icon = look.icon
-        item.run = look.glow
-        if let port = look.port { item.title += " · " + port }
+        if let look = app.scripts.look(s) {
+            item.icon = look.icon
+            item.run = look.glow
+        }
+        if let port = app.scripts.port(of: s) { item.title += " · :\(port)" }
         return item
     }
 

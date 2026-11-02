@@ -191,6 +191,7 @@ extension AppDelegate: NSMenuItemValidation {
         case "power.keepAwake": item.state = app.settings.string("power.keepAwake") == "always" ? .on : .off
         case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
         case "scripts.stop": return app.scripts.canStop
+        case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false
         // Off elsewhere, so a terminal still gets their keys.
         case "editor.runFile", "editor.testAtCursor", "editor.format": return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",

@@ -15,7 +15,7 @@ final class WindowBar: NSView {
     private let icon = NSImageView(), name = NSTextField(labelWithString: "")
     private let folder = WindowBar.chip(nil), branch = WindowBar.chip("arrow.triangle.branch"), pr = WindowBar.chip("arrow.triangle.pull")
     private let search: SearchPill
-    private let run: RunChip
+    private let run: RunChip, page: PageChip
     private let app: AppModel
     private let back = NSButton.titlebar("chevron.left", String(localized: "Back"), tip: "")
     private let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
@@ -46,7 +46,7 @@ final class WindowBar: NSView {
 
     init(app: AppModel) {
         self.app = app; search = SearchPill(app: app)
-        run = RunChip(app: app)
+        run = RunChip(app: app); page = PageChip(app: app)
         super.init(frame: .zero)
         name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.init(450), for: .horizontal)
@@ -74,10 +74,11 @@ final class WindowBar: NSView {
         forward.target = self
         forward.action = #selector(goForward)
         let nav = NSStackView(views: [back, forward]); nav.spacing = 0
-        // Right of the search: what runs here (gone while the project offers nothing), the cup, side by side.
-        let tools = NSStackView(views: [run, awake, sideBySide]); tools.spacing = 2
+        // Right of the search: what runs here (gone while the project offers nothing), the page it serves, the cup, side by side.
+        let tools = NSStackView(views: [run, page, awake, sideBySide]); tools.spacing = 2
         tools.detachesHiddenViews = true
         tools.setCustomSpacing(6, after: run)
+        tools.setCustomSpacing(6, after: page)
         for v in [context, nav, search, tools] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         // Short of room, the search leaves the centre first, then narrows; only then does the path shorten, then the name.
         // All below the window's own size (500): a long path or name truncates instead of widening the window.
@@ -122,6 +123,9 @@ final class WindowBar: NSView {
             changed: { [weak self] _ in self?.update() }
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Short of room the page's address comes down to its port. The bar's own width, so the choice can't feed back on itself.
+    override func layout() { super.layout(); page.compact = bounds.width < 900 }
 
     /// A capsule that greys in under the pointer and springs when clicked (`PointerButton`), not AppKit's outline.
     private static func chip(_ symbol: String?) -> NSButton {

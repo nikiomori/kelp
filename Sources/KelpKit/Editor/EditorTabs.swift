@@ -28,6 +28,8 @@ extension EditorArea {
             run(command: q?.queryItems?.first { $0.name == "cmd" }?.value, title: q?.queryItems?.first { $0.name == "title" }?.value, split: split); return
         default: break
         }
+        // A page already open stays where it is, even when asked for beside you: a second click must not move it.
+        if let t = layout.pageTab(for: uri) { select(t.id, focus: focus); return }
         // A file already open (at another line): that tab, moved to the line asked for.
         if layout.tab(uri: uri) == nil, let t = layout.fileTab(sameFileAs: uri) {
             select(t.id, focus: focus)

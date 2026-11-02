@@ -22,6 +22,18 @@ extension WorkspaceLayout {
         return allTabs.first { TabURI.scheme($0.uri) == "file" && TabURI.filePath($0.uri).path == path }
     }
 
+    /// The open tab of a web page: that address, or for a local server's bare address any page of that server, since a
+    /// tab follows its navigation (`http://localhost:5173` finds the tab now at `/cart`).
+    public func pageTab(for uri: String) -> TabRef? {
+        guard ["http", "https"].contains(TabURI.scheme(uri)) else { return nil }
+        if let exact = tab(uri: uri) { return exact }
+        guard let u = URLComponents(string: uri), ["", "/"].contains(u.path), ["localhost", "127.0.0.1"].contains(u.host ?? "") else { return nil }
+        return allTabs.first { t in
+            guard ["http", "https"].contains(TabURI.scheme(t.uri)), let o = URLComponents(string: t.uri) else { return false }
+            return o.host == u.host && o.port == u.port
+        }
+    }
+
     /// The pane on that side of `from`, the nearest by center (Ghostty's goto_split). Panes only touching the edge by
     /// 2 points or less still count as beside it. Window coordinates: y grows upward (`.maxY` is up).
     public static func nearestPane(from a: CGRect, among panes: [String: CGRect], toward edge: NSRectEdge) -> String? {

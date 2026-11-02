@@ -62,6 +62,7 @@ extension Builtins {
             cmd("scripts.choose", "Run…", "ctrl+cmd+r") { app.scripts.choose() },
             cmd("scripts.test", "Test", "cmd+u") { app.scripts.run("test") },
             cmd("scripts.stop", "Stop", "cmd+.") { app.scripts.stop() },
+            cmd("scripts.openPage", "Open Page", "shift+cmd+o") { app.scripts.openPage() },
             cmd("scripts.edit", "Edit Commands…") { app.scripts.edit() },
             cmd("help.guide", "How Kelp Works", "cmd+?") { app.workbench.open(TabURI.file(Help.file.path)) },
             cmd("help.extensionGuide", "Writing Extensions") {

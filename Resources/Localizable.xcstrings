@@ -1761,6 +1761,36 @@
         }
       }
     },
+    "Copied %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано: %@"
+          }
+        }
+      }
+    },
+    "Copy %@ (⇧⌘O)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать %@ (⇧⌘O)"
+          }
+        }
+      }
+    },
+    "Copy Address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать адрес"
+          }
+        }
+      }
+    },
     "Couldn't format %@: %@": {
       "localizations": {
         "ru": {
@@ -3295,6 +3325,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Всё, кроме кода: боковая панель, инспектор, вкладки, панели инструментов и поповеры. У терминала и редактора свои размеры шрифта."
+          }
+        }
+      }
+    },
+    "Everything Running Here (⌃⌘R)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, что здесь работает (⌃⌘R)"
           }
         }
       }
@@ -5690,6 +5730,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Другие агенты…"
+          }
+        }
+      }
+    },
+    "Open %@ (⇧⌘O)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть %@ (⇧⌘O)"
+          }
+        }
+      }
+    },
+    "Open Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть страницу"
           }
         }
       }
@@ -11607,16 +11667,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранить…"
-          }
-        }
-      }
-    },
-    "Serving %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отдаёт %@"
           }
         }
       }

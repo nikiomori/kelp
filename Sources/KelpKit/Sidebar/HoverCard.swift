@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Core
 import DesignKit
+import WorkbenchKit
 
 /// What a sidebar row holds, in full, when the pointer rests on it: the row itself stays one line.
 /// After half a second the card appears; while one is open, moving to another row shows that row's card at once.
@@ -70,7 +71,7 @@ final class CardModel {
     var turn: String?
     var context: (used: Int, window: Int)?
     var parts: SessionContextParts.Parts?
-    var ports: [Int] = []
+    var pages: [ServedPage] = []
     /// An agent's card: the agents it started.
     var children: [Agent] = []
 
@@ -114,9 +115,12 @@ final class CardModel {
             if !agentOnly {
                 changes = await m.quiet(GitLineStats(id: workspaceId))
                 if let p = await m.quiet(GitHubBranchPR(worktreeId: workspaceId)) ?? nil { pr = p }
-                ports = (await m.quiet(PortsList(worktreeId: workspaceId)) ?? []).map(\.port)
+                pages = ServedPages.list(printed: [], ports: await m.quiet(PortsList(worktreeId: workspaceId)) ?? [])
             }
             guard agentOnly, let a = agents.first else { return }
+            if !workspaceId.isEmpty {
+                pages = ServedPages.list(printed: [], ports: (await m.quiet(PortsList(worktreeId: workspaceId)) ?? []).filter { $0.session == a.id })
+            }
             if let t = (await m.quiet(SessionTurn(id: a.id)) ?? nil)?.turn {
                 let files = t.files
                 let add = files.reduce(0) { $0 + $1.added }, del = files.reduce(0) { $0 + $1.removed }
@@ -192,9 +196,13 @@ struct CardView: View {
                     }
                 }
             }
-            if !model.ports.isEmpty {
-                Text(String(localized: "Serving \(model.ports.map { "localhost:\($0)" }.joined(separator: ", "))"))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            if !model.pages.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(model.pages, id: \.port) { p in
+                        Button(p.address) { model.app.scripts.open(p, in: model.workspaceId) }
+                            .buttonStyle(PointerButtonStyle()).font(.caption.monospacedDigit()).foregroundStyle(Color.accentColor)
+                    }
+                }
             }
             if let until = model.app.mutedUntil(model.muteIds) {
                 HStack(spacing: 8) {
