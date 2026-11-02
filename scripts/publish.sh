@@ -11,23 +11,7 @@ key() { plutil -extract "$1" raw Resources/Info.plist; }
 V=$(key CFBundleShortVersionString)
 spctl -a -t open --context context:primary-signature dist/Kelp.dmg   # notarized, or Gatekeeper blocks it
 SIG=$(.build/artifacts/sparkle/Sparkle/bin/sign_update --account kelp dist/Kelp.dmg)   # sparkle:edSignature="…" length="…"
-cat > dist/appcast.xml <<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Kelp</title>
-    <item>
-      <title>$V</title>
-      <pubDate>$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
-      <sparkle:version>$(key CFBundleVersion)</sparkle:version>
-      <sparkle:shortVersionString>$V</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>$(key LSMinimumSystemVersion)</sparkle:minimumSystemVersion>
-      <sparkle:fullReleaseNotesLink>$REPO/releases/tag/v$V</sparkle:fullReleaseNotesLink>
-      <enclosure url="$REPO/releases/download/v$V/Kelp.dmg" type="application/octet-stream" $SIG/>
-    </item>
-  </channel>
-</rss>
-EOF
+scripts/appcast.sh Kelp Resources/Info.plist "$REPO/releases/tag/v$V" "$REPO/releases/download/v$V/Kelp.dmg" "$SIG" > dist/appcast.xml
 git tag "v$V" && git push -q origin "v$V"   # the commit the DMG was built from
 # Labels on the page (the URLs keep the file names): appcast.xml sorts first, and people took it for the app.
 gh release create "v$V" "dist/Kelp.dmg#Kelp $V for macOS (download this)" "dist/appcast.xml#Update feed (read by the app, not a download)" \
