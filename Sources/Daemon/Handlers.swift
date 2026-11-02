@@ -379,6 +379,11 @@ extension RepoRemoveWorktrees: Handled {
             guard let w = linked.first(where: { $0.path == p }), !ours.contains(RepoWorktreeSizes.real(p)) else {
                 out.kept[p] = "Not one of the project's other worktrees."; continue
             }
+            // Nothing in it yet is what a worktree an agent just made looks like: its folder would go from under it.
+            let real = RepoWorktreeSizes.real(p) + "/"
+            if workspaces.sessions.live.all.contains(where: { (RepoWorktreeSizes.real($0.snapshot.currentDir) + "/").hasPrefix(real) }) {
+                out.kept[p] = "An agent is running in it."; continue
+            }
             // git removes one whose commits are on no branch (a detached HEAD): they'd be left to `git gc`.
             if case let n = Git.commitsOnNoBranch(p, remotes: workspaces.remotes), n > 0 {
                 out.kept[p] = "It has \(n) commit\(n == 1 ? "" : "s") on no branch (a detached HEAD)."; continue

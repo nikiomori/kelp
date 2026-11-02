@@ -3,6 +3,7 @@ import os
 import Testing
 import Core
 import Agents
+import GitKit
 @testable import Daemon
 
 /// A send to a paused agent that can't wake says so: the reply waits for the wake. It used to answer OK at once and log
@@ -116,6 +117,37 @@ import Agents
     ls.state.withLock { $0.asking["a subagent"] = nil }
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")))
     #expect(try await waitFor(5) { try await screen().contains("ALLOWED") })
+}
+
+/// An idle pause ends the program: a half-typed line or an unread draft in its box would go with it.
+@Test func anIdlePauseLeavesUnsentText() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "unsent")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
+    let ls = try #require(w.d.sessions.existing(s.id))
+    ls.state.withLock { $0.typing = "half" }
+    #expect(!ls.letGoIdle(seen: ls.inputs))
+    ls.state.withLock {
+        $0.typing = ""
+        $0.draftWaiting = true
+    }
+    #expect(!ls.letGoIdle(seen: ls.inputs))
+    ls.state.withLock { $0.draftWaiting = false }
+    #expect(ls.letGoIdle(seen: ls.inputs))
+}
+
+/// A worktree an agent just made has nothing in it yet, so it looks clean: Remove Clean Worktrees keeps it.
+@Test func removingCleanWorktreesLeavesOneAnAgentRunsIn() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await firstDesk(w), repo = try #require(try await w.c.call(RepoList()).first { $0.id == wt.repoId })
+    let path = w.root.appendingPathComponent("linked").path
+    _ = try Git.run(["worktree", "add", "-q", "-b", "linked", path], cwd: repo.path)
+    let s = try await w.c.call(SessionCreate(cwd: path, worktreeId: wt.id, command: "exec cat"))
+    let listed = try await w.c.call(RepoWorktreeSizes(id: repo.id)).map(\.path)
+    let kept = try await w.c.call(RepoRemoveWorktrees(id: repo.id, paths: listed))
+    #expect(kept.removed.isEmpty && kept.kept.values.first?.contains("agent") == true, "\(kept)")
+    #expect(FileManager.default.fileExists(atPath: path))
+    _ = s
 }
 
 /// What the user typed and hasn't sent, followed from their keys.

@@ -460,6 +460,7 @@ extension LiveSession {
     func letGoIdle(seen: Int) -> Bool {
         state.withLock { s in
             guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0, [.done, .idle].contains(s.record.status) else { return false }
+            guard s.typing.isEmpty, !s.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
             s.letGo = true; return true
         }
     }

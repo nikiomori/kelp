@@ -174,11 +174,10 @@ extension SessionContext: Handled { func handle(_ sessions: Sessions) throws -> 
 
 /// Never re-inserts a deleted one (publish and change only update).
 extension SessionMarkRead: Handled {
-    static var quick: Bool { true }
+    // Not `quick`: they wait for a wake of the same session (`Sessions.setUnread`), as long as a locked keychain can take.
     func handle(_ sessions: Sessions) throws -> Done { try sessions.setUnread(id, false); return Done() }
 }
 extension SessionMarkUnread: Handled {
-    static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Done { try sessions.setUnread(id, true); return Done() }
 }
 

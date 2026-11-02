@@ -54,6 +54,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         self.pid = started.pid; self.primaryFD = started.fd
         self.writeFD = dup(started.fd)
         self.closer = FDCloser(started.fd)
+        guard writeFD >= 0 else { throw RPCError.internalError("No file descriptors left for a new terminal.") }
         _ = fcntl(writeFD, F_SETFL, fcntl(writeFD, F_GETFL) | O_NONBLOCK)   // shared with primaryFD: its reads already allow EAGAIN
     }
 
