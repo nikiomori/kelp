@@ -33,8 +33,10 @@ package enum Banner {
         }
         let card = BannerCard(text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
                               stays: fix?.blocking == true)   // git can't run at all: stays until it's closed
-        stack.insertArrangedSubview(card, at: 0)
-        while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last { oldest.removeFromSuperview() }
+        stack.rearrange {
+            stack.insertArrangedSubview(card, at: 0)
+            while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last { oldest.removeFromSuperview() }
+        }
         card.appear()
         // VoiceOver says it too: the banner is out of the keyboard's way, so it would go unheard.
         NSAccessibility.post(element: window, notification: .announcementRequested,
@@ -189,7 +191,21 @@ private final class BannerCard: NSView {
     func dismiss() {
         leaveAt = nil
         NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.slow); animator().alphaValue = 0 }) { [weak self] in
-            MainActor.assumeIsolated { self?.removeFromSuperview() }   // AppKit: on main
+            MainActor.assumeIsolated {   // AppKit: on main
+                guard let self else { return }
+                guard let stack = self.superview as? NSStackView else { return self.removeFromSuperview() }
+                stack.rearrange { self.removeFromSuperview() }
+            }
         }
+    }
+}
+
+extension NSStackView {
+    /// `change` adds or removes banners; the others slide to their new places rather than jumping there.
+    fileprivate func rearrange(_ change: () -> Void) {
+        let places = arrangedSubviews.map { ($0, $0.placeInWindow) }
+        change()
+        superview?.layoutSubtreeIfNeeded()
+        for (view, place) in places where view.superview === self { view.slide(from: place, duration: Motion.fast) }
     }
 }

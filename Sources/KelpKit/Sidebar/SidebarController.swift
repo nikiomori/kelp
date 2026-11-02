@@ -270,7 +270,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         showNoMatch(!projects.isEmpty && !next.contains { if case .project = $0.kind { true } else { false } })
         search.isHidden = projects.isEmpty
         if nextShape == shape { updateVisibleCells(); return }
-        let before = shownRows()
+        let before = shownRows(), places = rowPlaces(), cardFrames = cards.mapValues(\.frame)
         roots = next; shape = nextShape
         syncing = true
         outline.reloadData()
@@ -280,6 +280,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         syncSelection()
         placeNeedsYou()
         settle(from: before)
+        closeUp(after: before, rows: places, cards: cardFrames)
     }
 
     /// A project and the workspaces in it that weren't folded (their children wait until the project opens).

@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import TerminalKit
 
 /// Under an agent's terminal: the commands its shell tool ran (`AgentCommand`, from its hooks). Folded, one line says the
 /// last one (running: for how long; ended: how it went); a click unfolds the list of them, oldest first, and a click on
@@ -86,20 +87,33 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate {
         tick()
     }
 
-    /// Unfolds or folds the list; the terminal over it gives or takes the room at once (an animated one would redraw the
-    /// agent at every step).
+    /// Unfolds or folds the list; the terminal over it keeps its size until the list stops, or it would redraw the agent
+    /// at every step.
     private func fold(_ fold: Bool) {
         unfolded = !fold
         if fold { popover.close() }
-        layOut()
+        layOut(animated: true)
         header.chevron.turn(from: .pi)
         if unfolded, !commands.isEmpty { table.scrollRowToVisible(commands.count - 1) }
     }
 
-    private func layOut() {
+    private func layOut(animated: Bool = false) {
         let list = unfolded ? CGFloat(min(commands.count, Self.shownRows)) * Self.rowHeight + 4 : 0
-        listHeight?.constant = list
-        height?.constant = isHidden ? 0 : TextSize.of(Metrics.statusBar) + list
+        let bar = isHidden ? 0 : TextSize.of(Metrics.statusBar) + list
+        if animated, !Motion.reduced, window != nil, let listHeight, let height {
+            GhosttyTerminalView.holdSize(true)
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.base
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                listHeight.animator().constant = list
+                height.animator().constant = bar
+            } completionHandler: {
+                MainActor.assumeIsolated { GhosttyTerminalView.holdSize(false) }   // AppKit runs it on the main thread
+            }
+        } else {
+            listHeight?.constant = list
+            height?.constant = bar
+        }
         showHeader(Date())
     }
 

@@ -168,6 +168,33 @@ extension SidebarController {
         }
     }
 
+    /// Where the rows on show stand, for `closeUp`.
+    func rowPlaces() -> [String: NSPoint] {
+        var places: [String: NSPoint] = [:]
+        outline.enumerateAvailableRowViews { v, row in
+            if let key = (outline.item(atRow: row) as? Node)?.key { places[key] = v.placeInWindow }
+        }
+        return places
+    }
+
+    /// After a reload: rows that went (an agent ended) leave the ones below moving up into their room, and the cards with
+    /// them. As in `settle`, more than a few is the list changing, not something happening.
+    func closeUp(after old: Set<String>, rows: [String: NSPoint], cards was: [String: NSRect]) {
+        guard !old.isEmpty, !Motion.reduced, outline.window?.isVisible == true else { return }
+        let now = shownRows(), gone = old.subtracting(now)
+        guard !gone.isEmpty, gone.count <= 3, now.isSubset(of: old) else { return }
+        outline.enumerateAvailableRowViews { v, row in
+            if let key = (outline.item(atRow: row) as? Node)?.key, let place = rows[key] { v.slide(from: place) }
+        }
+        let ends = cards.mapValues(\.frame)
+        for (key, card) in cards { if let f = was[key] { card.frame = f } }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            for (key, card) in cards { if let end = ends[key] { card.animator().frame = end } }
+        }
+    }
+
     /// `change` with nothing animated: the rows and cards go straight where they end up.
     func instantly(_ change: () -> Void) {
         NSAnimationContext.runAnimationGroup { ctx in

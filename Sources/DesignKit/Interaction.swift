@@ -60,6 +60,22 @@ extension NSView {
         layer.add(a, forKey: "turn")
     }
 
+    /// Where the view stands in its window: take it before a layout changes, for `slide(from:)` after.
+    public var placeInWindow: NSPoint { convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil) }
+
+    /// A view a layout moved seems to travel from where it stood (`placeInWindow`) instead of jumping there.
+    public func slide(from place: NSPoint, duration: TimeInterval = Motion.appear) {
+        let now = placeInWindow, dx = place.x - now.x, dy = place.y - now.y
+        wantsLayer = true
+        guard !Motion.reduced, let layer, abs(dx) + abs(dy) > 0.5 else { return }
+        let a = CABasicAnimation(keyPath: "transform.translation")
+        a.fromValue = NSValue(size: NSSize(width: dx, height: superview?.isFlipped == true ? -dy : dy))
+        a.toValue = NSValue(size: .zero)
+        a.duration = duration
+        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(a, forKey: "slide")
+    }
+
     /// `t` about the view's middle: a layer-backed view's anchor is its corner.
     private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
         CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),

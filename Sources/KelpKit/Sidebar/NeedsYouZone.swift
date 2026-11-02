@@ -106,8 +106,8 @@ final class NeedsYouZone: NSView {
         // Past six, five agents and "N more" in the sixth row.
         let n = folded ? 0 : min(shown.count, Self.most), agentsShown = shown.count > Self.most ? Self.most - 1 : n
         let row = TextSize.of(28), hang = n == 0 ? 0 : row * CGFloat(n) + 4
-        lineHeight?.constant = isHidden ? 0 : TextSize.of(28); height?.constant = isHidden ? 0 : TextSize.of(28) + hang
-        hangOver(hang)
+        lineHeight?.constant = isHidden ? 0 : TextSize.of(28)
+        grow(to: isHidden ? 0 : TextSize.of(28) + hang, hanging: hang)
         glass.isHidden = shown.isEmpty
 
         chevron.isHidden = shown.isEmpty; count.isHidden = shown.isEmpty
@@ -162,6 +162,26 @@ final class NeedsYouZone: NSView {
         a.fromValue = from; a.toValue = NSColor.clear.cgColor
         a.duration = Motion.flash; a.timingFunction = CAMediaTimingFunction(name: .easeOut)
         header.layer?.add(a, forKey: "flash")
+    }
+
+    /// The zone takes its height and the list under it makes room together, rather than both jumping.
+    private func grow(to zone: CGFloat, hanging hang: CGFloat) {
+        guard let height, height.constant != zone, !Motion.reduced, window?.isVisible == true else {
+            height?.constant = zone
+            hung = hang
+            return
+        }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            height.animator().constant = zone
+            animator().hung = hang
+        }
+    }
+    /// What hangs over the list now, moving with the zone (a value of its own, for AppKit to animate).
+    @objc dynamic private var hung: CGFloat = 0 { didSet { hangOver(hung) } }
+    override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        key == "hung" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
     }
 
     /// The rows under the agents keep their place: the list is inset by what hangs over it, without scrolling.

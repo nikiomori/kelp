@@ -54,6 +54,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     /// What the empty field shows, made once per opening so rows don't move under the pointer.
     var recents: [Item] = []
     private var showingRecents = false
+    /// Fading away (`hide`).
+    private var hiding = false
     var prSearch: Task<Void, Never>?
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
@@ -79,7 +81,12 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     /// Out of the title bar's Search pill (`anchor`), as if the pill widened into the field and the list dropped from it;
     /// without the pill on screen, under the window's top.
     func present() {
-        panel.alphaValue = 1
+        if hiding {
+            hiding = false
+            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; panel.animator().alphaValue = 1 }   // turned back on its way out
+        } else {
+            panel.alphaValue = 1
+        }
         guard let w = anchor?.window ?? NSApp.mainWindow else { return show() }
         let size = panel.frame.size, f = w.frame
         guard let pill = anchor, pill.window === w, !pill.isHiddenOrHasHiddenAncestor else {
@@ -218,7 +225,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     private func pickRecent(_ n: Int) -> Bool {
         guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Group" else { return false }
-        panel.orderOut(nil); NSApp.mainWindow?.makeKeyAndOrderFront(nil)
+        hide(); NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         recents[n - 1].action()
         return true
     }
@@ -371,7 +378,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             if let c = choosing { list(query: c.query); return true }   // a setting's choices: back to the list, the old value back
-            panel.orderOut(nil)
+            hide()
             NSApp.mainWindow?.makeKeyAndOrderFront(nil)
             return true   // back to the terminal
         default: return false
@@ -391,11 +398,11 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         Self.remember(it)
         if it.value != nil { it.action(); return }   // a setting with choices lists them; the palette stays
         choosing = nil   // the choice is kept: closing mustn't put the old value back
-        panel.orderOut(nil)
+        hide()
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         if split, let s = it.split { s() } else { it.action() }
     }
-    package func windowDidResignKey(_ n: Notification) { stopChoosing(); panel.orderOut(nil) }
+    package func windowDidResignKey(_ n: Notification) { stopChoosing(); hide() }
 
     package func numberOfRows(in t: NSTableView) -> Int { rows.count }
     package func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool { if case .item = rows[row] { true } else { false } }
@@ -476,5 +483,26 @@ extension QuickOpen {
             if r.location != NSNotFound { s.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: r) }
         }
         return s
+    }
+}
+
+extension QuickOpen {
+    /// Away, a little quicker than it came; what was chosen happens at once, without waiting for this.
+    func hide() {
+        guard panel.isVisible, !hiding else { return }
+        guard !Motion.reduced else { return panel.orderOut(nil) }
+        hiding = true
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.fast
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                guard let self, self.hiding else { return }   // opened again meanwhile
+                self.hiding = false
+                self.panel.orderOut(nil)
+                self.panel.alphaValue = 1
+            }
+        }
     }
 }
