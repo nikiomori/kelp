@@ -198,7 +198,7 @@ extension AppDelegate: NSMenuItemValidation {
         case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
         // Off elsewhere, so a terminal still gets ⌥Z.
         case "editor.toggleWordWrap":
-            item.state = app.settings.bool("editor.wordWrap") == true ? .on : .off
+            item.state = app.settings.bool("editor.wordWrap", language: CodeEditor.focused?.languageId) == true ? .on : .off
             return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.reopenTab": return app.workbench.nextClosedTab != nil   // off elsewhere, so a terminal still gets the key
         case "scripts.stop": return app.scripts.canStop

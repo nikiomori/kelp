@@ -90,9 +90,10 @@ final class EditorStatusBar: NSView {
 
 extension EditorStatusBar {
     /// How the editor behaves.
-    static func menu(_ app: AppModel) -> NSMenu {
+    static func menu(_ app: AppModel, language: String?) -> NSMenu {
         let m = NSMenu()
-        m.addToggle("editor.wordWrap", app, title: String(localized: "Wrap Long Lines"))
+        m.add(String(localized: "Wrap Long Lines")) { app.extensions.run("editor.toggleWordWrap") }.state =
+            app.settings.bool("editor.wordWrap", language: language) == true ? .on : .off
         m.addToggle("editor.autoSave", app, title: String(localized: "Save Automatically"))
         m.addToggle("editor.formatOnSave", app, title: String(localized: "Format on Save"))
         m.addItem(.separator())

@@ -127,12 +127,18 @@ final class FileTab: SavableTab {
         lastSaved = text
         known = (f.stamp, text)
         let bar = EditorStatusBar(url: url, text: text)
-        bar.contextMenu = { [app] in EditorStatusBar.menu(app) }
+        bar.contextMenu = { [app, weak e] in EditorStatusBar.menu(app, language: e?.languageId) }
         bar.show(cursor: e.cursor)
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
         bar.onProblems = { [weak e] in e?.goToProblem(forward: true) }
         statusBar = bar
-        bar.show(wrapping: CodeEditor.wrapLines)
+        let language = e.languageId
+        // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
+        track(owner: self) { app.settings.bool("editor.wordWrap", language: language) ?? false } changed: { [weak e, weak bar] wraps in
+            e?.wrapsHere = wraps
+            e?.refreshAppearance()
+            bar?.show(wrapping: wraps)
+        }
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
@@ -155,7 +161,6 @@ final class FileTab: SavableTab {
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in
             self?.editor?.refreshAppearance()
             self?.markdown?.themeChanged()
-            bar.show(wrapping: CodeEditor.wrapLines)
         }
         if focusWhenLoaded { focus() }
         changeBars = ChangeBars(app: app, path: path, editor: e) { [weak self] in self?.isEdited == true }

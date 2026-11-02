@@ -73,7 +73,8 @@ extension Builtins {
                       cmd("editor.save", "Save", "cmd+s") {
                           guard let t = app.workbench.editor?.focusedContent as? SavableTab else { NSSound.beep(); return }
                           Task {
-                              if let file = t as? FileTab, app.settings.bool("editor.formatOnSave") == true, file.language?.format != nil {
+                              let language = (t as? FileTab)?.editor?.languageId
+                              if let file = t as? FileTab, app.settings.bool("editor.formatOnSave", language: language) == true, file.language?.format != nil {
                                   await file.format()
                               }
                               await t.save()
@@ -88,7 +89,9 @@ extension Builtins {
                       cmd("editor.nextProblem", "Next Problem", "f8") { CodeEditor.focused?.goToProblem(forward: true) },
                       cmd("editor.previousProblem", "Previous Problem", "shift+f8") { CodeEditor.focused?.goToProblem(forward: false) },
                       cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {
-                          app.settings.set("editor.wordWrap", .bool(app.settings.bool("editor.wordWrap") != true))
+                          let language = fileTab(app)?.editor?.languageId
+                          let on = app.settings.bool("editor.wordWrap", language: language) == true
+                          app.settings.set("editor.wordWrap", .bool(!on), language: language)
                       },
                       cmd("files.findInWorkspace", "Find in Project…", "shift+cmd+f") {
                           app.workbench.showPanel("files")

@@ -50,6 +50,10 @@ public final class CodeEditor: NSObject {
     var problemLines: [Int: Bool] = [:]
     /// ⌘F's, once it's been asked for.
     var findBar: FindBar?
+    /// This file's own say over `wrapLines`, its language's settings.
+    public var wrapsHere: Bool?
+    /// The language as settings.json names it: "markdown", "swift", "plaintext".
+    public var languageId: String { language.id == .plainText ? "plaintext" : language.tsName }
     /// Prose, whatever `wrapLines` says.
     public var alwaysWraps = false
     /// Top to bottom. Set by the tab; typing moves them along.

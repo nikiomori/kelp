@@ -40,16 +40,28 @@ package final class SettingsStore {
         }
     }
 
-    /// A setting's value, or the default its spec declares.
-    func value(_ key: String) -> JSONValue? {
+    /// What Kelp itself sets per language: prose reads best wrapped.
+    private static let languageDefaults: [String: [String: JSONValue]] = [
+        "markdown": ["editor.wordWrap": .bool(true)], "plaintext": ["editor.wordWrap": .bool(true)]
+    ]
+
+    /// `language`'s own value for `key`: settings.json's `"[markdown]": { … }` block, as in VS Code, then Kelp's default for it.
+    private func own(_ key: String, _ language: String) -> JSONValue? {
+        if case .object(let block)? = values["[\(language)]"], let v = block[key] { return v }
+        return Self.languageDefaults[language]?[key]
+    }
+
+    /// A setting's value (`language`: for that language's files), or the default its spec declares.
+    func value(_ key: String, language: String? = nil) -> JSONValue? {
+        if let language, let v = own(key, language) { return v }
         if let v = values[key] { return v }
         for s in app.extensions.all.settings { if let spec = s.specs.first(where: { $0.key == key }) { return spec.default } }
         return nil
     }
     package func string(_ key: String) -> String? { value(key)?.string }
-    package func bool(_ key: String) -> Bool? { value(key)?.bool }
-    package func number(_ key: String) -> Double? {
-        guard let n = value(key)?.number else { return nil }
+    package func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
+    package func number(_ key: String, language: String? = nil) -> Double? {
+        guard let n = value(key, language: language)?.number else { return nil }
         return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(n) ?? n
     }
 
@@ -59,7 +71,14 @@ package final class SettingsStore {
         apply(next)
     }
 
-    package func set(_ key: String, _ v: JSONValue?) {
+    /// `language`: a value that language has of its own changes there, where it's read; any other changes for all files.
+    package func set(_ key: String, _ v: JSONValue?, language: String? = nil) {
+        if let language, own(key, language) != nil {
+            var block: [String: JSONValue] = [:]
+            if case .object(let o)? = values["[\(language)]"] { block = o }
+            block[key] = v
+            return set("[\(language)]", .object(block))
+        }
         var next = values; next[key] = v
         apply(next)   // optimistic; the daemon's echo confirms
         inFlight[key, default: 0] += 1
