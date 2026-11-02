@@ -40,7 +40,8 @@ package enum Help {
     and brings the others back. Agents open side by side, each in a pane of its own (four make a 2×2 grid); terminals and
     files share one more pane. The button right of the search (⌃⌘T; right-click hides it) shows them as tabs in one pane instead, and back;
     splitting or dragging a tab to another pane arranges the panes by hand from then on.
-    ⌘W closes a tab (in an empty workspace, the workspace). Edited files show a dot on their tab and in the window's close
+    ⌘W closes a tab (in an empty workspace, the workspace); ⇧⌘T brings it back in its place, an agent with its conversation,
+    and File › Recently Closed lists the rest. Edited files show a dot on their tab and in the window's close
     button; ⌘S saves.
 
     In a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). Right-click for copy,

@@ -41,6 +41,7 @@ extension Builtins {
                 guard let e = editor(app) else { return }
                 if e.focusedContent == nil, let w = e.worktree { WorkspaceActions(app).close(w) } else { e.closeFocusedTab() }
             },
+            cmd("editor.reopenTab", "Reopen Closed Tab", "shift+cmd+t") { app.workbench.reopenClosedTab() },
             cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
             cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
             cmd("workspace.newBranch", "New Chat on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },

@@ -89,6 +89,8 @@ package protocol SavableTab: TabContent {
     func discard()
     /// A save still on its way (a remote file's, to its host): what closing or quitting waits for.
     var pendingSave: Task<Void, Never>? { get }
+    /// What brings it back once closed: a file at the line it was on. Nil: nothing can (an untitled text).
+    var reopenURI: String? { get }
 }
 
 extension SavableTab {

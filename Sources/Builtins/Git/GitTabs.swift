@@ -176,7 +176,7 @@ final class CommitMessageTab: TabContent {
         }
     }
 
-    private func dismiss() { app.workbench.closeTab(uri: uri) }
+    private func dismiss() { app.workbench.closeTab(uri: uri, remember: false) }
     func focus() { text.window?.makeFirstResponder(text) }
 }
 

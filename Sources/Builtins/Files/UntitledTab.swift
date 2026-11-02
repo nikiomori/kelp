@@ -9,6 +9,7 @@ import KelpKit
 @MainActor @Observable
 final class UntitledTab: SavableTab {
     let uri: String, app: AppModel
+    var reopenURI: String? { nil }
     let editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/Untitled.txt"))
     /// The editor's keys before the menu's (⌘D), as in a file's tab.
     let view: NSView = EditorBox()

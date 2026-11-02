@@ -103,6 +103,9 @@ extension AppDelegate {
         let openIn = NSMenu()
         WorkspaceActions.addOpenIn(to: openIn, path: { app.worktree(app.workbench.workspaceId)?.path }, prefix: "")
         if !openIn.items.isEmpty { file.setSubmenu(openIn, for: file.addItem(withTitle: "Open Folder In", action: nil, keyEquivalent: "")) }
+        b.add(file, "-", "editor.reopenTab")
+        let recent = NSMenu(title: "Recently Closed"); recent.delegate = recentlyClosedMenu
+        file.setSubmenu(recent, for: file.addItem(withTitle: "Recently Closed", action: nil, keyEquivalent: ""))
         b.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
     }
 

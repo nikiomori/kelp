@@ -110,10 +110,10 @@ extension Workbench {
         focus(session: s.id)
     }
 
-    package func closeTab(uri: String) {
+    package func closeTab(uri: String, remember: Bool = true) {
         guard let e = [keyArea, window?.editors.current].compactMap({ $0 }).first(where: { $0.layout.tab(uri: uri) != nil }),
               let t = e.layout.tab(uri: uri) else { return }
-        e.closeTab(t.id)
+        e.closeTab(t.id, remember: remember)
     }
 
     /// Takes a tab off the screen without closing what it shows: a run hidden in the Run menu keeps running.

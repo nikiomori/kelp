@@ -232,6 +232,7 @@ package struct WorkspaceActions {
                 }
             }
             if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
+            await app.workbench.keepClosedTabs(of: w, on: next)
             // The agent that just ended may have left something after all: then it stays, as above.
             if await app.call(WorktreeRemove(id: id)) == nil { app.workbench.show(workspace: id) }
             await app.refresh()

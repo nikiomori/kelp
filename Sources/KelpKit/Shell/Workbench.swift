@@ -39,6 +39,8 @@ package final class Workbench {
     var inspectorPanel: String = UserDefaults.standard.string(forKey: "inspectorPanel") ?? "git.changes" {
         didSet { UserDefaults.standard.set(inspectorPanel, forKey: "inspectorPanel") }
     }
+    /// What ⇧⌘T brings back. Here, not in `EditorArea`: an area not seen lately leaves memory.
+    @ObservationIgnored var closedTabs = ClosedTabs()
     /// For Back / Forward (⌃⌘← / ⌃⌘→). Observed: the title bar's arrows follow it.
     var history = WorkspaceHistory()
     /// Columns × rows of the last terminal seen on screen: sizes the next one before it's shown. Kept across launches:

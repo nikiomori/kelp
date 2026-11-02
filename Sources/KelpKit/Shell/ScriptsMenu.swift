@@ -115,7 +115,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         for sid in same {
             state.active[sid] = nil
             await app.call(SessionKill(id: sid))
-            app.workbench.closeTab(uri: TabURI.session(sid))
+            app.workbench.closeTab(uri: TabURI.session(sid), remember: false)
         }
         starting += 1
         let s = await app.call(method)

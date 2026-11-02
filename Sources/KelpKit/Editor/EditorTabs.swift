@@ -71,11 +71,12 @@ extension EditorArea {
         if typing { focusSelected() }   // a new pane rebuilds the area, which takes the keys from the terminal
     }
 
-    func closeTab(_ id: String) { Task { await closeTabAsking(id) } }
+    func closeTab(_ id: String, remember: Bool = true) { Task { await closeTabAsking(id, remember: remember) } }
 
-    /// Closes the tab once it agrees (its questions are sheets, awaited); false when it stays.
+    /// Closes the tab once it agrees (its questions are sheets, awaited); false when it stays. `remember`: ⇧⌘T can bring it
+    /// back, unless Kelp itself took it away (a finished commit's tab, a run started over).
     @discardableResult
-    func closeTabAsking(_ id: String) async -> Bool {
+    func closeTabAsking(_ id: String, remember: Bool = true) async -> Bool {
         guard closing.insert(id).inserted else { return false }
         defer { closing.remove(id) }
         let uri = layout.allTabs.first { $0.id == id }?.uri ?? ""
@@ -85,6 +86,7 @@ extension EditorArea {
             guard await c.close() else { return false }
         } else if let close = app.extensions.tabProvider(for: uri)?.closeUnbuilt, await !close(uri) { return false }
         guard layout.allTabs.contains(where: { $0.id == id }) else { return true }   // gone while it asked (its workspace closed)
+        if remember { rememberClosing(id) }
         drop(id, session: sid)
         if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: sid) }
         return true

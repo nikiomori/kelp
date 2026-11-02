@@ -171,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private(set) lazy var archivedMenu = ArchivedMenu(app: app)
+    private(set) lazy var recentlyClosedMenu = RecentlyClosedMenu(app: app)
 
     /// The command's menu item: its identifier is the command id (Settings › Keyboard, `validateMenuItem`).
     func item(_ c: CommandSpec) -> NSMenuItem {
@@ -191,6 +192,7 @@ extension AppDelegate: NSMenuItemValidation {
         case "workbench.toggleFocusMode": item.state = main.inFocusMode ? .on : .off
         case "power.keepAwake": item.state = app.settings.string("power.keepAwake") == "always" ? .on : .off
         case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
+        case "editor.reopenTab": return app.workbench.nextClosedTab != nil   // off elsewhere, so a terminal still gets the key
         case "scripts.stop": return app.scripts.canStop
         case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false
         // Off elsewhere, so a terminal still gets their keys.

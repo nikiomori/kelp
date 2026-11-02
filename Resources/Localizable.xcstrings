@@ -7614,6 +7614,16 @@
         }
       }
     },
+    "Recently Closed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недавно закрытые"
+          }
+        }
+      }
+    },
     "Redo": {
       "extractionState": "manual",
       "localizations": {
@@ -7831,6 +7841,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть снова"
+          }
+        }
+      }
+    },
+    "Reopen Closed Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть закрытую вкладку"
           }
         }
       }

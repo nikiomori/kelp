@@ -188,6 +188,7 @@ final class FileTab: SavableTab {
     }
     var selectedText: String? { editor?.selectedText }
     var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
+    var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
     // MARK: saving
 
     private func edited(_ t: String) {

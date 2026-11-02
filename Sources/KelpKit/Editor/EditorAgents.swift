@@ -27,6 +27,17 @@ extension EditorArea {
         createSession(SessionCreate(cwd: cwd, worktreeId: workspaceId, command: command, title: title), split: split, focus: focus, created: created)
     }
 
+    /// A new shell where `s` was, in the tab left for it; attached again when `s` was tmux's.
+    func newShell(like s: Session, inTabOf uri: String) {
+        var p = SessionCreate(cwd: s.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(s.argv))
+        if let (cols, rows) = terminalSize(split: nil) { p.cols = cols; p.rows = rows }
+        Task {
+            guard let n = await app.call(p) else { return }
+            app.upsert(n)
+            replace(uri, with: TabURI.session(n.id))
+        }
+    }
+
     /// In front of you, or (`focus` false, an agent or a script asked) beside what you're doing.
     private func show(_ uri: String, split: SplitDirection?, focus: Bool) {
         if focus { open(uri, split: split) } else { showAside(uri, split: split) }
