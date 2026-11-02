@@ -354,6 +354,7 @@ extension OneAtATime {
         let menu = try #require(tv.menu(for: click))
         #expect(menu.items.map(\.title) == ["Cut", "Copy", "Paste", "", "Send to Agent"])
         #expect(!menu.allowsContextMenuPlugIns)   // no Services, no Siri
+        #expect(menu.items.map(\.keyEquivalent).joined().isEmpty)   // HIG: shortcuts belong to the main menus
         if #available(macOS 15.0, *) { #expect(tv.writingToolsBehavior == .none) }
     }
 }

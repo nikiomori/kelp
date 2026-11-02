@@ -228,8 +228,9 @@ public final class EditorTextView: NSTextView {
     public override func menu(for event: NSEvent) -> NSMenu? {
         let m = NSMenu()
         m.allowsContextMenuPlugIns = false
-        for (title, action, key) in [("Cut", #selector(cut(_:)), "x"), ("Copy", #selector(copy(_:)), "c"), ("Paste", #selector(paste(_:)), "v")] {
-            m.addItem(withTitle: title, action: action, keyEquivalent: key)
+        for (title, action) in [(String(localized: "Cut"), #selector(cut(_:))), (String(localized: "Copy"), #selector(copy(_:))),
+                                (String(localized: "Paste"), #selector(paste(_:)))] {
+            m.addItem(withTitle: title, action: action, keyEquivalent: "")   // the keys are the Edit menu's to show
         }
         if let contextMenu {
             m.addItem(.separator())
