@@ -11,27 +11,37 @@ extension CIRuns {
         struct RawRun: Decodable {
             var databaseId: Int, displayTitle: String, workflowName: String?, name: String?, status: String, conclusion: String?
             var event: String, url: String, createdAt: String
+            var number: Int?, attempt: Int?, headSha: String?, startedAt: String?, updatedAt: String?
         }
-        let d = try GitHub.gh(["run", "list", "--branch", branch, "-L", "20", "--json",
-                               "databaseId,displayTitle,workflowName,name,status,conclusion,event,url,createdAt"],
-            cwd: cwd)
+        let fields = "databaseId,displayTitle,workflowName,name,status,conclusion,event,url,createdAt,number,attempt,headSha,startedAt,updatedAt"
+        let d = try GitHub.gh(["run", "list", "--branch", branch, "-L", "20", "--json", fields], cwd: cwd)
         return try JSONDecoder().decode([RawRun].self, from: d).map {
             Run(id: $0.databaseId, title: $0.displayTitle, workflow: $0.workflowName ?? $0.name ?? "", status: $0.status,
-                conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, event: $0.event, url: $0.url, createdAt: $0.createdAt)
+                conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, event: $0.event, url: $0.url, createdAt: $0.createdAt,
+                number: $0.number, sha: $0.headSha, attempt: $0.attempt, startedAt: moment($0.startedAt), updatedAt: moment($0.updatedAt))
         }
     }
 
     public static func jobs(cwd: String, run: Int) throws -> [Job] {
         if GitLab.isGitLab(cwd: cwd) { return try gitlabJobs(cwd: cwd, pipeline: run) }
-        struct RawStep: Decodable { var name: String, status: String, conclusion: String? }
-        struct RawJob: Decodable { var databaseId: Int, name: String, status: String, conclusion: String?, url: String?, steps: [RawStep]? }
+        struct RawStep: Decodable { var name: String, status: String, conclusion: String?, number: Int?, startedAt: String?, completedAt: String? }
+        struct RawJob: Decodable {
+            var databaseId: Int, name: String, status: String, conclusion: String?, url: String?, steps: [RawStep]?
+            var startedAt: String?, completedAt: String?
+        }
         struct RunView: Decodable { var jobs: [RawJob] }
         let v = try JSONDecoder().decode(RunView.self, from: GitHub.gh(["run", "view", String(run), "--json", "jobs"], cwd: cwd))
         return v.jobs.map { j in
             Job(id: j.databaseId, name: j.name, status: j.status, conclusion: j.conclusion.flatMap { $0.isEmpty ? nil : $0 }, url: j.url,
-                steps: (j.steps ?? []).map { Step(name: $0.name, status: $0.status, conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }) })
+                steps: (j.steps ?? []).map {
+                    Step(name: $0.name, status: $0.status, conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, number: $0.number,
+                         startedAt: moment($0.startedAt), completedAt: moment($0.completedAt))
+                }, startedAt: moment(j.startedAt), completedAt: moment(j.completedAt))
         }
     }
+
+    /// GitHub says "0001-01-01T00:00:00Z" of a time that hasn't come yet.
+    private static func moment(_ iso: String?) -> String? { iso?.hasPrefix("0001") == true ? nil : iso }
 
     /// The failed steps' output of a job (the whole log if nothing failed), its last ~12 KB.
     public static func log(cwd: String, job: Int) throws -> String { GitHub.tail(try failedText(cwd: cwd, job: job)) }
@@ -128,20 +138,26 @@ extension CIRuns {
     // MARK: GitLab
 
     static func gitlabRuns(cwd: String, branch: String) throws -> [Run] {
-        struct RawPipeline: Decodable { var id: Int, status: String, source: String?, web_url: String, created_at: String, ref: String }
+        struct RawPipeline: Decodable {
+            var id: Int, status: String, source: String?, web_url: String, created_at: String, ref: String
+            var iid: Int?, sha: String?, updated_at: String?
+        }
         let b = GitLab.queryValue(branch)
         return try JSONDecoder().decode([RawPipeline].self, from: GitLab.api("projects/:id/pipelines?ref=\(b)&per_page=20", cwd: cwd)).map {
             let (s, c) = gitlabState($0.status)
             return Run(id: $0.id, title: "Pipeline #\($0.id)", workflow: $0.ref, status: s, conclusion: c, event: $0.source ?? "",
-                       url: $0.web_url, createdAt: $0.created_at)
+                       url: $0.web_url, createdAt: $0.created_at, number: $0.iid, sha: $0.sha, updatedAt: $0.updated_at)
         }
     }
 
     static func gitlabJobs(cwd: String, pipeline: Int) throws -> [Job] {
-        struct RawGitLabJob: Decodable { var id: Int, name: String, status: String, web_url: String?, stage: String? }
+        struct RawGitLabJob: Decodable {
+            var id: Int, name: String, status: String, web_url: String?, stage: String?, started_at: String?, finished_at: String?
+        }
         return try JSONDecoder().decode([RawGitLabJob].self, from: GitLab.api("projects/:id/pipelines/\(pipeline)/jobs?per_page=100", cwd: cwd)).map {
             let (s, c) = gitlabState($0.status)
-            return Job(id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: s, conclusion: c, url: $0.web_url, steps: [])
+            return Job(id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: s, conclusion: c, url: $0.web_url, steps: [],
+                       startedAt: $0.started_at, completedAt: $0.finished_at)
         }
     }
 

@@ -247,6 +247,9 @@
       },
       "CIRuns.Job" : {
         "properties" : {
+          "completedAt" : {
+            "type" : "string"
+          },
           "conclusion" : {
             "type" : "string"
           },
@@ -254,6 +257,9 @@
             "type" : "integer"
           },
           "name" : {
+            "type" : "string"
+          },
+          "startedAt" : {
             "type" : "string"
           },
           "status" : {
@@ -319,6 +325,9 @@
       },
       "CIRuns.Run" : {
         "properties" : {
+          "attempt" : {
+            "type" : "integer"
+          },
           "conclusion" : {
             "type" : "string"
           },
@@ -331,10 +340,23 @@
           "id" : {
             "type" : "integer"
           },
+          "number" : {
+            "description" : "The forge's count of the workflow's runs, the commit, which try this is; when this try began and last changed.",
+            "type" : "integer"
+          },
+          "sha" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string"
+          },
           "status" : {
             "type" : "string"
           },
           "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
             "type" : "string"
           },
           "url" : {
@@ -357,10 +379,20 @@
       },
       "CIRuns.Step" : {
         "properties" : {
+          "completedAt" : {
+            "type" : "string"
+          },
           "conclusion" : {
             "type" : "string"
           },
           "name" : {
+            "type" : "string"
+          },
+          "number" : {
+            "description" : "Its place in the job, which a link to the step names.",
+            "type" : "integer"
+          },
+          "startedAt" : {
             "type" : "string"
           },
           "status" : {

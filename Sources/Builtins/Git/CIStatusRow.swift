@@ -44,10 +44,10 @@ final class CIStatusRow: NSView {
         let s = NSMutableAttributedString(string: head, attributes: look.merging([.foregroundColor: headColor]) { $1 })
         if !job.isEmpty { s.append(NSAttributedString(string: " · " + job, attributes: look.merging([.foregroundColor: NSColor.secondaryLabelColor]) { $1 })) }
         text.attributedStringValue = s
-        time.stringValue = CIRunLook.ago(run.createdAt)
+        time.stringValue = CIRunLook.ago(run.began)
         line.setViews([CIRunLook.mark(run.status, run.conclusion), text, NSView(), time, chevron], in: .leading)
         let place = failing ? failure ?? "" : ""
-        toolTip = latest.map { "\($0.workflow): \(CIRunLook.words($0.status, $0.conclusion)) · \(CIRunLook.ago($0.createdAt))" }
+        toolTip = latest.map { "\($0.workflow): \(CIRunLook.words($0.status, $0.conclusion)) · \(CIRunLook.ago($0.began))" }
             .joined(separator: "\n") + (place.isEmpty ? "" : "\n" + place) + String(localized: "\n\nClick to open CI Runs")
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }

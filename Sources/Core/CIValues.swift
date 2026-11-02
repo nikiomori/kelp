@@ -8,24 +8,57 @@ public enum CIRuns {
     }
     public struct Step: Codable, Sendable, Equatable {
         public var name: String; public var status: String; public var conclusion: String?
-        public init(name: String, status: String, conclusion: String?) { self.name = name; self.status = status; self.conclusion = conclusion }
+        /// Its place in the job, which a link to the step names.
+        public var number: Int?, startedAt: String?, completedAt: String?
+        public init(name: String, status: String, conclusion: String?, number: Int? = nil, startedAt: String? = nil,
+                    completedAt: String? = nil) {
+            self.name = name; self.status = status; self.conclusion = conclusion
+            self.number = number; self.startedAt = startedAt; self.completedAt = completedAt
+        }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
     }
     public struct Job: Codable, Sendable, Equatable {
         public var id: Int, name: String, status: String, conclusion: String?, url: String?
         public var steps: [Step]
-        public init(id: Int, name: String, status: String, conclusion: String?, url: String?, steps: [Step]) {
+        public var startedAt: String?, completedAt: String?
+        public init(id: Int, name: String, status: String, conclusion: String?, url: String?, steps: [Step],
+                    startedAt: String? = nil, completedAt: String? = nil) {
             self.id = id; self.name = name; self.status = status; self.conclusion = conclusion; self.url = url; self.steps = steps
+            self.startedAt = startedAt; self.completedAt = completedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
     }
     public struct Run: Codable, Sendable, Equatable {
         public var id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String, createdAt: String
-        public init(id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String, createdAt: String) {
+        /// The forge's count of the workflow's runs, the commit, which try this is; when this try began and last changed.
+        public var number: Int?, sha: String?, attempt: Int?, startedAt: String?, updatedAt: String?
+        public init(id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String, createdAt: String,
+                    number: Int? = nil, sha: String? = nil, attempt: Int? = nil, startedAt: String? = nil, updatedAt: String? = nil) {
             self.id = id; self.title = title; self.workflow = workflow; self.status = status; self.conclusion = conclusion
             self.event = event; self.url = url; self.createdAt = createdAt
+            self.number = number; self.sha = sha; self.attempt = attempt; self.startedAt = startedAt; self.updatedAt = updatedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
+        /// When this try began: `createdAt` stays at the first one, however much later a re-run comes.
+        public var began: String { startedAt ?? createdAt }
+        public var finished: Bool { status == "completed" }
+        /// Seconds this try took, or has taken so far.
+        public func seconds(now: Date = Date()) -> Double? { CIRuns.seconds(from: began, to: finished ? updatedAt : nil, now: now) }
+        /// Seven characters, as git shows it.
+        public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
+    }
+
+    public static func date(_ iso: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    }
+
+    /// From `from` to `to`, or to now for what is still going.
+    public static func seconds(from: String?, to: String?, now: Date = Date()) -> Double? {
+        guard let from, let start = date(from) else { return nil }
+        guard let to else { return now.timeIntervalSince(start) }
+        return date(to).map { $0.timeIntervalSince(start) }
     }
     /// The newest run of each workflow (runs come newest first): what the branch's CI says now.
     public static func latest(_ runs: [Run]) -> [Run] {

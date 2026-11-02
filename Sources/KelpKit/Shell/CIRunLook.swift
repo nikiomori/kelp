@@ -52,9 +52,7 @@ package enum CIRunLook {
     }
 
     package static func ago(_ iso: String) -> String {
-        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let d else { return "" }
+        guard let d = CIRuns.date(iso) else { return "" }
         return shortAgo(d)   // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)
     }
 }

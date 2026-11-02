@@ -296,7 +296,7 @@ final class SyncPopover: NSViewController {
             let name = label(run.workflow, secondary: false)
             name.lineBreakMode = .byTruncatingTail
             name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-            let r = LinkRow([CIRunLook.mark(run.status, run.conclusion), name, words, NSView(), label(CIRunLook.ago(run.createdAt), size: 11)],
+            let r = LinkRow([CIRunLook.mark(run.status, run.conclusion), name, words, NSView(), label(CIRunLook.ago(run.began), size: 11)],
                             said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))") { [weak self] in
                 guard let self else { return }
                 app.rowBadges.openCI(folder)

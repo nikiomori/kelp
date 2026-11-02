@@ -330,3 +330,13 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     let r = CIRuns.report(log: log)
     #expect(r.failures.count == 100 && r.more == 30 && r.summary.hasSuffix("+30"))
 }
+
+@Test func aRunsTimeIsThatOfItsLatestTry() {
+    var r = CIRuns.Run(id: 1, title: "", workflow: "CI", status: "completed", conclusion: "success", event: "push", url: "", createdAt: "2026-11-02T10:34:17Z",
+                       startedAt: "2026-11-02T10:45:38Z", updatedAt: "2026-11-02T10:52:28Z")
+    #expect(r.began == "2026-11-02T10:45:38Z" && r.seconds() == 410)
+    r.status = "in_progress"; r.updatedAt = nil
+    #expect(r.seconds(now: CIRuns.date("2026-11-02T10:46:38Z") ?? .distantPast) == 60)
+    #expect(CIRuns.date("2026-11-02T10:45:38.123Z") != nil && CIRuns.seconds(from: nil, to: nil) == nil)
+    #expect(CIRuns.Run(id: 1, title: "", workflow: "", status: "", conclusion: nil, event: "", url: "", createdAt: "x", sha: "2f2111f0aa").shortSHA == "2f2111f")
+}
