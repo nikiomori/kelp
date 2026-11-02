@@ -54,6 +54,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.onDelete = { [weak self] in self?.trashSelected() }
         outline.menu = NSMenu()
         outline.menu?.delegate = self
+        results.menu = NSMenu(); results.menu?.delegate = self
         leftScroll.documentView = outline
         leftScroll.hasVerticalScroller = true
         leftScroll.drawsBackground = false
@@ -95,7 +96,21 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.reloadIcons() }
     }
 
-    func menuNeedsUpdate(_ m: NSMenu) { fill(m, row: outline.clickedRow) }
+    func menuNeedsUpdate(_ m: NSMenu) {
+        if m === results.menu { fillResult(m, row: results.clickedRow) } else { fill(m, row: outline.clickedRow) }
+    }
+
+    /// A line the search found: what the editor offers for a line.
+    func fillResult(_ m: NSMenu, row: Int) {
+        m.removeAllItems()
+        guard matches.indices.contains(row) else { return }
+        let app = app, hit = matches[row], path = root + "/" + hit.path
+        m.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
+        m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path, line: hit.line), split: .right) }
+        m.addItem(.separator())
+        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
+        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: hit.line...hit.line) }
+    }
 
     /// The tree's right-click menu, for what's under the pointer. Over empty space `clickedRow` is -1 and `selectedNode`
     /// answers with the selected row, so nothing here goes through it: Move to Trash would reach a file nobody clicked.

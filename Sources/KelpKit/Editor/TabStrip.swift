@@ -254,6 +254,9 @@ final class TabStrip: NSView {
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)
     }
 
+    /// The empty strip: what the + offers.
+    override func menu(for event: NSEvent) -> NSMenu? { addMenu?() }
+
     /// Double-click on the empty strip: new tab, like Safari's tab bar.
     override func mouseDown(with e: NSEvent) {
         guard e.clickCount == 2, let m = addMenu?() else { super.mouseDown(with: e); return }

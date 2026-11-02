@@ -356,21 +356,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     // MARK: outline
 
-    /// Right-click a run or a job: its page on the site, and Re-run Failed for a failed run.
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
-        switch item.kind {
-        case .run(let r):
-            menu.add(String(localized: "Open in Browser"), symbol: "globe") { Forge.open(r.url) }
-            if r.failed, let w = worktree {
-                menu.add(String(localized: "Re-run Failed"), symbol: "arrow.clockwise") { [weak self] in self?.rerun(w, run: r.id) }
-            }
-        case .job(let j, _): if let u = j.url { menu.add(String(localized: "Open in Browser"), symbol: "globe") { Forge.open(u) } }
-        case .step: break
-        }
-    }
-
     func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         guard let i = item as? Item else { return runs.count }
         if case .run = i.kind, i.children == nil { return 1 }   // a placeholder until it's opened
@@ -450,5 +435,38 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                                      r.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
                                      r.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
         return cell
+    }
+}
+
+extension CIRunsController {
+    /// Right-click a run or a job: its page on the site, and Re-run Failed for a failed run.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
+        switch item.kind {
+        case .run(let r):
+            if r.failed, let w = worktree {
+                menu.add(String(localized: "Fix with Agent")) { [weak self] in self?.fix(r, in: w) }
+                menu.add(String(localized: "Re-run Failed")) { [weak self] in self?.rerun(w, run: r.id) }
+            }
+            addLink(menu, r.url)
+        case .job(let j, _): if let u = j.url { addLink(menu, u) }
+        case .step: break
+        }
+    }
+
+    private func addLink(_ menu: NSMenu, _ url: String) {
+        menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Copy Link")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url, forType: .string) }
+    }
+    /// The run's failure typed into the workspace's agent, for the user to send.
+    private func fix(_ r: CIRuns.Run, in w: String) {
+        let app = app
+        guard let repo = app.worktree(w)?.repoId else { return }
+        Task {
+            let log = await app.call(GitHubFailedLog(repoId: repo, runId: r.id)) ?? ""
+            GitFix(app).send("fixCI", worktree: w, vars: ["check": r.workflow, "error": log])
+        }
     }
 }

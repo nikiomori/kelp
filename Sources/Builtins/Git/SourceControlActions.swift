@@ -272,16 +272,26 @@ extension SourceControlController {
             }
         case .commit(let i):
             let c = commits[i]
-            menu.add(String(localized: "Copy Commit Hash")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string) }
-            menu.add(String(localized: "Copy Commit Message")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(c.subject, forType: .string)
+            let wid = worktreeId
+            menu.add(String(localized: "Open in Browser")) {
+                Task {
+                    guard let found = await app.call(GitWebPages(worktreeId: wid)), let url = (found?.commitURL(c.hash)).flatMap(URL.init) else { return }
+                    NSWorkspace.shared.open(url)
+                }
             }
+            menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(text: "commit \(c.hash.prefix(10)) (\(c.subject))") }
+            menu.addItem(.separator())
+            let copies = NSMenu()
+            copies.add(String(localized: "Hash")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string) }
+            copies.add(String(localized: "Message")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.subject, forType: .string) }
+            menu.setSubmenu(copies, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
         case .commitFile(let h, let f):
             menu.add(String(localized: "Open Changes")) { [weak self] in
                 if let w = self?.worktreeId { app.workbench.open(DiffTab.uri(w, file: f.path, commit: h)) }
             }
             menu.add(String(localized: "Open File")) { [weak self] in self?.openFile(f) }
+            menu.addItem(.separator())
+            menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(f.path, forType: .string) }
         default: break
         }
     }

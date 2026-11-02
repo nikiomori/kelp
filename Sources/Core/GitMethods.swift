@@ -159,6 +159,8 @@ public struct GitWebPages: RPCMethod {
         public init(forge: String, repo: String, ci: String, pulls: String, issues: String) {
             self.forge = forge; self.repo = repo; self.ci = ci; self.pulls = pulls; self.issues = issues
         }
+        /// A commit's page, each site's way.
+        public func commitURL(_ hash: String) -> String { repo + (forge == "gitlab" ? "/-/commit/" : forge == "bitbucket" ? "/commits/" : "/commit/") + hash }
     }
     public var worktreeId: String?, repoId: String?
     public init(worktreeId: String? = nil, repoId: String? = nil) { self.worktreeId = worktreeId; self.repoId = repoId }

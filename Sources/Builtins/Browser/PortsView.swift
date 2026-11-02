@@ -95,8 +95,26 @@ final class PortsView: NSView {
         stop.isHidden = p.pid == nil
         for b in [copy, stop] { b.bezelStyle = .push; b.controlSize = .small }
         stop.toolTip = String(localized: "Stops \(p.command.isEmpty ? String(localized: "the process") : p.command) (PID \(Int(p.pid ?? 0)))")
-        let r = NSStackView(views: [link, what, NSView(), copy, stop]); r.spacing = 8
+        let r = PortRow(views: [link, what, NSView(), copy, stop]); r.spacing = 8
+        r.items = { m in
+            if p.isWeb { m.add(String(localized: "Open")) { link.performClick(nil) } }
+            m.add(String(localized: "Copy Address")) { copy.performClick(nil) }
+            if p.pid != nil {
+                m.addItem(.separator())
+                m.add(String(localized: "Stop")) { stop.performClick(nil) }
+            }
+        }
         r.widthAnchor.constraint(equalToConstant: 460).isActive = true
         return r
+    }
+}
+
+/// A port's row: its buttons again on a right-click.
+private final class PortRow: NSStackView {
+    var items: ((NSMenu) -> Void)?
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let m = NSMenu()
+        items?(m)
+        return m
     }
 }

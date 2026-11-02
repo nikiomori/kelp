@@ -222,7 +222,12 @@ final class PaneView: NSView {
         m.addItem(withTitle: String(localized: "Paste"), action: #selector(GhosttyTerminalView.paste(_:)), keyEquivalent: "").target = g
         m.addItem(withTitle: String(localized: "Select All"), action: #selector(GhosttyTerminalView.selectAll(_:)), keyEquivalent: "").target = g
         m.addItem(.separator())
+        let shell = app.session(sessionId)?.agent == "shell"
+        if shell, let text = g.selection, !text.isEmpty {   // a build's error, handed over without copying it
+            m.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
+        }
         m.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
+        if shell { m.add(String(localized: "Clear")) { _ = g.perform(action: "clear_screen") } }
         m.addItem(.separator())
         m.add(String(localized: "Split Right")) { [weak self] in self?.focus(); self?.app.workbench.editor?.splitFocused(.right) }
         m.add(String(localized: "Split Down")) { [weak self] in self?.focus(); self?.app.workbench.editor?.splitFocused(.down) }

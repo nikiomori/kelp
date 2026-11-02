@@ -21,8 +21,8 @@ struct RoutineDetail: View {
                 Spacer()
                 Button(String(localized: "Run Now")) { Task { await app.call(RoutineRun(id: routine.id)) } }
                     .disabled(runs.contains { [.running, .asked].contains($0.outcome) })
-                Button(String(localized: "Edit…")) { edit() }
-                Button(String(localized: "Delete…")) { delete() }
+                Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
+                Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
             }
             Text(routine.prompt).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Metrics.gapWide).background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM))
@@ -47,14 +47,20 @@ struct RoutineDetail: View {
     }
 
     private func save(_ r: Routine) { Task { await app.call(RoutineSet(routine: r)) } }
+}
 
-    private func edit() {
-        let app = self.app, r = routine
+/// Edit and Delete, from a routine's page and from its row's right-click.
+@MainActor
+struct RoutineActions {
+    let app: AppModel
+
+    func edit(_ r: Routine) {
+        let app = self.app
         Task { if let changed = await RoutineSheet.run(app, repoId: r.repoId, editing: r) { await app.call(RoutineSet(routine: changed)) } }
     }
 
-    private func delete() {
-        let app = self.app, r = routine
+    func delete(_ r: Routine) {
+        let app = self.app
         Task {
             let a = NSAlert()
             a.messageText = String(localized: "Delete “\(r.name)”?")

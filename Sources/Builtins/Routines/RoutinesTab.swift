@@ -136,6 +136,16 @@ struct WeekGrid: View {
         .padding(.horizontal, Metrics.inset)
         .frame(width: 220, alignment: .leading)
         .opacity(r.enabled ? 1 : 0.55)
+        .contextMenu {
+            Button(String(localized: "Run Now")) { run(r) }
+            Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(r) }
+            Button(r.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
+                var x = r; x.enabled.toggle()
+                Task { await app.call(RoutineSet(routine: x)) }
+            }
+            Divider()
+            Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(r) }
+        }
     }
 
     private func cell(_ r: Routine, _ day: Date) -> some View {

@@ -6,7 +6,7 @@ import KelpKit
 /// What each running session costs, like Activity Monitor for agents: CPU (100% = one core) and memory summed over
 /// everything under its terminal, busiest first, with Stop. Measured every two seconds while the panel shows.
 @MainActor
-final class ActivityController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+final class ActivityController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
@@ -31,6 +31,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.dataSource = self
         table.delegate = self
         table.target = self; table.doubleAction = #selector(open)
+        table.menu = NSMenu(); table.menu?.delegate = self
         let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
@@ -115,6 +116,12 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 10)
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         return rowView
+    }
+
+    func menuNeedsUpdate(_ m: NSMenu) {
+        m.removeAllItems()
+        guard rows.indices.contains(table.clickedRow) else { return }
+        AgentActions(app).addSessionItems(to: m, rows[table.clickedRow].session.id)
     }
 
     @objc private func open() {

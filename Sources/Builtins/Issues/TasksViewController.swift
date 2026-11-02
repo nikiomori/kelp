@@ -7,7 +7,7 @@ import KelpKit
 /// GitHub PRs / issues / Projects and Linear tasks for the selected project, with the actions that close the loop:
 /// issue → worktree + agent, failed check / review comments → agent, PR merge, Linear state.
 @MainActor
-final class TasksViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+final class TasksViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
@@ -52,9 +52,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         table.addTableColumn(col)
         table.headerView = nil
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
-        table.dataSource = self
-        table.delegate = self
+        table.dataSource = self; table.delegate = self
         table.style = .plain
+        table.menu = NSMenu(); table.menu?.delegate = self
         table.backgroundColor = .clear
         let ts = NSScrollView()
         ts.documentView = table
@@ -441,6 +441,33 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             // The merge runs in a workspace of the project (gh needs a checkout); the PR's own if it has one.
             guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else { NSSound.beep(); return }
             if await app.call(GitHubPRMerge(worktreeId: wid, pr: n)) != nil { status.stringValue = String(localized: "Merged #\(n)"); reload() }
+        }
+    }
+}
+
+extension TasksViewController {
+    // MARK: right-click
+    func menuNeedsUpdate(_ m: NSMenu) {
+        m.removeAllItems()
+        guard rows.indices.contains(table.clickedRow) else { return }
+        let r = rows[table.clickedRow]
+        if let brief = Self.brief(r) {
+            m.add(String(localized: "Start Agent on This")) { [weak self] in
+                self?.startTask(ref: brief.ref, title: brief.title, body: brief.body, url: brief.url)
+            }
+        }
+        guard let url = r.url else { return }
+        m.add(String(localized: "Open in Browser")) { Forge.open(url) }
+        m.addItem(.separator())
+        m.add(String(localized: "Copy Link")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url, forType: .string) }
+    }
+    /// What an agent starts from, for the rows it can start on.
+    private static func brief(_ r: Row) -> (ref: String, title: String, body: String, url: String)? {
+        switch r {
+        case .issue(let i): ("#\(i.number)", i.title, i.body, i.url)
+        case .linear(let l): (l.identifier, l.title, l.description ?? "", l.url)
+        case .jira(let j): (j.key, j.title, j.description, j.url)
+        case .pr, .item: nil
         }
     }
 }

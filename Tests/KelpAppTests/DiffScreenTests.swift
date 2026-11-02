@@ -130,8 +130,8 @@ extension AppOfItsOwn {
             vc.fileMenu(m, row: try #require(vc.diffs.firstIndex { $0.path == path }))
             return m.items.map(\.title)
         }
-        #expect(try fileItems("f.txt") == ["Stage"])
-        #expect(try fileItems("g.txt") == ["Unstage"])
+        #expect(try fileItems("f.txt") == ["Stage", "", "Open File", "Copy Path"])
+        #expect(try fileItems("g.txt") == ["Unstage", "", "Open File", "Copy Path"])
         vc.fileMenu(NSMenu(), row: -1)
 
         func lineItems(_ row: Int) -> [String] {
@@ -143,5 +143,7 @@ extension AppOfItsOwn {
         #expect(lineItems(comment) == ["Mark Resolved"])
         let plain = try #require(vc.rows.indices.first { $0 != comment })
         #expect(lineItems(plain).isEmpty)
+        let line = try #require(vc.rows.firstIndex { if case .diff(.line) = $0 { true } else if case .diff(.pair) = $0 { true } else { false } })
+        #expect(lineItems(line).contains("Add Comment…"))
     }
 }

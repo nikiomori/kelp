@@ -53,6 +53,10 @@ final class ImagePreview: NSImageView {
         for o in [NSLayoutConstraint.Orientation.horizontal, .vertical] { setContentCompressionResistancePriority(.defaultLow, for: o) }
         menu = NSMenu()
         menu?.add(String(localized: "Copy Image")) { [weak self] in self?.copy(nil) }
+        if let menu {
+            menu.addItem(.separator())
+            WorkspaceActions.addLocate(to: menu, path: url.path)
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
