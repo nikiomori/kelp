@@ -94,6 +94,9 @@ extension Builtins {
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },
+                      cmd("editor.findReferences", "Find References", "shift+f12") { fileTab(app)?.server.findReferences() },
+                      cmd("editor.rename", "Rename Symbol…", "f2") { fileTab(app)?.server.rename() },
+                      cmd("editor.quickFix", "Quick Fix…", "opt+return") { fileTab(app)?.server.quickFix() },
                       cmd("editor.showCompletions", "Show Completions", "ctrl+space") { CodeEditor.focused?.showCompletions() },
                       cmd("editor.showHover", "Show Hover", "ctrl+cmd+i") { CodeEditor.focused?.showHoverAtCursor() },
                       cmd("editor.nextProblem", "Next Problem", "f8") { CodeEditor.focused?.goToProblem(forward: true) },

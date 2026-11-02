@@ -507,6 +507,25 @@
         ],
         "type" : "object"
       },
+      "CodeAction" : {
+        "description" : "A fix or refactoring a server offers at a place, with what it changes.",
+        "properties" : {
+          "files" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CodeFileEdit"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "files",
+          "title"
+        ],
+        "type" : "object"
+      },
       "CodeCompletion" : {
         "description" : "One completion: what the list shows and what goes in.",
         "properties" : {
@@ -570,6 +589,25 @@
           "endLine",
           "line",
           "text"
+        ],
+        "type" : "object"
+      },
+      "CodeFileEdit" : {
+        "description" : "One file's part of a server's change, `edits` as it gave them.",
+        "properties" : {
+          "edits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CodeEdit"
+            },
+            "type" : "array"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "edits",
+          "path"
         ],
         "type" : "object"
       },
@@ -5992,6 +6030,51 @@
       }
     },
     {
+      "description" : "The fixes and refactorings a server offers on a 1-based line and column, those it can say the edits of.",
+      "name" : "lsp.actions",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "column",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/CodeAction"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The file's whole text now (sent as a notification while typing).",
       "name" : "lsp.change",
       "paramStructure" : "by-name",
@@ -6260,6 +6343,103 @@
         "schema" : {
           "items" : {
             "$ref" : "#/components/schemas/CodeProblem"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Where the symbol at a 1-based position is used, in files under `root`: each with its line's text, `path` from `root`.",
+      "name" : "lsp.references",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "column",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SearchMatch"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "What renaming the symbol at a 1-based position to `name` changes. Nothing is written: the app applies it.",
+      "name" : "lsp.rename",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "column",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/CodeFileEdit"
           },
           "type" : "array"
         }

@@ -36,6 +36,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// stdin writes, in order and off the caller's thread: a server that stops reading must not block the UI.
     private let writes = DispatchQueue(label: "kelp.lsp.stdin")
     private struct State {
+        var diagnostics: [String: [JSONValue]] = [:]   // as the server said them: a code action is asked with them
         var nextID = 1
         var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
         var versions: [String: Int] = [:]
@@ -114,7 +115,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         let id = m["id"].flatMap { $0 == .null ? nil : $0 }
         if let method = m["method"]?.string {   // a request (workspace/configuration) gets null; of the notifications, only diagnostics count
             if let id { send(["jsonrpc": "2.0", "id": id, "result": .null]) }
-            if method == "textDocument/publishDiagnostics", let p = m["params"], let (path, found) = Self.problems(p) { onProblems?(path, found) }
+            if method == "textDocument/publishDiagnostics", let p = m["params"], let (path, found) = Self.problems(p) {
+                state.withLock { $0.diagnostics[path] = p["diagnostics"]?.array }
+                onProblems?(path, found)
+            }
             return
         }
         guard let id = id?.int else { return }
@@ -161,7 +165,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         _ = try await request("initialize", .obj([
             "processId": .int(Int(ProcessInfo.processInfo.processIdentifier)), "rootUri": .string(uri),
             "workspaceFolders": .array([.obj(["uri": .string(uri), "name": .string((root as NSString).lastPathComponent)])]),
-            "capabilities": .obj(["textDocument": .obj(["definition": .obj([:]),
+            "capabilities": .obj(["textDocument": .obj(["definition": .obj([:]), "references": .obj([:]), "rename": .obj([:]),
+                                                   "codeAction": .obj(["codeActionLiteralSupport": .obj(["codeActionKind": .obj([
+                                                       "valueSet": .array(["quickfix", "refactor", "source"].map(JSONValue.string))
+                                                   ])])]),
                                                    "hover": .obj(["contentFormat": .array([.string("markdown"), .string("plaintext")])]),
                                                    "signatureHelp": .obj(["signatureInformation": .obj([
                                                        "parameterInformation": .obj(["labelOffsetSupport": true])
@@ -275,6 +282,67 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// From either shape of a documentSymbol result: nested `DocumentSymbol`s or flat `SymbolInformation`s. The smallest
     /// range wins; on a tie the later one (a child is visited after its parent).
+    public func references(_ path: String, line: Int, column: Int) async throws -> [CodeLocation] {
+        var params = at(path, line, column)
+        if case .object(var o) = params {
+            o["context"] = .obj(["includeDeclaration": true])
+            params = .object(o)
+        }
+        return (try await request("textDocument/references", params).array ?? []).compactMap { l in
+            guard let p = l["uri"]?.string.flatMap({ URL(string: $0)?.path }), let start = l["range"]?["start"] else { return nil }
+            return CodeLocation(path: p, line: (start["line"]?.int ?? 0) + 1, column: (start["character"]?.int ?? 0) + 1)
+        }
+    }
+
+    public func rename(_ path: String, line: Int, column: Int, to name: String) async throws -> [CodeFileEdit] {
+        var params = at(path, line, column)
+        if case .object(var o) = params {
+            o["newName"] = .string(name)
+            params = .object(o)
+        }
+        return Self.fileEdits(try await request("textDocument/rename", params))
+    }
+
+    /// The server's actions on a line, told the problems there: most quick fixes hang off them.
+    public func actions(_ path: String, line: Int, column: Int) async throws -> [CodeAction] {
+        let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        let all: [JSONValue] = state.withLock { $0.diagnostics[real] ?? $0.diagnostics[path] ?? [] }
+        let here = all.filter { (d: JSONValue) -> Bool in
+            guard let a = d["range"]?["start"]?["line"]?.int, let b = d["range"]?["end"]?["line"]?.int else { return false }
+            return a <= line - 1 && line - 1 <= b
+        }
+        let point: JSONValue = .obj(["line": .int(line - 1), "character": .int(column - 1)])
+        let found = try await request("textDocument/codeAction", .obj([
+            "textDocument": .obj(["uri": Self.uri(path)]), "range": .obj(["start": point, "end": point]), "context": .obj(["diagnostics": .array(here)])
+        ]))
+        return (found.array ?? []).compactMap { a in
+            guard let title = a["title"]?.string, let edit = a["edit"] else { return nil }   // a command to run: the server's, no use here
+            let files = Self.fileEdits(edit)
+            return files.isEmpty ? nil : CodeAction(title: title, files: files)
+        }
+    }
+
+    /// A WorkspaceEdit, in either of its shapes.
+    static func fileEdits(_ edit: JSONValue) -> [CodeFileEdit] {
+        func edits(_ list: JSONValue?) -> [CodeEdit] {
+            (list?.array ?? []).compactMap { e in
+                guard let a = e["range"]?["start"], let b = e["range"]?["end"], let l = a["line"]?.int, let c = a["character"]?.int,
+                      let el = b["line"]?.int, let ec = b["character"]?.int, let t = e["newText"]?.string else { return nil }
+                return CodeEdit(line: l, column: c, endLine: el, endColumn: ec, text: t)
+            }
+        }
+        var out: [CodeFileEdit] = []
+        for d in edit["documentChanges"]?.array ?? [] {
+            if let p = d["textDocument"]?["uri"]?.string.flatMap({ URL(string: $0)?.path }) { out.append(CodeFileEdit(path: p, edits: edits(d["edits"]))) }
+        }
+        if case .object(let changes)? = edit["changes"] {
+            for (uri, list) in changes.sorted(by: { $0.key < $1.key }) {
+                if let p = URL(string: uri)?.path { out.append(CodeFileEdit(path: p, edits: edits(list))) }
+            }
+        }
+        return out.filter { !$0.edits.isEmpty }
+    }
+
     public func hover(_ path: String, line: Int, column: Int) async throws -> String? {
         Self.hoverText(try await request("textDocument/hover", at(path, line, column)))
     }

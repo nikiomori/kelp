@@ -2226,6 +2226,16 @@
         }
       }
     },
+    "Changed %lld other files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменено других файлов: %lld."
+          }
+        }
+      }
+    },
     "Changed by you": {
       "localizations": {
         "ru": {
@@ -4420,6 +4430,16 @@
         }
       }
     },
+    "Every use changes, in every file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменятся все использования во всех файлах."
+          }
+        }
+      }
+    },
     "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.": {
       "extractionState": "manual",
       "localizations": {
@@ -4826,6 +4846,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Найти в проекте…"
+          }
+        }
+      }
+    },
+    "Find References": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти ссылки"
           }
         }
       }
@@ -7388,6 +7418,16 @@
         }
       }
     },
+    "No fixes here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь нечего исправить."
+          }
+        }
+      }
+    },
     "No matches for “%@”": {
       "localizations": {
         "ru": {
@@ -7424,6 +7464,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Профилей пока нет: агенты используют свой вход."
+          }
+        }
+      }
+    },
+    "No references found.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылок не найдено."
           }
         }
       }
@@ -8931,6 +8981,16 @@
         }
       }
     },
+    "Quick Fix…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрое исправление…"
+          }
+        }
+      }
+    },
     "Quick Look": {
       "localizations": {
         "ru": {
@@ -9412,6 +9472,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переименовать"
+          }
+        }
+      }
+    },
+    "Rename Symbol": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать символ"
+          }
+        }
+      }
+    },
+    "Rename Symbol…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать символ…"
+          }
+        }
+      }
+    },
+    "Rename “%@” to “%@” in %lld files?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать «%1$@» в «%2$@» в файлах: %3$lld?"
           }
         }
       }
@@ -9944,6 +10034,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранить"
+          }
+        }
+      }
+    },
+    "Save %@ first: the change reaches it too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала сохраните %@: изменение затрагивает и его."
           }
         }
       }
@@ -11730,6 +11830,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Расширение, которое показывает «%@», выключено или удалено."
+          }
+        }
+      }
+    },
+    "The language server can't rename this.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Языковой сервер не может это переименовать."
           }
         }
       }

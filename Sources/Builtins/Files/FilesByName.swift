@@ -68,6 +68,16 @@ extension FilesPanel {
         w.makeFirstResponder(search); search.currentEditor()?.selectAll(nil)
     }
 
+    /// A language server's list where a search's goes.
+    func show(references found: [SearchMatch]) {
+        searchBy(name: false)
+        search.stringValue = ""
+        matches = found
+        results.reloadData()
+        showContentResults(true)
+        noResults.show(nil)
+    }
+
     func findByName() {
         searchBy(name: true)
         view.window?.makeFirstResponder(search)

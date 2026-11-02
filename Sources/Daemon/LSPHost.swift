@@ -217,7 +217,8 @@ extension LSPHost {
 extension Methods {
     static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self]
     static let lspAsyncMethods: [any AsyncHandled.Type] = [
-        LSPDefinition.self, LSPCompletion.self, LSPSymbol.self, LSPSymbols.self, LSPHover.self, LSPSignature.self
+        LSPDefinition.self, LSPCompletion.self, LSPSymbol.self, LSPSymbols.self, LSPHover.self, LSPSignature.self,
+        LSPReferences.self, LSPRename.self, LSPActions.self
     ]
 }
 
@@ -291,5 +292,37 @@ extension LSPSignature: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> CodeSignature? {
         guard let c = await lsp.client(root, path) else { return nil }
         return try await c.signature(path, line: line, column: column)
+    }
+}
+
+extension LSPReferences: AsyncHandled {
+    func handle(_ lsp: LSPHost) async throws -> [SearchMatch] {
+        guard let c = await lsp.client(root, path) else { return [] }
+        let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
+        var texts: [String: [Substring]] = [:]
+        return try await c.references(path, line: line, column: column).compactMap { l in
+            let real = URL(fileURLWithPath: l.path).resolvingSymlinksInPath().path
+            guard real.hasPrefix(base) else { return nil }   // the toolchain's own files: the panel lists the project's
+            if texts[real] == nil {
+                let text = Log.session.attempt("reading \(real)") { try String(contentsOfFile: real, encoding: .utf8) }
+                texts[real] = text?.split(separator: "\n", omittingEmptySubsequences: false) ?? []
+            }
+            let text = texts[real].flatMap { $0.indices.contains(l.line - 1) ? String($0[l.line - 1]) : nil } ?? ""
+            return SearchMatch(path: String(real.dropFirst(base.count)), line: l.line, text: text.trimmingCharacters(in: .whitespaces))
+        }
+    }
+}
+
+extension LSPRename: AsyncHandled {
+    func handle(_ lsp: LSPHost) async throws -> [CodeFileEdit] {
+        guard let c = await lsp.client(root, path) else { return [] }
+        return try await c.rename(path, line: line, column: column, to: name)
+    }
+}
+
+extension LSPActions: AsyncHandled {
+    func handle(_ lsp: LSPHost) async throws -> [CodeAction] {
+        guard let c = await lsp.client(root, path) else { return [] }
+        return try await c.actions(path, line: line, column: column)
     }
 }

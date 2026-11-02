@@ -36,7 +36,7 @@ final class FileTab: SavableTab {
     private var lspOpenedOn: Int?
     /// Its version as the daemon pushes it (`AppModel.fileVersions`), while the tab is open.
     private let version: Watched
-    private let root: String
+    let root: String
     /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
     private let remote: Bool
     /// A remote image's or PDF's preview, once its copy is here.

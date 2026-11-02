@@ -1,3 +1,4 @@
+import Core
 import Testing
 import WorkbenchKit
 
@@ -48,4 +49,10 @@ indent_size = 8
     #expect(Indentation.cleaned("a", trim: false, finalNewline: true) == "a\n")
     #expect(Indentation.cleaned("", trim: true, finalNewline: true) == "")
     #expect(Indentation.cleaned("a  ", trim: false, finalNewline: false) == "a  ")
+}
+
+@Test func aServersEditsApplyAsOfTheTextTheyWereMadeFor() {
+    let edits = [CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 7, text: "total"), CodeEdit(line: 1, column: 6, endLine: 1, endColumn: 9, text: "total"),
+                 CodeEdit(line: 2, column: 0, endLine: 2, endColumn: 0, text: "// end\n")]
+    #expect(TextEdits.applied(edits, to: "let sum = 1\nprint(sum)\n") == "let total = 1\nprint(total)\n// end\n")
 }

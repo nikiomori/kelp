@@ -197,3 +197,12 @@ private func lines(_ log: String) -> [String] {
     #expect(found[0].insert == "aa" && found[0].edit?.column == 2 && found[0].more?.first?.text == "import a\n")
     #expect(found[1].kind == "method" && found[1].snippet == true && found[1].documentation == "doc")
 }
+
+@Test func aWorkspaceEditComesInEitherShape() {
+    let edit: JSONValue = .obj(["range": .obj(["start": .obj(["line": .int(0), "character": .int(1)]), "end": .obj(["line": .int(0), "character": .int(3)])]),
+                                "newText": .string("x")])
+    let changes = LSPClient.fileEdits(.obj(["changes": .obj(["file:///a.swift": .array([edit]), "file:///b.swift": .array([])])]))
+    #expect(changes == [CodeFileEdit(path: "/a.swift", edits: [CodeEdit(line: 0, column: 1, endLine: 0, endColumn: 3, text: "x")])])
+    let doc = LSPClient.fileEdits(.obj(["documentChanges": .array([.obj(["textDocument": .obj(["uri": .string("file:///c.swift")]), "edits": .array([edit])])])]))
+    #expect(doc.map(\.path) == ["/c.swift"])
+}

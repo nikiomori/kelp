@@ -10,10 +10,18 @@ extension FileTab {
     var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
     var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
 
+    /// What the language server can change or find from here.
+    var server: ServerActions { ServerActions(app: app, tab: self, root: root) }
+
     func contextMenu(_ m: NSMenu) {
         let app = self.app, path = self.path
         let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
-        if language?.server != nil { m.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() } }
+        if language?.server != nil {
+            m.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() }
+            m.add(String(localized: "Find References")) { [weak self] in self?.server.findReferences() }
+            m.add(String(localized: "Rename Symbol…")) { [weak self] in self?.server.rename() }
+            m.add(String(localized: "Quick Fix…")) { [weak self] in self?.server.quickFix() }
+        }
         if let p = editor?.problemAtCursor {
             m.add(String(localized: "Fix with Agent")) { FileActions(app).sendToAgent(text: "\(path):\(p.line + 1): \(p.message)") }
         }

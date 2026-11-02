@@ -65,6 +65,25 @@ extension CodeEditor {
         tv.setCursors(snippetStops[0])
     }
 
+    /// A server's edits, one undo, the cursors staying where they are.
+    public func perform(_ edits: [TextEdit]) {
+        let s = textView.string as NSString
+        let sorted = edits.map { (range($0, in: s), $0.text) }.sorted { $0.0.location < $1.0.location }
+        textView.replace(sorted.map(\.0), with: sorted.map(\.1), keep: true)
+    }
+
+    /// The word at the cursor.
+    public var wordAtCursor: String {
+        let s = textView.string as NSString
+        return s.substring(with: Self.word(at: textView.selectedRange().location, in: s))
+    }
+
+    /// Under the cursor, as a menu of what can be done there.
+    public func popUpAtCursor(_ menu: NSMenu) {
+        let r = textView.caretRect(at: textView.selectedRange().location)
+        menu.popUp(positioning: nil, at: NSPoint(x: r.minX, y: r.maxY), in: textView)
+    }
+
     /// ⇥ in a snippet: on to the next stop, moved by what was typed at this one. Past the last the snippet is over.
     /// False when no snippet is going on, or the cursors left it.
     func nextSnippetStop() -> Bool {

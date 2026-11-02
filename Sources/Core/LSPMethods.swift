@@ -52,6 +52,18 @@ public struct CodeEdit: Codable, Sendable, Equatable {
     }
 }
 
+/// One file's part of a server's change, `edits` as it gave them.
+public struct CodeFileEdit: Codable, Sendable, Equatable {
+    public var path: String, edits: [CodeEdit]
+    public init(path: String, edits: [CodeEdit]) { self.path = path; self.edits = edits }
+}
+
+/// A fix or refactoring a server offers at a place, with what it changes.
+public struct CodeAction: Codable, Sendable, Equatable {
+    public var title: String, files: [CodeFileEdit]
+    public init(title: String, files: [CodeFileEdit]) { self.title = title; self.files = files }
+}
+
 /// Why no server runs for a file: what the app asks or offers (trust the project, install the server).
 public enum LSPRefusal: Codable, Sendable, Equatable {
     /// A project's language servers run its own code (build scripts, Package.swift, its node_modules): not before the
@@ -141,6 +153,29 @@ public struct LSPHover: InternalMethod {
 /// The signature of the call around a 1-based position.
 public struct LSPSignature: InternalMethod {
     public static let name = "lsp.signature"; public typealias Result = CodeSignature?
+    public var root: String, path: String, line: Int, column: Int
+    public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
+}
+
+/// Where the symbol at a 1-based position is used, in files under `root`: each with its line's text, `path` from `root`.
+public struct LSPReferences: InternalMethod {
+    public static let name = "lsp.references"; public typealias Result = [SearchMatch]
+    public var root: String, path: String, line: Int, column: Int
+    public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
+}
+
+/// What renaming the symbol at a 1-based position to `name` changes. Nothing is written: the app applies it.
+public struct LSPRename: InternalMethod {
+    public static let name = "lsp.rename"; public typealias Result = [CodeFileEdit]
+    public var root: String, path: String, line: Int, column: Int, name: String
+    public init(root: String, path: String, line: Int, column: Int, name: String) {
+        self.root = root; self.path = path; self.line = line; self.column = column; self.name = name
+    }
+}
+
+/// The fixes and refactorings a server offers on a 1-based line and column, those it can say the edits of.
+public struct LSPActions: InternalMethod {
+    public static let name = "lsp.actions"; public typealias Result = [CodeAction]
     public var root: String, path: String, line: Int, column: Int
     public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
 }

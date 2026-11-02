@@ -52,3 +52,19 @@ extension AppOfItsOwn {
         #expect(kept.count == 60)
     }
 }
+
+extension AppOfItsOwn {
+    /// A server's change: the tab's own file in its buffer, for its undo; another file written; one with unsaved edits holds it all.
+    @Test func aServersChangeReachesTheBufferAndOtherFiles() async throws {
+        let rig = try await AppRig(files: ["a.txt": "old\n", "b.txt": "old\n"]); defer { rig.done() }
+        rig.app.worktrees = [rig.workspace]
+        let a = rig.workspace.path + "/a.txt", b = rig.workspace.path + "/b.txt"
+        let tab = FileTab(uri: TabURI.file(a), app: rig.app)
+        await tab.loading?.value
+        let edit = [CodeEdit(line: 0, column: 0, endLine: 0, endColumn: 3, text: "new")]
+        await tab.server.apply([CodeFileEdit(path: a, edits: edit), CodeFileEdit(path: b, edits: edit)])
+        #expect(tab.editor?.text == "new\n")
+        #expect(try String(contentsOfFile: b, encoding: .utf8) == "new\n")
+        #expect(try String(contentsOfFile: a, encoding: .utf8) == "old\n")   // unsaved, as a typed change is
+    }
+}
