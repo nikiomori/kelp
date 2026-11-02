@@ -94,6 +94,10 @@ extension Builtins {
                           app.workbench.showPanel("files")
                           DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findInFiles() }   // after the panel is built
                       },
+                      cmd("files.findByName", "Find File by Name…") {
+                          app.workbench.showPanel("files")
+                          DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findByName() }   // after the panel is built
+                      },
                       cmd("editor.goToLine", "Go to Line…", "cmd+l") { if fileTab(app) != nil { app.quickOpen.show(commandsOnly: false, text: ":") } },
                       cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
                       // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D, ⌘[ ⌘]: see EditorBox.

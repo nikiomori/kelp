@@ -21,12 +21,12 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     let results = ResultsTable()
     let search = NSSearchField()
     let leftScroll = NSScrollView(), resultsScroll = NSScrollView()
-    private var nodes: [FileNode] = []
-    private var status: [String: FileChange] = [:]
+    var nodes: [FileNode] = []
+    var status: [String: FileChange] = [:]
     /// Folders with a changed file somewhere under them (a grey dot).
     private var changedFolders = Set<String>()
     /// The paths the tree was built from (listed, ignored): an edit that adds or removes none only changes badges.
-    private var shownPaths: ([String], [String]?)?
+    var shownPaths: ([String], [String]?)?
     /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
     private var opened: [String: [String]] = [:]
     var matches: [SearchMatch] = []
@@ -50,7 +50,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.target = self; outline.action = #selector(openSelected)
         outline.registerForDraggedTypes([.fileURL]); outline.setDraggingSourceOperationMask([.copy, .move], forLocal: false)
         outline.onSpace = { [weak self] in self?.togglePreview() }
-        outline.onReturn = { [weak self] in self?.rename() }
+        outline.onReturn = { [weak self] in if self?.isNarrowed == true { self?.openSelected() } else { self?.rename() } }
         outline.onDelete = { [weak self] in self?.trashSelected() }
         outline.menu = NSMenu()
         outline.menu?.delegate = self
@@ -71,7 +71,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         resultsScroll.isHidden = true
         resultsScroll.drawsBackground = false
         // One field, like Finder's: empty shows the tree, a search (↩) shows matches in their place, clearing it goes back.
-        search.placeholderString = String(localized: "Search in Files")
+        setUpSearchMode()
         search.target = self
         search.action = #selector(runSearch)
         search.sendsSearchStringImmediately = false
@@ -148,13 +148,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         m.add(String(localized: "Move to Trash")) { [weak self] in self?.trash({ [path] }, undo: String(localized: "Move to Trash")) }
     }
 
-    /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
-    func findInFiles() {
-        guard let w = view.window else { return }
-        if w.firstResponder === search.currentEditor() { app.workbench.editor?.focusSelected(); return }
-        w.makeFirstResponder(search); search.currentEditor()?.selectAll(nil)
-    }
-
     private func reloadIcons() { outline.reloadData(forRowIndexes: IndexSet(0..<outline.numberOfRows), columnIndexes: [0]) }
 
     private func bind(_ wid: String?) {
@@ -224,7 +217,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let selected = (outline.item(atRow: outline.selectedRow) as? FileNode)?.path
         let places = outline.rowPlaces(rowKey)
         showFadedRows()
-        nodes = FileNode.tree(paths, ignored: e.ignored ?? [])
+        nodes = treeShown(paths, ignored: e.ignored ?? [])
         // outer first
         for f in opened.keys.sorted(by: { $0.count < $1.count }) { FileNode.find(f, in: nodes).map { if $0.ignored { $0.read(opened[f] ?? []) } } }
         outline.reloadData()
@@ -235,6 +228,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             }
         }
         expand(nodes)
+        if isNarrowed { outline.expandItem(nil, expandChildren: true) }
         if let selected, let n = node(at: selected) { outline.selectRowIndexes([outline.row(forItem: n)], byExtendingSelection: false) }
         outline.settleRows(from: places, rowKey)
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { QLPreviewPanel.shared().reloadData() }
@@ -462,6 +456,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     let noResults = EmptyStateView()
     let typing = Debounce()
     var searchOptions = SearchOptions()
+    /// What the field looks through: names narrow the tree in place, contents list matches instead of it.
+    var byName = UserDefaults.standard.bool(forKey: "files.searchByName")
     private(set) lazy var resultsTop = resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
     private(set) lazy var caseToggle = SearchToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
     private(set) lazy var wordToggle = SearchToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }

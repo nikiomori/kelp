@@ -55,7 +55,7 @@ extension FilesPanel {
     /// They come with a search: an empty field keeps its room for the name of what you're after, unless one is on.
     func showSearchOptions() {
         let keys: [(SearchToggle, Bool)] = [(caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord), (regexToggle, searchOptions.regex)]
-        let shown = !search.stringValue.isEmpty || searchOptions != SearchOptions()
+        let shown = !byName && (!search.stringValue.isEmpty || searchOptions != SearchOptions())
         for (button, on) in keys {
             button.isOn = on
             button.isHidden = !shown

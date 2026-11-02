@@ -128,7 +128,7 @@ extension AppDelegate {
             let i = find.addItem(withTitle: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
             i.keyEquivalentModifierMask = mods; i.tag = Int(action.rawValue)
         }
-        b.add(find, "files.findInWorkspace")
+        b.add(find, "files.findInWorkspace", "files.findByName")
         b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
         b.add(edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.jumpToDefinition", "editor.sendToAgent",

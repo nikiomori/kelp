@@ -4166,6 +4166,16 @@
         }
       }
     },
+    "File Contents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Содержимое файлов"
+          }
+        }
+      }
+    },
     "File icon theme": {
       "extractionState": "manual",
       "localizations": {
@@ -4204,6 +4214,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя файла, например plan-login.md"
+          }
+        }
+      }
+    },
+    "File Names": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имена файлов"
           }
         }
       }
@@ -4267,6 +4287,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Найти"
+          }
+        }
+      }
+    },
+    "Find File by Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти файл по имени"
+          }
+        }
+      }
+    },
+    "Find File by Name…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти файл по имени…"
           }
         }
       }

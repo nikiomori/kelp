@@ -9,6 +9,7 @@ import KelpKit
 @MainActor
 extension FilesPanel {
     // MARK: search
+    func showContentResults(_ on: Bool) { showResults(on) }
     private func showResults(_ on: Bool) {
         resultsScroll.isHidden = !on
         leftScroll.isHidden = on || !loadError.isHidden
@@ -22,7 +23,7 @@ extension FilesPanel {
     func controlTextDidChange(_ n: Notification) {
         guard n.object as? NSSearchField === search else { return }
         showSearchOptions()
-        typing.after(0.25) { [weak self] in self?.runSearch() }
+        typing.after(byName ? 0.1 : 0.25) { [weak self] in if self?.byName == true { self?.narrowTree() } else { self?.runSearch() } }
     }
     /// ↓ from the field goes into the results; ↩ there opens the line.
     func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
@@ -31,11 +32,21 @@ extension FilesPanel {
             view.window?.makeFirstResponder(outline)
             return true
         }
+        if c === search, sel == #selector(NSResponder.moveDown(_:)), byName, outline.numberOfRows > 0 {
+            view.window?.makeFirstResponder(outline)
+            outline.selectRowIndexes([firstFileRow ?? 0], byExtendingSelection: false)
+            return true
+        }
         guard c === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden else { return false }
         view.window?.makeFirstResponder(results); results.selectRowIndexes([0], byExtendingSelection: false)
         return true
     }
     @objc func runSearch() {
+        guard !byName else {
+            narrowTree()
+            openFirstOnReturn()
+            return
+        }
         guard let w = worktree else { return }
         let q = search.stringValue.trimmingCharacters(in: .whitespaces)
         showResults(!q.isEmpty)
