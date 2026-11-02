@@ -224,7 +224,7 @@ private func codeOnly(_ s: String) -> String {
     let clocks: [String: String] = [
         "KelpKit/AppDelegate.swift": "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch",
         "KelpKit/Sidebar/SidebarController.swift": "relative times on the rows (\"now\" becomes \"1m\")",
-        "KelpKit/AppModel.swift": "connecting: waiting for the socket, retries and backoff",
+        "KelpKit/AppModel.swift": "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that",
         "KelpKit/Notifier.swift": "a notification's summary waits a moment for the agent's last line",
         "KelpKit/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",

@@ -368,6 +368,20 @@ extension OneAtATime {
     #expect(await Shell.exec(rig.app, ["/bin/echo", "hi"]).code == -1)   // the app runs nothing itself
 }
 
+/// A daemon that's connected and doesn't answer is told apart from one that answers, and from a connection that ended.
+@Test func aHungDaemonIsNoticed() async throws {
+    let rig = try await AppRig(files: [:]); defer { rig.done() }
+    #expect(await AppModel.answers(rig.client, within: 5))
+    let path = rig.root.appendingPathComponent("h.sock").path, fd = socket(AF_UNIX, SOCK_STREAM, 0)
+    defer { close(fd) }
+    var a = sockaddr_un()
+    a.sun_family = sa_family_t(AF_UNIX)
+    _ = withUnsafeMutableBytes(of: &a.sun_path) { path.utf8CString.withUnsafeBytes($0.copyMemory) }
+    _ = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+    listen(fd, 1)   // never accepted: it connects, and nothing ever answers
+    #expect(await !AppModel.answers(try RPCClient(socket: path), within: 0.3))
+}
+
 /// An agent CLI that answered `--version` in the last day isn't started again until it changes.
 @Test func agentThatRanIsNotStartedAgain() async throws {
     let rig = try await AppRig(files: [:]); defer { rig.done() }

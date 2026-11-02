@@ -206,7 +206,10 @@ package final class AppModel {
         await settings.load()
         await refresh()
         connected = client === c   // after the lists: what waits for the connection finds the projects in
-        if connected { connections += 1 }
+        if connected {
+            connections += 1
+            watchLife(c)
+        }
         published = nil; publishRefused = false   // a new daemon knows nothing yet
         publishUIState()
         for w in watching.keys { c.notify(w) }   // what the views watch, told to this daemon too
@@ -229,16 +232,39 @@ package final class AppModel {
     /// After an app update the running daemon may be older. It takes the update over in place when it can (`daemon.upgrade`:
     /// agents keep running); else it restarts right away when no agent is running, and otherwise asks, because restarting
     /// ends running sessions. Returns true when an upgrade or a restart is in progress.
+    private func sayNotAnswering() {
+        Banner.show(String(localized: "Kelp's background service isn't answering."), style: .error,
+                    action: (String(localized: "Restart It"), { Task { await self.restartDaemon() } }))
+    }
+
+    /// A kelpd that's connected and hung never says so: what's quiet stays quiet, and a person's action waits for minutes.
+    /// Two looks in a row without an answer say so, with the way out. A connection that ended is `onClose`'s.
+    private func watchLife(_ c: RPCClient) {
+        Task { [weak self] in
+            var missed = 0
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                guard let self, client === c else { return }
+                missed = await Self.answers(c, within: 10) ? 0 : missed + 1
+                if missed == 2 { sayNotAnswering() }
+            }
+        }
+    }
+
+    static func answers(_ c: RPCClient, within seconds: TimeInterval) async -> Bool {
+        do {
+            _ = try await c.call(DaemonInfo(), timeout: seconds)
+            return true
+        } catch { return (error as? RPCError)?.isNoReply != true }
+    }
+
     private func checkDaemonVersion(_ c: RPCClient) async -> Bool {
         guard let mine = (try? FileManager.default.attributesOfItem(atPath: bundledDaemon.path)[.modificationDate] as? Date)?.timeIntervalSince1970
         else { return false }
         let info: DaemonInfo.Result
         do { info = try await c.call(DaemonInfo()) } catch {
             // Connected, and it doesn't answer: the lists asked for next would leave an empty window for minutes, with no word why.
-            if (error as? RPCError)?.isNoReply == true {
-                Banner.show(String(localized: "Kelp's background service isn't answering."), style: .error,
-                            action: (String(localized: "Restart It"), { Task { await self.restartDaemon() } }))
-            }
+            if (error as? RPCError)?.isNoReply == true { sayNotAnswering() }
             return false
         }
         // Older daemons don't report binaryMTime (and their "mtime" was read from disk, i.e. already the new file): restart them.

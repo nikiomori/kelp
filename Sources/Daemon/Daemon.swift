@@ -227,6 +227,11 @@ public final class Daemon: Sendable {
         }
         // A clone or a worktree being made finishes, not cut off mid-way; none starts from here (a client is told why). A
         // clone that takes longer is cancelled: past the exec nothing here would remove its half-made folder.
+        // Limit: past here its steps can't be undone from outside if one hangs. It's written down, and the app sees a daemon
+        // that stopped answering (`watchLife`) and offers to restart it.
+        let late = DispatchWorkItem { Log.start.fault("the hand-over hasn't reached its exec in 30 s") }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 30, execute: late)
+        defer { late.cancel() }
         offloads.close()
         offloads.waitIdle(seconds: checked ? 3 : 5)
         forges.clones.cancelAll()
