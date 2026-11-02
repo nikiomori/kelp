@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import TerminalKit
 import WebKit
 import WorkbenchKit
@@ -147,7 +148,7 @@ extension AppDelegate {
         // Web content is drawn out of process and may be missing from the PNG: report what the page really shows
         // (not under a sheet: its run loop may not deliver the script's answer).
         let webs = v.allSubviews(of: WKWebView.self)
-        guard !webs.isEmpty, w.attachedSheet == nil else { exit(0) }
+        guard !webs.isEmpty, w.attachedSheet == nil else { finishSnapshot(); return }
         var left = webs.count
         for (i, web) in webs.enumerated() {
             web.evaluateJavaScript("document.body ? [document.body.innerText.length, document.querySelectorAll('svg').length] : [-1, 0]") { r, _ in
@@ -157,14 +158,14 @@ extension AppDelegate {
                 // What the page draws, as "<name>-web<i>.png" (it's out of process, so not in the window's PNG).
                 guard visible else {
                     left -= 1
-                    if left == 0 { exit(0) }
+                    if left == 0 { self.finishSnapshot() }
                     return
                 }
                 web.takeSnapshot(with: nil) { img, _ in
                     if let t = img?.tiffRepresentation, let png = NSBitmapImageRep(data: t)?.representation(using: .png, properties: [:]) {
                         try? png.write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-web\(i).png")))
                     }
-                    left -= 1; if left == 0 { exit(0) }
+                    left -= 1; if left == 0 { self.finishSnapshot() }
                 }
             }
         }
@@ -173,6 +174,17 @@ extension AppDelegate {
 
 extension AppDelegate {
     static var hovered = false
+    /// Quits, and takes along the daemon the app started in a KELP_HOME of the snapshot's own: each one would stay behind.
+    /// Never one under ~/.kelp*, a home someone lives in.
+    private func finishSnapshot() {
+        let home = Paths.root.path
+        guard getenv("KELP_HOME") != nil, !home.hasPrefix(NSHomeDirectory() + "/.kelp") else { exit(0) }
+        Task {
+            await app.quiet(DaemonShutdown())
+            exit(0)
+        }
+    }
+
     static func hover(_ text: String, in root: NSView, window: NSWindow) {
         guard let label = root.allSubviews(of: NSTextField.self).first(where: { $0.stringValue == text }) else { print("HOVER no", text); return }
         var v: NSView? = label
