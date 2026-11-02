@@ -38,14 +38,12 @@ extension AppOfItsOwn {
         window.contentView = field
         var kept = ""
         field.onChange = { kept = $0 }
-        field.value = "x"   // one character: one row at any width, and the field may not be laid out yet
-        window.layoutIfNeeded()
+        field.layoutSubtreeIfNeeded()
+        field.value = "x"
         let one = field.fittingSize.height
         field.value = "1\n2\n3"
-        window.layoutIfNeeded()
         #expect(abs(field.fittingSize.height - one * 3) <= 3)
         field.value = String(repeating: "x\n", count: 30)
-        window.layoutIfNeeded()
         #expect(abs(field.fittingSize.height - one * 6) <= 6)
         #expect(kept.count == 60)
     }

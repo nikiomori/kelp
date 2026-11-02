@@ -53,9 +53,12 @@ final class StartPrompt: NSView, NSTextViewDelegate {
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
+    /// The text's width said outright: left to follow the view, its container can stay at the zero it was made with, and
+    /// then every character takes a row.
     override func layout() {
         super.layout()
-        text.frame.size.width = scroll.contentSize.width
+        text.frame.size.width = bounds.width
+        text.textContainer?.size = NSSize(width: bounds.width, height: .greatestFiniteMagnitude)
         fit()
     }
 
