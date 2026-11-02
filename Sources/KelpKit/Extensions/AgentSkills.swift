@@ -19,7 +19,7 @@ enum AgentSkills {
             body: settingsGuide(app))
         put("kelp-terminals", on: s.bool("agents.skills.terminals") != false,
             description: "Use when you run tests, a build or a dev server, or work through a long multi-step task, in Kelp, the IDE this session runs "
-                + "in: run the command in a Kelp tab the user can watch, wait for it, read what it printed, and show your progress on your row.",
+                + "in: run the command where the user can watch it, wait for it, read what it printed, and show your progress on your row.",
             body: terminalsGuide)
         put("kelp-agents", on: s.bool("agents.skills.agents") != false,
             description: "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
@@ -53,13 +53,16 @@ enum AgentSkills {
     private static let terminalsGuide = """
         # Running commands in Kelp tabs
 
-        This session runs inside Kelp and the `kelp` CLI is on PATH. Tests, builds and servers go in a tab of this
-        workspace, where the user sees them and can run them again; quick commands (git status, ls) stay in your shell.
+        This session runs inside Kelp and the `kelp` CLI is on PATH. Tests, builds and servers go through it: they show on a
+        line under your terminal, where the user can open them, stop them or run them again, and nothing on their screen
+        moves. Quick commands (git status, ls) stay in your shell.
 
-        - `kelp session new --cmd "swift test" --split down --wait` — a tab below yours runs it; prints the tab's session
-          id, then exits with the command's exit code when it ends.
-        - `kelp session new --cmd "npm run dev" --split down` — something that keeps running; prints the session (`id`).
-        - `kelp terminal read <id> [bytes]` — what the tab printed (the last 8 KB), e.g. which tests failed.
+        - `kelp session new --cmd "swift test" --wait` — runs it; prints its session id, then exits with the command's exit
+          code when it ends.
+        - `kelp session new --cmd "npm run dev"` — something that keeps running; prints the session (`id`).
+        - `--title "unit tests"` names it; without one it's called by what it runs.
+        - `--split down` only if the user asks to see it beside you: it takes half of a pane.
+        - `kelp terminal read <id> [bytes]` — what it printed (the last 8 KB), e.g. which tests failed.
         - `kelp wait <id> [--for done,waiting,idle,exited] [--timeout 10m]` — until it stops working, or reaches one of
           those; prints the state, and exits with the command's exit code once it ended.
         - `kelp report working "Migrating table 3 of 10" --progress 30` — on a long multi-step task, what you're doing

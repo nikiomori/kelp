@@ -154,7 +154,7 @@ Everything the window does, `kelp` does too, so agents can drive Kelp as well (`
 ```sh
 kelp status
 kelp session new --agent claude                        # in the current folder's workspace
-kelp session new --cmd "npm test" --split down --wait  # beside yours; exits with its code
+kelp session new --cmd "npm test" --wait               # on your line; exits with its code
 kelp open Sources/App.swift:42 --split right           # a tab in the app
 kelp worktree create feat/login | list | current | note "half done"
 kelp terminal list | read <id> | send <id> "run the tests" | context <id>
