@@ -20,7 +20,7 @@ struct AgentsSettings: View {
     @State private var selection: String? = "claude"
     @State private var query = ""
     @State private var show = Show.all
-    private enum Show { case all, installed, available }
+    private enum Show: Int { case all, installed, available }
     @State private var command = ""
     @State private var args = ""
     @State private var env = ""
@@ -41,13 +41,9 @@ struct AgentsSettings: View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Search agents", text: $query, prompt: Text("Search agents")).textFieldStyle(.roundedBorder).labelsHidden()
-                // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install. The counts sit on the
-                // sections: in the segments they made the control wider than the column (Russian), pushing the list off the pane.
-                Picker("Show", selection: $show) {
-                    Text("All").tag(Show.all)
-                    Text("Installed").tag(Show.installed)
-                    Text("Available").tag(Show.available)
-                }.pickerStyle(.segmented).labelsHidden()
+                // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
+                ColumnSegments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                               selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
                 // What's on this Mac first; the rest under it, greyed, to install from the card.
                 List(selection: $selection) {
                     let shown = agents.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
@@ -330,6 +326,33 @@ struct AgentsSettings: View {
         reload(); saved = true
         app.agents = AgentManifest.load(dir: Paths.agents)
         app.availability.refresh(force: true)
+    }
+}
+
+/// Segments exactly as wide as their column, in any language. A segmented Picker can ask for three times its longest label
+/// (321 pt in Russian): a 250 pt column then centres on it, sliding off the pane on the left and over the card on the right.
+private struct ColumnSegments: NSViewRepresentable {
+    let labels: [String]
+    @Binding var selection: Int
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let s = NSSegmentedControl(labels: labels, trackingMode: .selectOne, target: context.coordinator, action: #selector(Coordinator.changed))
+        s.segmentDistribution = .fillProportionally
+        return s
+    }
+    func updateNSView(_ s: NSSegmentedControl, context: Context) {
+        context.coordinator.selection = $selection
+        s.selectedSegment = selection
+    }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView s: NSSegmentedControl, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? s.intrinsicContentSize.width, height: s.intrinsicContentSize.height)
+    }
+    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    final class Coordinator: NSObject {
+        var selection: Binding<Int>
+        init(selection: Binding<Int>) { self.selection = selection }
+        @objc func changed(_ s: NSSegmentedControl) { selection.wrappedValue = s.selectedSegment }
     }
 }
 
