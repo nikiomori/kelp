@@ -103,6 +103,19 @@ import PDFKit
     }
 }
 
+/// A link from a forge's API goes to `open`: a self-hosted one answering `terminal:?cmd=…` starts nothing. `runURI` still does.
+@MainActor @Test func aLinkFromElsewhereRunsNothing() async throws {
+    let rig = try await AppRig(files: [:]); defer { rig.done() }
+    let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
+    area.open("terminal:?cmd=echo%20hi")
+    area.open("agent:?prompt=hi")
+    try await Task.sleep(for: .seconds(1))
+    #expect(try await rig.app.get(SessionList()).isEmpty)
+    area.runURI("terminal:?cmd=echo%20hi")
+    for _ in 0..<100 where try await rig.app.get(SessionList()).isEmpty { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await rig.app.get(SessionList()).count == 1)
+}
+
 /// An extension's own terminal: or agent: template takes an item's values as its other actions do: in a command as
 /// shell variables (a title's `; curl … | sh` runs nothing), in a prompt typed for the user to send, never in a tmux name.
 @MainActor @Test func anExtensionsRunTemplateKeepsValuesAsData() {

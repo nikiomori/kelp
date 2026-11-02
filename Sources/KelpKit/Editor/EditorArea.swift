@@ -327,7 +327,7 @@ package final class EditorArea: NSViewController {
         let s = StartView(app: app, worktree: w)
         s.onAgent = { [weak self] agent in self?.newAgent(agent) }
         s.onPrompt = { [weak self] agent, text in self?.newAgent(agent, prompt: text) }
-        s.onOpen = { [weak self] uri in self?.open(uri) }
+        s.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
         s.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self) } }
         start = s
         view.pin(s)

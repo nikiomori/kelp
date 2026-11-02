@@ -16,18 +16,20 @@ extension EditorArea {
         publishFocus(); scheduleSave()
     }
 
-    /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it.
+    /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came
+    /// from elsewhere: those go through `open`, which only shows things.
+    func runURI(_ uri: String, split: SplitDirection? = nil) {
+        let q = URLComponents(string: uri)
+        func value(_ name: String) -> String? { q?.queryItems?.first { $0.name == name }?.value }
+        if TabURI.scheme(uri) == "agent" { newAgent(q?.path.isEmpty == false ? q?.path : nil, prompt: value("prompt"), split: split) }
+        else if let name = value("tmux") { newTmux(name, split: split) }
+        else { run(command: value("cmd"), title: value("title"), split: split) }
+    }
+
+    /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it. Only shows:
+    /// callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…` starts nothing.
     func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
-        switch TabURI.scheme(uri) {
-        case "agent":
-            let q = URLComponents(string: uri)
-            newAgent(q?.path.isEmpty == false ? q?.path : nil, prompt: q?.queryItems?.first { $0.name == "prompt" }?.value, split: split); return
-        case "terminal":
-            let q = URLComponents(string: uri)
-            if let name = q?.queryItems?.first(where: { $0.name == "tmux" })?.value { newTmux(name, split: split); return }
-            run(command: q?.queryItems?.first { $0.name == "cmd" }?.value, title: q?.queryItems?.first { $0.name == "title" }?.value, split: split); return
-        default: break
-        }
+        guard !TabURI.runs(uri) else { return }
         // A page already open stays where it is, even when asked for beside you: a second click must not move it.
         if let t = layout.pageTab(for: uri) { select(t.id, focus: focus); return }
         // A file already open (at another line): that tab, moved to the line asked for.

@@ -273,7 +273,7 @@ struct ExtActions {
             switch run {
             case .agent(let agent, let prompt): app.workbench.editor?.newAgent(agent, prompt: prompt, draft: true)
             case .terminal(let command, let title): app.workbench.editor?.run(command: command, title: title ?? a.title)
-            case .tmux(let name): app.workbench.open("terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
+            case .tmux(let name): app.workbench.runURI("terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
             }
         }
         else if let o = a.open {

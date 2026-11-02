@@ -10,6 +10,8 @@ public enum TabURI {
         guard let i = uri.firstIndex(of: ":") else { return uri }
         return String(uri[uri.index(after: i)...])
     }
+    /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
+    public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
     public static func session(_ id: String) -> String { "session:\(id)" }
     public static func file(_ path: String, line: Int? = nil) -> String {
         "file://" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path) + (line.map { "#L\($0)" } ?? "")

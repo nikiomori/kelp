@@ -38,8 +38,8 @@ extension QuickOpen {
             c.scheme = "terminal"
             c.queryItems = [URLQueryItem(name: "tmux", value: name)]
             let uri = c.string ?? "terminal:"
-            return Item(kind: "tmux", icon: icon, title: name, detail: detail, action: { app.workbench.open(uri) },
-                        split: { app.workbench.open(uri, split: .right) })
+            return Item(kind: "tmux", icon: icon, title: name, detail: detail, action: { app.workbench.runURI(uri) },
+                        split: { app.workbench.runURI(uri, split: .right) })
         }
         // Kelp's own (terminal.tmux) are terminals already, and end with their tab: not offered.
         let found = sessions.filter { !Tmux.isOwn($0.name) }.compactMap { s -> (Item, Int)? in

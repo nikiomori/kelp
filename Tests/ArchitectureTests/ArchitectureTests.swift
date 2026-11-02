@@ -210,6 +210,14 @@ private func codeOnly(_ s: String) -> String {
     #expect(starters == ["Sources/Core/Subprocess.swift", "Sources/Core/LoginPath.swift", "Sources/Core/Library.swift"])
 }
 
+/// `workbench.open` takes links from forges and trackers, so it only shows things. What runs a `terminal:` or `agent:` URI has
+/// a name of its own and these callers, each with a URI Kelp made or a person asked for; data from elsewhere is never among them.
+@Test func onlyKelpsOwnURIsRunAnything() throws {
+    let callers = Set(try matches(#"\.runURI\("#, in: appDirs).map { String($0.split(separator: ":")[0]) })
+    #expect(callers == ["Sources/KelpKit/Editor/EditorArea.swift", "Sources/KelpKit/Extensions/DeclarativeExtension.swift",
+                        "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/WindowParts.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"])
+}
+
 /// The app doesn't ask the daemon again and again: views watch (`watch.start`) and the daemon pushes what changed.
 /// A clock left in the app is the app's own, each listed with why; a new one that polls the daemon belongs in a watch.
 @Test func theAppDoesntPollTheDaemon() throws {

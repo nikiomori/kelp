@@ -33,10 +33,17 @@ extension Workbench {
     }
 
     package func open(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil, focus: Bool = true) {
-        if let k = keyArea, workspace == nil || workspace == k.workspaceId { k.open(uri, split: split, focus: focus); return }
+        area(workspace)?.open(uri, split: split, focus: focus)
+    }
+
+    /// `EditorArea.runURI`, for what Kelp itself asks to run.
+    func runURI(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil) { area(workspace)?.runURI(uri, split: split) }
+
+    private func area(_ workspace: String?) -> EditorArea? {
+        if let k = keyArea, workspace == nil || workspace == k.workspaceId { return k }
         if let workspace, workspace != workspaceId { show(workspace: workspace) }
         if workspaceId == nil, let first = app.worktrees.first { show(workspace: first.id) }
-        window?.editors.current?.open(uri, split: split, focus: focus)
+        return window?.editors.current
     }
 
     /// Restart: the new session takes the old one's tab in the workspace it belongs to, which may not be the one on screen
@@ -273,7 +280,8 @@ struct UIRequests {
                 app.workbench.window?.editors.openInBackground(uri, workspace: w)
                 return
             }
-            app.workbench.open(uri, split: split, workspace: e.worktreeId)
+            if TabURI.runs(uri) { app.workbench.runURI(uri, split: split, workspace: e.worktreeId) }   // `kelp open`: the user's or their agent's own
+            else { app.workbench.open(uri, split: split, workspace: e.worktreeId) }
             if focus { NSApp.activate() }
         case "command":
             guard let id = e.id else { return }
