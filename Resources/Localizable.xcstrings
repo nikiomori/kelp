@@ -4250,6 +4250,36 @@
         }
       }
     },
+    "Find in Project: Match Case": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск в проекте: учитывать регистр"
+          }
+        }
+      }
+    },
+    "Find in Project: Regular Expression": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск в проекте: регулярное выражение"
+          }
+        }
+      }
+    },
+    "Find in Project: Whole Word": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск в проекте: слово целиком"
+          }
+        }
+      }
+    },
     "Find Next": {
       "extractionState": "manual",
       "localizations": {
@@ -5919,6 +5949,16 @@
         }
       }
     },
+    "Match Case": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Учитывать регистр"
+          }
+        }
+      }
+    },
     "Match System": {
       "localizations": {
         "ru": {
@@ -6696,6 +6736,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Профилей пока нет: агенты используют свой вход."
+          }
+        }
+      }
+    },
+    "Not a valid pattern": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверное выражение"
           }
         }
       }
@@ -8301,6 +8351,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновить"
+          }
+        }
+      }
+    },
+    "Regular Expression": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярное выражение"
           }
         }
       }
@@ -11705,6 +11765,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пока работают агенты"
+          }
+        }
+      }
+    },
+    "Whole Word": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слово целиком"
           }
         }
       }

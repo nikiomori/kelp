@@ -186,7 +186,8 @@ extension FilesIgnored: Handled {
 }
 extension FilesSearch: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
-        try ProjectFiles.search(workspaces.folder(id), query: query, regex: regex == true, caseSensitive: `case` == true, remotes: workspaces.remotes)
+        try ProjectFiles.search(workspaces.folder(id), query: query, regex: regex == true, caseSensitive: `case` == true, wholeWord: word == true,
+                                remotes: workspaces.remotes)
     }
 }
 

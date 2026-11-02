@@ -78,7 +78,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         search.controlSize = .small
         let v = NSView()
         let bar = header()
-        for x in [bar, leftScroll, resultsScroll] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        patternError.font = .ui(11)
+        patternError.textColor = .textRed
+        patternError.lineBreakMode = .byTruncatingTail
+        patternError.isHidden = true
+        for x in [bar, leftScroll, resultsScroll, patternError] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         noResults.place(in: v, under: bar)
         loadError.place(in: v, under: bar)
         NSLayoutConstraint.activate([
@@ -86,7 +90,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             bar.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             leftScroll.topAnchor.constraint(equalTo: bar.bottomAnchor), leftScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             leftScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), leftScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor), resultsScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            patternError.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            patternError.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: Metrics.inset),
+            patternError.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -Metrics.inset),
+            resultsTop, resultsScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             resultsScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), resultsScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
         view = v
@@ -98,18 +105,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
 
     func menuNeedsUpdate(_ m: NSMenu) {
         if m === results.menu { fillResult(m, row: results.clickedRow) } else { fill(m, row: outline.clickedRow) }
-    }
-
-    /// A line the search found: what the editor offers for a line.
-    func fillResult(_ m: NSMenu, row: Int) {
-        m.removeAllItems()
-        guard matches.indices.contains(row) else { return }
-        let app = app, hit = matches[row], path = root + "/" + hit.path
-        m.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
-        m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path, line: hit.line), split: .right) }
-        m.addItem(.separator())
-        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
-        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: hit.line...hit.line) }
     }
 
     /// The tree's right-click menu, for what's under the pointer. Over empty space `clickedRow` is -1 and `selectedNode`
@@ -174,6 +169,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             outline.reloadData()
         }
         worktree = next
+        searchOptions = next.map { SearchOptions(app, workspace: $0.id) } ?? SearchOptions()
+        showSearchOptions()
         matches = []; results.reloadData()
         watchShown()
         if let next { badges(app.git[next.id]?.changes); listed(app.fileLists[next.id]) }
@@ -464,43 +461,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// A search that found nothing says so (and the tree is one click away), rather than an empty list.
     let noResults = EmptyStateView()
     let typing = Debounce()
-}
-
-/// Finder's keys in the tree: Space previews, ↩ renames, ⌘⌫ moves to the Trash.
-final class FilesOutline: ListOutlineView {
-    var onSpace: (() -> Void)?, onReturn: (() -> Void)?, onDelete: (() -> Void)?
-    override func keyDown(with e: NSEvent) {
-        let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])
-        switch (e.keyCode, mods) {
-        case (49, []): onSpace?()
-        case (36, []), (76, []): onReturn?()
-        case (51, .command): onDelete?()
-        default: super.keyDown(with: e)
-        }
-    }
-}
-
-/// Return in the results opens the line (a click does too).
-final class ResultsTable: NSTableView {
-    override func keyDown(with e: NSEvent) {
-        if e.keyCode == 36 || e.keyCode == 76, let a = action { NSApp.sendAction(a, to: target, from: self); return }
-        super.keyDown(with: e)
-    }
-}
-
-/// The tree and the search results as the inspector's lists: rows 24 and 38 (with the text size), the rounded selection
-/// (DesignKit's ListRowView), no background of their own over the panel.
-extension FilesPanel {
-    func styleLists() {
-        for t in [outline, results] as [NSTableView] {
-            t.style = .plain
-            t.backgroundColor = .clear
-            t.rowSizeStyle = .custom
-        }
-        outline.rowHeight = TextSize.of(Metrics.row)
-        outline.indentationPerLevel = 12
-        results.rowHeight = TextSize.of(Metrics.rowTwoLine)
-    }
-
-    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
+    var searchOptions = SearchOptions()
+    private(set) lazy var resultsTop = resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
+    private(set) lazy var caseToggle = SearchToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
+    private(set) lazy var wordToggle = SearchToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }
+    private(set) lazy var regexToggle = SearchToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.toggle(\.regex) }
+    /// Under the field: a pattern that isn't valid, while the last results stay.
+    let patternError = NSTextField(labelWithString: "")
 }

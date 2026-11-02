@@ -21,6 +21,7 @@ extension FilesPanel {
     /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
     func controlTextDidChange(_ n: Notification) {
         guard n.object as? NSSearchField === search else { return }
+        showSearchOptions()
         typing.after(0.25) { [weak self] in self?.runSearch() }
     }
     /// ↓ from the field goes into the results; ↩ there opens the line.
@@ -38,10 +39,18 @@ extension FilesPanel {
         guard let w = worktree else { return }
         let q = search.stringValue.trimmingCharacters(in: .whitespaces)
         showResults(!q.isEmpty)
+        showPatternError(nil)
         guard !q.isEmpty else { return }
+        let o = searchOptions
         Task {
-            let found = await app.tryCall(FilesSearch(id: w.id, query: q))
-            guard worktree?.id == w.id, search.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }   // a newer search or workspace
+            let found = await app.tryCall(FilesSearch(id: w.id, query: q, regex: o.regex, case: o.matchCase, word: o.wholeWord))
+            // A newer search, options or workspace.
+            guard worktree?.id == w.id, searchOptions == o, search.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }
+            // Half typed, a pattern often isn't one yet: what it found last stays.
+            if o.regex, let e = found.error, !matches.isEmpty {
+                showPatternError(e)
+                return
+            }
             matches = found.value ?? []
             results.reloadData()
             if let e = found.error {
@@ -51,11 +60,19 @@ extension FilesPanel {
             }
         }
     }
+    private func showPatternError(_ detail: String?) {
+        patternError.stringValue = String(localized: "Not a valid pattern")
+        patternError.toolTip = detail
+        patternError.isHidden = detail == nil
+        resultsTop.constant = detail == nil ? 0 : Metrics.row
+    }
+
     /// Back to the tree.
     private func clearButton() -> NSButton {
         ClosureButton(title: String(localized: "Clear Search")) { [weak self] in
             guard let self else { return }
             search.stringValue = ""
+            showSearchOptions()
             runSearch()
             view.window?.makeFirstResponder(outline)
         }
@@ -80,5 +97,17 @@ extension FilesPanel {
     @objc func openResult() {
         let r = results.clickedRow >= 0 ? results.clickedRow : results.selectedRow
         if matches.indices.contains(r) { let m = matches[r]; openFile(m.path, line: m.line) }
+    }
+
+    /// A line the search found: what the editor offers for a line.
+    func fillResult(_ m: NSMenu, row: Int) {
+        m.removeAllItems()
+        guard matches.indices.contains(row) else { return }
+        let app = app, hit = matches[row], path = root + "/" + hit.path
+        m.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
+        m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path, line: hit.line), split: .right) }
+        m.addItem(.separator())
+        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
+        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: hit.line...hit.line) }
     }
 }

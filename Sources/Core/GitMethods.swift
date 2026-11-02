@@ -179,11 +179,13 @@ public struct FilesIgnored: RPCMethod {
     public var id: String, folder: String?
     public init(id: String, folder: String? = nil) { self.id = id; self.folder = folder }
 }
-/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set.
+/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.
 public struct FilesSearch: RPCMethod {
     public static let name = "files.search"; public typealias Result = [SearchMatch]
-    public var id: String, query: String, regex: Bool?, `case`: Bool?
-    public init(id: String, query: String, regex: Bool? = nil, case: Bool? = nil) { self.id = id; self.query = query; self.regex = regex; self.case = `case` }
+    public var id: String, query: String, regex: Bool?, `case`: Bool?, word: Bool?
+    public init(id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil) {
+        self.id = id; self.query = query; self.regex = regex; self.case = `case`; self.word = word
+    }
 }
 
 /// A review comment on lines `start`…`end` of `file` in workspace `id`.

@@ -3972,7 +3972,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set.",
+      "description" : "Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.",
       "name" : "files.search",
       "paramStructure" : "by-name",
       "params" : [
@@ -3999,6 +3999,13 @@
         },
         {
           "name" : "regex",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "word",
           "required" : false,
           "schema" : {
             "type" : "boolean"

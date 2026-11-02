@@ -75,19 +75,21 @@ extension ProjectFiles {
     }
 
     /// The first `limit` matches; what rg or git grep print past `searchOutput` bytes is read and dropped.
-    public static func search(_ root: String, query: String, regex: Bool = false, caseSensitive: Bool = false, limit: Int = searchLimit,
-                              remotes: Remotes = .none) throws -> [SearchMatch] {
+    public static func search(_ root: String, query: String, regex: Bool = false, caseSensitive: Bool = false, wholeWord: Bool = false,
+                              limit: Int = searchLimit, remotes: Remotes = .none) throws -> [SearchMatch] {
         guard !query.isEmpty else { return [] }
         var a: [String], r: (data: Data, truncated: Bool)
         if let rg = ripgrep, remotes.of(root) == nil {   // remote: git grep runs on the host
             a = ["--line-number", "--no-heading", "--null", "--color=never", "--max-columns=300", "--max-count=200"]
             if !regex { a.append("--fixed-strings") }
             if !caseSensitive { a.append("--ignore-case") }   // like git grep -i below (smart-case would honour capitals)
+            if wholeWord { a.append("--word-regexp") }
             r = try Git.runPart(a + ["--", query, "."], cwd: root, executable: rg, ok: [0, 1], limit: searchOutput)   // 1 = no matches
         } else {
             a = ["grep", "-n", "-z", "--untracked", "-I"]
             if !regex { a.append("-F") }
             if !caseSensitive { a.append("-i") }
+            if wholeWord { a.append("-w") }
             do { r = try Git.runPart(a + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes) } catch where outsideGit(error) {
                 a = a.map { $0 == "--untracked" ? "--no-index" : $0 }   // a folder without git: its files as they are
                 r = try Git.runPart(a + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes)

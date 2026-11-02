@@ -77,6 +77,9 @@ extension Builtins {
                               await t.save()
                           }
                       },
+                      searchOption(app, "files.search.matchCase", "Find in Project: Match Case", "ctrl+opt+c", \.matchCase),
+                      searchOption(app, "files.search.wholeWord", "Find in Project: Whole Word", "ctrl+opt+w", \.wholeWord),
+                      searchOption(app, "files.search.regex", "Find in Project: Regular Expression", "ctrl+opt+r", \.regex),
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },

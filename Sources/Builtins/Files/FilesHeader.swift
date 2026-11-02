@@ -7,7 +7,8 @@ extension FilesPanel {
     func header() -> NSView {
         let plus = IconButton(.symbol("plus"), tip: String(localized: "New File"), target: self, action: #selector(newFile))
         let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
-        return Bar.panel([search], [plus, more], stretching: search)
+        showSearchOptions()
+        return Bar.panel([search], [caseToggle, wordToggle, regexToggle, plus, more], stretching: search)
     }
 
     @objc private func showMore(_ sender: NSButton) {

@@ -129,6 +129,7 @@ extension AppDelegate {
             i.keyEquivalentModifierMask = mods; i.tag = Int(action.rawValue)
         }
         b.add(find, "files.findInWorkspace")
+        b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
         b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink",
               "-", "editor.fold", "editor.unfold", "editor.unfoldAll")
