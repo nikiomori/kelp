@@ -45,6 +45,48 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
     }
 
+    /// A crash leaves what was typed: the tab that opens next takes it back, as unsaved. A save takes it away for good.
+    @Test func unsavedTextComesBackAfterACrash() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig), kept = UnsavedBackup(app: rig.app, uri: tab.uri)
+        tab.editor?.setText("mine\n")
+        tab.editor?.onChange?("mine\n")
+        try await until { kept.text != nil }
+        let next = await opened(p, in: rig)
+        #expect(next.editor?.text == "mine\n")
+        try await until { next.isEdited }
+        #expect(next.isEdited)
+        #expect(await next.save())
+        try await until { kept.text == nil }
+        #expect(kept.text == nil)
+    }
+
+    /// An untitled tab was never on disk, so a crash would take all of it. Don't Save takes the kept text too.
+    @Test func anUntitledTabComesBackUntilDontSave() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let tab = UntitledTab(uri: "untitled:1", app: rig.app), kept = UnsavedBackup(app: rig.app, uri: "untitled:1")
+        tab.editor.setText("draft")
+        tab.editor.onChange?("draft")
+        try await until { kept.text != nil }
+        let next = UntitledTab(uri: "untitled:1", app: rig.app)
+        #expect(next.editor.text == "draft" && next.isEdited)
+        next.discard()
+        try await until { kept.text == nil }
+        #expect(kept.text == nil)
+    }
+
+    /// One the saved layout never had still gets its tab; one whose workspace is gone goes.
+    @Test func whatACrashLeftGetsATab() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let host = EditorHost(app: rig.app), workspace = rig.workspace.id
+        rig.app.uiState["backup.\(workspace).untitled:7"] = .array(["untitled:7", .string(workspace), "x"])
+        rig.app.uiState["backup.gone.untitled:8"] = .array(["untitled:8", "gone", "y"])
+        UnsavedBackups.reopen(rig.app, in: host)
+        #expect(WorkspaceLayout.load(workspace, from: rig.app.uiState).tab(uri: "untitled:7") != nil)
+        #expect(rig.app.uiState["backup.gone.untitled:8"] == nil)
+    }
+
     @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let p = try file("one\n")

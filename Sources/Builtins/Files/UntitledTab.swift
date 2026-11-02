@@ -17,7 +17,12 @@ final class UntitledTab: SavableTab {
     /// Any text, until Don't Save.
     private(set) var isEdited = false
     private var discarded = false
-    func discard() { discarded = true; isEdited = false }
+    @ObservationIgnored private lazy var backup = UnsavedBackup(app: app, uri: uri)
+    func discard() {
+        discarded = true
+        isEdited = false
+        backup.drop()
+    }
 
     init(uri: String, app: AppModel) {
         self.uri = uri; self.app = app
@@ -28,8 +33,13 @@ final class UntitledTab: SavableTab {
         view.pin(stacked(editor.view, bar))
         editor.onSelection = { [weak bar, weak editor] in bar?.show(cursor: editor?.cursor) }
         editor.onChange = { [weak self] text in
-            guard let self, !discarded, isEdited == text.isEmpty else { return }
+            guard let self, !discarded else { return }
+            if text.isEmpty { backup.drop() } else { backup.keep(text) }
             isEdited = !text.isEmpty
+        }
+        if let kept = backup.text {   // what a crash left
+            editor.setText(kept)
+            editor.onChange?(kept)
         }
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in self?.editor.refreshAppearance() }
     }
@@ -51,7 +61,9 @@ final class UntitledTab: SavableTab {
         a.addButton(withTitle: String(localized: "Don't Save"))
         switch await runSheet(a) {
         case .alertFirstButtonReturn: return await save()
-        case .alertThirdButtonReturn: return true
+        case .alertThirdButtonReturn:
+            discard()
+            return true
         default: return false
         }
     }
@@ -69,6 +81,7 @@ final class UntitledTab: SavableTab {
         // Over whatever is there: the save panel asked about replacing it.
         let res = await app.tryCall(FilesWrite(path: url.path, text: editor.text, base: nil))
         if let error = res.error { Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error)")); return false }
+        backup.drop()
         app.workbench.editor?.replace(uri, with: TabURI.file(url.path))
         return true
     }

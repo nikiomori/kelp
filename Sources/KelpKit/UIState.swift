@@ -21,6 +21,7 @@ package final class UIState {
         }
     }
     package func strings(_ key: String) -> [String] { values[key]?.array?.compactMap(\.string) ?? [] }
+    func all(prefix: String) -> [String: JSONValue] { values.filter { $0.key.hasPrefix(prefix) } }
 
     /// Written with an answer, for what the daemon may refuse (trust: only Kelp's own window may record it). False, and a
     /// banner saying why, when it did; kept for this run only without a daemon, as the subscript does.

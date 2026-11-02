@@ -44,7 +44,9 @@ final class FileTab: SavableTab {
         discarded = true
         comparing?.cancel()
         isEdited = false
+        backup.drop()
     }
+    @ObservationIgnored private lazy var backup = UnsavedBackup(app: app, uri: uri)
     /// The file was moved or deleted under the tab (often by an agent): the tab says so, ⌘S asks before writing it back.
     var gone = false
     /// The last save (each waits for the one before) and whether it wrote; `writing` while one is on its way to disk.
@@ -133,6 +135,9 @@ final class FileTab: SavableTab {
         let before = e.onSelection   // Markdown's selection bar follows the selection too
         e.onSelection = { [weak bar, weak e] in before?(); bar?.show(cursor: e?.cursor) }
         e.onChange = { [weak self] t in self?.edited(t) }
+        if let kept = backup.text {   // what a crash left
+            if kept == text { backup.drop() } else { e.setText(kept); edited(kept) }
+        }
         e.contextMenu = { [weak self] m in self?.contextMenu(m) }
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in
             self?.editor?.refreshAppearance()
@@ -180,34 +185,11 @@ final class FileTab: SavableTab {
     }
     var selectedText: String? { editor?.selectedText }
     var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
-    /// Asks about unsaved changes in a sheet, like any Mac document: Save, Don't Save, or keep the tab. With autosave
-    /// it only asks when writing isn't safe: an agent changed the file meanwhile, or it was moved or deleted.
-    func close() async -> Bool {
-        autosaving.cancel()
-        _ = await saving?.value   // a save on its way: what's asked is checked against what it wrote
-        guard let e = editor, isEdited else { return true }
-        let action = FileSync.save(buffer: e.text, saved: lastSaved, disk: disk)
-        if autosave, action == .write, await writeAndClose() { return true }
-        let a = NSAlert(); a.messageText = String(localized: "Do you want to save the changes you made to “\(title)”?")
-        a.informativeText = switch action {
-        case .conflict: String(localized: "An agent changed it on disk meanwhile. Save replaces that version with yours.")
-        case .missing: String(localized: "It was moved or deleted. Save writes it at its old place again.")
-        default: String(localized: "Your changes will be lost if you don't save them.")
-        }
-        a.addButton(withTitle: String(localized: "Save"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        a.addButton(withTitle: String(localized: "Don't Save"))
-        switch await runSheet(a) {
-        case .alertFirstButtonReturn: return await writeAndClose(answering: action)
-        case .alertThirdButtonReturn: discarded = true; return true
-        default: return false
-        }
-    }
-
     // MARK: saving
 
     private func edited(_ t: String) {
         edits += 1
+        backup.keep(t)
         if autosave { autosaving.after(0.6) { [weak self] in Task { await self?.autosaveNow() } } }
         editedStateMayHaveChanged()
         markdown?.textChanged()
@@ -336,6 +318,7 @@ final class FileTab: SavableTab {
 
     private func setEdited(_ now: Bool) {
         if now != isEdited { isEdited = now }
+        if !now { backup.drop() }
     }
 
     /// A new version pushed (`WatchTopic.file`): read again only one this tab didn't read or write itself (a log a dev
@@ -502,5 +485,33 @@ final class FileTab: SavableTab {
         e.place(in: v)
         if failed { e.showError(s, text: nil) } else { e.show(s, symbol: "icloud.and.arrow.down") }
         return v
+    }
+}
+
+extension FileTab {
+    /// Asks about unsaved changes in a sheet, like any Mac document: Save, Don't Save, or keep the tab. With autosave
+    /// it only asks when writing isn't safe: an agent changed the file meanwhile, or it was moved or deleted.
+    func close() async -> Bool {
+        autosaving.cancel()
+        _ = await saving?.value   // a save on its way: what's asked is checked against what it wrote
+        guard let e = editor, isEdited else { return true }
+        let action = FileSync.save(buffer: e.text, saved: lastSaved, disk: disk)
+        if autosave, action == .write, await writeAndClose() { return true }
+        let a = NSAlert(); a.messageText = String(localized: "Do you want to save the changes you made to “\(title)”?")
+        a.informativeText = switch action {
+        case .conflict: String(localized: "An agent changed it on disk meanwhile. Save replaces that version with yours.")
+        case .missing: String(localized: "It was moved or deleted. Save writes it at its old place again.")
+        default: String(localized: "Your changes will be lost if you don't save them.")
+        }
+        a.addButton(withTitle: String(localized: "Save"))
+        a.addButton(withTitle: String(localized: "Cancel"))
+        a.addButton(withTitle: String(localized: "Don't Save"))
+        switch await runSheet(a) {
+        case .alertFirstButtonReturn: return await writeAndClose(answering: action)
+        case .alertThirdButtonReturn:
+            discard()
+            return true
+        default: return false
+        }
     }
 }

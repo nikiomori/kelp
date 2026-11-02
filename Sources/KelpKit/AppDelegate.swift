@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Next turn of the run loop: the sidebar lays out its new rows before it gets a selection.
             try? await Task.sleep(for: .milliseconds(30))
             if let w = pick ?? last ?? app.worktrees.first(where: { !$0.archived }) { app.workbench.show(workspace: w.id) }
+            UnsavedBackups.reopen(app, in: app.workbench.window?.editors)
             let early = pendingOpens ?? []; pendingOpens = nil
             if !early.isEmpty { application(NSApp, open: early) }
             if ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil { OnboardingSheet.showIfFirstLaunch(app) }
