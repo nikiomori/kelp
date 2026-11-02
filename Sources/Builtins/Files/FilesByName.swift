@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import WorkbenchKit
 
@@ -76,12 +77,28 @@ extension FilesPanel {
         results.reloadData()
         showContentResults(true)
         noResults.show(nil)
+        replaceRow.isHidden = true   // a server's list: Rename is the way to change it
     }
 
     func findByName() {
         searchBy(name: true)
         view.window?.makeFirstResponder(search)
         search.currentEditor()?.selectAll(nil)
+    }
+
+    /// What sits under the bar: the replace field and what's wrong with a pattern.
+    func setUpSearchRows() {
+        patternError.font = .ui(11)
+        patternError.textColor = .textRed
+        patternError.lineBreakMode = .byTruncatingTail
+        patternError.isHidden = true
+        replaceField.placeholderString = String(localized: "Replace")
+        replaceField.controlSize = .small
+        (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
+        replaceButton.controlSize = .small
+        replaceRow.spacing = Metrics.gap
+        replaceRow.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
+        replaceRow.isHidden = true
     }
 
     /// The field's magnifier chooses, as Finder's and Mail's do; the choice stays.
@@ -104,5 +121,6 @@ extension FilesPanel {
         narrowTree()
         showSearchOptions()
         if !name { runSearch() } else { showContentResults(false) }
+        showReplace()
     }
 }

@@ -37,7 +37,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
         field.placeholderString = String(localized: "Find")
         replaceField.placeholderString = String(localized: "Replace")
-        (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell = nil
+        (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
         count.font = .uiDigits(11)
         count.textColor = .secondaryLabelColor
         count.setContentHuggingPriority(.required, for: .horizontal)

@@ -78,11 +78,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         search.controlSize = .small
         let v = NSView()
         let bar = header()
-        patternError.font = .ui(11)
-        patternError.textColor = .textRed
-        patternError.lineBreakMode = .byTruncatingTail
-        patternError.isHidden = true
-        for x in [bar, leftScroll, resultsScroll, patternError] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        setUpSearchRows()
+        for x in [bar, replaceRow, leftScroll, resultsScroll, patternError] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         noResults.place(in: v, under: bar)
         loadError.place(in: v, under: bar)
         NSLayoutConstraint.activate([
@@ -90,6 +87,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             bar.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             leftScroll.topAnchor.constraint(equalTo: bar.bottomAnchor), leftScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             leftScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), leftScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
+            replaceRow.topAnchor.constraint(equalTo: bar.bottomAnchor), replaceRow.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            replaceRow.trailingAnchor.constraint(equalTo: v.trailingAnchor), replaceRow.heightAnchor.constraint(equalToConstant: Metrics.row + Metrics.gap),
             patternError.topAnchor.constraint(equalTo: bar.bottomAnchor),
             patternError.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: Metrics.inset),
             patternError.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -Metrics.inset),
@@ -462,6 +461,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
     private(set) lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }
     private(set) lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.toggle(\.regex) }
+    /// Under the search, while it has found something.
+    let replaceField = NSSearchField()
+    private(set) lazy var replaceButton = ClosureButton(title: String(localized: "Replace All…")) { [weak self] in self?.replaceAll() }
+    lazy var replaceRow = NSStackView(views: [replaceField, replaceButton])
     /// Under the field: a pattern that isn't valid, while the last results stay.
     let patternError = NSTextField(labelWithString: "")
 }

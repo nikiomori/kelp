@@ -51,6 +51,7 @@ extension FilesPanel {
         let q = search.stringValue.trimmingCharacters(in: .whitespaces)
         showResults(!q.isEmpty)
         showPatternError(nil)
+        if q.isEmpty { showReplace() }
         guard !q.isEmpty else { return }
         let o = searchOptions
         Task {
@@ -64,6 +65,7 @@ extension FilesPanel {
             }
             matches = found.value ?? []
             results.reloadData()
+            showReplace()
             if let e = found.error {
                 noResults.showError(String(localized: "Couldn't search"), text: e, buttons: [clearButton()])
             } else {
@@ -74,8 +76,14 @@ extension FilesPanel {
     private func showPatternError(_ detail: String?) {
         patternError.stringValue = String(localized: "Not a valid pattern")
         patternError.toolTip = detail
-        patternError.isHidden = detail == nil
-        resultsTop.constant = detail == nil ? 0 : Metrics.row
+        patternError.isHidden = detail == nil || !replaceRow.isHidden
+        resultsTop.constant = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
+    }
+
+    /// The replace field comes with what it would replace.
+    func showReplace() {
+        replaceRow.isHidden = byName || matches.isEmpty || resultsScroll.isHidden
+        showPatternError(nil)
     }
 
     /// Back to the tree.

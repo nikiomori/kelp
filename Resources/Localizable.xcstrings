@@ -549,6 +549,16 @@
         }
       }
     },
+    "%lld files with unsaved edits or nothing to change are left out.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропущено файлов (несохранённые правки или нечего менять): %lld."
+          }
+        }
+      }
+    },
     "%lld found": {
       "localizations": {
         "ru": {
@@ -2242,6 +2252,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменено вами"
+          }
+        }
+      }
+    },
+    "Changed since it was read, so left alone: %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменились после чтения и не тронуты: %@."
           }
         }
       }
@@ -7518,6 +7538,16 @@
         }
       }
     },
+    "Nothing to replace.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменять нечего."
+          }
+        }
+      }
+    },
     "Nothing to show": {
       "localizations": {
         "ru": {
@@ -9553,6 +9583,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить"
+          }
+        }
+      }
+    },
+    "Replace %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить: %lld"
+          }
+        }
+      }
+    },
+    "Replace All…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить все…"
+          }
+        }
+      }
+    },
+    "Replaced in %lld files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменено в файлах: %lld."
           }
         }
       }

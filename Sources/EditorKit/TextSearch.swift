@@ -39,3 +39,32 @@ enum TextSearch {
         return text
     }
 }
+
+/// One match of a replacement across files: what the line was and will be, and what goes where.
+public struct ReplaceMatch: Equatable, Sendable {
+    public let range: NSRange, text: String, line: Int, before: String, after: String
+}
+
+public enum ReplaceInText {
+    /// Every match of `query` in `text` with what `template` makes of it. Throws on a pattern that isn't one.
+    public static func plan(_ text: String, query: String, options: FindOptions, template: String) throws -> [ReplaceMatch] {
+        let regex = try TextSearch.pattern(query, options), s = text as NSString
+        var line = 1, scanned = 0
+        return TextSearch.matches(regex, in: s).map { m in
+            for i in scanned..<m.range.location where s.character(at: i) == 10 { line += 1 }
+            scanned = m.range.location
+            let new = TextSearch.replacement(m, regex, in: s, template: template, options)
+            let whole = s.lineRange(for: m.range), head = NSRange(location: whole.location, length: m.range.location - whole.location)
+            let tail = NSRange(location: NSMaxRange(m.range), length: NSMaxRange(whole) - NSMaxRange(m.range))
+            let before = s.substring(with: whole), after = s.substring(with: head) + new + s.substring(with: tail)
+            return ReplaceMatch(range: m.range, text: new, line: line,
+                                before: before.trimmingCharacters(in: .whitespacesAndNewlines), after: after.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    public static func applying(_ matches: [ReplaceMatch], to text: String) -> String {
+        let s = NSMutableString(string: text)
+        for m in matches.sorted(by: { $0.range.location > $1.range.location }) { s.replaceCharacters(in: m.range, with: m.text) }
+        return s as String
+    }
+}
