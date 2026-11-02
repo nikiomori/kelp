@@ -41,13 +41,27 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 @MainActor @Test func theStripComesWhenKelpIsBehindAndSomethingWantsYou() {
     let working = StripModel.items([session("a", .working)], workspaces: places)
     let asking = StripModel.items([session("a", .waiting)], workspaces: places)
-    #expect(StripModel.shows(asking, mode: "needed", front: false))
-    #expect(StripModel.shows(asking, mode: nil, front: false))   // the default
-    #expect(!StripModel.shows(asking, mode: "needed", front: true))
-    #expect(!StripModel.shows(asking, mode: "off", front: false))
-    #expect(!StripModel.shows(working, mode: "needed", front: false))
-    #expect(StripModel.shows(working, mode: "always", front: false))
-    #expect(!StripModel.shows([], mode: "always", front: false))
+    func shows(_ items: [StripItem], _ mode: String?, for comes: String? = nil, front: Bool = false) -> Bool {
+        StripModel.shows(items, mode: mode, comesFor: comes, front: front)
+    }
+    #expect(shows(asking, "needed"))
+    #expect(shows(asking, nil))   // the default
+    #expect(!shows(asking, "needed", front: true))
+    #expect(!shows(asking, "off"))
+    #expect(!shows(working, "needed"))
+    #expect(shows(working, "always"))
+    #expect(!shows([], "always"))
+}
+
+@MainActor @Test func whatBringsTheStripUpIsYourChoice() {
+    let failed = StripModel.items([session("a", .error)], workspaces: places)
+    let done = StripModel.items([session("a", .done, unread: true)], workspaces: places)
+    let asking = StripModel.items([session("a", .waiting)], workspaces: places)
+    func shows(_ items: [StripItem], _ comes: String?) -> Bool { StripModel.shows(items, mode: "needed", comesFor: comes, front: false) }
+    #expect(!shows(failed, "questions"))
+    #expect(shows(asking, "questions"))
+    #expect(shows(failed, nil) && !shows(done, nil))   // by default a finished agent doesn't hold the strip up all day
+    #expect(shows(done, "all"))
 }
 
 @MainActor @Test func theCardsAllowWaitsBeforeItTakesAClick() {
@@ -67,6 +81,19 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     #expect(f.height == StripButton.stripHeight)
     #expect(f.width > 100)   // the pill's words are in it
     #expect(abs(f.midX - area.midX) < 1)
+    let asked = try #require(rig.app.sessions.first)
+    strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
+    #expect(strip.hiddenUntil != nil)
+    strip.hide(until: nil)
+    for _ in 0..<100 where !(strip.isShowing && strip.frame?.height == StripButton.stripHeight) { try await Task.sleep(for: .milliseconds(20)) }
+    strip.later(asked.id)   // put off: it stops calling
+    for _ in 0..<100 where strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(!strip.isShowing)
+    var again = asked
+    again.statusAt = Date()   // the agent asks something else
+    rig.app.sessions = [again]
+    for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(strip.isShowing)
     rig.app.sessions = []
     for _ in 0..<100 where strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
     #expect(!strip.isShowing)

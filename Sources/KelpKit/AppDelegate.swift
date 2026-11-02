@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.scratch.registerHotKey()
         app.notifier = notifier; notifier.start()
         dockIcon.start()
-        agentStrip.start()
+        app.agentStrip = agentStrip; agentStrip.start()
         buildMenu()
         // Glances are timed only while some finished agent is still unread: no clock runs the rest of the time.
         track(owner: self) { [app] in app.sessions.contains { Self.readOnSight($0) } } changed: { [weak self] any in self?.timeGlances(any) }

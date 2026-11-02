@@ -281,6 +281,9 @@ struct SettingRow: View {
             return v == "auto" ? String(localized: "Match System") : v == "ghostty" ? String(localized: "Ghostty config")
                 : app.themes.themes.first { $0.id == v }?.name ?? v
         case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == v }?.label ?? v
+        case "agents.dockStrip.comesFor":
+            return ["questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
+                    "all": String(localized: "Anything New")][v] ?? v
         case "agents.dockStrip":
             return ["needed": String(localized: "When Needed"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         case "agents.dockIcon":

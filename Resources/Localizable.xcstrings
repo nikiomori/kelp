@@ -1136,6 +1136,16 @@
         }
       }
     },
+    "Anything New": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё новое"
+          }
+        }
+      }
+    },
     "API token": {
       "localizations": {
         "ru": {
@@ -2184,6 +2194,27 @@
           "stringUnit": {
             "state": "translated",
             "value": "Приходит сразу, даже пока вы печатаете."
+          }
+        }
+      }
+    },
+    "Comes up for": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появляется на"
+          }
+        }
+      }
+    },
+    "Comes Up For": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появляется на"
           }
         }
       }
@@ -4882,6 +4913,26 @@
         }
       }
     },
+    "Hide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть"
+          }
+        }
+      }
+    },
+    "Hide Agents Above the Dock for 1 Hour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть агентов над Доком на час"
+          }
+        }
+      }
+    },
     "Hide Button": {
       "localizations": {
         "ru": {
@@ -6911,6 +6962,17 @@
         }
       }
     },
+    "Off: a film or a talk stays clear of it; a banner still tells you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено: фильм или доклад она не закроет, а баннер всё равно скажет."
+          }
+        }
+      }
+    },
     "Off: the agent's and the workspace's names only.": {
       "localizations": {
         "ru": {
@@ -7039,6 +7101,27 @@
           "stringUnit": {
             "state": "translated",
             "value": "«Только у других агентов» скрывает значок агента по умолчанию."
+          }
+        }
+      }
+    },
+    "Over full-screen apps": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поверх полноэкранных приложений"
+          }
+        }
+      }
+    },
+    "Over Full-Screen Apps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поверх полноэкранных приложений"
           }
         }
       }
@@ -8308,6 +8391,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отправляет %@ и открывает PR с заголовком из коммитов."
+          }
+        }
+      }
+    },
+    "Questions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопросы"
+          }
+        }
+      }
+    },
+    "Questions and Failures": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопросы и ошибки"
           }
         }
       }
@@ -10538,6 +10641,16 @@
         }
       }
     },
+    "Strip Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки полоски…"
+          }
+        }
+      }
+    },
     "Subagents": {
       "extractionState": "manual",
       "localizations": {
@@ -11927,6 +12040,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Когда нужно"
+          }
+        }
+      }
+    },
+    "When Needed. A row you muted stays quiet here too.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для режима «Когда нужно». Приглушённая строка молчит и здесь."
           }
         }
       }

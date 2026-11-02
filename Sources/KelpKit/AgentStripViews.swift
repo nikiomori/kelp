@@ -2,12 +2,12 @@ import AppKit
 import Core
 import DesignKit
 
-/// A panel that takes clicks and a typed reply and leaves the active app active. It stays up with Kelp behind, on every Space and
-/// over a full-screen app (a call, a browser: the point of it), and at a level under the Dock's.
+/// A panel that takes clicks and a typed reply and leaves the active app active. It stays up with Kelp behind, on every Space, and
+/// at a level under the Dock's.
 final class StripPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
-    static func floating(_ content: NSView, radius: CGFloat) -> StripPanel {
+    static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
         let p = StripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isOpaque = false
         p.backgroundColor = .clear
@@ -16,9 +16,14 @@ final class StripPanel: NSPanel {
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
         p.becomesKeyOnlyIfNeeded = true
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        p.apply(fullScreen: fullScreen)
         p.contentView = ground(content, radius: radius)
         return p
+    }
+
+    /// Off: it stays out of a full-screen app's Space (a talk, a film).
+    func apply(fullScreen: Bool) {
+        collectionBehavior = [.canJoinAllSpaces, fullScreen ? .fullScreenAuxiliary : .fullScreenNone, .stationary, .ignoresCycle]
     }
 
     /// Liquid Glass where there is, the popover card before.
@@ -133,16 +138,19 @@ final class StripCard {
     /// A card can come up under a click meant for something else: Allow takes clicks only after this.
     static let armAfter: Duration = .milliseconds(600)
 
+    /// How it was left: put off, answered, or just gone to Kelp.
+    enum End { case later, answered, left }
+
     let session: String
     private let app: AppModel
-    private let onClose: () -> Void
+    private let onEnd: (End) -> Void
     private var panel: StripPanel?
     private var arm: Task<Void, Never>?
 
-    init(_ s: Session, app: AppModel, onClose: @escaping () -> Void) {
+    init(_ s: Session, app: AppModel, fullScreen: Bool, onEnd: @escaping (End) -> Void) {
         session = s.id
         self.app = app
-        self.onClose = onClose
+        self.onEnd = onEnd
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -155,7 +163,7 @@ final class StripCard {
         stack.addArrangedSubview(foot)
         stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         for v in stack.arrangedSubviews { v.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true }
-        panel = StripPanel.floating(stack, radius: Metrics.radiusXL)
+        panel = StripPanel.floating(stack, radius: Metrics.radiusXL, fullScreen: fullScreen)
     }
 
     private lazy var reply: NSTextField = {
@@ -177,7 +185,7 @@ final class StripCard {
         name.textColor = .secondaryLabelColor
         name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let later = IconButton(.symbol("xmark"), tip: String(localized: "Later")) { [weak self] in self?.onClose() }
+        let later = IconButton(.symbol("xmark"), tip: String(localized: "Later")) { [weak self] in self?.onEnd(.later) }
         let bar = NSStackView(views: [icon, name, NSView(), later])
         bar.spacing = Metrics.gap
         return bar
@@ -218,12 +226,12 @@ final class StripCard {
     private func openInKelp() {
         NSApp.activate()
         app.workbench.focus(session: session)
-        onClose()
+        onEnd(.left)
     }
 
     private func answer(_ action: String) {
         app.notifier?.answer(session, action, question: app.session(session)?.summary)
-        onClose()
+        onEnd(.answered)
     }
 
     /// As from a banner: sent with Kelp behind; refused (a half-typed line in its prompt), the agent is shown.
@@ -232,7 +240,7 @@ final class StripCard {
         guard !text.isEmpty else { return }
         let id = session, app = app
         Task { if await app.call(SessionSend(id: id, text: text, enter: true)) == nil { NSApp.activate(); app.workbench.focus(session: id) } }
-        onClose()
+        onEnd(.answered)
     }
 
     func show(above strip: NSRect) {

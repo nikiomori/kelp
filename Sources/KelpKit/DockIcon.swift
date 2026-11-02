@@ -28,6 +28,13 @@ final class DockIcon {
         if busy > 0 { m.addItem(withTitle: String(localized: "\(busy) working"), action: nil, keyEquivalent: "") }
         if !m.items.isEmpty { m.addItem(.separator()) }
         m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newChat() }
+        if let strip = app.agentStrip, !strip.isOff {
+            if strip.hiddenUntil != nil {
+                m.add(String(localized: "Show Agents Above the Dock")) { strip.hide(until: nil) }
+            } else {
+                m.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) { strip.hide(until: Date().addingTimeInterval(3600)) }
+            }
+        }
         m.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
         return m
     }
@@ -56,13 +63,13 @@ final class DockIcon {
     /// With nothing to show the plain icon stands in: no agents, or an agent without a plan's numbers.
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings.string("agents.dockIcon") {
-        case "icon": return .icon
         case "usage":
             guard let u = app.limits, let fullest = LimitAlerts.readings(u).map(\.limit.percent).max() else { return .icon }
             return usage(fullest, warnAt: Int(app.settings.string("usage.alertAt") ?? "80"))
-        default:
+        case "agents":
             let cells = cells(onSidebar(app))
             return cells.isEmpty ? .icon : .agents(cells)
+        default: return .icon
         }
     }
 

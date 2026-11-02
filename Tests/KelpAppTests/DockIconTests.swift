@@ -43,6 +43,6 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
     #expect(item.submenu?.items.map(\.title) == ["Allow", "Deny", "", "Open in Kelp"])
     #expect(menu.items.contains { $0.title == "1 working" && $0.action == nil })
     let icon = try #require(menu.items.first { $0.title == "Dock Icon" }?.submenu)
-    #expect(icon.items.map(\.title) == ["Show Agents", "Show Plan Usage", "Show Application Icon"])
-    #expect(icon.items.first?.state == .on)   // nothing chosen yet: the default
+    #expect(icon.items.map(\.title) == ["Show Application Icon", "Show Agents", "Show Plan Usage"])
+    #expect(icon.items.first?.state == .on)   // nothing chosen yet: the default, as the strip says it all
 }

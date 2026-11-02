@@ -37,11 +37,21 @@ enum StripModel {
         return calling.first?.workspace
     }
 
-    /// `front`: Kelp is the active app, and its window already says all this.
-    static func shows(_ items: [StripItem], mode: String?, front: Bool) -> Bool {
+    /// `front`: Kelp is the active app, and its window already says all this. `comesFor`: what brings it up (When Needed):
+    /// a finished agent can wait for a look, and it would otherwise keep the strip up all day in another app.
+    static func shows(_ items: [StripItem], mode: String?, comesFor: String?, front: Bool) -> Bool {
         guard !front, mode != "off" else { return false }
-        return mode == "always" ? !items.isEmpty : items.contains { $0.cell != .working }
+        if mode == "always" { return !items.isEmpty }
+        let loudest: DockFace.Cell = switch comesFor {
+        case "questions": .asks
+        case "all": .done
+        default: .failed
+        }
+        return items.contains { $0.cell != .working && $0.cell <= loudest }
     }
+
+    /// A question put off: it comes back as a new one when the agent's state changes.
+    static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
 
 /// A strip of workspaces over the Dock, for when Kelp is behind another app: the one whose agent asks opens into a pill, and a
@@ -49,10 +59,20 @@ enum StripModel {
 /// a Dock that stays reserves its room, and a hidden one slides over the strip and away.
 @MainActor
 final class AgentStrip {
-    private struct State: Equatable { var items: [StripItem], mode: String? }
+    private struct State: Equatable { var items: [StripItem], mode: String?, comesFor: String?, fullScreen: Bool }
+    /// After Kelp goes behind: a quick trip to another app and back doesn't flash the strip.
+    private static let settle: TimeInterval = 0.6
 
     private let app: AppModel
-    private var state = State(items: [], mode: nil)
+    private var state = State(items: [], mode: nil, comesFor: nil, fullScreen: true)
+    /// Put off with Later, until the agent's state changes.
+    private var putOff: Set<String> = []
+    /// Hidden for a while (a call, a talk); it isn't kept: a restart brings it back.
+    private(set) var hiddenUntil: Date?
+    private var hideEnds: Timer?
+    private var settling: Timer?
+    /// Just answered: the next question follows in the card.
+    private var goesOn = false
     private var panel: StripPanel?
     private let row = NSStackView()
     private var buttons: [String: StripButton] = [:]
@@ -62,30 +82,68 @@ final class AgentStrip {
     init(app: AppModel) { self.app = app }
 
     func start() {
-        track(owner: self) { [app] in State(items: Self.items(app), mode: app.settings.string("agents.dockStrip")) } changed: { [weak self] in
-            self?.state = $0
-            self?.refresh()
-        }
-        let names = [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification, NSApplication.didChangeScreenParametersNotification]
+        track(owner: self) { [app] in Self.state(app, putOff: []) } changed: { [weak self] _ in self?.refresh() }
+        let names = [NSApplication.didBecomeActiveNotification, NSApplication.didChangeScreenParametersNotification]
         observers = names.map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refresh() }   // queue: .main
             }
         }
+        let behind = NSApplication.didResignActiveNotification
+        observers.append(NotificationCenter.default.addObserver(forName: behind, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.settleThenRefresh() }   // queue: .main
+        })
     }
 
-    private static func items(_ app: AppModel) -> [StripItem] {
+    private func settleThenRefresh() {
+        settling?.invalidate()
+        settling = Timer.scheduledTimer(withTimeInterval: Self.settle, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }   // the main run loop's timer
+        }
+    }
+
+    /// A row muted is quiet here as on a banner, and so is what was put off.
+    private static func state(_ app: AppModel, putOff: Set<String>) -> State {
         let shown = app.worktrees.filter { !$0.archived }.map { w in
             (id: w.id, name: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName, repo: app.repo(w.repoId)?.path)
         }
-        return StripModel.items(app.sessions, workspaces: shown)
+        let loud = app.sessions.filter { !app.isMuted($0) && !putOff.contains(StripModel.key($0)) }
+        return State(items: StripModel.items(loud, workspaces: shown), mode: app.settings.string("agents.dockStrip"),
+                     comesFor: app.settings.string("agents.dockStrip.comesFor"), fullScreen: app.settings.bool("agents.dockStrip.fullScreen") ?? true)
     }
 
     var isShowing: Bool { panel?.isVisible == true }
     var frame: NSRect? { panel?.frame }
+    var isOff: Bool { app.settings.string("agents.dockStrip") == "off" }
+
+    /// Out of the way for a while, whatever comes meanwhile; nil brings it back now.
+    func hide(until: Date?) {
+        hiddenUntil = until
+        hideEnds?.invalidate()
+        hideEnds = until.map { end in
+            Timer.scheduledTimer(withTimeInterval: end.timeIntervalSinceNow, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {   // the main run loop's timer
+                    self?.hiddenUntil = nil
+                    self?.refresh()
+                }
+            }
+        }
+        refresh()
+    }
+
+    /// This agent stops calling until its state changes.
+    func later(_ session: String) {
+        if let s = app.session(session) { putOff.insert(StripModel.key(s)) }
+        closeCard()
+        refresh()
+    }
 
     private func refresh() {
-        guard wanted else { hide(); return }
+        let live = Set(app.sessions.map(StripModel.key))
+        putOff.formIntersection(live)
+        state = Self.state(app, putOff: putOff)
+        guard wanted else { goAway(); return }
+        panel?.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
         let opened = StripModel.opened(state.items)
         let shownNow = state.items.map { item in
@@ -100,6 +158,14 @@ final class AgentStrip {
         buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) { closeCard() }
         place(appearing: !wasUp)
+        follow(opened)
+    }
+
+    /// After an answer, the next question is up at once: several in a row take a click each, not two.
+    private func follow(_ opened: String?) {
+        guard goesOn, card == nil else { return }
+        goesOn = false
+        if let item = state.items.first(where: { $0.workspace == opened }), item.cell == .asks { open(item) }
     }
 
     private func clicked(_ item: StripItem) {
@@ -109,9 +175,21 @@ final class AgentStrip {
             return
         }
         if card?.session == item.session { closeCard(); return }
+        open(item)
+    }
+
+    private func open(_ item: StripItem) {
         closeCard()
         guard let s = app.session(item.session), let panel else { return }
-        let c = StripCard(s, app: app) { [weak self] in self?.closeCard() }
+        let c = StripCard(s, app: app, fullScreen: state.fullScreen) { [weak self] end in
+            switch end {
+            case .later: self?.later(item.session)
+            case .answered:
+                self?.goesOn = true
+                self?.closeCard()
+            case .left: self?.closeCard()
+            }
+        }
         c.show(above: panel.frame)
         card = c
     }
@@ -122,14 +200,18 @@ final class AgentStrip {
     }
 
     private func menu() -> NSMenu {
-        let m = NSMenu()
-        m.addChoices("agents.dockStrip", app, heading: String(localized: "Show Agents Above the Dock"), tryOn: false)
+        let m = NSMenu(), hide = NSMenu()
+        for c in Mutes.choices() where c.until != Mutes.forever { hide.add(c.title) { [weak self] in self?.hide(until: c.until) } }
+        m.setSubmenu(hide, for: m.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
+        m.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
+        m.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
         m.addItem(.separator())
-        m.add(String(localized: "Open Kelp")) { NSApp.activate() }
+        m.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
+        m.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
         return m
     }
 
-    private func hide() {
+    private func goAway() {
         closeCard()
         guard let panel, panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup { c in
@@ -142,7 +224,9 @@ final class AgentStrip {
         }
     }
 
-    private var wanted: Bool { StripModel.shows(state.items, mode: state.mode, front: NSApp.isActive) }
+    private var wanted: Bool {
+        hiddenUntil == nil && StripModel.shows(state.items, mode: state.mode, comesFor: state.comesFor, front: NSApp.isActive)
+    }
 
     /// On the screen the pointer is on when it comes up: the one being looked at, as the Dock's own can't be told.
     private func place(appearing: Bool) {
@@ -174,7 +258,7 @@ final class AgentStrip {
     private func makePanel() -> StripPanel {
         row.spacing = 2
         row.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
-        let p = StripPanel.floating(row, radius: StripButton.stripHeight / 2)
+        let p = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
         panel = p
         return p
     }
