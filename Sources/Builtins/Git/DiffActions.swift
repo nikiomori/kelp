@@ -64,7 +64,7 @@ extension DiffViewController {
         m.add(String(localized: "Open File")) { [weak self] in self?.openLine(path, nil) }
         m.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string) }
     }
-    private func openLine(_ path: String, _ line: Int?) {
+    func openLine(_ path: String, _ line: Int?) {
         guard let root = app.worktree(worktreeId)?.path else { return }
         app.workbench.open(TabURI.file(root + "/" + path, line: line))
     }
@@ -102,7 +102,7 @@ extension DiffViewController {
     }
 
     /// The file and the line a row of the diff shows, the new side's when it has both.
-    private func shownLine(_ row: Int) -> (String, DiffLine)? {
+    func shownLine(_ row: Int) -> (String, DiffLine)? {
         guard case .diff(let d) = rows[row] else { return nil }
         switch d {
         case .line(let f, let l): return (diffs[f].path, l)

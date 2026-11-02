@@ -176,6 +176,16 @@
         }
       }
     },
+    "%@ changed since this was shown. Nothing was written.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ изменился с момента показа. Ничего не записано."
+          }
+        }
+      }
+    },
     "%@ didn't run at %@": {
       "extractionState": "manual",
       "localizations": {

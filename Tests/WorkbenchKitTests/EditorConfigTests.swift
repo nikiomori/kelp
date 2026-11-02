@@ -56,3 +56,10 @@ indent_size = 8
                  CodeEdit(line: 2, column: 0, endLine: 2, endColumn: 0, text: "// end\n")]
     #expect(TextEdits.applied(edits, to: "let sum = 1\nprint(sum)\n") == "let total = 1\nprint(total)\n// end\n")
 }
+
+@Test func aLineIsEditedOnlyIfItIsStillWhatWasShown() {
+    #expect(TextEdits.replacing(line: 2, expected: "b", with: "B", in: "a\nb\nc\n") == "a\nB\nc\n")
+    #expect(TextEdits.replacing(line: 1, expected: "a", with: "A", in: "a\r\nb\r\n") == "A\r\nb\r\n")
+    #expect(TextEdits.replacing(line: 2, expected: "old", with: "B", in: "a\nb\n") == nil)
+    #expect(TextEdits.replacing(line: 9, expected: "a", with: "B", in: "a\n") == nil)
+}

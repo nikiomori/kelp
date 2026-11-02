@@ -23,6 +23,21 @@ import Daemon
 /// The diff of one file as the user sees it, against a real daemon and repository: its Stage buttons stage that hunk
 /// and only that one.
 extension AppOfItsOwn {
+    /// A line fixed in the diff goes into the file as shown; one an agent changed since is left alone.
+    @Test func aLineFixedInTheDiffIsWrittenOnlyOverWhatWasShown() async throws {
+        let rig = try await AppRig(files: ["f.txt": "one\ntwo\n"]); defer { rig.done() }
+        try rig.write("f.txt", "one\ntpyo\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.showFile("f.txt", source: "unstaged", commit: nil)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        await vc.write("typo", over: "tpyo", path: "f.txt", line: 2)
+        #expect(try String(contentsOfFile: rig.repo + "/f.txt", encoding: .utf8) == "one\ntypo\n")
+        await vc.write("again", over: "tpyo", path: "f.txt", line: 2)
+        #expect(try String(contentsOfFile: rig.repo + "/f.txt", encoding: .utf8) == "one\ntypo\n")
+    }
+
     @Test func aHunksStageButtonStagesThatHunk() async throws {
         let lines = (1...40).map { "line \($0)" }
         let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }

@@ -26,6 +26,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     let status = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
     var diffs: [FileDiff] = []
+    /// A line being fixed in place: its field, and what it was (`DiffLineEdit`).
+    var lineEdit: (field: NSTextField, path: String, line: Int, text: String)?
     /// A hunk was discarded: what's left fades in rather than the lines jumping up.
     var fadesNextLoad = false
     var rows: [ReviewRow] = []
@@ -57,6 +59,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     })
 
     override func loadView() {
+        table.target = self
+        table.doubleAction = #selector(rowDoubleClicked)
         layoutToggle.selectedSegment = UserDefaults.standard.bool(forKey: "diff.inline") ? 1 : 0
         layoutToggle.target = self; layoutToggle.action = #selector(layoutChanged)
         layoutToggle.setToolTip(String(localized: "Side by Side"), forSegment: 0); layoutToggle.setToolTip(String(localized: "Inline"), forSegment: 1)

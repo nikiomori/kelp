@@ -14,4 +14,15 @@ public enum TextEdits {
         }
         return s as String
     }
+
+    /// `text` with 1-based line `n` now `new`; nil when that line isn't `expected` any more (an agent changed the file since
+    /// it was shown). What ends the line stays.
+    public static func replacing(line n: Int, expected: String, with new: String, in text: String) -> String? {
+        var lines = text.components(separatedBy: "\n")
+        guard lines.indices.contains(n - 1) else { return nil }
+        let carriage = lines[n - 1].hasSuffix("\r"), old = carriage ? String(lines[n - 1].dropLast()) : lines[n - 1]
+        guard old == expected else { return nil }
+        lines[n - 1] = new + (carriage ? "\r" : "")
+        return lines.joined(separator: "\n")
+    }
 }
