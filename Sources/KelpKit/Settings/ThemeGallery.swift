@@ -14,7 +14,7 @@ struct ThemeGallery: View {
         let all = app.themes.themes, kelp = ThemeManager.builtin.map(\.id), looks = Theme.looks.map(\.id), popular = Theme.popular.map(\.id)
         let classic = all.filter { popular.contains($0.id) }
         VStack(alignment: .leading, spacing: 12) {
-            Text("Theme")
+            heading("Theme")
             grid(following(all) + all.filter { kelp.contains($0.id) }.map(card))
             heading("Looks")
             grid(all.filter { looks.contains($0.id) }.map(card))
@@ -30,10 +30,10 @@ struct ThemeGallery: View {
         .padding(.vertical, 4)
     }
 
-    private func heading(_ title: LocalizedStringKey) -> some View { Text(title).font(.caption).foregroundStyle(.secondary) }
+    private func heading(_ title: LocalizedStringKey) -> some View { Text(title) }
 
     private func grid(_ cards: [ThemeCard]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 10)], spacing: 10) {
             ForEach(cards) { c in
                 Button { selection = c.id } label: {
                     VStack(alignment: .leading, spacing: 4) {
