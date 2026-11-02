@@ -38,6 +38,7 @@ struct UsageReportView: View {
     @State private var hovered: String?
     @State private var usage: UsageAgents.Result?
     @State private var loading = true
+    @State private var waited = false
     @State private var slow = false
     @State private var failed: String?
     /// The last year of weeks, for the board of days (read once, after the span's).
@@ -57,6 +58,7 @@ struct UsageReportView: View {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
+                if usage == nil, failed == nil { firstReading }
                 if usage != nil, !lines.isEmpty {   // not "nothing used" while the first reading is under way
                     kpis(lines)
                     table(lines)
@@ -70,14 +72,7 @@ struct UsageReportView: View {
                 } else if !loading, failed == nil {
                     Text("No agent conversations in this time.").foregroundStyle(.secondary)
                 }
-                Text("""
-                    Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
-                    Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
-                    disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost a tenth \
-                    of fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
-                    differently, and "—" is a model without one.
-                    """)
-                    .font(.caption).foregroundStyle(.secondary)
+                if usage != nil { footnote }
             }
             .padding(24).frame(maxWidth: 1000, alignment: .leading)
         }
@@ -89,10 +84,7 @@ struct UsageReportView: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text("Agents").font(.title3.weight(.semibold))
             Text("Last \(range) days · from each agent's own logs on this Mac").font(.caption).foregroundStyle(.secondary)
-            if loading {
-                ProgressView().controlSize(.small)
-                if slow { Text("Reading the agents' logs — the first time takes a minute.").font(.caption).foregroundStyle(.secondary) }
-            }
+            if loading, usage != nil { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
                 Text("7 Days").tag(7)
@@ -101,6 +93,27 @@ struct UsageReportView: View {
             }
                 .pickerStyle(.segmented).fixedSize()
         }
+    }
+
+    /// Where the figures come from, under them.
+    private var footnote: some View {
+        Text("""
+                Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
+                Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
+                disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost a tenth \
+                of fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
+                differently, and "—" is a model without one.
+            """)
+            .font(.caption).foregroundStyle(.secondary)
+    }
+
+    /// Nothing to show yet: a spinner in the middle after a second, and why it takes long after three.
+    private var firstReading: some View {
+        VStack(spacing: Metrics.gap) {
+            if waited { ProgressView().controlSize(.small) }
+            if slow { Text("Reading the agents' logs — the first time takes a minute.").font(.caption).foregroundStyle(.secondary) }
+        }
+        .frame(maxWidth: .infinity, minHeight: 320)
     }
 
     // MARK: The agents
@@ -325,9 +338,12 @@ struct UsageReportView: View {
     }
 
     private func load() async {
-        loading = true; slow = false
+        loading = true
+        waited = false
+        slow = false
+        let spinner = whileSlow { waited = true }
         let hint = Task { try? await Task.sleep(for: .seconds(3)); if loading { slow = true } }
-        defer { hint.cancel() }
+        defer { spinner.cancel(); hint.cancel() }
         let read = await app.tryCall(UsageAgents(days: range))
         failed = read.error
         if let r = read.value { usage = r }
