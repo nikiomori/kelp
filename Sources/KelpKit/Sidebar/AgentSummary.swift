@@ -17,7 +17,7 @@ final class AgentSummary: NSView {
     private let glass: NSView = {
         if #available(macOS 26, *) {
             let g = NSGlassEffectView()
-            g.cornerRadius = 12
+            g.cornerRadius = Metrics.radiusXL
             return g
         }
         let v = NSVisualEffectView()
@@ -25,7 +25,7 @@ final class AgentSummary: NSView {
         v.blendingMode = .withinWindow
         v.state = .active
         v.wantsLayer = true
-        v.layer?.cornerRadius = 12
+        v.layer?.cornerRadius = Metrics.radiusXL
         v.layer?.masksToBounds = true
         return v
     }()
@@ -54,7 +54,7 @@ final class AgentSummary: NSView {
         content.detachesHiddenViews = true
         addLayoutGuide(line)
         sheen.wantsLayer = true
-        sheen.layer?.cornerRadius = 12
+        sheen.layer?.cornerRadius = Metrics.radiusXL
         sheen.layer?.cornerCurve = .continuous
         for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
         capsule.translatesAutoresizingMaskIntoConstraints = false; addSubview(capsule)

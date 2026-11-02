@@ -240,7 +240,7 @@ final class WorkspaceSwitcher {
         r.spacing = 10
         r.alignment = .centerY
         r.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
-        r.wantsLayer = true; r.layer?.cornerRadius = 8
+        r.wantsLayer = true; r.layer?.cornerRadius = Metrics.radiusMD
         r.setAccessibilityElement(true)
         r.setAccessibilityLabel([w.displayName, place.stringValue, said, when.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
         return r

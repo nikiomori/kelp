@@ -440,7 +440,7 @@ final class CommitTextView: NSTextView {
 final class FieldBox: NSView {
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        layer?.cornerRadius = 6; layer?.borderWidth = 1
+        layer?.cornerRadius = Metrics.radiusSM; layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor; layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
     }
 }

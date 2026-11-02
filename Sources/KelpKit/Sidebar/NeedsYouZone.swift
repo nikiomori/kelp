@@ -23,7 +23,7 @@ final class NeedsYouZone: NSView {
     private let glass: NSView = {
         if #available(macOS 26, *) {
             let g = NSGlassEffectView()
-            g.cornerRadius = 10
+            g.cornerRadius = Metrics.radiusLG
             return g
         }
         let v = NSVisualEffectView()
@@ -31,7 +31,7 @@ final class NeedsYouZone: NSView {
         v.blendingMode = .withinWindow
         v.state = .active
         v.wantsLayer = true
-        v.layer?.cornerRadius = 10
+        v.layer?.cornerRadius = Metrics.radiusLG
         v.layer?.masksToBounds = true
         return v
     }()
@@ -53,7 +53,7 @@ final class NeedsYouZone: NSView {
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        header.wantsLayer = true; header.layer?.cornerRadius = 10
+        header.wantsLayer = true; header.layer?.cornerRadius = Metrics.radiusLG
         title.lineBreakMode = .byTruncatingTail; title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
         chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .secondaryLabelColor

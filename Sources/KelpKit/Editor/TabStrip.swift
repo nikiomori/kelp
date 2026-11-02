@@ -260,7 +260,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
         super.init(frame: .zero)
-        wantsLayer = true; layer?.cornerRadius = 6
+        wantsLayer = true; layer?.cornerRadius = Metrics.radiusSM
         icon.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
         title.font = .ui(12); title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))

@@ -68,7 +68,7 @@ final class GroupView: NSView {
         v.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.18).cgColor
         v.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
         v.layer?.borderWidth = 1
-        v.layer?.cornerRadius = 6
+        v.layer?.cornerRadius = Metrics.radiusSM
         return v
     }
 

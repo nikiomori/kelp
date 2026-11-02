@@ -292,6 +292,13 @@ private func codeOnly(_ s: String) -> String {
     }
 }
 
+/// A radius or a duration comes from DesignKit (`Metrics`, `Motion`). What's left are the shell's glass panels, a row's glow and
+/// one attention pulse, which have no token.
+@Test func looksComeFromTheDesignSystem() throws {
+    let typed = try matches(#"(cornerRadius|[dD]uration) = \d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
+    #expect(typed.count <= 5, "\(typed)")
+}
+
 /// Who may call a method is the method's to say (`onlyFromKelp`), checked in one place for every call: a handler that
 /// checked for itself could forget, or check after it had already acted.
 @Test func whoMayCallAMethodIsCheckedInOnePlace() throws {
