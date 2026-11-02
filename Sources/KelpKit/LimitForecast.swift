@@ -42,23 +42,50 @@ struct LimitForecast {
     }
 }
 
-/// A reset as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am", "Oct 30, 2026 3:40 PM"; nil for anything else.
+/// A reset as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am", "Oct 30, 2026 3:40 PM", "November 7, 19:36"; nil for anything else.
 enum ResetTime {
     static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        read(text, now: now, calendar: calendar)?.date
+    }
+
+    /// One way of saying it, whichever agent said it (each CLI has its own): the time within half a day, the weekday and
+    /// time within the week, else the date and time. Text it can't read stays as the agent wrote it.
+    static func shown(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> String {
+        guard let r = read(text, now: now, calendar: calendar) else { return text }
+        return r.timed ? shown(r.date, now: now) : r.date.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    static func shown(_ d: Date, now: Date = Date()) -> String {
+        let left = d.timeIntervalSince(now)
+        return left < 12 * 3600 ? d.formatted(date: .omitted, time: .shortened)
+            : left < 6 * 86400 ? d.formatted(.dateTime.weekday(.wide).hour().minute())
+            : d.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+    }
+
+    /// `timed`: it said a time of day as well as a date.
+    private static func read(_ text: String, now: Date, calendar: Calendar) -> (date: Date, timed: Bool)? {
         let t = text.trimmingCharacters(in: .whitespaces).lowercased()
         if t.hasPrefix("in ") {
             var secs = 0.0
             for m in t.matches(of: /(\d+)\s*(d|h|m)\b/) {
                 secs += (Double(m.1) ?? 0) * (m.2 == "d" ? 86400 : m.2 == "h" ? 3600 : 60)
             }
-            return secs > 0 ? now.addingTimeInterval(secs) : nil
+            return secs > 0 ? (now.addingTimeInterval(secs), true) : nil
         }
-        let clock = /(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:,\s+\d{4}\s+|\s+at\s+|$))?(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm))?/
+        let clock = #/
+            (?: (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) [a-z]* \s+ (\d{1,2}) (?: ,\s+\d{4}\s+ | ,\s+ | \s+at\s+ | $ ) )?
+            (?: (\d{1,2}) (?: :(\d{2}) )? \s* (am|pm)? )?
+            /#
         guard let m = t.wholeMatch(of: clock), m.1 != nil || m.3 != nil else { return nil }   // a date, a time, or both
         var hour = 0
         if let h = m.3.flatMap({ Int($0) }) {
-            guard (1...12).contains(h) else { return nil }
-            hour = h % 12 + (m.5 == "pm" ? 12 : 0)
+            if m.5 == nil {   // "19:36": a 24-hour clock has its minutes
+                guard m.4 != nil, (0...23).contains(h) else { return nil }
+                hour = h
+            } else {
+                guard (1...12).contains(h) else { return nil }
+                hour = h % 12 + (m.5 == "pm" ? 12 : 0)
+            }
         }
         var c = calendar.dateComponents([.year, .month, .day], from: now)
         c.hour = hour
@@ -69,9 +96,9 @@ enum ResetTime {
             c.month = i + 1
             c.day = day
             guard let d = calendar.date(from: c) else { return nil }
-            return d >= now ? d : calendar.date(byAdding: .year, value: 1, to: d)
+            return (d >= now ? d : calendar.date(byAdding: .year, value: 1, to: d)).map { ($0, m.3 != nil) }
         }
         guard let d = calendar.date(from: c) else { return nil }
-        return d >= now ? d : calendar.date(byAdding: .day, value: 1, to: d)
+        return (d >= now ? d : calendar.date(byAdding: .day, value: 1, to: d)).map { ($0, true) }
     }
 }

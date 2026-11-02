@@ -524,6 +524,13 @@ extension OneAtATime {
     let codex = ResetTime.parse("Oct 30, 2026 3:40 PM", now: now, calendar: cal)
     #expect(codex.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) } == DateComponents(month: 10, day: 30, hour: 15, minute: 40))
     #expect(ResetTime.parse("soon", now: now, calendar: cal) == nil)
+    #expect(ResetTime.parse("7", now: now, calendar: cal) == nil)
+    let grok = ResetTime.parse("October 20, 19:36", now: now, calendar: cal)
+    #expect(grok.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) } == DateComponents(month: 10, day: 20, hour: 19, minute: 36))
+    // Whichever agent said it, one way; what can't be read stays, and a date with no time gets none.
+    #expect(ResetTime.shown("Oct 20 at 5am", now: now, calendar: cal) == ResetTime.shown(cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 5)) ?? now, now: now))
+    #expect(ResetTime.shown("soon", now: now, calendar: cal) == "soon")
+    #expect(!ResetTime.shown("Nov 23", now: now, calendar: cal).contains(":"))
 }
 
 /// A folder's CI mark: a run shows while it goes; a pass that lands while you're elsewhere waits in the sidebar until you

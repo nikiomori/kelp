@@ -193,7 +193,7 @@ struct UsageView: View {
             let label = kind == "session" ? String(localized: "5 hours") : kind == "week" ? String(localized: "Week")
                 : kind == "month" ? String(localized: "Month")
                 : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
-            return Line(label: label, used: l.percent / 100, resets: l.resets, session: kind == "session", kind: kind)
+            return Line(label: label, used: l.percent / 100, resets: l.resets.map { ResetTime.shown($0) }, session: kind == "session", kind: kind)
         }
     }
 
@@ -209,16 +209,9 @@ struct UsageView: View {
                 (String(localized: "Week"), x.secondaryUsedPercent, x.secondaryResetsAt, false)].compactMap { label, used, reset, session in
             guard let p = used else { return nil }
             let t = reset ?? 0, expired = t > 0 && t < now
-            return Line(label: label, used: expired ? 0 : p / 100, resets: t > now ? Self.at(t) : nil, session: session, kind: session ? "session" : "week")
+            let resets = t > now ? ResetTime.shown(Date(timeIntervalSince1970: t)) : nil
+            return Line(label: label, used: expired ? 0 : p / 100, resets: resets, session: session, kind: session ? "session" : "week")
         }
-    }
-
-    /// A clock time, as Claude Code gives its own: "3:12 PM" within half a day (the 5-hour window, short enough for
-    /// the sidebar), "Saturday 3:12 PM" later.
-    private static func at(_ ts: Double) -> String {
-        let d = Date(timeIntervalSince1970: ts)
-        return d.timeIntervalSinceNow < 12 * 3600 ? d.formatted(date: .omitted, time: .shortened)
-            : d.formatted(.dateTime.weekday(.wide).hour().minute())
     }
 }
 
