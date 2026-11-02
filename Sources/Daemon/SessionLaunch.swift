@@ -359,13 +359,17 @@ extension Sessions {
         } catch { Log.session.error("couldn't name the workspace of \(id, privacy: .public) from its first prompt: \(error)") }
     }
 
+    /// Settings › Git: what goes before the branches Kelp names.
+    var branchPrefix: String { settings["git.branchPrefix"]?.string ?? "" }
+
     /// A placeholder branch (task-123, wip, new-worktree…) gets a real name from what the agent was asked to do. Folder
     /// and record agree after it either way: a record that couldn't be saved puts the folder's old name back.
     private func nameBranch(_ wid: String, prompt: String, title: String) throws {
         guard let w = try store.worktree(wid), w.branch.range(of: #"^(task|wip|tmp|new|new-worktree|untitled|ws)(-\d+)?$"#, options: .regularExpression) != nil,
               let r = try store.repo(w.repoId), w.path != r.path else { return }
-        let base = Naming.slug(prompt)
-        guard !base.isEmpty else { return }
+        let slug = Naming.slug(prompt)
+        guard !slug.isEmpty else { return }
+        let base = branchPrefix + slug
         var b = base, n = 2
         while Git.branchExists(r.path, b, remotes: remotes) { b = "\(base)-\(n)"; n += 1 }
         try Git.renameBranch(w.path, from: w.branch, to: b, remotes: remotes)

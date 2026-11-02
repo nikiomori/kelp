@@ -326,7 +326,8 @@ extension TaskFromIssue: AsyncHandled {
         let body = body ?? "", url = url ?? ""
         var branch = branch.flatMap { $0.isEmpty ? nil : $0 }
             ?? IssueRef.branchName(ref.hasPrefix("#") ? String(ref.dropFirst()) : ref.lowercased(), title: title)
-        if let branchPrefix, !branchPrefix.isEmpty, !branch.hasPrefix(branchPrefix) { branch = branchPrefix + branch }
+        let prefix = branchPrefix ?? work.workspaces.sessions.branchPrefix
+        if !prefix.isEmpty, !branch.hasPrefix(prefix) { branch = prefix + branch }
         let unique = try await work.forges.offloads.run { [branch] in
             var unique = branch, n = 2
             while Git.branchExists(r.path, unique, remotes: work.workspaces.remotes) { unique = "\(branch)-\(n)"; n += 1 }

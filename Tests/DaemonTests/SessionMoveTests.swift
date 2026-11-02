@@ -37,6 +37,17 @@ import GitKit
     #expect(Git.branchExists(repo.path, "pocini-vhod") && !Git.branchExists(repo.path, "ws-2"))
 }
 
+@Test func branchesKelpNamesTakeTheSettingsPrefix() async throws {
+    let (d, c, _, repo) = try await world(); defer { d.stop() }
+    _ = try await c.call("settings.set", .obj(["key": "git.branchPrefix", "value": "me/"]))
+    let w: Worktree = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "setup": false]), as: Worktree.self)
+    _ = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 60", "prompt": "fix login"]))
+    func now() async throws -> Worktree? {
+        try await c.call("worktree.list", .obj(["repoId": .string(repo.id)]), as: [Worktree].self).first { $0.id == w.id }
+    }
+    #expect(try await waitFor { try await now()?.branch == "me/fix-login" })
+}
+
 @Test func aBranchNameComesOutInLatinLetters() {
     #expect(Naming.slug("Add a dark-mode toggle to Settings!") == "add-dark-mode-toggle-settings")
     #expect(Naming.slug("исправь объект в логине") == "isprav-obekt-v-logine")
