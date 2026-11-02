@@ -44,6 +44,17 @@ public final class CodeEditor: NSObject {
 
     var lineIndex = LineIndex()
     var lineCount = 1
+    /// Top to bottom. Set by the tab; typing moves them along.
+    public var changeMarks: [ChangeMark] = [] {
+        didSet {
+            markedLineCount = lineCount
+            gutter?.needsDisplay = true
+        }
+    }
+    /// How many lines the file had when the marks were last right.
+    var markedLineCount = 1
+    /// A click on a mark: the mark, and where it is in `in`.
+    public var onChangeMark: ((_ mark: ChangeMark, _ at: NSRect, _ in: NSView) -> Void)?
     var bracketColor = NSColor.clear
     var gutter: LineNumbers?
     let highlighter: SyntaxHighlighter?
@@ -310,6 +321,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         MainActor.assumeIsolated {   // the text view's and load's edits, both on the main thread
             lineIndex.invalidate(from: editedRange.location)
             if !described && !loading { lineCount = LineIndex.breaks(in: textView.string as NSString) + 1 }
+            if !loading { shiftChangeMarks(from: editedRange.location) }
             highlighter?.parse(textView.string as NSString, described: described)
             described = false
             gutter?.needsDisplay = true

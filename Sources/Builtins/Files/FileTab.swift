@@ -18,6 +18,7 @@ final class FileTab: SavableTab {
     private(set) var editor: CodeEditor?
     private(set) var markdown: MarkdownTab?
     private var notebook: NotebookTab?
+    private var changeBars: ChangeBars?
     /// What the file was last read or written as; a compare against the one before is moot.
     private var lastSaved = "" { didSet { comparing?.cancel() } }
     private(set) var isEdited = false
@@ -147,6 +148,7 @@ final class FileTab: SavableTab {
             self?.markdown?.themeChanged()
         }
         if focusWhenLoaded { focus() }
+        changeBars = ChangeBars(app: app, path: path, editor: e) { [weak self] in self?.isEdited == true }
         guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
         let p = path
         version.key = p
@@ -280,6 +282,7 @@ final class FileTab: SavableTab {
             gone = false
             known = (stamp, text)
             saved(text, at: at)
+            changeBars?.refresh()
             return true
         }
         if r.missing == true { gone = true; return false }
@@ -329,6 +332,7 @@ final class FileTab: SavableTab {
     /// server appends to changes every quarter second). One read at a time; versions meanwhile make one more, as do
     /// versions while a save writes the file.
     private func diskChanged() {
+        changeBars?.refresh()
         guard editor != nil, let v = app.fileVersions[path] else { return }
         if reading || writing { readAgain = true; return }
         guard let now = v.stamp else { apply(.missing); return }

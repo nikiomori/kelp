@@ -6224,6 +6224,16 @@
         }
       }
     },
+    "Open in Diff": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в диффе"
+          }
+        }
+      }
+    },
     "Open in Tab": {
       "localizations": {
         "ru": {
@@ -8033,6 +8043,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать в Finder"
+          }
+        }
+      }
+    },
+    "Revert…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откатить…"
           }
         }
       }

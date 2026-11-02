@@ -78,6 +78,7 @@ final class LineNumbers: NSRulerView {
     /// The line under the pointer (its first character): its chevron sits on the hover grey, so it reads as a button.
     private var hoverLine: Int? { didSet { if hoverLine != oldValue { needsDisplay = true } } }
     private static let chevron: CGFloat = 14
+    private static let barInset: CGFloat = 1, barWidth: CGFloat = 3, barHit: CGFloat = 8
 
     init(_ editor: CodeEditor, in scroll: NSScrollView) {
         self.editor = editor
@@ -115,6 +116,7 @@ final class LineNumbers: NSRulerView {
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y
         let font = self.font
         func draw(_ n: Int, at frag: NSRect, start: Int) {
+            if let m = editor.changeMark(onLine: n) { drawChange(m, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag)) }
             let text = NSAttributedString(string: "\(n + 1)", attributes: [.font: font, .foregroundColor: n == caretLine ? current : color])
             let size = text.size()
             text.draw(at: NSPoint(x: ruleThickness - Self.chevron - size.width - 4, y: y0 + frag.minY + (frag.height - size.height) / 2))
@@ -146,9 +148,41 @@ final class LineNumbers: NSRulerView {
         }
     }
 
-    /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block.
+    /// A wrapped line's bar runs along all its rows.
+    private func rowsHeight(of start: Int, first frag: NSRect) -> CGFloat {
+        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return frag.height }
+        let s = editor.textView.string as NSString
+        guard start < s.length else { return frag.height }
+        var line = s.lineRange(for: NSRange(location: start, length: 0))
+        if s.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }   // the break would count the row under it, on the last line
+        guard line.length > 0 else { return frag.height }
+        return lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: line, actualCharacterRange: nil), in: tc).height
+    }
+
+    private func drawChange(_ m: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat) {
+        switch m.kind {
+        case .added: NSColor.textGreen.setFill()
+        case .changed: NSColor.textOrange.setFill()
+        case .removed: NSColor.textRed.setFill()
+        }
+        guard m.kind == .removed else { NSRect(x: Self.barInset, y: y, width: Self.barWidth, height: height).fill(); return }
+        // No line is left of it: a wedge pointing into the gap above this line.
+        let wedge = NSBezierPath()
+        wedge.move(to: NSPoint(x: 0, y: y - 3)); wedge.line(to: NSPoint(x: 5, y: y)); wedge.line(to: NSPoint(x: 0, y: y + 3)); wedge.close()
+        wedge.fill()
+    }
+
+    /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block; at the far left,
+    /// on a change's bar, shows that change.
     override func mouseDown(with event: NSEvent) {
         guard let editor, let line = lineStart(at: event) else { return }
+        let x = convert(event.locationInWindow, from: nil).x
+        let n = editor.lineIndex.line(at: line.location, in: editor.textView.string as NSString)
+        if x <= Self.barHit, let m = editor.changeMark(onLine: n) {
+            let y = convert(event.locationInWindow, from: nil).y
+            editor.onChangeMark?(m, NSRect(x: 0, y: y - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
+            return
+        }
         editor.toggleFold(line: line)
     }
 
