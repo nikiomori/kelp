@@ -22,6 +22,8 @@ package final class EditorArea: NSViewController {
     var closed: Set<String> = []
     /// Tabs asking before they close: a second ⌘W meanwhile doesn't ask again.
     var closing: Set<String> = []
+    /// What's typed in the empty workspace's field.
+    var startDraft = ""
     /// The group shown alone (⇧⌘↩), not saved: a relaunch shows every pane.
     var zoomed: String?
 
@@ -326,7 +328,12 @@ package final class EditorArea: NSViewController {
         guard start == nil, let w = worktree else { return }
         let s = StartView(app: app, worktree: w)
         s.onAgent = { [weak self] agent in self?.newAgent(agent) }
-        s.onPrompt = { [weak self] agent, text in self?.newAgent(agent, prompt: text) }
+        s.onPrompt = { [weak self] agent, text in
+            self?.startDraft = ""
+            self?.newAgent(agent, prompt: text)
+        }
+        s.draft = startDraft
+        s.onDraft = { [weak self] in self?.startDraft = $0 }
         s.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
         s.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self) } }
         start = s

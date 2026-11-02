@@ -7,15 +7,28 @@ import WorkbenchKit
 /// An empty workspace: where it is, a field for the default agent's first task, and what can be opened here, one
 /// click each (like Xcode's welcome window) — the installed agents, a terminal, and whatever extensions add (the browser…).
 @MainActor
-final class StartView: NSView, NSTextFieldDelegate {
+final class StartView: NSView {
     var onAgent: ((String) -> Void)?
     /// The default agent, started with what was typed (the workspace takes its name from it).
     var onPrompt: ((String, String) -> Void)?
     var onOpen: ((String) -> Void)?
     /// No agent on this Mac: one of the suggested ones, installed in a terminal tab here.
     var onInstall: ((AgentManifest) -> Void)?
-    private let prompt = NSTextField()
+    private lazy var prompt: StartPrompt = {
+        let name = app.catalog.all.first { $0.id == def }?.name ?? def
+        return StartPrompt(placeholder: String(localized: "What should \(name) do? Return starts it"),
+                           accessibilityLabel: String(localized: "First task for \(name)"))
+    }()
     private let def: String
+    /// What's typed, kept by the area: this view is made again whenever the workspace's agents change.
+    var draft: String {
+        get { prompt.value }
+        set { prompt.value = newValue }
+    }
+    var onDraft: ((String) -> Void)? {
+        get { prompt.onChange }
+        set { prompt.onChange = newValue }
+    }
     /// The rows of the agents on show, whose plan limits follow the daemon: the view isn't made again, what's typed stays.
     private var agentRowsById: [String: StartRow] = [:]
     private let planLine = NSTextField(wrappingLabelWithString: "")
@@ -216,43 +229,31 @@ final class StartView: NSView, NSTextFieldDelegate {
 
     /// With what was typed, if anything.
     private func start(_ agent: String) {
-        let text = prompt.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = prompt.value.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { onAgent?(agent) } else { onPrompt?(agent, text) }
     }
 
     /// The default agent's icon and a field: Return starts the agent with the text.
     private func promptField() -> NSView {
-        let name = app.catalog.all.first { $0.id == def }?.name ?? def
-        prompt.placeholderString = String(localized: "What should \(name) do? Return starts it")
-        prompt.isBordered = false
-        prompt.drawsBackground = false
-        prompt.focusRingType = .none
-        prompt.font = .ui(14)
-        prompt.lineBreakMode = .byTruncatingTail; prompt.delegate = self
-        prompt.setAccessibilityLabel(String(localized: "First task for \(name)"))
+        prompt.onReturn = { [weak self] typed in
+            let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let self, !text.isEmpty { onPrompt?(def, text) }
+        }
         let icon = NSImageView(image: app.catalog.icon(def, size: 18) ?? NSImage())
         let row = NSStackView(views: [icon, prompt])
         row.spacing = 10
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
+        row.alignment = .top
+        row.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: 11, right: 12)
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
-        row.translatesAutoresizingMaskIntoConstraints = false; box.addSubview(row)
+        box.pin(row)
         NSLayoutConstraint.activate([
-            box.heightAnchor.constraint(equalToConstant: 40), icon.widthAnchor.constraint(equalToConstant: 18),
-            icon.heightAnchor.constraint(equalToConstant: 18),
-            row.leadingAnchor.constraint(equalTo: box.leadingAnchor), row.trailingAnchor.constraint(equalTo: box.trailingAnchor),
-            row.centerYAnchor.constraint(equalTo: box.centerYAnchor)
+            icon.widthAnchor.constraint(equalToConstant: 18), icon.heightAnchor.constraint(equalToConstant: 18),
+            box.heightAnchor.constraint(equalTo: prompt.heightAnchor, constant: row.edgeInsets.top + row.edgeInsets.bottom)
         ])
         return box
     }
 
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
-        guard sel == #selector(NSResponder.insertNewline(_:)) else { return false }
-        let text = prompt.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty { onPrompt?(def, text) }
-        return true
-    }
-
-    func focus() { if prompt.superview != nil { window?.makeFirstResponder(prompt) } }
+    func focus() { if prompt.superview != nil { prompt.focus() } }
 
     static func padded(_ v: NSView) -> NSView {
         let p = NSStackView(views: [v]); p.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)

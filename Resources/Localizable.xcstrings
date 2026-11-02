@@ -7430,6 +7430,7 @@
       }
     },
     "Prompt": {
+      "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {

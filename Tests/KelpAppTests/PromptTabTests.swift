@@ -30,3 +30,23 @@ extension AppOfItsOwn {
         #expect(FileManager.default.fileExists(atPath: path + TabURI.promptDone))
     }
 }
+
+extension AppOfItsOwn {
+    @Test func theFirstTaskFieldGrowsToSixLinesAndKeepsWhatsTyped() {
+        let field = StartPrompt(placeholder: "", accessibilityLabel: "")
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        window.contentView = field
+        var kept = ""
+        field.onChange = { kept = $0 }
+        field.value = "one"
+        window.layoutIfNeeded()
+        let one = field.fittingSize.height
+        field.value = "1\n2\n3"
+        window.layoutIfNeeded()
+        #expect(abs(field.fittingSize.height - one * 3) <= 3)
+        field.value = String(repeating: "x\n", count: 30)
+        window.layoutIfNeeded()
+        #expect(abs(field.fittingSize.height - one * 6) <= 6)
+        #expect(kept.count == 60)
+    }
+}
