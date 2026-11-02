@@ -8,16 +8,18 @@ extension Main {
         case ("session", "new"):
             let wait = has("--wait"), split = flag("--split"), outlive = has("--outlive")
             var p = SessionCreate(agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"), title: flag("--title"))
-            // Inside an agent, an agent it starts is its child, and a command goes on its line, unless it asked for a place of
-            // its own. The daemon ignores this for anything else.
-            if !outlive, split == nil || p.command == nil { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
+            // Inside an agent, an agent it starts is its child and a command goes on its line, split or not: agents keep
+            // asking for a split out of habit, and a pane is what the line is there to spare. The daemon ignores this for anything else.
+            if !outlive { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let w = flag("--worktree") { p.worktreeId = try await resolve(c, w, "worktree.list") }
             else if let w = try? await currentWorktree(c) { p.worktreeId = w.id }
             else { fail("not inside a Kelp project: run it in a project's folder or pass --worktree <id> (see `kelp status`)") }
             let s = try await c.call(p), id = s.id
             // Its tab beside yours; without the app it runs all the same (its row shows once the app opens).
-            if let split { _ = try? await IDE.open("session:\(id)", split: split, cwd: FileManager.default.currentDirectoryPath, client: c) }
+            if let split, s.startedBy == nil {
+                _ = try? await IDE.open("session:\(id)", split: split, cwd: FileManager.default.currentDirectoryPath, client: c)
+            }
             guard wait else { show(try .from(s)); return }
             print(id)   // for `kelp terminal read`, once it ends
             exit(Int32(try await waitFor(c, id, timeout: nil) { $0.status == .exited }?.exitCode ?? 1))
