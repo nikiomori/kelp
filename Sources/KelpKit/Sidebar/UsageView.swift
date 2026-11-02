@@ -2,9 +2,9 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// How much of each agent's plan is used: a line per agent that reports it — name, a bar and percentage for its 5-hour
-/// window (or its fullest limit) with the week as a thin line under it, and when the 5 hours reset — and the details
-/// (each limit with its bar, when it resets) on hover.
+/// How much of the agents' plans is used: one line for the fullest limit of any agent — name, a bar and percentage, the
+/// agent's next fullest as a thin line under it, and when a 5-hour window resets — and on hover every agent that has used
+/// anything, each limit with its bar and when it resets. One line: six plans in six rows took the list's room.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
 /// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
 struct UsageView: View {
@@ -21,9 +21,8 @@ struct UsageView: View {
         /// When the numbers were read (nil: unknown); past half an hour they're dimmed and say how old they are.
         var readAt: Date?
         var stale: Bool { readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false }
-        /// The 5-hour window when the agent has one (what a small plan runs into within a day), else the fullest limit.
-        var main: Line? { lines.first(where: \.session) ?? lines.max { $0.used < $1.used } }
-        /// The fullest of the rest (the week), a thin line under the main bar.
+        var main: Line? { lines.max { $0.used < $1.used } }
+        /// The fullest of the rest, a thin line under the main bar.
         var other: Line? { lines.filter { $0 != main }.max { $0.used < $1.used } }
     }
     let app: AppModel
@@ -31,10 +30,14 @@ struct UsageView: View {
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
+    /// The agents that have used anything of their plans: a row at 0% says nothing.
+    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
+    private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
+
     var body: some View {
         // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
         VStack(alignment: .leading, spacing: 0) {
-            if !rows.isEmpty {
+            if !fullest.isEmpty {
                 Divider()
                 // A minute at a time: a reading ages while nothing else changes.
                 // The reset times only while the bars keep their room; a narrow sidebar has them on hover.
@@ -53,19 +56,17 @@ struct UsageView: View {
 
     private func bars(resets: Bool) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            ForEach(rows) { r in
+            ForEach(fullest) { r in
                 let main = r.main ?? Line(label: "", used: 0)
                 HStack(spacing: 8) {
-                    column(r.name, rows.map(\.name), .leading)
+                    Text(r.name).fixedSize()
                     VStack(spacing: 2) {
                         Bar(used: main.used)
                         if let o = r.other { Bar(used: o.used, height: 2) }
                     }
-                    column((r.stale ? "~" : "") + Self.percent(main.used), [rows.contains(where: \.stale) ? "~100%" : "100%"], .trailing)
+                    Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
                         .monospacedDigit().foregroundStyle(UsageView.tint(main.used))
-                    if resets, !sessionResets.isEmpty {
-                        column(main.session ? main.resets ?? "" : "", sessionResets, .leading).foregroundStyle(.secondary)
-                    }
+                    if resets, main.session, let at = main.resets { Text(at).fixedSize().foregroundStyle(.secondary) }
                 }
                 .font(.caption)
                 .opacity(r.stale ? 0.45 : 1)
@@ -78,26 +79,20 @@ struct UsageView: View {
                 .onHover { hovered = $0 ? r.id : (hovered == r.id ? nil : hovered) }
                 .onTapGesture { hovered = r.id }   // trackpads, and anyone who'd rather click
                 .popover(isPresented: Binding(get: { hovered == r.id }, set: { if !$0, hovered == r.id { hovered = nil } }), arrowEdge: .top) {
-                    Details(row: r, forecast: app.forecast)
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(used) { u in
+                            if u.id != used.first?.id { Divider() }
+                            Details(row: u, forecast: app.forecast)
+                        }
+                    }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(r.lines.map { String(localized: "\(r.fullName) \($0.label): \(Int(($0.used * 100).rounded()))% used") }
-                    .joined(separator: ", "))
+                .accessibilityLabel(used.flatMap { u in
+                    u.lines.map { String(localized: "\(u.fullName) \($0.label): \(Int(($0.used * 100).rounded()))% used") }
+                }.joined(separator: ", "))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// When each 5-hour window frees up, shown without hovering: the question once it's full.
-    private var sessionResets: [String] { rows.compactMap { $0.main?.session == true ? $0.main?.resets : nil } }
-
-    /// `text` as wide as the widest of `all`, so the columns line up from row to row.
-    private func column(_ text: String, _ all: [String], _ alignment: Alignment) -> some View {
-        ZStack(alignment: alignment) {
-            ForEach(all, id: \.self) { Text($0).hidden() }
-            Text(text)
-        }
-        .fixedSize()   // the bar gives way, not the text
     }
 
     private static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
