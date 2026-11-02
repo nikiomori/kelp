@@ -194,8 +194,8 @@ final class Box: @unchecked Sendable {
 
 /// `daemon.shutdown` ends the process, so it is tried on a real `kelpd` of its own.
 @Test func shutdownStopsTheDaemonProcessAndRemovesItsSocket() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    let kelpd = root.appendingPathComponent(".build/debug/kelpd").path
+    let kelp = try #require(ProcessInfo.processInfo.environment["KELP_TRAMPOLINE"])   // the build under test's, whatever its folder
+    let kelpd = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd").path
     try #require(FileManager.default.isExecutableFile(atPath: kelpd), "build kelpd first: swift build")
     let home = tmp()
     let p = Process(); p.executableURL = URL(fileURLWithPath: kelpd)
