@@ -95,6 +95,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     lazy var showAll = ClosureButton(title: String(localized: "Show All Open")) { [weak self] in self?.filter.selectItem(at: 0); self?.reload() }
     /// gh or glab isn't installed or signed in: runs what fixes it in a terminal tab.
     private var setup: Forge.Setup?
+    lazy var checkAgain = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
     lazy var setupButton = ClosureButton(title: "") { [weak self] in if let self, let s = setup { Forge.run(s, in: app) } }
 
     func show(worktree id: String?) {
@@ -149,9 +150,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else {
             rows = []
             table.reloadData()
+            source.isHidden = true; filter.isHidden = true   // nothing to choose among yet
             showEmpty(String(localized: "Select a project"))
             return
         }
+        source.isHidden = false
         let slow = whileSlow { [weak self] in
             guard let self else { return }
             if rows.isEmpty { showEmpty(String(localized: "Loading…"), symbol: "ellipsis") } else { status.stringValue = String(localized: "Loading…") }
@@ -187,6 +190,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 // Switched project or list meanwhile: these rows belong to the old one.
                 guard repoId == self.repoId, src == source.indexOfSelectedItem else { return }
                 self.rows = rows
+                filter.isHidden = false
                 // Empty because of the filter isn't the same as empty: say which, and offer the way back.
                 let narrowed = rows.isEmpty && f > 0 && src < 2
                 let none = [String(localized: "No open pull requests"), String(localized: "No open issues")]
@@ -209,8 +213,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 if src == 3 { why = String(localized: "Connect Jira in Settings › Integrations") }
                 if src == 4, setup == nil { why = String(localized: "Projects need `gh auth refresh -s read:project`") }
                 status.stringValue = ""
-                if let quiet = Forge.noRemote(why) {
-                    showEmpty(quiet.text, symbol: "network", title: quiet.title)
+                let quiet = Forge.noRemote(why)
+                filter.isHidden = quiet != nil   // the source stays: Linear and Jira need no remote
+                if let quiet {
+                    showEmpty(quiet.text, symbol: "network", title: quiet.title, retry: true)
                 } else if src == 2 || src == 3 { showEmpty(why, symbol: "link") } else { showEmpty(why, error: String(localized: "Couldn't load the list")) }
             }
             table.reloadData(); showDetail(nil)
