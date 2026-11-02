@@ -223,10 +223,12 @@ extension OneAtATime {
     }
 }
 
-@Test func withNoProjectsTheSidebarShowsItsEmptyStateNotAnEmptyList() throws {
+/// The middle of the window says what to do first (WelcomeView): the sidebar doesn't say it a second time.
+@Test func withNoProjectsTheSidebarKeepsQuiet() throws {
     try withSidebar(repos: [], worktrees: [], sessions: []) { vc, o in
         #expect(o.numberOfRows == 0)
-        #expect(texts(vc.view).contains { $0.localizedCaseInsensitiveContains("project") })   // it says what to do
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        #expect(line.isHidden)
     }
 }
 
@@ -320,11 +322,24 @@ extension OneAtATime {
     }
 }
 
-@Test func nobodyAskingOrWorkingLeavesNoEmptyBandOverTheList() throws {
+/// The row over the list stays, so the list never moves: with nobody asking or working it names the list.
+@Test func nobodyAskingOrWorkingLeavesTheListsName() throws {
     let done = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Old chat")
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [done]) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-        #expect(line.isHidden)
+        #expect(!line.isHidden && texts(vc.view).contains("Projects"))
+    }
+}
+
+/// The capsule goes to who waits, so it counts only them: how many work is said beside it, in words.
+@Test func theCapsuleCountsOnlyWhoWaits() throws {
+    func agent(_ status: AgentStatus) -> Session {
+        var s = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: status, title: "A")
+        s.statusAt = Date() - 60
+        return s
+    }
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent(.waiting), agent(.working), agent(.working)]) { vc, _ in
+        #expect(texts(vc.view).contains("1 need you") && texts(vc.view).contains("2 working"))
     }
 }
 
@@ -341,7 +356,7 @@ extension OneAtATime {
                 colors.insert(UInt32(c.redComponent * 255) << 16 | UInt32(c.greenComponent * 255) << 8 | UInt32(c.blueComponent * 255))
             }
         }
-        #expect(colors.count > 8, "the sidebar rendered as a flat fill: \(colors.count) distinct colors")   // text, icons and the status mark are not one color
+        #expect(colors.count > 5, "the sidebar rendered as a flat fill: \(colors.count) distinct colors")   // text, icons and the status mark are not one color
     }
 }
 

@@ -7,7 +7,7 @@ import WorkbenchKit
 /// Projects → workspaces → agents in a source-list outline (like Finder and Xcode).
 /// Status changes update the visible cells in place; the outline reloads only when the tree's shape changes.
 @MainActor
-final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
+final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate, NSTextFieldDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError() }
@@ -22,7 +22,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             case .project(let id): "p:" + id
             case .workspace(let id): "w:" + id
             case .agent(let id): "a:" + id
-            case .section(let s): "s:" + s
             }
         }
         /// What a dragged row reorders: a project's or a workspace's id.
@@ -56,18 +55,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private var revealed: String?
     /// The workspace or project (`project`) whose name is being edited in its row.
     var renaming: (id: String, project: Bool)?
-    private let empty = NSStackView()
-    private let search = NSSearchField()
-    var query = ""
     lazy var card = HoverCard(app: app)
     var rowHeights: [CGFloat] = []
-    /// The search field's menu (its magnifier): which workspaces to show. The one on screen always stays.
-    var filter = SidebarFilter(rawValue: UserDefaults.standard.string(forKey: "sidebar.filter") ?? "") ?? .all
-    var pinned: [String] {
-        get { app.uiState.strings("sidebar.pinned") }
-        set { app.uiState["sidebar.pinned"] = try? .from(newValue) }
-    }
-    private let noMatch = NSStackView()
 
     override func loadView() {
         let col = NSTableColumn(identifier: .init("main")); col.resizingMask = .autoresizingMask
@@ -101,36 +90,23 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
         let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
         let v = NSView()
-        search.placeholderString = String(localized: "Search")
-        search.delegate = self
-        search.controlSize = .regular   // 22 pt, level with the add button beside it (small was 19 pt, off its axis)
-        search.sendsSearchStringImmediately = true
-        search.target = self
-        search.action = #selector(searchChanged)
-        setFilterMenu()
-        // Beside the search, over the projects it adds to, where people look for it.
+        // Over the projects it adds to, where people look for it.
         let add = NSButton.titlebar("folder.badge.plus", String(localized: "Add Project"),
                                     tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
         add.target = self; add.action = #selector(addMenu(_:))
-        for x in [add, search, scroll, footer, empty, noMatch] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [add, scroll, footer] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         NSLayoutConstraint.activate([
             // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
-            search.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
-            search.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 10), search.trailingAnchor.constraint(equalTo: add.leadingAnchor, constant: -4),
-            add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6), add.centerYAnchor.constraint(equalTo: search.centerYAnchor),
+            add.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
+            add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
             scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
             footer.leadingAnchor.constraint(equalTo: v.leadingAnchor), footer.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            footer.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            empty.centerXAnchor.constraint(equalTo: v.centerXAnchor), empty.centerYAnchor.constraint(equalTo: v.centerYAnchor, constant: -40),
-            empty.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -32),
-            noMatch.centerXAnchor.constraint(equalTo: v.centerXAnchor), noMatch.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 40),
-            noMatch.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -32)
+            footer.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
-        buildEmpty()
         view = v
-        placeSummary(over: scroll)
+        placeSummary(over: scroll, beside: add)
         track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.scripts.shown } changed: { [weak self] _ in self?.refresh() }
@@ -157,45 +133,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         for row in 0..<outline.numberOfRows { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
     }
 
-    /// Nothing matches the search or the filter: say which, and offer the way back.
-    private func showNoMatch(_ on: Bool) {
-        noMatch.isHidden = !on
-        guard on else { return }
-        noMatch.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let what = query.isEmpty ? "“\(loc(filter.rawValue))”" : "“\(query)”" + (filter == .all ? "" : String(localized: " in “\(loc(filter.rawValue))”"))
-        let t = NSTextField(wrappingLabelWithString: String(localized: "No chats match \(what)."))
-        t.alignment = .center
-        t.textColor = .secondaryLabelColor
-        let b = ClosureButton(title: String(localized: "Show All")) { [weak self] in
-            guard let self else { return }
-            search.stringValue = ""
-            query = ""
-            setFilter(.all)
-        }
-        b.bezelStyle = .push; b.controlSize = .small
-        [t, b].forEach { noMatch.addArrangedSubview($0) }
-        noMatch.orientation = .vertical; noMatch.spacing = 8
-    }
-
-    private func setFilterMenu() {
-        let m = NSMenu()
-        for f in SidebarFilter.allCases {
-            let i = m.add(loc(f.rawValue)) { [weak self] in self?.setFilter(f) }
-            i.state = f == filter ? .on : .off
-        }
-        search.searchMenuTemplate = m
-        search.placeholderString = filter == .all ? String(localized: "Search") : String(localized: "Search \(loc(filter.rawValue))")
-    }
-    private func setFilter(_ f: SidebarFilter) {
-        filter = f; UserDefaults.standard.set(f.rawValue, forKey: "sidebar.filter")
-        setFilterMenu(); refresh()
-    }
-
     // MARK: hover cards
 
     override func mouseMoved(with e: NSEvent) {
         let row = outline.row(at: outline.convert(e.locationInWindow, from: nil))
-        guard row >= 0, renaming == nil, let n = outline.item(atRow: row) as? Node, !n.key.hasPrefix("s:") else {
+        guard row >= 0, renaming == nil, let n = outline.item(atRow: row) as? Node else {
             card.hover(nil, rect: .zero, in: outline)
             return
         }
@@ -208,31 +150,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         if row >= 0 { card.open(n.workspace.map { "w:" + $0 } ?? n.key, rect: outline.rect(ofRow: row), in: outline) }
     }
 
-    private func buildEmpty() {
-        let icon = NSImageView(image: .symbol("folder.badge.plus")); icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
-        icon.contentTintColor = .tertiaryLabelColor
-        let t = NSTextField(labelWithString: String(localized: "No Projects")); t.font = .ui(13, weight: .semibold)
-        let d = NSTextField(wrappingLabelWithString: String(localized: "Add a project folder to start."))
-        d.textColor = .secondaryLabelColor
-        d.alignment = .center
-        [icon, t, d].forEach { empty.addArrangedSubview($0) }   // Add Project… is in the middle of the window
-        empty.orientation = .vertical; empty.spacing = 8
-    }
-
     // MARK: model → tree
 
     private func build() -> [Node] {
         let m = app
         var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
-        tree.pinned = pinned
-        tree.query = query
-        tree.filter = filter
-        tree.current = app.workbench.workspaceId
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
-        tree.statusLabel = { $0.label }
-        tree.hasPR = { [app] w in
-            app.rowBadges.folder(of: w.id).map { [app] in app.rowBadges.prs[$0.id] != nil } ?? false
-        }
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)
             n.children = i.children.map(node); n.workspace = i.workspace
@@ -252,8 +175,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
     }
 
-    @objc private func searchChanged() { query = search.stringValue.trimmingCharacters(in: .whitespaces); refresh() }
-
     /// Same shape → refresh the visible cells; new shape → reload, keeping expansion and selection.
     func refresh() {
         let next = build()
@@ -261,10 +182,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         // must be new, or the row the workspace on screen is looked up by (workspaceNode) isn't found and nothing is picked.
         func flat(_ ns: [Node]) -> [String] { ns.flatMap { [$0.key + ($0.workspace.map { "=" + $0 } ?? "")] + flat($0.children) } }
         let nextShape = flat(next)
-        let projects = app.repos.filter { !ScratchWindow.isScratch($0) }
-        empty.isHidden = !projects.isEmpty
-        showNoMatch(!projects.isEmpty && !next.contains { if case .project = $0.kind { true } else { false } })
-        search.isHidden = projects.isEmpty
         if nextShape == shape { updateVisibleCells(); return }
         let before = shownRows(), places = rowPlaces(), cardFrames = cards.mapValues(\.frame)
         leaveGhosts(of: before, next: next)
@@ -306,19 +223,21 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         keepOpenInView()
     }
 
-    /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
-    /// Under the search, over the list: who needs you and who's working.
-    private func placeSummary(over list: NSScrollView) {
+    /// In the window's second row, beside Add Project: who needs you and who's working. The row is always there, so the
+    /// list under it doesn't move when the first agent starts.
+    private func placeSummary(over list: NSScrollView, beside add: NSView) {
         let summary = AgentSummary(app: app)
         summary.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(summary)
         NSLayoutConstraint.activate([   // in line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge
-            summary.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 6),
-            summary.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8), summary.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            list.topAnchor.constraint(equalTo: summary.line.bottomAnchor, constant: 4)
+            summary.centerYAnchor.constraint(equalTo: add.centerYAnchor),
+            summary.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            summary.trailingAnchor.constraint(equalTo: add.leadingAnchor),
+            list.topAnchor.constraint(equalTo: add.bottomAnchor)   // the list opens with a little air of its own
         ])
     }
 
+    /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
     private func keepOpenInView() {
         guard let id = app.workbench.workspaceId, let n = workspaceNode(id) else { return }
         let row = outline.row(forItem: n)
@@ -334,21 +253,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any { (item as? Node)?.children[i] ?? roots[i] }
     func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool { !((item as? Node)?.children.isEmpty ?? true) }
     static func isHeader(_ item: Any?) -> Bool {
-        switch (item as? Node)?.kind {
-        case .project?, .section?: true
-        default: false
-        }
-    }
-    // Only the Pinned heading is a group row: the source list puts a section's worth of room over each one, and a
-    // project is a card, not a section (that room was a third of a short project's height).
-    func outlineView(_ o: NSOutlineView, isGroupItem item: Any) -> Bool {
-        if case .section? = (item as? Node)?.kind { true } else { false }
+        if case .project? = (item as? Node)?.kind { true } else { false }
     }
     func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool { !Self.isHeader(item) || (item as? Node)?.workspace != nil }
     // A project too: the outline doesn't fold an item without one. Its triangle isn't drawn (SidebarOutline), it has its own chevron.
-    func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool {
-        if case .section? = (item as? Node)?.kind { false } else { true }
-    }
+    func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { true }
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let n = item as? Node else { return TextSize.of(rowBase) }
@@ -378,8 +287,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard let p = group(n) else { return (0, 0) }
         return SidebarRowView.pads(p)
     }
-    /// Where this row is in its project's card: nil outside a project (the sections over them) and for a project with
-    /// nothing under it, which is a plain row.
+    /// Where this row is in its project's card: nil for a project with nothing under it, which is a plain row.
     private func group(_ n: Node) -> (first: Bool, last: Bool)? {
         var top = n
         while let up = outline.parent(forItem: top) as? Node { top = up }
@@ -463,7 +371,6 @@ extension SidebarController {
             guard let id = node.workspace else { break }
             if id != app.workbench.workspaceId { clickFold.opened = true }   // this click opens it; it doesn't fold it too
             app.workbench.show(workspace: id)
-        case .section: break
         }
     }
 }

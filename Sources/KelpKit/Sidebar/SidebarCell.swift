@@ -11,7 +11,6 @@ final class SidebarCell: NSTableCellView {
     let app: AppModel
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
-    private let count = NSTextField(labelWithString: "")
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     private let trailing = NSTextField(labelWithString: "")
     private let mark = StatusMark(size: 12)
@@ -94,11 +93,6 @@ final class SidebarCell: NSTableCellView {
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
             layout(row: [icon, title, muted, detail, summary, changes, pr, ci, trailing, b, f])
             detail.isHidden = true
-        case .section:
-            title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
-            count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
-            icon.symbolConfiguration = .init(pointSize: 11, weight: .semibold)
-            layout(row: [icon, title, count, NSView()])
         case .workspace:
             // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
             title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
@@ -130,9 +124,9 @@ final class SidebarCell: NSTableCellView {
                                          ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
                                          ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
         }
-        for v in [title, count] { v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
-        if case .section = node.kind {} else { title.setContentHuggingPriority(.init(2), for: .horizontal) }
+        title.setContentHuggingPriority(.init(2), for: .horizontal)
         // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
         // (Source Control's sections): bare, they read as part of the name.
         for b in [changes, pr, ci] {
@@ -222,7 +216,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent, .section: nil
+        case .agent: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
@@ -295,10 +289,6 @@ final class SidebarCell: NSTableCellView {
             if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
             showSummary(folded ? node : nil)
             showFold()
-        case .section:
-            icon.image = .symbol("pin.fill"); icon.contentTintColor = .secondaryLabelColor
-            title.stringValue = String(localized: "Pinned")
-            count.stringValue = "\(node.children.count)"; toolTip = nil
         case .workspace(let id):
             guard let w = m.worktree(id) else { return }
             let agents = live(id)

@@ -9,7 +9,6 @@ extension SidebarController.Node {
         switch kind {
         case .project(let id): [id] + (workspace.map { [$0] } ?? [])
         case .workspace(let id), .agent(let id): [id]
-        case .section: []
         }
     }
 }
@@ -124,7 +123,6 @@ extension SidebarController {
             menu.addItem(.separator())
             if RemoteHost.of(r.path) == nil { menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) } }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
-        case .section: emptySpaceMenu(menu)
         case .workspace(let id): workspaceMenu(menu, id)
         case .agent(let sid):
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
@@ -195,11 +193,6 @@ extension SidebarController {
     private func workspaceMenu(_ menu: NSMenu, _ id: String) {
         let app = self.app, m = app
         guard let w = m.worktree(id) else { return }
-        let pinned = self.pinned.contains(id)
-        menu.add(pinned ? String(localized: "Unpin") : String(localized: "Pin to Top")) { [weak self] in
-            guard let self else { return }
-            self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
-        }
         menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
         menu.addItem(.separator())
         muteItem(menu, [id])

@@ -58,55 +58,6 @@ private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     #expect(mainWorkspace(of: r1, among: [branch]) == nil)
 }
 
-@Test func searchKeepsWhatMatchesAndDropsEmptyProjects() {
-    var t = tree([wt("w1", "r1", "login"), wt("w2", "r1", "billing"), wt("w9", "r1", "spare")], [agent("a1", in: "w2", .working, title: "fix invoices")])
-    t.query = "inv"
-    var out = t.build()
-    #expect(kinds(out) == [.project("r1")])
-    #expect(kinds(out[0].children) == [.workspace("w2")])   // the agent's title matched, not the workspace's
-    #expect(kinds(out[0].children[0].children) == [.agent("a1")])
-    t.query = "LOGIN"
-    out = t.build()
-    #expect(kinds(out[0].children) == [.workspace("w1")])   // case doesn't matter
-    t.query = "nothing like this"
-    #expect(t.build().isEmpty)
-}
-
-@Test func aWorkspaceNameMatchKeepsAllItsAgents() {
-    var t = tree([wt("w1", "r1", "login")], [agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle)])
-    t.query = "login"
-    #expect(t.build()[0].children[0].children.count == 2)
-}
-
-/// A paused agent's unread result is on the Needs You row: the filter finds it too.
-@Test func theNeedsYouFilterFindsAPausedAgentsResult() {
-    var t = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b")], [agent("a1", in: "w1", .hibernated, unread: true), agent("a2", in: "w2", .hibernated)])
-    t.filter = .needsYou
-    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1")])
-}
-
-@Test func filtersNarrowAndTheCurrentWorkspaceStays() {
-    let ws = [wt("w1", "r1", "a"), wt("w2", "r1", "b"), wt("w3", "r2", "c"), wt("w4", "r2", "d")]
-    let ss = [agent("a1", in: "w1", .working), agent("a2", in: "w2", .waiting), agent("a3", in: "w3", .done, unread: true)]
-    var t = tree(ws, ss)
-    t.filter = .working
-    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1")])
-    t.filter = .needsYou
-    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w2"), .workspace("w3")])   // waiting, and done but unread
-    t.current = "w1"
-    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w1"), .workspace("w2"), .workspace("w3")])
-    t.current = nil; t.filter = .withPR; t.hasPR = { $0.id == "w3" }
-    #expect(kinds(t.build().flatMap(\.children)) == [.workspace("w3")])
-}
-
-@Test func pinnedWorkspacesMoveUpInsteadOfBeingCopied() {
-    var t = tree([wt("w1", "r1", "a"), wt("w2", "r1", "b"), wt("w3", "r1", "c")])
-    t.pinned = ["w2", "gone"]   // an id that no longer exists is ignored
-    let out = t.build()
-    #expect(out[0].kind == .section("Pinned") && kinds(out[0].children) == [.workspace("w2")])
-    #expect(kinds(out[1].children) == [.workspace("w1"), .workspace("w3")])
-}
-
 @Test func inboxSkipsTheAgentOnScreenAndWaitsUntilOneHasNeededYouAWhile() {
     let t0 = Date(timeIntervalSince1970: 1000)
     var a = agent("a1", in: "w1", .done, unread: true); a.statusAt = t0

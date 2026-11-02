@@ -3,15 +3,13 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// One line over the projects about the agents. While some need you: a glass capsule counting them ("2 need you ·
-/// 1 working") that goes to the next one, as ⇧⌘U does. Otherwise how many work, in grey on the projects' icon axis.
-/// The rows say what each one wants (SidebarCell's second line), so the capsule doesn't list them again. The line
-/// keeps its height whatever it says: nothing in the list moves when an agent starts asking or stops. A new question
-/// lights the capsule up for a moment. Nobody asking and nobody working: the line goes.
+/// The row over the projects, beside Add Project. While agents need you: a glass capsule counting them, which goes to the
+/// next one, as ⇧⌘U does. Beside it in grey, how many work: words, not a button, so nothing says more than the capsule's
+/// click does. The rows say what each one wants (SidebarCell's second line), so the capsule doesn't list them again. With
+/// nobody asking and nobody working the row names the list under it. It keeps its place whatever it says: nothing in the
+/// list moves when an agent starts asking or stops. A new question lights the capsule up for a moment.
 @MainActor
 final class AgentSummary: NSView {
-    /// The line's place in the layout: the list starts under it.
-    let line = NSLayoutGuide()
     private let capsule = Pressable()
     /// Liquid Glass where there is (macOS 26): the one custom glass in the sidebar, over the list it floats above.
     private let glass: NSView = {
@@ -33,73 +31,76 @@ final class AgentSummary: NSView {
     private let sheen = NSView()
     private let mark = StatusMark(size: 12)
     private let title = NSTextField(labelWithString: "")
-    private var lineHeight: NSLayoutConstraint?
-    private var centered: [NSLayoutConstraint] = [], leading: [NSLayoutConstraint] = []
+    /// What's said beside the capsule, or alone in its place: how many work, or the list's name.
+    private let aside = NSStackView()
+    private let asideMark = StatusMark(size: 12)
+    private let asideText = NSTextField(labelWithString: "")
+    private let row = NSStackView()
     private let app: AppModel
     private var asking = false
     /// Questions already shown or looked at: one that isn't lights the capsule as it comes in.
     private var seen: Set<String>?
     private var settleTimer: Timer?
-    /// What the line says, and the words that matter when that doesn't fit the sidebar (a large Text size).
-    private var wording: (full: NSAttributedString, short: NSAttributedString)?
 
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        title.lineBreakMode = .byTruncatingTail
         title.maximumNumberOfLines = 1
-        // A step over defaultLow: tied with it, the window's first narrow layout cut the words and the capsule kept them cut.
-        title.setContentCompressionResistancePriority(.defaultLow + 1, for: .horizontal)
+        title.font = .ui(12, weight: .semibold)
+        title.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, title])
-        content.spacing = 6
-        content.detachesHiddenViews = true
-        addLayoutGuide(line)
+        content.spacing = Metrics.gap
         sheen.wantsLayer = true
         sheen.layer?.cornerRadius = Metrics.radiusXL
         sheen.layer?.cornerCurve = .continuous
         for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
-        capsule.translatesAutoresizingMaskIntoConstraints = false; addSubview(capsule)
         capsule.contextMenu = { [weak self] in self.map { Self.viewMenu($0.app) } }
-        capsule.press = { [weak self] in if self?.asking == true { self?.app.workbench.showNextNeedingAttention() } }
-        capsule.look = { [weak self] hovering, pressed in   // only the capsule that goes somewhere answers
-            guard let self else { return }
-            sheen.fadeBackground(to: !asking ? nil : pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
+        capsule.press = { [weak self] in self?.app.workbench.showNextNeedingAttention() }
+        capsule.look = { [weak self] hovering, pressed in
+            self?.sheen.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
         }
         capsule.setAccessibilityElement(true)
-        let lh = line.heightAnchor.constraint(equalToConstant: 0)
-        lineHeight = lh
+        capsule.setAccessibilityRole(.button)
+        asideText.textColor = .secondaryLabelColor
+        asideText.lineBreakMode = .byClipping
+        asideText.maximumNumberOfLines = 1
+        asideText.setContentCompressionResistancePriority(.required, for: .horizontal)   // it goes as a whole (`layout`)
+        for v in [asideMark, asideText] as [NSView] { aside.addArrangedSubview(v) }
+        aside.spacing = Metrics.gap
+        aside.detachesHiddenViews = true
+        aside.setHuggingPriority(.required, for: .horizontal)   // a stack keeps to its views only so
+        aside.setClippingResistancePriority(.required, for: .horizontal)
+        for v in [capsule, aside] as [NSView] { row.addArrangedSubview(v) }
+        row.spacing = Metrics.gap
+        row.detachesHiddenViews = true
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
         NSLayoutConstraint.activate([
-            lh, heightAnchor.constraint(equalTo: line.heightAnchor),
-            line.topAnchor.constraint(equalTo: topAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor),
-            capsule.centerYAnchor.constraint(equalTo: line.centerYAnchor), capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
-            capsule.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -16),
+            heightAnchor.constraint(equalToConstant: TextSize.of(24)),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
+            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
             glass.topAnchor.constraint(equalTo: capsule.topAnchor), glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
             glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor), glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
             sheen.topAnchor.constraint(equalTo: glass.topAnchor), sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
             sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor), sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
-            content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor), content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
+            content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
+            content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
+            content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
-        // Asking, a capsule in the middle; otherwise the grey count where the projects' icons start (8 pt in, as the cards).
-        centered = [capsule.centerXAnchor.constraint(equalTo: centerXAnchor), content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10)]
-        leading = [capsule.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor)]
-        NSLayoutConstraint.activate(leading)
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.update() }
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// The grey words go first when the row is short of room (a large Text size): the capsule says what matters.
     override func layout() {
-        fitWords()
         super.layout()
-    }
-
-    /// The whole line while it fits between the capsule's insets, else only how many need you.
-    private func fitWords() {
-        guard let wording else { return }
-        let room = bounds.width - 16 - 10 - 12 - mark.fittingSize.width - 6
-        let words = wording.full.size().width <= room ? wording.full : wording.short
-        if title.attributedStringValue != words { title.attributedStringValue = words }
+        let words = asideText.intrinsicContentSize.width + (asideMark.isHidden ? 0 : 12 + aside.spacing) + 2
+        let room = asking ? bounds.width - (title.intrinsicContentSize.width + 12 + Metrics.gap + 22) - row.spacing : .infinity
+        let hide = asideText.stringValue.isEmpty || words > room
+        if aside.isHidden != hide { aside.isHidden = hide }
     }
 
     func update() {
@@ -111,42 +112,28 @@ final class AgentSummary: NSView {
                 MainActor.assumeIsolated { self?.update() }
             }
         }
-        let agents = app.sessions.filter { $0.isChat && $0.status != .exited }
-        let busy = agents.filter { $0.status == .working }.count
+        let busy = app.sessions.filter { $0.isChat && $0.status == .working }.count
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
-        isHidden = busy == 0 && shown.isEmpty   // nothing to say: no empty band over the list
-        lineHeight?.constant = isHidden ? 0 : TextSize.of(30)
+        isHidden = app.repos.allSatisfy(ScratchWindow.isScratch)   // the first run says it in the middle of the window
         asking = !shown.isEmpty
-        glass.isHidden = !asking
+        capsule.isHidden = !asking
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
-        NSLayoutConstraint.deactivate(asking ? leading : centered)
-        NSLayoutConstraint.activate(asking ? centered : leading)
-        mark.status = asking ? AgentStatus.mostUrgent(shown.map(SidebarCell.shownStatus)) : busy > 0 ? .working : nil
+        // Alone in the row the words stand in the icons' column; beside the capsule, a step from it.
+        row.edgeInsets.left = asking ? 0 : Metrics.gapWide
+        mark.status = AgentStatus.mostUrgent(shown.map(SidebarCell.shownStatus))
         mark.unread = true
-        // Its own paragraph style: the field's line break mode doesn't reach an attributed string, which would wrap.
-        let oneLine = NSMutableParagraphStyle(); oneLine.lineBreakMode = .byTruncatingTail
-        let t = NSMutableAttributedString(), counted = NSMutableAttributedString()
-        if asking {
-            counted.append(NSAttributedString(string: String(localized: "\(shown.count) need you"),
-                                              attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.labelColor,
-                                                           .paragraphStyle: oneLine]))
-            t.append(counted)
-            if busy > 0 {
-                t.append(NSAttributedString(string: "  ·  " + String(localized: "\(busy) working"),
-                                            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: oneLine]))
-            }
-        } else if busy > 0 {
-            t.append(NSAttributedString(string: String(localized: "\(busy) working"),
-                                        attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: oneLine]))
-            counted.append(t)
-        }
-        wording = (t, counted)
-        fitWords()
-        capsule.setAccessibilityRole(asking ? .button : .staticText)
-        capsule.setAccessibilityLabel(asking ? String(localized: "Agents that need you: \(shown.count). Show the next one.") : title.stringValue)
-        capsule.toolTip = asking ? String(localized: "Show the next agent that needs you (⇧⌘U)") : nil
+        title.stringValue = String(localized: "\(shown.count) need you")
+        asideMark.status = busy > 0 ? .working : nil
+        asideMark.unread = true
+        asideMark.isHidden = busy == 0
+        asideText.stringValue = busy > 0 ? String(localized: "\(busy) working") : asking ? "" : String(localized: "Projects")
+        asideText.font = busy > 0 ? .ui(11) : .ui(11, weight: .semibold)
+        aside.isHidden = asideText.stringValue.isEmpty
+        needsLayout = true
+        capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(shown.count). Show the next one."))
+        capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
             NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; capsule.animator().alphaValue = 1 }
@@ -156,10 +143,8 @@ final class AgentSummary: NSView {
     /// The capsule's: where who waits for you is, and what their rows say.
     static func viewMenu(_ app: AppModel) -> NSMenu {
         let m = NSMenu()
-        if !Inbox.current(app).shown.isEmpty {
-            m.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
-            m.addItem(.separator())
-        }
+        m.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
+        m.addItem(.separator())
         m.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
         m.addItem(.separator())
         m.addSettingsLink(String(localized: "Needs You Settings…"), section: "window", group: "Sidebar", app)
