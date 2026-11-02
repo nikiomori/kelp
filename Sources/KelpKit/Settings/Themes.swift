@@ -33,6 +33,12 @@ struct Theme: Codable, Identifiable, Equatable {
         var ambient: String?     // "aurora", "motes", "grid"
         var ambientColors: [String]?
     }
+    /// A colour for the terminal's config file, which is read line by line. A theme is someone else's, and more than one word
+    /// could add a line of its own there ("#000\nkeybind = …") past the review that says it runs no commands.
+    static func terminalColor(_ value: String?) -> String? {
+        value.flatMap { $0.range(of: #"\A#?[0-9A-Za-z]+\z"#, options: .regularExpression) == nil ? nil : $0 }
+    }
+
     var id: String
     var name: String
     var appearance: String?      // "light" / "dark" / nil (either)
@@ -130,11 +136,11 @@ package final class ThemeManager {
         var t = TerminalAppearance()
         t.useGhosttyConfig = theme == nil || s.bool("terminal.useGhosttyConfig") == true
         if let c = theme?.terminal {
-            t.background = c.background
-            t.foreground = c.foreground
-            t.cursor = c.cursor ?? NSColor.controlAccentColor.hexString   // the system's accent, by name
-            t.selection = c.selection
-            t.palette = c.palette ?? []
+            t.background = Theme.terminalColor(c.background)
+            t.foreground = Theme.terminalColor(c.foreground)
+            t.cursor = Theme.terminalColor(c.cursor) ?? NSColor.controlAccentColor.hexString   // the system's accent, by name
+            t.selection = Theme.terminalColor(c.selection)
+            t.palette = (c.palette ?? []).compactMap(Theme.terminalColor)
         }
         t.fontFamily = s.string("terminal.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
         t.fontSize = s.number("terminal.fontSize")
