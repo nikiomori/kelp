@@ -214,7 +214,7 @@ private func codeOnly(_ s: String) -> String {
 /// a name of its own and these callers, each with a URI Kelp made or a person asked for; data from elsewhere is never among them.
 @Test func onlyKelpsOwnURIsRunAnything() throws {
     let callers = Set(try matches(#"\.runURI\("#, in: appDirs).map { String($0.split(separator: ":")[0]) })
-    #expect(callers == ["Sources/KelpKit/Editor/EditorArea.swift", "Sources/KelpKit/Extensions/DeclarativeExtension.swift",
+    #expect(callers == ["Sources/KelpKit/DevAids.swift", "Sources/KelpKit/Editor/EditorArea.swift", "Sources/KelpKit/Extensions/DeclarativeExtension.swift",
                         "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/WindowParts.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"])
 }
 

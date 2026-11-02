@@ -42,7 +42,11 @@ extension AppDelegate {
             if let s = env["KELP_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), s.count == 2 {
                 main.window?.setContentSize(NSSize(width: s[0], height: s[1]))
             }
-            if let u = env["KELP_SNAPSHOT_OPEN"] { for x in u.split(separator: "|") { app.workbench.open(String(x)) } }
+            if let u = env["KELP_SNAPSHOT_OPEN"] {
+                for x in u.split(separator: "|").map(String.init) {
+                    if TabURI.runs(x) { app.workbench.runURI(x) } else { app.workbench.open(x) }
+                }
+            }
             // KELP_SNAPSHOT_SHEET=clone|remote[=text]: the clone and SSH sheets (the open panel itself is another process),
             // with text: filled in and started. extension=<GitHub folder>: downloaded, and what it runs asked about.
             // project=<folder>: added as Add Project does (one without git asks first).
