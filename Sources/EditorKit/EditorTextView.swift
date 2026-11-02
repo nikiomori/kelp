@@ -29,6 +29,9 @@ public final class EditorTextView: NSTextView {
     /// Asks the app for completion items; they come back later, to `showCompletions`.
     var onComplete: (() -> Void)?
     var completions: [CodeEditor.Completion] = []
+    /// A key that went in as text, and the pointer moving.
+    var onTyped: ((String) -> Void)?
+    var onPointer: ((NSEvent) -> Void)?
     /// The menu's Find items.
     var onFind: ((NSFindPanelAction) -> Void)?
     /// What the find bar found, top to bottom, and the one it's on.
@@ -141,6 +144,7 @@ public final class EditorTextView: NSTextView {
     public override func insertText(_ string: Any, replacementRange: NSRange) {
         let s = (string as? NSAttributedString)?.string ?? string as? String ?? ""
         guard cursors.count > 1, replacementRange.location == NSNotFound, !hasMarkedText() else {
+            defer { onTyped?(s) }
             if replacementRange.location == NSNotFound, !hasMarkedText(), Typing.pairs(self, s) { return }
             super.insertText(string, replacementRange: replacementRange)
             if s == "." { onComplete?() }
@@ -249,6 +253,7 @@ public final class EditorTextView: NSTextView {
     // MARK: Mouse
 
     public override func mouseMoved(with e: NSEvent) {
+        onPointer?(e)
         let at = convert(e.locationInWindow, from: nil)
         hoveredFold = folds.isEmpty ? nil : folds.hidden.first { capsule(for: $0).contains(at) }
         if hoveredFold != nil { NSCursor.arrow.set() } else { super.mouseMoved(with: e) }

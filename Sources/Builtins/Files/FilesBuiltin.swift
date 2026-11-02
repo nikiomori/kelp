@@ -33,6 +33,8 @@ extension Builtins {
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),
             s("editor.fontSize", "Font size", "number", 13, range: [8, 40]),
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
+            s("editor.hover", "Show what the language server knows on hover", "boolean", true,
+              "A symbol's signature and documentation, and the arguments of a call as you type it."),
             s("editor.tabSize", "Tab size", "number", 4, "Spaces to a level. A file's own indentation and its .editorconfig come first."),
             s("editor.insertSpaces", "Indent with spaces", "boolean", true),
             s("editor.detectIndentation", "Detect indentation from the file", "boolean", true),
@@ -92,6 +94,7 @@ extension Builtins {
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },
+                      cmd("editor.showHover", "Show Hover", "ctrl+cmd+i") { CodeEditor.focused?.showHoverAtCursor() },
                       cmd("editor.nextProblem", "Next Problem", "f8") { CodeEditor.focused?.goToProblem(forward: true) },
                       cmd("editor.previousProblem", "Previous Problem", "shift+f8") { CodeEditor.focused?.goToProblem(forward: false) },
                       cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {

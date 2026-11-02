@@ -578,6 +578,24 @@
         ],
         "type" : "object"
       },
+      "CodeSignature" : {
+        "description" : "A call's signature as the cursor stands in it: `label`, with the argument being typed at `active` (UTF-16 offsets in it).",
+        "properties" : {
+          "activeEnd" : {
+            "type" : "integer"
+          },
+          "activeStart" : {
+            "type" : "integer"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "label"
+        ],
+        "type" : "object"
+      },
       "CodeSymbol" : {
         "description" : "A name a file defines: what it's called, what it is (\"class\", \"function\"…) and its 1-based line.",
         "properties" : {
@@ -6077,6 +6095,48 @@
       "x-internal" : true
     },
     {
+      "description" : "What the server says of the symbol at a 1-based position: its signature and documentation, as Markdown.",
+      "name" : "lsp.hover",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "column",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "A file a tab shows, given to its server (started now when it isn't running). Fails with an `LSPRefusal` when no server may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.",
       "name" : "lsp.open",
       "paramStructure" : "by-name",
@@ -6155,6 +6215,48 @@
             "$ref" : "#/components/schemas/CodeProblem"
           },
           "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The signature of the call around a 1-based position.",
+      "name" : "lsp.signature",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "column",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/CodeSignature"
         }
       },
       "x-internal" : true

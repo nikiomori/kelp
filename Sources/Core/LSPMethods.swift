@@ -24,6 +24,14 @@ public struct CodeSymbol: Codable, Sendable, Equatable {
     public init(name: String, kind: String, line: Int) { self.name = name; self.kind = kind; self.line = line }
 }
 
+/// A call's signature as the cursor stands in it: `label`, with the argument being typed at `active` (UTF-16 offsets in it).
+public struct CodeSignature: Codable, Sendable, Equatable {
+    public var label: String, activeStart: Int?, activeEnd: Int?
+    public init(label: String, activeStart: Int? = nil, activeEnd: Int? = nil) {
+        self.label = label; self.activeStart = activeStart; self.activeEnd = activeEnd
+    }
+}
+
 /// One completion: what the list shows and what goes in.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
@@ -107,4 +115,18 @@ public struct LSPSymbols: InternalMethod {
     public static let name = "lsp.symbols"; public typealias Result = [CodeSymbol]
     public var root: String, path: String
     public init(root: String, path: String) { self.root = root; self.path = path }
+}
+
+/// What the server says of the symbol at a 1-based position: its signature and documentation, as Markdown.
+public struct LSPHover: InternalMethod {
+    public static let name = "lsp.hover"; public typealias Result = String?
+    public var root: String, path: String, line: Int, column: Int
+    public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
+}
+
+/// The signature of the call around a 1-based position.
+public struct LSPSignature: InternalMethod {
+    public static let name = "lsp.signature"; public typealias Result = CodeSignature?
+    public var root: String, path: String, line: Int, column: Int
+    public init(root: String, path: String, line: Int, column: Int) { self.root = root; self.path = path; self.line = line; self.column = column }
 }

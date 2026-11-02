@@ -50,3 +50,18 @@ extension OneAtATime {
         #expect(e.textView.cursors.map(\.location) == [3, 7])
     }
 }
+
+@MainActor @Test func aHoversMarkdownKeepsItsCodeAndLosesItsFences() {
+    let t = HoverText.attributed("```swift\nfunc f()\n```\nReturns **all** of it.")
+    #expect(t.string == "func f()\nReturns all of it.")
+    #expect((t.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.isFixedPitch == true)
+}
+
+@MainActor @Test func aHoverCardIsAsTallAsItsTextUpToItsMost() {
+    let short = HoverCard(NSAttributedString(string: "one line"), width: 300, most: 200)
+    let long = HoverCard(NSAttributedString(string: String(repeating: "line\n", count: 100)), width: 300, most: 200)
+    _ = short.view
+    _ = long.view
+    #expect(short.preferredContentSize.height > 0 && short.preferredContentSize.height < 100)
+    #expect(long.preferredContentSize.height == 200)
+}

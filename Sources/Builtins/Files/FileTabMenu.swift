@@ -32,4 +32,24 @@ extension FileTab {
         let errors = found.filter(\.isError).count
         statusBar?.show(errors: errors, warnings: found.count - errors)
     }
+
+    /// What the language server answers, once it has the file.
+    func connectServer(to e: CodeEditor, root r: String, path p: String) {
+        let app = app
+        e.completionProvider = { line, col in
+            await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
+                CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert)
+            }
+        }
+        e.hoverProvider = { line, col in
+            guard app.settings.bool("editor.hover") != false else { return nil }
+            return await app.quiet(LSPHover(root: r, path: p, line: line, column: col)) ?? nil
+        }
+        e.signatureProvider = { line, col in
+            guard app.settings.bool("editor.hover") != false,
+                  let found = await app.quiet(LSPSignature(root: r, path: p, line: line, column: col)) ?? nil else { return nil }
+            let active = found.activeStart.flatMap { a in found.activeEnd.map { NSRange(location: a, length: $0 - a) } }
+            return (found.label, active)
+        }
+    }
 }

@@ -162,6 +162,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
             "processId": .int(Int(ProcessInfo.processInfo.processIdentifier)), "rootUri": .string(uri),
             "workspaceFolders": .array([.obj(["uri": .string(uri), "name": .string((root as NSString).lastPathComponent)])]),
             "capabilities": .obj(["textDocument": .obj(["definition": .obj([:]),
+                                                   "hover": .obj(["contentFormat": .array([.string("markdown"), .string("plaintext")])]),
+                                                   "signatureHelp": .obj(["signatureInformation": .obj([
+                                                       "parameterInformation": .obj(["labelOffsetSupport": true])
+                                                   ])]),
                                                    "completion": .obj(["completionItem": .obj(["snippetSupport": false])]),
                                                    "documentSymbol": .obj(["hierarchicalDocumentSymbolSupport": true])])])
         ]))
@@ -251,6 +255,41 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// From either shape of a documentSymbol result: nested `DocumentSymbol`s or flat `SymbolInformation`s. The smallest
     /// range wins; on a tie the later one (a child is visited after its parent).
+    public func hover(_ path: String, line: Int, column: Int) async throws -> String? {
+        Self.hoverText(try await request("textDocument/hover", at(path, line, column)))
+    }
+
+    public func signature(_ path: String, line: Int, column: Int) async throws -> CodeSignature? {
+        Self.signature(try await request("textDocument/signatureHelp", at(path, line, column)))
+    }
+
+    /// `contents` comes in all three of the protocol's shapes: a MarkupContent, a MarkedString, a list of them.
+    static func hoverText(_ result: JSONValue) -> String? {
+        func text(_ c: JSONValue) -> String? {
+            if let s = c.string { return s }
+            guard let v = c["value"]?.string else { return nil }
+            return c["language"]?.string.map { "```\($0)\n\(v)\n```" } ?? v
+        }
+        guard let c = result["contents"] else { return nil }
+        let t = (c.array?.compactMap(text).joined(separator: "\n\n") ?? text(c))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t?.isEmpty == false ? t : nil
+    }
+
+    /// A parameter's label is its text, or its offsets in the signature's.
+    static func signature(_ result: JSONValue) -> CodeSignature? {
+        let all = result["signatures"]?.array ?? []
+        guard !all.isEmpty else { return nil }
+        let s = all[min(result["activeSignature"]?.int ?? 0, all.count - 1)]
+        guard let label = s["label"]?.string else { return nil }
+        let params = s["parameters"]?.array ?? [], n = s["activeParameter"]?.int ?? result["activeParameter"]?.int ?? 0
+        guard params.indices.contains(n), let p = params[n]["label"] else { return CodeSignature(label: label) }
+        if let name = p.string, let r = label.range(of: name) {
+            let start = label.utf16.distance(from: label.startIndex, to: r.lowerBound)
+            return CodeSignature(label: label, activeStart: start, activeEnd: start + name.utf16.count)
+        }
+        return CodeSignature(label: label, activeStart: p.array?.first?.int, activeEnd: p.array?.last?.int)
+    }
+
     /// The file's symbols, nested ones in with the rest, top to bottom.
     public func symbols(_ path: String) async throws -> [CodeSymbol] {
         Self.symbols(try await request("textDocument/documentSymbol", .obj(["textDocument": .obj(["uri": Self.uri(path)])])))

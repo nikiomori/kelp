@@ -417,11 +417,7 @@ final class FileTab: SavableTab {
             guard let text = self?.editor?.text, await app.lsp.open(app, root: r, path: p, text: text, retry: { [weak self] in self?.startLSP() }),
                   let self, let e = editor else { return }
             lspOpenedOn = app.connections
-            e.completionProvider = { line, col in
-                await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
-                    CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert)
-                }
-            }
+            connectServer(to: e, root: r, path: p)
         }
     }
 

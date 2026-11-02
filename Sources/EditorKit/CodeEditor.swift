@@ -50,6 +50,13 @@ public final class CodeEditor: NSObject {
     var problemLines: [Int: Bool] = [:]
     /// ⌘F's, once it's been asked for.
     var findBar: FindBar?
+    /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
+    public var hoverProvider: ((Int, Int) async -> String?)?
+    public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
+    var hoverWait: DispatchWorkItem?
+    var hoverShownAt: Int?
+    var hoverCard: NSPopover?
+    var signatureCard: NSPopover?
     /// What each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
     /// The selection they led to.
@@ -160,6 +167,8 @@ public final class CodeEditor: NSObject {
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
         tv.onFind = { [weak self] in self?.find($0) }
+        tv.onTyped = { [weak self] in self?.typed($0) }
+        tv.onPointer = { [weak self] in self?.pointerMoved($0) }
     }
 
     /// The text, without an undo step or a change event: what was on disk, at first or after it changed there.
@@ -336,6 +345,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
+        if signatureCard?.isShown == true { askSignature() }
         gutter?.needsDisplay = true
         markBrackets()
         onSelection?()

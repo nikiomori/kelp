@@ -1054,6 +1054,16 @@
         }
       }
     },
+    "A symbol's signature and documentation, and the arguments of a call as you type it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнатура и документация символа, а также аргументы вызова при наборе."
+          }
+        }
+      }
+    },
     "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder": {
       "localizations": {
         "ru": {
@@ -10445,6 +10455,16 @@
         }
       }
     },
+    "Show Hover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать подсказку"
+          }
+        }
+      }
+    },
     "Show in Log": {
       "localizations": {
         "ru": {
@@ -10594,6 +10614,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать на телефоне слова агента"
+          }
+        }
+      }
+    },
+    "Show what the language server knows on hover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать сведения языкового сервера при наведении"
           }
         }
       }

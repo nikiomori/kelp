@@ -164,3 +164,23 @@ private func lines(_ log: String) -> [String] {
     #expect(LSPClient.symbols(result).map(\.kind) == ["function", "struct", "method"])
     #expect(LSPClient.symbols(result).map(\.line) == [1, 5, 7])
 }
+
+@Test func aHoverComesInAnyOfTheProtocolsShapes() {
+    #expect(LSPClient.hoverText(.obj(["contents": .obj(["kind": .string("markdown"), "value": .string("**x**")])])) == "**x**")
+    #expect(LSPClient.hoverText(.obj(["contents": .string("plain")])) == "plain")
+    #expect(LSPClient.hoverText(.obj(["contents": .array([.string("a"), .obj(["language": .string("swift"), "value": .string("let x")])])]))
+        == "a\n\n```swift\nlet x\n```")
+    #expect(LSPClient.hoverText(.obj(["contents": .string("  ")])) == nil)
+    #expect(LSPClient.hoverText(.null) == nil)
+}
+
+@Test func theActiveArgumentIsFoundByNameOrOffsets() {
+    func help(_ param: JSONValue, active: Int = 1) -> JSONValue {
+        .obj(["activeSignature": .int(0), "activeParameter": .int(active),
+              "signatures": .array([.obj(["label": .string("f(a: Int, b: Int)"), "parameters": .array([.obj(["label": .string("a: Int")]), .obj(["label": param])])])])])
+    }
+    #expect(LSPClient.signature(help(.string("b: Int"))) == CodeSignature(label: "f(a: Int, b: Int)", activeStart: 10, activeEnd: 16))
+    #expect(LSPClient.signature(help(.array([.int(10), .int(16)])))?.activeEnd == 16)
+    #expect(LSPClient.signature(help(.string("x"), active: 5))?.activeStart == nil)
+    #expect(LSPClient.signature(.obj(["signatures": .array([])])) == nil)
+}
