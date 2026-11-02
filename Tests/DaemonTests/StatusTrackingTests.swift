@@ -19,6 +19,18 @@ private func onHost() -> LiveSession.State {
                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
 }
 
+/// A new turn doesn't go on showing what the last one said; a compaction under way still says so.
+@Test func aPromptClearsTheLastTurnsWords() {
+    var s = hooked()
+    s.record.summary = "Counted 356 files"
+    s.hook("working")
+    #expect(s.record.summary == "")
+    s.hook("compacting", trigger: "auto")
+    let compacting = s.record.summary
+    s.hook("working")
+    #expect(!compacting.isEmpty && s.record.summary == compacting)
+}
+
 /// A Stop that never reached Kelp, or a turn cut short, leaves nothing to say so on a host either: the same wait ends it,
 /// longer while a subagent runs, as nothing prints then. Without it the row kept the Mac awake until the next prompt.
 @Test func aHostsWorkingRowThatWentQuietIsReleased() {

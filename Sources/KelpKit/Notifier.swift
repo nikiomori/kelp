@@ -300,7 +300,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// "I added `mul(a, b)` to `calc.py`. It returns…" → "Added mul(a, b) to calc.py".
     static func firstSentence(_ text: String) -> String {
-        let line = text.replacingOccurrences(of: "`", with: "").split(whereSeparator: \.isNewline).first.map(String.init) ?? text
+        let plain = text.replacingOccurrences(of: "`", with: "").replacingOccurrences(of: "**", with: "")
+        let line = plain.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
         // A sentence ends at . ! or ? followed by a space or the end: the dot in "calc.py" doesn't end it.
         let end = line.indices.first { i in
             let next = line.index(after: i)

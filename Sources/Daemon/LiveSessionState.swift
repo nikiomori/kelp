@@ -269,6 +269,7 @@ extension LiveSession {
             case "working":
                 nothingAsked()
                 goalAsked = goal
+                if record.summary != compacting { record.summary = "" }   // the last turn's words, or the question just answered
                 detector.hook(event)
             default: detector.hook(event)
             }

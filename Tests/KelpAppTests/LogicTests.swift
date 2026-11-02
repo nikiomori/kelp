@@ -111,6 +111,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(Notifier.firstSentence("I added `mul(a, b)` to `calc.py`. It returns the product.") == "Added mul(a, b) to calc.py")
     #expect(Notifier.firstSentence("I've fixed the login bug!\nMore detail below.") == "Fixed the login bug!")
     #expect(Notifier.firstSentence("Done") == "Done")
+    #expect(Notifier.firstSentence("В Sources **356 файлов**, считая подпапки.") == "В Sources 356 файлов, считая подпапки")
     let long = String(repeating: "word ", count: 40)
     let cut = Notifier.firstSentence(long)
     #expect(cut.count == 90 && cut.hasSuffix("…"))   // long text is cut to fit a banner
