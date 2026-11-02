@@ -153,13 +153,13 @@ extension CodeEditor {
     public func fold() {
         let s = textView.string as NSString, i = textView.selectedRange().location
         var line = s.lineRange(for: NSRange(location: i, length: 0))
-        if let r = Folds.region(of: line, in: s) { return textView.setFolded(r, true) }
+        if let r = foldRegion(line, in: s) { return textView.setFolded(r, true) }
         // Up to the lines that are less indented: the blocks around the cursor, innermost first.
         var limit = Folds.indent(line, in: s) ?? Int.max
         while line.location > 0, limit > 0 {
             line = s.lineRange(for: NSRange(location: line.location - 1, length: 0))
             guard let n = Folds.indent(line, in: s), n < limit else { continue }
-            if let r = Folds.region(of: line, in: s), i <= NSMaxRange(r) { return textView.setFolded(r, true) }
+            if let r = foldRegion(line, in: s), i <= NSMaxRange(r) { return textView.setFolded(r, true) }
             limit = n
         }
         NSSound.beep()
@@ -179,6 +179,6 @@ extension CodeEditor {
     func toggleFold(line: NSRange) {
         let s = textView.string as NSString
         if let f = textView.folds.fold(at: MultiCursor.lineEnd(s, line.location)) { return textView.setFolded(f, false) }
-        if let r = Folds.region(of: line, in: s) { textView.setFolded(r, true) }
+        if let r = foldRegion(line, in: s) { textView.setFolded(r, true) }
     }
 }

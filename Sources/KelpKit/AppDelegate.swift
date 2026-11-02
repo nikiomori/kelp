@@ -210,7 +210,7 @@ extension AppDelegate: NSMenuItemValidation {
              "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds",
              "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
              "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent", "editor.outdent",
-             "editor.fold", "editor.unfold", "editor.unfoldAll":
+             "editor.fold", "editor.unfold", "editor.unfoldAll", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3":
             return CodeEditor.focused != nil
         // Off elsewhere: ⌘K still clears a terminal.
         case "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "markdown.bullets", "markdown.numbered", "markdown.tasks":

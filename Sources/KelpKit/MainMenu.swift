@@ -134,7 +134,7 @@ extension AppDelegate {
         b.add(edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions", "editor.showHover",
               "editor.jumpToDefinition", "editor.findReferences", "editor.rename", "editor.quickFix", "editor.sendToAgent",
               "editor.copyReference", "editor.copyWebLink",
-              "-", "editor.fold", "editor.unfold", "editor.unfoldAll")
+              "-", "editor.fold", "editor.unfold", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3", "editor.unfoldAll")
         let markdown = NSMenu(title: "Markdown")
         b.add(markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets", "markdown.numbered",
               "markdown.tasks", "-", "markdown.cycleView")

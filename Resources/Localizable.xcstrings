@@ -4972,6 +4972,36 @@
         }
       }
     },
+    "Fold All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть всё"
+          }
+        }
+      }
+    },
+    "Fold Level 2": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть уровень 2"
+          }
+        }
+      }
+    },
+    "Fold Level 3": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть уровень 3"
+          }
+        }
+      }
+    },
     "Folder": {
       "localizations": {
         "ru": {

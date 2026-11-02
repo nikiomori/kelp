@@ -100,3 +100,43 @@ extension OneAtATime {
     #expect(EditorTextView.isUnusualSpace(0xA0) && EditorTextView.isUnusualSpace(0x200B) && EditorTextView.isUnusualSpace(0xFEFF))
     #expect(!EditorTextView.isUnusualSpace(32) && !EditorTextView.isUnusualSpace(9) && !EditorTextView.isUnusualSpace(97))
 }
+
+@MainActor private func foldEditor(_ text: String, _ name: String) -> CodeEditor {
+    _ = NSApplication.shared
+    return CodeEditor(text: text, url: URL(fileURLWithPath: "/tmp/" + name))
+}
+
+@MainActor private func hidden(_ e: CodeEditor, line n: Int) -> String? {
+    let s = e.text as NSString
+    var at = 0
+    for _ in 1..<n { at = NSMaxRange(s.lineRange(for: NSRange(location: at, length: 0))) }
+    return e.foldRegion(s.lineRange(for: NSRange(location: at, length: 0)), in: s).map { s.substring(with: $0) }
+}
+
+/// Oddly indented code folds by what it is, a long string too, and the closing brace stays.
+@MainActor @Test func foldsFollowTheCodeNotItsIndentation() {
+    let e = foldEditor("func f() {\nlet a = 1\nlet b = 2\n}\nlet s = \"\"\"\none\ntwo\n\"\"\"\n", "fold.swift")
+    #expect(hidden(e, line: 1) == "\nlet a = 1\nlet b = 2")
+    #expect(hidden(e, line: 5)?.contains("two") == true)
+    #expect(hidden(e, line: 2) == nil)
+}
+
+@MainActor @Test func marksRegionsAndHeadingsFold() {
+    let code = foldEditor("// MARK: One\nlet a = 1\n\n// MARK: Two\nlet b = 2\n//#region x\nlet c = 3\n//#endregion\n", "marks.swift")
+    #expect(hidden(code, line: 1) == "\nlet a = 1")
+    #expect(hidden(code, line: 6) == "\nlet c = 3\n//#endregion")
+    let md = foldEditor("# A\ntext\n## B\nmore\n# C\nend\n", "doc.md")
+    #expect(hidden(md, line: 1) == "\ntext\n## B\nmore")
+    #expect(hidden(md, line: 3) == "\nmore")
+}
+
+@MainActor @Test func foldAllTakesTheOutermostAndALevelGoesDeeper() {
+    let e = foldEditor("class A {\n    func f() {\n        let x = 1\n    }\n}\n", "lvl.swift")
+    e.foldAll()
+    #expect(e.textView.folds.hidden.count == 1)
+    e.unfoldAll()
+    e.foldAll(level: 2)
+    #expect(e.textView.folds.hidden.count == 1)
+    #expect((e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("let x") )
+    #expect(!(e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("func"))
+}
