@@ -140,13 +140,7 @@ final class SidebarRowView: NSTableRowView {
             for case let c as SidebarCell in subviews { c.selected = isSelected }   // its grey text a step lighter on the pill
         }
     }
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) { hovering = false }
     override func prepareForReuse() {

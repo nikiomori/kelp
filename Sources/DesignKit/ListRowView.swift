@@ -15,13 +15,7 @@ public final class ListRowView: NSTableRowView {
     private var hovering = false { didSet { showHover() } }
     override public var isSelected: Bool { didSet { showHover() } }
 
-    override public func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override public func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInKeyWindow) }
     override public func mouseEntered(with e: NSEvent) { setHovering(true) }
     override public func mouseExited(with e: NSEvent) { setHovering(false) }
     private func setHovering(_ on: Bool) {

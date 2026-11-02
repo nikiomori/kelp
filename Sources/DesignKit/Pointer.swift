@@ -55,13 +55,7 @@ open class PointerButton: NSButton {
         layer?.cornerRadius = radius ?? bounds.height / 2
     }
 
-    override open func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
     override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false; pressed = false }
@@ -111,13 +105,7 @@ open class PointerPopUpButton: NSPopUpButton {
     public convenience init() { self.init(frame: .zero, pullsDown: false) }
     required public init?(coder: NSCoder) { fatalError() }
 
-    override open func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
     override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false }
@@ -150,13 +138,7 @@ open class PointerControl: NSControl {
     }
     public func refreshPointer() { showPointer(hovering: hovering, pressed: pressed) }
 
-    override open func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
     override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false; pressed = false }

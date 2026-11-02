@@ -93,13 +93,7 @@ final class PaletteRowView: NSTableRowView {
         NSColor.themeAccent.setFill()   // the selection colour turns grey in a panel that isn't key; Spotlight's stays blue
         NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: Metrics.radiusMD, yRadius: Metrics.radiusMD).fill()
     }
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area { removeTrackingArea(area) }
-        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
-    }
+    override func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeAlways) }
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) { hovering = false }
     override func prepareForReuse() { super.prepareForReuse(); hovering = false }

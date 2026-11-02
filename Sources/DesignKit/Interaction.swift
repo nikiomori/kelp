@@ -4,6 +4,14 @@ import AppKit
 /// a click dips it and lets it spring back. Nothing moves under Reduce Motion; the fills still change, at once.
 @MainActor
 extension NSView {
+    /// `updateTrackingAreas`' body: `old` goes and a new area over the visible rect takes its place, reporting enter and exit.
+    public func retracked(_ old: NSTrackingArea?, _ active: NSTrackingArea.Options) -> NSTrackingArea {
+        if let old { removeTrackingArea(old) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .inVisibleRect, active], owner: self)
+        addTrackingArea(area)
+        return area
+    }
+
     /// The layer's background becomes `color` (nil: none) over `Motion.fast`, from wherever it is now. `held`: a press,
     /// which shows at once: faded, a quick click would be over before it was seen.
     public func fadeBackground(to color: NSColor?, held: Bool = false) {
