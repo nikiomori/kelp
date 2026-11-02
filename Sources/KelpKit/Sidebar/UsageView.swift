@@ -264,7 +264,7 @@ final class UsageFooter: NSHostingView<UsageView> {
             app.settings.set("usage.readPlans", .bool(false))
             Banner.show(String(localized: "Plan limits are hidden. Settings › Agents brings them back."))
         }
-        m.addSettingsLink(String(localized: "Limits Settings…"), section: "agents", app)
+        m.addSettingsLink(String(localized: "Limits Settings…"), section: "agents", group: "Plan limits", app)
         return m
     }
 }

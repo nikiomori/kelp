@@ -12,8 +12,9 @@ enum SettingsWindow {
     private(set) static var window: NSWindow?
     /// Workbench language as the window first opened, which is what this launch runs in unless it changed before that.
     private(set) static var language: String?
-    static func show(_ app: AppModel, section: String? = nil) {
+    static func show(_ app: AppModel, section: String? = nil, group: String? = nil) {
         if let s = section { UserDefaults.standard.set(s, forKey: "settings.section") }
+        UserDefaults.standard.set(group ?? "", forKey: "settings.group")
         let fresh = window == nil
         if fresh {
             language = app.settings.string("workbench.language")
@@ -89,33 +90,49 @@ struct SettingsView: View {
     private func open(_ section: String) { selection = section; query = "" }
 }
 
-/// A section's symbol on a coloured tile, as System Settings shows its panes; sections extensions add are grey.
+/// A section's symbol on a coloured tile, as System Settings shows its panes: the one place colour tells things apart without
+/// meaning a state, so a section is found by eye. Sections extensions add are grey.
 private struct SettingsIcon: View {
     let symbol: String, id: String
     var body: some View {
-        Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white)
-            .frame(width: 20, height: 20)
-            .background(Self.tint[id, default: .gray].gradient, in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
+        Image(systemName: symbol).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+            .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
+            .background(Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
-    static let tint: [String: Color] = ["agents": .purple, "catalog": .indigo, "terminal": Color(white: 0.3), "appearance": .blue, "keyboard": .gray,
-                                        "editor": .indigo, "git": .orange, "integrations": .green, "extensions": .gray]
+    static let tint: [String: Color] = ["appearance": .blue, "window": .indigo, "agents": .purple, "catalog": .mint, "notifications": .pink,
+                                        "terminal": Color(nsColor: .darkGray), "editor": .teal, "git": .orange, "integrations": .green,
+                                        "keyboard": .gray, "extensions": .gray]
 }
 
 private struct SectionForm: View {
     let section: SettingsSection
+    /// A group a menu sent us to (`SettingsWindow.show`): scrolled to, then forgotten.
+    @AppStorage("settings.group") private var target = ""
+
     var body: some View {
         let groups = section.groups
-        Form {
-            ForEach(groups.indices, id: \.self) { i in
-                if let title = groups[i].0 {
-                    Section(loc(title)) { ForEach(groups[i].1) { SettingRow(spec: $0) } }
-                } else {
-                    Section { ForEach(groups[i].1) { SettingRow(spec: $0) } }
+        ScrollViewReader { scroller in
+            Form {
+                ForEach(groups.indices, id: \.self) { i in
+                    if let title = groups[i].0 {
+                        Section(loc(title)) { ForEach(groups[i].1) { SettingRow(spec: $0) } }.id(title)
+                    } else {
+                        Section { ForEach(groups[i].1) { SettingRow(spec: $0) } }
+                    }
                 }
+                section.custom?()
             }
-            section.custom?()
+            .formStyle(.grouped)
+            .onAppear { go(scroller) }
+            .onChange(of: target) { _, _ in go(scroller) }
         }
-        .formStyle(.grouped)
+    }
+
+    private func go(_ scroller: ScrollViewProxy) {
+        guard !target.isEmpty else { return }
+        let group = target
+        target = ""
+        DispatchQueue.main.async { scroller.scrollTo(group, anchor: .top) }   // once the form has its rows
     }
 }
 

@@ -156,7 +156,7 @@ extension SidebarController {
         menu.addToggle("workbench.sidebar.gitBadges", app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
         menu.addToggle("workbench.sidebar.autoHide", app, title: String(localized: "Auto-Hide Sidebar"))
-        menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "window", app)
+        menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "window", group: "Sidebar", app)
     }
 
     /// A project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which reach only a menu's items.

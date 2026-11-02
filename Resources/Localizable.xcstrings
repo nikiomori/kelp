@@ -3372,11 +3372,15 @@
     },
     "Cursor": {
       "extractionState": "manual",
+      "shouldTranslate": false
+    },
+    "Cursor style": {
+      "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Курсор"
+            "value": "Вид курсора"
           }
         }
       }

@@ -25,9 +25,9 @@ extension NSMenu {
         add(title) { app.settings.set(key, .bool(!on)) }.state = on ? .on : .off
     }
 
-    /// The last item: the section of Settings this part's settings are in.
-    package func addSettingsLink(_ title: String, section: String, _ app: AppModel) {
-        add(title) { app.extensions.run("workbench.openSettings", ["section": .string(section)]) }
+    /// The last item: the section of Settings this part's settings are in, and the group in it.
+    package func addSettingsLink(_ title: String, section: String, group: String? = nil, _ app: AppModel) {
+        add(title) { app.extensions.run("workbench.openSettings", ["section": .string(section), "group": group.map(JSONValue.string) ?? .null]) }
     }
 
     private func addChoiceItems(_ key: String, _ app: AppModel, tryOn: Bool) {
