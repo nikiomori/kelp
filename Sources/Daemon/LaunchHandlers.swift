@@ -49,12 +49,26 @@ extension SessionRestart: Handled {
         // Under its wake lock, and a paused one marked ended there: a tab opening it meanwhile can't wake a second copy.
         // If the new one can't start, the old one still ends as Ended. The record is read there, as it is then (a rename
         // just before is kept, in it and in the new session's title).
+        var owed: [OwedInput] = []
         let old: Session = try sessions.wakeLocks.withLock(id) {
-            if let ls = sessions.existing(id) { Sessions.waitGone(ls.pty.terminate()) }
-            else { try sessions.store.update(Session.self, id) { if $0.status == .hibernated { $0.status = .exited } } }
+            if let ls = sessions.existing(id) {
+                owed = ls.takeOwed()   // from here on it may be gone from `live` at any moment
+                Sessions.waitGone(ls.pty.terminate())
+            } else {
+                try sessions.store.update(Session.self, id) { if $0.status == .hibernated { $0.status = .exited } }
+            }
             guard let s = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
             return s
         }
+        do {
+            return try start(after: old, sessions, owed: owed)
+        } catch {
+            sessions.restartFailed(id)
+            throw error
+        }
+    }
+
+    private func start(after old: Session, _ sessions: Sessions, owed: [OwedInput]) throws -> Session {
         let m = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var o = Sessions.Launch(self); o.title = old.titleManual ? old.title : nil
         o.parent = old.parent
@@ -65,7 +79,7 @@ extension SessionRestart: Handled {
         // The new session pins an id of its own, never the old one's.
         o.argv = Sessions.withoutSessionId(resume != false ? sessions.resumeArgv(old, m) : old.argv, flag: m.sessionIdFlag)
         let s = try sessions.spawn(cwd: old.cwd, manifest: m, worktreeId: old.worktreeId, o)
-        try sessions.passChildren(of: old.id, to: s.id)
+        try sessions.passChildren(of: old.id, to: s.id, owed: owed)
         sessions.discard(old, keepTmux: old.tmux == nil || resume != false)   // its exit, still to come, doesn't save it again
         return s
     }

@@ -406,7 +406,7 @@ public final class Daemon: Sendable {
         // The one method that answers itself (SessionAttach's own handler serves an ended session): its reply has to be
         // queued inside the session's lock, which `Handled` can't express.
         if req.method == SessionAttach.name, !req.isNotification, let sid = (try? SessionAttach.checked(req.params ?? .null, self, conn: client.id))?.id,
-           sessions.existing(sid) != nil || (try? store.session(sid))?.status == .hibernated {
+           sessions.existing(sid) != nil || (try? store.session(sid)).flatMap({ $0 }).map(sessions.isPaused) == true {
             // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.
             let ls: LiveSession
             do { ls = try await offloads.runNow({ [self] in try sessions.liveSession(sid) }) } catch {

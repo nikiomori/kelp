@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import Core
 import Agents
+import GRDB
 @testable import Daemon
 
 private let fake = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"])
@@ -12,8 +13,8 @@ private struct Family {
     func status(_ id: String) async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == id }?.status }
 }
 
-private func family(parentAgent: String? = "fake") async throws -> Family {
-    let w = try await world(agents: [fake])
+private func family(parentAgent: String? = "fake", manifest: AgentManifest = fake) async throws -> Family {
+    let w = try await world(agents: [manifest])
     let desk = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
     let parent = try await w.c.call(parentAgent == nil ? SessionCreate(worktreeId: desk.id, command: "cat") : SessionCreate(worktreeId: desk.id, agent: "fake"))
     let child = try await w.c.call(SessionCreate(worktreeId: desk.id, agent: "fake", title: "reviewer", parent: parent.id))
@@ -25,13 +26,57 @@ private func family(parentAgent: String? = "fake") async throws -> Family {
     let f = try await family(); defer { f.w.d.stop() }
     #expect(f.child.parent == f.parent.id)
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
-    #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from=\"reviewer \(f.child.id.prefix(8))\" status=\"done\">") })
+    // `cat` takes no pastes, and each newline would have been a line submitted.
+    #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from=\"reviewer \(f.child.id.prefix(8))\" status=\"done\"> ") })
     try await Task.sleep(for: .seconds(1))   // what the terminal echoes has come
     let once = try await f.read(f.parent.id)
     _ = try await f.w.c.call(SessionRename(id: f.child.id, title: "reviewer two"))   // saved again, nothing new
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     try await Task.sleep(for: .seconds(1))
     #expect(try await f.read(f.parent.id) == once)
+}
+
+/// A report can't be said twice, so one that finds its parent paused waits for it, and one it hadn't typed yet goes with it.
+@Test func aPausedParentHearsWhatItMissedWhenItWakes() async throws {
+    let f = try await family(manifest: AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"], resumeArgs: ["--resume"]))
+    defer { f.w.d.stop() }
+    let second = try await f.w.c.call(SessionCreate(worktreeId: try #require(f.parent.worktreeId), agent: "fake", title: "tester", parent: f.parent.id))
+    _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))   // the first waits for its turn to end
+    _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
+    #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id)?.state.withLock { $0.reports.count } == 1 })
+    let running = try #require(f.w.d.sessions.live.remove(f.parent.id))
+    _ = f.w.d.sessions.pause(running, AgentManifest.load(dir: f.w.root.appendingPathComponent("agents")))
+    #expect(try await f.status(f.parent.id) == .hibernated)
+    _ = try await f.w.c.call(SessionReport(id: second.id, state: "done"))
+    #expect(try await waitFor(10) { try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 2 })
+    _ = try f.w.d.sessions.liveSession(f.parent.id)
+    #expect(try await waitFor(40) {
+        let out = try await f.read(f.parent.id)
+        return out.contains("<kelp from=\"reviewer") && out.contains("<kelp from=\"tester")
+    })
+    #expect(try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 0)
+}
+
+/// A restart that can't start the new session did end the old one, which went unheard as it was only restarting: its
+/// children would run on under a parent nobody can reach.
+@Test func aFailedRestartEndsTheChildren() async throws {
+    let f = try await family(); defer { f.w.d.stop() }
+    f.w.d.sessions.reports.restarting(f.parent.id, true)
+    _ = try await f.w.c.call(SessionKill(id: f.parent.id))
+    try await Task.sleep(for: .seconds(1))
+    #expect(try await f.status(f.child.id) != .exited)
+    f.w.d.sessions.restartFailed(f.parent.id)
+    #expect(try await waitFor(10) { try await f.status(f.child.id) == .exited })
+}
+
+/// Idle pauses go one after another, up to 3 s each: one picked a while ago may be at work by its turn.
+@Test func anIdlePauseLeavesAnAgentThatMovedOn() async throws {
+    let f = try await family(); defer { f.w.d.stop() }
+    let ls = try #require(f.w.d.sessions.existing(f.parent.id))
+    _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))
+    #expect(!ls.letGoIdle(seen: ls.inputs))
+    _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "done"))
+    #expect(ls.letGoIdle(seen: ls.inputs))
 }
 
 /// A shell has no input for it: typed there, a report would run as a command.

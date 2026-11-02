@@ -29,6 +29,8 @@ final class Sessions: Sendable {
 
     let remotes: Remotes
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
+    /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
+    let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 
@@ -65,7 +67,7 @@ final class Sessions: Sendable {
 
     /// Not running: it has to be paused, to be woken for input.
     func mustWake(_ id: String) throws {
-        guard try existing(id) != nil || pausing.withLock({ $0.contains(id) }) || store.session(id)?.status == .hibernated else {
+        guard try existing(id) != nil || pausing.withLock({ $0.contains(id) }) || store.session(id).map(isPaused) == true else {
             throw RPCError.invalidParams("no live session \(id)")
         }
     }
@@ -321,6 +323,7 @@ final class Sessions: Sendable {
             let ls = LiveSession(record: rec, manifest: m, pty: pty, historyDir: root.appendingPathComponent("history"), callbacks: callbacks(for: rec))
             ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], reports: h.reports ?? [], status: h.status)
             try live.add(ls)
+            giveBackOwed(ls)
             ls.start()
             SessionHook.waitAgain(ls)
         } catch {

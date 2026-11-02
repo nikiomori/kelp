@@ -67,8 +67,18 @@ extension Sessions {
         guard news || s.status == .exited else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
-            if news, let parent = s.parent, let body = reportBody(s) { existing(parent)?.report(ChildReports.text(s, body: body)) }
+            if news, let parent = s.parent, let body = reportBody(s) { tell(parent, ChildReports.text(s, body: body)) }
             if s.status == .exited { endChildren(of: s.id) }
+        }
+    }
+
+    /// A report for `parent`. One that's paused, or between two kelpds, gets it when it runs again: it's been marked as told,
+    /// and nothing would say it twice. One that ended has no one to read it.
+    private func tell(_ parent: String, _ text: String) {
+        if existing(parent)?.report(text) == true { return }
+        Log.session.attempt("keeping a report for \(parent)") {
+            guard let p = try store.session(parent), p.status != .exited else { return }
+            try store.owe([OwedInput(session: parent, text: text, report: true)])
         }
     }
 
@@ -114,9 +124,17 @@ extension Sessions {
                 endChildren(of: s.id)
                 guard let parent = s.parent, !ids.contains(parent), settings["agents.childReports"]?.bool != false else { continue }
                 s.status = .exited
-                existing(parent)?.report(ChildReports.text(s, body: "Closed by the user"))
+                tell(parent, ChildReports.text(s, body: "Closed by the user"))
             }
         }
+    }
+
+    /// A restart that couldn't start the new one: it did end, and that went unheard while it was only restarting.
+    func restartFailed(_ id: String) {
+        reports.restarting(id, false)
+        guard var s = Log.session.attempt("reading \(id)", { try store.session(id) }) ?? nil else { return }
+        s.status = .exited   // its exit may be on its way to the record still
+        familyHeard(s)
     }
 
     private func endChildren(of id: String) {
@@ -125,10 +143,12 @@ extension Sessions {
         }
     }
 
-    /// A restart is a new session in the old one's place: its children stay its children.
-    func passChildren(of old: String, to new: String) throws {
+    /// A restart is a new session in the old one's place: its children stay its children, and what it hadn't typed is the
+    /// new one's to type. `owed`: what was taken from the old one as it stopped.
+    func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
         for c in try store.sessions() where c.parent == old {
             if let ls = existing(c.id) { _ = ls.update { $0.parent = new }; publish(ls) } else { try change(c.id) { $0.parent = new } }
         }
+        existing(new)?.giveBack(owed + (existing(old)?.takeOwed() ?? []) + (try store.takeOwed(old)))
     }
 }

@@ -233,6 +233,9 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
   branch doesn't change agent config (`.claude`, `.mcp.json`, …); a launch prompt never answers it or any startup menu.
 - Issue, review and CI-log text is typed into the agent, not sent: the user reads it before the agent acts on it.
   Text typed for anyone is stripped of escape sequences and control keys (`LiveSession.typeable`).
+- A child's report is the one exception: it's sent, as the parent started the child to hear back and may be alone. So what a
+  child read reaches an agent with no person between. Its block can't close itself, the kelp-agents skill says it's data
+  and not the user's word, and `agents.childReports` turns reports off for someone who wants no such path.
 - Text sent to a session goes through one gate (`LiveSession.submit`): it waits while the agent is starting, while a
   question or numbered menu is on screen (its Enter would pick the default), and behind an unread draft (its Enter would
   submit the draft). An auto-answer is pressed only if its question is still on screen and nobody typed meanwhile.

@@ -305,7 +305,11 @@ final class LiveSession: Sendable {
                 s.pendingPrompts.removeFirst()
                 type(p.text, enter: !p.draft, paste: p.paste, &s)   // queued here, under the lock: nothing sent meanwhile gets ahead
             }
-            if quiet, settled, !s.letGo, s.takesReport() { type(s.reports.removeFirst(), enter: true, paste: false, &s) }
+            if quiet, settled, !s.letGo, s.takesReport() {
+                // To a program that takes no pastes on one line: its newlines would submit a part of it each.
+                let report = s.reports.removeFirst()
+                type(s.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false, &s)
+            }
         }
     }
 
@@ -443,10 +447,11 @@ extension LiveSession {
     var startedUp: Bool { state.withLock { $0.startedUp } }
     /// Inputs taken so far: an idle pause lets go only if none came after it looked.
     var inputs: Int { state.withLock { $0.inputs } }
-    /// `letGo` for an idle pause: only while nobody is attached and no input came since there were `seen`.
+    /// `letGo` for an idle pause: only while nobody is attached, no input came since there were `seen`, and it still rests.
+    /// Candidates go one after another, up to 3 s each, so a later one may have moved on since it was picked.
     func letGoIdle(seen: Int) -> Bool {
         state.withLock { s in
-            guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0 else { return false }
+            guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0, [.done, .idle].contains(s.record.status) else { return false }
             s.letGo = true; return true
         }
     }

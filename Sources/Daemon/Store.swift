@@ -152,6 +152,14 @@ public final class Store: Sendable {
         m.registerMigration("v19") { db in try db.alter(table: "session") { t in t.add(column: "parent", .text) } }
         m.registerMigration("v20") { db in try db.alter(table: "session") { t in t.add(column: "subagents", .text) } }
         m.registerMigration("v21") { db in try db.alter(table: "session") { t in t.add(column: "subagentTasks", .text) } }
+        m.registerMigration("v22") { db in
+            try db.create(table: "owedInput") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("session", .text).notNull().indexed().references("session", onDelete: .cascade)
+                t.column("text", .text).notNull(); t.column("draft", .boolean).notNull()
+                t.column("paste", .boolean).notNull(); t.column("report", .boolean).notNull()
+            }
+        }
         return m
     }
 
@@ -167,6 +175,16 @@ public final class Store: Sendable {
     public func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
     public func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
     public func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
+    func owe(_ all: [OwedInput]) throws { try db.write { d in for o in all { try o.insert(d) } } }
+    /// What's owed to `session`, in the order it came, and it's no longer kept here.
+    func takeOwed(_ session: String) throws -> [OwedInput] {
+        try db.write { d in
+            let all = OwedInput.filter(Column("session") == session).order(Column("id"))
+            let owed = try all.fetchAll(d)
+            try all.deleteAll(d)
+            return owed
+        }
+    }
     @discardableResult
     public func save<R: PersistableRecord>(_ r: R) throws -> R {
         try ordered.withLock {

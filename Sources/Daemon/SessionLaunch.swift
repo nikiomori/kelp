@@ -118,7 +118,9 @@ extension Sessions {
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
         let parents = Set(live.all.compactMap(\.snapshot.parent))   // what their children say next would find nobody
         let candidates = live.all.filter { ls in
+            // A pause stops what it left in the background too: a server someone uses isn't idle.
             !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status) && ls.snapshot.continueAt == nil
+                && (ls.snapshot.background ?? []).isEmpty
                 && !ls.isAttached && ls.idleSeconds > minutes * 60
         }.map { ($0, $0.inputs) }
         // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.
@@ -177,10 +179,13 @@ extension Sessions {
         return expectedAndSettled ? m : out
     }
 
+    /// Paused, by its record or, when that couldn't be saved (a full disk), by what's known here.
+    func isPaused(_ s: Session) -> Bool { s.status == .hibernated || pausedUnsaved.withLock { $0.contains(s.id) } }
+
     /// Bring a paused session back under the same id (layout and links stay), resuming its conversation.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         wakeTries.withLock { $0 += 1 }
-        guard var rec = try store.session(id), rec.status == .hibernated else { throw RPCError.invalidParams("no live session \(id)") }
+        guard var rec = try store.session(id), isPaused(rec) else { throw RPCError.invalidParams("no live session \(id)") }
         let m = try manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
         let argv = resumeArgv(rec, m)
         rec.argv = argv   // the conversation it found is this session's from now on
@@ -195,6 +200,7 @@ extension Sessions {
             ls.start()
             throw error
         }
+        giveBackOwed(ls)
         publish(ls)
         ls.start()
         return ls
@@ -295,10 +301,16 @@ extension Sessions {
     private func save(_ ls: LiveSession) {
         let s: Session
         do { s = try store.update(ls.snapshot) } catch {
-            // Deleted meanwhile (closed, its project removed): not brought back. Anything else (a full disk) is logged.
-            if !(error is RecordError) { Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)") }
+            // Deleted meanwhile (closed, its project removed): not brought back. Anything else (a full disk) is logged, and
+            // the change is still news: the row, reports and waits follow what happened, not what reached the disk.
+            guard !(error is RecordError) else { return }
+            Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)")
+            let unsaved = ls.snapshot
+            pausedUnsaved.withLock { if unsaved.status == .hibernated { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) } }
+            said(unsaved)
             return
         }
+        if s.status != .hibernated { pausedUnsaved.withLock { _ = $0.remove(s.id) } }
         let revision = s.revision
         _ = ls.update { $0.revision = revision }
         said(s)
@@ -402,9 +414,17 @@ extension Sessions {
     /// nothing records its exit any more — then stopped with all it started. Its pids, for `waitGone`.
     func pause(_ ls: LiveSession, _ manifests: [AgentManifest]) -> [pid_t] {
         hangUpStreams(ls)
-        if Self.resumable(ls.snapshot, manifests) { ls.markHibernated() } else { ls.overrideStatus(.exited) }
+        let comesBack = Self.resumable(ls.snapshot, manifests)
+        if comesBack { ls.markHibernated() } else { ls.overrideStatus(.exited) }
         publishLast(ls)
+        if comesBack { Log.session.attempt("keeping what \(ls.snapshot.id) hadn't typed") { try store.owe(ls.takeOwed()) } }
         return ls.pty.terminate()   // SIGKILL after 2 s for what ignores the hangup, so all is gone within waitGone's 3
+    }
+
+    /// What waited in the store while it didn't run.
+    func giveBackOwed(_ ls: LiveSession) {
+        let id = ls.snapshot.id
+        ls.giveBack(Log.session.attempt("reading what \(id) hadn't typed") { try store.takeOwed(id) } ?? [])
     }
 
     /// Until these processes have exited (or 3 s, for one that ignores the hangup).

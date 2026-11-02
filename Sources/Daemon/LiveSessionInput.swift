@@ -123,8 +123,33 @@ extension LiveSession {
         }
     }
 
-    /// A child's news, typed when `takesReport` says so; nothing the agent does until then loses it.
-    func report(_ text: String) { state.withLock { $0.reports.append(text) } }
+    /// A child's news, typed when `takesReport` says so; nothing the agent does until then loses it. False: it no longer
+    /// runs and what it owes has been taken, so this has to wait in the store.
+    func report(_ text: String) -> Bool {
+        state.withLock { s in
+            guard !s.final, !s.letGo else { return false }
+            s.reports.append(text)
+            return true
+        }
+    }
+
+    /// What it was given and hasn't typed, which it no longer holds.
+    func takeOwed() -> [OwedInput] {
+        state.withLock { s in
+            let id = s.record.id
+            defer { s.pendingPrompts.removeAll(); s.reports.removeAll() }
+            return s.pendingPrompts.map { OwedInput(session: id, text: $0.text, draft: $0.draft, paste: $0.paste) }
+                + s.reports.map { OwedInput(session: id, text: $0, report: true) }
+        }
+    }
+
+    /// What was kept while it didn't run, typed once it's ready as if it had just come.
+    func giveBack(_ owed: [OwedInput]) {
+        state.withLock { s in
+            s.pendingPrompts += owed.filter { !$0.report }.map { ($0.text, $0.draft, $0.paste) }
+            s.reports += owed.filter(\.report).map(\.text)
+        }
+    }
 
     /// Type text into the agent, now (the gate is `submit`). Multi-line text goes as a bracketed paste so TUIs don't
     /// submit each line. Called inside `state.withLock`: the write is queued under it, so the order of these calls is the
@@ -132,6 +157,7 @@ extension LiveSession {
     /// issue title) is text, not a mode or command. Without it one line is typed, so `kelp send <id> /compact` still runs it.
     func type(_ text: String, enter: Bool, paste: Bool, _ s: inout State) {
         s.detector.input(); s.typedYet = true
+        s.inputs += 1
         if enter { s.boxEmpty = true; s.expectHook() } else { s.draftWaiting = true }   // a draft is left for the user to read and send
         let takesPastes = s.pasteMode
         var text = Self.typeable(text)
