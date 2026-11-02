@@ -36,7 +36,9 @@ extension Daemon {
                 let r = try await ask(CIRunsList(worktreeId: k.key))
                 let running = CIRuns.latest(r.runs).contains { $0.status != "completed" }
                 return (line(CIEvent(worktree: k.key, result: r)), running ? 10 : fast ? 5 : 120)
-            } catch { return (line(CIEvent(worktree: k.key, error: message(error))), nil) }
+            } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
+                return (line(CIEvent(worktree: k.key, error: message(error))), 120)
+            }
         case .pr:
             return ((try? await ask(GitHubBranchPR(worktreeId: k.key))).flatMap { line(PREvent(worktree: k.key, pr: $0)) }, 60)
         case .context:

@@ -92,6 +92,12 @@ import Agents
     #expect(try await waitFor(5) { try await screen().components(separatedBy: "1. fix the tests").count == 3 })   // the echo, then cat's
 }
 
+/// A CI read that failed (no network just after a wake) is tried again: it used to end the polling until a push.
+@Test func aFailedCIReadIsTriedAgain() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    #expect(await w.d.sample(.init(topic: .ci, key: "no-such-workspace"), fast: false).1 == 120)
+}
+
 /// What the user typed and hasn't sent, followed from their keys.
 @Test func theUsersUnsentLineIsFollowedFromTheirKeys() {
     var s = LiveSession.State(record: Session(cwd: "/", command: "cat"), manifest: AgentManifest(id: "custom", name: "Custom", command: "/bin/cat"),
