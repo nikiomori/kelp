@@ -14,5 +14,5 @@ import Testing
 @MainActor @Test func endlessMotionStartsOnTheBeat() {
     let start = Motion.beat(2.4)
     #expect(start <= CACurrentMediaTime())
-    #expect(fmod(start, 2.4) < 0.001)
+    #expect(abs(remainder(start, 2.4)) < 0.001)   // rounding can leave it just under a multiple
 }
