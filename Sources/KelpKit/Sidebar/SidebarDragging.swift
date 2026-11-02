@@ -9,23 +9,22 @@ extension SidebarController {
 
     static let rowType = NSPasteboard.PasteboardType("dev.kelp.sidebar-row")
 
-    /// Projects and pinned or project workspaces move; not while the list is narrowed (the hidden ones would jump).
+    /// Projects and a project's groups move.
     func outlineView(_ o: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard query.isEmpty, filter == .all, let n = item as? Node, n.id != nil else { return nil }
+        guard let n = item as? Node, n.id != nil else { return nil }
         let p = NSPasteboardItem(); p.setString(n.key, forType: Self.rowType)
         return p
     }
     func outlineView(_ o: NSOutlineView, draggingSession s: NSDraggingSession, willBeginAt p: NSPoint, forItems items: [Any]) { card.close() }
 
     /// The dragged row and where it lands among its siblings: before the block (the row and what's under it) the
-    /// pointer is over, or after it past its middle. Projects stay under the sections; a workspace stays in its project.
+    /// pointer is over, or after it past its middle. A workspace stays in its project.
     private func move(_ info: NSDraggingInfo) -> (node: Node, parent: Node?, index: Int)? {
         let pb = info.draggingPasteboard
         guard info.draggingSource as? NSOutlineView === outline, pb.pasteboardItems?.count == 1,
               let key = pb.string(forType: Self.rowType), let n = node(key) else { return nil }
         let parent = outline.parent(forItem: n) as? Node
         let siblings = parent?.children ?? roots
-        let firstProject = parent == nil ? roots.firstIndex { if case .project = $0.kind { true } else { false } } ?? 0 : 0
         let p = outline.convert(info.draggingLocation, from: nil)
         var over = outline.item(atRow: outline.row(at: p)) as? Node
         while let o = over, outline.parent(forItem: o) as? Node !== parent { over = outline.parent(forItem: o) as? Node }
@@ -33,7 +32,7 @@ extension SidebarController {
         var last = o
         while outline.isItemExpanded(last), let c = last.children.last { last = c }
         let block = outline.rect(ofRow: outline.row(forItem: o)).union(outline.rect(ofRow: outline.row(forItem: last)))
-        return (n, parent, max(firstProject, p.y < block.midY ? i : i + 1))
+        return (n, parent, p.y < block.midY ? i : i + 1)
     }
 
     private static func folders(_ info: NSDraggingInfo) -> [String] {
@@ -55,8 +54,7 @@ extension SidebarController {
             var rows = m.parent?.children ?? roots
             guard let from = rows.firstIndex(of: m.node) else { return false }
             rows.insert(m.node, at: m.index); rows.remove(at: from < m.index ? from : from + 1)
-            let ids = rows.compactMap(\.id)
-            if case .section = m.parent?.kind { pinned = ids + pinned.filter { !ids.contains($0) }; refresh() } else { app.reorder(ids) }
+            app.reorder(rows.compactMap(\.id))
             return true
         }
         let folders = Self.folders(info)

@@ -6,7 +6,7 @@ import DesignKit
 @MainActor
 final class StartPrompt: NSView, NSTextViewDelegate {
     private static let mostLines: CGFloat = 6
-    private let text = Text()
+    private let text = Text(usingTextLayoutManager: false)   // TextKit 1: on macOS 26 a default one leaves `usedRect` empty
     private let scroll = NSScrollView()
     private let hint = NSTextField(labelWithString: "")
     private lazy var height = scroll.heightAnchor.constraint(equalToConstant: 20)
@@ -74,8 +74,9 @@ final class StartPrompt: NSView, NSTextViewDelegate {
 
     private func fit() {
         guard let lm = text.layoutManager, let tc = text.textContainer, let font = text.font else { return }
-        lm.ensureLayout(forCharacterRange: NSRange(location: 0, length: text.textStorage?.length ?? 0))
-        let line = lm.defaultLineHeight(for: font), used = max(lm.usedRect(for: tc).height, line)
+        lm.ensureLayout(for: tc)
+        let line = lm.defaultLineHeight(for: font), rows = text.string.utf16.reduce(1) { $1 == 10 ? $0 + 1 : $0 }
+        let used = max(lm.usedRect(for: tc).height, CGFloat(rows) * line)   // the lines typed, however it's laid out
         height.constant = min(ceil(used), ceil(line * Self.mostLines))
     }
 

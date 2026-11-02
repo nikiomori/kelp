@@ -1444,16 +1444,6 @@
         }
       }
     },
-    "Add a project folder to start.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавьте папку проекта, чтобы начать."
-          }
-        }
-      }
-    },
     "Add a project folder (⌘O)": {
       "localizations": {
         "ru": {
@@ -1614,16 +1604,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все вкладки"
-          }
-        }
-      }
-    },
-    "All Chats": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все чаты"
           }
         }
       }
@@ -2418,6 +2398,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите, чтобы открыть CI Runs"
+          }
+        }
+      }
+    },
+    "Close Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть чат"
           }
         }
       }
@@ -7562,16 +7552,6 @@
         }
       }
     },
-    "No Projects": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет проектов"
-          }
-        }
-      }
-    },
     "No agent CLIs found": {
       "localizations": {
         "ru": {
@@ -7799,16 +7779,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Шаблонов пока нет"
-          }
-        }
-      }
-    },
-    "No chats match %@.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет чатов по запросу %@."
           }
         }
       }
@@ -8452,16 +8422,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выберите чат в боковой панели или нажмите ⌘N, чтобы начать новый."
-          }
-        }
-      }
-    },
-    "Pin to Top": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Закрепить сверху"
           }
         }
       }
@@ -12093,16 +12053,6 @@
         }
       }
     },
-    "Unpin": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Открепить"
-          }
-        }
-      }
-    },
     "Unstage": {
       "localizations": {
         "ru": {
@@ -12639,17 +12589,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Окно и рабочая область"
-          }
-        }
-      }
-    },
-    "With a Pull Request": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "С pull request'ом"
           }
         }
       }
@@ -17441,16 +17380,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Группы"
-          }
-        }
-      }
-    },
-    "New chat or group": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Новый чат или группа"
           }
         }
       }

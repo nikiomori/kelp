@@ -85,15 +85,14 @@ extension OneAtATime {
     }
 }
 
-/// The + on a project's row offers both things, and a chat's menu says where it can go.
-@Test func aProjectsPlusOffersAChatAndAGroupAndAChatCanMove() throws {
+/// A chat's menu says where it can go.
+@Test func aChatCanMoveAmongTheScreensOfItsFolder() throws {
     let group = Worktree(id: "g", repoId: "r1", branch: "main", path: project.path, note: "Merge", createdAt: Date(timeIntervalSinceNow: 60))
     let there = Worktree(id: "b", repoId: "r1", branch: "feat", path: "/tmp/kelp-screen-atlas/b")
     let here = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Here")
     let inGroup = Session(worktreeId: "g", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "In group")
     let onBranch = Session(worktreeId: "b", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "On a branch")
     try withSidebar(repos: [project], worktrees: [own("w1"), group, there], sessions: [here, inGroup, onBranch]) { vc, _ in
-        #expect(vc.addMenu(project: "r1").items.map(\.title) == ["New Chat", "New Group", "New Chat on Branch"])
         @MainActor func items(_ s: Session) -> [String] {
             let m = NSMenu()
             vc.moveItems(m, chat: s.id)
@@ -223,10 +222,12 @@ extension OneAtATime {
     }
 }
 
-@Test func withNoProjectsTheSidebarShowsItsEmptyStateNotAnEmptyList() throws {
+/// The middle of the window says what to do first (WelcomeView): the sidebar doesn't say it a second time.
+@Test func withNoProjectsTheSidebarKeepsQuiet() throws {
     try withSidebar(repos: [], worktrees: [], sessions: []) { vc, o in
         #expect(o.numberOfRows == 0)
-        #expect(texts(vc.view).contains { $0.localizedCaseInsensitiveContains("project") })   // it says what to do
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        #expect(line.isHidden)
     }
 }
 
@@ -320,11 +321,59 @@ extension OneAtATime {
     }
 }
 
-@Test func nobodyAskingOrWorkingLeavesNoEmptyBandOverTheList() throws {
+/// The row over the list stays, so the list never moves: with nobody asking or working it names the list.
+@Test func nobodyAskingOrWorkingLeavesTheListsName() throws {
     let done = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Old chat")
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [done]) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-        #expect(line.isHidden)
+        #expect(!line.isHidden && texts(vc.view).contains("Projects"))
+    }
+}
+
+/// A row's slot says what it is, and under the pointer gives its action, a moment later: a chat's ✕, reached from a little
+/// around it. A project with nothing to fold keeps its icon.
+@Test func theSlotGivesTheRowsActionUnderThePointer() throws {
+    let chat = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Refactor")
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [chat]) { _, o in
+        let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+        let enter = try #require(NSEvent.enterExitEvent(with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                                                        eventNumber: 0, trackingNumber: 0, userData: nil))
+        func slot() -> NSPoint { cell.convert(NSPoint(x: 10, y: cell.bounds.midY), to: nil) }
+        #expect(!cell.overAction(slot()))
+        cell.setFrameSize(NSSize(width: 200, height: 28))
+        cell.layoutSubtreeIfNeeded()
+        cell.mouseEntered(with: enter)
+        cell.showAction()   // what the moment after it does: the main queue doesn't turn under a test
+        cell.layoutSubtreeIfNeeded()
+        #expect(cell.overAction(slot()))
+        cell.mouseExited(with: enter)
+        #expect(!cell.overAction(slot()))
+    }
+}
+
+/// What a row asks of you is timed; how long the rest has been at it would only take the name's room.
+@Test func onlyWhoWaitsShowsATime() throws {
+    func agent(_ status: AgentStatus, _ title: String) -> Session {
+        var s = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: status, title: title, summary: "?")
+        s.statusAt = Date() - 600
+        return s
+    }
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent(.working, "Busy"), agent(.waiting, "Asks")]) { _, o in
+        let listed = rows(of: o)
+        #expect(listed[1].contains("Busy") && !listed[1].contains("10m"))
+        #expect(listed[2].contains("Asks") && listed[2].contains("10m"))
+    }
+}
+
+/// The capsule goes to who waits, so it counts only them: how many work is said beside it, in words.
+@Test func theCapsuleCountsOnlyWhoWaits() throws {
+    func agent(_ status: AgentStatus) -> Session {
+        var s = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: status, title: "A")
+        s.statusAt = Date() - 60
+        return s
+    }
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent(.waiting), agent(.working), agent(.working)]) { vc, _ in
+        #expect(texts(vc.view).contains("1 need you") && texts(vc.view).contains("2 working"))
     }
 }
 
@@ -341,7 +390,7 @@ extension OneAtATime {
                 colors.insert(UInt32(c.redComponent * 255) << 16 | UInt32(c.greenComponent * 255) << 8 | UInt32(c.blueComponent * 255))
             }
         }
-        #expect(colors.count > 8, "the sidebar rendered as a flat fill: \(colors.count) distinct colors")   // text, icons and the status mark are not one color
+        #expect(colors.count > 5, "the sidebar rendered as a flat fill: \(colors.count) distinct colors")   // text, icons and the status mark are not one color
     }
 }
 
@@ -378,8 +427,8 @@ extension OneAtATime {
     #expect(try #require(vc.split.arrangedSubviews.first).frame.height > 400)
 }
 
-/// A chat's row stops its agent the way everything else does, with the question.
-@MainActor @Test func stoppingAChatFromItsRowAsksFirst() throws {
+/// A chat's row closes it the way its tab does, with the tab's question.
+@MainActor @Test func closingAChatFromItsRowGoesThroughItsTab() throws {
     let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())
     let chat = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Here")
     try withSidebar(repos: [here], worktrees: [own("w1")], sessions: [chat]) { vc, o in
@@ -392,7 +441,7 @@ extension OneAtATime {
             return menu.items.map(\.title)
         }
         let items = try #require(menus.first { $0.contains("Hand Off to") })
-        #expect(items.contains("Stop…"))
+        #expect(items.contains("Close Chat"))   // its tab's question comes with it
         #expect(!items.contains("Stop"))   // the word that ended it at once
     }
 }

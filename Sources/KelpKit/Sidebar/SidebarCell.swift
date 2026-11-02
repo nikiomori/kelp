@@ -11,12 +11,28 @@ final class SidebarCell: NSTableCellView {
     let app: AppModel
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
-    private let count = NSTextField(labelWithString: "")
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     private let trailing = NSTextField(labelWithString: "")
     private let mark = StatusMark(size: 12)
-    /// An agent's mark, first in its row: the column people scan for who needs them. Kept when empty, so names line up.
+    /// The first thing in every row, in one column: at rest it says what the row is (an agent's mark, the column people
+    /// scan for who needs them; a project's icon; a group's), under the pointer it's the row's own action (`action`), as a
+    /// tab's slot is. Kept when empty, so names line up.
     private let slot = NSView()
+    /// What the slot shows at rest.
+    private weak var rest: NSView?
+    /// A chat's ✕, a project's or a group's fold: 16 pt and round, as on a tab. Clicks reach it from a little around it.
+    private lazy var action: PointerButton = {
+        let b = PointerButton(title: "") { [weak self] in self?.acted() }
+        b.imagePosition = .imageOnly
+        b.isBordered = false
+        b.radius = nil   // a round fill under the pointer, the slot's 16 pt
+        b.contentTintColor = .secondaryLabelColor
+        b.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        b.isHidden = true
+        return b
+    }()
+    /// Waits a moment after the pointer comes: passing over the list doesn't blink the marks people read.
+    private let reveal = Debounce()
     /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
     private let glyph = NSImageView()
     /// A project's colour after its name, in the Dot style.
@@ -46,7 +62,6 @@ final class SidebarCell: NSTableCellView {
     private let detail = NSTextField(labelWithString: "")
     let summary = NSStackView()
     var summarized: [String]?   // nil until the first pass, which also hides it when empty
-    private var fold: NSButton?
     /// What the chevron showed last: when that changes it turns rather than switches.
     private var shownFolded: Bool?
     private var hovering = false
@@ -75,37 +90,29 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = IconButton(.symbol("plus"), tip: String(localized: "New chat or group")) { [weak self, weak owner] in
-                if let b = self?.add { owner?.addMenu(project: id).popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b) }
-            }
+            let b = IconButton(.symbol("plus"), tip: String(localized: "New Chat")) { [weak owner] in owner?.newChat(id) }
             b.isHidden = true
             // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
             NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
                                          b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
             add = b   // on hover, like Finder's sidebar
-            let f = makeFold()
             icon.imageScaling = .scaleProportionallyUpOrDown
             icon.widthAnchor.constraint(equalToConstant: 16).isActive = true; icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+            fillSlot(icon)
             detail.font = .ui(12)
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingTail
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [icon, title, muted, detail, summary, changes, pr, ci, trailing, b, f])
+            layout(row: [slot, title, muted, detail, summary, changes, pr, ci, trailing, b])
             detail.isHidden = true
-        case .section:
-            title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
-            count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
-            icon.symbolConfiguration = .init(pointSize: 11, weight: .semibold)
-            layout(row: [icon, title, count, NSView()])
         case .workspace:
-            // A heading over its agents inside the project's card, not a level of its own: the sidebar stays two deep.
-            title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
-            // Under the project's name (its icon, 16, and the gap after it, 6, further in than the row's own 2 less the step
-            // children take): between the icon and the name it lined up with nothing.
+            // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
+            title.font = .ui(13, weight: .medium)
             styleBranch()
-            layout(row: [title, icon, detail, muted, changes, pr, ci, trailing, mark, makeFold()], lead: 2 + 16 + 6 - SidebarOutline.step)
+            fillSlot(icon)
+            layout(row: [slot, title, detail, muted, changes, pr, ci, trailing, mark])
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -119,20 +126,18 @@ final class SidebarCell: NSTableCellView {
             ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             ask.isHidden = true
             chip.isHidden = true
-            slot.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(mark)
-            NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
-                                         mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                                         mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+            fillSlot(mark)
+            action.image = .symbol("xmark", String(localized: "Close Chat"))
+            action.toolTip = String(localized: "Close Chat")
             layout(row: [slot, icon, title, muted, glyph, chip, family, trailing])
-            (title.superview as? NSStackView)?.setCustomSpacing(8, after: slot)
             ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
                                          ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
                                          ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
         }
-        for v in [title, count] { v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
-        if case .section = node.kind {} else { title.setContentHuggingPriority(.init(2), for: .horizontal) }
+        title.setContentHuggingPriority(.init(2), for: .horizontal)
         // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
         // (Source Control's sections): bare, they read as part of the name.
         for b in [changes, pr, ci] {
@@ -153,56 +158,78 @@ final class SidebarCell: NSTableCellView {
     override func mouseEntered(with e: NSEvent) { showHoverControls(true) }
     override func mouseExited(with e: NSEvent) { showHoverControls(false) }
 
-    /// The + and the chevron come in and the badges step aside (or out, where the name needs the room) in one movement:
-    /// they jumped. Reduce Motion: at once.
+    /// The + comes in and the badges step aside (or out, where the name needs the room) in one movement: they jumped.
+    /// The slot follows a moment later, and goes back at once. Reduce Motion: at once.
     private func showHoverControls(_ on: Bool) {
         hovering = on
+        if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
+        guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
-        let coming = on ? [add, fold].compactMap { $0 }.filter(\.isHidden) : []
+        let coming = on && add.isHidden
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.fast)
             ctx.allowsImplicitAnimation = true
-            add?.isHidden = !on
-            showFold()
+            add.isHidden = !on
             fitBadges()
             layoutSubtreeIfNeeded()
-            for v in coming {
-                v.layer?.removeAllAnimations()
-                guard !Motion.reduced else { continue }
-                let a = CABasicAnimation(keyPath: "opacity")   // faint while the badges are still moving out of its way
-                a.fromValue = 0
-                a.toValue = 1
-                a.duration = Motion.fast
-                a.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                v.layer?.add(a, forKey: "fadeIn")
-            }
+            guard coming else { return }
+            add.layer?.removeAllAnimations()
+            guard !Motion.reduced else { return }
+            let a = CABasicAnimation(keyPath: "opacity")   // faint while the badges are still moving out of its way
+            a.fromValue = 0
+            a.toValue = 1
+            a.duration = Motion.fast
+            a.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            add.layer?.add(a, forKey: "fadeIn")
         }
     }
 
-    /// The chevron that folds a project or a workspace, at the row's end; shown by `showFold`.
-    private func makeFold() -> NSButton {
-        let f = PointerButton(title: "") { [weak owner, node] in owner?.toggle(node) }
-        f.imagePosition = .imageOnly   // its chevron comes in showFold
-        f.radius = Metrics.radiusXS
-        f.contentTintColor = .secondaryLabelColor
-        f.isHidden = true
-        f.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
-        fold = f
+    /// The slot: `view` at rest, the row's action over it. Tracks the pointer for both.
+    private func fillSlot(_ view: NSView) {
+        rest = view
+        slot.translatesAutoresizingMaskIntoConstraints = false
+        for v in [view, action] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
+            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+        }
+        NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16),
+                                     action.widthAnchor.constraint(equalToConstant: 16), action.heightAnchor.constraint(equalToConstant: 16)])
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
-        return f
     }
 
-    /// The fold shows on hover, like Finder's sections, and stays while folded: the row says there's more under it.
+    private func acted() {
+        if case .agent(let id) = node.kind { app.workbench.closeChat(session: id) } else { owner?.toggle(node) }
+    }
+
+    /// The action in the slot under the pointer: a row with nothing to fold keeps what it has.
+    func showAction() {
+        var on = hovering && owner?.renaming == nil
+        if case .agent = node.kind {} else { on = on && !node.children.isEmpty; showFold() }
+        guard action.isHidden == on else { return }
+        slot.crossfade()
+        action.isHidden = !on
+        rest?.isHidden = on
+    }
+
+    /// The chevron turns as the row folds.
     private func showFold() {
-        guard let fold else { return }
         let folded = owner?.isCollapsed(node) ?? false
-        fold.isHidden = node.children.isEmpty || !(hovering || folded)
-        fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
-        if let was = shownFolded, was != folded, !fold.isHidden { fold.turn(from: folded ? -.pi / 2 : .pi / 2) }
+        action.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
+        action.toolTip = action.image?.accessibilityDescription
+        if let was = shownFolded, was != folded, !action.isHidden { action.turn(from: folded ? -.pi / 2 : .pi / 2) }
         shownFolded = folded
     }
 
-    private func layout(row: [NSView], lead: CGFloat = 2) {
+    /// The pointer is on the slot's action: the row's card waits, the row's fate is being decided. `p` is in the window.
+    func overAction(_ p: NSPoint) -> Bool { !action.isHidden && actionArea.contains(convert(p, from: nil)) }
+    /// A little wider than what's drawn, from the pill's edge to the name, and as high as the pill.
+    private var actionArea: NSRect { action.convert(action.bounds, to: self).insetBy(dx: -3, dy: -4) }
+    override func hitTest(_ p: NSPoint) -> NSView? {
+        if !action.isHidden, actionArea.contains(convert(p, from: superview)) { return action }
+        return super.hitTest(p)
+    }
+
+    private func layout(row: [NSView]) {
         let r = NSStackView(views: row)
         r.spacing = 6
         r.alignment = .centerY
@@ -213,7 +240,7 @@ final class SidebarCell: NSTableCellView {
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
         let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = y
-        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: lead),
+        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
                                      r.trailingAnchor.constraint(equalTo: trailingAnchor), y])
     }
 
@@ -222,7 +249,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent, .section: nil
+        case .agent: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
@@ -279,9 +306,9 @@ final class SidebarCell: NSTableCellView {
             if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
             icon.contentTintColor = .secondaryLabelColor
             if !title.isEditable { title.stringValue = m.projectName(id) ?? "" }   // not under a rename (a status change re-reads the row)
-            // Bold where agents are: a project with none is a quieter name the eye passes over.
+            // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
             let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
-            title.font = .ui(13, weight: busy ? .semibold : .regular)
+            title.font = .ui(13, weight: busy ? .medium : .regular)
             // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r.map(m.projectPlace)
@@ -295,25 +322,23 @@ final class SidebarCell: NSTableCellView {
             if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
             showSummary(folded ? node : nil)
             showFold()
-        case .section:
-            icon.image = .symbol("pin.fill"); icon.contentTintColor = .secondaryLabelColor
-            title.stringValue = String(localized: "Pinned")
-            count.stringValue = "\(node.children.count)"; toolTip = nil
         case .workspace(let id):
             guard let w = m.worktree(id) else { return }
             let agents = live(id)
             title.stringValue = w.displayName
-            title.textColor = selected ? .labelColor : .secondaryLabelColor
-            let onBranch = w.path != m.repo(w.repoId)?.path && w.branch != w.displayName
-            detail.stringValue = onBranch ? w.branch : ""
-            detail.isHidden = !onBranch; icon.isHidden = !onBranch
+            title.textColor = .labelColor
+            // A branch splits the code, a group the screen: the slot tells them apart, always.
+            let onBranch = w.path != m.repo(w.repoId)?.path
+            icon.image = .symbol(onBranch ? "arrow.triangle.branch" : "rectangle.stack")
+            detail.stringValue = onBranch && w.branch != w.displayName ? w.branch : ""
+            detail.isHidden = detail.stringValue.isEmpty
             showFold()
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
             let top = AgentStatus.mostUrgent(agents.map(Self.shownStatus))
             let lead = agents.filter { Self.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
             mark.status = collapsed ? top : nil; mark.unread = agents.contains { Self.shownStatus($0) == top && $0.unread }
-            trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : ""
+            trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
             toolTip = nil   // the hover card shows the workspace in full
         case .agent(let sid):
             guard let s = m.session(sid) else { return }
@@ -326,7 +351,8 @@ final class SidebarCell: NSTableCellView {
             mark.compacting = s.summary.hasPrefix("Compacting")
             mark.waitsForCommand = s.waitsForCommand
             mark.progress = s.progress.map { Double($0) / 100 }
-            trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
+            // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
+            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : ""
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
             showState(s)
@@ -338,7 +364,7 @@ final class SidebarCell: NSTableCellView {
     /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the
     /// default one (Other Agents Only), none for Never.
     private func showIcon(_ s: Session) {
-        let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "always", image = app.catalog.icon(s.agent, size: 16)
+        let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
         icon.isHidden = mode != "always"
         // Paused: the same icon without its colour, not see-through (a faded tile read wider than the others).
         let shown = s.status == .hibernated ? image.map(app.agentIcons.grey) : image
@@ -482,11 +508,11 @@ final class Chip: NSView {
 }
 
 extension SidebarCell {
-    /// A heading's branch: quieter than its name, and what gives way first.
+    /// A group's row: its branch quieter than its name, and what gives way first.
     fileprivate func styleBranch() {
-        icon.image = .symbol("arrow.triangle.branch"); icon.contentTintColor = .tertiaryLabelColor
-        icon.symbolConfiguration = .init(pointSize: 10, weight: .medium)
-        detail.font = .ui(11); detail.textColor = .tertiaryLabelColor
+        icon.contentTintColor = .secondaryLabelColor
+        icon.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
+        detail.font = .ui(11); detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
     }

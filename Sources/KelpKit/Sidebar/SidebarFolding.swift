@@ -1,13 +1,6 @@
 import AppKit
 import DesignKit
 
-/// What a click on a project's row has set off: the fold it made, and whether the click opened the row's workspace
-/// (then it doesn't fold).
-struct ClickFold {
-    var done: (key: String, at: Date)?
-    var opened = false
-}
-
 /// Folding a project or a workspace, and the cards under the projects. The rows under it close up (or open out) and
 /// fade while the card and the rows below follow, in one movement; the outline's own animation dropped the leaving
 /// rows' text and card, and brought new rows in one by one over a card that grew in steps.
@@ -22,21 +15,9 @@ extension SidebarController {
         placeCards()
     }
 
-    /// One click on a project's row folds or unfolds it at once, unless that click opened the workspace the row stands
-    /// for. A double click renames it instead: its second click puts the fold back.
-    @objc func clicked() {
-        defer { clickFold.opened = false }
-        guard NSApp.currentEvent?.clickCount == 1, !clickFold.opened, let node = outline.item(atRow: outline.clickedRow) as? Node,
-              case .project = node.kind, !node.children.isEmpty else { return }
-        toggle(node)
-        clickFold.done = (node.key, Date())
-    }
-
+    /// A double click renames: a click only opens.
     @objc func doubleClicked() {
         guard let node = outline.item(atRow: outline.clickedRow) as? Node else { return }
-        if let d = clickFold.done, d.key == node.key, Date().timeIntervalSince(d.at) < NSEvent.doubleClickInterval { toggle(node) }
-        clickFold.done = nil
-        // A project's row edits the name it shows: the project's, even when it stands for its only workspace.
         switch node.kind {
         case .workspace(let id): startRename(id)
         case .project(let id): startRename(id, project: true)

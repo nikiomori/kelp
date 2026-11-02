@@ -255,6 +255,24 @@ final class EditorHost: NSViewController {
         if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
     }
 
+    /// A chat closed from its row, on any screen, with the questions its tab asks and ⇧⌘T after: its tab closing, or where
+    /// the screen isn't loaded yet, its session ending and its place in the saved layout going.
+    func closeChat(_ sid: String, workspace id: String) {
+        let uri = TabURI.session(sid)
+        if let a = areas[id], let t = a.layout.tab(uri: uri) { a.closeTab(t.id); return }
+        let title = app.session(sid)?.displayTitle ?? ""
+        Task {
+            guard await app.extensions.tabProvider(for: uri)?.closeUnbuilt?(uri) ?? true else { return }
+            if let a = areas[id] { a.reconcile(); return }
+            var l = WorkspaceLayout.load(id, from: app.uiState)
+            guard let t = l.tab(uri: uri) else { return }
+            app.workbench.closedTabs.remember(ClosedTab(uri: uri, title: title, workspace: id, group: l.group(of: t.id), index: nil))
+            l.remove(t.id)
+            l.save(id, to: app.uiState)
+            if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
+        }
+    }
+
     /// A restarted session into its old tab in a workspace that isn't on screen, the same two ways.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
         if let a = areas[id] { a.replace(old, with: new, focus: false); return }

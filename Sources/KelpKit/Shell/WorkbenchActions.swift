@@ -103,6 +103,11 @@ extension Workbench {
         show(workspace: all[n - 1].id)
     }
 
+    /// The chat's row, wherever it is: the screen you're on stays.
+    func closeChat(session id: String) {
+        if let w = app.session(id)?.worktreeId { window?.editors.closeChat(id, workspace: w) }
+    }
+
     /// ⇧⌘U: the next agent that asked something or finished, wherever it is.
     package func showNextNeedingAttention() {
         let current = editor?.layout.focusedGroup?.selectedTab.map(\.uri).flatMap { TabURI.scheme($0) == "session" ? TabURI.body($0) : nil }

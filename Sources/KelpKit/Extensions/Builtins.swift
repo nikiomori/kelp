@@ -80,7 +80,7 @@ package enum Builtins {
           "Match System follows Sidebar icon size in System Settings › Appearance.", options: ["system", "compact", "regular", "large"], group: "Sidebar"),
         s("workbench.sidebar.agentDetail", "Show what an agent asks", "enum", "needsYou",
           "A second line under an agent: its question, or what went wrong.", options: ["needsYou", "always", "never"], group: "Sidebar"),
-        s("workbench.sidebar.agentIcons", "Agent icons", "enum", "always", "Other Agents Only hides the default agent's icon.",
+        s("workbench.sidebar.agentIcons", "Agent icons", "enum", "others", "Other Agents Only hides the default agent's icon.",
           options: ["others", "always", "never"], group: "Sidebar"),
         s("workbench.sidebar.gitBadges", "Changes and pull requests", "boolean", true,
           "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),

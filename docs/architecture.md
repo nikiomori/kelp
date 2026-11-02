@@ -7,7 +7,7 @@ contributions, the command palette and settings.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
-│ Project       + ││ [Claude ●][Terminal][app.ts][Browser]    ││ ▤  ⎇  ☰  …      │
+│ ● 2 need you    ││ [Claude ●][Terminal][app.ts][Browser]    ││ ▤  ⎇  ☰  …      │
 │    ✻ Claude ✓   ││ ┌──────────────────┬──────────────────┐  ││ Files / Source  │
 │  ▾ Group        ││ │ agent terminal   │ file / browser / │  ││ Control / Issues│
 │     ✻ Codex ?   ││ │                  │ diff / ext view  │  ││ + extension     │
@@ -21,7 +21,7 @@ contributions, the command palette and settings.
 - **Workspace**: what the code, RPCs and CLI call one screen of a project: its own tabs, splits and agents, with nothing
   on disk (`workspace.create`, stored as worktree records whose path is the repo path). In the window a project's
   oldest workspace is the project's own screen: its agents are chats, listed under the project with no heading, and it
-  doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), always under its heading; closing its last tab
+  doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), a row of its own with its chats a step further in; closing its last tab
   closes it, ending its agents and leaving the files. ⌘N starts the default agent on the screen you're on.
   A group splits the screen, not the code: chats in a project's workspaces share its folder, and one can move between
   them with its agent running (`session.move`).
