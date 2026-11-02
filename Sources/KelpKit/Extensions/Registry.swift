@@ -113,9 +113,17 @@ package struct SettingSpec: Codable, Identifiable {
     var `default`: JSONValue?
     var description: String?
     var options: [String]?
+    /// `[lowest, highest]` a number can be: the stepper stops there, and a value out of it in settings.json counts as the nearest end.
+    var range: [Double]?
     /// A heading over this row and the ones after it that share it ("Sidebar"); nil: the section's first, untitled group.
     var group: String?
     package var id: String { key }
+
+    var bounds: ClosedRange<Double>? {
+        guard let range, range.count == 2, range[0] <= range[1] else { return nil }
+        return range[0]...range[1]
+    }
+    func clamped(_ v: Double) -> Double { bounds.map { min(max(v, $0.lowerBound), $0.upperBound) } ?? v }
 }
 
 package struct SettingsSection: Identifiable {

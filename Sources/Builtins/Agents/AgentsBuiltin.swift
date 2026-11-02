@@ -70,7 +70,7 @@ extension Builtins {
                             custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }),
             SettingsSection(id: "terminal", title: "Terminal", icon: "terminal", specs: [
                 s("terminal.fontFamily", "Font", "font", "", "Default: the theme's / Ghostty's font."),
-                s("terminal.fontSize", "Font size", "number", 13),
+                s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),
                 s("terminal.cursorStyle", "Cursor", "enum", "block", options: ["block", "bar", "underline"]),
                 s("terminal.optionAsAlt", "Option key sends Alt (Meta)", "boolean", false),
                 s("terminal.cleanCopy", "Copy text without the TUI around it", "boolean", true,

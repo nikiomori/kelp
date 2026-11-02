@@ -31,7 +31,7 @@ extension Builtins {
         c.editors = [EditorSpec(id: "files.new", title: "New File", icon: "doc.badge.plus") { _ in UntitledTab.next(app) }]
         c.settings = [SettingsSection(id: "editor", title: "Editor", icon: "doc.text", specs: [
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),
-            s("editor.fontSize", "Font size", "number", 13),
+            s("editor.fontSize", "Font size", "number", 13, range: [8, 40]),
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
             s("editor.autoSave", "Save automatically", "boolean", false,
               "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),

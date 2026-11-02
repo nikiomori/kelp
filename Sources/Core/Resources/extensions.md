@@ -122,7 +122,7 @@ left out). `key` binds a shortcut; Settings › Keyboard can change it. `kelp ru
 ```json
 { "key": "docker.refresh", "title": "Refresh interval", "type": "number", "default": 5, "description": "Seconds" }
 ```
-Types: `boolean`, `number`, `string`, `enum` (with `"options": ["a", "b"]`), `color`. A `number` with `"options": ["0", "15"]` shows as a picker of those values.
+Types: `boolean`, `number`, `string`, `enum` (with `"options": ["a", "b"]`), `color`. A `number` with `"options": ["0", "15"]` shows as a picker of those values. `"range": [8, 40]` keeps a number between those two.
 They appear in Settings under the extension's name and in `~/.kelp/settings.json`. `"group": "Refresh"` puts a setting and
 the ones after it with the same group under that heading.
 

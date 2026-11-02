@@ -158,12 +158,16 @@ struct SettingRow: View {
             }
         case "number":
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
-            let value = Binding(get: { store.number(spec.key) ?? 0 }, set: { store.set(spec.key, $0 == $0.rounded() ? .int(Int($0)) : .double($0)) })
+            let value = Binding(get: { store.number(spec.key) ?? 0 }, set: {
+                let v = spec.clamped($0)
+                store.set(spec.key, v == v.rounded() ? .int(Int(v)) : .double(v))
+            })
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
             LabeledContent {
                 HStack(spacing: 4) {
+                    if let b = spec.bounds { Text("\(Int(b.lowerBound))…\(Int(b.upperBound))").font(.ui(11)).foregroundStyle(.secondary).padding(.trailing, 4) }
                     TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 56)
-                    Stepper("", value: value).labelsHidden()
+                    Stepper("", value: value, in: spec.bounds ?? -Double.greatestFiniteMagnitude...Double.greatestFiniteMagnitude).labelsHidden()
                 }
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
@@ -171,7 +175,7 @@ struct SettingRow: View {
             }
         case "enum":
             Picker(loc(spec.title), selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
-                ForEach(Self.options(spec, app), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
+                ForEach(Self.shown(Self.options(spec, app), store.string(spec.key) ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
             }
         case "theme":
             ThemeGallery(selection: Binding(get: { store.string(spec.key) ?? "auto" }, set: { store.set(spec.key, .string($0)) }))
@@ -182,11 +186,17 @@ struct SettingRow: View {
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
             Picker(loc(spec.title), selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
                 Text("Default").tag("")
-                ForEach(Self.monospaced, id: \.self) { Text($0).tag($0) }
+                ForEach(Self.shown(Self.monospaced, store.string(spec.key) ?? ""), id: \.self) { Text($0).tag($0) }
             }
         default:
             LabeledContent(loc(spec.title)) { SettingTextField(key: spec.key).frame(width: 220) }
         }
+    }
+
+    /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
+    /// installed), which would otherwise leave the picker blank.
+    static func shown(_ options: [String], _ current: String) -> [String] {
+        current.isEmpty || options.contains(current) ? options : options + [current]
     }
 
     /// Choices that depend on what's installed are computed when shown.

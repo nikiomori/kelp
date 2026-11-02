@@ -46,7 +46,10 @@ package final class SettingsStore {
     }
     package func string(_ key: String) -> String? { value(key)?.string }
     package func bool(_ key: String) -> Bool? { value(key)?.bool }
-    package func number(_ key: String) -> Double? { value(key)?.number }
+    package func number(_ key: String) -> Double? {
+        guard let n = value(key)?.number else { return nil }
+        return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(n) ?? n
+    }
 
     /// Shows a value without saving it (the palette trying themes on); `set` keeps one, `preview(key, saved)` goes back.
     func preview(_ key: String, _ v: JSONValue?) {
