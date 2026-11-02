@@ -5684,6 +5684,26 @@
         }
       }
     },
+    "Paste the key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставьте ключ"
+          }
+        }
+      }
+    },
+    "Paste the token": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставьте токен"
+          }
+        }
+      }
+    },
     "No Project": {
       "localizations": {
         "ru": {

@@ -40,9 +40,9 @@ struct IntegrationsSettings: View {
                         if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil { jiraStatus = off; jiraOn = false }
                     } }
                 } else {
-                    TextField("Site", text: $jiraSite, prompt: Text("acme.atlassian.net")).textFieldStyle(.roundedBorder)
-                    TextField("Email", text: $jiraEmail, prompt: Text("you@acme.com")).textFieldStyle(.roundedBorder)
-                    SecureField("API token", text: $jiraToken).textFieldStyle(.roundedBorder)
+                    labeled("Site") { TextField("Site", text: $jiraSite, prompt: Text("acme.atlassian.net")) }
+                    labeled("Email") { TextField("Email", text: $jiraEmail, prompt: Text("you@acme.com")) }
+                    labeled("API token") { SecureField("API token", text: $jiraToken, prompt: Text("Paste the token")) }
                     connect(disabled: jiraSite.isEmpty || jiraEmail.isEmpty || jiraToken.isEmpty) { Task {
                         if let r = await app.call(JiraSetCredentials(site: jiraSite, email: jiraEmail, token: jiraToken)) {
                             jiraStatus = String(localized: "Connected as \(r?.name ?? "")")
@@ -59,8 +59,8 @@ struct IntegrationsSettings: View {
                         if await app.call(BitbucketSetCredentials(user: "", token: "")) != nil { bbStatus = off; bbOn = false }
                     } }
                 } else {
-                    TextField("Username or email", text: $bbUser).textFieldStyle(.roundedBorder)
-                    SecureField("API token / app password", text: $bbToken).textFieldStyle(.roundedBorder)
+                    labeled("Username or email") { TextField("Username or email", text: $bbUser) }
+                    labeled("API token / app password") { SecureField("API token / app password", text: $bbToken, prompt: Text("Paste the token")) }
                     connect(disabled: bbUser.isEmpty || bbToken.isEmpty) { Task {
                         if await app.call(BitbucketSetCredentials(user: bbUser, token: bbToken)) != nil {
                             bbStatus = String(localized: "Credentials saved")
@@ -77,7 +77,7 @@ struct IntegrationsSettings: View {
                         if await app.call(LinearSetKey(key: "")) != nil { linearStatus = off; linearOn = false }
                     } }
                 } else {
-                    SecureField("Personal API key", text: $key).textFieldStyle(.roundedBorder)
+                    labeled("Personal API key") { SecureField("Personal API key", text: $key, prompt: Text("Paste the key")) }
                     connect(disabled: key.isEmpty) { Task { await connect() } }
                 }
                 Text("Create a key in Linear › Settings › Security & access. It's stored in your login keychain.").font(.caption).foregroundStyle(.secondary)
@@ -117,6 +117,11 @@ struct IntegrationsSettings: View {
 
     /// What gh or glab can do now, and the button that sets it up in a terminal tab.
     struct CLIState { var status = String(localized: "Checking…"), setup: Forge.Setup? }
+
+    /// A Form sets a labelled field's text at the trailing edge; beside its own label it starts at the leading one, like every other field.
+    private func labeled(_ title: LocalizedStringKey, @ViewBuilder field: () -> some View) -> some View {
+        LabeledContent(title) { field().labelsHidden().textFieldStyle(.roundedBorder).multilineTextAlignment(.leading) }
+    }
 
     private func cliRow(_ c: CLIState) -> some View {
         HStack {

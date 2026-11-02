@@ -202,7 +202,7 @@ struct AgentsSettings: View {
             if let cmd = m.update {
                 Button(newer(v) ? String(localized: "Update") : String(localized: "Check for Update")) {
                     run(cmd, String(localized: "Update \(m.name)"))
-                }.help(cmd)
+                }.help(cmd).disabled(versions.isEmpty)   // "Checking…" beside it
             }
         }
         // The agents of SSH projects run on their hosts: the same command there, one terminal per host.
