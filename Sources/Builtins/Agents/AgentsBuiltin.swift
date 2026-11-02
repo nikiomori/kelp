@@ -65,9 +65,9 @@ extension Builtins {
                   options: ["off", "70", "80", "90"], group: "Notifications"),
                 s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
                   options: ["agents", "usage", "icon"], group: "Notifications")
-            ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }),
+            ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }, keywords: ["Accounts"]),
             SettingsSection(id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
-                            custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }),
+                            custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }, keywords: app.catalog.all.map(\.name)),
             SettingsSection(id: "terminal", title: "Terminal", icon: "terminal", specs: [
                 s("terminal.fontFamily", "Font", "font", "", "Default: the theme's / Ghostty's font."),
                 s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),

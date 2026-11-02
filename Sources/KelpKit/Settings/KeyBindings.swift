@@ -152,10 +152,12 @@ struct KeyboardSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Click a shortcut, then press the new keys. ⌫ removes it, Esc keeps it.").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Restore Defaults") { KeyBindings.resetAll(app.settings); later() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
+            if query.isEmpty {
+                HStack {
+                    Text("Click a shortcut, then press the new keys. ⌫ removes it, Esc keeps it.").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Restore Defaults") { KeyBindings.resetAll(app.settings); later() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
+                }
             }
             ForEach(groups, id: \.0) { menu, items in
                 Text(menu).font(.ui(13, weight: .semibold)).padding(.top, 6)

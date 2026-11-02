@@ -42,24 +42,27 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
+            // Nothing is selected while search fills the pane; picking a section ends the search.
+            List(selection: Binding(get: { query.isEmpty ? selection : nil }, set: { if let s = $0 { open(s) } })) {
                 Section {
-                    ForEach(registry.all.settings) { s in Label { Text(loc(s.title)) } icon: { SettingsIcon(symbol: s.icon, id: s.id) }.tag(s.id) }
+                    ForEach(registry.all.settings) { s in
+                        Label { Text(loc(s.title)) } icon: { SettingsIcon(symbol: s.icon, id: s.id) }.tag(Optional(s.id))
+                    }
                 }
                 Section {
-                    Label { Text("Extensions") } icon: { SettingsIcon(symbol: "puzzlepiece.extension", id: "extensions") }.tag("extensions")
+                    Label { Text("Extensions") } icon: { SettingsIcon(symbol: "puzzlepiece.extension", id: "extensions") }.tag(Optional("extensions"))
                 }
             }
             .toolbar(removing: .sidebarToggle)   // a settings window keeps its sections in view (HIG › Settings)
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             Group {
-                if !query.isEmpty { SearchResults(query: query) }
+                if !query.isEmpty { SearchResults(query: query, open: open) }
                 else if selection == "extensions" { ExtensionsSettings() }
                 else if let s = registry.all.settings.first(where: { $0.id == selection }) { SectionForm(section: s) }
                 else { ContentUnavailableView("Pick a section", systemImage: "gearshape") }
             }
-            .navigationTitle(loc(registry.all.settings.first { $0.id == selection }?.title ?? (selection == "extensions" ? "Extensions" : "Settings")))
+            .navigationTitle(title)
             .toolbar {
                 Button { app.workbench.open(TabURI.file(Paths.root.appendingPathComponent("settings.json").path)) } label: {
                     Label("Open settings.json", systemImage: "curlybraces")
@@ -70,6 +73,13 @@ struct SettingsView: View {
         .searchable(text: $query, placement: .sidebar, prompt: "Search settings")
         .frame(minWidth: 720, minHeight: 480)
     }
+
+    private var title: String {
+        if !query.isEmpty { return String(localized: "Search") }
+        return loc(registry.all.settings.first { $0.id == selection }?.title ?? (selection == "extensions" ? "Extensions" : "Settings"))
+    }
+
+    private func open(_ section: String) { selection = section; query = "" }
 }
 
 /// A section's symbol on a coloured tile, as System Settings shows its panes; sections extensions add are grey.
@@ -87,10 +97,7 @@ private struct SettingsIcon: View {
 private struct SectionForm: View {
     let section: SettingsSection
     var body: some View {
-        // Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
-        let groups = section.specs.reduce(into: [(String?, [SettingSpec])]()) { g, s in
-            if let last = g.indices.last, g[last].0 == s.group { g[last].1.append(s) } else { g.append((s.group, [s])) }
-        }
+        let groups = section.groups
         Form {
             ForEach(groups.indices, id: \.self) { i in
                 if let title = groups[i].0 {
@@ -107,25 +114,29 @@ private struct SectionForm: View {
 
 private struct SearchResults: View {
     let query: String
+    let open: (String) -> Void
     @Environment(AppModel.self) private var app
     var body: some View {
-        let q = query.lowercased()
-        let hits = app.extensions.all.settings.flatMap { s in
-            // In English and as shown (a Russian search finds Russian titles).
-            s.specs.filter { ($0.title + " " + loc($0.title) + " " + $0.key + " " + ($0.description ?? "") + " "
-                              + loc($0.description ?? "")).lowercased().contains(q) }
-                .map { (s, $0) }
-        }
+        let found = SettingsSearch.find(query, in: app.extensions.all.settings + [Self.extensions])
         let keys = KeyBindings.entries().contains { KeyBindings.matches($0, query) }
         Form {
-            if hits.isEmpty, !keys { Text("No settings match “\(query)”.").foregroundStyle(.secondary) }
-            ForEach(hits, id: \.1.key) { s, spec in
-                Section(loc(s.title)) { SettingRow(spec: spec) }
+            if found.isEmpty, !keys { Text("No settings match “\(query)”.").foregroundStyle(.secondary) }
+            ForEach(found) { f in
+                Section(f.title) {
+                    ForEach(f.specs) { SettingRow(spec: $0) }
+                    ForEach(f.screens, id: \.self) { word in
+                        LabeledContent(word) { Button("Open") { open(f.section.id) } }
+                    }
+                }
             }
             if keys { Section("Keyboard") { KeyboardSettings(query: query) } }
         }
         .formStyle(.grouped)
     }
+
+    /// The window's own page, not a section an extension gave.
+    private static let extensions = SettingsSection(id: "extensions", title: "Extensions", icon: "puzzlepiece.extension", specs: [],
+                                                    keywords: ["Extensions", "Library"])
 }
 
 /// One row, typed by its spec; reads and writes settings.json through the daemon.

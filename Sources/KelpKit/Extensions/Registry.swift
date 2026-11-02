@@ -131,15 +131,25 @@ package struct SettingsSection: Identifiable {
                  title: String,
                  icon: String,
                  specs: [SettingSpec],
-                 custom: (@MainActor () -> AnyView)? = nil) {
+                 custom: (@MainActor () -> AnyView)? = nil,
+                 keywords: [String] = []) {
         self.id = id
         self.title = title
         self.icon = icon
         self.specs = specs
         self.custom = custom
+        self.keywords = keywords
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
+    /// What Settings' search finds a custom page by.
+    var keywords: [String]
+    /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
+    var groups: [(String?, [SettingSpec])] {
+        specs.reduce(into: []) { g, s in
+            if let last = g.indices.last, g[last].0 == s.group { g[last].1.append(s) } else { g.append((s.group, [s])) }
+        }
+    }
     /// Optional custom UI under the generated rows (accounts, integrations…).
     var custom: (@MainActor () -> AnyView)?
 }
