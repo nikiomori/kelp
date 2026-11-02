@@ -816,6 +816,17 @@
         }
       }
     },
+    "A notification at this level, and again at 95%.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомление на этом уровне и ещё раз на 95%."
+          }
+        }
+      }
+    },
     "A port on the host, or an address it can reach: 5432, db.internal:5432.": {
       "localizations": {
         "ru": {
@@ -878,12 +889,63 @@
         }
       }
     },
+    "Accounts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аккаунты"
+          }
+        }
+      }
+    },
     "Add Comment…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Добавить комментарий…"
+          }
+        }
+      }
+    },
+    "Added to branches Kelp names, e.g. “you/”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавляется к веткам, которые называет Kelp, например «you/»."
+          }
+        }
+      }
+    },
+    "After %@ Minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через %@ мин"
+          }
+        }
+      }
+    },
+    "After %lld Hours": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через %lld ч"
+          }
+        }
+      }
+    },
+    "After 1 Hour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через 1 ч"
           }
         }
       }
@@ -950,6 +1012,17 @@
       }
     },
     "Agents Side by Side button": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка «Агенты рядом»"
+          }
+        }
+      }
+    },
+    "Agents side by side button": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -1590,7 +1663,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Внизу сайдбара: самый полный лимит или строка на каждого агента."
+            "value": "Внизу боковой панели: самый полный лимит или строка на каждого агента."
           }
         }
       }
@@ -1631,6 +1704,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Только баннер"
+          }
+        }
+      }
+    },
+    "Bar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Черта"
           }
         }
       }
@@ -1700,6 +1784,17 @@
     },
     "Bitbucket": {
       "shouldTranslate": false
+    },
+    "Block": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блок"
+          }
+        }
+      }
     },
     "Bold (⌘B)": {
       "localizations": {
@@ -1815,6 +1910,16 @@
         }
       }
     },
+    "Changed by you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменено вами"
+          }
+        }
+      }
+    },
     "Changes and Pull Requests": {
       "localizations": {
         "ru": {
@@ -1856,12 +1961,45 @@
         }
       }
     },
+    "CI in the branch popover": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI в поповере ветки"
+          }
+        }
+      }
+    },
+    "CI beside folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI рядом с папками"
+          }
+        }
+      }
+    },
     "CI in the Popover": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "CI в поповере"
+          }
+        }
+      }
+    },
+    "CI on the branch chip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI на чипе ветки"
           }
         }
       }
@@ -1968,6 +2106,16 @@
         }
       }
     },
+    "Click a shortcut, then press the new keys.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на сочетание, затем новые клавиши."
+          }
+        }
+      }
+    },
     "Click to open CI Runs": {
       "localizations": {
         "ru": {
@@ -1994,6 +2142,27 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрытие вкладки вернёт текст в поле агента"
+          }
+        }
+      }
+    },
+    "Color theme": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цветовая тема"
+          }
+        }
+      }
+    },
+    "Code hosting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хостинг кода"
           }
         }
       }
@@ -2037,6 +2206,37 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сжать сейчас"
+          }
+        }
+      }
+    },
+    "Completion and jump to definition.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автодополнение и переход к определению."
+          }
+        }
+      }
+    },
+    "Connect %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить %@"
+          }
+        }
+      }
+    },
+    "Connect…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить…"
           }
         }
       }
@@ -2131,12 +2331,33 @@
         }
       }
     },
+    "Copy Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать ключ"
+          }
+        }
+      }
+    },
     "Copy Line": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать строку"
+          }
+        }
+      }
+    },
+    "Copy text without borders": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать текст без рамок"
           }
         }
       }
@@ -2197,6 +2418,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось прочитать запуски"
+          }
+        }
+      }
+    },
+    "Couldn't relaunch Kelp: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось перезапустить Kelp: %@"
           }
         }
       }
@@ -3141,7 +3372,14 @@
     },
     "Cursor": {
       "extractionState": "manual",
-      "shouldTranslate": false
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курсор"
+          }
+        }
+      }
     },
     "Custom JQL…": {
       "localizations": {
@@ -3506,6 +3744,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Черновик"
+          }
+        }
+      }
+    },
+    "Drops box borders and an agent's gutter, and rejoins lines it wrapped.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убирает рамки и отступ агента, а строки, которые он перенёс, склеивает."
           }
         }
       }
@@ -3892,6 +4141,17 @@
         }
       }
     },
+    "File icon theme": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема значков файлов"
+          }
+        }
+      }
+    },
     "File Icon Theme: %@": {
       "localizations": {
         "ru": {
@@ -4162,6 +4422,16 @@
         }
       }
     },
+    "For repos whose origin is on bitbucket.org.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для репозиториев с origin на bitbucket.org."
+          }
+        }
+      }
+    },
     "For Today": {
       "localizations": {
         "ru": {
@@ -4239,6 +4509,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свободно"
+          }
+        }
+      }
+    },
+    "From Theme": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как в теме"
           }
         }
       }
@@ -4921,6 +5201,26 @@
         }
       }
     },
+    "Issues from your Linear workspace.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задачи из вашего пространства Linear."
+          }
+        }
+      }
+    },
+    "Issues from your Jira site.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задачи с вашего сайта Jira."
+          }
+        }
+      }
+    },
     "It can run these commands on this Mac:": {
       "localizations": {
         "ru": {
@@ -5011,6 +5311,26 @@
         }
       }
     },
+    "Its login stays in %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход останется в %@."
+          }
+        }
+      }
+    },
+    "Its command, arguments and environment go back to Kelp's.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда, аргументы и окружение вернутся к настройкам Kelp."
+          }
+        }
+      }
+    },
     "its replies": {
       "extractionState": "manual",
       "localizations": {
@@ -5070,6 +5390,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jupyter не найден — pip install jupyter"
+          }
+        }
+      }
+    },
+    "Kelp needs to reopen for this.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для этого Kelp нужно открыть заново."
           }
         }
       }
@@ -5277,6 +5607,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Языковой сервер %@ не установлен."
+          }
+        }
+      }
+    },
+    "Language servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Языковые серверы"
           }
         }
       }
@@ -5634,6 +5975,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файлы памяти"
+          }
+        }
+      }
+    },
+    "Menus": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меню"
           }
         }
       }
@@ -6335,12 +6686,32 @@
         }
       }
     },
+    "No profiles yet: agents use their own login.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профилей пока нет: агенты используют свой вход."
+          }
+        }
+      }
+    },
     "Not after you opened it or muted its row.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не напоминает, если вы открыли агента или заглушили его строку."
+          }
+        }
+      }
+    },
+    "Not signed in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход не выполнен"
           }
         }
       }
@@ -6365,12 +6736,33 @@
         }
       }
     },
+    "Once. Not after you opened it or muted its row.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один раз. Не после того, как вы открыли его или заглушили строку."
+          }
+        }
+      }
+    },
     "Open %@ (⇧⌘O)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Открыть %@ (⇧⌘O)"
+          }
+        }
+      }
+    },
+    "Open a chat to log in to %@ there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте чат, чтобы войти в %@."
           }
         }
       }
@@ -6441,6 +6833,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть расход"
+          }
+        }
+      }
+    },
+    "Other Agents Only hides the default agent's icon.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Только у других агентов» скрывает значок агента по умолчанию."
           }
         }
       }
@@ -7328,6 +7731,17 @@
         }
       }
     },
+    "Phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон"
+          }
+        }
+      }
+    },
     "Phone notifications (ntfy address)": {
       "localizations": {
         "ru": {
@@ -7384,6 +7798,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Лимиты планов"
+          }
+        }
+      }
+    },
+    "Plan limits": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимиты плана"
           }
         }
       }
@@ -7486,6 +7911,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предыдущая группа"
+          }
+        }
+      }
+    },
+    "Profile name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя профиля"
           }
         }
       }
@@ -7876,6 +8311,16 @@
         }
       }
     },
+    "Relaunch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить"
+          }
+        }
+      }
+    },
     "Reload": {
       "localizations": {
         "ru": {
@@ -7896,12 +8341,33 @@
         }
       }
     },
+    "Reload Extensions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезагрузить расширения"
+          }
+        }
+      }
+    },
     "Reload Ignoring Cache": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Перезагрузить без кеша"
+          }
+        }
+      }
+    },
+    "Remind if an agent still waits": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напомнить, если агент ещё ждёт"
           }
         }
       }
@@ -7986,6 +8452,16 @@
         }
       }
     },
+    "Remove the profile “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить профиль «%@»?"
+          }
+        }
+      }
+    },
     "Remove Worktree": {
       "localizations": {
         "ru": {
@@ -8042,6 +8518,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалено: %lld, оставлено: %lld — %@"
+          }
+        }
+      }
+    },
+    "Remove…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить…"
           }
         }
       }
@@ -8117,6 +8603,26 @@
         }
       }
     },
+    "Reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить"
+          }
+        }
+      }
+    },
+    "Reset how %@ starts?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить запуск %@?"
+          }
+        }
+      }
+    },
     "Reset Time": {
       "localizations": {
         "ru": {
@@ -8143,6 +8649,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сбросить"
+          }
+        }
+      }
+    },
+    "Reset to Default…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить…"
           }
         }
       }
@@ -8214,6 +8730,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуть стандартные"
+          }
+        }
+      }
+    },
+    "Restore Defaults…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть стандартные…"
+          }
+        }
+      }
+    },
+    "Restore every shortcut to Kelp's default?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть все сочетания клавиш к стандартным?"
           }
         }
       }
@@ -8555,6 +9091,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранять автоматически"
+          }
+        }
+      }
+    },
+    "Save your files, then relaunch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните файлы и перезапустите."
           }
         }
       }
@@ -8994,6 +9540,16 @@
         }
       }
     },
+    "Show in Section": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в разделе"
+          }
+        }
+      }
+    },
     "Show Inspector": {
       "localizations": {
         "ru": {
@@ -9106,6 +9662,17 @@
         }
       }
     },
+    "Show what an agent asks": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать, что спрашивает агент"
+          }
+        }
+      }
+    },
     "Show what the agent says on the phone": {
       "localizations": {
         "ru": {
@@ -9206,7 +9773,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Настройки сайдбара…"
+            "value": "Настройки боковой панели…"
           }
         }
       }
@@ -10257,6 +10824,16 @@
         }
       }
     },
+    "The shortcuts you set are lost.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заданные вами сочетания пропадут."
+          }
+        }
+      }
+    },
     "The terminal and the editor have their own font sizes.": {
       "extractionState": "manual",
       "localizations": {
@@ -10320,6 +10897,17 @@
         }
       }
     },
+    "They keep running when Kelp quits or updates, on the host for a remote project. Closing the tab ends them. Needs tmux.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они работают дальше, когда Kelp закрывается или обновляется, у удалённого проекта — на хосте. Закрытие вкладки завершает их. Нужен tmux."
+          }
+        }
+      }
+    },
     "This can't be undone.": {
       "localizations": {
         "ru": {
@@ -10362,6 +10950,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "У этого проекта нет команды «%@». Добавьте её в .kelp.yaml (%@: команда)."
+          }
+        }
+      }
+    },
+    "Through the GitLab CLI (glab) and its login, self-managed hosts too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через GitLab CLI (glab) и его вход, в том числе на своих серверах."
+          }
+        }
+      }
+    },
+    "Through the GitHub CLI and its login. Project boards need `gh auth refresh -s read:project`.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через GitHub CLI и его вход. Для досок проектов нужен `gh auth refresh -s read:project`."
           }
         }
       }
@@ -10447,6 +11055,16 @@
         }
       }
     },
+    "Turn off what you don't use. Always on: %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключите то, чем не пользуетесь. Всегда включены: %@."
+          }
+        }
+      }
+    },
     "Turn On": {
       "localizations": {
         "ru": {
@@ -10514,6 +11132,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ниже 100% сквозь терминалы и окно вокруг них виден рабочий стол, в любой теме."
+          }
+        }
+      }
+    },
+    "Underline": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подчёркивание"
           }
         }
       }
@@ -10824,6 +11453,17 @@
         }
       }
     },
+    "Warn about limits at": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предупреждать о лимите на"
+          }
+        }
+      }
+    },
     "Warn about limits at (%)": {
       "extractionState": "manual",
       "localizations": {
@@ -11055,6 +11695,16 @@
         }
       }
     },
+    "While Agents Work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока работают агенты"
+          }
+        }
+      }
+    },
     "Window": {
       "extractionState": "manual",
       "localizations": {
@@ -11219,6 +11869,17 @@
       }
     },
     "Wrap Long Lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переносить длинные строки"
+          }
+        }
+      }
+    },
+    "Wrap long lines": {
+      "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -11641,6 +12302,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌘S сначала форматирует документ — для языков, у которых есть форматтер."
+          }
+        }
+      }
+    },
+    "⌫ removes it, Esc keeps it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌫ убирает его, Esc оставляет."
           }
         }
       }
@@ -15520,7 +16191,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сколько израсходовано из тарифа каждого агента — внизу боковой панели; читается в фоне, без токенов."
+            "value": "Сколько израсходовано из плана каждого агента — внизу боковой панели; читается в фоне, без токенов."
           }
         }
       }

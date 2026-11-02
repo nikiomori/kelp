@@ -35,7 +35,7 @@ extension Builtins {
                 s("usage.limits", "Limits to show", "enum", "fullest", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
                   options: ["fullest", "all"], group: "Plan limits"),
                 s("usage.resets", "Reset time beside a limit", "boolean", true, group: "Plan limits"),
-                s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
+                s("usage.alertAt", "Warn about limits at", "enum", "80", "A notification at this level, and again at 95%.",
                   options: ["off", "70", "80", "90"], group: "Plan limits"),
                 // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
                 s("agents.skills.extensions", "Write Kelp extensions", "boolean", true,
@@ -54,7 +54,7 @@ extension Builtins {
                   options: ["sound", "banner", "off"]),
                 s("agents.onWaiting", "When an agent needs you", "enum", "sound", "Comes at once, even while you type.",
                   options: ["sound", "banner", "off"]),
-                s("agents.remindAfter", "Remind once if an agent still waits (min)", "enum", "10", "Not after you opened it or muted its row.",
+                s("agents.remindAfter", "Remind if an agent still waits", "enum", "10", "Once. Not after you opened it or muted its row.",
                   options: ["off", "5", "10", "30"]),
                 s("agents.onError", "When an agent fails", "enum", "sound", options: ["sound", "banner", "off"]),
                 s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
@@ -71,14 +71,12 @@ extension Builtins {
                 s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),
                 s("terminal.cursorStyle", "Cursor", "enum", "block", options: ["block", "bar", "underline"]),
                 s("terminal.optionAsAlt", "Option key sends Alt (Meta)", "boolean", false),
-                s("terminal.cleanCopy", "Copy text without the TUI around it", "boolean", true,
-                  "Drops box borders, an agent's indented gutter and trailing spaces from what you copy, and joins the lines an agent wrapped at the edge (a long command copies as one line)."),
+                s("terminal.cleanCopy", "Copy text without borders", "boolean", true,
+                  "Drops box borders and an agent's gutter, and rejoins lines it wrapped."),
                 s("terminal.useGhosttyConfig", "Also read ~/.config/ghostty/config", "boolean", false,
                   "Keybindings and other Ghostty options; the theme's colors still apply."),
                 s("terminal.tmux", "Run terminals inside tmux", "boolean", false,
-                  "New terminals run in a tmux session of their own (on the host, for a remote project): it keeps running when Kelp quits or "
-                    + "updates, and the tab attaches to it again; after a dropped SSH connection, Restart does. Closing the tab ends the session. "
-                    + "Needs tmux; without it here, terminals are plain shells.")
+                  "They keep running when Kelp quits or updates, on the host for a remote project. Closing the tab ends them. Needs tmux.")
             ], order: 60)
         ]
         c.commands = [

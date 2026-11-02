@@ -10,7 +10,7 @@ struct SettingsSearch: Identifiable {
     var screens: [String] = []
 
     var id: String { section.id + "/" + (group ?? "") }
-    /// "Agents › Notifications": a row like "Beside folders" says little without its group.
+    /// "Agents › Notifications": a row can say little without its group.
     var title: String { group.map { "\(loc(section.title)) › \(loc($0))" } ?? loc(section.title) }
 
     static func find(_ query: String, in sections: [SettingsSection]) -> [SettingsSearch] {

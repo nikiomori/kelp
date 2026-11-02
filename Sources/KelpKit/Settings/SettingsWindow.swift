@@ -263,9 +263,9 @@ struct SettingRow: View {
         case "agents.dockIcon":
             return ["agents": String(localized: "Show Agents"), "usage": String(localized: "Show Plan Usage"),
                     "icon": String(localized: "Show Application Icon")][v] ?? v
-        case "terminal.opacity": return v == "theme" ? String(localized: "As the Theme Has It") : "\(v)%"
+        case "terminal.opacity": return v == "theme" ? String(localized: "From Theme") : "\(v)%"
         case "power.keepAwake":
-            return ["agents": String(localized: "While agents work"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
+            return ["agents": String(localized: "While Agents Work"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         // Each language in its own words, so it can be found whichever language Kelp is in.
         case "workbench.language": return ["en": "English", "ru": "Русский"][v] ?? String(localized: "Match System")
         case "workbench.sidebar.rowHeight" where v == "system": return String(localized: "Match System")
@@ -285,8 +285,9 @@ struct SettingRow: View {
         case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) seconds")
         case "sessions.hibernateMinutes":
             let m = Int(v) ?? -1
-            return m == 0 ? String(localized: "Never") : m == 60 ? String(localized: "After 1 hour")
-                : m > 0 && m % 60 == 0 ? String(localized: "After \(m / 60) hours") : String(localized: "After \(v) minutes")
+            return m == 0 ? String(localized: "Never") : m == 60 ? String(localized: "After 1 Hour")
+                : m > 0 && m % 60 == 0 ? String(localized: "After \(m / 60) Hours") : String(localized: "After \(v) Minutes")
+        case "agents.remindAfter": return v == "off" ? String(localized: "Off") : String(localized: "After \(v) Minutes")
         default: return loc(v.prefix(1).uppercased() + v.dropFirst())
         }
     }

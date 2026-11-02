@@ -41,7 +41,7 @@ package enum Builtins {
         c.settings = [SettingsSection(id: "appearance", title: "Appearance", icon: "paintpalette", specs: [
             s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
               options: ["system", "en", "ru"]),
-            s("workbench.theme", "Color Theme", "theme", "auto",
+            s("workbench.theme", "Color theme", "theme", "auto",
               "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
             s("workbench.textSize", "Text size", "enum", "normal",
               "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
@@ -49,10 +49,10 @@ package enum Builtins {
             s("terminal.opacity", "Terminal opacity", "enum", "theme",
               "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
               options: ["theme", "100", "90", "80", "70", "60", "50", "40"]),
-            s("workbench.iconTheme", "File Icon Theme", "enum", .string(FileIcon.standard),
+            s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
               "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…")
         ], order: 10), SettingsSection(id: "window", title: "Window", icon: "macwindow", specs: [
-            s("workbench.sideBySideButton", "Agents Side by Side button", "boolean", true,
+            s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
               "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way."),
             s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
               options: ["agents", "usage", "icon"])
@@ -78,9 +78,9 @@ package enum Builtins {
           group: "Sidebar"),
         s("workbench.sidebar.rowHeight", "Row height", "enum", "system",
           "Match System follows Sidebar icon size in System Settings › Appearance.", options: ["system", "compact", "regular", "large"], group: "Sidebar"),
-        s("workbench.sidebar.agentDetail", "What agents ask", "enum", "needsYou",
+        s("workbench.sidebar.agentDetail", "Show what an agent asks", "enum", "needsYou",
           "A second line under an agent: its question, or what went wrong.", options: ["needsYou", "always", "never"], group: "Sidebar"),
-        s("workbench.sidebar.agentIcons", "Agent icons", "enum", "always", "The default agent is set in Agents.",
+        s("workbench.sidebar.agentIcons", "Agent icons", "enum", "always", "Other Agents Only hides the default agent's icon.",
           options: ["others", "always", "never"], group: "Sidebar"),
         s("workbench.sidebar.gitBadges", "Changes and pull requests", "boolean", true,
           "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),

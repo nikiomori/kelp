@@ -35,7 +35,7 @@ extension Builtins {
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
             s("editor.autoSave", "Save automatically", "boolean", false,
               "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),
-            s("editor.lsp", "Language servers (completion, jump to definition)", "boolean", true),
+            s("editor.lsp", "Language servers", "boolean", true, "Completion and jump to definition."),
             s("editor.formatOnSave", "Format on save", "boolean", false, "⌘S runs Format Document first, for languages that have a formatter."),
             s("markdown.defaultMode", "Default Markdown mode", "enum", "preview", options: ["preview", "edit", "split"])
         ], order: 70)]
