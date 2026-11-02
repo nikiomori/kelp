@@ -416,11 +416,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 app.workbench.focus(session: id)
                 return
             }
-            Task {
-                // Answered without Kelp coming forward; if that menu is gone (answered in the terminal, another one up), show the agent.
-                let ok = await app.call(SessionChoose(id: id, answer: action, question: question)) ?? false
-                if !ok { NSApp.activate(); app.workbench.focus(session: id) }
-            }
+            answer(id, action, question: question)
+        }
+    }
+
+    /// Answered without Kelp coming forward; if that menu is gone (answered in the terminal, another one up), show the agent.
+    func answer(_ id: String, _ action: String, question: String?) {
+        Task {
+            let ok = await app.call(SessionChoose(id: id, answer: action, question: question)) ?? false
+            if !ok { NSApp.activate(); app.workbench.focus(session: id) }
         }
     }
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions {

@@ -57,7 +57,9 @@ extension Builtins {
                 s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
                   options: ["0", "10", "20", "30", "60"], group: "Notifications"),
                 s("usage.alertAt", "Warn about limits at (%)", "enum", "80", "A notification when a plan limit reaches this, and again at 95. “off”: none.",
-                  options: ["off", "70", "80", "90"], group: "Notifications")
+                  options: ["off", "70", "80", "90"], group: "Notifications"),
+                s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
+                  options: ["agents", "usage", "icon"], group: "Notifications")
             ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }),
             SettingsSection(id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
                             custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }),

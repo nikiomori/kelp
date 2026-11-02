@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     init(builtins: [Builtin]) { app = AppModel(builtins: builtins) }
     private(set) var main: MainWindowController!
     private(set) lazy var notifier = Notifier(app: app)
+    private lazy var dockIcon = DockIcon(app: app)
     /// Files and links opened while Kelp starts (nil once it has).
     private var pendingOpens: [URL]? = []
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.showWindow(nil)
         app.scratch.registerHotKey()
         app.notifier = notifier; notifier.start()
+        dockIcon.start()
         buildMenu()
         // Glances are timed only while some finished agent is still unread: no clock runs the rest of the time.
         track(owner: self) { [app] in app.sessions.contains { Self.readOnSight($0) } } changed: { [weak self] any in self?.timeGlances(any) }
@@ -126,19 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.workbench.open(files: urls.filter(\.isFileURL))
     }
 
-    /// Right-click on the Dock icon: the agents waiting for you, like Mail's dock menu offers what's new.
-    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
-        let m = NSMenu()
-        for s in AttentionQueue(app).sessions {
-            let w = app.worktree(s.worktreeId), place = app.groupName(w) ?? app.projectName(w?.repoId) ?? ""
-            let state = s.status == .waiting ? String(localized: "needs you") : String(localized: "finished")
-            let i = m.add("\(app.catalog.displayName(s)) — \(state) · \(place)") { [app] in NSApp.activate(); app.workbench.focus(session: s.id) }
-            i.image = app.catalog.icon(s.agent, size: 16)
-        }
-        if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newChat() }
-        return m
-    }
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? { dockIcon.menu() }
 
     /// Finished agents read at a glance (`Glances`): timed only while one is unread, so no clock runs the rest of the time.
     private var glances = Glances()
