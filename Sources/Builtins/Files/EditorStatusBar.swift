@@ -12,6 +12,11 @@ final class EditorStatusBar: NSView {
     private let format = NSTextField(labelWithString: "")
     /// "Wrap" while long lines wrap: a click turns it off.
     private let wrap = PointerButton()
+    /// How many problems the file has: a click goes to the next.
+    private let problems = PointerButton()
+    /// What the one under the cursor says.
+    private let problem = NSTextField(labelWithString: "")
+    var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
     private let indent: String
     /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
@@ -42,7 +47,15 @@ final class EditorStatusBar: NSView {
         wrap.padding = Metrics.gap
         wrap.isHidden = true
         wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
-        let row = NSStackView(views: [kind, place, NSView(), wrap, format]); row.spacing = 16
+        problems.font = .ui(11)
+        problems.padding = Metrics.gap
+        problems.isHidden = true
+        problems.toolTip = String(localized: "Next Problem (F8)")
+        problem.font = .ui(11)
+        problem.textColor = .secondaryLabelColor
+        problem.lineBreakMode = .byTruncatingTail
+        problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
+        let row = NSStackView(views: [kind, place, problems, problem, NSView(), wrap, format]); row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
@@ -61,6 +74,14 @@ final class EditorStatusBar: NSView {
     }
 
     func show(wrapping: Bool) { wrap.isHidden = !wrapping }
+
+    func show(errors: Int, warnings: Int) {
+        problems.isHidden = errors + warnings == 0
+        problems.title = [errors > 0 ? "✕ \(errors)" : nil, warnings > 0 ? "⚠ \(warnings)" : nil].compactMap { $0 }.joined(separator: "  ")
+        problems.contentTintColor = errors > 0 ? .textRed : .textOrange
+    }
+
+    func show(problem text: String?) { problem.stringValue = text ?? "" }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""

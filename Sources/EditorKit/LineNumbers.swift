@@ -117,7 +117,7 @@ final class LineNumbers: NSRulerView {
         let font = self.font
         func draw(_ n: Int, at frag: NSRect, start: Int) {
             if let m = editor.changeMark(onLine: n) { drawChange(m, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag)) }
-            let text = NSAttributedString(string: "\(n + 1)", attributes: [.font: font, .foregroundColor: n == caretLine ? current : color])
+            let text = NSAttributedString(string: "\(n + 1)", attributes: [.font: font, .foregroundColor: numberColor(n, caret: caretLine)])
             let size = text.size()
             text.draw(at: NSPoint(x: ruleThickness - Self.chevron - size.width - 4, y: y0 + frag.minY + (frag.height - size.height) / 2))
             let line = s.lineRange(for: NSRange(location: start, length: 0))
@@ -146,6 +146,11 @@ final class LineNumbers: NSRulerView {
         if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: n, in: s) == s.length {
             draw(n, at: lm.extraLineFragmentRect, start: s.length)
         }
+    }
+
+    private func numberColor(_ n: Int, caret: Int) -> NSColor {
+        if let isError = editor?.problemLines[n] { return isError ? .textRed : .textOrange }
+        return n == caret ? current : color
     }
 
     /// A wrapped line's bar runs along all its rows.

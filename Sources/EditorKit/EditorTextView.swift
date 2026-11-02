@@ -29,6 +29,8 @@ public final class EditorTextView: NSTextView {
     /// Asks the app for completion items; they come back later, to `showCompletions`.
     var onComplete: (() -> Void)?
     var completions: [CodeEditor.Completion] = []
+    /// What `CodeEditor.problems` comes to in the text, top to bottom.
+    var problemMarks: [ProblemMark] = []
     private var presenting = false
 
     public var length: Int { (string as NSString).length }
@@ -277,6 +279,7 @@ public final class EditorTextView: NSTextView {
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         drawCapsules(in: dirtyRect)
+        drawProblems(in: dirtyRect)
         guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         // Only the carets in what's drawn: ⇧⌘L on a common word in a big file makes thousands.
         let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)

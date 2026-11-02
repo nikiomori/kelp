@@ -85,6 +85,8 @@ extension Builtins {
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },
+                      cmd("editor.nextProblem", "Next Problem", "f8") { CodeEditor.focused?.goToProblem(forward: true) },
+                      cmd("editor.previousProblem", "Previous Problem", "shift+f8") { CodeEditor.focused?.goToProblem(forward: false) },
                       cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {
                           app.settings.set("editor.wordWrap", .bool(app.settings.bool("editor.wordWrap") != true))
                       },

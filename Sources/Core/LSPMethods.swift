@@ -10,6 +10,14 @@ public struct CodeLocation: Codable, Sendable, Equatable {
     public init(path: String, line: Int, column: Int) { self.path = path; self.line = line; self.column = column }
 }
 
+/// An error or warning a language server found: from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.
+public struct CodeProblem: Codable, Sendable, Equatable {
+    public var line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String
+    public init(line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String) {
+        self.line = line; self.column = column; self.endLine = endLine; self.endColumn = endColumn; self.isError = isError; self.message = message
+    }
+}
+
 /// One completion: what the list shows and what goes in.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
@@ -79,4 +87,11 @@ public struct LSPSymbol: InternalMethod {
     public static let name = "lsp.symbol"; public typealias Result = String?
     public var root: String, path: String, line: Int
     public init(root: String, path: String, line: Int) { self.root = root; self.path = path; self.line = line }
+}
+
+/// What the language server last said is wrong with the file at `path`. They reach a tab with its `FileEvent`.
+public struct LSPProblems: InternalMethod {
+    public static let name = "lsp.problems"; public typealias Result = [CodeProblem]
+    public var path: String
+    public init(path: String) { self.path = path }
 }

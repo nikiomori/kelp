@@ -107,10 +107,11 @@ public struct LimitsEvent: RPCEvent, Equatable {
 
 /// A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only
 /// the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too.
+/// `problems`: what its language server says is wrong with it, pushed as the server says it.
 public struct FileEvent: RPCEvent, Equatable {
     public static let name = "event.file"
-    public var path: String, stamp: FileStamp?
-    public init(path: String, stamp: FileStamp?) { self.path = path; self.stamp = stamp }
+    public var path: String, stamp: FileStamp?, problems: [CodeProblem]?
+    public init(path: String, stamp: FileStamp?, problems: [CodeProblem]? = nil) { self.path = path; self.stamp = stamp; self.problems = problems }
 }
 
 /// A watched workspace's files as `files.list` gives them, and what git ignores (`files.ignored`), pushed when that

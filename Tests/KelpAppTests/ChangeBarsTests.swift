@@ -2,7 +2,7 @@ import AppKit
 import Core
 import Foundation
 import Testing
-import EditorKit
+@testable import EditorKit
 import WorkbenchKit
 @testable import KelpKit
 @testable import BuiltinFiles
@@ -49,4 +49,20 @@ extension OneAtATime {
     _ = big.view
     #expect(small.preferredContentSize.height > 0 && small.preferredContentSize.width > 0)
     #expect(big.preferredContentSize.height > small.preferredContentSize.height * 5)   // 24 lines and a "more", not 40
+}
+
+@MainActor @Test func problemsLandOnTheirTextAndF8GoesRoundThem() {
+    let e = CodeEditor(text: "one\ntwo three\nfour\n", url: URL(fileURLWithPath: "/t.txt"))
+    e.problems = [.init(line: 1, column: 4, endLine: 1, endColumn: 9, isError: true, message: "bad"),
+                  .init(line: 2, column: 0, endLine: 2, endColumn: 0, isError: false, message: "a point")]
+    #expect(e.textView.problemMarks.map(\.range) == [NSRange(location: 8, length: 5), NSRange(location: 14, length: 1)])
+    e.goToProblem(forward: true)
+    #expect(e.textView.selectedRange().location == 8)
+    #expect(e.problemAtCursor?.message == "bad")
+    e.goToProblem(forward: true)
+    #expect(e.textView.selectedRange().location == 14)
+    e.goToProblem(forward: true)
+    #expect(e.textView.selectedRange().location == 8)   // round again
+    e.goToProblem(forward: false)
+    #expect(e.textView.selectedRange().location == 14)
 }

@@ -60,7 +60,9 @@ extension Daemon {
         case .file:
             // A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
             guard k.key.hasPrefix("/"), remotes.containing(k.key) == nil else { return (nil, nil) }
-            return (line(FileEvent(path: k.key, stamp: FileService.stamp(k.key))), nil)
+            var problems: [CodeProblem] = []
+            do { problems = try await ask(LSPProblems(path: k.key)) } catch { Log.session.error("reading \(k.key)'s problems: \(error)") }
+            return (line(FileEvent(path: k.key, stamp: FileService.stamp(k.key), problems: problems.isEmpty ? nil : problems)), nil)
         case .files:
             let remote = (try? store.worktree(k.key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
             var e: FilesEvent

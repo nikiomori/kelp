@@ -13,7 +13,7 @@ public struct KeySpec: Equatable, LosslessStringConvertible {
 
     /// Keys a spec writes by name.
     private static let named = ["up": "\u{F700}", "down": "\u{F701}", "left": "\u{F702}", "right": "\u{F703}", "return": "\r", "tab": "\t",
-                                "space": " ", "esc": "\u{1b}", "delete": "\u{8}", "plus": "+"]
+                                "space": " ", "esc": "\u{1b}", "delete": "\u{8}", "plus": "+", "f8": "\u{F70B}"]
     private static let names = Dictionary(uniqueKeysWithValues: named.map { ($1, $0) }).merging(["\u{7f}": "delete"]) { $1 }
 
     /// "cmd+shift+k", modifiers in any order ("command", "opt", "alt", "control" too). Nil without a key.

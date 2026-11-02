@@ -24,6 +24,8 @@ final class LSPHost: Sendable {
         var owners: [Int: [String: Int]] = [:]  // connection → the docs it opened, and how many times
         var started: [Key: Date] = [:]          // a broken server isn't started again on every open
         var closed = false                      // the daemon stopped them all: an open arriving after starts none
+        var problems: [String: [CodeProblem]] = [:]   // by the path a tab has it open under
+        var problemsChanged: (@Sendable (String) -> Void)?
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
@@ -76,11 +78,28 @@ final class LSPHost: Sendable {
         }
     }
 
+    /// `changed`: a file's problems are new. Set once.
+    func whenProblemsChange(_ changed: @escaping @Sendable (String) -> Void) { state.withLock { $0.problemsChanged = changed } }
+
+    func problems(_ path: String) -> [CodeProblem] { state.withLock { $0.problems[path] ?? [] } }
+
+    /// A server may name a file by its real path (/private/tmp), a tab by the one it was given.
+    private func heard(_ reported: String, _ found: [CodeProblem]) {
+        let real = URL(fileURLWithPath: reported).resolvingSymlinksInPath().path
+        let (path, changed) = state.withLock { s -> (String, (@Sendable (String) -> Void)?) in
+            let path = s.docs.values.first { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path == real }?.path ?? reported
+            s.problems[path] = found.isEmpty ? nil : found
+            return (path, s.problemsChanged)
+        }
+        changed?(path)
+    }
+
     func close(conn: Int, _ root: String, _ path: String) {
         let id = root + "|" + path
         let idle = state.withLock { s -> Key? in
             guard let n = s.owners[conn]?[id], n > 0, var d = s.docs[id] else { return nil }   // not opened by this connection
             s.owners[conn]?[id] = n > 1 ? n - 1 : nil
+            if n == 1 { s.problems[path] = nil }
             if s.owners[conn]?.isEmpty == true { s.owners[conn] = nil }
             d.count -= 1; s.docs[id] = d.count > 0 ? d : nil
             Self.send(.close(path: path), to: d.key, in: &s)
@@ -128,7 +147,7 @@ final class LSPHost: Sendable {
             let made = OSAllocatedUnfairLock<LSPClient?>(initialState: nil)
             await withCheckedContinuation { c in
                 Thread.detachNewThread {
-                    let client = LSPClient(argv: key.argv, root: key.root)
+                    let client = LSPClient(argv: key.argv, root: key.root) { [weak self] path, found in self?.heard(path, found) }
                     made.withLock { $0 = client }
                     c.resume()
                 }
@@ -196,7 +215,7 @@ extension LSPHost {
 }
 
 extension Methods {
-    static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self]
+    static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self]
     static let lspAsyncMethods: [any AsyncHandled.Type] = [LSPDefinition.self, LSPCompletion.self, LSPSymbol.self]
 }
 
@@ -225,6 +244,10 @@ extension LSPClose: Handled {
     static var inOrder: Bool { true }
     func handle(_ lsp: LSPHost) throws -> Done { try handle(lsp, conn: -1) }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done { lsp.close(conn: conn, root, path); return Done() }
+}
+
+extension LSPProblems: Handled {
+    func handle(_ lsp: LSPHost) throws -> [CodeProblem] { lsp.problems(path) }
 }
 
 extension LSPDefinition: AsyncHandled {

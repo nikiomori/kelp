@@ -446,6 +446,38 @@
         ],
         "type" : "object"
       },
+      "CodeProblem" : {
+        "description" : "An error or warning a language server found: from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.",
+        "properties" : {
+          "column" : {
+            "type" : "integer"
+          },
+          "endColumn" : {
+            "type" : "integer"
+          },
+          "endLine" : {
+            "type" : "integer"
+          },
+          "isError" : {
+            "type" : "boolean"
+          },
+          "line" : {
+            "type" : "integer"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "column",
+          "endColumn",
+          "endLine",
+          "isError",
+          "line",
+          "message"
+        ],
+        "type" : "object"
+      },
       "CommandsEvent" : {
         "properties" : {
           "commands" : {
@@ -748,10 +780,16 @@
         "type" : "object"
       },
       "FileEvent" : {
-        "description" : "A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too.",
+        "description" : "A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too. `problems`: what its language server says is wrong with it, pushed as the server says it.",
         "properties" : {
           "path" : {
             "type" : "string"
+          },
+          "problems" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CodeProblem"
+            },
+            "type" : "array"
           },
           "stamp" : {
             "type" : "string"
@@ -5824,6 +5862,30 @@
       "x-internal" : true
     },
     {
+      "description" : "What the language server last said is wrong with the file at `path`. They reach a tab with its `FileEvent`.",
+      "name" : "lsp.problems",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/CodeProblem"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The innermost function, method, class or module around a line (Test at Cursor's `${symbol}`).",
       "name" : "lsp.symbol",
       "paramStructure" : "by-name",
@@ -8627,7 +8689,7 @@
       }
     },
     {
-      "description" : "A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too.",
+      "description" : "A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too. `problems`: what its language server says is wrong with it, pushed as the server says it.",
       "name" : "event.file",
       "params" : {
         "$ref" : "#/components/schemas/FileEvent"

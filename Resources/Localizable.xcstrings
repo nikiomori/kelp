@@ -5666,6 +5666,16 @@
         }
       }
     },
+    "Language servers (completion, jump to definition, errors)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Языковые серверы (дополнение, переход к определению, ошибки)"
+          }
+        }
+      }
+    },
     "Language servers and formatters can run code from “%@” (its build scripts, plugins, toolchain). Trust this project?": {
       "localizations": {
         "ru": {
@@ -6654,6 +6664,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Следующая панель"
+          }
+        }
+      }
+    },
+    "Next Problem": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая проблема"
+          }
+        }
+      }
+    },
+    "Next Problem (F8)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая проблема (F8)"
           }
         }
       }
@@ -7964,6 +7994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предыдущая панель"
+          }
+        }
+      }
+    },
+    "Previous Problem": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущая проблема"
           }
         }
       }

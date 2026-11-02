@@ -19,6 +19,7 @@ final class FileTab: SavableTab {
     private(set) var markdown: MarkdownTab?
     private var notebook: NotebookTab?
     private var changeBars: ChangeBars?
+    weak var statusBar: EditorStatusBar?
     /// What the file was last read or written as; a compare against the one before is moot.
     private var lastSaved = "" { didSet { comparing?.cancel() } }
     private(set) var isEdited = false
@@ -129,6 +130,8 @@ final class FileTab: SavableTab {
         bar.contextMenu = { [app] in EditorStatusBar.menu(app) }
         bar.show(cursor: e.cursor)
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
+        bar.onProblems = { [weak e] in e?.goToProblem(forward: true) }
+        statusBar = bar
         bar.show(wrapping: CodeEditor.wrapLines)
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
@@ -139,7 +142,11 @@ final class FileTab: SavableTab {
             box.pin(stacked(e.view, bar))
         }
         let before = e.onSelection   // Markdown's selection bar follows the selection too
-        e.onSelection = { [weak bar, weak e] in before?(); bar?.show(cursor: e?.cursor) }
+        e.onSelection = { [weak bar, weak e] in
+            before?()
+            bar?.show(cursor: e?.cursor)
+            bar?.show(problem: e?.problemAtCursor?.message)
+        }
         e.onChange = { [weak self] t in self?.edited(t) }
         if let kept = backup.text {   // what a crash left
             if kept == text { backup.drop() } else { e.setText(kept); edited(kept) }
@@ -334,8 +341,10 @@ final class FileTab: SavableTab {
     /// A new version pushed (`WatchTopic.file`): read again only one this tab didn't read or write itself (a log a dev
     /// server appends to changes every quarter second). One read at a time; versions meanwhile make one more, as do
     /// versions while a save writes the file.
+
     private func diskChanged() {
         changeBars?.refresh()
+        showProblems()
         guard editor != nil, let v = app.fileVersions[path] else { return }
         if reading || writing { readAgain = true; return }
         guard let now = v.stamp else { apply(.missing); return }
@@ -470,15 +479,6 @@ final class FileTab: SavableTab {
 
     /// Its items in the tab's context menu.
     /// The editor's context menu, after Cut, Copy and Paste.
-    private func contextMenu(_ m: NSMenu) {
-        let app = self.app, path = self.path
-        let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
-        if language?.server != nil { m.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() } }
-        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: lines()) }
-        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) }
-        m.addItem(.separator())
-        m.add(String(localized: "Toggle Comment")) { [weak self] in self?.editor?.toggleComment() }
-    }
 
     static func menu(_ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void) {
         let path = TabURI.filePath(uri).path

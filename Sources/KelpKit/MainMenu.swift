@@ -131,7 +131,8 @@ extension AppDelegate {
         b.add(find, "files.findInWorkspace")
         b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
-        b.add(edit, "editor.goToLine", "editor.jumpToDefinition", "editor.sendToAgent", "editor.copyReference", "editor.copyWebLink",
+        b.add(edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.jumpToDefinition", "editor.sendToAgent",
+              "editor.copyReference", "editor.copyWebLink",
               "-", "editor.fold", "editor.unfold", "editor.unfoldAll")
         let markdown = NSMenu(title: "Markdown")
         b.add(markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets", "markdown.numbered",

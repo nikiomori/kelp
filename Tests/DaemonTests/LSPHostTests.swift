@@ -38,7 +38,13 @@ private func fakeServer(in dir: String) throws -> (command: String, args: [Strin
         elif meth:
             doc = (m.get("params") or {}).get("textDocument") or {}
             log.write("%s %s\n" % (meth, doc.get("version", "")))
-            if meth == "textDocument/didOpen": log.write("text %s %s\n" % (doc.get("uri"), doc.get("text")))
+            if meth == "textDocument/didOpen":
+                log.write("text %s %s\n" % (doc.get("uri"), doc.get("text")))
+                if "problem" in doc.get("text", ""):
+                    at = {"start": {"line": 1, "character": 2}, "end": {"line": 1, "character": 6}}
+                    send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": doc.get("uri"), "diagnostics": [
+                        {"range": at, "severity": 1, "message": "no such name"}, {"range": at, "severity": 2, "message": "unused"},
+                        {"range": at, "severity": 4, "message": "a hint"}]}})
             if meth == "exit": break
     log.write("gone\n")
     """#.write(toFile: script, atomically: true, encoding: .utf8)
@@ -131,4 +137,19 @@ private func lines(_ log: String) -> [String] {
     try await open(b, "b")
     let unsaved = "text \(URL(fileURLWithPath: a).absoluteString) unsaved"
     #expect(try await waitFor(5) { lines(server.log).filter { $0.hasPrefix("start ") }.count == 2 && lines(server.log).contains(unsaved) })
+}
+
+/// What a server says is wrong reaches the daemon's reading of the file, errors and warnings without the hints, and goes with
+/// the file's tab.
+@Test func aServersProblemsAreKeptForTheFile() async throws {
+    let (d, c, _) = try daemon(); defer { d.stop() }
+    let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
+    try await c.call(StateSet(key: LSPOpen.trustKey, value: .array([.string(root)])))
+    try await c.call(LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "a problem\n  name\n"))
+    #expect(try await waitFor(10) { try await c.call(LSPProblems(path: file)).count == 2 })
+    let found = try await c.call(LSPProblems(path: file))
+    #expect(found.map(\.isError) == [true, false])
+    #expect(found[0] == CodeProblem(line: 1, column: 2, endLine: 1, endColumn: 6, isError: true, message: "no such name"))
+    try await c.call(LSPClose(root: root, path: file))
+    #expect(try await c.call(LSPProblems(path: file)).isEmpty)
 }

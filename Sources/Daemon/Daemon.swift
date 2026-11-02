@@ -48,6 +48,7 @@ public final class Daemon: Sendable {
         self.forges = Forges(offloads: offloads, store: self.store, clients: clients, remotes: remotes)
         self.lsp = LSPHost(store: self.store, remotes: remotes, retryDelay: lspDelays.retry, idleDelay: lspDelays.idle)
         self.watches = Watches(store: self.store, clients: clients, remotes: remotes)
+        lsp.whenProblemsChange { [watches] path in watches.touched(.init(topic: .file, key: path), tag: UUID().uuidString) }
         self.sessions = Sessions(root: root, socketPath: root.appendingPathComponent("kelp.sock").path, store: self.store, remotes: remotes,
                                  settings: settings, agentUsage: agentUsage, clients: clients, watches: watches, offloads: offloads)
         self.workspaces = Workspaces(root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)

@@ -44,6 +44,10 @@ public final class CodeEditor: NSObject {
 
     var lineIndex = LineIndex()
     var lineCount = 1
+    /// What the language server says. Set by the tab.
+    public var problems: [Problem] = [] { didSet { if problems != oldValue { problemsChanged() } } }
+    /// Lines with a problem; true where one is an error.
+    var problemLines: [Int: Bool] = [:]
     /// Prose, whatever `wrapLines` says.
     public var alwaysWraps = false
     /// Top to bottom. Set by the tab; typing moves them along.
@@ -264,6 +268,7 @@ public final class CodeEditor: NSObject {
             coloring = false
             gutter?.fit(lines: lineCount)
             colorVisible()
+            showProblemTips()
         }
     }
 

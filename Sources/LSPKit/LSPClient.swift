@@ -53,6 +53,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     public let root: String
+    private let onProblems: (@Sendable (String, [CodeProblem]) -> Void)?
     /// The last open document was closed.
     public var onIdle: (@Sendable () -> Void)? {
         get { state.withLock { $0.onIdle } }
@@ -60,9 +61,11 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     }
 
     /// `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need `node`).
-    public init?(argv: [String], root: String) {
+    /// `onProblems`: a file's errors and warnings, each time the server says them.
+    public init?(argv: [String], root: String, onProblems: (@Sendable (_ path: String, [CodeProblem]) -> Void)? = nil) {
         guard let cmd = argv.first, let exe = try? LoginPath.resolve(cmd) else { return nil }
         self.root = root
+        self.onProblems = onProblems
         proc.executableURL = URL(fileURLWithPath: exe); proc.arguments = Array(argv.dropFirst())
         var env = ProcessInfo.processInfo.environment; env["PATH"] = LoginPath.value; proc.environment = env
         proc.currentDirectoryURL = URL(fileURLWithPath: root)
@@ -109,8 +112,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     private func handle(_ body: Data) {
         guard let m = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
         let id = m["id"].flatMap { $0 == .null ? nil : $0 }
-        if m["method"]?.string != nil {   // a notification (diagnostics…) is ignored; a request (workspace/configuration) gets null
+        if let method = m["method"]?.string {   // a request (workspace/configuration) gets null; of the notifications, only diagnostics count
             if let id { send(["jsonrpc": "2.0", "id": id, "result": .null]) }
+            if method == "textDocument/publishDiagnostics", let p = m["params"], let (path, found) = Self.problems(p) { onProblems?(path, found) }
             return
         }
         guard let id = id?.int else { return }
@@ -162,6 +166,18 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
                                                    "documentSymbol": .obj(["hierarchicalDocumentSymbolSupport": true])])])
         ]))
         notify("initialized", .obj([:]))
+    }
+
+    /// `publishDiagnostics`' params: errors and warnings, not the hints a server has for every other line.
+    static func problems(_ params: JSONValue) -> (path: String, found: [CodeProblem])? {
+        guard let uri = params["uri"]?.string, let path = URL(string: uri)?.path else { return nil }
+        let found = (params["diagnostics"]?.array ?? []).compactMap { d -> CodeProblem? in
+            guard let start = d["range"]?["start"], let end = d["range"]?["end"], let l = start["line"]?.int, let c = start["character"]?.int,
+                  let el = end["line"]?.int, let ec = end["character"]?.int, let message = d["message"]?.string else { return nil }
+            let severity = d["severity"]?.int ?? 1
+            return severity <= 2 ? CodeProblem(line: l, column: c, endLine: el, endColumn: ec, isError: severity == 1, message: message) : nil
+        }
+        return (path, found)
     }
 
     static func uri(_ path: String) -> JSONValue { .string(URL(fileURLWithPath: path).absoluteString) }
