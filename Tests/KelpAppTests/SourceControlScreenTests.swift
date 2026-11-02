@@ -87,6 +87,14 @@ extension AppOfItsOwn {
     #expect(abs(glow.frame.midX - b.bounds.midX) < 4 && abs(glow.frame.midY - b.bounds.midY) < 4, "\(glow.frame)")
 }
 
+/// With nothing staged a commit takes everything, but not on the word of a status list cut at its limit.
+@Test func aCommitDoesntTakeEverythingFromACutList() {
+    let one = FileChange(path: "a", index: ".", worktree: "M")
+    #expect(GitCommit.takesEverything([one]))
+    #expect(!GitCommit.takesEverything(Array(repeating: one, count: FileChange.limit)))
+    #expect(!GitCommit.takesEverything([one, FileChange(path: "b", index: "M", worktree: ".")]))
+}
+
 /// A commit that went in with a push that didn't: not a push that worked.
 @Test func aFailedPushIsntReportedAsPushed() async throws {
     let rig = try await AppRig(files: ["kept.txt": "a\n"]); defer { rig.done() }

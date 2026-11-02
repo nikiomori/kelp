@@ -43,8 +43,9 @@ extension Git {
                 o = nums.first.flatMap { $0 } ?? 1; n = nums.dropFirst().first.flatMap { $0 } ?? 1
                 cur = Hunk(header: raw, oldStart: o, newStart: n, lines: [])
             } else if cur != nil {
-                guard let c = raw.first else { continue }   // trailing empty
-                let t = String(raw.dropFirst())
+                // By scalar: "+" and a combining mark after it are one Character, and the line would be dropped.
+                guard let c = raw.unicodeScalars.first else { continue }   // trailing empty
+                let t = String(raw.unicodeScalars.dropFirst())
                 switch c {
                 case "+": cur?.lines.append(DiffLine(kind: .add, text: t, oldLine: nil, newLine: n)); n += 1
                 case "-": cur?.lines.append(DiffLine(kind: .del, text: t, oldLine: o, newLine: nil)); o += 1

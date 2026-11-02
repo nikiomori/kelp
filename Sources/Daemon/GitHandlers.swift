@@ -15,7 +15,6 @@ extension GitBranches: Handled {
 extension GitLineStats: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result { try Git.lineStats(workspaces.folder(id), remotes: workspaces.remotes) }
 }
-/// The branch checked out now (a workspace's record can be stale after a switch).
 extension GitPush: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         try Git.remote(workspaces.folder(id), .push, remotes: workspaces.remotes)

@@ -184,12 +184,16 @@ final class CommitMessageTab: TabContent {
 /// Failures go to the banner, where an agent can be asked to fix them.
 @MainActor
 enum GitCommit {
+    /// Nothing staged: the commit takes every change. A list cut at its limit can have left out what's staged, so it doesn't then.
+    static func takesEverything(_ changes: [FileChange]) -> Bool {
+        changes.count < FileChange.limit && !changes.contains { $0.staged && !$0.conflicted }
+    }
+
     /// A commit that went in and a push that didn't are two results: the one who asked says what's left.
     static func run(_ app: AppModel, _ wid: String, message: String, push: Bool, amend: Bool) async -> (committed: Bool, pushed: Bool) {
         // Unread, nothing would look staged and every change would go in: stop with the banner instead.
         guard let changes = await app.call(GitStatus(id: wid)) else { return (false, false) }
-        let all = !changes.contains { $0.staged && !$0.conflicted }
-        let r = await app.tryCall(Core.GitCommit(id: wid, message: message, all: all, amend: amend))   // this enum's namesake
+        let r = await app.tryCall(Core.GitCommit(id: wid, message: message, all: takesEverything(changes), amend: amend))   // this enum's namesake
         if let e = r.error {
             GitFix(app).offer(e, recipe: "fixCommit", worktree: wid)
             return (false, false)
