@@ -14,6 +14,17 @@ package func runSheet(_ a: NSAlert) async -> NSApplication.ModalResponse {
     return await withCheckedContinuation { c in a.beginSheetModal(for: w) { c.resume(returning: $0) } }
 }
 
+/// A question before something that can't be undone; true once it's agreed to.
+@MainActor
+package func confirm(_ question: String, detail: String = "", action: String) async -> Bool {
+    let a = NSAlert()
+    a.messageText = question
+    a.informativeText = detail
+    a.addButton(withTitle: action)
+    a.addButton(withTitle: String(localized: "Cancel"))
+    return await runSheet(a) == .alertFirstButtonReturn
+}
+
 /// A window of our own (a form) as a sheet on the front window, awaited; its buttons end it with
 /// `sheetParent?.endSheet(_:returnCode:)`. `.abort` when there's no window to put it on.
 @MainActor

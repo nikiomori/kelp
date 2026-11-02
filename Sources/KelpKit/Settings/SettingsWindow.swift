@@ -64,7 +64,7 @@ struct SettingsView: View {
             }
             .navigationTitle(title)
             .toolbar {
-                Button { app.workbench.open(TabURI.file(Paths.root.appendingPathComponent("settings.json").path)) } label: {
+                Button { app.workbench.showFile(Paths.root.appendingPathComponent("settings.json")) } label: {
                     Label("Open settings.json", systemImage: "curlybraces")
                 }
                     .help("Edit settings.json in the editor")
@@ -335,7 +335,7 @@ private struct ExtensionsSettings: View {
                  + String(localized: "It knows how through the extensions skill (Settings › Agents)."))
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button("How Extensions Work") { app.workbench.open(TabURI.file(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md").path)) }
+                Button("How Extensions Work") { app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md")) }
                     .buttonStyle(.link)
                 Spacer()
                 Button("Install…") { picking = true }
@@ -364,7 +364,7 @@ private struct ExtensionsSettings: View {
                     Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
                     let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
                         ? "extension.json" : "package.json"
-                    Button("Edit \(manifest)") { app.workbench.open(TabURI.file(p.appendingPathComponent(manifest).path)) }
+                    Button("Edit \(manifest)") { app.workbench.showFile(p.appendingPathComponent(manifest)) }
                     Divider()
                     Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
                 } label: { Image(systemName: "ellipsis.circle") }
@@ -376,6 +376,14 @@ private struct ExtensionsSettings: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+private extension Workbench {
+    /// In a tab of the main window, brought up over Settings: left behind it, the click seemed to do nothing.
+    func showFile(_ url: URL) {
+        open(TabURI.file(url.path))
+        bringToFront()
     }
 }
 

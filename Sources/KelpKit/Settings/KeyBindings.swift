@@ -156,7 +156,16 @@ struct KeyboardSettings: View {
                 HStack {
                     Text("Click a shortcut, then press the new keys. ⌫ removes it, Esc keeps it.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Restore Defaults") { KeyBindings.resetAll(app.settings); later() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
+                    Button("Restore Defaults…") {
+                        Task {
+                            guard await confirm(String(localized: "Restore every shortcut to Kelp's default?"),
+                                                detail: String(localized: "The shortcuts you set are lost."),
+                                                action: String(localized: "Restore Defaults")) else { return }
+                            KeyBindings.resetAll(app.settings)
+                            later()
+                        }
+                    }
+                    .disabled(KeyBindings.overrides(app.settings).isEmpty)
                 }
             }
             ForEach(groups, id: \.0) { menu, items in

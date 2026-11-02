@@ -52,7 +52,7 @@ struct AccountsSettings: View {
                 }
                 Spacer()
                 Button("Log In…") { login() }.disabled(selection == nil)
-                Button("Remove") { profiles.removeAll { $0.id == selection }; Task { await Accounts.save(app, profiles) } }.disabled(selection == nil)
+                Button("Remove…") { remove() }.disabled(selection == nil)
             }
             Text("Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -63,12 +63,27 @@ struct AccountsSettings: View {
 
     /// Opens the agent in that profile so the user can run its login flow once.
     private func login() {
-        guard let p = profiles.first(where: { $0.id == selection }), let wid = app.workbench.workspaceId else { NSSound.beep(); return }
+        guard let p = profiles.first(where: { $0.id == selection }) else { return }
+        guard let wid = app.workbench.workspaceId else {
+            Banner.show(String(localized: "Open a chat to log in to \(p.name) there."))
+            return
+        }
         Task {
             guard let s = await app.call(SessionCreate(worktreeId: wid, agent: p.agent, title: String(localized: "Log in: \(p.name)"),
                                                                    profile: p.name)) else { return }
             app.upsert(s); app.workbench.open(TabURI.session(s.id))
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
+            app.workbench.bringToFront()
+        }
+    }
+
+    /// Kelp forgets the profile; its folder, with the login in it, stays where it is.
+    private func remove() {
+        guard let p = profiles.first(where: { $0.id == selection }) else { return }
+        Task {
+            guard await confirm(String(localized: "Remove the profile “\(p.name)”?"),
+                                detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove")) else { return }
+            profiles.removeAll { $0.id == p.id }
+            await Accounts.save(app, profiles)
         }
     }
 }
