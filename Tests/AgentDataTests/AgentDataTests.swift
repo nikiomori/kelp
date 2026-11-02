@@ -336,7 +336,7 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     ]
     let data = Data((old + now).joined(separator: "\n").utf8)
     let p = try #require(ClaudeContext.parts(data, used: 2400))
-    #expect(p.base == 1000)   // the first request, less what was typed (400 / 4)
+    #expect(p.base == 932)   // the first request, less what was typed (400 / 2.37)
     #expect(p.parts.map(\.kind) == [.files, .commands, .conversation, .summary])
     let files = try #require(p.parts.first), cmds = p.parts[1]
     #expect(files.top.map(\.label) == ["payment.ts"])
@@ -346,6 +346,13 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect((2390...2400).contains(sum))   // scaled to what the reply counted
     #expect(ClaudeContext.parts(Data(old.joined(separator: "\n").utf8), used: 0) == nil)
 
+    // Thinking stays in the context; each of a reply's lines repeats its usage, so it counts once.
+    let thought = line(["type": "assistant", "message": ["id": "m1", "content": [["type": "thinking", "thinking": ""]],
+                                                         "usage": ["input_tokens": 3000, "output_tokens_details": ["thinking_tokens": 100]]]])
+    let t = try #require(ClaudeContext.parts(Data((old + now + [thought, thought]).joined(separator: "\n").utf8), used: 3000))
+    let conversation = try #require(t.parts.first { $0.kind == .conversation })
+    let item = try #require(conversation.top.first { $0.label == "thinking" })
+    #expect(item.tokens * 2 > conversation.top.filter { $0.label != "thinking" }.reduce(0) { $0 + $1.tokens })   // 237 characters, once
 }
 
 /// What every request starts with, as `claude -p /context` prints it: the categories (not Messages or Free space, read

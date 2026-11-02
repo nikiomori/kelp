@@ -430,7 +430,7 @@ extension PaneReportAgent: Handled {
 extension SessionContextWindow: Handled {
     func handle(_ sessions: Sessions) throws -> Usage? {
         guard let t = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)), let c = AgentUsage.contextUsage(transcript: t) else { return nil }
-        return Usage(used: c.used, window: sessions.agentUsage.contextWindow(model: c.model, peak: c.peak))
+        return Usage(used: c.used, window: sessions.agentUsage.contextWindow(model: c.model, peak: c.peak), cacheUntil: c.cacheUntil)
     }
 }
 

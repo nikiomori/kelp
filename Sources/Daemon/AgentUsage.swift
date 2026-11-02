@@ -186,7 +186,7 @@ final class AgentUsage: Sendable {
 
     /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
     /// statusline counts it (the reply's output isn't in it until it's sent back), or what a newer compaction left. `peak` is the most it held (a compaction's starting size counts), for telling the window.
-    static func contextUsage(transcript url: URL) -> (used: Int, peak: Int, model: String)? {
+    static func contextUsage(transcript url: URL) -> (used: Int, peak: Int, model: String, cacheUntil: Date?)? {
         guard let data = Data(tailOf: url, bytes: 1 << 20) else { return nil }   // a turn's tool results can be hundreds of KB
         var compacted: (pre: Int, post: Int)?
         for line in data.split(separator: 0x0A).reversed() {
@@ -199,9 +199,10 @@ final class AgentUsage: Sendable {
             guard o["type"] as? String == "assistant", let m = o["message"] as? [String: Any], let u = m["usage"] as? [String: Any] else { continue }
             let used = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].reduce(0) { $0 + ((u[$1] as? Int) ?? 0) }
             guard used > 0 else { continue }   // API errors and other synthetic replies carry no usage
-            return (compacted?.post ?? used, max(used, compacted?.pre ?? 0), m["model"] as? String ?? "")
+            let cacheUntil = compacted == nil ? ClaudeContext.cacheUntil(o, u) : nil
+            return (compacted?.post ?? used, max(used, compacted?.pre ?? 0), m["model"] as? String ?? "", cacheUntil)
         }
-        return compacted.map { ($0.post, $0.pre, "") }
+        return compacted.map { ($0.post, $0.pre, "", nil) }
     }
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).

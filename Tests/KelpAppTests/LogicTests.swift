@@ -252,6 +252,13 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 /// The context card's legend: tokens as "17.6k", a part's biggest items, the conversation in its own words.
+@MainActor @Test func coldCacheIsSaidFromAQuarterOfAnHourBefore() {
+    let now = Date(timeIntervalSince1970: 1000)
+    #expect(CardModel.coldCache(until: now + 3600, used: 273_000, now: now) == nil)
+    #expect(CardModel.coldCache(until: now + 61, used: 273_000, now: now)?.contains("2 min") == true)
+    #expect(CardModel.coldCache(until: now - 1, used: 273_000, now: now)?.contains("273k") == true)
+}
+
 @MainActor @Test func contextPartsReadAsALegend() {
     #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
     typealias Parts = SessionContextParts

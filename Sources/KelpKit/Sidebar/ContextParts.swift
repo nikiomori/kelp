@@ -9,7 +9,7 @@ import DesignKit
 /// the parts' colours say what.
 struct ContextParts: View {
     let parts: SessionContextParts.Parts, window: Int
-    /// Compact Now: from 90 %, while the agent waits for input.
+    /// Compact Now: once the ring turns orange, while the agent waits for input.
     let compact: (() -> Void)?
 
     struct Row: Identifiable { let id: String, label: String, tokens: Int, detail: String, color: Color? }
@@ -126,6 +126,7 @@ struct ContextParts: View {
         let items = p.top.map { i -> String in
             let name = switch (p.kind, i.label) {
             case (.conversation, "replies"): String(localized: "its replies")
+            case (.conversation, "thinking"): String(localized: "its thinking")
             case (.conversation, "messages") where i.count == 1: String(localized: "your message")
             case (.conversation, "messages"): String(localized: "your \(i.count) messages")
             case (.conversation, "notes"): String(localized: "Claude Code's notes")

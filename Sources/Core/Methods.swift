@@ -62,7 +62,9 @@ public struct SessionContextWindow: RPCMethod {
     public static let name = "session.contextWindow"
     public struct Usage: Codable, Sendable, Equatable {
         public var used: Int, window: Int
-        public init(used: Int, window: Int) { self.used = used; self.window = window }
+        /// When the prompt cache goes cold, by what the last reply wrote to it; nil when that isn't known.
+        public var cacheUntil: Date?
+        public init(used: Int, window: Int, cacheUntil: Date? = nil) { self.used = used; self.window = window; self.cacheUntil = cacheUntil }
     }
     public typealias Result = Usage?
     public var id: String

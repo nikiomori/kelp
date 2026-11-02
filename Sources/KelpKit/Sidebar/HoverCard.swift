@@ -87,7 +87,7 @@ final class CardModel {
     var changes: LineStats?
     var pr: GitHub.PullRequest?
     var turn: String?
-    var context: (used: Int, window: Int)?
+    var context: SessionContextWindow.Usage?
     var parts: SessionContextParts.Parts?
     var pages: [ServedPage] = []
     /// What its subagents did last, read while the card is up.
@@ -151,7 +151,7 @@ final class CardModel {
                     : files.count == 1 ? String(localized: "Last turn: 1 file +\(add) −\(del) · \(took)")
                     : String(localized: "Last turn: \(files.count) files +\(add) −\(del) · \(took)")
             }
-            if let u = await m.quiet(SessionContextWindow(id: a.id)) ?? nil { context = (u.used, u.window) }
+            if let u = await m.quiet(SessionContextWindow(id: a.id)) ?? nil { context = u }
         }
     }
 
@@ -162,12 +162,28 @@ final class CardModel {
 
     func stop() { watches = [] }
 
-    /// Compact Now, from 90 %, while the agent is at its prompt (a question's menu would take the text).
+    /// Compact Now, once the ring turns orange, while the agent is at its prompt (a question's menu would take the text).
     var compact: (() -> Void)? {
-        guard let c = context, Double(c.used) >= 0.9 * Double(c.window), let a = agents.first,
+        guard let c = context, ContextMeter.level(c) >= 2, let a = agents.first,
               [.done, .idle, .error].contains(app.session(a.id)?.status) else { return nil }
         let app = self.app
         return { Task { await app.call(SessionSend(id: a.id, text: "/compact", enter: true)) } }
+    }
+}
+
+extension CardModel {
+    /// What the next message will pay for, while the agent rests: said from 15 minutes before the cache goes cold.
+    var coldCache: String? {
+        guard let c = context, let until = c.cacheUntil, let a = agents.first,
+              [.done, .idle, .error].contains(app.session(a.id)?.status) else { return nil }
+        return Self.coldCache(until: until, used: c.used, now: Date())
+    }
+
+    static func coldCache(until: Date, used: Int, now: Date) -> String? {
+        let left = until.timeIntervalSince(now), size = ContextParts.k(used)
+        if left <= 0 { return String(localized: "Cache is cold: the next message writes \(size) again") }
+        let minutes = Int((left / 60).rounded(.up))
+        return minutes <= 15 ? String(localized: "Cache goes cold in \(minutes) min: then the next message writes \(size) again") : nil
     }
 }
 
@@ -297,6 +313,7 @@ struct ContextBlock: View {
                 }
             }
             .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+            if let cold = model.coldCache { Text(cold).font(.subheadline).foregroundStyle(.secondary) }
             if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
         }
         .task(id: open) { if open { await model.loadParts() } }

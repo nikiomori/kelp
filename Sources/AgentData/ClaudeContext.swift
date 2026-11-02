@@ -2,12 +2,20 @@ import Foundation
 import Core
 
 /// What fills a Claude Code conversation's context (session.contextParts), read from its transcript since the last
-/// compaction. Parts are counted at 4 characters a token, then scaled so that base + parts make what the last reply
-/// counted (`used`): their shares are estimates, the total is exact.
-/// Limit: thinking isn't counted (Claude Code drops it from later requests); an image counts as 1,600 tokens.
+/// compaction. Parts are counted in characters, then scaled so that base + parts make what the last reply counted
+/// (`used`): their shares are estimates, the total is exact. Thinking stays in the context, so it's a line of the conversation.
 public enum ClaudeContext {
+    /// Measured on Opus 5.5 against what requests counted: 0.42 tokens a character, and an image is about 1,880 tokens.
+    static let charsPerToken = 2.37, imageChars = 4456
     public typealias Parts = SessionContextParts.Parts
     typealias Kind = SessionContextParts.Kind
+
+    /// A reply's writes say how long the cache lasts from it: an hour for a plan's main conversation, else five minutes.
+    public static func cacheUntil(_ line: [String: Any], _ usage: [String: Any]) -> Date? {
+        func wrote(_ kind: String) -> Bool { ((usage["cache_creation"] as? [String: Any])?[kind] as? Int ?? 0) > 0 }
+        guard wrote("ephemeral_1h_input_tokens") || wrote("ephemeral_5m_input_tokens"), let at = JSONL.date(line["timestamp"]) else { return nil }
+        return at.addingTimeInterval(wrote("ephemeral_1h_input_tokens") ? 3600 : 300)
+    }
 
     public static func parts(_ data: Data, used: Int) -> Parts? {
         let lines = JSONL.lines(data)
@@ -91,7 +99,7 @@ public enum ClaudeContext {
             if o["type"] as? String == "user" { typed += text(m["content"]); continue }
             guard o["type"] as? String == "assistant", let u = m["usage"] as? [String: Any] else { continue }
             let input = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].reduce(0) { $0 + ((u[$1] as? Int) ?? 0) }
-            if input > 0 { return max(0, input - typed / 4) }
+            if input > 0 { return max(0, input - Int(Double(typed) / charsPerToken)) }
         }
         return nil
     }
@@ -100,6 +108,8 @@ public enum ClaudeContext {
     struct Tally {
         var chars: [Kind: [String: (chars: Int, count: Int)]] = [:]
         private var tools: [String: (name: String, input: [String: Any])] = [:]
+        /// One reply is a line per block, each with the reply's whole usage.
+        private var thought = Set<String>()
         /// Notes before the first reply (skills, CLAUDE.md, the tools it defers, hook output) went with the first
         /// request, or came back with the compaction: the base, counted there.
         private var replied = false
@@ -122,6 +132,11 @@ public enum ClaudeContext {
             switch o["type"] as? String {
             case "assistant":
                 replied = true
+                if let id = m["id"] as? String, thought.insert(id).inserted,
+                   let details = (m["usage"] as? [String: Any])?["output_tokens_details"] as? [String: Any],
+                   let thinking = details["thinking_tokens"] as? Int, thinking > 0 {
+                    count(.conversation, "thinking", Int(Double(thinking) * ClaudeContext.charsPerToken), times: 0)
+                }
                 for b in blocks {
                     if b["type"] as? String == "text" { count(.conversation, "replies", (b["text"] as? String)?.count ?? 0, times: 0) }
                     guard b["type"] as? String == "tool_use", let id = b["id"] as? String, let name = b["name"] as? String else { continue }
@@ -149,11 +164,11 @@ public enum ClaudeContext {
             }
         }
 
-        /// A tool result's characters: its text, an image as 6,400 (≈ 1,600 tokens).
+        /// A tool result's characters: its text, an image as `imageChars`.
         static func size(_ content: Any?) -> Int {
             if let s = content as? String { return s.count }
             return (content as? [[String: Any]] ?? []).reduce(0) { n, b in
-                n + (b["type"] as? String == "image" ? 6400 : (b["text"] as? String)?.count ?? 0)
+                n + (b["type"] as? String == "image" ? imageChars : (b["text"] as? String)?.count ?? 0)
             }
         }
 

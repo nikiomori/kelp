@@ -2564,6 +2564,11 @@
       },
       "SessionContextWindow.Usage" : {
         "properties" : {
+          "cacheUntil" : {
+            "description" : "When the prompt cache goes cold, by what the last reply wrote to it; nil when that isn't known.",
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
           "used" : {
             "type" : "integer"
           },
