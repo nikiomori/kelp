@@ -2,27 +2,35 @@ import AppKit
 import Core
 import DesignKit
 
-/// On an agent's row, the agents it started and its own subagents: the most urgent one's mark and how many, so they take no
-/// rows of their own. Over it the hover card lists them; a click picks one, its tab opens (a subagent has none).
+/// On an agent's row, the agents it started and its own subagents: a dot for each, so they take no rows of their own and
+/// don't compete with the name. Up to four; past that one dot, the most urgent, and how many are at work. Over it the hover
+/// card lists them; a click brings the card up at once.
 @MainActor
 final class ChildrenBadge: PointerControl {
-    private let app: AppModel
-    private let mark = StatusMark(size: 12), count = NSTextField(labelWithString: "")
-    private var kids: [Session] = [], subagents: [Subagent] = []
+    /// Filled works, hollow finished; the two that want someone are coloured. In the order they stand.
+    enum Pip: Int, Comparable {
+        case failed, asks, works, finished
+        static func < (a: Pip, b: Pip) -> Bool { a.rawValue < b.rawValue }
+    }
+    static let mostPips = 4
+    private let pips = PipsView(), count = NSTextField(labelWithString: "")
+    var opened: () -> Void = {}
 
-    init(app: AppModel) {
-        self.app = app
+    init() {
         super.init(frame: .zero)
         count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
-        let row = NSStackView(views: [mark, count])
+        let row = NSStackView(views: [pips, count])
         row.spacing = 3
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
-        NSLayoutConstraint.activate([row.leadingAnchor.constraint(equalTo: leadingAnchor), row.trailingAnchor.constraint(equalTo: trailingAnchor),
-                                     row.topAnchor.constraint(equalTo: topAnchor), row.bottomAnchor.constraint(equalTo: bottomAnchor)])
+        NSLayoutConstraint.activate([row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+                                     row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+                                     row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+                                     row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2)])
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setContentHuggingPriority(.required, for: .horizontal)
         setAccessibilityElement(true); setAccessibilityRole(.button)
+        layer?.cornerRadius = Metrics.radiusXS
         isHidden = true
     }
 
@@ -34,33 +42,103 @@ final class ChildrenBadge: PointerControl {
         s.status == .done && s.limitHit != nil && s.continueAt == nil ? .waiting : SidebarCell.shownStatus(s)
     }
 
-    func show(_ kids: [Session], subagents: [Subagent]) {
-        self.kids = kids; self.subagents = subagents
-        let n = kids.count + subagents.count
-        isHidden = n == 0
-        mark.status = AgentStatus.mostUrgent(kids.map(Self.status) + (subagents.isEmpty ? [] : [.working]))
-        count.stringValue = "\(n)"
-        setAccessibilityLabel(String(localized: "\(n) agents it started"))
+    /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished subagents
+    /// stand only beside one still at work: a started agent lives on until its parent ends, so it always shows.
+    static func marks(kids: [Session], running: [Subagent], finished: [Subagent]) -> (pips: [Pip], count: Int?) {
+        guard !kids.isEmpty || !running.isEmpty else { return ([], nil) }
+        let started: [Pip] = kids.map {
+            switch status($0) {
+            case .waiting: .asks
+            case .error: .failed
+            case .working: .works
+            default: .finished
+            }
+        }
+        let all = (started + running.map { $0.asks == true ? .asks : .works } + (running.isEmpty ? [] : finished.map { _ in .finished })).sorted()
+        if all.count <= mostPips { return (all, nil) }
+        let atWork = all.count { $0 != .finished }
+        return (Array(all.prefix(1)), atWork > 0 ? atWork : all.count)
     }
 
-    override func clicked() {
-        let m = NSMenu(), app = app
-        for k in kids {
-            let id = k.id
-            let name = app.catalog.displayName(k), stopped = Self.status(k) == .waiting && k.status == .done
-            m.add(stopped ? LimitStop.title(name, k) : name + " · " + k.statusWords) { app.workbench.focus(session: id) }
+    func show(_ kids: [Session], running: [Subagent], finished: [Subagent]) {
+        let marks = Self.marks(kids: kids, running: running, finished: finished)
+        isHidden = marks.pips.isEmpty
+        pips.pips = marks.pips
+        count.isHidden = marks.count == nil
+        count.stringValue = marks.count.map(String.init) ?? ""
+        let done = finished.count + kids.count { Self.status($0) == .done }
+        setAccessibilityLabel(String(localized: "\(kids.count + running.count) at work, \(done) finished"))
+    }
+
+    override func clicked() { opened() }
+}
+
+/// The dots themselves: layers, so a fill goes as it comes (`Motion.appear`) instead of switching.
+@MainActor
+final class PipsView: NSView {
+    private static let side: CGFloat = 5, gap: CGFloat = 2
+    var pips: [ChildrenBadge.Pip] = [] {
+        didSet {
+            guard pips != oldValue else { return }
+            invalidateIntrinsicContentSize()
+            needsDisplay = true
         }
-        for a in subagents { m.addItem(withTitle: a.words, action: nil, keyEquivalent: "") }   // no action: greyed
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 4), in: self)
+    }
+    private var dots: [CALayer] = []
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        setContentHuggingPriority(.required, for: .horizontal)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: CGFloat(pips.count) * (Self.side + Self.gap) - Self.gap, height: Self.side)
+    }
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {   // the appearance is current here
+        addDots()
+        CATransaction.begin()
+        if Motion.reduced { CATransaction.setDisableActions(true) } else { CATransaction.setAnimationDuration(Motion.appear) }
+        for (i, dot) in dots.enumerated() {
+            dot.isHidden = i >= pips.count
+            if i < pips.count { paint(dot, pips[i]) }
+        }
+        CATransaction.commit()
+    }
+
+    private func addDots() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        while dots.count < pips.count {
+            let dot = CALayer()
+            dot.frame = NSRect(x: CGFloat(dots.count) * (Self.side + Self.gap), y: 0, width: Self.side, height: Self.side)
+            dot.cornerRadius = Self.side / 2
+            dot.shadowOffset = .zero
+            dot.shadowRadius = 2
+            layer?.addSublayer(dot)
+            dots.append(dot)
+        }
+        CATransaction.commit()
+    }
+
+    private func paint(_ dot: CALayer, _ pip: ChildrenBadge.Pip) {
+        let color: NSColor = pip == .asks ? .systemOrange : pip == .failed ? .systemRed : .secondaryLabelColor
+        dot.backgroundColor = pip == .finished ? NSColor.clear.cgColor : color.cgColor
+        dot.borderColor = color.cgColor
+        dot.borderWidth = pip == .finished ? 1 : 0
+        dot.shadowColor = color.cgColor
+        dot.shadowOpacity = pip == .asks ? 0.8 : 0
     }
 }
 
 extension Subagent {
-    /// "Explore · Counts Swift files": what's known of it.
-    var words: String {
-        let known = [kind, task ?? ""].filter { !$0.isEmpty }
-        return known.isEmpty ? String(localized: "Subagent") : known.joined(separator: " · ")
-    }
+    /// What it does, or else all that's known of it.
+    var title: String { task ?? (kind.isEmpty ? String(localized: "Subagent") : kind) }
+    /// Its kind beside what it does: nine in ten are general-purpose, which tells them apart from nothing.
+    var shownKind: String? { task == nil || kind.isEmpty || kind == "general-purpose" ? nil : kind }
 }
 
 extension SidebarCell {

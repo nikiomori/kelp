@@ -13,6 +13,8 @@ public enum TabURI {
     /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
     public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
     public static func session(_ id: String) -> String { "session:\(id)" }
+    /// What a subagent of `session` did: a journal, it has no terminal.
+    public static func subagent(session: String, id: String) -> String { "subagent:\(session)/\(id)" }
     public static func file(_ path: String, line: Int? = nil) -> String {
         "file://" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path) + (line.map { "#L\($0)" } ?? "")
     }

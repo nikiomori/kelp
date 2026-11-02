@@ -51,6 +51,9 @@ extension Daemon {
         case .commands:
             // From memory; read again when one starts or ends (`Sessions.touchCommands`).
             return (line(CommandsEvent(session: k.key, commands: sessions.existing(k.key)?.commands ?? [])), nil)
+        case .subagents:
+            // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
+            do { return (line(SubagentsEvent(session: k.key, steps: try await ask(SessionSubagentSteps(id: k.key)))), 3) } catch { return (nil, 3) }
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
             return ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)

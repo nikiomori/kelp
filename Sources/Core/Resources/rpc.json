@@ -2639,6 +2639,24 @@
         ],
         "type" : "object"
       },
+      "SubagentsEvent" : {
+        "properties" : {
+          "session" : {
+            "type" : "string"
+          },
+          "steps" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/SessionSubagentSteps.Last"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [
+          "session",
+          "steps"
+        ],
+        "type" : "object"
+      },
       "TaskFromIssue.Result" : {
         "properties" : {
           "session" : {
@@ -3092,6 +3110,7 @@
           "context",
           "limits",
           "commands",
+          "subagents",
           "file",
           "files"
         ],
@@ -8670,6 +8689,12 @@
       "name" : "event.settings",
       "params" : {
         "$ref" : "#/components/schemas/SettingsEvent"
+      }
+    },
+    {
+      "name" : "event.subagents",
+      "params" : {
+        "$ref" : "#/components/schemas/SubagentsEvent"
       }
     },
     {

@@ -21,6 +21,8 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case limits
     /// The commands an agent ran (`CommandsEvent`): read when one starts or ends. Key: session id.
     case commands
+    /// What an agent's subagents at work did last (`SubagentsEvent`): read every few seconds while someone looks. Key: session id.
+    case subagents
     /// A file's version (`FileEvent`): read when its folder's files change. Key: its absolute path. A file in a remote
     /// project isn't watched (nothing is pushed).
     case file
@@ -89,6 +91,12 @@ public struct CommandsEvent: RPCEvent, Equatable {
     public static let name = "event.commands"
     public var session: String, commands: [AgentCommand]
     public init(session: String, commands: [AgentCommand]) { self.session = session; self.commands = commands }
+}
+
+public struct SubagentsEvent: RPCEvent, Equatable {
+    public static let name = "event.subagents"
+    public var session: String, steps: SessionSubagentSteps.Result
+    public init(session: String, steps: SessionSubagentSteps.Result) { self.session = session; self.steps = steps }
 }
 
 public struct LimitsEvent: RPCEvent, Equatable {

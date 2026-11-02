@@ -32,9 +32,12 @@ contributions, the command palette and settings.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   An agent can start another (`kelp session new --agent` inside it, `Session.parent`): the child's result, question or
   failure comes to the parent as its next prompt once it rests, and children end with it (`ChildReports.swift`). The CLI and the
-  kelp-agents skill are the way in. In the sidebar children take no rows: a badge on the parent's counts them, its own
-  subagents at work too (`Session.subagents` and `subagentTasks`, from hooks and OSC 7501; they have no tab), what one
-  asks is its second line, and its result is the parent's to read, so a finished child neither notifies nor needs you.
+  kelp-agents skill are the way in. In the sidebar children take no rows: dots on the parent's stand for them and for its
+  own subagents of this turn (`Session.subagentRuns`, following `subagents` and `subagentTasks` from hooks and OSC 7501),
+  filled at work, hollow finished, orange asking; past four, one dot and a number. The row's hover card lists them with
+  its commands, and a click on a subagent opens `subagent:<session>/<id>`, a journal read from Claude Code's transcript
+  (it has no terminal, and other agents keep no such file). What a child asks is the row's second line, and its result is
+  the parent's to read, so a finished child neither notifies nor needs you.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
 - **Tab**: anything shown in the editor area, addressed by a URI:
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.

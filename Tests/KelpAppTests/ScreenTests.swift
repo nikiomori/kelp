@@ -71,7 +71,7 @@ extension OneAtATime {
     }
 }
 
-/// An agent's children take no rows: their count is on its row, and what one asks is its second line.
+/// An agent's children take no rows: dots stand for them on its row, and what one asks is its second line.
 @Test func childrenStandOnTheirParentsRow() throws {
     let parent = Session(id: "p", worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Graph")
     var kid = Session(id: "k", worktreeId: "w1", cwd: "/", command: "codex", agent: "codex", status: .waiting, title: "reviewer", summary: "May I run npm test?")
@@ -79,7 +79,7 @@ extension OneAtATime {
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [parent, kid]) { _, o in
         let r = rows(of: o)
         #expect(r.count == 2)   // the project and the parent
-        #expect(r[1].contains("Graph") && r[1].contains("1") && !r[1].contains("reviewer"))
+        #expect(r[1].contains("Graph") && !r[1].contains("reviewer"))
         let line = try #require(SidebarCell.line(parent, mode: "needsYou", among: [parent, kid]))
         #expect(line.prefix?.0 == "reviewer:" && line.text.contains("npm test"))
     }

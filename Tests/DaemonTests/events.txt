@@ -18,5 +18,6 @@ event.repo
 event.routines
 event.session
 event.settings
+event.subagents
 event.ui
 event.worktree

@@ -37,6 +37,7 @@ extension AppModel {
         case .file: fileVersions[key] = nil
         case .files: fileLists[key] = nil
         case .commands: commands[key] = nil
+        case .subagents: subagentSteps[key] = nil
         }
     }
 
@@ -52,6 +53,7 @@ extension AppModel {
         case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
         case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
         case let e as CommandsEvent: if commands[e.session] != e.commands { commands[e.session] = e.commands }
+        case let e as SubagentsEvent: if subagentSteps[e.session] != e.steps { subagentSteps[e.session] = e.steps }
         case let e as RoutinesEvent: if routines != e { routines = e }
         case let e as ContextEvent:
             // No usage (not Claude Code, ended, just compacted) takes the ring away.

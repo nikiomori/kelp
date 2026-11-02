@@ -12,6 +12,7 @@ final class HoverCard {
     private let popover = NSPopover()
     private let pending = Debounce()
     private(set) var shownKey: String?
+    private var shown: CardModel?
     private var warmUntil = Date.distantPast
     private weak var anchor: NSWindow?
 
@@ -43,12 +44,21 @@ final class HoverCard {
 
     func close() {
         pending.cancel()
+        shown?.stop()
         if popover.isShown { warmUntil = Date().addingTimeInterval(0.8); popover.close() }
         shownKey = nil
     }
 
+    /// A row's card without the wait: a click asked for it.
+    func open(_ key: String, rect: NSRect, in view: NSView) {
+        pending.cancel()
+        if key != shownKey || !popover.isShown { show(key, rect: rect, in: view) }
+    }
+
     private func show(_ key: String, rect: NSRect, in view: NSView) {
         guard view.window != nil, let model = CardModel(key, app: app) else { close(); return }   // events come only while the window is key
+        shown?.stop()
+        shown = model
         shownKey = key
         anchor = view.window
         let host = NSHostingController(rootView: CardView(model: model))
@@ -80,8 +90,8 @@ final class CardModel {
     var context: (used: Int, window: Int)?
     var parts: SessionContextParts.Parts?
     var pages: [ServedPage] = []
-    /// An agent's card: the agents it started.
-    var children: [Agent] = []
+    /// What its subagents did last, read while the card is up.
+    private var watches: [Watched] = []
 
     init?(_ key: String, app: AppModel) {
         self.app = app
@@ -91,7 +101,6 @@ final class CardModel {
             let w = m.worktree(s.worktreeId)
             subtitle = [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
             agents = [Agent(id: s.id, session: s)]
-            children = m.sessions.children(of: s.id).map { Agent(id: $0.id, session: $0) }
             workspaceId = s.worktreeId ?? ""
             agentOnly = true
             repo = nil
@@ -118,6 +127,11 @@ final class CardModel {
 
     func load() {
         let m = app
+        watches = agents.filter { $0.session.agent == "claude" }.map { a in
+            let w = Watched(.subagents, in: m)
+            w.key = a.id
+            return w
+        }
         Task {
             if let repo { worktrees = await m.quiet(RepoWorktreeSizes(id: repo.id)) ?? []; return }
             if !agentOnly {
@@ -138,9 +152,15 @@ final class CardModel {
                     : String(localized: "Last turn: \(files.count) files +\(add) −\(del) · \(took)")
             }
             if let u = await m.quiet(SessionContextWindow(id: a.id)) ?? nil { context = (u.used, u.window) }
-            if context != nil { parts = await m.quiet(SessionContextParts(id: a.id)) ?? nil }
         }
     }
+
+    /// What filled the context reads all of the transcript: only once someone opens it.
+    func loadParts() async {
+        if parts == nil, let a = agents.first { parts = await app.quiet(SessionContextParts(id: a.id)) ?? nil }
+    }
+
+    func stop() { watches = [] }
 
     /// Compact Now, from 90 %, while the agent is at its prompt (a question's menu would take the text).
     var compact: (() -> Void)? {
@@ -179,30 +199,10 @@ struct CardView: View {
                     if !a.session.summary.isEmpty {
                         Text(a.session.summary).font(.caption).foregroundStyle(.secondary).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                     }
-                    if let r = a.session.running, [.working, .waiting].contains(a.session.status) {
-                        Text("Running: \(AgentCommand.short(r))").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
-                    }
                     if let g = a.session.goal { Text("Goal: \(g)").font(.caption).foregroundStyle(.secondary).lineLimit(3) }
-                    if let b = a.session.background, !b.isEmpty {
-                        Text("In the background: \(b.joined(separator: ", "))").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
-                    }
-                    let subagents = a.session.runningSubagents
-                    ForEach(subagents.prefix(8)) { Text($0.words).font(.caption).foregroundStyle(.secondary).lineLimit(1).help($0.words) }
-                    if subagents.count > 8 { Text("\(subagents.count - 8) more").font(.caption).foregroundStyle(.tertiary) }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 }
-            }
-            if !model.children.isEmpty {
-                Text("Started").font(.caption).foregroundStyle(.secondary)
-                ForEach(model.children) { a in
-                    HStack(spacing: 6) {
-                        StatusIcon(status: a.session.markStatus).font(.caption)
-                        Text(model.app.catalog.displayName(a.session)).font(.callout).lineLimit(1)
-                        Text(model.app.catalog.name(a.session.agent)).font(.caption).foregroundStyle(.secondary)
-                        Spacer(minLength: 8)
-                        Text(shortAgo(a.session.statusAt ?? a.session.createdAt)).font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
-                    }
-                }
+                AgentWork(model: model, id: a.id)
             }
             if !model.pages.isEmpty {
                 HStack(spacing: 8) {
@@ -220,8 +220,7 @@ struct CardView: View {
                 }
             }
             if let t = model.turn { Text(t).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            if let c = model.context { ContextLine(used: c.used, window: c.window) }
-            if let c = model.context, let p = model.parts { ContextParts(parts: p, window: c.window, compact: model.compact) }
+            if let c = model.context { ContextBlock(model: model, used: c.used, window: c.window) }
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)
@@ -279,6 +278,29 @@ struct WorktreeSizes: View {
         p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : (p as NSString).abbreviatingWithTildeInPath
     }
     static func size(_ b: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(b), countStyle: .file) }
+}
+
+/// How full the agent's conversation is, and what filled it under a click, remembered: it's a long table, so it stays out
+/// of the way until someone wants it, or until Compact Now, which stands in it, is an answer.
+struct ContextBlock: View {
+    let model: CardModel, used: Int, window: Int
+    @AppStorage("sidebar.card.contextOpen") private var opened = false
+
+    var body: some View {
+        let open = opened || model.compact != nil
+        VStack(alignment: .leading, spacing: 6) {
+            Button { opened.toggle() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right").font(.ui(9, weight: .semibold)).foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                    ContextLine(used: used, window: window)
+                }
+            }
+            .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+            if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
+        }
+        .task(id: open) { if open { await model.loadParts() } }
+    }
 }
 
 /// How full the agent's conversation is; amber from three quarters, red from nine tenths.

@@ -210,6 +210,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         card.hover(n.workspace.map { "w:" + $0 } ?? n.key, rect: outline.rect(ofRow: row), in: outline)
     }
     override func mouseExited(with e: NSEvent) { card.hover(nil, rect: .zero, in: outline) }
+    /// A row's card, now: a click asked for it.
+    func openCard(_ n: Node) {
+        let row = outline.row(forItem: n)
+        if row >= 0 { card.open(n.workspace.map { "w:" + $0 } ?? n.key, rect: outline.rect(ofRow: row), in: outline) }
+    }
 
     private func buildEmpty() {
         let icon = NSImageView(image: .symbol("folder.badge.plus")); icon.symbolConfiguration = .init(pointSize: 28, weight: .light)

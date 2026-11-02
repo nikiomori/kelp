@@ -273,6 +273,16 @@
         }
       }
     },
+    "%@ · quiet for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · тихо %2$@"
+          }
+        }
+      }
+    },
     "%@ · resets %@": {
       "localizations": {
         "ru": {
@@ -357,6 +367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пока вы печатали, закончили агенты: %lld"
+          }
+        }
+      }
+    },
+    "%lld at work, %lld finished": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работают: %1$lld, закончили: %2$lld"
           }
         }
       }
@@ -531,6 +551,16 @@
         }
       }
     },
+    "%lld of %lld finished": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "закончили %1$lld из %2$lld"
+          }
+        }
+      }
+    },
     "%lld routines · %lld on · this week, %@ – %@": {
       "extractionState": "manual",
       "localizations": {
@@ -578,6 +608,16 @@
         }
       }
     },
+    "%lld steps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шагов: %lld"
+          }
+        }
+      }
+    },
     "%lld updates available": {
       "localizations": {
         "ru": {
@@ -590,6 +630,16 @@
     },
     "%lld%%": {
       "shouldTranslate": false
+    },
+    "%lldk context": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldk контекста"
+          }
+        }
+      }
     },
     "+%lld": {
       "shouldTranslate": false
@@ -1371,6 +1421,16 @@
         }
       }
     },
+    "Asks for permission": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просит разрешение"
+          }
+        }
+      }
+    },
     "Asks for permission as usual": {
       "extractionState": "manual",
       "localizations": {
@@ -1441,6 +1501,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Внизу сайдбара: самый полный лимит или строка на каждого агента."
+          }
+        }
+      }
+    },
+    "At work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт сейчас"
           }
         }
       }
@@ -1645,6 +1715,16 @@
         }
       }
     },
+    "Can’t read this subagent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать субагента"
+          }
+        }
+      }
+    },
     "Changes and Pull Requests": {
       "localizations": {
         "ru": {
@@ -1763,6 +1843,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Классика"
+          }
+        }
+      }
+    },
+    "Claude Code kept no record of this subagent.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code не сохранил записей об этом субагенте."
           }
         }
       }
@@ -3787,6 +3877,16 @@
         }
       }
     },
+    "Finished %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закончили: %lld"
+          }
+        }
+      }
+    },
     "Finished agents only; the row shows them either way.": {
       "extractionState": "manual",
       "localizations": {
@@ -4089,6 +4189,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "GitHub, Linear, Jira и Bitbucket: начинайте работу с задачи, смотрите PR."
+          }
+        }
+      }
+    },
+    "Go to Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К агенту"
           }
         }
       }
@@ -6050,6 +6160,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Другие агенты…"
+          }
+        }
+      }
+    },
+    "Nothing to show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего показать"
           }
         }
       }

@@ -36,7 +36,11 @@ final class SidebarCell: NSTableCellView {
     /// What an agent goes on with by itself: its /goal, or a command it started in the background.
     private let chip = Chip()
     /// An agent's: the agents it started.
-    private lazy var family = ChildrenBadge(app: app)
+    private lazy var family: ChildrenBadge = {
+        let badge = ChildrenBadge()
+        badge.opened = { [weak owner, node] in owner?.openCard(node) }
+        return badge
+    }()
     private var add: NSButton?
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
@@ -329,8 +333,8 @@ final class SidebarCell: NSTableCellView {
             mark.compacting = s.summary.hasPrefix("Compacting")
             mark.progress = s.progress.map { Double($0) / 100 }
             trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
+            family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
-            family.show(m.sessions.children(of: sid), subagents: s.runningSubagents)
             showState(s)
             showAsk(s)
             speak(s)
@@ -449,7 +453,8 @@ final class SidebarCell: NSTableCellView {
     private func showChip(_ s: Session) {
         let now = [.working, .waiting].contains(s.status) ? s.running : nil   // one left over by a lost hook says nothing once it ended
         let background = s.backgroundLabel
-        chip.isHidden = now == nil && s.goal == nil && background == nil
+        // Beside the dots there's no room for both it and the name: the card lists what it says.
+        chip.isHidden = !family.isHidden || (now == nil && s.goal == nil && background == nil)
         if let now {
             chip.icon.image = .symbol("apple.terminal")
             chip.label.stringValue = AgentCommand.short(now)

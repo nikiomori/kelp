@@ -232,3 +232,22 @@ private final class Heard: Sendable {
     #expect(Watches.slowed(.ports, 3, quiet: 9) == 3)
     #expect(Watches.slowed(.limits, 10, quiet: 9) == 10)
 }
+
+/// Whoever looks at a subagent hears of its next step; a transcript says nothing of itself, so the topic reads it.
+@Test func aSubagentsStepsArePushedToWhoWatches() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await firstDesk(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let folder = dir.appendingPathComponent("0F/subagents")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let line = #"{"type":"assistant","timestamp":"2026-11-02T06:25:15.000Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.swift"}}]}}"#
+    try Data((line + "\n").utf8).write(to: folder.appendingPathComponent("agent-a1.jsonl"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working", transcript: dir.appendingPathComponent("0F.jsonl").path))
+    let heard = Heard(); heard.listen(w.c)
+    w.c.notify(WatchStart(.subagents, s.id))
+    #expect(try await waitFor(10) { heard.events(SubagentsEvent.self).last?.steps.isEmpty == true })
+    _ = try await w.c.call(SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1"))
+    #expect(try await waitFor(10) { heard.events(SubagentsEvent.self).last?.steps["a1"]?.step.tool == "Read" })
+}
