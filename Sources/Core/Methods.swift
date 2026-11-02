@@ -5,6 +5,8 @@ import Foundation
 /// The running daemon: the app compares it with the kelpd it ships to spot a stale one after an update.
 public struct DaemonInfo: InternalMethod {
     public static let name = "daemon.info"
+    /// The first thing asked of a kelpd: one that's stuck is told apart here, not after minutes of an empty window.
+    public static var timeout: TimeInterval? { 10 }
     public struct Result: Codable, Sendable {
         public var path: String, binaryMTime: Double?, pid: Int, liveSessions: Int   // no binaryMTime before 2026-10-19
         public init(path: String, binaryMTime: Double?, pid: Int, liveSessions: Int) {

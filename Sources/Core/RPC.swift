@@ -25,6 +25,7 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     /// The connection ended with no reply, or was over already.
     public static let connectionClosed = internalError("connection closed")
     public static func noReply(_ method: String, in seconds: TimeInterval) -> RPCError { internalError("no reply to \(method) in \(Int(seconds)) s") }
+    public var isNoReply: Bool { message.hasPrefix("no reply to ") }
 }
 
 /// A line on the wire: either a response (has `result`/`error`) or a notification/request (has `method`).

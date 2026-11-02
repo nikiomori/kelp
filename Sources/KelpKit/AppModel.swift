@@ -232,7 +232,15 @@ package final class AppModel {
     private func checkDaemonVersion(_ c: RPCClient) async -> Bool {
         guard let mine = (try? FileManager.default.attributesOfItem(atPath: bundledDaemon.path)[.modificationDate] as? Date)?.timeIntervalSince1970
         else { return false }
-        guard let info = try? await c.call(DaemonInfo()) else { return false }
+        let info: DaemonInfo.Result
+        do { info = try await c.call(DaemonInfo()) } catch {
+            // Connected, and it doesn't answer: the lists asked for next would leave an empty window for minutes, with no word why.
+            if (error as? RPCError)?.isNoReply == true {
+                Banner.show(String(localized: "Kelp's background service isn't answering."), style: .error,
+                            action: (String(localized: "Restart It"), { Task { await self.restartDaemon() } }))
+            }
+            return false
+        }
         // Older daemons don't report binaryMTime (and their "mtime" was read from disk, i.e. already the new file): restart them.
         let samePath = info.path == bundledDaemon.resolvingSymlinksInPath().path
         guard !(samePath && abs((info.binaryMTime ?? 0) - mine) < 1), !restartAttempted else { return false }
