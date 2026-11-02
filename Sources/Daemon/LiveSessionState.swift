@@ -20,6 +20,7 @@ extension LiveSession {
         var logSize: Int
         var attached = Set<Int>()        // connection ids receiving raw output
         var lastOutputAt: Date?
+        var lastInputAt: Date?           // keys from a UI, not the terminal's replies
         /// TUIs redraw everything after a resize; that output isn't the agent working.
         var redrawUntil = Date.distantPast
         var final = false                // deleted, or its last record saved: nothing it does may save its record again

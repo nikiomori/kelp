@@ -339,6 +339,20 @@ private func onHost() -> LiveSession.State {
     try await hibernate(after: 0, w.c)
 }
 
+/// At rest an agent with hooks still redraws (Claude Code's "Checking for updates"): that isn't work, so it pauses all the same.
+@Test func anAgentThatRedrawsAtRestStillPauses() async throws {
+    let ticks = AgentManifest(id: "ticks", name: "Ticks", command: "/bin/zsh", args: ["-c", "while :; do echo tick; sleep 0.2; done", "x"],
+                              hooks: .settingsFlag("--settings"), resumeArgs: ["--resume"])
+    let w = try await world(agents: [ticks]); defer { w.d.stop() }
+    let wt = try await desk(w, "ticks")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "ticks"))
+    #expect(try await waitFor { try await w.c.call(SessionRead(id: s.id)).contains("tick") })
+    _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
+    try await hibernate(after: 0.03, w.c)   // ~2 s
+    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .hibernated })
+    try await hibernate(after: 0, w.c)
+}
+
 /// Two dialogs in one batch: Claude Code shows them one after another and says nothing for the second once the first is
 /// answered, so a key leaves the row asking. A batch through says all of them are.
 @Test func aKeyAnswersOneDialogOfABatch() {

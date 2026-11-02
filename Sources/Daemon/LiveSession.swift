@@ -137,7 +137,14 @@ final class LiveSession: Sendable {
         get { state.withLock { $0.transcript } }
         set { state.withLock { $0.transcript = newValue } }
     }
-    var idleSeconds: TimeInterval { state.withLock { Date().timeIntervalSince($0.lastOutputAt ?? $0.started) } }
+    /// How long it has done nothing. An agent with hooks tells by its status (and someone typing): at rest it still redraws
+    /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
+    var idleSeconds: TimeInterval {
+        state.withLock { s in
+            let last = s.hooked ? max(s.record.statusAt ?? s.started, s.lastInputAt ?? s.started) : s.lastOutputAt ?? s.started
+            return Date().timeIntervalSince(last)
+        }
+    }
     var isAttached: Bool { state.withLock { !$0.attached.isEmpty } }
     /// The tree when its last turn started.
     var turnBase: String? { state.withLock { $0.turnTree } }
@@ -343,6 +350,7 @@ final class LiveSession: Sendable {
             // Keys that answer a question or menu on screen ("1", Return on an option) aren't a line being written.
             let answering = s.trustQuestionOpen() || s.menuOpen() || (s.record.status == .waiting && d.count == 1 && (0x31...0x39).contains(d[0]))
             s.typedYet = true
+            s.lastInputAt = Date()
             s.dialogSettled = true
             s.draftWaiting = false
             s.detector.input(typing: !d.contains(0x0D))   // keys without Return: the prompt is still being written

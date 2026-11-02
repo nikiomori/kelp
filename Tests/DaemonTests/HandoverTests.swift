@@ -18,7 +18,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     // Set by `adopted` as what's true of a program long past starting.
     let settled: Set = ["startedUp", "typedYet", "dialogSettled", "sawFirstPrompt"]
     // Of this connection or this moment, a carry of half a sequence, or only for a while: nothing is lost with it.
-    let letGo: Set = ["attached", "lastOutputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended", "oscCarry", "titleCarry",
+    let letGo: Set = ["attached", "lastOutputAt", "lastInputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended", "oscCarry", "titleCarry",
                       "lastTopic", "utf8Carry", "pasteCarry", "sawURL", "sawBusy", "lastLimits", "limitSeen", "lastHookAt", "compactManual", "compactSummary",
                       "lastLifeUp", "newestHook", "lineSentUp", "commands", "commandChanges", "interruptArmed", "goalAsked", "stopKeyAt",
                       "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn"]
