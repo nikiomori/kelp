@@ -3449,6 +3449,27 @@
         }
       }
     },
+    "Dock Icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок в Доке"
+          }
+        }
+      }
+    },
+    "Dock icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок в Доке"
+          }
+        }
+      }
+    },
     "Don't Save": {
       "localizations": {
         "ru": {
@@ -3815,6 +3836,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ошибка"
+          }
+        }
+      }
+    },
+    "failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ошибка"
           }
         }
       }
@@ -6354,6 +6385,16 @@
         }
       }
     },
+    "Open in Kelp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в Kelp"
+          }
+        }
+      }
+    },
     "Open in Tab": {
       "localizations": {
         "ru": {
@@ -8873,6 +8914,16 @@
         }
       }
     },
+    "Show Agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать агентов"
+          }
+        }
+      }
+    },
     "Show All": {
       "localizations": {
         "ru": {
@@ -8903,6 +8954,16 @@
         }
       }
     },
+    "Show Application Icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать значок приложения"
+          }
+        }
+      }
+    },
     "Show Desktop": {
       "localizations": {
         "ru": {
@@ -8929,6 +8990,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать вывод"
+          }
+        }
+      }
+    },
+    "Show Plan Usage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать лимит плана"
           }
         }
       }
@@ -10865,6 +10936,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вывод появится, когда команда завершится."
+          }
+        }
+      }
+    },
+    "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что показывает значок Kelp в Доке. То же есть в его меню по правому клику."
           }
         }
       }
