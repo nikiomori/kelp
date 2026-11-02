@@ -32,8 +32,10 @@ extension Sessions {
 
     /// `launchEnv` without its PATH, whose first read waits for the login shell (seconds, up to 8): what taking a running
     /// session over needs, which happens before this kelpd answers anyone.
-    func hookedEnv(_ m: AgentManifest, _ rec: Session) -> [String: String] {
-        var env = m.resolvedEnv
+    /// `secrets`: read from the keychain, which can wait for a locked login. Not for a running program, whose environment is
+    /// long set: nobody is served while kelpd takes sessions over.
+    func hookedEnv(_ m: AgentManifest, _ rec: Session, secrets: Bool = true) -> [String: String] {
+        var env = secrets ? m.resolvedEnv : m.env
         if let name = rec.profile, let prof = profile(name, agent: m.id) { env[prof.key] = prof.dir }
         // Not into tmux: its server keeps the first client's environment for every pane, whichever tab they're shown in.
         if Tmux.session(rec.argv) == nil { env["KELP_SESSION"] = rec.id }
