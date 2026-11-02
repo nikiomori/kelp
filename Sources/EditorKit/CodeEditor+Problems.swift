@@ -26,6 +26,7 @@ extension CodeEditor {
         textView.needsDisplay = true
         gutter?.needsDisplay = true
         showProblemTips()
+        refreshScrollMarks()
     }
 
     /// The problem the cursor is in or touches.

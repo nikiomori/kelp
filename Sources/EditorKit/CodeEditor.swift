@@ -28,7 +28,7 @@ public final class CodeEditor: NSObject {
         }
     }
     public let textView = EditorTextView(usingTextLayoutManager: false)
-    let scroll = NSScrollView()
+    let scroll: NSScrollView = EditorScrollView()
     public var view: NSView { scroll }
     public var onChange: ((String) -> Void)?
     /// The app's items for the editor's context menu, after Cut, Copy and Paste.
@@ -79,6 +79,10 @@ public final class CodeEditor: NSObject {
         get { textView.whitespaceMarks }
         set { textView.whitespaceMarks = newValue }
     }
+    /// The scopes around the top line stay pinned over the text (`editor.stickyScroll`).
+    public var stickyEnabled = true {
+        didSet { refreshSticky() }
+    }
     /// How wide a tab shows.
     public private(set) var tabWidth = 4
     /// This file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.
@@ -99,6 +103,7 @@ public final class CodeEditor: NSObject {
         didSet {
             markedLineCount = lineCount
             gutter?.needsDisplay = true
+            refreshScrollMarks()
         }
     }
     /// How many lines the file had when the marks were last right.
@@ -178,6 +183,7 @@ public final class CodeEditor: NSObject {
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
         tv.onFind = { [weak self] in self?.find($0) }
+        (scroll as? EditorScrollView)?.sticky.onLine = { [weak self] in self?.goTo(line: $0 + 1) }
         tv.onTyped = { [weak self] in self?.typed($0) }
         tv.onCommand = { [weak self] in self?.handle($0) ?? false }
         tv.onPointer = { [weak self] in self?.pointerMoved($0) }
@@ -326,6 +332,7 @@ public final class CodeEditor: NSObject {
             colorVisible()
             showProblemTips()
             fitWrapColumn()
+            refreshSticky()
         }
     }
 
@@ -367,6 +374,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     public func textViewDidChangeSelection(_ notification: Notification) {
         if signatureCard?.isShown == true { askSignature() }
         if completing != nil { refreshCompletions() }
+        refreshScrollMarks()
         gutter?.needsDisplay = true
         markBrackets()
         onSelection?()

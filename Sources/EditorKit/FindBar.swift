@@ -87,6 +87,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         guard let tv = editor?.textView else { return }
         tv.findMarks = []
         tv.findCurrent = nil
+        editor?.refreshScrollMarks()
         window?.makeFirstResponder(tv)
     }
 
@@ -123,6 +124,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         defer {
             tv.findMarks = found.map(\.range)
             tv.findCurrent = index.map { found[$0].range }
+            editor?.refreshScrollMarks()
             showCount()
         }
         guard !q.isEmpty else { return }

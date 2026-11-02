@@ -140,3 +140,29 @@ extension OneAtATime {
     #expect((e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("let x") )
     #expect(!(e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("func"))
 }
+
+@MainActor @Test func theScopesAroundTheTopLineStayPinned() throws {
+    let body = (1...200).map { "        let v\($0) = \($0)\n" }.joined()
+    let e = foldEditor("class A {\n    func f() {\n\(body)    }\n}\n", "sticky.swift")
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = e.view
+    e.view.layoutSubtreeIfNeeded()
+    #expect(e.stickyLines().isEmpty)
+    e.scroll(toLine: 100)
+    #expect(e.stickyLines() == [0, 1])
+    let md = foldEditor("# A\n\n## B\n\n" + String(repeating: "text\n", count: 100), "sticky.md")
+    let other = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    other.contentView = md.view
+    md.view.layoutSubtreeIfNeeded()
+    md.scroll(toLine: 50)
+    #expect(md.stickyLines() == [0, 2])
+}
+
+@MainActor @Test func theScrollerMarksWhatsInTheFile() throws {
+    let e = foldEditor((1...100).map { "line \($0)\n" }.joined(), "ticks.txt")
+    e.problems = [.init(line: 50, column: 0, endLine: 50, endColumn: 2, isError: true, message: "x")]
+    e.changeMarks = [.init(kind: .added, line: 10, count: 1, hunk: 0)]
+    let marks = try #require((e.scroll as? EditorScrollView)?.marks)
+    #expect(marks.ticks.map(\.line).sorted() == [0, 10, 50])
+    #expect(marks.lines == 101)
+}

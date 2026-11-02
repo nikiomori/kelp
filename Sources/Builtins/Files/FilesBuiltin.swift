@@ -35,6 +35,8 @@ extension Builtins {
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
             s("editor.hover", "Show what the language server knows on hover", "boolean", true,
               "A symbol's signature and documentation, and the arguments of a call as you type it."),
+            s("editor.stickyScroll", "Keep the enclosing scopes at the top", "boolean", true,
+              "The lines that open the class and function you're in stay pinned as you scroll."),
             s("editor.tabSize", "Tab size", "number", 4, "Spaces to a level. A file's own indentation and its .editorconfig come first."),
             s("editor.insertSpaces", "Indent with spaces", "boolean", true),
             s("editor.detectIndentation", "Detect indentation from the file", "boolean", true),

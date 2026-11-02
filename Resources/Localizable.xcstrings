@@ -6126,6 +6126,16 @@
         }
       }
     },
+    "Keep the enclosing scopes at the top": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держать объемлющие области наверху"
+          }
+        }
+      }
+    },
     "Kelp needs to reopen for this.": {
       "localizations": {
         "ru": {
@@ -11960,6 +11970,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Языковой сервер не может это переименовать."
+          }
+        }
+      }
+    },
+    "The lines that open the class and function you're in stay pinned as you scroll.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строки, открывающие текущий класс и функцию, остаются вверху при прокрутке."
           }
         }
       }
