@@ -401,8 +401,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    /// The title, then `CIRunMeta`: which run, how long, when. The whole title is in the tooltip, as a commit's first line
-    /// rarely fits.
+    /// The title, then `CIRunMeta`: which run, how long, when. The tooltip has the whole title, as a commit's first line
+    /// rarely fits, and the commit, which a narrow panel cuts.
     private func runRow(_ r: CIRuns.Run) -> NSView {
         let t = NSTextField(labelWithString: r.title)
         t.font = .ui(12)
@@ -418,7 +418,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
         let cell = CIRow.row([CIRunLook.mark(r.status, r.conclusion), text])
-        cell.toolTip = r.title
+        cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(separator: "\n")
         return cell
     }
 }

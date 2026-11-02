@@ -287,6 +287,16 @@
         }
       }
     },
+    "%@ of ~%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ из ~%2$@"
+          }
+        }
+      }
+    },
     "%@ seconds": {
       "localizations": {
         "ru": {
@@ -549,12 +559,32 @@
         }
       }
     },
+    "%lld green in a row": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "зелёных подряд: %lld"
+          }
+        }
+      }
+    },
     "%lld more": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Ещё %lld"
+          }
+        }
+      }
+    },
+    "%lld more in the log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё %lld в логе"
           }
         }
       }
@@ -631,6 +661,16 @@
         }
       }
     },
+    "%lld of %lld tests failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тестов упало: %1$lld из %2$lld"
+          }
+        }
+      }
+    },
     "%lld routines · %lld on · this week, %@ – %@": {
       "extractionState": "manual",
       "localizations": {
@@ -684,6 +724,162 @@
           "stringUnit": {
             "state": "translated",
             "value": "Шагов: %lld"
+          }
+        }
+      }
+    },
+    "%lld steps passed": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld step passed"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld steps passed"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шаг прошёл"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шага прошли"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шагов прошли"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шагов прошли"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld steps skipped": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld step skipped"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld steps skipped"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шаг пропущен"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шага пропущены"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шагов пропущены"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld шагов пропущены"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld steps to go": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld step to go"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld steps to go"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "остался %lld шаг"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "осталось %lld шага"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "осталось %lld шагов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "осталось %lld шагов"
+                }
+              }
+            }
           }
         }
       }
@@ -1698,6 +1894,36 @@
         }
       }
     },
+    "attempt %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "попытка %lld"
+          }
+        }
+      }
+    },
+    "Attempt %lld failed differently.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попытка %lld упала иначе."
+          }
+        }
+      }
+    },
+    "Attempt %lld of this run": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попытка %lld этого запуска"
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "ru": {
@@ -1916,6 +2142,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "По проектам"
+          }
+        }
+      }
+    },
+    "Cancel Run": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить запуск"
+          }
+        }
+      }
+    },
+    "Cancel Run…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить запуск…"
+          }
+        }
+      }
+    },
+    "Cancel “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить «%@»?"
+          }
+        }
+      }
+    },
+    "cancelled %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отменён %@"
+          }
+        }
+      }
+    },
+    "Cancelling the run": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск отменяется"
           }
         }
       }
@@ -2372,6 +2648,16 @@
         }
       }
     },
+    "Copy Failure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать ошибку"
+          }
+        }
+      }
+    },
     "Copy Key": {
       "localizations": {
         "ru": {
@@ -2388,6 +2674,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать строку"
+          }
+        }
+      }
+    },
+    "Copy Step Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать имя шага"
+          }
+        }
+      }
+    },
+    "Copy Test Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать имя теста"
           }
         }
       }
@@ -4065,6 +4371,26 @@
         }
       }
     },
+    "Exit %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код выхода %lld"
+          }
+        }
+      }
+    },
+    "Exit %lld: stopped by signal %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код %1$lld: остановлен сигналом %2$lld"
+          }
+        }
+      }
+    },
     "Exit code %d": {
       "localizations": {
         "ru": {
@@ -4172,6 +4498,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ошибка: %@"
+          }
+        }
+      }
+    },
+    "Failure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Причина"
+          }
+        }
+      }
+    },
+    "Failures copied": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибки скопированы"
           }
         }
       }
@@ -4828,6 +5174,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Граф"
+          }
+        }
+      }
+    },
+    "green %@ ago": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "зелёный %@ назад"
+          }
+        }
+      }
+    },
+    "green on #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "зелёный был #%lld"
           }
         }
       }
@@ -6000,6 +6366,16 @@
         }
       }
     },
+    "Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лог"
+          }
+        }
+      }
+    },
     "Log In…": {
       "localizations": {
         "ru": {
@@ -6036,6 +6412,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вход: %@"
+          }
+        }
+      }
+    },
+    "Log: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лог: %@"
           }
         }
       }
@@ -7030,6 +7416,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть файл на строке"
+          }
+        }
+      }
+    },
+    "Open Full Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть весь лог"
           }
         }
       }
@@ -8435,6 +8831,16 @@
         }
       }
     },
+    "queued %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в очереди %@"
+          }
+        }
+      }
+    },
     "Quick Look": {
       "localizations": {
         "ru": {
@@ -8498,12 +8904,52 @@
         }
       }
     },
+    "Re-run All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить всё"
+          }
+        }
+      }
+    },
+    "Re-run This Job": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить эту задачу"
+          }
+        }
+      }
+    },
     "Re-running the failed jobs": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Перезапуск упавших задач"
+          }
+        }
+      }
+    },
+    "Re-running the job": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача начата заново"
+          }
+        }
+      }
+    },
+    "Re-running the run": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск начат заново"
           }
         }
       }
@@ -9899,12 +10345,32 @@
         }
       }
     },
+    "Show Commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать коммит"
+          }
+        }
+      }
+    },
     "Show Desktop": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "показа рабочего стола"
+          }
+        }
+      }
+    },
+    "Show in Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в логе"
           }
         }
       }
@@ -11203,6 +11669,16 @@
         }
       }
     },
+    "The same failed on attempt %lld.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На попытке %lld упало то же."
+          }
+        }
+      }
+    },
     "The shortcuts you set are lost.": {
       "localizations": {
         "ru": {
@@ -11832,6 +12308,16 @@
         }
       }
     },
+    "waiting %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт %@"
+          }
+        }
+      }
+    },
     "Waiting for your answer": {
       "localizations": {
         "ru": {
@@ -12006,6 +12492,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Что показывает значок Kelp в Доке. То же есть в его меню по правому клику."
+          }
+        }
+      }
+    },
+    "What's running stops now. You can start the run again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, что идёт, остановится. Запуск можно начать заново."
           }
         }
       }
