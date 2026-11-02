@@ -132,18 +132,22 @@ package struct SettingsSection: Identifiable {
                  icon: String,
                  specs: [SettingSpec],
                  custom: (@MainActor () -> AnyView)? = nil,
-                 keywords: [String] = []) {
+                 keywords: [String] = [],
+                 fillsPane: Bool = false) {
         self.id = id
         self.title = title
         self.icon = icon
         self.specs = specs
         self.custom = custom
         self.keywords = keywords
+        self.fillsPane = fillsPane
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
     /// What Settings' search finds a custom page by.
     var keywords: [String]
+    /// `custom` is the whole page, as tall as the window, not rows in a form: a list with its details beside it.
+    var fillsPane: Bool
     /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
         specs.reduce(into: []) { g, s in

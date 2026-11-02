@@ -7,7 +7,8 @@ import KelpKit
 
 /// Settings › Agent Catalog: every agent Kelp knows, installed first. Its card: Install (its own installer in a terminal you
 /// can watch, or what it needs first), the version (and a newer one, if published) and Update, and how it's launched:
-/// binary, arguments, environment. Secrets in the environment go to the login keychain. Reset deletes the override.
+/// binary, arguments, environment, saved like every other setting, on leaving the fields. Secrets in the environment go to
+/// the login keychain. Reset deletes the override.
 struct AgentsSettings: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
@@ -24,7 +25,10 @@ struct AgentsSettings: View {
     @State private var command = ""
     @State private var args = ""
     @State private var env = ""
-    @State private var saved = false
+    /// The agent the fields hold: by the time they're saved another one may be selected.
+    @State private var loaded: String?
+    private enum LaunchField { case command, args, env }
+    @FocusState private var field: LaunchField?
     @State private var versions: [String: (version: String?, latest: String?)] = [:]
     @State private var lacking: Set<String> = []   // npm, brew: not on this Mac
 
@@ -38,7 +42,7 @@ struct AgentsSettings: View {
     private func installed(_ m: AgentManifest) -> Bool { app.availability.ids.contains(m.id) || versions[m.id]?.version != nil }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
+        GeometryReader { pane in HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Search agents", text: $query, prompt: Text("Search agents")).textFieldStyle(.roundedBorder).labelsHidden()
                 // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
@@ -61,13 +65,16 @@ struct AgentsSettings: View {
                         .font(.caption).foregroundStyle(Color.textOrange)
                 }
             }
-            .frame(width: 250)
+            .frame(width: min(250, pane.size.width * 0.4))
             ScrollView {
-                if let m = current { card(m).padding(.leading, 16).padding(.trailing, 4) }
+                if let m = current { card(m).padding(.trailing, 4) }
             }
-        }
-        .onChange(of: selection) { _, _ in load() }
+        } }
+        .padding(16)
+        .onChange(of: selection) { _, _ in persist(); load() }
+        .onChange(of: field) { _, now in if now == nil { persist() } }
         .onAppear { load() }
+        .onDisappear(perform: persist)
         .task { await loadVersions() }
         .onChange(of: app.availability.ids) { _, _ in Task { await loadVersions() } }   // an install ended
     }
@@ -219,20 +226,15 @@ struct AgentsSettings: View {
     @ViewBuilder private func launch(_ m: AgentManifest) -> some View {
         Text("Launch").font(.ui(13, weight: .semibold))
         Form {
-            TextField("Command", text: $command)
-            TextField("Arguments", text: $args, prompt: Text("space separated"))
-            TextField("Environment", text: $env, prompt: Text("KEY=value, one per line"), axis: .vertical).lineLimit(3...6)
+            TextField("Command", text: $command).focused($field, equals: .command).onSubmit(persist)
+            TextField("Arguments", text: $args, prompt: Text("space separated")).focused($field, equals: .args).onSubmit(persist)
+            TextField("Environment", text: $env, prompt: Text("KEY=value, one per line"), axis: .vertical).lineLimit(3...6).focused($field, equals: .env)
             if !Self.presets(m.id).isEmpty {
                 Menu("Provider Presets") {
                     ForEach(Self.presets(m.id), id: \.0) { name, lines in Button(name) { addLines(lines) } }
                 }.fixedSize()
             }
-            HStack {
-                Button("Reset to Default") { if let id = selection { AgentManifest.resetOverride(id: id, dir: Paths.agents); reload() } }
-                Spacer()
-                if saved { Text("Saved").foregroundStyle(.secondary) }
-                Button("Save") { Task { await save() } }.keyboardShortcut(.defaultAction)
-            }
+            Button("Reset to Default…") { reset(m) }
         }
         .formStyle(.columns)   // already inside Settings' grouped section: a second card in it would nest boxes
         Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
@@ -300,15 +302,36 @@ struct AgentsSettings: View {
     }
 
     private var current: AgentManifest? { agents.first { $0.id == selection } }
+    private static func envText(_ m: AgentManifest) -> String { m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n") }
     private func load() {
         guard let m = current else { return }
+        loaded = m.id
         command = m.command; args = m.args.joined(separator: " ")
-        env = m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n"); saved = false
+        env = Self.envText(m)
     }
     private func reload() { files = AgentManifest.load(dir: Paths.agents); load() }
-    /// "Saved" only once it is: a secret the keychain refused, or a file that couldn't be written, says why instead.
-    private func save() async {
-        guard var m = current else { return }
+
+    private func reset(_ m: AgentManifest) {
+        Task {
+            guard await confirm(String(localized: "Reset how \(m.name) starts?"), detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
+                                action: String(localized: "Reset")) else { return }
+            AgentManifest.resetOverride(id: m.id, dir: Paths.agents)
+            reload()
+        }
+    }
+
+    /// Only what changed: looking at an agent mustn't leave an override behind. The values go along now, since the fields
+    /// may hold another agent by the time the keychain answers.
+    private func persist() {
+        guard let m = agents.first(where: { $0.id == loaded }) else { return }
+        guard command != m.command || args != m.args.joined(separator: " ") || env != Self.envText(m) else { return }
+        let (c, a, e) = (command, args, env)
+        Task { await save(m, command: c, args: a, env: e) }
+    }
+
+    /// A secret the keychain refused, or a file that couldn't be written, says why.
+    private func save(_ agent: AgentManifest, command: String, args: String, env: String) async {
+        var m = agent
         m.command = command; m.args = args.split(separator: " ").map(String.init)
         var pairs = Dictionary(env.split(separator: "\n").compactMap { l -> (String, String)? in
             let p = l.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
@@ -326,7 +349,8 @@ struct AgentsSettings: View {
         do { try AgentManifest.saveOverride(m, dir: Paths.agents) } catch {
             Banner.show(String(localized: "Couldn't save \(m.name): \(error.localizedDescription)"), style: .error); return
         }
-        reload(); saved = true
+        files = AgentManifest.load(dir: Paths.agents)
+        if field == nil { load() }   // a secret reads as the keychain's mark now; not under someone's typing
         app.agents = AgentManifest.load(dir: Paths.agents)
         app.availability.refresh(force: true)
     }

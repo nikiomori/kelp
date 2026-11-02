@@ -59,7 +59,9 @@ struct SettingsView: View {
             Group {
                 if !query.isEmpty { SearchResults(query: query, open: open) }
                 else if selection == "extensions" { ExtensionsSettings() }
-                else if let s = registry.all.settings.first(where: { $0.id == selection }) { SectionForm(section: s) }
+                else if let s = registry.all.settings.first(where: { $0.id == selection }) {
+                    if s.fillsPane { s.custom?() } else { SectionForm(section: s) }
+                }
                 else { ContentUnavailableView("Pick a section", systemImage: "gearshape") }
             }
             .navigationTitle(title)

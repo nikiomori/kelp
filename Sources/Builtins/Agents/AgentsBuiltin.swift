@@ -67,7 +67,7 @@ extension Builtins {
                   options: ["agents", "usage", "icon"], group: "Notifications")
             ], custom: { AnyView(VStack(alignment: .leading, spacing: 16) { CatalogLink(app: app); AccountsSettings(app: app) }) }, keywords: ["Accounts"]),
             SettingsSection(id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
-                            custom: { AnyView(AgentsSettings(app: app).frame(height: 460)) }, keywords: app.catalog.all.map(\.name)),
+                            custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name), fillsPane: true),
             SettingsSection(id: "terminal", title: "Terminal", icon: "terminal", specs: [
                 s("terminal.fontFamily", "Font", "font", "", "Default: the theme's / Ghostty's font."),
                 s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),
