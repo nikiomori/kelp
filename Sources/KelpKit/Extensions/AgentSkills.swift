@@ -63,7 +63,9 @@ enum AgentSkills {
         - `kelp session new --cmd "npm run dev"` — something that keeps running; prints the session (`id`).
         - `--title "unit tests"` names it; without one it's called by what it runs.
         - It can't take a pane by itself: `--split` does nothing here. Only if the user asks for one, add `--outlive --split down`.
-        - `kelp terminal read <id> [bytes]` — what it printed (the last 8 KB), e.g. which tests failed.
+        - `kelp terminal read <id> [bytes]` — what it printed (the last 8 KB), e.g. which tests failed. Read it again rather
+          than run a build or tests a second time with nothing changed. Run in your own shell, send the output to a file
+          (`swift test > /tmp/out.log 2>&1`) so that a `| tail` doesn't cost you another run.
         - `kelp wait <id> [--for done,waiting,idle,exited] [--timeout 10m]` — until it stops working, or reaches one of
           those; prints the state, and exits with the command's exit code once it ended.
         - `kelp report working "Migrating table 3 of 10" --progress 30` — on a long multi-step task, what you're doing
