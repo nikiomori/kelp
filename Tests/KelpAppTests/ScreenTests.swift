@@ -97,10 +97,10 @@ extension OneAtATime {
         @MainActor func items(_ s: Session) -> [String] {
             let m = NSMenu()
             vc.moveItems(m, chat: s.id)
-            return m.items.map(\.title).filter { !$0.isEmpty }
+            return m.items.first?.submenu?.items.map(\.title) ?? []
         }
-        #expect(items(here) == ["Move to New Group", "Move to Group"])
-        #expect(items(inGroup) == ["Move to New Group", "Back to Project"])
+        #expect(items(here) == ["New Group", "Merge"])
+        #expect(items(inGroup) == ["New Group", "Back to Project"])
         #expect(items(onBranch) == [])   // its files are elsewhere
     }
 }

@@ -46,18 +46,15 @@ extension SidebarController {
     func moveItems(_ menu: NSMenu, chat sid: String) {
         let app = self.app
         guard let w = movable(sid), let r = app.repo(w.repoId) else { return }
-        let own = mainWorkspace(of: r, among: app.worktrees)
-        menu.add(String(localized: "Move to New Group")) { Task { await WorkspaceActions(app).newGroup(from: [sid]) } }
+        let own = mainWorkspace(of: r, among: app.worktrees), list = NSMenu()
+        list.add(String(localized: "New Group")) { Task { await WorkspaceActions(app).newGroup(from: [sid]) } }
         if let own, own.id != w.id {
-            menu.add(String(localized: "Back to Project")) { Task { await WorkspaceActions(app).move([sid], to: own.id) } }
+            list.add(String(localized: "Back to Project")) { Task { await WorkspaceActions(app).move([sid], to: own.id) } }
         }
-        let groups = app.workspaces(of: r).filter { $0.path == r.path && $0.id != w.id && $0.id != own?.id }
-        if !groups.isEmpty {
-            let list = NSMenu()
-            for g in groups { list.add(g.displayName) { Task { await WorkspaceActions(app).move([sid], to: g.id) } } }
-            menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Move to Group"), action: nil, keyEquivalent: ""))
+        for g in app.workspaces(of: r) where g.path == r.path && g.id != w.id && g.id != own?.id {
+            list.add(g.displayName) { Task { await WorkspaceActions(app).move([sid], to: g.id) } }
         }
-        menu.addItem(.separator())
+        menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Move to"), action: nil, keyEquivalent: ""))
     }
 
     private func movable(_ sid: String) -> Worktree? {
@@ -114,35 +111,32 @@ extension SidebarController {
                 menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(r) }
                 return
             }
-            // Standing for its only workspace: that workspace's items first, then the project's.
-            if let w = n.workspace { workspaceMenu(menu, w, onProject: true); menu.addItem(.separator()) }
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
+            menu.addItem(.separator())
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
-            if n.workspace == nil {
-                menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.path)]) }
-            }
             muteItem(menu, n.muteIds)
+            menu.addItem(.separator())
+            WorkspaceActions.addLocate(to: menu, path: r.path)
             menu.addItem(.separator())
             if RemoteHost.of(r.path) == nil { menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) } }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
         case .section: return
         case .workspace(let id): workspaceMenu(menu, id)
         case .agent(let sid):
-            menu.add(String(localized: "Show")) { app.workbench.focus(session: sid) }
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
-            menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
+            menu.setSubmenu(AgentActions(app).handoffMenu(sid), for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
             moveItems(menu, chat: sid)
-            menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
-            menu.setSubmenu(AgentActions(app).handoffMenu(sid), for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             if m.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
             }
             muteItem(menu, n.muteIds)
             menu.addItem(.separator())
+            menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Stop…")) { AgentActions(app).stop([sid]) }
         }
     }
@@ -179,23 +173,19 @@ extension SidebarController {
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
     }
 
-    /// A group's items on its heading; on its project's row (`onProject`), what applies to the project's own screen.
-    private func workspaceMenu(_ menu: NSMenu, _ id: String, onProject: Bool = false) {
+    /// A group's items on its heading.
+    private func workspaceMenu(_ menu: NSMenu, _ id: String) {
         let app = self.app, m = app
         guard let w = m.worktree(id) else { return }
         let pinned = self.pinned.contains(id)
-        if !onProject {
-            menu.add(pinned ? String(localized: "Unpin") : String(localized: "Pin to Top")) { [weak self] in
-                guard let self else { return }
-                self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
-            }
-            menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
+        menu.add(pinned ? String(localized: "Unpin") : String(localized: "Pin to Top")) { [weak self] in
+            guard let self else { return }
+            self.pinned = pinned ? self.pinned.filter { $0 != id } : self.pinned + [id]; refresh()
         }
-        menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)]) }
-        menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(w.path, forType: .string) }
-        WorkspaceActions.addOpenIn(to: menu, path: w.path)
-        if onProject { return }   // its own screen stays, and the project's mute speaks for it
+        menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
+        menu.addItem(.separator())
         muteItem(menu, [id])
+        WorkspaceActions.addLocate(to: menu, path: w.path)
         menu.addItem(.separator())
         if w.path == m.repo(w.repoId)?.path {
             // A desk: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);

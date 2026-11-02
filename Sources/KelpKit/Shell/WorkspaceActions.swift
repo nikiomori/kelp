@@ -29,7 +29,7 @@ package struct WorkspaceActions {
     }
 
     /// "Open in VS Code"… for whatever editors this Mac has, like "Open With" in Finder.
-    package static func addOpenIn(to menu: NSMenu, path: @escaping @MainActor () -> String?, prefix: String = String(localized: "Open in ")) {
+    static func addOpenIn(to menu: NSMenu, path: @escaping @MainActor () -> String?, prefix: String = String(localized: "Open in ")) {
         for e in installedEditors {
             let i = menu.add(prefix + e.name) {
                 guard let p = path() else { NSSound.beep(); return }
@@ -39,6 +39,21 @@ package struct WorkspaceActions {
         }
     }
     static func addOpenIn(to menu: NSMenu, path: String) { addOpenIn(to: menu, path: { path }) }
+
+    /// Where a thing is, the same items everywhere: Reveal in Finder, Open In ›, and Copy Path, or Copy › when `copies`
+    /// has more than the path to offer.
+    package static func addLocate(to menu: NSMenu, path: String, copies: [(title: String, run: @MainActor @Sendable () -> Void)] = []) {
+        menu.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+        let editors = NSMenu()
+        addOpenIn(to: editors, path: { path }, prefix: "")
+        if !editors.items.isEmpty { menu.setSubmenu(editors, for: menu.addItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: "")) }
+        let copyPath: @MainActor () -> Void = { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string) }
+        guard !copies.isEmpty else { menu.add(String(localized: "Copy Path"), copyPath); return }
+        let list = NSMenu()
+        list.add(String(localized: "Path"), copyPath)
+        for c in copies { list.add(c.title, c.run) }
+        menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
+    }
 
     /// The file in the focused tab, else the workspace's folder (Xcode's "Show in Finder" works on the selection).
     func revealCurrent() {

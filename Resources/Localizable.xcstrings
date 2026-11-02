@@ -1698,6 +1698,16 @@
         }
       }
     },
+    "Close Tabs to the Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть вкладки справа"
+          }
+        }
+      }
+    },
     "Comes at once, even while you type.": {
       "extractionState": "manual",
       "localizations": {
@@ -3009,6 +3019,16 @@
         }
       }
     },
+    "Discard All Changes…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить все изменения…"
+          }
+        }
+      }
+    },
     "Discard Changes": {
       "localizations": {
         "ru": {
@@ -3035,6 +3055,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отменить изменения в «%@»?"
+          }
+        }
+      }
+    },
+    "Discard Changes…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить изменения…"
           }
         }
       }
@@ -5335,6 +5365,16 @@
         }
       }
     },
+    "Move to": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить в"
+          }
+        }
+      }
+    },
     "Move to Trash": {
       "localizations": {
         "ru": {
@@ -5800,6 +5840,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть страницу"
+          }
+        }
+      }
+    },
+    "Open to the Side": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть рядом"
           }
         }
       }
@@ -6635,6 +6685,16 @@
         }
       }
     },
+    "Path": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Путь"
+          }
+        }
+      }
+    },
     "Pause idle agents": {
       "extractionState": "manual",
       "localizations": {
@@ -7151,6 +7211,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновить"
+          }
+        }
+      }
+    },
+    "Relative Path": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Относительный путь"
           }
         }
       }
@@ -9880,6 +9950,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предупреждать о лимитах с (%)"
+          }
+        }
+      }
+    },
+    "Web Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Веб-ссылка"
           }
         }
       }
