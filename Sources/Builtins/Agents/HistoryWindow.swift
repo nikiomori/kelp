@@ -12,6 +12,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     private let search = NSSearchField()
     private let fullText = NSButton(checkboxWithTitle: String(localized: "Search inside conversations"), target: nil, action: nil)
     private let status = NSTextField(labelWithString: "")
+    private let resumeB = NSButton(), copyB = NSButton(), spinner = NSProgressIndicator()
     private var rows: [AgentSessionInfo] = []
     /// The app whose conversations it lists and resumes.
     private let app: AppModel
@@ -35,7 +36,6 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         table.delegate = self
         table.rowHeight = 22
         table.style = .inset
-        table.usesAlternatingRowBackgroundColors = true
         table.target = self; table.doubleAction = #selector(resume)
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
         let sv = NSScrollView()
@@ -43,10 +43,14 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         sv.hasVerticalScroller = true
         search.placeholderString = String(localized: "Search titles and folders"); search.delegate = self
         fullText.target = self; fullText.action = #selector(searchChanged)
-        let resumeB = NSButton(title: String(localized: "Resume"), target: self, action: #selector(resume))
+        resumeB.title = String(localized: "Resume")
+        resumeB.target = self; resumeB.action = #selector(resume)
         resumeB.bezelStyle = .push
         resumeB.keyEquivalent = "\r"
-        let copyB = NSButton(title: String(localized: "Copy Resume Command"), target: self, action: #selector(copyCommand)); copyB.bezelStyle = .push
+        copyB.title = String(localized: "Copy Resume Command")
+        copyB.target = self; copyB.action = #selector(copyCommand)
+        copyB.bezelStyle = .push
+        selectionChanged()
         status.textColor = .secondaryLabelColor; status.font = .ui(11)
         showAll.bezelStyle = .push; showAll.isHidden = true
         let bar = NSStackView(views: [search, fullText, NSView(), status, showAll, copyB, resumeB])
@@ -55,7 +59,13 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 600), styleMask: [.titled, .closable, .resizable, .miniaturizable],
                          backing: .buffered, defer: false)
         w.title = String(localized: "Session History")
-        w.contentView = stacked(bar, sv)
+        let content = stacked(bar, sv)
+        w.contentView = content
+        spinner.style = .spinning
+        spinner.isDisplayedWhenStopped = false
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(spinner)
+        NSLayoutConstraint.activate([spinner.centerXAnchor.constraint(equalTo: sv.centerXAnchor), spinner.centerYAnchor.constraint(equalTo: sv.centerYAnchor)])
         w.isReleasedWhenClosed = false
         w.setFrameAutosaveName("history")
         w.center()
@@ -70,18 +80,23 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     private func load() {
-        let slow = whileSlow { [weak self] in self?.status.stringValue = String(localized: "Loading…") }
+        let slow = whileSlow { [weak self] in self?.spinner.startAnimation(nil) }
         Task {
-            defer { slow.cancel() }
+            defer { slow.cancel(); spinner.stopAnimation(nil) }
             rows = await app.call(HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil)) ?? []
             let q = search.stringValue.trimmingCharacters(in: .whitespaces)
             status.stringValue = rows.isEmpty
                 ? (q.isEmpty ? String(localized: "No conversations yet") : String(localized: "No conversations match “\(q)”"))
                 : "\(rows.count) conversations"
             showAll.isHidden = !(rows.isEmpty && !q.isEmpty)
+            table.usesAlternatingRowBackgroundColors = !rows.isEmpty   // stripes with nothing on them read as a list still to come
             table.reloadData()
+            selectionChanged()
         }
     }
+
+    private func selectionChanged() { for b in [resumeB, copyB] { b.isEnabled = table.selectedRow >= 0 } }
+    func tableViewSelectionDidChange(_ n: Notification) { selectionChanged() }
 
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
@@ -105,7 +120,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         return r.agent == .codex ? "cd \(cwd) && codex resume \(r.id)" : "cd \(cwd) && claude --resume \(r.id)"
     }
     @objc private func copyCommand() {
-        guard table.selectedRow >= 0 else { NSSound.beep(); return }
+        guard table.selectedRow >= 0 else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(command(rows[table.selectedRow]), forType: .string)
         status.stringValue = String(localized: "Copied")
     }
