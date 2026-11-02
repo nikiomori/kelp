@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Core
 import DesignKit
+import TerminalKit
 import WorkbenchKit
 
 /// The window, as Arc and Safari are: one surface — projects & agents in the sidebar (the traffic lights sit in it), the
@@ -160,15 +161,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         narrowedAt = nil
         if focusMode != nil { return togglePeek(inspectorItem) }
         if autoHide.inspector { return togglePin(inspectorItem) }
-        inspectorItem.animator().isCollapsed.toggle()
-        UserDefaults.standard.set(inspectorItem.isCollapsed, forKey: "inspector.collapsed")
+        let collapsed = !inspectorItem.isCollapsed
+        slide([(inspectorItem, collapsed)])
+        UserDefaults.standard.set(collapsed, forKey: "inspector.collapsed")
     }
     func showInspector(panel: String) {
         if inspectorItem.isCollapsed, peeking !== inspectorItem { if hides(inspectorItem) { peek(sidebar: false) } else { toggleInspectorPanel() } }
         inspector.show(panel: panel)
     }
     @objc func toggleSidebarPanel() {
-        if focusMode != nil { togglePeek(sidebarItem) } else if autoHide.sidebar { togglePin(sidebarItem) } else { sidebarItem.animator().isCollapsed.toggle() }
+        if focusMode != nil { togglePeek(sidebarItem) } else if autoHide.sidebar { togglePin(sidebarItem) } else { slide([(sidebarItem, !sidebarItem.isCollapsed)]) }
     }
     var sidebarShown: Bool { !sidebarItem.isCollapsed || peeking === sidebarItem }
     var inspectorShown: Bool { !inspectorItem.isCollapsed || peeking === inspectorItem }
@@ -187,11 +189,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         stopPeek()
         if let was = focusMode {
             focusMode = nil; place()
-            sidebarItem.animator().isCollapsed = was.sidebar; inspectorItem.animator().isCollapsed = was.inspector
+            slide([(sidebarItem, was.sidebar), (inspectorItem, was.inspector)])
         } else {
             focusMode = (sidebarItem.isCollapsed || hides(sidebarItem), inspectorItem.isCollapsed || hides(inspectorItem))
             place()   // before the columns close: the floaters take their widths
-            sidebarItem.animator().isCollapsed = true; inspectorItem.animator().isCollapsed = true
+            slide([(sidebarItem, true), (inspectorItem, true)])
         }
         let on = focusMode != nil
         sidebarToggle.isHidden = on; inspectorToggle.isHidden = on
@@ -213,8 +215,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if peeking === item { stopPeek() }
         place()
         if focusMode == nil {
-            item.animator().isCollapsed = on
+            slide([(item, on)])
             if !sidebar { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
+        }
+    }
+    /// Columns open or close together as a floater slides, and at once under Reduce Motion. The terminals beside them
+    /// keep their size until the columns stop: a program in one would redraw for every width on the way.
+    private func slide(_ columns: [(item: NSSplitViewItem, collapsed: Bool)]) {
+        let moves = columns.filter { $0.item.isCollapsed != $0.collapsed }
+        guard !moves.isEmpty else { return }
+        guard !Motion.reduced else { return moves.forEach { $0.item.isCollapsed = $0.collapsed } }
+        GhosttyTerminalView.holdSize(true)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.base
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            moves.forEach { $0.item.animator().isCollapsed = $0.collapsed }
+        } completionHandler: {
+            MainActor.assumeIsolated { GhosttyTerminalView.holdSize(false) }   // AppKit runs it on the main thread
         }
     }
     private func hides(_ item: NSSplitViewItem) -> Bool {
@@ -284,7 +301,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if item === sidebarItem { pinned.sidebar = pin } else { pinned.inspector = pin }
         if peeking === item { stopPeek() }
         place()
-        item.animator().isCollapsed = !pin
+        slide([(item, !pin)])
     }
 
     /// Closing the window quits (the daemon keeps agents running) — through the unsaved-files question; Cancel keeps it.

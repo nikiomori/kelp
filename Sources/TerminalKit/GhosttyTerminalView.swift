@@ -42,6 +42,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     public init(command: String, cwd: String, env: [String: String] = [:]) {
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         wantsLayer = true
+        NotificationCenter.default.addObserver(self, selector: #selector(takeSize), name: Self.sizeReleased, object: nil)
         for v in [scrollIndicator, sizeBadge] as [NSView] { addSubview(v) }
         guard let app = GhosttyRuntime.shared.app else { return }
         var cfg = ghostty_surface_config_new()
@@ -139,8 +140,22 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         CATransaction.commit()
         updateSize()
     }
+    /// A panel slides beside the terminals: each stays at its size until `false`, then takes its new one once and without
+    /// the "120 × 40" badge, which is for someone resizing by hand. Nested holds count.
+    public static func holdSize(_ on: Bool) {
+        holds = max(0, holds + (on ? 1 : -1))
+        guard !on, holds == 0 else { return }
+        NotificationCenter.default.post(name: sizeReleased, object: nil)
+    }
+    private static var holds = 0
+    private static let sizeReleased = Notification.Name("GhosttyTerminalView.sizeReleased")
+    @objc private func takeSize() {
+        updateSize()
+        shownGrid = gridSize
+    }
+
     private func updateSize() {
-        guard let surface, window != nil, bounds.width > 0, bounds.height > 0 else { return }
+        guard Self.holds == 0, let surface, window != nil, bounds.width > 0, bounds.height > 0 else { return }
         let fb = convertToBacking(bounds)
         ghostty_surface_set_content_scale(surface, fb.width / bounds.width, fb.height / bounds.height)
         ghostty_surface_set_size(surface, UInt32(fb.width), UInt32(fb.height))
