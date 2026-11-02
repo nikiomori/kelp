@@ -1,7 +1,7 @@
 import Foundation
 
 // What the daemon tells its clients without being asked: JSON-RPC notifications whose params are the event's fields.
-// The names are wire contract like the methods' (Tests/DaemonTests/events.txt).
+// The names are wire contract like the methods' (rpc.json).
 
 /// A notification from the daemon: `name` is its method, the type's fields its params.
 public protocol RPCEvent: Codable, Sendable {

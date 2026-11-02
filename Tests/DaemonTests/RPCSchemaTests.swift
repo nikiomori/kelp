@@ -91,7 +91,10 @@ func breaks(_ old: JSONValue, _ new: JSONValue) -> [String] {
         for (p, v) in now where v["required"]?.bool == true && was[p]?["required"]?.bool != true { out.append("\(name)(\(p)): now required") }
         compare(m["result"]?["schema"], n["result"]?["schema"], "\(name) →", &out)
     }
-    for (name, e) in named(old["x-events"]) { compare(e["params"], named(new["x-events"])[name]?["params"], name, &out) }
+    for (name, e) in named(old["x-events"]) {
+        guard let n = named(new["x-events"])[name] else { out.append("\(name): gone"); continue }
+        compare(e["params"], n["params"], name, &out)
+    }
     if case .object(let was)? = old["components"]?["schemas"] {
         for (name, s) in was { compare(s, new["components"]?["schemas"]?[name], name, &out) }
     }
