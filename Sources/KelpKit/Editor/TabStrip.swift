@@ -21,7 +21,7 @@ final class TabStrip: NSView {
         var edited = false
         var meter: SessionContextWindow.Usage?
         var progress: Double?
-        var background: String?
+        var background = 0
         var backgroundTip: String?
         var waitsFor = false
         /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
@@ -344,7 +344,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     private let meter = ContextMeter()
     /// Next to the ring once it's orange: how full, in words a glance takes in without telling the colours apart.
     private let full = NSTextField(labelWithString: "")
-    /// What its agent runs in the background, whatever it's doing: the command it waits for, or how many (a dev server).
+    /// What runs beside its agent, whatever it's doing (a dev server): by name in the tooltip.
     private let chip = Chip()
     private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false {
@@ -381,10 +381,6 @@ private final class TabButton: NSControl, NSDraggingSource {
         }
         NSLayoutConstraint.activate([close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)])
         full.font = .uiDigits(10, weight: .semibold)
-        chip.setContentCompressionResistancePriority(.init(200), for: .horizontal)   // gives way before the title, down to "…"
-        let least = chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 40); least.priority = .init(760)
-        NSLayoutConstraint.activate([least, chip.widthAnchor.constraint(lessThanOrEqualToConstant: 90)])
-        chip.icon.image = .symbol("apple.terminal")
         let row = NSStackView(views: [slot, title, chip, meter, full])
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
@@ -422,13 +418,14 @@ private final class TabButton: NSControl, NSDraggingSource {
         mark.status = it.status
         mark.unread = it.unread
         mark.progress = it.progress
+        mark.waitsForCommand = it.waitsFor
         meter.usage = it.meter
         let level = ContextMeter.level(it.meter)
         full.isHidden = level < 2
         full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = level == 3 ? .textRed : .textOrange
-        chip.isHidden = it.background == nil
-        chip.label.stringValue = it.background ?? ""
+        chip.isHidden = it.background == 0
+        chip.show("apple.terminal", count: it.background)
         chip.toolTip = it.backgroundTip
         chip.setAccessibilityLabel(chip.toolTip)
         toolTip = it.toolTip ?? it.title
@@ -471,12 +468,12 @@ private final class TabButton: NSControl, NSDraggingSource {
     }
 
     /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
-    /// unseen, cyan while it waits for a command it started. A glow, not a line or a fill: it reads as the pane's light.
+    /// unseen; light that calls for you, and nothing else of an agent's. A glow, not a line or a fill: it reads as the pane's.
     private var glow: NSColor? {
         switch item?.status {
         case .waiting?: .systemOrange
         case .error? where item?.unread == true: .systemRed
-        default: item?.waitsFor == true ? .systemCyan : item?.run
+        default: item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the

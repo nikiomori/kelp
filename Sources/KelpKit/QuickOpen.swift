@@ -425,6 +425,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             let m = StatusMark(size: 14)
             m.status = s.status
             m.unread = s.unread
+            m.waitsForCommand = s.waitsForCommand
             let box = NSView()
             m.translatesAutoresizingMaskIntoConstraints = false
             box.addSubview(m)

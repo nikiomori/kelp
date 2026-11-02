@@ -184,6 +184,7 @@ final class WorkspaceSwitcher {
         let mark = StatusMark(size: 14)
         mark.status = top
         mark.unread = agents.contains { SidebarCell.shownStatus($0) == top && $0.unread }
+        mark.waitsForCommand = lead?.waitsForCommand ?? false
         mark.announces = false   // the row's label says the state
 
         let icon = NSImageView(image: .symbol("folder"))

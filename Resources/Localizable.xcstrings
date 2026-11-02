@@ -13426,6 +13426,26 @@
         }
       }
     },
+    "Waits for its command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждёт свою команду"
+          }
+        }
+      }
+    },
+    "What it runs in the background stops too: %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместе с ним остановится то, что идёт в фоне: %@."
+          }
+        }
+      }
+    },
     "Waits for its command:": {
       "localizations": {
         "ru": {

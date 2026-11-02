@@ -58,6 +58,7 @@ public enum Motion {
 
     // What goes on while a state lasts, one way (a breath is this there and this back).
     public static let spin: TimeInterval = 1      // the ring's turn: working
+    public static let wait: TimeInterval = 3      // the ring of dots' turn: it waits for its command
     public static let pulse: TimeInterval = 0.9   // compacting
     public static let breathe: TimeInterval = 1.2 // an agent asks
     public static let flash: TimeInterval = 1.2   // Needs You lights up and fades back

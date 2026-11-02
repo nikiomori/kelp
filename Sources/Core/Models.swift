@@ -170,6 +170,21 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public static let inTabKey = "run.inTab"
     /// A conversation or a program of its own: not a terminal, nor a command on an agent's line.
     public var isChat: Bool { agent != "shell" && startedBy == nil }
+    /// Its turn is over and it stays only to see that command end. Not while it asks, and not for a server: `awaiting`
+    /// comes from a Stop.
+    public var waitsForCommand: Bool { status == .working && awaiting != nil }
+    /// What runs in the background beside it, each in a line: not the command it waits for, which is what it's doing. Empty
+    /// once its program is gone.
+    public var aside: [String] {
+        guard status != .exited, status != .hibernated else { return [] }
+        return (background ?? []).filter { !waitsForCommand || $0 != awaiting }.map(AgentCommand.short)
+    }
+    /// The tooltip of its tab and of the mark for what runs beside it: the commands by name, which no row or tab has room for.
+    public var backgroundTip: String? {
+        let awaited = waitsForCommand ? awaiting.map { [String(localized: "Waits for its command:"), AgentCommand.short($0)] } : nil
+        let lines = (awaited ?? []) + (aside.isEmpty ? [] : [String(localized: "Running in the background:")] + aside)
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
     /// Its subagents at work: who asks first, then in the order they started.
     public var runningSubagents: [Subagent] {
         let running = (subagentRuns ?? []).filter { $0.ended == nil }

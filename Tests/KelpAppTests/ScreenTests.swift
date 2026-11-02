@@ -148,36 +148,33 @@ extension OneAtATime {
     }
 }
 
-@Test func aLongNameAndABackgroundCommandBothStayReadable() throws {
+@Test func aBackgroundCommandTakesItsMarksRoomOnlyAndItsNameIsInTheTooltip() throws {
     var agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working,
                         title: "Структура и плотность левой панели")
-    agent.background = ["npm run test -- --watch --coverage"]
-    agent.awaiting = agent.background?.first
+    agent.background = ["cd /tmp\nnpm run dev -- --port 3000"]
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent]) { _, o in
         let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))
         cell.layoutSubtreeIfNeeded()
         func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
-        let chip = try #require(all(cell).compactMap { $0 as? Chip }.first { !$0.isHidden && $0.label.stringValue.hasPrefix("npm") })
+        let chip = try #require(all(cell).compactMap { $0 as? Chip }.first { !$0.isHidden })
         let name = try #require(all(cell).compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix("Структура") })
-        #expect(chip.frame.width >= 40 && chip.frame.width <= 72)   // shortened, not crushed into letters
-        #expect(name.frame.width >= 60)                               // and the name still reads
+        #expect(chip.frame.width <= 16, "\(chip.frame.width) pt")      // a symbol, no words, and no number for one
+        #expect(name.frame.width >= 80)      // the name keeps the row
+        #expect(chip.toolTip?.contains("npm run dev -- --port 3000") == true)
+        #expect(chip.toolTip?.contains("cd /tmp") == false)   // a line, as the list shows it
     }
 }
 
-@Test func aShortBackgroundCommandStaysOnOneLine() throws {
-    var agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Отслеживание лимитов")
-    agent.background = ["p/cl"]
-    agent.awaiting = "p/cl"
-    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent]) { _, o in
-        let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))
-        cell.layoutSubtreeIfNeeded()
-        func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
-        let chip = try #require(all(cell).compactMap { $0 as? Chip }.first { !$0.isHidden && $0.label.stringValue == "p/cl" })
-        let label = try #require(chip.label.cell)
-        func tall(_ w: CGFloat) -> CGFloat { label.cellSize(forBounds: NSRect(x: 0, y: 0, width: w, height: 100)).height }
-        #expect(tall(chip.label.frame.width) == tall(500), "the chip wrapped at \(chip.label.frame.width) pt")   // "p/" over "cl" was 2 lines
-        #expect(chip.frame.height <= cell.frame.height)
-    }
+@Test func theCommandItWaitsForIsItsMarkNotOneBesideIt() throws {
+    var agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Тесты")
+    agent.background = ["npm test", "npm run dev"]
+    agent.awaiting = "npm test"
+    #expect(agent.waitsForCommand && agent.aside == ["npm run dev"])
+    #expect(agent.backgroundTip == "Waits for its command:\nnpm test\nRunning in the background:\nnpm run dev")
+    agent.status = .waiting   // it asks: the ring is the question's, so the command stands beside it
+    #expect(!agent.waitsForCommand && agent.aside == ["npm test", "npm run dev"])
+    agent.status = .exited
+    #expect(agent.aside.isEmpty && agent.backgroundTip == nil)
 }
 
 @Test func aProjectsRowFindsItsWorkspaceWhenThatArrivesAfterIt() throws {

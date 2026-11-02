@@ -190,7 +190,7 @@ struct CardView: View {
             ForEach(model.agents) { a in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        StatusIcon(status: a.session.markStatus).font(.caption)
+                        StatusIcon(status: a.session.markStatus, waitsForCommand: a.session.waitsForCommand).font(.caption)
                         Text(model.agentOnly ? a.session.statusWords : model.app.catalog.displayName(a.session)).font(.callout).lineLimit(1)
                         if !model.agentOnly { Text(a.session.statusWords).font(.caption).foregroundStyle(.secondary) }
                         Spacer(minLength: 8)

@@ -119,11 +119,6 @@ final class SidebarCell: NSTableCellView {
             ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             ask.isHidden = true
             chip.isHidden = true
-            // The name keeps its room first; the chip shortens its command down to its icon and an ellipsis, never less,
-            // and a long command takes no more than a third of the row.
-            chip.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-            let least = chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 40); least.priority = .init(760)
-            NSLayoutConstraint.activate([least, chip.widthAnchor.constraint(lessThanOrEqualToConstant: 72)])
             slot.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(mark)
             NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
                                          mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
@@ -329,6 +324,7 @@ final class SidebarCell: NSTableCellView {
             mark.unread = s.unread
             mark.limited = s.limitHit != nil
             mark.compacting = s.summary.hasPrefix("Compacting")
+            mark.waitsForCommand = s.waitsForCommand
             mark.progress = s.progress.map { Double($0) / 100 }
             trailing.stringValue = s.status == .idle ? "" : shortAgo(s.statusAt ?? s.createdAt)
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
@@ -412,25 +408,17 @@ final class SidebarCell: NSTableCellView {
         toolTip = nil
     }
 
-    /// "▷ swift test" while its shell tool runs a command; "◎ goal" while it works toward one; then what runs in the
-    /// background, as on its tab (`backgroundLabel`): "▷ npm test", the command it waits for, or "▷ 2" (a dev server). The
-    /// full text is the tooltip.
+    /// A mark for the goal it works toward, else for what runs beside it, as on its tab. Words have no room here: a name
+    /// and a chip shared the same points, and a command mostly ended before it could be read. The tooltip and the card say them.
     private func showChip(_ s: Session) {
-        let now = [.working, .waiting].contains(s.status) ? s.running : nil   // one left over by a lost hook says nothing once it ended
-        let background = s.backgroundLabel
+        let beside = s.aside.count
         // Beside the dots there's no room for both it and the name: the card lists what it says.
-        chip.isHidden = !family.isHidden || (now == nil && s.goal == nil && background == nil)
-        if let now {
-            chip.icon.image = .symbol("apple.terminal")
-            chip.label.stringValue = AgentCommand.short(now)
-            chip.toolTip = String(localized: "Running:") + "\n" + now
-        } else if let g = s.goal {
-            chip.icon.image = .symbol("scope")
-            chip.label.stringValue = String(localized: "goal")
+        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0)
+        if let g = s.goal {
+            chip.show("scope")
             chip.toolTip = String(localized: "Goal: \(g)")
-        } else if let background {
-            chip.icon.image = .symbol("apple.terminal")
-            chip.label.stringValue = background
+        } else {
+            chip.show("apple.terminal", count: beside)
             chip.toolTip = s.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)
@@ -461,39 +449,35 @@ final class SidebarCell: NSTableCellView {
     }
 }
 
-/// What an agent goes on with by itself, beside its name: a symbol and a word on a faint capsule. A label, not a button:
-/// a squeezed inline-bezel button wrapped its title ("p/" over "cl") taller than the row; a label shortens with "…".
+/// What goes on beside an agent, after its name: a symbol, and how many from two on. No fill and no words: it takes the
+/// room of its symbol, on a row or a tab, and the tooltip says the rest.
 @MainActor
 final class Chip: NSView {
-    let icon = NSImageView(), label = NSTextField(labelWithString: "")
+    private let icon = NSImageView(), count = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: .zero)
-        icon.symbolConfiguration = .init(pointSize: 9, weight: .medium)
+        icon.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
         icon.contentTintColor = .secondaryLabelColor
-        label.font = .ui(10)
-        label.textColor = .secondaryLabelColor
-        label.lineBreakMode = .byTruncatingTail
-        label.usesSingleLineMode = true
-        label.maximumNumberOfLines = 1
-        label.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-        let s = NSStackView(views: [icon, label])
-        s.spacing = 3
-        s.edgeInsets = NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
+        count.font = .uiDigits(11, weight: .medium)
+        count.textColor = .secondaryLabelColor
+        let s = NSStackView(views: [icon, count])
+        s.spacing = 2
         s.translatesAutoresizingMaskIntoConstraints = false
         addSubview(s)
         NSLayoutConstraint.activate([s.leadingAnchor.constraint(equalTo: leadingAnchor), s.trailingAnchor.constraint(equalTo: trailingAnchor),
-                                     s.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: TextSize.of(16))])
-        setContentCompressionResistancePriority(.init(200), for: .horizontal)
+                                     s.topAnchor.constraint(equalTo: topAnchor), s.bottomAnchor.constraint(equalTo: bottomAnchor)])
+        s.setHuggingPriority(.required, for: .horizontal)   // an NSStackView keeps to its views only so; a view around one has no size of its own
+        s.setClippingResistancePriority(.required, for: .horizontal)
         setAccessibilityElement(true)
-        setAccessibilityRole(.staticText)   // read by its label (SidebarCell.showChip): the whole command
+        setAccessibilityRole(.staticText)   // read by its label: the tooltip, the whole list
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {   // the appearance is current here: the fill follows light and dark
-        layer?.cornerRadius = Metrics.radiusXS
-        layer?.backgroundColor = NSColor.fillRest.cgColor
+    func show(_ symbol: String, count n: Int = 1) {
+        icon.image = .symbol(symbol)
+        count.isHidden = n < 2
+        count.stringValue = "\(n)"
     }
 }
 

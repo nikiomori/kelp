@@ -3,7 +3,8 @@ import DesignKit
 import SwiftUI
 import Core
 
-/// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, an orange ◎ when it
+/// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, a slow ring of dots once
+/// it only waits for its command, an orange ◎ when it
 /// needs you, a filled grey ✓ when it finished and you haven't looked, nothing after (as an agent that did nothing),
 /// a moon when paused.
 extension AgentStatus {
@@ -77,6 +78,9 @@ package final class StatusMark: NSView {
     var unread = true { didSet { if unread != oldValue { update() } } }
     /// Working on shrinking its conversation (Claude's compaction): a slow pulse, not the spin.
     var compacting = false { didSet { if compacting != oldValue { update() } } }
+    /// Its turn is over and it waits for its command to end (`Session.waitsForCommand`): a slow ring of dots, a shape of its
+    /// own, so it still says so where nothing moves.
+    var waitsForCommand = false { didSet { if waitsForCommand != oldValue { update() } } }
     /// Stopped by a plan limit, read or not: a clock, until it does something else.
     var limited = false { didSet { if limited != oldValue { update() } } }
     /// How far it got (0…1), when it says: a pie filling a circle, as Finder's and Safari's progress, not the spinning ring.
@@ -128,7 +132,8 @@ package final class StatusMark: NSView {
         let s = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
         let filling = s == .working ? progress : nil
         isHidden = s == nil
-        toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" } ?? s?.words
+        let dotted = s == .working && waitsForCommand && !compacting
+        toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" } ?? (dotted ? String(localized: "Waits for its command") : s?.words)
         // VoiceOver reads the state (the spinning ring is only a layer): the same words as the tooltip.
         setAccessibilityElement(s != nil && announces); setAccessibilityRole(.image)
         setAccessibilityLabel(compacting && s == .working ? String(localized: "Compacting its conversation") : toolTip)
@@ -150,17 +155,25 @@ package final class StatusMark: NSView {
         // still symbol says "working" instead: a ring that stopped spinning looks stuck.
         let still = Motion.reduced
         let spinning = s == .working && !compacting && !still
-        ring.isHidden = !spinning; image.isHidden = spinning
+        ring.isHidden = !spinning && !dotted; image.isHidden = spinning || dotted
         ring.removeAllAnimations()
         image.layer?.removeAllAnimations()
         image.alphaValue = 1
-        if spinning {
+        if spinning || dotted {
             effectiveAppearance.performAsCurrentDrawingAppearance { ring.strokeColor = NSColor.secondaryLabelColor.cgColor }
             ring.anchorPoint = CGPoint(x: 0.5, y: 0.5); ring.position = CGPoint(x: size / 2, y: size / 2)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)   // a layer of its own: it would ease over 0.25 s
+            // Eight round dots: a dash of nothing, drawn by its caps, wider than the arc's line to weigh as much as it does.
+            ring.lineDashPattern = dotted ? [0, NSNumber(value: Double.pi * (size - 3) / 8)] : nil
+            ring.lineWidth = dotted ? 2 : 1.5
+            ring.strokeEnd = dotted ? 1 : 0.75
+            CATransaction.commit()
+            guard !still else { return }
             let a = CABasicAnimation(keyPath: "transform.rotation.z")
             a.fromValue = 0
             a.toValue = -2 * Double.pi
-            a.duration = Motion.spin
+            a.duration = dotted ? Motion.wait : Motion.spin
             a.repeatCount = .infinity
             a.beginTime = Motion.beat(a.duration)
             ring.add(a, forKey: "spin")
@@ -198,8 +211,9 @@ package final class StatusMark: NSView {
 /// `StatusMark` in SwiftUI (a hover card, an extension's list): one look for a state, Reduce Motion included.
 struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
+    var waitsForCommand = false
     func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
-    func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status }
+    func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status; mark.waitsForCommand = waitsForCommand }
 }
 
 extension Session {
@@ -209,20 +223,6 @@ extension Session {
     package var markStatus: AgentStatus { progress != nil && (agent == "shell" || agent == "custom") ? .working : status }
     /// "Working · 40 %" when it says how far it got.
     package var statusWords: String { let s = markStatus; return s == .working ? progress.map { "\(s.words) · \($0) %" } ?? s.words : s.words }
-    /// What it runs in the background, for the chip on its tab and row, whatever it's doing (asking included): the command it
-    /// waits for, else how many run (a dev server from an earlier turn). nil when none, or its program is gone.
-    var backgroundLabel: String? {
-        guard let b = background, !b.isEmpty, status != .exited, status != .hibernated else { return nil }
-        return awaiting ?? "\(b.count)"
-    }
-    /// The chip's tooltip: the whole list.
-    var backgroundTip: String? {
-        guard backgroundLabel != nil, let b = background else { return nil }
-        return (waitsForCommand ? String(localized: "Waits for its command:") : String(localized: "Running in the background:"))
-            + "\n" + b.joined(separator: "\n")
-    }
-    /// It works on only to see that command end: its tab glows cyan. Not while it asks, and not for a server.
-    var waitsForCommand: Bool { status == .working && awaiting != nil }
     /// "Works in .claude/worktrees/fix-login" when the agent went out of the folder it started in.
     package var workingElsewhere: String? {
         guard let d = workDir else { return nil }

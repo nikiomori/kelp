@@ -84,7 +84,8 @@ struct AgentWork: View {
 
     private func commands(_ s: Session) -> [AgentWorkRow.Row] {
         let now = [.working, .waiting].contains(s.status) ? s.running : nil
-        return ((now.map { [AgentCommand.short($0)] } ?? []) + (s.background ?? [])).enumerated().map {
+        let background = (s.background ?? []).map(AgentCommand.short)
+        return ((now.map { [AgentCommand.short($0)] } ?? []) + background).enumerated().map {
             .init(id: "command \($0.offset)", mark: .command, title: $0.element, code: true)
         }
     }

@@ -48,12 +48,15 @@ final class SessionTab: TabContent {
     /// Only one on screen: a hidden pane's grid is from whatever size it last had.
     var terminalGrid: (cols: Int, rows: Int)? { pane.window == nil ? nil : pane.gridSize }
     var toolTip: String? {
-        session.map { "\(title) — \($0.statusWords)" + ($0.summary.isEmpty ? "" : "\n\($0.summary)") + ($0.workingElsewhere.map { "\n\($0)" } ?? "") }
+        session.map {
+            "\(title) — \($0.statusWords)" + ($0.summary.isEmpty ? "" : "\n\($0.summary)") + ($0.workingElsewhere.map { "\n\($0)" } ?? "")
+                + ($0.backgroundTip.map { "\n\($0)" } ?? "")
+        }
     }
     func focus() { pane.focus() }
 
-    /// Closing the tab ends the session; it asks only when something would stop: a working agent, or a program
-    /// running in a terminal (an idle shell or a finished agent just closes).
+    /// Closing the tab ends the session; it asks only when something would stop: a working agent, what a finished one
+    /// left running, or a program running in a terminal (an idle shell or a finished agent with nothing left just closes).
     func close() async -> Bool { await Self.close(app, session: sessionId) }
 
     /// Its items in the tab's context menu.
@@ -74,10 +77,12 @@ final class SessionTab: TabContent {
     /// Also for a tab that was never built (EditorArea closes those without making them).
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
-        if let s = session, s.agent != "shell", s.status == .working || !app.sessions.childrenWords(of: [sid]).isEmpty {
+        let beside = session?.aside ?? [], names = beside.joined(separator: ", ")
+        if let s = session, s.agent != "shell", s.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty {
             let a = NSAlert(); a.messageText = String(localized: "Stop \(app.catalog.displayName(s))?")
             a.informativeText = (s.status == .working ? String(localized: "The agent is still working. Closing the tab ends its session.")
                 : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
+                + (beside.isEmpty ? "" : " " + String(localized: "What it runs in the background stops too: \(names)."))
             a.addButton(withTitle: String(localized: "Stop Agent")); a.addButton(withTitle: String(localized: "Cancel"))
             guard await runSheet(a) == .alertFirstButtonReturn else { return false }
         } else if session?.agent == "shell", let program = await busy(app, sid) {

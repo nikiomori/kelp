@@ -59,7 +59,7 @@ package struct TabBadge: Equatable {
         self.meter = meter
         self.progress = progress
         self.attention = attention
-        background = session?.backgroundLabel
+        background = session?.aside.count ?? 0
         backgroundTip = session?.backgroundTip
         waitsFor = session?.waitsForCommand ?? false
     }
@@ -73,10 +73,10 @@ package struct TabBadge: Equatable {
     var progress: Double?
     /// The colored ring around its pane: an agent asking (orange), failed (red), finished unseen (accent).
     var attention: NSColor?
-    /// What its agent runs in the background, on a chip whatever it's doing (`Session.backgroundLabel`), and the whole list.
-    var background: String?
+    /// How many commands run beside its agent, whatever it's doing (`Session.aside`), and them by name.
+    var background = 0
     var backgroundTip: String?
-    /// It works on only to see that command end: the tab glows cyan, below any call for you; no ring.
+    /// It works on only to see its command end: its mark is the ring of dots.
     var waitsFor = false
 }
 
