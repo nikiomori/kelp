@@ -60,6 +60,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private let search = NSSearchField()
     var query = ""
     lazy var card = HoverCard(app: app)
+    var rowHeights: [CGFloat] = []
     /// The search field's menu (its magnifier): which workspaces to show. The one on screen always stays.
     var filter = SidebarFilter(rawValue: UserDefaults.standard.string(forKey: "sidebar.filter") ?? "") ?? .all
     var pinned: [String] {
@@ -450,17 +451,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     func outlineView(_ o: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) { place(rowView, row) }
 
-    private func place(_ v: NSTableRowView, _ row: Int) {
+    func place(_ v: NSTableRowView, _ row: Int) {
         (v as? SidebarRowView)?.group = (outline.item(atRow: row) as? Node).flatMap(group)
     }
     /// The cards follow rows that open, close or move; a project's last row changes height with them.
     /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
-    func updateCard() {
-        outline.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<outline.numberOfRows))
-        outline.enumerateAvailableRowViews { v, row in self.place(v, row) }
-        placeCards()
-    }
-
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let n = item as? Node else { return nil }
         let cell = SidebarCell(node: n, owner: self)

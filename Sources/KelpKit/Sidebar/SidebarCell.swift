@@ -8,7 +8,7 @@ import WorkbenchKit
 final class SidebarCell: NSTableCellView {
     private let node: SidebarController.Node
     private weak var owner: SidebarController?
-    private let app: AppModel
+    let app: AppModel
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
     private let count = NSTextField(labelWithString: "")
@@ -45,7 +45,8 @@ final class SidebarCell: NSTableCellView {
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
     private let detail = NSTextField(labelWithString: "")
-    private let summary = NSStackView()
+    let summary = NSStackView()
+    var summarized: [String]?   // nil until the first pass, which also hides it when empty
     private var fold: NSButton?
     /// What the chevron showed last: when that changes it turns rather than switches.
     private var shownFolded: Bool?
@@ -355,10 +356,12 @@ final class SidebarCell: NSTableCellView {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "always", image = app.catalog.icon(s.agent, size: 16)
         icon.isHidden = mode != "always"
         // Paused: the same icon without its colour, not see-through (a faded tile read wider than the others).
-        icon.image = s.status == .hibernated ? image?.grayscale : image
+        let shown = s.status == .hibernated ? image.map(app.agentIcons.grey) : image
+        if icon.image !== shown { icon.image = shown }   // setting it draws it again, for every row on every pass
         icon.alphaValue = s.status == .hibernated ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
-        glyph.image = glyph.isHidden ? nil : image?.grayscale
+        let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
+        if glyph.image !== mark { glyph.image = mark }
         glyph.toolTip = app.catalog.name(s.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)
     }
@@ -410,33 +413,6 @@ final class SidebarCell: NSTableCellView {
         case ("always", _): return (nil, text)
         default: return nil
         }
-    }
-
-    /// A folded project's agents, by what they want: asking (or failed), working, done and not looked at.
-    private func showSummary(_ folded: SidebarController.Node?) {
-        summary.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let ids = folded.map { n in n.children.flatMap { $0.children.isEmpty ? [$0] : $0.children } } ?? []
-        let rows = ids.compactMap { n -> Session? in if case .agent(let id) = n.kind { app.session(id) } else { nil } }
-        // What's done there is the parent's to read.
-        let agents = rows.flatMap { [$0] + app.sessions.children(of: $0.id).filter { ChildrenBadge.status($0) != .done || $0.status != .done } }
-        let shown = agents.map(ChildrenBadge.status)
-        let asking = shown.filter { [.waiting, .error].contains($0) }
-        let groups: [(AgentStatus?, Int)] = [(AgentStatus.mostUrgent(asking), asking.count), (.working, shown.filter { $0 == .working }.count),
-                                             (.done, agents.filter { Self.isNews($0) && Self.shownStatus($0) == .done }.count)]
-        var tip: [String] = []
-        for case let (status?, n) in groups where n > 0 {
-            let mark = StatusMark(size: 12)
-            mark.status = status
-            mark.unread = true
-            let count = NSTextField(labelWithString: "\(n)")
-            count.font = .uiDigits(11, weight: .medium)
-            count.textColor = .secondaryLabelColor
-            summary.addArrangedSubview(mark); summary.addArrangedSubview(count)
-            summary.setCustomSpacing(6, after: count)
-            tip.append("\(n) · \(status.words)")
-        }
-        summary.isHidden = tip.isEmpty
-        summary.toolTip = tip.joined(separator: ", "); summary.setAccessibilityLabel(summary.toolTip)
     }
 
     /// One line, as Mail lists mailboxes: an agent asking for you or done unseen is bold (isNews) and its mark says which;

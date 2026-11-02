@@ -53,6 +53,8 @@ import WorkbenchKit
     #expect(app.catalog.icon("shell") === app.catalog.icon(nil))
     for key in app.agentIcons.made.keys { app.agentIcons.made[key]?.source = NSImage() }   // not what agentIcons holds now
     #expect(app.catalog.icon(id) !== letter)
+    let tile = NSImage(size: NSSize(width: 4, height: 4), flipped: false) { r in NSColor.red.setFill(); r.fill(); return true }
+    #expect(app.agentIcons.grey(tile) === app.agentIcons.grey(tile))
 }
 
 /// Off stays off: a tab's refresh must not start a fade on a glow nobody sees.

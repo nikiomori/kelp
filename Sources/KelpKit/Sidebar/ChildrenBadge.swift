@@ -142,6 +142,37 @@ extension Subagent {
 }
 
 extension SidebarCell {
+    /// A folded project's agents, by what they want: asking (or failed), working, done and not looked at.
+    func showSummary(_ folded: SidebarController.Node?) {
+        let ids = folded.map { n in n.children.flatMap { $0.children.isEmpty ? [$0] : $0.children } } ?? []
+        let rows = ids.compactMap { n -> Session? in if case .agent(let id) = n.kind { app.session(id) } else { nil } }
+        // What's done there is the parent's to read.
+        let agents = rows.flatMap { [$0] + app.sessions.children(of: $0.id).filter { ChildrenBadge.status($0) != .done || $0.status != .done } }
+        let shown = agents.map(ChildrenBadge.status)
+        let asking = shown.filter { [.waiting, .error].contains($0) }
+        let groups: [(AgentStatus?, Int)] = [(AgentStatus.mostUrgent(asking), asking.count), (.working, shown.filter { $0 == .working }.count),
+                                             (.done, agents.filter { Self.isNews($0) && Self.shownStatus($0) == .done }.count)]
+        // The same as last pass: its marks stay, spinning, rather than being made again.
+        let now = groups.filter { $0.1 > 0 }.map { "\($0.0.map { "\($0)" } ?? "") \($0.1)" }
+        guard now != summarized else { return }
+        summarized = now
+        summary.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        var tip: [String] = []
+        for case let (status?, n) in groups where n > 0 {
+            let mark = StatusMark(size: 12)
+            mark.status = status
+            mark.unread = true
+            let count = NSTextField(labelWithString: "\(n)")
+            count.font = .uiDigits(11, weight: .medium)
+            count.textColor = .secondaryLabelColor
+            summary.addArrangedSubview(mark); summary.addArrangedSubview(count)
+            summary.setCustomSpacing(6, after: count)
+            tip.append("\(n) · \(status.words)")
+        }
+        summary.isHidden = tip.isEmpty
+        summary.toolTip = tip.joined(separator: ", "); summary.setAccessibilityLabel(summary.toolTip)
+    }
+
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
     static func line(_ s: Session, mode: String, among all: [Session]) -> (prefix: (String, NSColor)?, text: String)? {
         let own = askLine(s, mode: mode)

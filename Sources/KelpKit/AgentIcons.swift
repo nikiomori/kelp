@@ -23,6 +23,15 @@ final class AgentIcons {
 
     /// What `AgentCatalog.icon` made, by agent and size, with the icon it came from.
     @ObservationIgnored var made: [String: (source: NSImage?, image: NSImage)] = [:]
+    /// A made image without its colour: rendering one takes a millisecond and more, for each paused row on each sidebar pass.
+    @ObservationIgnored private var greys: [ObjectIdentifier: (image: NSImage, grey: NSImage)] = [:]
+
+    func grey(_ image: NSImage) -> NSImage {
+        if let known = greys[ObjectIdentifier(image)] { return known.grey }
+        let grey = image.grayscale
+        greys[ObjectIdentifier(image)] = (image, grey)   // the image is held: its identifier stays its own
+        return grey
+    }
 
     func image(_ id: String) -> NSImage? {
         if !asked.contains(id) { asked.insert(id); load(id) }

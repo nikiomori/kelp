@@ -12,6 +12,16 @@ struct ClickFold {
 /// fade while the card and the rows below follow, in one movement; the outline's own animation dropped the leaving
 /// rows' text and card, and brought new rows in one by one over a card that grew in steps.
 extension SidebarController {
+    func updateCard() {
+        // Only rows that changed: told of all of them, the table lays every one out, on every session's change.
+        let heights = (0..<outline.numberOfRows).map { outline.item(atRow: $0).map { outlineView(outline, heightOfRowByItem: $0) } ?? 0 }
+        let changed = heights.indices.filter { !rowHeights.indices.contains($0) || rowHeights[$0] != heights[$0] }
+        rowHeights = heights
+        if !changed.isEmpty { outline.noteHeightOfRows(withIndexesChanged: IndexSet(changed)) }
+        outline.enumerateAvailableRowViews { v, row in self.place(v, row) }
+        placeCards()
+    }
+
     /// One click on a project's row folds or unfolds it at once, unless that click opened the workspace the row stands
     /// for. A double click renames it instead: its second click puts the fold back.
     @objc func clicked() {
