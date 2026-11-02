@@ -128,6 +128,8 @@ final class FileTab: SavableTab {
         let bar = EditorStatusBar(url: url, text: text)
         bar.contextMenu = { [app] in EditorStatusBar.menu(app) }
         bar.show(cursor: e.cursor)
+        bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
+        bar.show(wrapping: CodeEditor.wrapLines)
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
@@ -146,6 +148,7 @@ final class FileTab: SavableTab {
         track(owner: self) { app.themes.editorRevision } changed: { [weak self] _ in
             self?.editor?.refreshAppearance()
             self?.markdown?.themeChanged()
+            bar.show(wrapping: CodeEditor.wrapLines)
         }
         if focusWhenLoaded { focus() }
         changeBars = ChangeBars(app: app, path: path, editor: e) { [weak self] in self?.isEdited == true }

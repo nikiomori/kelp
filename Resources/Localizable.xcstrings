@@ -1668,6 +1668,16 @@
         }
       }
     },
+    "At the left edge, at their line's indentation, or one level past it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С левого края, с отступом строки или на уровень глубже."
+          }
+        }
+      }
+    },
     "At work": {
       "localizations": {
         "ru": {
@@ -5894,6 +5904,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вход: %@"
+          }
+        }
+      }
+    },
+    "Long lines wrap (⌥Z)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длинные строки переносятся (⌥Z)"
           }
         }
       }
@@ -11812,6 +11832,16 @@
         }
       }
     },
+    "Word Wrap": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенос строк"
+          }
+        }
+      }
+    },
     "Working": {
       "localizations": {
         "ru": {
@@ -11942,6 +11972,16 @@
         }
       }
     },
+    "Wrap": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенос"
+          }
+        }
+      }
+    },
     "Wrap Long Lines": {
       "localizations": {
         "ru": {
@@ -11959,6 +11999,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переносить длинные строки"
+          }
+        }
+      }
+    },
+    "Wrapped lines continue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжение перенесённых строк"
           }
         }
       }

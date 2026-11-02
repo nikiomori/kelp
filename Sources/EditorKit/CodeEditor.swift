@@ -128,6 +128,13 @@ public final class CodeEditor: NSObject {
         tv.layoutManager?.allowsNonContiguousLayout = true
         tv.textStorage?.delegate = self
         tv.layoutManager?.delegate = tv   // folds
+        if let old = tv.textContainer {
+            let c = WrappingContainer(size: old.size)
+            c.widthTracksTextView = old.widthTracksTextView
+            c.heightTracksTextView = old.heightTracksTextView
+            c.lineFragmentPadding = old.lineFragmentPadding
+            tv.replaceTextContainer(c)
+        }
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
     }

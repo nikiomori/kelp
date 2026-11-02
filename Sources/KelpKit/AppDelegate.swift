@@ -194,6 +194,10 @@ extension AppDelegate: NSMenuItemValidation {
         case "workbench.toggleFocusMode": item.state = main.inFocusMode ? .on : .off
         case "power.keepAwake": item.state = app.settings.string("power.keepAwake") == "always" ? .on : .off
         case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
+        // Off elsewhere, so a terminal still gets ⌥Z.
+        case "editor.toggleWordWrap":
+            item.state = app.settings.bool("editor.wordWrap") == true ? .on : .off
+            return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.reopenTab": return app.workbench.nextClosedTab != nil   // off elsewhere, so a terminal still gets the key
         case "scripts.stop": return app.scripts.canStop
         case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false

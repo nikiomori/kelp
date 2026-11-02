@@ -10,6 +10,9 @@ import KelpKit
 final class EditorStatusBar: NSView {
     private let place = NSTextField(labelWithString: "")
     private let format = NSTextField(labelWithString: "")
+    /// "Wrap" while long lines wrap: a click turns it off.
+    private let wrap = PointerButton()
+    var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
     private let indent: String
     /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
     var contextMenu: (() -> NSMenu)?
@@ -34,7 +37,12 @@ final class EditorStatusBar: NSView {
             l.lineBreakMode = .byTruncatingTail
         }
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let row = NSStackView(views: [kind, place, NSView(), format]); row.spacing = 16
+        wrap.title = String(localized: "Wrap")
+        wrap.font = .ui(11)
+        wrap.padding = Metrics.gap
+        wrap.isHidden = true
+        wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
+        let row = NSStackView(views: [kind, place, NSView(), wrap, format]); row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
@@ -51,6 +59,8 @@ final class EditorStatusBar: NSView {
     private func layoutFormat() {
         format.stringValue = ["UTF-8", editing ? indent : ""].filter { !$0.isEmpty }.joined(separator: "  ·  ")
     }
+
+    func show(wrapping: Bool) { wrap.isHidden = !wrapping }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""

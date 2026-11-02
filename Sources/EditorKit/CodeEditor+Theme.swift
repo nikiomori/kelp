@@ -18,6 +18,7 @@ extension CodeEditor {
     public static var fontName: String?
     /// Off by default, as in most editors: a long line runs past the edge and scrolls. On: it continues on the next row.
     public static var wrapLines = false
+    public static var wrappingIndent = WrappingIndent.same
 
     /// The colors in use: the palette's, else Xcode's defaults for the appearance.
     struct Look {
@@ -96,6 +97,12 @@ extension CodeEditor {
         scroll.hasHorizontalScroller = !on
         tc.containerSize = NSSize(width: on ? tv.bounds.width : CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         if on { tv.frame.size.width = scroll.contentSize.width }
+        guard let c = tc as? WrappingContainer else { return }
+        let hanging = on ? Self.wrappingIndent : .none, space = (" " as NSString).size(withAttributes: [.font: Self.font]).width
+        guard c.hanging != hanging || c.space != space else { return }
+        c.hanging = hanging
+        c.space = space
+        tv.layoutManager?.textContainerChangedGeometry(tc)
     }
 
     /// Tree-sitter capture names (their first part, or the whole for the few that differ) to colors.

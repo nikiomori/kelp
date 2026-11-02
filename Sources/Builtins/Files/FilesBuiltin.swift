@@ -33,6 +33,8 @@ extension Builtins {
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),
             s("editor.fontSize", "Font size", "number", 13, range: [8, 40]),
             s("editor.wordWrap", "Wrap long lines", "boolean", false, "On: a long line continues on the next row instead of running past the edge."),
+            s("editor.wrappingIndent", "Wrapped lines continue", "enum", "same", "At the left edge, at their line's indentation, or one level past it.",
+              options: ["none", "same", "indent"]),
             s("editor.autoSave", "Save automatically", "boolean", false,
               "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),
             s("editor.lsp", "Language servers", "boolean", true, "Completion and jump to definition."),
@@ -82,6 +84,9 @@ extension Builtins {
                       searchOption(app, "files.search.regex", "Find in Project: Regular Expression", "ctrl+opt+r", \.regex),
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
+                      },
+                      cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {
+                          app.settings.set("editor.wordWrap", .bool(app.settings.bool("editor.wordWrap") != true))
                       },
                       cmd("files.findInWorkspace", "Find in Project…", "shift+cmd+f") {
                           app.workbench.showPanel("files")

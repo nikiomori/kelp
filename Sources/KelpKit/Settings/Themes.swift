@@ -164,6 +164,7 @@ package final class ThemeManager {
                                                  lineHighlight: $0.lineHighlight) }
         let size = CGFloat(s.number("editor.fontSize") ?? 13), font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
         let wrap = s.bool("editor.wordWrap") ?? false
+        let hang = s.string("editor.wrappingIndent").flatMap(CodeEditor.WrappingIndent.init) ?? .same
         TextSize.apply(s.string("workbench.textSize"))
         TextSize.apply(design: theme?.window?.font)
         chromeText = "\(s.string("workbench.textSize") ?? "") \(theme?.window?.font ?? "")"
@@ -173,11 +174,13 @@ package final class ThemeManager {
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
         let language = s.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
-        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName || wrap != CodeEditor.wrapLines {
+        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName || wrap != CodeEditor.wrapLines
+            || hang != CodeEditor.wrappingIndent {
             CodeEditor.palette = palette
             CodeEditor.fontSize = size
             CodeEditor.fontName = font
             CodeEditor.wrapLines = wrap
+            CodeEditor.wrappingIndent = hang
             editorRevision += 1
         }
     }

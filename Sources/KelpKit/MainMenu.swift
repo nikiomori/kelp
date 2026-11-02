@@ -156,7 +156,7 @@ extension AppDelegate {
             m.keyEquivalentModifierMask = [.command, .option]
         }
         b.placed.insert("workbench.showPanel")
-        b.add(view, "-", "view.biggerText")
+        b.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
         // ⌘= enlarges too, as in Ghostty, VS Code and Safari (+ is the shifted =).
         b.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
         b.add(view, "view.smallerText", "view.defaultTextSize", "-", "terminal.splitRight", "terminal.splitDown", "agents.sideBySide",
