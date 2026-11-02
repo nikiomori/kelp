@@ -9,7 +9,7 @@ import KelpKit
 final class PortsView: NSView {
     var onOpen: ((String) -> Void)?
     private let list = NSStackView()
-    private let hint = NSTextField(wrappingLabelWithString: "")
+    private let empty = EmptyStateView()
     private var shown: [Int]?
     private let app: AppModel
 
@@ -17,20 +17,20 @@ final class PortsView: NSView {
         self.app = app; ports = Watched(.ports, in: app)
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: String(localized: "Running on This Screen")); title.font = .ui(13, weight: .semibold)
-        hint.textColor = .secondaryLabelColor; hint.font = .ui(12)
-        hint.stringValue = String(localized: "Servers you start in this screen's terminals and agents show up here. Or type an address above.")
         list.orientation = .vertical
         list.alignment = .leading
         list.spacing = 6
-        let stack = NSStackView(views: [title, list, hint])
+        let stack = NSStackView(views: [title, list])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false; addSubview(stack)
         NSLayoutConstraint.activate([stack.topAnchor.constraint(equalTo: topAnchor, constant: 40), stack.centerXAnchor.constraint(equalTo: centerXAnchor),
                                      stack.widthAnchor.constraint(lessThanOrEqualToConstant: 460),
-                                     stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40),
-                                     hint.widthAnchor.constraint(lessThanOrEqualToConstant: 460)])
+                                     stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40)])
+        servers = stack
+        empty.place(in: self)
+        showEmpty(true)
         track(owner: self) { [weak self, app] in self?.ports.key.flatMap { app.ports[$0] } } changed: { [weak self] in self?.show($0) }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -46,6 +46,13 @@ final class PortsView: NSView {
         show(wid.flatMap { app.ports[$0] })
     }
     private let ports: Watched
+    private var servers: NSView?
+
+    private func showEmpty(_ none: Bool) {
+        servers?.isHidden = none
+        empty.show(none ? String(localized: "Running on This Screen") : nil, symbol: "network",
+                   text: String(localized: "Servers you start in this screen's terminals and agents show up here. Or type an address above."))
+    }
 
     private func show(_ found: [PortsList.Port]?) {
         guard let wid = ports.key, let found else { return }
@@ -54,7 +61,7 @@ final class PortsView: NSView {
         shown = numbers
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for p in found { list.addArrangedSubview(row(p, workspace: wid)) }
-        hint.isHidden = !found.isEmpty
+        showEmpty(found.isEmpty)
     }
 
     private func row(_ p: PortsList.Port, workspace wid: String) -> NSView {
