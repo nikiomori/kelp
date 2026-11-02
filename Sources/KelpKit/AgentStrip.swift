@@ -15,6 +15,25 @@ struct StripItem: Equatable {
     var since: Date
 }
 
+/// Where the strip was put, as parts of a screen's visible area, so it survives another resolution; the middle of its foot, as it
+/// widens both ways when a pill opens. Kept per Mac: it's about this Mac's screens.
+struct StripSpot: Equatable {
+    var x: Double, y: Double
+    var display: UInt32?
+
+    private static let key = "agents.dockStrip.spot"
+    static func load() -> StripSpot? {
+        guard let d = UserDefaults.standard.dictionary(forKey: key), let x = d["x"] as? Double, let y = d["y"] as? Double else { return nil }
+        return StripSpot(x: x, y: y, display: (d["display"] as? NSNumber)?.uint32Value)
+    }
+    static func save(_ spot: StripSpot?) {
+        guard let spot else { UserDefaults.standard.removeObject(forKey: key); return }
+        var d: [String: Any] = ["x": spot.x, "y": spot.y]
+        d["display"] = spot.display
+        UserDefaults.standard.set(d, forKey: key)
+    }
+}
+
 /// What the strip shows, without a window.
 @MainActor
 enum StripModel {
@@ -59,13 +78,31 @@ enum StripModel {
         return rest.isEmpty ? words : "Allow " + rest.joined(separator: " ")
     }
 
+    /// From the screen's edge when it stands above the Dock, and from any edge wherever it was put.
+    private static let margin: CGFloat = 8
+    /// Let go this close to its place above the Dock, it goes back there.
+    private static let snap: CGFloat = 40
+
+    /// Above the Dock, or where it was put, always whole on the screen.
+    static func frame(_ size: NSSize, in area: NSRect, spot: StripSpot?) -> NSRect {
+        guard let spot else { return NSRect(x: area.midX - size.width / 2, y: area.minY + margin, width: size.width, height: size.height) }
+        let x = area.minX + spot.x * area.width - size.width / 2, y = area.minY + spot.y * area.height
+        return NSRect(x: min(max(x, area.minX + margin), area.maxX - size.width - margin),
+                      y: min(max(y, area.minY + margin), area.maxY - size.height - margin), width: size.width, height: size.height)
+    }
+
+    static func spot(of frame: NSRect, in area: NSRect, display: UInt32?) -> StripSpot? {
+        if abs(frame.midX - area.midX) < snap, frame.minY - area.minY < margin + snap { return nil }
+        return StripSpot(x: (frame.midX - area.minX) / area.width, y: (frame.minY - area.minY) / area.height, display: display)
+    }
+
     /// A question put off: it comes back as a new one when the agent's state changes.
     static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
 
 /// A strip of workspaces over the Dock, for when Kelp is behind another app: their agents at a glance, the one that asks opened
-/// into a pill, and a click answers from a card with Kelp left where it is. It sits at the foot of the visible screen and under the Dock's level:
-/// a Dock that stays reserves its room, and a hidden one slides over the strip and away.
+/// into a pill, and a click answers from a card with Kelp left where it is. It starts at the foot of the visible screen and under the Dock's level:
+/// a Dock that stays reserves its room, and a hidden one slides over the strip and away. It can be dragged anywhere.
 @MainActor
 final class AgentStrip {
     private struct State: Equatable { var items: [StripItem], mode: String?, comesFor: String?, fullScreen: Bool }
@@ -82,8 +119,9 @@ final class AgentStrip {
     private var settling: Timer?
     /// Just answered: the next question follows in the card.
     private var goesOn = false
+    private var spot = StripSpot.load()
     private var panel: StripPanel?
-    private let row = NSStackView()
+    private let row = StripRow()
     private var buttons: [String: StripButton] = [:]
     private var card: StripCard?
     private var observers: [NSObjectProtocol] = []
@@ -123,6 +161,7 @@ final class AgentStrip {
 
     var isShowing: Bool { panel?.isVisible == true }
     var frame: NSRect? { panel?.frame }
+    var panelForTests: NSPanel? { panel }
     var isOff: Bool { app.settings.string("agents.dockStrip") == "off" }
 
     /// Out of the way for a while, whatever comes meanwhile; nil brings it back now.
@@ -199,7 +238,7 @@ final class AgentStrip {
             case .left: self?.closeCard()
             }
         }
-        c.show(above: panel.frame)
+        c.show(by: panel.frame, in: panel.screen?.visibleFrame)
         card = c
     }
 
@@ -215,6 +254,7 @@ final class AgentStrip {
         m.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
         m.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
         m.addItem(.separator())
+        if spot != nil { m.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) } }
         m.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
         m.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
         return m
@@ -237,15 +277,36 @@ final class AgentStrip {
         hiddenUntil == nil && StripModel.shows(state.items, mode: state.mode, comesFor: state.comesFor, front: NSApp.isActive)
     }
 
-    /// On the screen the pointer is on when it comes up: the one being looked at, as the Dock's own can't be told.
+    /// Let go after a drag: it stays there, or goes back above the Dock if it's nearly there; a card it left behind goes.
+    func dropped() {
+        guard let panel, let screen = panel.screen else { return }
+        moved(to: StripModel.spot(of: panel.frame, in: screen.visibleFrame, display: Self.number(of: screen)))
+    }
+
+    private func moved(to place: StripSpot?) {
+        spot = place
+        StripSpot.save(place)
+        closeCard()
+        self.place(appearing: false)
+    }
+
+    private static func number(of screen: NSScreen) -> UInt32? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+    }
+
+    /// Where it was put, or else the screen the pointer is on when it comes up: the one being looked at, as the Dock's can't be told.
+    private func screen(appearing: Bool, of p: NSPanel) -> NSScreen? {
+        if let display = spot?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) { return put }
+        let mouse = NSEvent.mouseLocation
+        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen) ?? NSScreen.main
+    }
+
     private func place(appearing: Bool) {
         let p = panel ?? makePanel()
-        let mouse = NSEvent.mouseLocation
-        let screen = (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen) ?? NSScreen.main
-        guard let area = screen?.visibleFrame, let content = p.contentView else { return }
+        guard let area = screen(appearing: appearing, of: p)?.visibleFrame, let content = p.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
-        let frame = NSRect(x: area.midX - size.width / 2, y: area.minY + Metrics.gap + 2, width: size.width, height: size.height)
+        let frame = StripModel.frame(size, in: area, spot: spot)
         guard appearing else {
             NSAnimationContext.runAnimationGroup { c in
                 c.duration = Motion.duration(Motion.appear)
@@ -268,6 +329,7 @@ final class AgentStrip {
         row.spacing = 2
         row.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
         let p = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
+        p.onDropped = { [weak self] in self?.dropped() }
         panel = p
         return p
     }

@@ -7,6 +7,24 @@ import DesignKit
 final class StripPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    /// Moved by the pointer, and let go.
+    var onDropped: (() -> Void)?
+    /// What a hand trembles by: less than this is a click.
+    private static let dragFrom: CGFloat = 4
+
+    /// Follows the pointer until the button is let go; says if it went anywhere, as if not this was a click.
+    func drag() -> Bool {
+        let start = frame.origin, from = NSEvent.mouseLocation
+        var moved = false
+        while let e = nextEvent(matching: [.leftMouseUp, .leftMouseDragged]), e.type == .leftMouseDragged {
+            let at = NSEvent.mouseLocation, dx = at.x - from.x, dy = at.y - from.y
+            moved = moved || hypot(dx, dy) >= Self.dragFrom
+            if moved { setFrameOrigin(NSPoint(x: start.x + dx, y: start.y + dy)) }
+        }
+        if moved { onDropped?() }
+        return moved
+    }
+
     static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
         let p = StripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isOpaque = false
@@ -36,6 +54,12 @@ final class StripPanel: NSPanel {
         }
         return FloatingCard(content, radius: radius)
     }
+}
+
+/// The strip's own ground, between its tiles: it moves the strip too.
+final class StripRow: NSStackView {
+    override func mouseDown(with event: NSEvent) { _ = (window as? StripPanel)?.drag() }
+    override var mouseDownCanMoveWindow: Bool { false }
 }
 
 /// A workspace on the strip: its project's tile with its state in the corner, and in a pill what its agent asks.
@@ -124,6 +148,16 @@ final class StripButton: PointerControl {
     }
 
     override func clicked() { onClick?() }
+    /// A tile is most of the strip, so a drag from one moves it; held still and let go, it's a click.
+    override func mouseDown(with event: NSEvent) {
+        guard let panel = window as? StripPanel else { return super.mouseDown(with: event) }
+        fadeBackground(to: .fillSelected, held: true)
+        let moved = panel.drag()
+        refreshPointer()
+        guard !moved else { return }
+        pressBounce()
+        clicked()
+    }
     override func menu(for event: NSEvent) -> NSMenu? { onMenu?() }
     /// Kelp is behind and stays there: the first click is the click, and the pointer answers with it inactive.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -260,11 +294,16 @@ final class StripCard {
         onEnd(.answered)
     }
 
-    func show(above strip: NSRect) {
+    /// Over the strip, or under it when that's where the room is, as the strip can be put at the top of a screen.
+    func show(by strip: NSRect, in area: NSRect?) {
         guard let p = panel, let content = p.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let size = content.fittingSize
-        let frame = NSRect(x: strip.midX - size.width / 2, y: strip.maxY + Metrics.gapWide, width: size.width, height: size.height)
+        var frame = NSRect(x: strip.midX - size.width / 2, y: strip.maxY + Metrics.gapWide, width: size.width, height: size.height)
+        if let area {
+            if frame.maxY > area.maxY { frame.origin.y = strip.minY - Metrics.gapWide - size.height }
+            frame.origin.x = min(max(frame.minX, area.minX + Metrics.gapWide), area.maxX - size.width - Metrics.gapWide)
+        }
         p.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : -8), display: false)
         p.alphaValue = 0
         p.orderFrontRegardless()

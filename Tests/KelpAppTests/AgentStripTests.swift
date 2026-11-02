@@ -105,3 +105,55 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     #expect(StripModel.brief("Allow A=1?") == "Allow A=1?")   // nothing else to say
     #expect(StripModel.brief("Which layout, a=1 or b=2?") == "Which layout, a=1 or b=2?")   // a question, not a command
 }
+
+private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
+
+@MainActor @Test func theStripStandsAboveTheDockUntilItIsPut() {
+    let f = StripModel.frame(NSSize(width: 200, height: 40), in: screenArea, spot: nil)
+    #expect(f.midX == 1000 && f.minY == 8)
+}
+
+@MainActor @Test func aStripPutSomewhereStaysThereAndWidensAroundIt() throws {
+    let at = NSRect(x: 300, y: 600, width: 100, height: 40)
+    let spot = try #require(StripModel.spot(of: at, in: screenArea, display: 1))
+    #expect(StripModel.frame(at.size, in: screenArea, spot: spot) == at)
+    let wide = StripModel.frame(NSSize(width: 300, height: 40), in: screenArea, spot: spot)   // a pill opened
+    #expect(wide.midX == at.midX && wide.minY == at.minY)
+}
+
+@MainActor @Test func aStripLetGoNearItsPlaceGoesBackAboveTheDock() {
+    #expect(StripModel.spot(of: NSRect(x: 920, y: 30, width: 200, height: 40), in: screenArea, display: 1) == nil)
+    #expect(StripModel.spot(of: NSRect(x: 600, y: 30, width: 200, height: 40), in: screenArea, display: 1) != nil)
+}
+
+@MainActor @Test func aStripIsAlwaysWholeOnTheScreen() {
+    let corner = StripSpot(x: 0.99, y: 0.99, display: nil)
+    let f = StripModel.frame(NSSize(width: 400, height: 40), in: screenArea, spot: corner)
+    #expect(screenArea.contains(f))
+    let smaller = NSRect(x: 0, y: 0, width: 1000, height: 700)   // put on a bigger screen, seen on a smaller one
+    #expect(smaller.contains(StripModel.frame(NSSize(width: 400, height: 40), in: smaller, spot: corner)))
+}
+
+@MainActor @Test func aDroppedStripKeepsItsPlaceAndAPillOpensAroundIt() async throws {
+    let rig = try await AppRig()
+    _ = NSApplication.shared
+    let strip = AgentStrip(app: rig.app)
+    defer { StripSpot.save(nil) }
+    strip.start()
+    rig.app.sessions = [session(rig.workspace.id, .working)]
+    for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    try await Task.sleep(for: .milliseconds(400))
+    let area = try #require(NSScreen.main?.visibleFrame)
+    let target = NSPoint(x: area.minX + 200, y: area.minY + 300)
+    strip.panelForTests?.setFrameOrigin(target)
+    strip.dropped()
+    try await Task.sleep(for: .milliseconds(500))
+    let tile = try #require(strip.frame)
+    #expect(abs(tile.minX - target.x) < 1 && abs(tile.minY - target.y) < 1)
+    #expect(StripSpot.load() != nil)
+    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
+    try await Task.sleep(for: .milliseconds(700))
+    let pill = try #require(strip.frame)
+    #expect(pill.width > tile.width)
+    #expect(abs(pill.midX - tile.midX) < 1 && abs(pill.minY - tile.minY) < 1)
+}

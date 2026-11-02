@@ -6899,6 +6899,16 @@
         }
       }
     },
+    "Move Back Above the Dock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть к Доку"
+          }
+        }
+      }
+    },
     "Move to": {
       "localizations": {
         "ru": {
