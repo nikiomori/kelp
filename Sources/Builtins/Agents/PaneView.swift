@@ -13,10 +13,13 @@ final class PaneView: NSView {
     let app: AppModel
     /// None once it let go of its attach (`letGo`), until it's shown again.
     private var ghostty: GhosttyTerminalView?
-    private let ended = NSStackView()
-    private lazy var endedCard = FloatingCard(ended)
     private let endedLabel = NSTextField(labelWithString: String(localized: "Session ended"))
     private let restartButton = NSButton()
+    /// Under the output, which it must not cover: that the session stopped, and what to do about it. No height while it runs.
+    private lazy var endedBar = Bar.foot([endedLabel], [restartButton, closeButton])
+    private lazy var closeButton = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeTapped))
+    private let endedSlot = NSView()
+    private lazy var endedHeight = endedSlot.heightAnchor.constraint(equalToConstant: 0)
     /// Under the terminal: what an agent's shell tool ran.
     private let commands: CommandsBar
     /// Over the terminal's foot, made the first time a plan limit stops this agent.
@@ -42,10 +45,8 @@ final class PaneView: NSView {
         commands.translatesAutoresizingMaskIntoConstraints = false; addSubview(commands)
         NSLayoutConstraint.activate([commands.leadingAnchor.constraint(equalTo: leadingAnchor), commands.trailingAnchor.constraint(equalTo: trailingAnchor),
                                      commands.bottomAnchor.constraint(equalTo: bottomAnchor)])
+        buildEndedBar()
         buildTerminal(session)
-        buildEndedOverlay()
-        endedCard.translatesAutoresizingMaskIntoConstraints = false; addSubview(endedCard)
-        NSLayoutConstraint.activate([endedCard.centerXAnchor.constraint(equalTo: centerXAnchor), endedCard.centerYAnchor.constraint(equalTo: centerYAnchor)])
         registerForDraggedTypes([.fileURL, .png, .tiff, .string])
         update(session)
         track(owner: self) { [app] in app.connections } changed: { [weak self] _ in self?.settle() }
@@ -66,7 +67,7 @@ final class PaneView: NSView {
         g.translatesAutoresizingMaskIntoConstraints = false
         addSubview(g, positioned: .below, relativeTo: nil)
         NSLayoutConstraint.activate([g.topAnchor.constraint(equalTo: topAnchor), g.leadingAnchor.constraint(equalTo: leadingAnchor),
-                                     g.trailingAnchor.constraint(equalTo: trailingAnchor), g.bottomAnchor.constraint(equalTo: commands.topAnchor)])
+                                     g.trailingAnchor.constraint(equalTo: trailingAnchor), g.bottomAnchor.constraint(equalTo: endedSlot.topAnchor)])
         g.onExit = { [weak self] in self?.attached = false; self?.settle() }
         g.onSearch = { [weak self] in self?.searchEvent($0) }
         // Paths the agent prints are its folder's: its own worktree once it went into one.
@@ -81,20 +82,20 @@ final class PaneView: NSView {
         }
     }
 
-    private func buildEndedOverlay() {
-        let l = endedLabel
-        l.font = .ui(13, weight: .semibold)
-        let b = restartButton
-        b.title = String(localized: "Restart")
-        b.target = self
-        b.action = #selector(restartTapped)
-        b.bezelStyle = .push
-        let c = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeTapped)); c.bezelStyle = .push
-        let buttons = NSStackView(views: [b, c]); buttons.spacing = 8
-        ended.orientation = .vertical; ended.spacing = Metrics.gapWide
-        [l, buttons].forEach { ended.addArrangedSubview($0) }
-        ended.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
-        endedCard.isHidden = true
+    private func buildEndedBar() {
+        endedLabel.font = .ui(12, weight: .semibold)
+        restartButton.title = String(localized: "Restart")
+        restartButton.target = self
+        restartButton.action = #selector(restartTapped)
+        for b in [restartButton, closeButton] { b.bezelStyle = .push; b.controlSize = .small }
+        endedSlot.clipsToBounds = true
+        for v in [endedSlot, endedBar] { v.translatesAutoresizingMaskIntoConstraints = false }
+        addSubview(endedSlot); endedSlot.addSubview(endedBar)
+        NSLayoutConstraint.activate([endedHeight, endedSlot.bottomAnchor.constraint(equalTo: commands.topAnchor),
+                                     endedSlot.leadingAnchor.constraint(equalTo: leadingAnchor), endedSlot.trailingAnchor.constraint(equalTo: trailingAnchor),
+                                     endedBar.topAnchor.constraint(equalTo: endedSlot.topAnchor),
+                                     endedBar.leadingAnchor.constraint(equalTo: endedSlot.leadingAnchor),
+                                     endedBar.trailingAnchor.constraint(equalTo: endedSlot.trailingAnchor)])
     }
 
     /// A new connection may be a new daemon (an update, Restart Background Service, a crash), whose session this stream
@@ -110,9 +111,11 @@ final class PaneView: NSView {
         lastStatus = s?.status
         if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached { reattach(s) }
         let paused = !attached && s?.status == .hibernated
-        let wasHidden = endedCard.isHidden
-        endedCard.isHidden = attached && s?.status != .exited
-        if wasHidden, !endedCard.isHidden { endedCard.comeIn() }
+        let stopped = !attached || s?.status == .exited
+        if stopped != (endedHeight.constant > 0) {
+            endedHeight.constant = stopped ? endedBar.fittingSize.height : 0
+            if stopped { endedBar.comeIn() }
+        }
         // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
         let lost = s?.connectionLost == true
         endedLabel.stringValue = paused ? String(localized: "Paused") : lost ? String(localized: "Connection lost") : String(localized: "Session ended")
@@ -196,7 +199,7 @@ final class PaneView: NSView {
         strip.translatesAutoresizingMaskIntoConstraints = false; addSubview(strip)
         NSLayoutConstraint.activate([strip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gapWide * 1.5),
                                      strip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide * 1.5),
-                                     strip.bottomAnchor.constraint(equalTo: commands.topAnchor, constant: -Metrics.gapWide * 1.5)])
+                                     strip.bottomAnchor.constraint(equalTo: endedSlot.topAnchor, constant: -Metrics.gapWide * 1.5)])
     }
 
     func focus() { ghostty?.focus() }
