@@ -44,6 +44,11 @@ public enum CIRuns {
         public var finished: Bool { status == "completed" }
         /// Seconds this try took, or has taken so far.
         public func seconds(now: Date = Date()) -> Double? { CIRuns.seconds(from: began, to: finished ? updatedAt : nil, now: now) }
+        /// The commit's page on the forge, from the run's own: ".../actions/runs/1" → ".../commit/<sha>".
+        public var commitURL: String? {
+            guard let sha, let cut = url.range(of: "/actions/runs/") ?? url.range(of: "/-/pipelines/") else { return nil }
+            return url[..<cut.lowerBound] + (cut.lowerBound < url.endIndex && url[cut].hasPrefix("/-/") ? "/-/commit/" : "/commit/") + sha
+        }
         /// Seven characters, as git shows it.
         public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
     }

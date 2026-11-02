@@ -22,7 +22,7 @@ private let fakeGh: (log: String, script: String) = {
                     *) printf 'step 1\\nstep 2 failed\\n';;
                   esac;;
       "run list") echo '[{"databaseId":99,"displayTitle":"Add login","workflowName":"CI","status":"completed","conclusion":"failure","event":"push","url":"https://github.com/o/r/actions/runs/99","createdAt":"2026-10-20T10:00:00Z"}]';;
-      "run rerun"|"workflow run"|"pr merge") ;;
+      "run rerun"|"run cancel"|"workflow run"|"pr merge") ;;
       "pr create") echo "Creating pull request"; echo "https://github.com/o/r/pull/8";;
       "repo view") echo '{"owner":{"id":"O_1","login":"acme"}}';;
       "project list") echo '{"projects":[{"closed":false,"id":"PVT_1","number":3,"owner":{"login":"acme"},"title":"Roadmap","url":"https://github.com/orgs/acme/projects/3"}],"totalCount":1}';;
@@ -108,6 +108,11 @@ private func rig() async throws -> World { _ = fakeGh; return try await world() 
     #expect(report["log"]?.string?.contains("error: boom") == true)
     _ = try await r.c.call("ci.rerun", .obj(["worktreeId": .string(wt.id), "run": 99]))
     #expect(calls().contains("run rerun 99 --failed"))
+    _ = try await r.c.call("ci.rerunAll", .obj(["worktreeId": .string(wt.id), "run": 99]))
+    _ = try await r.c.call("ci.rerunJob", .obj(["worktreeId": .string(wt.id), "job": 5]))
+    _ = try await r.c.call("ci.cancel", .obj(["worktreeId": .string(wt.id), "run": 99]))
+    #expect(calls().contains("run rerun 99"))
+    #expect(calls().contains("run rerun --job 5") && calls().contains("run cancel 99"))
     _ = try await r.c.call("ci.dispatch", .obj(["worktreeId": .string(wt.id), "workflow": "ci.yml", "branch": "feat/x", "inputs": .object(["b": "2", "a": "1"])]))
     #expect(calls().contains("workflow run --ref feat/x -f a=1 -f b=2 -- ci.yml"))   // inputs in a stable order
     // The repository names its workflow files: one that reads as an option stays a name.

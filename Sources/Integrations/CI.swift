@@ -89,6 +89,22 @@ extension CIRuns {
         try GitHub.gh(["run", "rerun", String(run), "--failed"], cwd: cwd)
     }
 
+    /// Limit: GitLab's retry takes the failed jobs only.
+    public static func rerunAll(cwd: String, run: Int) throws {
+        if GitLab.isGitLab(cwd: cwd) { return try rerunFailed(cwd: cwd, run: run) }
+        try GitHub.gh(["run", "rerun", String(run)], cwd: cwd)
+    }
+
+    public static func rerunJob(cwd: String, job: Int) throws {
+        if GitLab.isGitLab(cwd: cwd) { _ = try GitLab.api("projects/:id/jobs/\(job)/retry", cwd: cwd, method: "POST"); return }
+        try GitHub.gh(["run", "rerun", "--job", String(job)], cwd: cwd)
+    }
+
+    public static func cancel(cwd: String, run: Int) throws {
+        if GitLab.isGitLab(cwd: cwd) { _ = try GitLab.api("projects/:id/pipelines/\(run)/cancel", cwd: cwd, method: "POST"); return }
+        try GitHub.gh(["run", "cancel", String(run)], cwd: cwd)
+    }
+
     /// `workflow` is a file name from the repository: after `--`, so one named "-F….yml" is a name, not an option.
     public static func dispatch(cwd: String, workflow: String, branch: String, inputs: [String: String]) throws {
         let fields = inputs.sorted { $0.key < $1.key }.flatMap { ["-f", "\($0.key)=\($0.value)"] }

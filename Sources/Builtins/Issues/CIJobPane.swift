@@ -11,8 +11,10 @@ final class CIJobPane: NSObject {
     let view = NSStackView()
     /// The job on show and its run.
     private(set) var shown: (job: CIRuns.Job, run: Int)?
-    /// After Re-run: the runs are worth reading again.
-    var onRerun: (() -> Void)?
+    /// After an action: the runs are worth reading again.
+    var onChange: (() -> Void)?
+    /// The job's run, for Cancel while it runs.
+    var runOf: ((Int) -> CIRuns.Run?)?
 
     private let app: AppModel
     private var worktree: String?
@@ -25,9 +27,13 @@ final class CIJobPane: NSObject {
     private lazy var copyButton = IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy")) { [weak self] in self?.copy() }
     private lazy var askButton = IconButton(.symbol("sparkles"), tip: String(localized: "Ask Agent to Fix")) { [weak self] in self?.askAgent() }
     private lazy var rerunButton = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Re-run Failed")) { [weak self] in self?.rerun() }
+    private lazy var stopButton = IconButton(.symbol("stop.circle"), tip: String(localized: "Cancel Run…")) { [weak self] in
+        if let self, let j = shown, let run = runOf?(j.run) { actions?.cancel(run) }
+    }
     private lazy var webButton = IconButton(.symbol("globe"), tip: String(localized: "Open in Browser")) { [weak self] in
         if let u = self?.shown?.job.url { Forge.open(u) }
     }
+    private var actions: CIActions? { worktree.map { CIActions(app: app, worktree: $0) { [weak self] in self?.onChange?() } } }
 
     init(app: AppModel) {
         self.app = app
@@ -54,7 +60,7 @@ final class CIJobPane: NSObject {
         failures.onFix = { [weak self] in self?.fix($0) }
         view.orientation = .vertical
         view.spacing = 0
-        view.setViews([Bar.content([mode, title], [copyButton, askButton, rerunButton, webButton]), logScroll, failures], in: .top)
+        view.setViews([Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, webButton]), logScroll, failures], in: .top)
         for v in [logScroll, failures] { v.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
     }
 
@@ -99,6 +105,8 @@ final class CIJobPane: NSObject {
         mode.isHidden = !why
         askButton.isHidden = !failed
         rerunButton.isHidden = !failed
+        stopButton.isHidden = shown?.job.status == "completed"
+        copyButton.isHidden = shown?.job.status != "completed"
         title.isHidden = why
         title.stringValue = shown?.job.name ?? ""
         let showFailure = why && mode.selectedSegment == 0
@@ -116,29 +124,16 @@ final class CIJobPane: NSObject {
     }
 
     private func askAgent() {
-        guard let j = shown, let worktree, hasAgent else { return }
+        guard let j = shown, let worktree, actions?.hasAgent == true else { return }
         GitFix(app).send("fixCI", worktree: worktree, vars: ["check": j.job.name, "error": report?.forAgent ?? log.string])
     }
 
     private func fix(_ f: CIRuns.Failure) {
-        guard let j = shown, let worktree, hasAgent else { return }
+        guard let j = shown, let worktree, actions?.hasAgent == true else { return }
         GitFix(app).send("fixCI", worktree: worktree, vars: ["check": j.job.name, "error": CIRuns.Report.text(of: [f])])
     }
 
-    private var hasAgent: Bool {
-        if FileActions(app).targetAgent != nil { return true }
-        Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)
-        return false
-    }
-
-    private func rerun() {
-        guard let worktree, let j = shown else { return }
-        Task {
-            if await app.call(CIRerun(worktreeId: worktree, run: j.run)) != nil {
-                Banner.show(String(localized: "Re-running the failed jobs")); onRerun?()
-            }
-        }
-    }
+    private func rerun() { if let j = shown { actions?.rerunFailed(j.run) } }
 
     /// The project's copy of the file, which can differ from the commit the run tested: the line is the run's.
     private func open(_ f: CIRuns.Failure) {

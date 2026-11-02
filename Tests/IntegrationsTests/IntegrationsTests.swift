@@ -338,6 +338,10 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     r.status = "in_progress"; r.updatedAt = nil
     #expect(r.seconds(now: CIRuns.date("2026-11-02T10:46:38Z") ?? .distantPast) == 60)
     #expect(CIRuns.date("2026-11-02T10:45:38.123Z") != nil && CIRuns.seconds(from: nil, to: nil) == nil)
+    r.sha = "abc"; r.url = "https://github.com/o/a/actions/runs/1"
+    #expect(r.commitURL == "https://github.com/o/a/commit/abc")
+    r.url = "https://gitlab.com/o/a/-/pipelines/1"
+    #expect(r.commitURL == "https://gitlab.com/o/a/-/commit/abc")
     #expect(CIRuns.Run(id: 1, title: "", workflow: "", status: "", conclusion: nil, event: "", url: "", createdAt: "x", sha: "2f2111f0aa").shortSHA == "2f2111f")
 }
 

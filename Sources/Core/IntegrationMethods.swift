@@ -131,6 +131,24 @@ public struct CIRerun: RPCMethod {
     public var worktreeId: String, run: Int?
     public init(worktreeId: String, run: Int?) { self.worktreeId = worktreeId; self.run = run }
 }
+/// Runs every job of `run` again, not only those that failed.
+public struct CIRerunAll: RPCMethod {
+    public static let name = "ci.rerunAll"; public typealias Result = Done
+    public var worktreeId: String, run: Int?
+    public init(worktreeId: String, run: Int?) { self.worktreeId = worktreeId; self.run = run }
+}
+/// Runs `job` again, with what it depends on.
+public struct CIRerunJob: RPCMethod {
+    public static let name = "ci.rerunJob"; public typealias Result = Done
+    public var worktreeId: String, job: Int?
+    public init(worktreeId: String, job: Int?) { self.worktreeId = worktreeId; self.job = job }
+}
+/// Stops `run`.
+public struct CIRunCancel: RPCMethod {
+    public static let name = "ci.cancel"; public typealias Result = Done
+    public var worktreeId: String, run: Int?
+    public init(worktreeId: String, run: Int?) { self.worktreeId = worktreeId; self.run = run }
+}
 /// Starts `workflow` on `branch`, with `inputs` if it takes any.
 public struct CIDispatch: RPCMethod {
     public static let name = "ci.dispatch"; public typealias Result = Done

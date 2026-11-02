@@ -48,7 +48,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var pages: GitWebPages.Pages?
     private lazy var jobPane: CIJobPane = {
         let p = CIJobPane(app: app)
-        p.onRerun = { [weak self] in self?.reload() }
+        p.onChange = { [weak self] in self?.reload() }
+        p.runOf = { [weak self] id in self?.run(id) }
         return p
     }()
     /// The log's half of the split, shown once a job is picked: empty, it took most of the height and left the runs a strip.
@@ -257,13 +258,11 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     // MARK: actions
 
-    private func rerun(_ w: String, run: Int) {
-        Task {
-            if await app.call(CIRerun(worktreeId: w, run: run)) != nil {
-                Banner.show(String(localized: "Re-running the failed jobs")); reload()
-            }
-        }
+    private func run(_ id: Int) -> CIRuns.Run? {
+        runs.lazy.compactMap { if case .run(let r) = $0.kind, r.id == id { r } else { nil } }.first
     }
+
+    private func actions(_ w: String) -> CIActions { CIActions(app: app, worktree: w) { [weak self] in self?.reload() } }
 
     @objc private func runWorkflow() {
         let m = NSMenu()
@@ -379,11 +378,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         let seconds = f.steps.compactMap { $0.seconds() }.reduce(0, +)
         switch f {
         case .passed:
-            return row(CIRunLook.mark("completed", "success"), String(localized: "\(n) steps passed"), font: .ui(11), color: .secondaryLabelColor, right: ciSpan(seconds))
+            let done = String(localized: "\(n) steps passed")
+            return row(CIRunLook.mark("completed", "success"), done, font: .ui(11), color: .secondaryLabelColor, right: ciSpan(seconds))
         case .skipped:
-            return row(CIRunLook.mark("completed", "skipped"), String(localized: "\(n) steps skipped"), font: .ui(11), color: .tertiaryLabelColor, right: nil)
+            let skipped = String(localized: "\(n) steps skipped")
+            return row(CIRunLook.mark("completed", "skipped"), skipped, font: .ui(11), color: .tertiaryLabelColor, right: nil)
         case .upcoming, .one:
-            return row(CIRunLook.mark("queued", nil), String(localized: "\(n) steps to go"), font: .ui(11), color: .tertiaryLabelColor, right: nil)
+            let left = String(localized: "\(n) steps to go")
+            return row(CIRunLook.mark("queued", nil), left, font: .ui(11), color: .tertiaryLabelColor, right: nil)
         }
     }
 
@@ -416,20 +418,54 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 }
 
 extension CIRunsController {
-    /// Right-click a run or a job: its page on the site, and Re-run Failed for a failed run.
+    /// Right-click: what can be done to this run, job or step now.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
+        guard let item = outline.item(atRow: outline.clickedRow) as? Item, let w = worktree else { return }
+        let act = actions(w)
         switch item.kind {
-        case .run(let r):
-            if r.failed, let w = worktree {
-                menu.add(String(localized: "Fix with Agent")) { [weak self] in self?.fix(r, in: w) }
-                menu.add(String(localized: "Re-run Failed")) { [weak self] in self?.rerun(w, run: r.id) }
+        case .run(let r): addRun(r, act, to: menu)
+        case .job(let j, _):
+            if j.failed { menu.add(String(localized: "Fix with Agent")) { act.fix(j) } }
+            if j.status == "completed" { menu.add(String(localized: "Re-run This Job")) { act.rerunJob(j.id) } }
+            if menu.numberOfItems > 0 { menu.addItem(.separator()) }
+            if let u = j.url { addLink(menu, u) }
+        case .step(let s):
+            if let u = jobURL(of: item), let n = s.number {
+                menu.add(String(localized: "Open in Browser")) { Forge.open("\(u)#step:\(n):1") }
+                menu.addItem(.separator())
             }
-            addLink(menu, r.url)
-        case .job(let j, _): if let u = j.url { addLink(menu, u) }
-        case .step, .fold: break
+            menu.add(String(localized: "Copy Step Name")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(s.name, forType: .string)
+            }
+        case .fold: break
         }
+    }
+
+    private func addRun(_ r: CIRuns.Run, _ act: CIActions, to menu: NSMenu) {
+        if r.failed {
+            menu.add(String(localized: "Fix with Agent")) { [weak self] in self?.fix(r, in: act.worktree) }
+            menu.add(String(localized: "Re-run Failed")) { act.rerunFailed(r.id) }
+        }
+        if r.finished {
+            menu.add(String(localized: "Re-run All")) { act.rerunAll(r.id) }
+        } else {
+            menu.add(String(localized: "Cancel Run…")) { act.cancel(r) }
+        }
+        menu.addItem(.separator())
+        if r.sha != nil { menu.add(String(localized: "Show Commit")) { act.showCommit(r) } }
+        addLink(menu, r.url)
+    }
+
+    /// The job a step belongs to, past the fold it may sit in.
+    private func jobURL(of item: Item) -> String? {
+        var up = outline.parent(forItem: item) as? Item
+        while let i = up {
+            if case .job(let j, _) = i.kind { return j.url }
+            up = outline.parent(forItem: i) as? Item
+        }
+        return nil
     }
 
     private func addLink(_ menu: NSMenu, _ url: String) {
