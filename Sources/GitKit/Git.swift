@@ -47,6 +47,7 @@ extension Git {
         // timeLimit: longest a git / gh / ssh run may take before it's stopped (it then fails like any other error). Five
         // minutes: far past any real fetch or push, short of a thread lost for good.
         var args = args, executable = executable, cwd = cwd
+        var off: [(String, String)] = []
         if executable == "/usr/bin/git" {
             // Paths as they are, not C-quoted ("\321\204…" for "ф"). No fsmonitor: a folder's own .git/config (one that
             // came in a download, not a clone) would otherwise have every status Kelp runs start its program.
@@ -57,7 +58,8 @@ extension Git {
             }
             // Reads verify no signature either: a repo's `log.showSignature` would run its own `gpg.program` on every log.
             if let sub = args.dropFirst(4).first, readOnly.contains(sub) {
-                args = Self.noSignatures + (remote == nil ? RepoFilters.off(cwd) : []) + args
+                args = Self.noSignatures + args
+                if remote == nil { off = RepoFilters.off(cwd) }
             }
             if let r = remote {   // a remote project: the same git, on its host
                 args = r.sshArgs(tty: false) + ["cd \(RemoteHost.cdArg(r.path)) && git " + args.map(RemoteHost.quote).joined(separator: " ")]
@@ -68,12 +70,9 @@ extension Git {
         env["GIT_TERMINAL_PROMPT"] = "0"; env["LC_ALL"] = "C"
         env["GIT_OPTIONAL_LOCKS"] = "0"   // a status doesn't rewrite the index (which would wake the file watchers again)
         // gh and glab run git themselves: no fsmonitor and no signature program of a repo's own there either.
-        if executable != "/usr/bin/git", env["GIT_CONFIG_COUNT"] == nil {
-            let pairs = [("core.fsmonitor", "false"), ("log.showSignature", "false")]
-            env["GIT_CONFIG_COUNT"] = String(pairs.count)
-            for (i, (k, v)) in pairs.enumerated() { env["GIT_CONFIG_KEY_\(i)"] = k; env["GIT_CONFIG_VALUE_\(i)"] = v }
-        }
+        if executable != "/usr/bin/git" { off = [("core.fsmonitor", "false"), ("log.showSignature", "false")] }
         env.merge(extra) { $1 }
+        env.merge(configEnv(off, after: env)) { $1 }
         // A host that drops packets or a credential helper waiting on nobody is stopped at the time limit, with its children.
         let r = try Subprocess.run([executable] + args, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
         guard ok.contains(r.status), !r.timedOut else {
@@ -85,6 +84,19 @@ extension Git {
     /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
     static let noSignatures = ["-c", "log.showSignature=false", "-c", "gpg.program=false", "-c", "gpg.ssh.program=false", "-c", "gpg.x509.program=false"]
     static let readOnly: Set<String> = ["status", "diff", "show", "log", "blame", "ls-files", "grep", "diff-files", "diff-index"]
+
+    /// Config for one run, after what `env` holds already. Unlike `-c`, it takes any key: a filter can be called `a=b`, and
+    /// `-c` would split that at its first `=`. A submodule's git still gets it.
+    static func configEnv(_ pairs: [(String, String)], after env: [String: String]) -> [String: String] {
+        guard !pairs.isEmpty else { return [:] }
+        let start = Int(env["GIT_CONFIG_COUNT"] ?? "") ?? 0
+        var out = ["GIT_CONFIG_COUNT": String(start + pairs.count)]
+        for (i, (k, v)) in pairs.enumerated() {
+            out["GIT_CONFIG_KEY_\(start + i)"] = k
+            out["GIT_CONFIG_VALUE_\(start + i)"] = v
+        }
+        return out
+    }
 
     /// `d` up to its last `separator`, inclusive: the whole entries of output cut off mid-entry.
     static func wholeEntries(_ d: Data, _ separator: UInt8) -> Data { d.lastIndex(of: separator).map { d[...$0] } ?? Data() }
@@ -143,18 +155,27 @@ extension RemoteHost {
 
 /// Filter drivers a repository's own config defines (`filter.<name>.clean` / `process` in .git/config, an include of it, or
 /// config.worktree). A folder that came as a download, not a clone, can carry one with `.gitattributes`, and every
-/// `git status` Kelp runs as files change would start it. Reads turn them off; what the user does (add, commit, checkout)
-/// keeps them, so git-crypt and the like still encrypt. Filters from the user's own (global) config are left alone.
+/// `git status` Kelp runs as files change would start it. Reads and Kelp's snapshots turn them off; what the user does (add,
+/// commit, checkout) keeps them, so git-crypt and the like still encrypt. Filters from the user's own (global) config are left alone.
 /// Limit: with its filter off, a file whose stat changed reads as modified in a git-crypt-style repo until it's added.
 enum RepoFilters {
     /// By config file: the names, and the stamp of every file they were read from (the config and what it includes).
     private static let cache = OSAllocatedUnfairLock<[String: (stamps: [String: Date], names: [String])]>(initialState: [:])
 
-    /// `-c` arguments that turn them off for one run in `cwd`.
-    static func off(_ cwd: String) -> [String] {
+    /// The config that turns them off for one run in `cwd` (`Git.configEnv`).
+    static func off(_ cwd: String) -> [(String, String)] {
         names(cwd).flatMap { n in
-            ["clean=", "smudge=", "process=", "required=false"].flatMap { ["-c", "filter.\(n).\($0)"] }
+            [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map { ("filter.\(n).\($0)", $1) }
         }
+    }
+
+    /// The filter a config key is about, if it's one that runs something. Split from the ends: a filter's name can hold
+    /// dots, spaces and `=`.
+    static func name(ofKey key: Substring) -> String? {
+        guard key.hasPrefix("filter."), let dot = key.lastIndex(of: "."),
+              ["clean", "smudge", "process"].contains(key[key.index(after: dot)...]) else { return nil }
+        let start = key.index(key.startIndex, offsetBy: 7)
+        return start < dot ? String(key[start..<dot]) : nil
     }
 
     /// Read again only when the repository's config, or a file it includes, changed (their stamps); every run when it
@@ -177,11 +198,10 @@ enum RepoFilters {
         let files = all.filter { $0.lastPathComponent == "config" }.map(\.path)
         var names = Set<String>()
         for f in files {
-            let args = ["/usr/bin/git", "config", "--file", f, "--includes", "--get-regexp", #"^filter\..*\.(clean|smudge|process)$"#]
+            let args = ["/usr/bin/git", "config", "-z", "--file", f, "--includes", "--get-regexp", #"^filter\..*\.(clean|smudge|process)$"#]
             guard let r = try? Subprocess.run(args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20) else { continue }
-            for line in String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline) {
-                let parts = (line.split(separator: " ").first ?? "").split(separator: ".")
-                if parts.count >= 3 { names.insert(parts.dropFirst().dropLast().joined(separator: ".")) }
+            for entry in String(decoding: r.stdout, as: UTF8.self).split(separator: "\0") {   // "key\nvalue"
+                if let n = name(ofKey: entry.prefix { $0 != "\n" }) { names.insert(n) }
             }
         }
         return (Array(names), files)
@@ -191,18 +211,14 @@ enum RepoFilters {
 
     /// The repository's own filter names, and the files its config was read from (includes followed).
     private static func read(_ cwd: String) -> (names: [String], files: [String]) {
-        let args = ["/usr/bin/git", "-c", "core.fsmonitor=false", "config", "--show-scope", "--show-origin", "--list"]
+        let args = ["/usr/bin/git", "-c", "core.fsmonitor=false", "config", "-z", "--show-scope", "--show-origin", "--list"]
         guard let r = try? Subprocess.run(args, cwd: cwd, env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20) else { return ([], []) }
         var names = Set<String>(), files = Set<String>()
-        for line in String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline) {
-            // "local<TAB>file:.git/config<TAB>filter.x.clean=cmd"
-            let f = line.split(separator: "\t", maxSplits: 2)
-            guard f.count == 3, f[0] == "local" || f[0] == "worktree" else { continue }
-            if f[1].hasPrefix("file:") { files.insert(String(f[1].dropFirst(5))) }
-            let parts = (f[2].split(separator: "=", maxSplits: 1).first ?? "").split(separator: ".")
-            if parts.count >= 3, parts.first == "filter", ["clean", "smudge", "process"].contains(parts.last ?? "") {
-                names.insert(parts.dropFirst().dropLast().joined(separator: "."))
-            }
+        // Scope, origin and "key\nvalue", each ended by a NUL: nothing a name holds can pass for the next field.
+        let fields = String(decoding: r.stdout, as: UTF8.self).split(separator: "\0", omittingEmptySubsequences: false)
+        for i in stride(from: 0, to: fields.count - 2, by: 3) where fields[i] == "local" || fields[i] == "worktree" {
+            if fields[i + 1].hasPrefix("file:") { files.insert(String(fields[i + 1].dropFirst(5))) }
+            if let n = name(ofKey: fields[i + 2].prefix { $0 != "\n" }) { names.insert(n) }
         }
         let root = URL(fileURLWithPath: cwd)
         return (names.sorted(), files.map { URL(fileURLWithPath: $0, relativeTo: root).standardizedFileURL.path })

@@ -14,8 +14,13 @@ extension Git {
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-index-\(UUID().uuidString)").path
         defer { try? FileManager.default.removeItem(atPath: copy) }
         if FileManager.default.fileExists(atPath: real) { try FileManager.default.copyItem(atPath: real, toPath: copy) }
-        try run(["add", "-A"], cwd: cwd, env: ["GIT_INDEX_FILE": copy], remotes: remotes)
-        return try run(["write-tree"], cwd: cwd, env: ["GIT_INDEX_FILE": copy], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Nobody asked for these: a repository's filters and index hooks don't run for them. Both write the index, and
+        // writing it can read a racily clean file through its filter again.
+        var env = ["GIT_INDEX_FILE": copy]
+        env.merge(configEnv(RepoFilters.off(cwd), after: ProcessInfo.processInfo.environment)) { $1 }
+        let quiet = ["-c", "core.hooksPath=/dev/null"]
+        try run(quiet + ["add", "-A"], cwd: cwd, env: env, remotes: remotes)
+        return try run(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Files changed since a snapshot, with line counts ("Changed 3 files +40 −5" after an agent's turn).

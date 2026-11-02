@@ -84,6 +84,39 @@ import Core
     #expect(RepoFilters.names(repo) == ["x", "y"])
 }
 
+/// Git splits `-c` at the first `=`, so a filter called `a=b` was skipped when listed and couldn't be turned off that way.
+/// A name can hold spaces, tabs and dots too.
+@Test func aFilterOfAnyNameIsTurnedOff() throws {
+    for name in ["a=b", "c d", "e\tf", "g.h"] {
+        let repo = try tempRepo()
+        try Git.run(["config", "filter.\(name).clean", "cat"], cwd: repo)
+        #expect(RepoFilters.names(repo) == [name])
+    }
+    for name in ["a=b", "g.h"] {   // what .gitattributes can name
+        let repo = try tempRepo()
+        let marker = repo + "/.git/ran"
+        try Git.run(["config", "filter.\(name).clean", "touch \(marker); cat"], cwd: repo)
+        try "* filter=\(name)\n".write(toFile: repo + "/.git/info/attributes", atomically: true, encoding: .utf8)
+        try "changed\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+        _ = try Git.run(["status", "--short"], cwd: repo)
+        #expect(!FileManager.default.fileExists(atPath: marker), "\(name) status")
+        _ = try Git.snapshotTree(repo)
+        #expect(!FileManager.default.fileExists(atPath: marker), "\(name)")
+    }
+}
+
+/// The snapshot of a turn is Kelp's own `add`: nobody asked for a repository's hook on it.
+@Test func aSnapshotRunsNoHook() throws {
+    let repo = try tempRepo()
+    let marker = repo + "/.git/ran", hook = repo + "/.git/hooks/post-index-change"
+    try FileManager.default.createDirectory(atPath: repo + "/.git/hooks", withIntermediateDirectories: true)
+    try "#!/bin/sh\ntouch \(marker)\n".write(toFile: hook, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook)
+    try "x\n".write(toFile: repo + "/f", atomically: true, encoding: .utf8)
+    _ = try Git.snapshotTree(repo)
+    #expect(!FileManager.default.fileExists(atPath: marker))
+}
+
 /// A submodule's own config can define a filter too (`git status` runs in the submodule): it's turned off as well.
 @Test func aSubmodulesFilterIsTurnedOffToo() throws {
     let repo = try tempRepo()
