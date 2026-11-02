@@ -9,66 +9,75 @@ concurrency:   # a newer push to the same branch cancels the run it makes stale
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 env:
-  # Xcode 26's SwiftPM skips asset catalogs (a dependency's Bundle.module goes missing) unless it builds with
-  # Swift Build, the default from Xcode 27 on; its test bundles also lack the rpath to Sparkle.framework beside them.
-  # Drop both once runners have Xcode 27.
-  XCODE: '26.6'
-  SWIFT_BUILD: --build-system swiftbuild -Xlinker -rpath -Xlinker @loader_path/../../..
+  XCODE: '27.1'
   # Every test at once (each with its daemons, PTYs and git) starves a 3-core runner into timeouts.
   SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH: 6
+  # A restored .build counts as built: Swift Build compares a file's size and time, not the inode a fresh disk changes.
+  IgnoreFileSystemDeviceInodeChanges: 1
 jobs:
-  # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT), cached for the jobs below.
-  ghostty:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-      - id: cache
-        uses: actions/cache/restore@v4
-        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}", lookup-only: true }
-      - if: steps.cache.outputs.cache-hit != 'true'
-        run: sudo xcode-select -s /Applications/Xcode_$XCODE.app && scripts/build-ghostty.sh
-      - if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
   test:
-    needs: ghostty
     name: ${{ matrix.name }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Build and test
-            # One compile: `swift build` then `swift test` built every module twice (tests need -enable-testing).
-            build: swift build $SWIFT_BUILD --build-tests
-            test: swift test $SWIFT_BUILD --skip-build
+            cache: tests
+            build: swift build --manifest-cache local --build-tests
+            test: scripts/retry-tests.sh swift test --manifest-cache local --skip-build --skip DaemonTests   # those: the job below
           - name: Daemon under Thread Sanitizer
+            cache: tsan
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
-            build: for p in DaemonTests kelp kelpd; do swift build $SWIFT_BUILD --sanitize=thread --product $p; done
+            build: for p in DaemonTests kelp kelpd; do swift build --manifest-cache local --sanitize=thread --product $p; done
             # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
             # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
             test: |
               X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
               B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
-              DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
+              scripts/retry-tests.sh env DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
                 DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
                 $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
+      # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT).
+      - id: ghostty
+        uses: actions/cache/restore@v4
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
+      - if: steps.ghostty.outputs.cache-hit != 'true'
+        run: scripts/build-ghostty.sh
+      - if: steps.ghostty.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
       - uses: actions/cache/restore@v4
-        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}", fail-on-cache-miss: true }
-      - run: ${{ matrix.build }}
-      - name: Link .build/debug   # Xcode 27's Swift Build makes it (the tests find kelp there); Xcode 26's doesn't
-        run: '[ -e .build/debug ] || ln -s out/Products/Debug .build/debug'
-      - run: ${{ matrix.test }}
+        with:
+          path: .build
+          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
+          restore-keys: build-${{ env.XCODE }}-${{ matrix.cache }}-
+      - name: Date sources by their contents   # a checkout dates them all now, and .build would rebuild everything
+        run: git ls-files -sz | perl -0ne 'chomp; ($m,$b,$s,$f)=/^(\S+) (\S+) (\S+)\t(.*)$/s; next if $m eq "120000"; $t=1e9+hex(substr($b,0,7)); utime($t,$t,$f)'
+      - id: build
+        name: Build
+        run: ${{ matrix.build }}
+      - name: Test
+        run: ${{ matrix.test }}
       # The app itself, on a few scenes (start page, Settings, a file, a terminal that ran a command), as pictures.
       - name: UI smoke
-        if: matrix.name == 'Build and test'
+        if: matrix.cache == 'tests'
         run: scripts/ui-smoke.sh ui-smoke
-      - if: always() && matrix.name == 'Build and test'
+      - if: always() && matrix.cache == 'tests'
         uses: actions/upload-artifact@v4
         with: { name: ui-smoke, path: ui-smoke, if-no-files-found: ignore }
+      # Saved even when a test failed, for the next push to build on. repositories is 3.5 GB of clones nothing reads again.
+      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+        run: rm -rf .build/repositories
+      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: .build
+          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
   lint:
     runs-on: macos-26
     steps:

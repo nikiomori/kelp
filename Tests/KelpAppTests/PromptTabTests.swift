@@ -33,6 +33,8 @@ extension AppOfItsOwn {
 
 extension AppOfItsOwn {
     @Test func theFirstTaskFieldGrowsToSixLinesAndKeepsWhatsTyped() {
+        UserDefaults.standard.set("Always", forKey: "AppleShowScrollBars")   // with a mouse: the scroller takes its width
+        defer { UserDefaults.standard.removeObject(forKey: "AppleShowScrollBars") }
         let field = StartPrompt(placeholder: "", accessibilityLabel: "")
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
         window.contentView = field
@@ -43,6 +45,8 @@ extension AppOfItsOwn {
         let one = field.fittingSize.height
         field.value = "1\n2\n3"
         #expect(abs(field.fittingSize.height - one * 3) <= 3)
+        field.value = String(repeating: "word ", count: 150)   // no line ends: the rows are the ones it wraps into
+        #expect(field.fittingSize.height >= one * 2)
         field.value = String(repeating: "x\n", count: 30)
         #expect(abs(field.fittingSize.height - one * 6) <= 6)
         #expect(kept.count == 60)
