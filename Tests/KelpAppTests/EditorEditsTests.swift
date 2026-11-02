@@ -245,14 +245,63 @@ extension OneAtATime {
 
     // MARK: From the review of the new editor
 
-    @Test func completionAfterADotIsForTheMemberAlone() {
-        let (_, tv) = editor("obj.na", selecting: [NSRange(location: 6, length: 0)])
-        #expect(tv.rangeForUserCompletion == NSRange(location: 4, length: 2))
-        tv.completions = [CodeEditor.Completion(label: "name", detail: nil, insert: "name"), .init(label: "other", detail: nil, insert: "other")]
-        var index = 0
-        #expect(tv.completions(forPartialWordRange: tv.rangeForUserCompletion, indexOfSelectedItem: &index) == ["name"])
-        tv.setCursors([NSRange(location: 4, length: 0)])
-        #expect(tv.rangeForUserCompletion == NSRange(location: 4, length: 0))   // right after the dot: everything
+    /// Right after the dot the list has everything; a letter narrows it; ⇥ puts the item in, past what was typed.
+    @Test func completionNarrowsAsYouTypeAndTakesTheWordTyped() async throws {
+        let (e, tv) = editor("obj.", selecting: [NSRange(location: 4, length: 0)])
+        e.completionProvider = { _, _ in [.init(label: "name", insert: "name()"), .init(label: "other", insert: "other")] }
+        e.showCompletions()
+        for _ in 0..<200 where e.completionList?.isOpen != true { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(e.completionList?.items.count == 2)
+        tv.insertText("n", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(e.completionList?.items.map(\.label) == ["name"])
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(e.text == "obj.name()")
+        #expect(e.completionList?.isOpen == false)
+    }
+
+    /// Esc closes it, the cursor leaving the word too, and keys go back to the text.
+    @Test func escAndMovingAwayCloseTheCompletionList() async throws {
+        let (e, tv) = editor("a.b", selecting: [NSRange(location: 2, length: 0)])
+        e.completionProvider = { _, _ in [.init(label: "b", insert: "b")] }
+        e.showCompletions()
+        for _ in 0..<200 where e.completionList?.isOpen != true { try await Task.sleep(for: .milliseconds(10)) }
+        tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        #expect(e.completionList?.isOpen == false)
+        e.showCompletions()
+        for _ in 0..<200 where e.completionList?.isOpen != true { try await Task.sleep(for: .milliseconds(10)) }
+        tv.setCursors([NSRange(location: 0, length: 0)])
+        #expect(e.completionList?.isOpen == false)
+    }
+
+    /// An import the item needs comes in the same undo as the item, and the cursor lands after the item.
+    @Test func aCompletionsOtherEditsComeWithIt() {
+        let (e, tv) = editor("\nfo", selecting: [NSRange(location: 3, length: 0)])
+        e.textView.setSelectedRange(NSRange(location: 3, length: 0))
+        e.accept(.init(label: "foo", insert: "foo", edit: .init(line: 1, column: 0, endLine: 1, endColumn: 2, text: "foo"),
+                       more: [.init(line: 0, column: 0, endLine: 0, endColumn: 0, text: "import x\n")]))
+        #expect(e.text == "import x\n\nfoo")
+        #expect(tv.selectedRange().location == 13)
+        e.undoManager(for: tv)?.undo()
+        #expect(e.text == "\nfo")
+    }
+
+    /// ⇥ goes through a snippet's stops, what's typed at one moving the next, and the same number twice is two cursors.
+    @Test func aSnippetsStopsFollowTab() {
+        let (e, tv) = editor("", selecting: [NSRange(location: 0, length: 0)])
+        e.accept(.init(label: "f", insert: "func ${1:name}($2) -> $1 {\n\t$0\n}", snippet: true))
+        #expect(e.text == "func name() -> name {\n\t\n}" || e.text.hasPrefix("func name() -> "))
+        #expect(tv.cursors.count == 2)
+        tv.insertText("go", replacementRange: NSRange(location: NSNotFound, length: 0))
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(e.text.hasPrefix("func go() -> go {"))
+        #expect(tv.selectedRange().location == 8)
+        tv.insertText("a", replacementRange: NSRange(location: NSNotFound, length: 0))
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(e.text == "func go(a) -> go {\n\t\n}")
+        #expect(tv.selectedRange().location == 20)
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // past the last stop
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // over: a Tab is a tab again
+        #expect(e.text.contains("\t "))
     }
 
     @Test func returnOnTheLastLineShownBringsTheNewLineIntoView() throws {

@@ -35,7 +35,21 @@ public struct CodeSignature: Codable, Sendable, Equatable {
 /// One completion: what the list shows and what goes in.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
-    public init(label: String, detail: String? = nil, insert: String) { self.label = label; self.detail = detail; self.insert = insert }
+    /// "method", "keyword"…; its documentation; whether `insert` has tab stops; what it replaces, and what else it changes.
+    public var kind: String?, documentation: String?, snippet: Bool?, edit: CodeEdit?, more: [CodeEdit]?
+    public init(label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil, snippet: Bool? = nil,
+                edit: CodeEdit? = nil, more: [CodeEdit]? = nil) {
+        self.label = label; self.detail = detail; self.insert = insert; self.kind = kind; self.documentation = documentation
+        self.snippet = snippet; self.edit = edit; self.more = more
+    }
+}
+
+/// A server's edit: `text` from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.
+public struct CodeEdit: Codable, Sendable, Equatable {
+    public var line: Int, column: Int, endLine: Int, endColumn: Int, text: String
+    public init(line: Int, column: Int, endLine: Int, endColumn: Int, text: String) {
+        self.line = line; self.column = column; self.endLine = endLine; self.endColumn = endColumn; self.text = text
+    }
 }
 
 /// Why no server runs for a file: what the app asks or offers (trust the project, install the server).

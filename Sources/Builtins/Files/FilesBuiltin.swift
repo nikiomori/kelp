@@ -94,6 +94,7 @@ extension Builtins {
                       cmd("editor.saveAll", "Save All", "opt+cmd+s") {
                           Task { for t in app.workbench.editedFiles { await t.save() } }
                       },
+                      cmd("editor.showCompletions", "Show Completions", "ctrl+space") { CodeEditor.focused?.showCompletions() },
                       cmd("editor.showHover", "Show Hover", "ctrl+cmd+i") { CodeEditor.focused?.showHoverAtCursor() },
                       cmd("editor.nextProblem", "Next Problem", "f8") { CodeEditor.focused?.goToProblem(forward: true) },
                       cmd("editor.previousProblem", "Previous Problem", "shift+f8") { CodeEditor.focused?.goToProblem(forward: false) },

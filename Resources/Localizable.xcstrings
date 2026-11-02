@@ -10445,6 +10445,16 @@
         }
       }
     },
+    "Show Completions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать варианты дополнения"
+          }
+        }
+      }
+    },
     "Show Desktop": {
       "localizations": {
         "ru": {

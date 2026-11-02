@@ -205,7 +205,7 @@ extension AppDelegate: NSMenuItemValidation {
         case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false
         // Off elsewhere, so a terminal still gets their keys.
         case "editor.runFile", "editor.testAtCursor", "editor.format": return app.workbench.editor?.focusedContent?.fileURL != nil
-        case "editor.nextProblem", "editor.previousProblem", "editor.showHover", "editor.expandSelection", "editor.shrinkSelection",
+        case "editor.nextProblem", "editor.previousProblem", "editor.showCompletions", "editor.showHover", "editor.expandSelection", "editor.shrinkSelection",
              "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds",
              "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
              "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent", "editor.outdent",

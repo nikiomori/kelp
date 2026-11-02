@@ -38,7 +38,8 @@ extension FileTab {
         let app = app
         e.completionProvider = { line, col in
             await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
-                CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert)
+                CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind, documentation: $0.documentation,
+                                      snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
             }
         }
         e.hoverProvider = { line, col in
@@ -51,5 +52,9 @@ extension FileTab {
             let active = found.activeStart.flatMap { a in found.activeEnd.map { NSRange(location: a, length: $0 - a) } }
             return (found.label, active)
         }
+    }
+
+    private static func edit(_ e: CodeEdit) -> CodeEditor.TextEdit {
+        .init(line: e.line, column: e.column, endLine: e.endLine, endColumn: e.endColumn, text: e.text)
     }
 }

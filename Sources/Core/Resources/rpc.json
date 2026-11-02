@@ -513,16 +513,63 @@
           "detail" : {
             "type" : "string"
           },
+          "documentation" : {
+            "type" : "string"
+          },
+          "edit" : {
+            "$ref" : "#/components/schemas/CodeEdit"
+          },
           "insert" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "description" : "\"method\", \"keyword\"…; its documentation; whether `insert` has tab stops; what it replaces, and what else it changes.",
             "type" : "string"
           },
           "label" : {
             "type" : "string"
+          },
+          "more" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CodeEdit"
+            },
+            "type" : "array"
+          },
+          "snippet" : {
+            "type" : "boolean"
           }
         },
         "required" : [
           "insert",
           "label"
+        ],
+        "type" : "object"
+      },
+      "CodeEdit" : {
+        "description" : "A server's edit: `text` from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.",
+        "properties" : {
+          "column" : {
+            "type" : "integer"
+          },
+          "endColumn" : {
+            "type" : "integer"
+          },
+          "endLine" : {
+            "type" : "integer"
+          },
+          "line" : {
+            "type" : "integer"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "column",
+          "endColumn",
+          "endLine",
+          "line",
+          "text"
         ],
         "type" : "object"
       },

@@ -51,6 +51,8 @@ extension CodeEditor {
     func typed(_ s: String) {
         hoverCard?.close()
         hoverShownAt = nil
+        let before = textView.string as NSString, i = textView.selectedRange().location
+        if s == ":" || s == ">", i >= 2, before.substring(with: NSRange(location: i - 2, length: 2)) == (s == ":" ? "::" : "->") { showCompletions() }
         if s == ")" { signatureCard?.close() } else if s == "(" || s == "," || signatureCard?.isShown == true { askSignature() }
     }
 

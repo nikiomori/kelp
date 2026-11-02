@@ -26,9 +26,10 @@ public final class EditorTextView: NSTextView {
     }
     /// Told of every edit before it's made, while the old text is there (CodeEditor: the parse tree, the line count).
     var willReplace: (([NSRange], [String]) -> Void)?
-    /// Asks the app for completion items; they come back later, to `showCompletions`.
+    /// Asks the app for completion items.
     var onComplete: (() -> Void)?
-    var completions: [CodeEditor.Completion] = []
+    /// What the list or a snippet takes before the text does.
+    var onCommand: ((Selector) -> Bool)?
     /// A key that went in as text, and the pointer moving.
     var onTyped: ((String) -> Void)?
     var onPointer: ((NSEvent) -> Void)?
@@ -39,7 +40,6 @@ public final class EditorTextView: NSTextView {
     var findCurrent: NSRange? { didSet { needsDisplay = true } }
     /// What `CodeEditor.problems` comes to in the text, top to bottom.
     var problemMarks: [ProblemMark] = []
-    private var presenting = false
 
     public var length: Int { (string as NSString).length }
 
@@ -164,6 +164,7 @@ public final class EditorTextView: NSTextView {
     }
 
     public override func doCommand(by selector: Selector) {
+        if onCommand?(selector) == true { return }
         switch selector {
         case #selector(insertNewline(_:)): Typing.newline(self)
         case #selector(insertTab(_:)): Typing.tab(self, back: false)
@@ -204,30 +205,8 @@ public final class EditorTextView: NSTextView {
         return NSRange(location: min(start, i), length: i - min(start, i))
     }
 
-    /// Esc (NSTextView's key for it) asks the app; the list opens when its items come.
-    public override func complete(_ sender: Any?) {
-        if presenting { return super.complete(sender) }
-        onComplete?()
-    }
-
-    func showCompletions(_ items: [CodeEditor.Completion]) {
-        completions = items
-        presenting = true
-        super.complete(nil)
-        presenting = false
-    }
-
-    public override func completions(forPartialWordRange r: NSRange, indexOfSelectedItem index: UnsafeMutablePointer<Int>) -> [String]? {
-        let typed = (string as NSString).substring(with: r).lowercased()
-        let labels = completions.map(\.label).filter { typed.isEmpty || $0.lowercased().hasPrefix(typed) }
-        return labels.isEmpty ? nil : labels
-    }
-
-    /// The item's text goes in, which may differ from the label the list shows.
-    public override func insertCompletion(_ word: String, forPartialWordRange r: NSRange, movement: Int, isFinal: Bool) {
-        let item = isFinal ? completions.first { $0.label == word }?.insert : nil
-        super.insertCompletion(item ?? word, forPartialWordRange: r, movement: movement, isFinal: isFinal)
-    }
+    /// Esc (NSTextView's key for it) and ⌥Esc ask the app; the list opens when its items come.
+    public override func complete(_ sender: Any?) { onComplete?() }
 
     // MARK: Context menu
 

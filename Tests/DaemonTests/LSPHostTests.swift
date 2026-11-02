@@ -184,3 +184,16 @@ private func lines(_ log: String) -> [String] {
     #expect(LSPClient.signature(help(.string("x"), active: 5))?.activeStart == nil)
     #expect(LSPClient.signature(.obj(["signatures": .array([])])) == nil)
 }
+
+@Test func aServersCompletionsKeepTheirEditsAndOrder() {
+    let at: JSONValue = .obj(["start": .obj(["line": .int(1), "character": .int(2)]), "end": .obj(["line": .int(1), "character": .int(4)])])
+    let found = LSPClient.completions(.obj(["items": .array([
+        .obj(["label": .string("b"), "sortText": .string("2"), "kind": .int(2), "insertTextFormat": .int(2), "insertText": .string("b($1)"),
+              "documentation": .obj(["kind": .string("markdown"), "value": .string("doc")])]),
+        .obj(["label": .string("a"), "sortText": .string("1"), "textEdit": .obj(["range": at, "newText": .string("aa")]),
+              "additionalTextEdits": .array([.obj(["range": at, "newText": .string("import a\n")])])])
+    ])]))
+    #expect(found.map(\.label) == ["a", "b"])
+    #expect(found[0].insert == "aa" && found[0].edit?.column == 2 && found[0].more?.first?.text == "import a\n")
+    #expect(found[1].kind == "method" && found[1].snippet == true && found[1].documentation == "doc")
+}

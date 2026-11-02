@@ -39,7 +39,7 @@ public final class CodeEditor: NSObject {
     public var onSelection: (() -> Void)?
     /// Completion items come from the app (LSP); the text view shows them in its completion list.
     public var completionProvider: ((Int, Int) async -> [Completion])? {
-        didSet { textView.onComplete = completionProvider == nil ? nil : { [weak self] in self?.complete() } }
+        didSet { textView.onComplete = completionProvider == nil ? nil : { [weak self] in self?.showCompletions() } }
     }
 
     var lineIndex = LineIndex()
@@ -50,6 +50,11 @@ public final class CodeEditor: NSObject {
     var problemLines: [Int: Bool] = [:]
     /// ⌘F's, once it's been asked for.
     var findBar: FindBar?
+    /// While the list is open: where the word it completes starts, and all that was offered.
+    var completing: (start: Int, items: [Completion])?
+    var completionList: CompletionList?
+    /// A snippet's tab stops still to come, the current one first.
+    var snippetStops: [[NSRange]] = []
     /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
     public var hoverProvider: ((Int, Int) async -> String?)?
     public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
@@ -103,13 +108,6 @@ public final class CodeEditor: NSObject {
     var marked: [NSRange] = []
     /// The editors there are, to find the focused one (CodeEditor+Edits).
     static let all = NSHashTable<CodeEditor>.weakObjects()
-
-    public struct Completion: Sendable {
-        public var label: String
-        public var detail: String?
-        public var insert: String
-        public init(label: String, detail: String?, insert: String) { self.label = label; self.detail = detail; self.insert = insert }
-    }
 
     public init(text: String, url: URL, editable: Bool = true) {
         language = CodeLanguage.detectLanguageFrom(url: url, prefixBuffer: String(text.prefix(200)))
@@ -168,6 +166,7 @@ public final class CodeEditor: NSObject {
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
         tv.onFind = { [weak self] in self?.find($0) }
         tv.onTyped = { [weak self] in self?.typed($0) }
+        tv.onCommand = { [weak self] in self?.handle($0) ?? false }
         tv.onPointer = { [weak self] in self?.pointerMoved($0) }
     }
 
@@ -330,16 +329,6 @@ public final class CodeEditor: NSObject {
         colored = around
     }
 
-    private func complete() {
-        guard let provider = completionProvider, let (line, column) = cursor else { return }
-        let at = textView.selectedRange()
-        Task { [weak self] in
-            let items = await provider(line, column)
-            guard let self, textView.selectedRange() == at, !items.isEmpty else { return }
-            textView.showCompletions(items)
-        }
-    }
-
     /// A tab when most indented lines start with one; two spaces when that's the smallest indent; else four.
     static func indentUnit(of text: String) -> String {
         var tabs = 0, spaces: [Int] = []
@@ -358,10 +347,12 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         guard !loading else { return }
         onChange?(textView.string)
         findBar?.textChanged()
+        refreshCompletions()
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         if signatureCard?.isShown == true { askSignature() }
+        if completing != nil { refreshCompletions() }
         gutter?.needsDisplay = true
         markBrackets()
         onSelection?()

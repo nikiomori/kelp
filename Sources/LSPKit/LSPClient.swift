@@ -166,7 +166,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
                                                    "signatureHelp": .obj(["signatureInformation": .obj([
                                                        "parameterInformation": .obj(["labelOffsetSupport": true])
                                                    ])]),
-                                                   "completion": .obj(["completionItem": .obj(["snippetSupport": false])]),
+                                                   "completion": .obj(["completionItem": .obj([
+                                                       "snippetSupport": true, "documentationFormat": .array([.string("plaintext"), .string("markdown")])
+                                                   ])]),
                                                    "documentSymbol": .obj(["hierarchicalDocumentSymbolSupport": true])])])
         ]))
         notify("initialized", .obj([:]))
@@ -240,11 +242,29 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     }
 
     public func completion(_ path: String, line: Int, column: Int) async throws -> [CodeCompletion] {
-        let r = try await request("textDocument/completion", at(path, line, column))
-        let items = r.array ?? r["items"]?.array ?? []
-        return items.prefix(200).map {
-            CodeCompletion(label: $0["label"]?.string ?? "", detail: $0["detail"]?.string,
-                           insert: $0["insertText"]?.string ?? $0["textEdit"]?["newText"]?.string ?? $0["label"]?.string ?? "")
+        Self.completions(try await request("textDocument/completion", at(path, line, column)))
+    }
+
+    private static let completionKinds = [
+        2: "method", 3: "function", 4: "constructor", 5: "field", 6: "variable", 7: "class", 8: "interface", 9: "module", 10: "property", 12: "value",
+        13: "enum", 14: "keyword", 15: "snippet", 17: "file", 19: "folder", 20: "enum", 21: "constant", 22: "struct"
+    ]
+
+    static func completions(_ result: JSONValue) -> [CodeCompletion] {
+        func edit(_ e: JSONValue, text: String? = nil) -> CodeEdit? {
+            guard let r = e["range"] ?? e["replace"], let a = r["start"]?["line"]?.int, let b = r["start"]?["character"]?.int,
+                  let c = r["end"]?["line"]?.int, let d = r["end"]?["character"]?.int, let t = text ?? e["newText"]?.string else { return nil }
+            return CodeEdit(line: a, column: b, endLine: c, endColumn: d, text: t)
+        }
+        let items = (result.array ?? result["items"]?.array ?? []).sorted { ($0["sortText"]?.string ?? "") < ($1["sortText"]?.string ?? "") }
+        return items.prefix(200).map { i in
+            let more = (i["additionalTextEdits"]?.array ?? []).compactMap { edit($0) }
+            let doc = i["documentation"]
+            return CodeCompletion(label: i["label"]?.string ?? "", detail: i["detail"]?.string,
+                                  insert: i["textEdit"]?["newText"]?.string ?? i["insertText"]?.string ?? i["label"]?.string ?? "",
+                                  kind: completionKinds[i["kind"]?.int ?? 0], documentation: doc?.string ?? doc?["value"]?.string,
+                                  snippet: i["insertTextFormat"]?.int == 2 ? true : nil, edit: i["textEdit"].flatMap { edit($0) },
+                                  more: more.isEmpty ? nil : more)
         }
     }
 
