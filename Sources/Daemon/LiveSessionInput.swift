@@ -11,8 +11,12 @@ extension LiveSession.State {
     /// is followed by text, not "1.", and once a menu is answered the newer cursor is the input box's.
     func menuOpen() -> Bool { StartupQuestion.menuOpen(menuScreen()) }
 
-    /// A hook says it's asking something, whether or not a menu can be read: typed text's Enter would answer it.
-    private var asks: Bool { hooked && record.status == .waiting }
+    /// A hook or an agent in tmux on a host says it's asking something, whether or not a menu can be read: typed text's
+    /// Enter would answer it.
+    private var asks: Bool { reportsTurns && record.status == .waiting }
+
+    /// Its status comes from the agent turn by turn: hooks, or what they write in tmux on a host (`Hooks.hostSettingsJSON`).
+    var reportsTurns: Bool { hooked || record.tmux != nil }
 
     /// The output a menu is read from: the last bytes, or, when it's asking or being answered, around the last cursor. TUIs
     /// redraw only what changed, and Claude Code blinks a dot beside the tool a dialog is about, which takes the menu out of
@@ -68,15 +72,21 @@ extension LiveSession {
     /// The cursor is walked to the option and Enter pressed only there (see `steer`). nil: no such menu on screen.
     func choose(_ answer: String) -> Session? {
         state.withLock { s in
-            let screen = s.menuScreen()
+            let inTmux = s.record.tmux != nil, screen = inTmux ? StartupQuestion.optionsOnLines(s.menuScreen()) : s.menuScreen()
             let pattern = answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
             let lines = screen.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>")) }
             guard AgentManifest.AutoAnswer.optionAtCursor(screen) != nil, let re = try? NSRegularExpression(pattern: pattern),
                   lines.contains(where: { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }) else { return nil }
-            s.steering = (re, Date(), .distantPast, nil)
+            // tmux sends only the cells that changed, so the option a moving cursor reaches can't be read: its number picks it.
+            let option = lines.first { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }
+            if inTmux, let number = option?.prefix(while: \.isNumber), !number.isEmpty {
+                write(Data(number.utf8))
+            } else {
+                s.steering = (re, Date(), .distantPast, nil)
+            }
             s.detector.input(); s.record.unread = false
             // A "No" ends the turn: the screen says so.
-            if s.hooked {
+            if s.reportsTurns {
                 s.interruptArmed = (Date(), "")
                 if s.answeredOne() { s.detector.override(.working, because: "an answer from a notification") }
             }

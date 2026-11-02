@@ -12,6 +12,8 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     private enum CodingKeys: String, CodingKey { case host, path }
 
     public static let marker = ".kelp-remote"
+    /// The tmux option on a session on the host that holds the agent's last report.
+    public static let statusOption = "@kelp_status"
 
     /// What may follow `ssh`: not an option, nothing a shell would split.
     /// Also a folder name under remote/: "." / ".." or a "/" would put it somewhere else.
@@ -39,18 +41,23 @@ public struct RemoteHost: Codable, Sendable, Equatable {
 
     /// `argv` as `command` runs it, inside tmux session `name` on the host, or attached to that session again while it still
     /// runs there. The session shows no status line (its clock would read as output), the mouse wheel scrolls back through
-    /// tmux's history, and the program's title comes through. Without tmux on the host, `argv` runs as it is.
+    /// tmux's history, and the program's title comes through, with what agents report (`allow-passthrough`, last: a tmux before
+    /// 3.3 has no such option, and lets it through anyway). A connection starts with the report it missed while there was
+    /// none. Without tmux on the host, `argv` runs as it is.
     public func command(_ argv: [String], inTmux name: String) -> String {
         guard !argv.isEmpty else { return command(nil) }
         let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(Self.quote).joined(separator: " ")
         let pane = "exec \"$SHELL\" -ilc " + Self.quote(words)   // tmux runs a pane's one-string command in a shell
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
-        let options = [["status", "off"], ["mouse", "on"], ["set-titles", "on"], ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"]]
+        let options = [["status", "off"], ["mouse", "on"], ["set-titles", "on"], ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"],
+                       ["allow-passthrough", "on"]]
         // "=name:": exactly that session (an option's target is a pane, and "=name" alone isn't read as a session there).
         let tmux = ["tmux", "new-session", "-A", "-s", name, pane] + options.flatMap { [";", "set-option", "-t", "=" + name + ":"] + $0 }
+        let missed = "s=$(tmux show-options -qv -t \(Self.quote("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
+            + #"[ -z "$s" ] || printf '\033]7501;%s\007' "$s"; "#
         let cd = "cd \(Self.cdArg(path))"
         return cd + " && exec \"$SHELL\" -ilc "
-            + Self.quote("command -v tmux >/dev/null 2>&1 && exec " + tmux.map(Self.quote).joined(separator: " ") + " || exec " + words)
+            + Self.quote(missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(Self.quote).joined(separator: " ") + " || exec " + words)
     }
 
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.

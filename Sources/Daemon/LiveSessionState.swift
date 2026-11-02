@@ -231,7 +231,9 @@ extension LiveSession {
         mutating func apply(_ r: ProgramStatus.Report) {
             spoke()
             detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10); lastHookAt = Date()
-            if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if r.state == "idle" || r.state == "clear" { record.summary = "" }
+            // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
+            let fresh = r.state == "idle" || r.state == "clear" || (r.state == "working" && record.tmux != nil)
+            if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
             record.progress = r.progress
         }
 

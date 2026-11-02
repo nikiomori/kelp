@@ -6,6 +6,11 @@ import Foundation
 public enum StartupQuestion {
     private static let trust = try? NSRegularExpression(pattern: AgentManifest.trust.pattern)
 
+    /// A menu as tmux draws it: cursor moves, not line ends, between its options, so they arrive as one line.
+    public static func optionsOnLines(_ screen: String) -> String {
+        screen.replacing(/\s(?=\d{1,2}\.\s)/, with: "\n")
+    }
+
     /// The trust question's words are there.
     public static func trustAsked(_ screen: String) -> Bool {
         trust?.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) != nil

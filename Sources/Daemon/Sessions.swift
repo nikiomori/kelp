@@ -134,7 +134,7 @@ final class Sessions: Sendable {
         var rec = Session(worktreeId: worktreeId, cwd: cwd, command: argv.joined(separator: " "), agent: manifest.id,
                           title: o.title ?? "", titleManual: o.title != nil, argv: argv)
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
-        // so they stay out: status comes from what the screen shows.
+        // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
         if local, o.argv == nil, case .settingsFlag(let flag)? = manifest.hooks {
             let f = hooksDir(manifest).appendingPathExtension("json")
@@ -191,7 +191,11 @@ final class Sessions: Sendable {
         var run = argv
         if let remote = remotes.of(cwd), argv.first != remote.ssh {
             // A command line (`.custom`: zsh -lc "…") goes to sh there: the host may have no zsh.
-            let onHost = manifest.id == "custom" && argv.count == 3 && argv[1] == "-lc" ? ["sh", "-c", argv[2]] : argv
+            var onHost = manifest.id == "custom" && argv.count == 3 && argv[1] == "-lc" ? ["sh", "-c", argv[2]] : argv
+            // Here, not in the record: every start gets this kelpd's, and a title or a restart never sees it.
+            if tmux != nil, case .settingsFlag(let flag)? = manifest.hooks, !onHost.contains(flag) {
+                onHost += [flag, try Hooks.hostSettingsJSON()]
+            }
             let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
             let command = tmux.map { remote.command(onHost, inTmux: $0) } ?? remote.command(loginShell ? nil : onHost)
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]

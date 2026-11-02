@@ -418,3 +418,12 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let all = RPCSchema.text(doc)
     #expect(try #require(all.range(of: "session.list")).lowerBound < #require(all.range(of: "lsp.open")).lowerBound)   // ours come last
 }
+
+/// tmux stops at a command that fails: `allow-passthrough`, which a tmux before 3.3 doesn't know, has to come last. What
+/// agents report goes out first, before tmux takes over the terminal.
+@Test func aConnectionToAHostStartsWithTheReportItMissed() throws {
+    let c = RemoteHost(host: "box", path: "~/p").command(["claude"], inTmux: "kelp-tab-1")
+    #expect(c.contains("allow-passthrough"))
+    #expect(try #require(c.range(of: "set-titles-string")).lowerBound < #require(c.range(of: "allow-passthrough")).lowerBound)
+    #expect(try #require(c.range(of: RemoteHost.statusOption)).lowerBound < #require(c.range(of: "new-session")).lowerBound)
+}

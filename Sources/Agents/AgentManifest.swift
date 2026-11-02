@@ -309,6 +309,40 @@ public enum Hooks {
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
     }
 
+    /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line. There's no `kelp`
+    /// there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report itself, wrapped so that tmux
+    /// lets it through, to the tty of the agent that ran it (a hook has none of its own). A report also stays in a tmux
+    /// option, for whichever connection comes next (`RemoteHost.command(_:inTmux:)`). A subagent's goes on a line of its
+    /// own: `agent_type` as its title, the one thing the hook knows of it. A Stop with subagents still going isn't the end
+    /// of the turn. Out of tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
+    public static func hostSettingsJSON() throws -> String {
+        let send = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
+        let start = #"[ -n "$TMUX" ]||exit 0;"#
+        func agent(_ report: String, unless: String = "") -> JSONValue {
+            hook(start + unless + "r='\(report)';tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + send)
+        }
+        func subagent(_ report: String) -> JSONValue {
+            hook(start + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"# + send)
+        }
+        func hook(_ command: String) -> JSONValue { .array([.object(["hooks": .array([.object(["type": "command", "command": .string(command)])])])]) }
+        func only(_ tool: String, _ h: JSONValue) -> JSONValue {
+            guard case .object(var o)? = h.array?.first else { return h }
+            o["matcher"] = .string(tool)
+            return .array([.object(o)])
+        }
+        let hooks: [String: JSONValue] = [
+            "UserPromptSubmit": agent("state=working"), "PostToolUse": agent("state=working"), "ElicitationResult": agent("state=working"),
+            "Stop": agent("state=done", unless: #"p=$(cat);case "$p" in *'"background_tasks":[{'*)exit;;esac;"#),
+            "StopFailure": agent("state=error"), "PermissionRequest": agent("state=blocked:kind=permission"),
+            "PreToolUse": only("AskUserQuestion", agent("state=blocked:kind=question")), "Elicitation": agent("state=blocked:kind=question"),
+            "SubagentStart": subagent(#""state=working:id=$(f agent_id):title=$(printf %s "$(f agent_type)"|base64|tr -d '\n')""#),
+            "SubagentStop": subagent(#""state=clear:id=$(f agent_id)""#)
+        ]
+        let e = JSONEncoder()
+        e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: try e.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
+    }
+
     /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
     /// minute after a turn ends (Qwen Code too), a login that went through, a background agent that finished, a push Claude
     /// sent, computer use starting or ending, a resume after a plan limit, a refusal fallback, a keychain that failed, a
