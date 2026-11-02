@@ -39,7 +39,7 @@ enum ProjectColor: String, CaseIterable {
         }
     }
 
-    /// Its dot, beside a project's name and in the submenu.
+    /// Its dot, in the submenu.
     var dot: NSImage {
         let img = NSImage(size: NSSize(width: 8, height: 8), flipped: false) { [color] r in
             color.setFill()
@@ -61,10 +61,7 @@ enum ProjectColor: String, CaseIterable {
 
 /// How a project's colour shows (Appearance › Sidebar › Project color).
 enum ProjectColorStyle: String {
-    case icon, dot, glow, name, card
-
-    /// Drawn on the project's card: a project with nothing under it gets one, once it has a colour.
-    var onCard: Bool { self == .glow || self == .card }
+    case icon, card
 }
 
 /// What the views showing a project follow.

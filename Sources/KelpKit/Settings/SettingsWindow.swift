@@ -216,9 +216,7 @@ struct SettingRow: View {
         case "workbench.sidebar.agentDetail" where v == "needsYou": return String(localized: "When They Need You")
         case "workbench.sidebar.agentIcons" where v == "others": return String(localized: "Other Agents Only")
         case "workbench.sidebar.projectColor":
-            let said = ["icon": String(localized: "On the Icon"), "dot": String(localized: "Dot by the Name"), "glow": String(localized: "Glow from the Edge"),
-                        "name": String(localized: "Colored Name"), "card": String(localized: "Filled Card")]
-            return said[v] ?? v
+            return v == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
         case "workbench.ci.branchChip":
             let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
             return said[v] ?? v

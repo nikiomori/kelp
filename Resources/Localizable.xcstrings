@@ -15287,36 +15287,6 @@
         }
       }
     },
-    "Dot by the Name": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Точка у имени"
-          }
-        }
-      }
-    },
-    "Glow from the Edge": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Свечение с края"
-          }
-        }
-      }
-    },
-    "Colored Name": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Имя цветом"
-          }
-        }
-      }
-    },
     "Filled Card": {
       "localizations": {
         "ru": {
