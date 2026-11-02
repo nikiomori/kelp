@@ -140,6 +140,7 @@ extension Daemon {
     static let methods: [String: any Answered.Type] = {
         let sync: [any Handled.Type] = [DaemonInfo.self, DaemonBackgroundAllowed.self, StateGet.self, StateSet.self, SessionRename.self,
                                         SessionMove.self, SessionContextWindow.self, SessionContextParts.self,
+                                        SessionSubagentSteps.self, SessionSubagentJournal.self,
                                         WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self, GitDiscardHunk.self,
                                         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self,
                                         RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self]
@@ -449,6 +450,30 @@ extension SessionContextParts: Handled {
               var parts = ClaudeContext.parts(try Data(contentsOf: t, options: .mappedIfSafe), used: c.used) else { return nil }
         parts.setup = sessions.claudeSetup(ls.snapshot).map { ClaudeContext.fit($0, to: parts.base) }
         return parts
+    }
+}
+
+extension SessionSubagentSteps: Handled {
+    func handle(_ sessions: Sessions) throws -> Result {
+        guard let ls = sessions.existing(id), let parent = sessions.agentUsage.transcript(of: ls) else { return [:] }
+        var last: Result = [:]
+        for run in ls.snapshot.runningSubagents {
+            guard let file = SubagentTranscript.file(parent: parent, id: run.id), let tail = Data(tailOf: file, bytes: 262_144),
+                  let step = SubagentTranscript.lastStep(tail: tail),
+                  let touched = try file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate else { continue }
+            last[run.id] = Last(step: step, touched: touched)
+        }
+        return last
+    }
+}
+
+extension SessionSubagentJournal: Handled {
+    func handle(_ sessions: Sessions) throws -> Result {
+        let usage = sessions.agentUsage
+        guard let parent = try sessions.existing(id).flatMap(usage.transcript(of:)) ?? sessions.store.session(id).flatMap(usage.transcript(of:)),
+              let file = SubagentTranscript.file(parent: parent, id: subagent),
+              FileManager.default.fileExists(atPath: file.path) else { return nil }
+        return try SubagentTranscript.journal(file)
     }
 }
 

@@ -2225,6 +2225,13 @@
             "format" : "seconds-since-2001",
             "type" : "number"
           },
+          "subagentRuns" : {
+            "description" : "Its subagents of this turn in the order they started, the finished ones too; follows the two above, ends with the turn.",
+            "items" : {
+              "$ref" : "#/components/schemas/Subagent"
+            },
+            "type" : "array"
+          },
           "subagentTasks" : {
             "additionalProperties" : {
               "type" : "string"
@@ -2440,6 +2447,54 @@
         ],
         "type" : "object"
       },
+      "SessionSubagentJournal.Journal" : {
+        "properties" : {
+          "context" : {
+            "description" : "Tokens in its last request.",
+            "type" : "integer"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "report" : {
+            "type" : "string"
+          },
+          "steps" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SubagentStep"
+            },
+            "type" : "array"
+          },
+          "task" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "kind",
+          "steps"
+        ],
+        "type" : "object"
+      },
+      "SessionSubagentSteps.Last" : {
+        "properties" : {
+          "step" : {
+            "$ref" : "#/components/schemas/SubagentStep"
+          },
+          "touched" : {
+            "description" : "When its transcript last changed: a long quiet is a long command, or a subagent that hangs.",
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "step",
+          "touched"
+        ],
+        "type" : "object"
+      },
       "SessionTurn.Info" : {
         "properties" : {
           "hasBase" : {
@@ -2528,6 +2583,59 @@
         },
         "required" : [
           "settings"
+        ],
+        "type" : "object"
+      },
+      "Subagent" : {
+        "description" : "A subagent of an agent's turn, at work or finished. `kind` is empty when only a terminal report told of it.",
+        "properties" : {
+          "asks" : {
+            "description" : "Its permission dialog is open.",
+            "type" : "boolean"
+          },
+          "ended" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "started" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "task" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "id",
+          "kind",
+          "started"
+        ],
+        "type" : "object"
+      },
+      "SubagentStep" : {
+        "description" : "One thing a subagent did: the tool, and the path or command it was given.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "tool" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "detail",
+          "tool"
         ],
         "type" : "object"
       },
@@ -7533,6 +7641,58 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "All a subagent did and what it reported, read from its transcript; nil when there is none.",
+      "name" : "session.subagentJournal",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "subagent",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SessionSubagentJournal.Journal"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "What an agent's subagents at work did last, by id. Empty for an agent that keeps no transcript of them: only Claude Code does.",
+      "name" : "session.subagentSteps",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "additionalProperties" : {
+            "$ref" : "#/components/schemas/SessionSubagentSteps.Last"
+          },
+          "type" : "object"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "What a session's status went through and the hooks it heard, oldest first, a line each. Kept after it ended; empty when nothing happened yet.",

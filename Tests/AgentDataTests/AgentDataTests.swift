@@ -385,3 +385,42 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let less = ClaudeContext.fit(s, to: 6_039)
     #expect(less.parts.count == 4 && less.parts[2].top[0].tokens == 2000 && less.buffer == 33_000)   // half: 12,078 counted, 6,039 sent
 }
+
+private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [String: Any] {
+    ["type": "assistant", "cwd": "/work/demo", "timestamp": ts,
+     "message": ["model": "claude-opus-5-5", "content": [["type": "tool_use", "name": tool, "input": input]],
+                 "usage": ["input_tokens": 2, "cache_read_input_tokens": 300, "cache_creation_input_tokens": 40]]]
+}
+
+@Test func aSubagentsTranscriptStaysInItsFolder() {
+    let parent = URL(fileURLWithPath: "/p/0F.jsonl")
+    #expect(SubagentTranscript.file(parent: parent, id: "a1")?.path == "/p/0F/subagents/agent-a1.jsonl")
+    #expect(SubagentTranscript.file(parent: URL(fileURLWithPath: "/p/0F/subagents/agent-b.jsonl"), id: "a1")?.path == "/p/0F/subagents/agent-a1.jsonl")
+    #expect(SubagentTranscript.file(parent: parent, id: "../../secret") == nil)
+    #expect(SubagentTranscript.file(parent: parent, id: "") == nil)
+}
+
+@Test func aSubagentsJournalHasItsStepsAndReport() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let url = try write(dir, "agent-a.jsonl", [
+        user("Review it", "2026-11-02T06:25:11.963Z"), "not json",
+        step("Read", ["file_path": "/work/demo/Sources/A.swift"], "2026-11-02T06:25:15.000Z"),
+        step("Bash", ["command": "grep -n x\nsecond line"], "2026-11-02T06:25:20.000Z"),
+        step("SubagentHandback", ["message": "All good."], "2026-11-02T06:25:30.000Z")
+    ])
+    try Data(#"{"agentType":"Explore","description":"Counts files"}"#.utf8).write(to: dir.appendingPathComponent("agent-a.meta.json"))
+    let j = try SubagentTranscript.journal(url)
+    #expect(j.kind == "Explore" && j.task == "Counts files" && j.model == "claude-opus-5-5" && j.context == 342)
+    #expect(j.steps.map(\.tool) == ["Read", "Bash"])
+    #expect(j.steps.map(\.detail) == ["Sources/A.swift", "grep -n x"])
+    #expect(j.report == "All good.")
+    #expect(SubagentTranscript.lastStep(tail: try Data(contentsOf: url))?.tool == "Bash")
+}
+
+@Test func aSubagentWithoutAHandbackReportsItsLastWords() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let url = try write(dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
+    #expect(try SubagentTranscript.journal(url).report == "Done, nothing found.")
+}

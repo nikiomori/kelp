@@ -187,6 +187,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(try await waitFor(5) { try await kinds() == ["Explore", "Plan"] })
     try await hook("SubagentStop", "a1", kind: "Explore")
     #expect(try await waitFor(5) { try await kinds() == ["Plan"] })
+    #expect(try await c.call(SessionList()).first { $0.id == id }?.finishedSubagents.map(\.kind) == ["Explore"])
     let waitsForIt: JSONValue = .obj(["id": "a2", "type": "subagent", "status": "running"])
     _ = try await c.call(SessionHook(id: id, event: "done", backgroundTasks: [waitsForIt]))
     #expect(try await f.status(id) == .working)
@@ -194,6 +195,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     _ = try await c.call(SessionHook(id: id, event: "done", backgroundTasks: []))
     #expect(try await waitFor(5) { try await f.status(id) == .done })
     #expect(try await kinds() == [])
+    #expect(try await c.call(SessionList()).first { $0.id == id }?.subagentRuns == nil)
 }
 
 /// Only an app has a switch in Login Items: a kelpd outside one is never held back by it.
@@ -216,10 +218,30 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     var start = SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1")
     start.agentType = "Explore"
     _ = try await w.c.call(start)
-    #expect(try await now()?.runningSubagents == [Subagent(id: "a1", kind: "Explore", task: "Counts files")])
+    #expect(try await now()?.runningSubagents.map { [$0.id, $0.kind, $0.task] } == [["a1", "Explore", "Counts files"]])
     #expect(try await now()?.status == (hooked ? .idle : .waiting))
     #expect(try await waitFor(5) {
         let after = try await now()
         return after?.subagents == nil && after?.subagentTasks == nil
     })
+}
+
+/// A subagent's last step and journal come from its transcript beside the parent's, as long as the parent's is known.
+@Test func aSubagentsStepsAreReadFromItsTranscript() async throws {
+    let f = try await family(); defer { f.w.d.stop() }
+    let id = f.parent.id, c = f.w.c
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let folder = dir.appendingPathComponent("0F/subagents")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let line = #"{"type":"assistant","timestamp":"2026-11-02T06:25:15.000Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.swift"}}]}}"#
+    try Data((line + "\n").utf8).write(to: folder.appendingPathComponent("agent-a1.jsonl"))
+    _ = try await c.call(SessionHook(id: id, event: "working", transcript: dir.appendingPathComponent("0F.jsonl").path))
+    #expect(try await c.call(SessionSubagentSteps(id: id)).isEmpty)
+    var start = SessionHook(id: id, event: "subagent", hookName: "SubagentStart", agentId: "a1")
+    start.agentType = "Explore"
+    _ = try await c.call(start)
+    #expect(try await waitFor(5) { try await c.call(SessionSubagentSteps(id: id))["a1"]?.step.detail == "/a.swift" })
+    #expect(try await c.call(SessionSubagentJournal(id: id, subagent: "a1"))?.steps.count == 1)
+    #expect(try await c.call(SessionSubagentJournal(id: id, subagent: "../a1")) == nil)
 }

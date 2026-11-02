@@ -423,6 +423,7 @@ extension LiveSession {
         /// The detector's status into the record; the record when it changed. Ended is final: a hook or a keystroke that
         /// arrives after the exit doesn't bring the session back.
         mutating func sync() -> Session? {
+            record.subagentsAsk(asking.keys)
             let s = detector.status
             guard s != record.status, record.status != .exited else { return nil }
             trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")

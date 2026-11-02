@@ -142,6 +142,8 @@ session.report
 session.resize
 session.restart
 session.send
+session.subagentJournal
+session.subagentSteps
 session.trail
 session.turn
 session.usage

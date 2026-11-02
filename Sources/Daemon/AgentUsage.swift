@@ -94,8 +94,10 @@ final class AgentUsage: Sendable {
     /// Where a Claude Code session writes its conversation: what its hooks said, else the id Kelp started or resumed it
     /// with (a woken or restarted session has sent no hook yet, but its conversation is already there).
     func transcript(of ls: LiveSession) -> URL? {
-        if let t = ls.transcriptPath { return URL(fileURLWithPath: t) }
-        let s = ls.snapshot, a = s.argv
+        ls.transcriptPath.map { URL(fileURLWithPath: $0) } ?? transcript(of: ls.snapshot)
+    }
+    func transcript(of s: Session) -> URL? {
+        let a = s.argv
         guard s.agent == "claude", let i = a.lastIndex(where: { $0 == "--session-id" || $0 == "--resume" }), i + 1 < a.count else { return nil }
         return agentRoots().claude.map { ClaudeHistory.folder(cwd: s.cwd, root: $0).appendingPathComponent(a[i + 1] + ".jsonl") }
             .first { FileManager.default.fileExists(atPath: $0.path) }

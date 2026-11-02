@@ -81,10 +81,16 @@ public struct LimitHit: Codable, Sendable, Equatable {
     public init(kind: String, resets: String?, at: Date = Date()) { self.kind = kind; self.resets = resets; self.at = at }
 }
 
-/// A subagent at work inside an agent. `kind` is empty when only a terminal report told of it.
-public struct Subagent: Sendable, Equatable, Identifiable {
+/// A subagent of an agent's turn, at work or finished. `kind` is empty when only a terminal report told of it.
+public struct Subagent: Codable, Sendable, Equatable, Identifiable {
     public var id: String, kind: String, task: String?
-    public init(id: String, kind: String, task: String?) { self.id = id; self.kind = kind; self.task = task }
+    public var started: Date
+    public var ended: Date?
+    /// Its permission dialog is open.
+    public var asks: Bool?
+    public init(id: String, kind: String, task: String?, started: Date = Date()) {
+        self.id = id; self.kind = kind; self.task = task; self.started = started
+    }
 }
 
 public struct Session: Codable, Sendable, Equatable, Revised {
@@ -99,7 +105,7 @@ public struct Session: Codable, Sendable, Equatable, Revised {
             guard status != oldValue else { return }
             statusAt = Date()
             // A Stop that waits for one stays working; cut short, none says it ended.
-            if status != .working && status != .waiting { subagents = nil; subagentTasks = nil }
+            if status != .working && status != .waiting { subagents = nil; subagentTasks = nil; subagentRuns = nil }
         }
     }
     /// When `status` last changed ("working for 4m", "done 2h ago"); nil for sessions from before it was kept.
@@ -144,9 +150,11 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// The agent that started it (`kelp session new --agent`): it hears how this one is doing and takes it along when it ends.
     public var parent: String?
     /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
-    public var subagents: [String: String]?
+    public var subagents: [String: String]? { didSet { followSubagents() } }
     /// What each of them does, by the same id, when the agent says (OSC 7501's `title`).
-    public var subagentTasks: [String: String]?
+    public var subagentTasks: [String: String]? { didSet { followSubagents() } }
+    /// Its subagents of this turn in the order they started, the finished ones too; follows the two above, ends with the turn.
+    public var subagentRuns: [Subagent]?
     public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
                 status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
                 title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {
@@ -155,10 +163,46 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         self.title = title; self.titleManual = titleManual; self.summary = summary; self.argv = argv
     }
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
-    /// Its subagents at work, in an order that doesn't change while they run.
+    /// Its subagents at work: who asks first, then in the order they started.
     public var runningSubagents: [Subagent] {
-        (subagents ?? [:]).map { Subagent(id: $0.key, kind: $0.value, task: subagentTasks?[$0.key]) }
-            .sorted { ($0.kind, $0.task ?? "", $0.id) < ($1.kind, $1.task ?? "", $1.id) }
+        let running = (subagentRuns ?? []).filter { $0.ended == nil }
+        return running.filter { $0.asks == true } + running.filter { $0.asks != true }
+    }
+    /// Its subagents that finished this turn.
+    public var finishedSubagents: [Subagent] { (subagentRuns ?? []).filter { $0.ended != nil } }
+    /// Limit: a turn keeps this many finished ones, so a record stays small; one that sent off hundreds counts only these.
+    static let finishedKept = 32
+    /// A new id in `subagents` has started, one gone from it has ended.
+    private mutating func followSubagents() {
+        guard subagents != nil || subagentRuns != nil else { return }
+        let now = Date()
+        var runs = subagentRuns ?? []
+        for (id, kind) in subagents ?? [:] {
+            guard let i = runs.firstIndex(where: { $0.id == id }) else {
+                runs.append(Subagent(id: id, kind: kind, task: subagentTasks?[id], started: now))
+                continue
+            }
+            runs[i].kind = kind
+            runs[i].ended = nil
+            if let task = subagentTasks?[id] { runs[i].task = task }
+        }
+        for i in runs.indices where runs[i].ended == nil && subagents?[runs[i].id] == nil {
+            runs[i].ended = now
+            runs[i].asks = nil
+        }
+        var over = runs.count { $0.ended != nil } - Self.finishedKept
+        runs.removeAll { run in
+            guard over > 0, run.ended != nil else { return false }
+            over -= 1
+            return true
+        }
+        subagentRuns = runs.isEmpty ? nil : runs
+    }
+    /// Whose permission dialogs are open, by agent id.
+    public mutating func subagentsAsk(_ ids: some Collection<String>) {
+        guard var runs = subagentRuns else { return }
+        for i in runs.indices { runs[i].asks = runs[i].ended == nil && ids.contains(runs[i].id) ? true : nil }
+        if runs != subagentRuns { subagentRuns = runs }
     }
     /// The folder the agent works in now.
     public var currentDir: String { workDir ?? cwd }

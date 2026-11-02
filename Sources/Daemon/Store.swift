@@ -160,6 +160,7 @@ public final class Store: Sendable {
                 t.column("paste", .boolean).notNull(); t.column("report", .boolean).notNull()
             }
         }
+        m.registerMigration("v23") { db in try db.alter(table: "session") { t in t.add(column: "subagentRuns", .text) } }
         return m
     }
 
