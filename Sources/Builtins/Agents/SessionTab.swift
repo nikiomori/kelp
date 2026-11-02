@@ -61,6 +61,7 @@ final class SessionTab: TabContent {
         let sid = TabURI.body(uri)
         m.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
         m.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
+        guard app.session(sid)?.agent != "shell" else { return }   // a terminal has no conversation to copy or hand over
         m.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
         m.setSubmenu(AgentActions(app).handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
         m.add(String(localized: "Changes in Its Last Turn")) {

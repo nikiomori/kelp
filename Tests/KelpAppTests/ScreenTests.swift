@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Testing
 import Core
+import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
 @testable import BuiltinAgents
@@ -433,5 +434,20 @@ extension OneAtATime {
         let items = try #require(menus.first { $0.contains("Hand Off to") })
         #expect(items.contains("Stop…"))
         #expect(!items.contains("Stop"))   // the word that ended it at once
+    }
+}
+
+/// A terminal has no conversation: its tab offers nothing about one.
+@MainActor @Test func aTerminalsTabOffersNothingAboutAConversation() throws {
+    let shell = Session(worktreeId: "w1", cwd: "/", command: "zsh", agent: "shell", status: .idle, title: "zsh")
+    let chat = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Here")
+    try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [shell, chat]) { vc, _ in
+        @MainActor func items(_ s: Session) -> [String] {
+            let m = NSMenu()
+            SessionTab.menu(vc.app, m, uri: TabURI.session(s.id), workspace: "w1") { _ in }
+            return m.items.map(\.title)
+        }
+        #expect(items(shell) == ["Rename…", "Restart"])
+        #expect(items(chat).contains("Hand Off to"))
     }
 }
