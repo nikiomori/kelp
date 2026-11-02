@@ -54,30 +54,37 @@ struct UsageReportView: View {
 
     var body: some View {
         let lines = agentLines(app.plans)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                header
-                if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
-                if usage == nil, failed == nil { firstReading }
-                if usage != nil, !lines.isEmpty {   // not "nothing used" while the first reading is under way
-                    kpis(lines)
-                    table(lines)
-                }
-                if let usage, !usage.days.isEmpty {
-                    detail(usage)
-                    HStack(alignment: .top, spacing: 28) {
-                        groups(String(localized: "By Model"), (sel.flatMap(agent)?.models ?? usage.models), model: true)
-                        groups(String(localized: "By Project"), sel.flatMap(agent)?.projects ?? usage.projects, model: false)
-                    }
-                } else if !loading, failed == nil {
-                    Text("No agent conversations in this time.").foregroundStyle(.secondary)
-                }
-                if usage != nil { footnote }
+        // As wide as the pane up to 1000, and the table's own width at least: a narrower pane scrolls sideways, from the left.
+        GeometryReader { pane in
+            ScrollView([.vertical, .horizontal]) {
+                page(lines).padding(24).frame(width: min(max(pane.size.width, 700), 1000), alignment: .leading)
             }
-            .padding(24).frame(maxWidth: 1000, alignment: .leading)
+            .defaultScrollAnchor(.topLeading)
         }
         .watchingPlans(app)
         .task(id: range) { await load() }
+    }
+
+    private func page(_ lines: [Line]) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            header
+            if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
+            if usage == nil, failed == nil { firstReading }
+            if usage != nil, !lines.isEmpty {   // not "nothing used" while the first reading is under way
+                kpis(lines)
+                table(lines)
+            }
+            if let usage, !usage.days.isEmpty {
+                detail(usage)
+                HStack(alignment: .top, spacing: 28) {
+                    groups(String(localized: "By Model"), (sel.flatMap(agent)?.models ?? usage.models), model: true)
+                    groups(String(localized: "By Project"), sel.flatMap(agent)?.projects ?? usage.projects, model: false)
+                }
+            } else if !loading, failed == nil {
+                Text("No agent conversations in this time.").foregroundStyle(.secondary)
+            }
+            if usage != nil { footnote }
+        }
     }
 
     private var header: some View {
