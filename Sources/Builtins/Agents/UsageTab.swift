@@ -107,8 +107,8 @@ struct UsageReportView: View {
         Text("""
                 Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
                 Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
-                disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost a tenth \
-                of fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
+                disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost far \
+                less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
                 differently, and "—" is a model without one.
             """)
             .font(.caption).foregroundStyle(.secondary)

@@ -4,7 +4,7 @@ import Foundation
 struct UsageEntry {
     var time: TimeInterval, model: String, cwd: String, id: String?
     var tokens: TokenCounts
-    /// What the agent itself said it cost (Grok); nil: priced from `Pricing`.
+    /// What the line alone can tell it cost (Grok's own figure, Claude's hour-long cache writes); nil: priced from `Pricing`.
     var cost: Double?
 }
 

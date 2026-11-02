@@ -160,9 +160,11 @@ public final class UsageIndex: Sendable {
         guard model != "<synthetic>" else { return nil }
         func n(_ k: String) -> Int { (u[k] as? NSNumber)?.intValue ?? 0 }
         let id = [field(line, "id"), field(line, "requestId")].compactMap { $0 }.joined(separator: ":")
-        return UsageEntry(time: ts, model: model, cwd: field(line, "cwd") ?? "", id: id.isEmpty ? nil : id,
-                          tokens: TokenCounts(input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
-                                              cacheRead: n("cache_read_input_tokens")))
+        let tokens = TokenCounts(input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
+                                 cacheRead: n("cache_read_input_tokens"))
+        let hourWrites = ((u["cache_creation"] as? [String: Any])?["ephemeral_1h_input_tokens"] as? NSNumber)?.intValue ?? 0
+        return UsageEntry(time: ts, model: model, cwd: field(line, "cwd") ?? "", id: id.isEmpty ? nil : id, tokens: tokens,
+                          cost: Pricing.cost(model: model, tokens: tokens, hourWrites: hourWrites))
     }
 
     /// The first `"name":"value"` in the line (string values only).

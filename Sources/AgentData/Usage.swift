@@ -14,11 +14,15 @@ public struct TokenCounts: Codable, Sendable, Equatable {
 /// USD per million tokens.
 public struct Pricing: Sendable, Equatable {
     public var input, output, cacheWrite, cacheRead: Double
+    /// A request whose prompt, cache included, is longer than this pays five times every rate (Haiku 5.5).
+    public var longPrompt = Int.max
     public func cost(_ t: TokenCounts) -> Double {
         (Double(t.input) * input + Double(t.output) * output + Double(t.cacheWrite) * cacheWrite + Double(t.cacheRead) * cacheRead) / 1_000_000
     }
 
-    /// ESTIMATE: list prices as of Oct 2026, hand-copied; they drift. Cache write = 5-minute TTL rate (1h writes cost more).
+    /// ESTIMATE: list prices as of Nov 2026, hand-copied; they drift. Cache write = 5-minute TTL rate; `hourWrites` says how
+    /// many of a call's writes are kept for an hour instead.
+    /// Limit: OpenAI's higher rates past 272K of input aren't here; a Codex call that long reads low.
     /// First substring match wins, so specific ids precede their family fallback.
     public static let table: [(match: String, price: Pricing)] = [
         ("fable-5-1", .init(input: 10, output: 50, cacheWrite: 12.5, cacheRead: 0.25)),
@@ -27,19 +31,30 @@ public struct Pricing: Sendable, Equatable {
         ("mythos", .init(input: 10, output: 50, cacheWrite: 12.5, cacheRead: 1)),
         ("opus-5-5", .init(input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2)),
         ("opus", .init(input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5)),
+        ("sonnet-5-5", .init(input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.1)),
         ("sonnet-4", .init(input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3)),
         ("sonnet", .init(input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2)),
-        ("haiku-5", .init(input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01)),
+        ("haiku-5", .init(input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01, longPrompt: 100_000)),
         ("haiku", .init(input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1)),
         ("-mini", .init(input: 0.25, output: 2, cacheWrite: 0, cacheRead: 0.025)),
+        ("gpt-6-astra", .init(input: 10, output: 50, cacheWrite: 0, cacheRead: 1)),
+        ("gpt-6.1-sol", .init(input: 2, output: 10, cacheWrite: 0, cacheRead: 0.1)),
+        ("gpt-6.1-terra", .init(input: 1, output: 5, cacheWrite: 0, cacheRead: 0.05)),
+        ("gpt-6-sol", .init(input: 2, output: 10, cacheWrite: 0, cacheRead: 0.2)),
+        ("gpt-6-luna", .init(input: 0.1, output: 0.5, cacheWrite: 0, cacheRead: 0.01)),
+        ("gpt-5.6-sol", .init(input: 4, output: 20, cacheWrite: 0, cacheRead: 0.4)),
+        ("gpt-5.6-terra", .init(input: 2, output: 12, cacheWrite: 0, cacheRead: 0.2)),
+        ("gpt-5.6-luna", .init(input: 0.2, output: 1.2, cacheWrite: 0, cacheRead: 0.02)),
         ("gpt-5.2", .init(input: 1.75, output: 14, cacheWrite: 0, cacheRead: 0.175)),
         ("gpt-5", .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125))
     ]
 
-    /// 0 for unknown models.
-    public static func cost(model: String, tokens: TokenCounts) -> Double {
+    /// One call's cost, 0 for unknown models. A write kept for an hour costs twice the input rate.
+    public static func cost(model: String, tokens: TokenCounts, hourWrites: Int = 0) -> Double {
         let m = model.lowercased()
-        return table.first { m.contains($0.match) }?.price.cost(tokens) ?? 0
+        guard let p = table.first(where: { m.contains($0.match) })?.price else { return 0 }
+        let cost = p.cost(tokens) + Double(hourWrites) * (2 * p.input - p.cacheWrite) / 1_000_000
+        return tokens.input + tokens.cacheWrite + tokens.cacheRead > p.longPrompt ? cost * 5 : cost
     }
 }
 

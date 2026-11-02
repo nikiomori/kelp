@@ -38,9 +38,9 @@ final class AgentUsage: Sendable {
         self.settings = settings
         self.store = store
         self.remotes = remotes
-        self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-2.json"))   // new number: a parser change reads everything again
+        self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-3.json"))   // new number: a parser or price change reads everything again
         self.agentIndexes = Dictionary(uniqueKeysWithValues: UsageFormat.allCases.filter { $0 != .claude }.map {
-            ($0, UsageIndex(cache: root.appendingPathComponent("usage-index-\($0.rawValue)-1.json"), format: $0))
+            ($0, UsageIndex(cache: root.appendingPathComponent("usage-index-\($0.rawValue)-2.json"), format: $0))
         })
     }
 

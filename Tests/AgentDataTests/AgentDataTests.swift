@@ -134,6 +134,18 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect(Pricing.cost(model: "gpt-5.2-codex", tokens: TokenCounts(output: 1_000_000)) == 14)
     #expect(Pricing.cost(model: "gpt-5.5", tokens: TokenCounts(input: 1_000_000)) == 1.25)
     #expect(Pricing.cost(model: "llama-3", tokens: m) == 0)
+    #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.1)
+    #expect(Pricing.cost(model: "claude-sonnet-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.2)
+    #expect(Pricing.cost(model: "gpt-5.6-terra", tokens: TokenCounts(input: 1_000_000)) == 2)
+    #expect(Pricing.cost(model: "gpt-6-luna", tokens: TokenCounts(output: 1_000_000)) == 0.5)
+    // An hour's write is twice the input rate, 8 on Opus 5.5 where five minutes' is 5.
+    let write = TokenCounts(cacheWrite: 1_000_000)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write) == 5)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write, hourWrites: 1_000_000) == 8)
+    // Haiku 5.5 past 100K of prompt pays five times every rate, the cache counted in the prompt.
+    let long = TokenCounts(output: 1000, cacheRead: 100_001)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * (0.0005 + 0.00100001)) < 1e-12)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: TokenCounts(output: 1000, cacheRead: 100_000)) - 0.0015) < 1e-12)
 }
 
 @Test func aCodexChatsLastReplyIsItsFolders() throws {
@@ -256,6 +268,13 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect(ClaudeHistory.session(id: "nope", cwd: "/work/my_app", root: root) == nil)
 }
 
+@Test func anHourLongCacheWriteCostsMoreThanAFiveMinuteOne() throws {
+    let line = #"{"cwd":"/p","message":{"id":"a","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":0,"#
+        + #""cache_creation_input_tokens":1000000,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":1000000}}},"#
+        + #""type":"assistant","timestamp":"2026-11-02T10:00:00.000Z"}"#
+    #expect(try #require(UsageIndex.entry(Data(line.utf8))).cost == 8)
+}
+
 @Test func usageIndexReadsOnlyWhatsNew() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ui-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -326,6 +345,7 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let sum = p.base + p.parts.reduce(0) { $0 + $1.tokens }
     #expect((2390...2400).contains(sum))   // scaled to what the reply counted
     #expect(ClaudeContext.parts(Data(old.joined(separator: "\n").utf8), used: 0) == nil)
+
 }
 
 /// What every request starts with, as `claude -p /context` prints it: the categories (not Messages or Free space, read
