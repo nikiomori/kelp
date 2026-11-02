@@ -261,13 +261,7 @@ final class LiveSession: Sendable {
             // A shell or a plain command (a dev server, a script) has no turns: its output comes and goes, and each change
             // would copy the index and hash the tree again.
             let shell = s.record.agent == "shell" || s.record.agent == "custom"
-            let starting = status == .working && !s.inTurn, ending = s.inTurn && status != .working
-            if starting {
-                s.inTurn = true
-                s.turnStart = Date()
-                s.turnFolder = s.record.currentDir
-            }
-            if ending { s.inTurn = false }
+            let (starting, ending) = s.turnMoved(to: status)
             return (shell, starting, ending, s.turnStart, s.turnFolder ?? s.record.cwd)
         }
         guard !shell, starting || ending else { return }
@@ -343,10 +337,10 @@ final class LiveSession: Sendable {
             var read: Session?
             if s.record.unread { s.record.unread = false; read = s.record }   // typing into it is having read it
             // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
-            if Self.isStopKey(d), s.record.status == .working || (s.hooked && s.record.status == .waiting) {
+            if Self.isStopKey(d), s.record.status == .working || (s.saysItself && s.record.status == .waiting) {
                 s.interruptArmed = (Date(), ""); s.stopKeyAt = Date()
             }
-            if s.hooked {
+            if s.saysItself {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
                 if s.record.status == .waiting, Self.answersMenu(d) {
                     s.interruptArmed = (Date(), "")

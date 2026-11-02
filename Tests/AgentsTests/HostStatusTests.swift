@@ -31,7 +31,10 @@ import Core
     #expect(try run("Stop", #"{"background_tasks":[]}"#) == wrapped("state=done"))
     #expect(try String(contentsOf: kept, encoding: .utf8) == "set-option -q @kelp_status state=done\n")
     #expect(try run("PermissionRequest", "{}") == wrapped("state=blocked:kind=permission"))
-    #expect(try run("Stop", #"{"background_tasks":[{"id":"a"}]}"#) == "")   // the turn isn't over
+    #expect(try run("Stop", #"{"background_tasks":[{"id":"a","type":"subagent"}]}"#) == "")   // the turn isn't over
+    #expect(try run("Stop", #"{"background_tasks": [{"id": "a", "type": "workflow"}]}"#) == "")
+    #expect(try run("Stop", #"{"background_tasks":[{"id":"a","type":"shell"},{"id":"b","type":"memory"}]}"#) == wrapped("state=done"))   // nothing wakes it
+    #expect(try run("Stop", #"{"last_assistant_message":"\"type\":\"subagent\"","background_tasks":[]}"#) == wrapped("state=done"))
     let title = Data("Explore".utf8).base64EncodedString()
     #expect(try run("SubagentStart", #"{"agent_id":"a1","agent_type":"Explore"}"#) == wrapped("state=working:id=a1:title=\(title)"))
     #expect(try run("SubagentStop", #"{"agent_id":"a1"}"#) == wrapped("state=clear:id=a1"))

@@ -17,6 +17,9 @@ extension LiveSession.State {
 
     /// Its status comes from the agent turn by turn: hooks, or what they write in tmux on a host (`Hooks.hostSettingsJSON`).
     var reportsTurns: Bool { hooked || record.tmux != nil }
+    /// `reportsTurns`, and it really does: hooks that stayed silent, or an agent on a host with no hooks there, are read off
+    /// the screen. What waits for a status to come instead of reading one asks this.
+    var saysItself: Bool { reportsTurns && detector.hooked }
 
     /// The output a menu is read from: the last bytes, or, when it's asking or being answered, around the last cursor. TUIs
     /// redraw only what changed, and Claude Code blinks a dot beside the tool a dialog is about, which takes the menu out of
@@ -86,9 +89,11 @@ extension LiveSession {
             }
             s.detector.input(); s.record.unread = false
             // A "No" ends the turn: the screen says so.
-            if s.reportsTurns {
+            if s.saysItself {
                 s.interruptArmed = (Date(), "")
                 if s.answeredOne() { s.detector.override(.working, because: "an answer from a notification") }
+            } else {
+                s.detector.answered()
             }
             return s.sync() ?? s.record
         }

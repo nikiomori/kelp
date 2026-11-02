@@ -364,6 +364,19 @@ extension LiveSession {
             _ = showRunning()
         }
 
+        /// Whether this status starts its turn or ends it. A dialog is part of the turn: what it did before the question counts
+        /// too, and the answer doesn't start another.
+        mutating func turnMoved(to status: AgentStatus) -> (starting: Bool, ending: Bool) {
+            let starting = status == .working && !inTurn, ending = inTurn && status != .working && status != .waiting
+            if starting {
+                inTurn = true
+                turnStart = Date()
+                turnFolder = record.currentDir
+            }
+            if ending { inTurn = false }
+            return (starting, ending)
+        }
+
         /// A row that says working or asks while the screen stood still for minutes and no hook came. A Stop (or a compaction's
         /// end) Kelp doesn't know of or missed would leave it working, keeping the Mac awake, until the next prompt, and a turn
         /// cut short elsewhere (Remote Control, a No there) sends no hook at all and only prints that it was. Claude Code redraws
@@ -371,9 +384,9 @@ extension LiveSession {
         /// A menu on that screen is a question whose hook never came: it waits for the user, and its turn goes on after.
         /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would get.
         mutating func releaseStale(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-            let limit: TimeInterval = holding ? 1800 : 180
+            let limit: TimeInterval = holding || record.subagents != nil ? 1800 : 180
             let status = detector.status
-            guard hooked, status == .working || status == .waiting, up - lastLifeUp > limit else { return }
+            guard saysItself, status == .working || status == .waiting, up - lastLifeUp > limit else { return }
             lastLifeUp = up   // looked at; again after as long
             if menuOpen() {
                 if status == .working { detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen") }

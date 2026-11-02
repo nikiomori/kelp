@@ -313,8 +313,9 @@ public enum Hooks {
     /// there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report itself, wrapped so that tmux
     /// lets it through, to the tty of the agent that ran it (a hook has none of its own). A report also stays in a tmux
     /// option, for whichever connection comes next (`RemoteHost.command(_:inTmux:)`). A subagent's goes on a line of its
-    /// own: `agent_type` as its title, the one thing the hook knows of it. A Stop with subagents still going isn't the end
-    /// of the turn. Out of tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
+    /// own: `agent_type` as its title, the one thing the hook knows of it. A Stop with work that wakes the agent still going
+    /// isn't the end of the turn (`TurnEnd`), and JSON escapes a reply's own quotes, so one quoting these can't pass for it.
+    /// Out of tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
     public static func hostSettingsJSON() throws -> String {
         let send = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
         let start = #"[ -n "$TMUX" ]||exit 0;"#
@@ -332,7 +333,7 @@ public enum Hooks {
         }
         let hooks: [String: JSONValue] = [
             "UserPromptSubmit": agent("state=working"), "PostToolUse": agent("state=working"), "ElicitationResult": agent("state=working"),
-            "Stop": agent("state=done", unless: #"p=$(cat);case "$p" in *'"background_tasks":[{'*)exit;;esac;"#),
+            "Stop": agent("state=done", unless: #"p=$(tr -d ' ');case "$p" in *'"type":"subagent"'*|*'"type":"workflow"'*|*'"type":"teammate"'*)exit;;esac;"#),
             "StopFailure": agent("state=error"), "PermissionRequest": agent("state=blocked:kind=permission"),
             "PreToolUse": only("AskUserQuestion", agent("state=blocked:kind=question")), "Elicitation": agent("state=blocked:kind=question"),
             "SubagentStart": subagent(#""state=working:id=$(f agent_id):title=$(printf %s "$(f agent_type)"|base64|tr -d '\n')""#),

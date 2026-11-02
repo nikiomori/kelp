@@ -11,6 +11,59 @@ private func hooked() -> LiveSession.State {
                       logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
 }
 
+/// An agent in tmux on a host: no hooks here, it writes its status to the terminal (`Hooks.hostSettingsJSON`).
+private func onHost() -> LiveSession.State {
+    var r = Session(cwd: "/", command: "claude", agent: "claude")
+    r.tmux = "kelp_agent"
+    return LiveSession.State(record: r, manifest: AgentManifest(id: "claude", name: "Claude Code", command: "claude"),
+                             logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+}
+
+/// A Stop that never reached Kelp, or a turn cut short, leaves nothing to say so on a host either: the same wait ends it,
+/// longer while a subagent runs, as nothing prints then. Without it the row kept the Mac awake until the next prompt.
+@Test func aHostsWorkingRowThatWentQuietIsReleased() {
+    var s = onHost()
+    s.apply(.init(state: "working")); _ = s.sync()
+    let t = s.lastLifeUp
+    s.record.subagents = ["a": ""]
+    s.releaseStale(at: t + 200); #expect(s.detector.status == .working)
+    s.record.subagents = nil
+    s.releaseStale(at: t + 200); #expect(s.detector.status == .done)
+}
+
+/// On a host, an answer typed at a dialog is the same as here, and one that says No gets its turn read off the screen.
+@Test func aHostsDialogAnsweredStopsAsking() {
+    var s = onHost()
+    s.apply(.init(state: "blocked")); _ = s.sync()
+    #expect(s.saysItself && s.record.status == .waiting)
+    // Hooks that never spoke, or no status from the host yet: the screen says, and an answer settles once it's quiet.
+    #expect(!onHost().saysItself)
+    var silent = hooked()
+    silent.detector.hooksSilent()
+    #expect(!silent.saysItself)
+}
+
+/// A program that only reports what it's told to (`kelp report working`, a long quiet script) isn't released: nothing
+/// says its turns end.
+@Test func aReportingShellStaysAsItSaid() {
+    var s = LiveSession.State(record: Session(cwd: "/", command: "sh", agent: "custom"), manifest: AgentManifest(id: "custom", name: "x", command: "sh"),
+                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+    s.apply(.init(state: "working")); _ = s.sync()
+    s.releaseStale(at: s.lastLifeUp + 5000)
+    #expect(s.detector.status == .working)
+}
+
+/// Five edits, each asked about, are one turn: its snapshot isn't taken again at each answer, and what came before the
+/// last dialog still counts.
+@Test func aDialogDoesntEndTheTurn() {
+    var s = hooked()
+    #expect(s.turnMoved(to: .working) == (true, false))
+    #expect(s.turnMoved(to: .waiting) == (false, false))
+    #expect(s.turnMoved(to: .working) == (false, false))
+    #expect(s.turnMoved(to: .done) == (false, true))
+    #expect(s.turnMoved(to: .waiting) == (false, false))   // no turn to end
+}
+
 /// Claude Code compacts a conversation that sits idle ("Compacted while idle…", trigger "auto"): no turn follows to end it,
 /// so the row must not turn working (it stayed so for hours, with the Mac kept awake) nor done (a notification for nothing).
 @Test func anIdleCompactionLeavesTheRowAsItWas() {
