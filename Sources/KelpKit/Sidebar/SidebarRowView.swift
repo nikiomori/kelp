@@ -1,19 +1,19 @@
 import AppKit
 import DesignKit
 
-/// Two levels, as a Finder sidebar keeps them: a project, then what's in it 12 pt further in (an agent's mark under
-/// the right half of the project's icon), workspaces as headings at the same depth as their agents.
+/// A project, then its chats and groups in the same two columns (the slot under the project's icon, the name under its
+/// name: the card says what's in it), then a group's chats 12 pt further in.
 final class SidebarOutline: NSOutlineView {
     static let lead: CGFloat = 14, step: CGFloat = 12
     /// Room over and under a row's content, where its project's card opens and closes (SidebarRowView.group).
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
-    /// No disclosure triangles: projects and workspaces fold from a chevron at their row's end (SidebarCell).
+    /// No disclosure triangles: projects and groups fold from the chevron their slot shows under the pointer (SidebarCell).
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var r = padded(super.frameOfCell(atColumn: column, row: row), row)
         // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
         // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
-        let x = Self.lead + CGFloat(min(level(forRow: row), 2)) * Self.step
+        let x = Self.lead + (level(forRow: row) >= 2 ? Self.step : 0)
         r.origin.x = x; r.size.width = bounds.width - 8 - x
         return r
     }

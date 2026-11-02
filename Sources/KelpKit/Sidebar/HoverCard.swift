@@ -114,8 +114,11 @@ final class CardModel {
             muteIds = [r.id]
         } else if key.hasPrefix("w:"), let w = m.worktree(String(key.dropFirst(2))) {
             let r = m.repo(w.repoId)
-            title = w.displayName
-            subtitle = [m.projectName(r?.id), w.path == r?.path ? nil : String(localized: "branch \(w.branch)")].compactMap { $0 }.joined(separator: " · ")
+            // A project's own screen has no name of its own: the row stands for the project.
+            let group = m.groupName(w)
+            title = group ?? m.projectName(r?.id) ?? w.displayName
+            let branch = w.path == r?.path ? nil : String(localized: "branch \(w.branch)")
+            subtitle = [group == nil ? nil : m.projectName(r?.id), branch].compactMap { $0 }.joined(separator: " · ")
             agents = m.sessions.filter { $0.worktreeId == w.id && $0.isChat && $0.status != .exited }.map { Agent(id: $0.id, session: $0) }
             workspaceId = w.id
             agentOnly = false

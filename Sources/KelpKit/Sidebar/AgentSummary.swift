@@ -36,6 +36,14 @@ final class AgentSummary: NSView {
     private let asideMark = StatusMark(size: 12)
     private let asideText = NSTextField(labelWithString: "")
     private let row = NSStackView()
+    /// The words' room, as wished rather than required: a stack around a label has no width of its own, and a required one
+    /// would widen the sidebar.
+    private lazy var asideWidth: NSLayoutConstraint = {
+        let c = aside.widthAnchor.constraint(equalToConstant: 0)
+        c.priority = .defaultHigh
+        c.isActive = true
+        return c
+    }()
     private let app: AppModel
     private var asking = false
     /// Questions already shown or looked at: one that isn't lights the capsule as it comes in.
@@ -64,12 +72,10 @@ final class AgentSummary: NSView {
         asideText.textColor = .secondaryLabelColor
         asideText.lineBreakMode = .byClipping
         asideText.maximumNumberOfLines = 1
-        asideText.setContentCompressionResistancePriority(.required, for: .horizontal)   // it goes as a whole (`layout`)
+        asideText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for v in [asideMark, asideText] as [NSView] { aside.addArrangedSubview(v) }
         aside.spacing = Metrics.gap
         aside.detachesHiddenViews = true
-        aside.setHuggingPriority(.required, for: .horizontal)   // a stack keeps to its views only so
-        aside.setClippingResistancePriority(.required, for: .horizontal)
         for v in [capsule, aside] as [NSView] { row.addArrangedSubview(v) }
         row.spacing = Metrics.gap
         row.detachesHiddenViews = true
@@ -98,6 +104,7 @@ final class AgentSummary: NSView {
     override func layout() {
         super.layout()
         let words = asideText.intrinsicContentSize.width + (asideMark.isHidden ? 0 : 12 + aside.spacing) + 2
+        if asideWidth.constant != words { asideWidth.constant = words }
         let room = asking ? bounds.width - (title.intrinsicContentSize.width + 12 + Metrics.gap + 22) - row.spacing : .infinity
         let hide = asideText.stringValue.isEmpty || words > room
         if aside.isHidden != hide { aside.isHidden = hide }

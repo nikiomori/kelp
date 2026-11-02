@@ -25,19 +25,6 @@ extension SidebarController {
 
     func newChat(_ repo: String) { app.workbench.newChat(repo: repo) }
 
-    /// The + on a project's row: the two things it can hold, with the keys that make them where you are.
-    func addMenu(project id: String) -> NSMenu {
-        let m = NSMenu(), app = app
-        func show(_ i: NSMenuItem, key command: String) {
-            guard let k = app.extensions.command(command)?.key.flatMap(KeySpec.init) else { return }
-            i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags
-        }
-        show(m.add(String(localized: "New Chat")) { app.workbench.newChat(repo: id) }, key: "workspace.new")
-        show(m.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }, key: "workspace.newGroup")
-        if onThisMac(id) { show(m.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) }, key: "workspace.newBranch") }
-        return m
-    }
-
     /// A remote project's branches would need its git on the host: there it works in its folder.
     private func onThisMac(_ project: String) -> Bool { app.repo(project).map { RemoteHost.of($0.path) == nil } ?? false }
 
@@ -136,7 +123,7 @@ extension SidebarController {
             muteItem(menu, n.muteIds)
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
-            menu.add(String(localized: "Stop…")) { AgentActions(app).stop([sid]) }
+            menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
         }
     }
 

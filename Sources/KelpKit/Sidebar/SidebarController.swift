@@ -34,8 +34,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 
     let outline = SidebarOutline()
-    /// A project row's click folds it, a double click renames it instead (`clicked`).
-    var clickFold = ClickFold()
     /// Rows on their way to folded (SidebarFolding): the rows under them have no height and the card ends at them, while
     /// the outline still shows them. The number tells this fold from a later one of the same row.
     var folding: [String: Int] = [:]
@@ -70,7 +68,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.allowsMultipleSelection = true   // ⌘/⇧-click: the menu then acts on all of them
         outline.dataSource = self; outline.delegate = self
         outline.target = self; outline.doubleAction = #selector(doubleClicked)
-        outline.action = #selector(clicked)
         outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a folder from Finder becomes a project; rows move
         outline.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
                                                owner: self, userInfo: nil))
@@ -137,7 +134,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     override func mouseMoved(with e: NSEvent) {
         let row = outline.row(at: outline.convert(e.locationInWindow, from: nil))
-        guard row >= 0, renaming == nil, let n = outline.item(atRow: row) as? Node else {
+        let cell = row >= 0 ? outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell : nil
+        guard row >= 0, renaming == nil, let n = outline.item(atRow: row) as? Node, cell?.overAction(e.locationInWindow) != true else {
             card.hover(nil, rect: .zero, in: outline)
             return
         }
@@ -190,6 +188,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.reloadData()
         for p in roots where !collapsed.contains(p.key) { expand(p) }
         syncing = false
+        rowHeights = []   // as with the cells: a row's height was asked before what's under it opened, and it was its card's end
         instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
         syncSelection()
         settle(from: before)
@@ -265,8 +264,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let pad = pads(n)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
         if arriving.contains(n.key) { return 0.01 + pad.top + pad.bottom }
-        let base = { if case .workspace = n.kind { rowBase - 6 } else { rowBase } }()   // a heading, a little shorter
-        return TextSize.of(base + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
+        return TextSize.of(rowBase + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
     }
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
     /// Finder and Mail do. Limit: only the height follows it, the text stays 13 pt (Text size scales that).
@@ -369,8 +367,8 @@ extension SidebarController {
         case .agent(let id): app.workbench.focus(session: id)
         case .project:
             guard let id = node.workspace else { break }
-            if id != app.workbench.workspaceId { clickFold.opened = true }   // this click opens it; it doesn't fold it too
-            app.workbench.show(workspace: id)
+            // Already there: the pill stays with the tab.
+            if id == app.workbench.workspaceId { syncSelection() } else { app.workbench.show(workspace: id) }
         }
     }
 }
