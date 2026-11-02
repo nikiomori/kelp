@@ -5,33 +5,41 @@ import WorkbenchKit
 /// Starting agents and terminals in the focused pane, and reacting to their sessions.
 extension EditorArea {
     /// `draft`: the prompt is typed for the user to send, not sent.
-    package func newAgent(_ agent: String? = nil, prompt: String? = nil, draft: Bool = false, split: SplitDirection? = nil) {
+    package func newAgent(_ agent: String? = nil, prompt: String? = nil, draft: Bool = false, split: SplitDirection? = nil, focus: Bool = true) {
         createSession(SessionCreate(worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent, prompt: prompt?.isEmpty == false ? prompt : nil,
-                                    draft: draft ? true : nil), split: split)
+                                    draft: draft ? true : nil), split: split, focus: focus)
     }
-    package func newTerminal(split: SplitDirection? = nil) { createSession(SessionCreate(worktreeId: workspaceId, agent: "shell"), split: split) }
+    package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
+        createSession(SessionCreate(worktreeId: workspaceId, agent: "shell"), split: split, focus: focus)
+    }
     /// A terminal attached to tmux session `name` (started if tmux has none); the tab already attached to it, if there is one.
-    func newTmux(_ name: String, split: SplitDirection? = nil) {
+    func newTmux(_ name: String, split: SplitDirection? = nil, focus: Bool = true) {
         let name = Tmux.name(name)
         if let s = app.sessions.first(where: { $0.worktreeId == workspaceId && $0.status != .exited && Tmux.session($0.argv) == name }) {
-            open(TabURI.session(s.id), split: split); return
+            show(TabURI.session(s.id), split: split, focus: focus); return
         }
-        createSession(SessionCreate(worktreeId: workspaceId, tmux: name), split: split)
+        createSession(SessionCreate(worktreeId: workspaceId, tmux: name), split: split, focus: focus)
     }
     /// `cwd`: run it in another folder (a remote project's runs on its host), as a tab here. `created`: its session.
-    package func run(command: String?, title: String? = nil, cwd: String? = nil, split: SplitDirection? = nil, created: ((Session) -> Void)? = nil) {
-        guard let command, !command.isEmpty else { newTerminal(split: split); return }
-        createSession(SessionCreate(cwd: cwd, worktreeId: workspaceId, command: command, title: title), split: split, created: created)
+    package func run(command: String?, title: String? = nil, cwd: String? = nil, split: SplitDirection? = nil, focus: Bool = true,
+                     created: ((Session) -> Void)? = nil) {
+        guard let command, !command.isEmpty else { newTerminal(split: split, focus: focus); return }
+        createSession(SessionCreate(cwd: cwd, worktreeId: workspaceId, command: command, title: title), split: split, focus: focus, created: created)
     }
 
-    private func createSession(_ p: SessionCreate, split: SplitDirection?, created: ((Session) -> Void)? = nil) {
+    /// In front of you, or (`focus` false, an agent or a script asked) beside what you're doing.
+    private func show(_ uri: String, split: SplitDirection?, focus: Bool) {
+        if focus { open(uri, split: split) } else { showAside(uri, split: split) }
+    }
+
+    private func createSession(_ p: SessionCreate, split: SplitDirection?, focus: Bool = true, created: ((Session) -> Void)? = nil) {
         var p = p
         if let (cols, rows) = terminalSize(split: split) { p.cols = cols; p.rows = rows }
         Task {
             guard let s = await app.call(p) else { return }
             app.upsert(s)
             created?(s)
-            open(TabURI.session(s.id), split: split)
+            show(TabURI.session(s.id), split: split, focus: focus)
         }
     }
 
@@ -78,7 +86,7 @@ extension EditorArea {
         let shown = Set(layout.allTabs.filter { TabURI.scheme($0.uri) == "session" }.map { TabURI.body($0.uri) })
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
         for s in mine where s.status != .exited && !shown.contains(s.id) && !closed.contains(s.id) && !app.scripts.isHidden(s.id) {
-            layout.add(TabURI.session(s.id)); changed = true
+            layout.add(TabURI.session(s.id), select: false); changed = true
         }
         reconciledOnce = true
         if arrange() { changed = true }   // an agent started, paused, woke or ended: the panes follow

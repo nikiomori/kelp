@@ -50,7 +50,11 @@ extension Workbench {
     }
 
     /// `EditorArea.runURI`, for what Kelp itself asks to run.
-    func runURI(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil) { area(workspace)?.runURI(uri, split: split) }
+    func runURI(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil, focus: Bool = true) {
+        area(workspace)?.runURI(uri, split: split, focus: focus)
+    }
+    /// `EditorArea.showAside`, for what an agent or a script asks to show.
+    func showAside(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil) { area(workspace)?.showAside(uri, split: split) }
 
     private func area(_ workspace: String?) -> EditorArea? {
         if let k = keyArea, workspace == nil || workspace == k.workspaceId { return k }
@@ -276,8 +280,8 @@ struct KelpLinks {
     }
 }
 
-/// IDE actions agents ask for through the daemon (`kelp open`, `kelp ui`). They never pull Kelp to the front or
-/// switch the workspace on screen unless asked (`--focus`): a tab for another workspace waits there.
+/// IDE actions agents ask for through the daemon (`kelp open`, `kelp ui`). They never pull Kelp to the front, switch the
+/// workspace on screen or take the keys unless asked (`--focus`): a tab for another workspace waits there.
 @MainActor
 struct UIRequests {
     let app: AppModel
@@ -293,8 +297,10 @@ struct UIRequests {
                 app.workbench.window?.editors.openInBackground(uri, workspace: w)
                 return
             }
-            if TabURI.runs(uri) { app.workbench.runURI(uri, split: split, workspace: e.worktreeId) }   // `kelp open`: the user's or their agent's own
-            else { app.workbench.open(uri, split: split, workspace: e.worktreeId) }
+            // `kelp open`: the user's or their agent's own
+            if TabURI.runs(uri) { app.workbench.runURI(uri, split: split, workspace: e.worktreeId, focus: focus) }
+            else if focus { app.workbench.open(uri, split: split, workspace: e.worktreeId) }
+            else { app.workbench.showAside(uri, split: split, workspace: e.worktreeId) }
             if focus { NSApp.activate() }
         case "command":
             guard let id = e.id else { return }

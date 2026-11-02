@@ -39,14 +39,17 @@ public struct WorkspaceLayout: Codable, Equatable {
         return t
     }
 
-    /// Adds a tab to `group` (or the focused group, or a new one) and selects it.
+    /// Adds a tab to `group` (or the focused group, or a new one) and selects it; with `select` false it waits behind
+    /// what's shown (nothing moves for a session someone else started).
     @discardableResult
-    public mutating func add(_ uri: String, to group: String? = nil, at index: Int? = nil) -> TabRef {
+    public mutating func add(_ uri: String, to group: String? = nil, at index: Int? = nil, select: Bool = true) -> TabRef {
         let t = TabRef(uri: uri)
         let gid = group ?? focusedGroup?.id ?? newGroup(beside: nil, vertical: true)
         guard var g = groups[gid] else { return t }
-        g.tabs.insert(t, at: min(index ?? g.tabs.count, g.tabs.count)); g.selected = t.id
-        groups[gid] = g; focused = gid
+        g.tabs.insert(t, at: min(index ?? g.tabs.count, g.tabs.count))
+        if select || g.selected == nil { g.selected = t.id }
+        groups[gid] = g
+        if select { focused = gid }
         return t
     }
 

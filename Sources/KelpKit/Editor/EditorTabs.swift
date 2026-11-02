@@ -18,12 +18,12 @@ extension EditorArea {
 
     /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came
     /// from elsewhere: those go through `open`, which only shows things.
-    func runURI(_ uri: String, split: SplitDirection? = nil) {
+    func runURI(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
         let q = URLComponents(string: uri)
         func value(_ name: String) -> String? { q?.queryItems?.first { $0.name == name }?.value }
-        if TabURI.scheme(uri) == "agent" { newAgent(q?.path.isEmpty == false ? q?.path : nil, prompt: value("prompt"), split: split) }
-        else if let name = value("tmux") { newTmux(name, split: split) }
-        else { run(command: value("cmd"), title: value("title"), split: split) }
+        if TabURI.scheme(uri) == "agent" { newAgent(q?.path.isEmpty == false ? q?.path : nil, prompt: value("prompt"), split: split, focus: focus) }
+        else if let name = value("tmux") { newTmux(name, split: split, focus: focus) }
+        else { run(command: value("cmd"), title: value("title"), split: split, focus: focus) }
     }
 
     /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it. Only shows:
@@ -54,6 +54,21 @@ extension EditorArea {
         let t = layout.add(uri, to: target)
         arrange(); render()
         select(t.id, focus: focus)
+    }
+
+    /// What an agent or a script asks to show (`kelp open` without `--focus`): the pane you're in stays yours, its keys
+    /// too. Only a tab that lands on top of what you were looking at takes them, with nothing else left to type in.
+    func showAside(_ uri: String, split: SplitDirection? = nil) {
+        let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
+        let yours = layout.focusedGroup?.selectedTab?.id
+        open(uri, split: split, focus: false)
+        if let yours, let gid = layout.group(of: yours), layout.groups[gid]?.selected == yours, gid != layout.focused {
+            let shown = layout.focused
+            layout.focused = gid
+            shown.map(refreshGroup); refreshGroup(gid)
+            publishFocus()
+        }
+        if typing { focusSelected() }   // a new pane rebuilds the area, which takes the keys from the terminal
     }
 
     func closeTab(_ id: String) { Task { await closeTabAsking(id) } }

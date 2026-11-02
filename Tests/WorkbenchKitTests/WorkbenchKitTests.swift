@@ -328,3 +328,15 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     t.query = ""; t.filter = .needsYou
     #expect(agents(t) == ["p"])
 }
+
+/// A tab added without selecting waits behind what's shown, and the focus stays; in an empty pane it's what there is to show.
+@Test func aTabAddedBehindMovesNothing() {
+    var l = WorkspaceLayout()
+    let a = l.add("session:a")
+    let g = l.newGroup(beside: l.group(of: a.id), vertical: true)
+    let b = l.add("session:b", to: g, select: false)
+    #expect(l.groups[g]?.selected == b.id)
+    let f = l.focused
+    let c = l.add("session:c", to: g, select: false)
+    #expect(l.groups[g]?.selected == b.id && l.focused == f && l.group(of: c.id) == g)
+}
