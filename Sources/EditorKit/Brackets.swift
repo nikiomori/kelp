@@ -5,6 +5,8 @@ import AppKit
 /// comment isn't one; by counting in a file without a grammar.
 enum Brackets {
     private static let pairs: [unichar: unichar] = [40: 41, 91: 93, 123: 125]   // () [] {}
+    /// Tree-sitter finds a child by walking its siblings: an array this long took a stall per cursor move (400k: 230 ms).
+    private static let maxChildren: UInt32 = 10_000
 
     /// Where the bracket at `at` closes or opens; nil when it isn't one, or has none.
     static func partner(of at: Int, in s: NSString, tree: Tree?) -> Int? {
@@ -14,7 +16,7 @@ enum Brackets {
         guard let root = tree?.rootNode else { return count(from: at, opens: opens, c, other, in: s) }
         // The bracket's own token, and the same bracket on the other side among its siblings.
         guard let node = root.descendant(in: UInt32(at * 2)..<UInt32(at * 2 + 2)), node.range == NSRange(location: at, length: 1),
-              let parent = node.parent else { return nil }
+              let parent = node.parent, parent.childCount <= maxChildren else { return nil }
         let kids = (0..<parent.childCount).compactMap { parent.child(at: $0) }
         guard let k = kids.firstIndex(where: { $0.range == node.range }) else { return nil }
         let side = opens ? Array(kids[(k + 1)...]) : Array(kids[..<k].reversed())
@@ -40,13 +42,22 @@ extension CodeEditor {
     func markBrackets() {
         guard let lm = textView.layoutManager else { return }
         let s = textView.string as NSString
-        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: s.length))
+        // Only the marks: over the whole text this walks every color in it (160 ms per cursor move in a 5 MB file).
+        for m in marked where NSMaxRange(m) <= s.length { lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: m) }
+        marked = []
         let r = textView.selectedRange()
         guard textView.cursors.count == 1, r.length == 0 else { return }
         for at in [r.location - 1, r.location] where at >= 0 && at < s.length {
             guard let p = Brackets.partner(of: at, in: s, tree: highlighter?.tree) else { continue }
-            for i in [at, p] { lm.addTemporaryAttribute(.backgroundColor, value: bracketColor, forCharacterRange: NSRange(location: i, length: 1)) }
+            marked = [at, p].map { NSRange(location: $0, length: 1) }
+            for m in marked { lm.addTemporaryAttribute(.backgroundColor, value: bracketColor, forCharacterRange: m) }
             return
         }
+    }
+
+    /// A mark after an edit of `r` to `length` characters: the text carries it along; nil when the text under it went.
+    static func moved(_ m: NSRange, by r: NSRange, to length: Int) -> NSRange? {
+        if m.location >= NSMaxRange(r) { return NSRange(location: m.location + length - r.length, length: m.length) }
+        return NSMaxRange(m) <= r.location ? m : length > 0 ? NSRange(location: r.location, length: 1) : nil
     }
 }

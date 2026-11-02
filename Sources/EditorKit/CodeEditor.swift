@@ -6,6 +6,9 @@ import AppKit
 @MainActor
 public final class CodeEditor: NSObject {
     public static let readOnlyLimit = 5 * 1024 * 1024
+    /// More characters than this around the screen aren't colored: only a file of very long lines has that many, each token
+    /// a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s, after every keystroke).
+    static let colorSpan = 200_000
     public let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll = NSScrollView()
     public var view: NSView { scroll }
@@ -35,6 +38,8 @@ public final class CodeEditor: NSObject {
     private var coloring = false
     /// The characters colored for this text, tree and theme.
     var colored: NSRange?
+    /// Where the brackets are marked now.
+    var marked: [NSRange] = []
     /// The editors there are, to find the focused one (CodeEditor+Edits).
     static let all = NSHashTable<CodeEditor>.weakObjects()
 
@@ -47,7 +52,8 @@ public final class CodeEditor: NSObject {
 
     public init(text: String, url: URL, editable: Bool = true) {
         language = CodeLanguage.detectLanguageFrom(url: url, prefixBuffer: String(text.prefix(200)))
-        highlighter = SyntaxHighlighter(language)
+        // Past it a file is only read, and tree-sitter's tree takes more than 50 times the text (54 MB of JSON: 3 GB).
+        highlighter = text.utf8.count <= Self.readOnlyLimit ? SyntaxHighlighter(language) : nil
         super.init()
         Self.all.add(self)
         setUpTextView(editable: editable)
@@ -102,6 +108,7 @@ public final class CodeEditor: NSObject {
         loading = true
         textView.textStorage?.setAttributedString(NSAttributedString(string: s, attributes: textView.typingAttributes))
         loading = false
+        marked = []
         undo.removeAllActions()
         gutter?.fit(lines: lineCount)
     }
@@ -126,8 +133,38 @@ public final class CodeEditor: NSObject {
         let now = textView.string as NSString
         guard now.length != s.utf16.count || !now.isEqual(to: s) else { return }   // not `==`: that compares character by character
         let cursors = textView.cursors
-        load(s)
-        textView.setCursors(cursors.map { NSRange(location: min($0.location, textView.length), length: 0) })
+        // Only what changed goes in: an agent writing a file several times a second keeps the tree, the folds and the view.
+        guard textView.isEditable else {   // read only: `shouldChangeText` says no
+            load(s)
+            return textView.setCursors(cursors.map { NSRange(location: min($0.location, textView.length), length: 0) })
+        }
+        let (old, fresh) = Self.changed(now, s as NSString)
+        let t = (s as NSString).substring(with: fresh)
+        loading = true
+        if textView.shouldChangeText(in: old, replacementString: t) {
+            textView.textStorage?.replaceCharacters(in: old, with: NSAttributedString(string: t, attributes: textView.typingAttributes))
+            textView.didChangeText()
+        }
+        loading = false
+        undo.removeAllActions()
+        gutter?.fit(lines: lineCount)
+        textView.setCursors(cursors.map { c in
+            NSRange(location: c.location >= NSMaxRange(old) ? c.location + fresh.length - old.length : min(c.location, NSMaxRange(fresh)), length: 0)
+        })
+    }
+
+    /// The middle two texts don't share: what's in `a`, what's in `b`. Never between a surrogate pair's halves.
+    static func changed(_ a: NSString, _ b: NSString) -> (old: NSRange, new: NSRange) {
+        var x = [unichar](repeating: 0, count: a.length), y = [unichar](repeating: 0, count: b.length)
+        a.getCharacters(&x, range: NSRange(location: 0, length: a.length))
+        b.getCharacters(&y, range: NSRange(location: 0, length: b.length))
+        let n = min(x.count, y.count)
+        var head = 0, tail = 0
+        while head < n, x[head] == y[head] { head += 1 }
+        while tail < n - head, x[x.count - 1 - tail] == y[y.count - 1 - tail] { tail += 1 }
+        if head > 0, UTF16.isLeadSurrogate(x[head - 1]) { head -= 1 }
+        if tail > 0, UTF16.isTrailSurrogate(x[x.count - tail]) { tail -= 1 }
+        return (NSRange(location: head, length: x.count - head - tail), NSRange(location: head, length: y.count - head - tail))
     }
 
     public var selectedText: String? {
@@ -201,6 +238,7 @@ public final class CodeEditor: NSObject {
         let shown = characters(in: screen)
         if let colored, NSIntersectionRange(colored, shown).length == shown.length { return }
         let around = characters(in: screen.insetBy(dx: 0, dy: -screen.height))
+        guard around.length <= Self.colorSpan else { return }
         highlighter.color(around, in: textView)
         colored = around
     }
@@ -243,6 +281,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         for (r, t) in zip(ranges, texts).reversed() {   // from the bottom: each edit's offsets still hold for the next
             highlighter?.willReplace(r, with: t, in: s, lines: &lineIndex)
             lineCount += t.utf16.lazy.filter { $0 == 10 }.count - s.substring(with: r).utf16.lazy.filter { $0 == 10 }.count
+            marked = marked.compactMap { Self.moved($0, by: r, to: (t as NSString).length) }
         }
         described = true
     }

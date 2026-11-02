@@ -21,6 +21,55 @@ extension OneAtATime {
 
     private func type(_ tv: EditorTextView, _ s: String) { tv.insertText(s, replacementRange: NSRange(location: NSNotFound, length: 0)) }
 
+    private func marks(_ tv: EditorTextView) -> [Int] {
+        let lm = tv.layoutManager!
+        return (0..<tv.length).filter { lm.temporaryAttribute(.backgroundColor, atCharacterIndex: $0, effectiveRange: nil) != nil }
+    }
+
+    @Test func bracketMarksGoWithTheTextAndNoneStaysBehind() throws {
+        let (e, tv) = editor("(a)\nbar", "marks.txt", selecting: [NSRange(location: 0, length: 0)])
+        e.markBrackets()
+        #expect(marks(tv) == [0, 2])
+        tv.setCursors([NSRange(location: 4, length: 0)])
+        #expect(marks(tv) == [])
+        tv.setCursors([NSRange(location: 0, length: 0)])
+        e.setText("xx(a)\nbar")   // text above the marks moves them
+        #expect(e.marked == [NSRange(location: 2, length: 1), NSRange(location: 4, length: 1)])
+        tv.setCursors([NSRange(location: 6, length: 0)])
+        #expect(marks(tv) == [])
+    }
+
+    @Test func aFileChangedOnDiskKeepsWhatItDidntChange() {
+        let (e, tv) = editor("one\ntwo\nthree\nfour", selecting: [NSRange(location: 15, length: 0)])
+        tv.setFolded(NSRange(location: 8, length: 5), true)
+        e.setText("ONE!\ntwo\nthree\nfour")
+        #expect(tv.string == "ONE!\ntwo\nthree\nfour")
+        #expect(tv.cursors == [NSRange(location: 16, length: 0)])   // after the change: moved along
+        #expect(tv.folds.hidden == [NSRange(location: 9, length: 5)])
+        #expect(e.lineCount == 4)
+        e.setText("ONE!\ntwo\nthree\nfour\nfive")
+        #expect(e.lineCount == 5)
+        #expect(tv.undoManager?.canUndo == false)   // the disk's change isn't an edit of yours
+    }
+
+    @Test func whatChangedNeverSplitsASurrogatePair() {
+        let (old, new) = CodeEditor.changed("a😀b", "a😁b")   // same high half, different low half
+        #expect(old == NSRange(location: 1, length: 2) && new == NSRange(location: 1, length: 2))
+        let same = CodeEditor.changed("abab", "ab")
+        #expect(same.old == NSRange(location: 2, length: 2) && same.new == NSRange(location: 2, length: 0))
+    }
+
+    @Test func aFileOfVeryLongLinesIsNotColoredAndAHugeOneIsNotParsed() {
+        let long = "[" + String(repeating: "1,", count: CodeEditor.colorSpan) + "1]"
+        let (e, tv) = editor(long, "long.json", selecting: [NSRange(location: 0, length: 0)])
+        tv.layoutManager?.ensureLayout(forCharacterRange: NSRange(location: 0, length: tv.length))   // as the gutter's first draw does
+        e.colorVisible()
+        #expect(e.colored == nil)
+        #expect(tv.layoutManager?.temporaryAttribute(.foregroundColor, atCharacterIndex: 1, effectiveRange: nil) == nil)
+        let huge = String(repeating: "x", count: CodeEditor.readOnlyLimit + 1)
+        #expect(CodeEditor(text: huge, url: URL(fileURLWithPath: "/tmp/huge.json"), editable: false).highlighter == nil)
+    }
+
     @Test func commandDSelectsTheWordThenEachNextOccurrenceWrappingAround() {
         let (e, tv) = editor("foo bar foo\nfoo", selecting: [NSRange(location: 9, length: 0)])
         e.addNextOccurrence()

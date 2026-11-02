@@ -80,6 +80,8 @@ final class SyntaxHighlighter {
         lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: range)
         paint(matches.highlights(), at: 0, within: range, lm)
         for inj in matches.compactMap({ $0.injection(with: text) }) where NSIntersectionRange(inj.range, range).length > 0 {
+            // A block is parsed whole, here on the main thread: past this it keeps the outer grammar's colors.
+            guard inj.range.length <= Self.injectedLimit else { continue }
             guard NSMaxRange(inj.range) <= s.length, let found = injected(inj.name, s.substring(with: inj.range)) else { continue }
             // Its own colors only: the outer grammar's go (a fenced block was all one string color); Markdown's inline
             // marks add to a heading's color instead.
@@ -104,6 +106,8 @@ final class SyntaxHighlighter {
     private var parsers: [TreeSitterLanguage: (Parser, Query)] = [:]
     /// What an injected piece of text colors as, by its language and text: they're small and come back on every scroll.
     private var seen: [String: [NamedRange]] = [:]
+    private var seenCharacters = 0
+    private static let injectedLimit = 64_000
 
     /// The highlights of `text` (a piece of the file) in the language called `name`, parsed on its own; nil for a
     /// language without a grammar here.
@@ -117,7 +121,9 @@ final class SyntaxHighlighter {
         }
         guard let (parser, query) = parsers[language.id], let tree = parser.parse(text) else { return nil }
         let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
-        if seen.count > 500 { seen = [:] }
+        // By size: each edit of a block is a new entry here, as long as the block.
+        seenCharacters += text.utf16.count
+        if seen.count > 500 || seenCharacters > 2_000_000 { seen = [:]; seenCharacters = text.utf16.count }
         seen[key] = found
         return found
     }
