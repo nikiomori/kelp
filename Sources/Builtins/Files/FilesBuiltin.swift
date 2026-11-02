@@ -94,10 +94,7 @@ extension Builtins {
                           app.workbench.showPanel("files")
                           DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findInFiles() }   // after the panel is built
                       },
-                      cmd("editor.goToLine", "Go to Line…", "cmd+l") {
-                          guard let t = fileTab(app) else { return }
-                          Task { if let s = await prompt(String(localized: "Go to line"), ""), let n = Int(s) { t.goTo(line: n) } }
-                      },
+                      cmd("editor.goToLine", "Go to Line…", "cmd+l") { if fileTab(app) != nil { app.quickOpen.show(commandsOnly: false, text: ":") } },
                       cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
                       // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D, ⌘[ ⌘]: see EditorBox.
                       cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") { CodeEditor.focused?.addNextOccurrence() },

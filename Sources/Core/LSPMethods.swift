@@ -18,6 +18,12 @@ public struct CodeProblem: Codable, Sendable, Equatable {
     }
 }
 
+/// A name a file defines: what it's called, what it is ("class", "function"…) and its 1-based line.
+public struct CodeSymbol: Codable, Sendable, Equatable {
+    public var name: String, kind: String, line: Int
+    public init(name: String, kind: String, line: Int) { self.name = name; self.kind = kind; self.line = line }
+}
+
 /// One completion: what the list shows and what goes in.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
@@ -94,4 +100,11 @@ public struct LSPProblems: InternalMethod {
     public static let name = "lsp.problems"; public typealias Result = [CodeProblem]
     public var path: String
     public init(path: String) { self.path = path }
+}
+
+/// The names the file at `path` defines, as its language server lists them, top to bottom.
+public struct LSPSymbols: InternalMethod {
+    public static let name = "lsp.symbols"; public typealias Result = [CodeSymbol]
+    public var root: String, path: String
+    public init(root: String, path: String) { self.root = root; self.path = path }
 }

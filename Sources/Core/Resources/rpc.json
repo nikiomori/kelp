@@ -478,6 +478,26 @@
         ],
         "type" : "object"
       },
+      "CodeSymbol" : {
+        "description" : "A name a file defines: what it's called, what it is (\"class\", \"function\"…) and its 1-based line.",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "kind",
+          "line",
+          "name"
+        ],
+        "type" : "object"
+      },
       "CommandsEvent" : {
         "properties" : {
           "commands" : {
@@ -5916,6 +5936,37 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The names the file at `path` defines, as its language server lists them, top to bottom.",
+      "name" : "lsp.symbols",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/CodeSymbol"
+          },
+          "type" : "array"
         }
       },
       "x-internal" : true

@@ -3,7 +3,8 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// ⌘P: files, worktrees, agents, tabs, commands in one fuzzy list; "#123" finds a pull request. ⇧⌘P: commands only.
+/// ⌘P: files, worktrees, agents, tabs, commands in one fuzzy list; "#123" finds a pull request, ":120" a line, "@" a symbol,
+/// "/" a file and nothing else. ⇧⌘P: commands only.
 /// Empty, it lists the agents to get back to — those that need you first — on ⌘1–⌘6, in an order that holds still
 /// while it's open. ⇧↩ opens the choice in a split. A setting with choices (Color Theme, File Icon Theme, on/off…) lists them
 /// right here, the one in effect ticked; for looks, moving through them tries each on, ↩ keeps it, esc goes back.
@@ -44,11 +45,14 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     var choosing: Choosing?
     /// A list row: a group's heading ("Files", "Agents"…) while searching, or an item.
-    private enum Row {
+    enum Row {
         case heading(String), item(Item)
         var isItem: Bool { if case .item = self { true } else { false } }
     }
     private var rows: [Row] = []
+    /// The file's symbols while ⌘P is open (`QuickOpenPrefixes`).
+    var symbols: (path: String, items: [Item])?
+    var symbolLoad: Task<Void, Never>?
 
     var panel: QuickPanel!
     /// What the empty field shows, made once per opening so rows don't move under the pointer.
@@ -71,10 +75,16 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     var tmux: [Tmux.Session]?
     var tmuxLoad: Task<Void, Never>?
 
-    package func show(commandsOnly: Bool) {
+    /// `text`: what the field starts with (":" for Go to Line).
+    package func show(commandsOnly: Bool, text: String = "") {
         if panel == nil { build() }
         self.commandsOnly = commandsOnly
+        symbols = nil
         list(query: "")
+        if !text.isEmpty {
+            field.stringValue = text
+            filter()
+        }
         present()
     }
 
@@ -230,34 +240,6 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         return true
     }
 
-    /// "#123" or "#login": the project's open pull requests (gh), opened in the browser tab.
-    private func searchPullRequests(_ q: String) {
-        let app = self.app
-        prSearch?.cancel()
-        guard let repo = app.worktree(app.workbench.workspaceId)?.repoId else { return }
-        prSearch = Task { [weak self] in
-            let prs = await app.call(GitHubPRs(repoId: repo, filter: "open")) ?? []   // gh missing or signed out: says so
-            guard let self, !Task.isCancelled, field.stringValue == q else { return }
-            let term = String(q.dropFirst()).lowercased()
-            setRows(prs.filter { p in term.isEmpty || "\(p.number)".hasPrefix(term) || p.title.lowercased().contains(term) }.map { p in
-                Item(kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(p.number) \(p.title)",
-                     detail: "\(p.author) · \(p.headRefName)", action: { app.workbench.open(p.url) })
-            }, grouped: false)
-        }
-    }
-
-    /// A title matches when it contains the query, or each query word starts a word of the title.
-    nonisolated static func wordScore(_ title: String, _ query: String) -> Int? {
-        let t = title.lowercased(), q = query.lowercased().trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return 0 }
-        if t.hasPrefix(q) { return 100 }
-        let words = t.split { !$0.isLetter && !$0.isNumber }.map(String.init)
-        if words.contains(where: { $0.hasPrefix(q) }) { return 80 }
-        if t.contains(q) { return 60 }
-        let parts = q.split(separator: " ").map(String.init)
-        return parts.count > 1 && parts.allSatisfy({ p in words.contains { $0.hasPrefix(p) } }) ? 40 : nil
-    }
-
     /// An uppercase key equivalent means ⇧ too.
     static func shortcut(_ i: NSMenuItem) -> String {
         var m = KeySpec.Modifiers(i.keyEquivalentModifierMask)
@@ -278,9 +260,18 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     func filter() {
         scoring?.cancel()
-        let q = field.stringValue
+        var q = field.stringValue
         if let t = tmux { setRows(tmuxItems(t, q), grouped: false); return }
-        let pool = commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
+        var pool = commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
+        if !commandsOnly, choosing == nil, let prefix = Prefix(q) {
+            showingRecents = false
+            if filterPrefix(prefix) { return }
+            if case .files(let name) = prefix {
+                q = name
+                pool = all.filter { $0.kind == "File" }
+                if q.isEmpty { setRows(Array(pool.prefix(200)), grouped: false); return }
+            }
+        }
         if !commandsOnly, choosing == nil, q.hasPrefix("#") {
             setRows([], grouped: false)
             searchPullRequests(q)
@@ -298,7 +289,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             // Off the main thread: a big project's files take a while to score on every keystroke.
             let grouped = !commandsOnly && choosing == nil, keys = pool.map { Match(fuzzy: $0.fuzzy, title: $0.title, command: $0.kind == "Command") }
             scoring = Task { [weak self] in
-                let best = await Task.detached { Self.best(keys, q) }.value
+                let best = await Task.detached { [q] in Self.best(keys, q) }.value
                 guard let self, !Task.isCancelled else { return }
                 setRows(best.map { pool[$0] }, grouped: grouped)
             }
@@ -317,7 +308,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     /// Searching, the results come in groups under a heading, the group with the best match first.
-    private func setRows(_ items: [Item], grouped: Bool, heading: String? = nil) {
+    func setRows(_ items: [Item], grouped: Bool, heading: String? = nil) {
         if grouped {
             var order: [String] = [], byGroup: [String: [Item]] = [:]
             for it in items {

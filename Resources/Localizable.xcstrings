@@ -4698,6 +4698,16 @@
         }
       }
     },
+    "Go to Line %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти к строке %lld"
+          }
+        }
+      }
+    },
     "Go to Line…": {
       "extractionState": "manual",
       "localizations": {
@@ -6750,6 +6760,16 @@
         }
       }
     },
+    "No file on screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открыт"
+          }
+        }
+      }
+    },
     "No matches for “%@”": {
       "localizations": {
         "ru": {
@@ -6786,6 +6806,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Профилей пока нет: агенты используют свой вход."
+          }
+        }
+      }
+    },
+    "No symbols": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Символов нет"
           }
         }
       }
@@ -11236,6 +11266,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ходы короче времени ниже проходят тихо."
+          }
+        }
+      }
+    },
+    "Type a line number": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите номер строки"
           }
         }
       }

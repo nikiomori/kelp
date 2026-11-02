@@ -251,6 +251,27 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// From either shape of a documentSymbol result: nested `DocumentSymbol`s or flat `SymbolInformation`s. The smallest
     /// range wins; on a tie the later one (a child is visited after its parent).
+    /// The file's symbols, nested ones in with the rest, top to bottom.
+    public func symbols(_ path: String) async throws -> [CodeSymbol] {
+        Self.symbols(try await request("textDocument/documentSymbol", .obj(["textDocument": .obj(["uri": Self.uri(path)])])))
+    }
+
+    private static let symbolKinds = [2: "module", 3: "namespace", 5: "class", 6: "method", 7: "property", 8: "field", 9: "initializer", 10: "enum",
+                                      11: "interface", 12: "function", 13: "variable", 14: "constant", 22: "case", 23: "struct"]
+
+    static func symbols(_ result: JSONValue) -> [CodeSymbol] {
+        var out: [CodeSymbol] = []
+        func visit(_ s: JSONValue) {
+            let r = s["selectionRange"] ?? s["range"] ?? s["location"]?["range"]
+            if let name = s["name"]?.string, let line = r?["start"]?["line"]?.int {
+                out.append(CodeSymbol(name: name, kind: symbolKinds[s["kind"]?.int ?? 0] ?? "symbol", line: line + 1))
+            }
+            s["children"]?.array?.forEach(visit)
+        }
+        result.array?.forEach(visit)
+        return out.sorted { $0.line < $1.line }
+    }
+
     static func enclosingSymbol(_ result: JSONValue, line: Int) -> String? {
         var best: (name: String, span: Int)?
         func visit(_ s: JSONValue) {

@@ -216,7 +216,7 @@ extension LSPHost {
 
 extension Methods {
     static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self]
-    static let lspAsyncMethods: [any AsyncHandled.Type] = [LSPDefinition.self, LSPCompletion.self, LSPSymbol.self]
+    static let lspAsyncMethods: [any AsyncHandled.Type] = [LSPDefinition.self, LSPCompletion.self, LSPSymbol.self, LSPSymbols.self]
 }
 
 extension LSPOpen: Handled {
@@ -268,5 +268,12 @@ extension LSPSymbol: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
         guard let c = await lsp.client(root, path) else { return nil }
         return try await c.symbol(path, line: line)
+    }
+}
+
+extension LSPSymbols: AsyncHandled {
+    func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
+        guard let c = await lsp.client(root, path) else { return [] }
+        return try await c.symbols(path)
     }
 }

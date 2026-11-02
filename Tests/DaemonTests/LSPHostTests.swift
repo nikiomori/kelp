@@ -3,6 +3,7 @@ import Testing
 import Core
 import TestSupport
 @testable import Daemon
+@testable import LSPKit
 
 /// A language server that answers initialize, definition, completion and documentSymbol, and writes what it heard
 /// (started, each notification with the document's version, exit) to `log`.
@@ -152,4 +153,14 @@ private func lines(_ log: String) -> [String] {
     #expect(found[0] == CodeProblem(line: 1, column: 2, endLine: 1, endColumn: 6, isError: true, message: "no such name"))
     try await c.call(LSPClose(root: root, path: file))
     #expect(try await c.call(LSPProblems(path: file)).isEmpty)
+}
+
+@Test func aServersSymbolsComeFlatAndTopToBottom() {
+    let result: JSONValue = .array([.obj([
+        "name": .string("Type"), "kind": .int(23), "selectionRange": .obj(["start": .obj(["line": .int(4), "character": .int(0)])]),
+        "children": .array([.obj(["name": .string("run"), "kind": .int(6), "selectionRange": .obj(["start": .obj(["line": .int(6), "character": .int(2)])])])])
+    ]), .obj(["name": .string("top"), "kind": .int(12), "location": .obj(["range": .obj(["start": .obj(["line": .int(0), "character": .int(0)])])])])])
+    #expect(LSPClient.symbols(result).map(\.name) == ["top", "Type", "run"])
+    #expect(LSPClient.symbols(result).map(\.kind) == ["function", "struct", "method"])
+    #expect(LSPClient.symbols(result).map(\.line) == [1, 5, 7])
 }
