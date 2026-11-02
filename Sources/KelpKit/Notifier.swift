@@ -334,7 +334,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         c.subtitle = [m.groupName(wt), m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
         c.body = s.limitHit.map(LimitStop.banner) ?? (s.summary.isEmpty ? (s.status == .waiting ? String(localized: "Waiting for your answer")
                                                                            : String(localized: "Ready for review")) : s.summary)
-        c.sound = sound(s.limitHit == nil ? s.status : .waiting); c.userInfo = ["session": s.id]
+        c.sound = sound(s.limitHit == nil ? s.status : .waiting); c.userInfo = ["session": s.id, "question": s.summary]
         if let cat = Self.category(s) { c.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
             Banner.show(c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
@@ -366,6 +366,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
         let action = r.actionIdentifier, reply = (r as? UNTextInputNotificationResponse)?.userText
         let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
+        let question = r.notification.request.content.userInfo["question"] as? String
         await MainActor.run {
             if action == "continue" { Self.goOn(app, all); return }
             if action == "reply", let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -379,8 +380,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 return
             }
             Task {
-                // Answered without Kelp coming forward; if the menu is gone (answered in the terminal), show the agent.
-                let ok = await app.call(SessionChoose(id: id, answer: action)) ?? false
+                // Answered without Kelp coming forward; if that menu is gone (answered in the terminal, another one up), show the agent.
+                let ok = await app.call(SessionChoose(id: id, answer: action, question: question)) ?? false
                 if !ok { NSApp.activate(); app.workbench.focus(session: id) }
             }
         }

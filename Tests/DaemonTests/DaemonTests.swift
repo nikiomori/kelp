@@ -378,6 +378,26 @@ final class NoteBox: @unchecked Sendable {
     #expect(try await waitFor(5) { try await c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("ALLOWED") == true })
 }
 
+/// A banner answers the question it showed. Its session asks something else by now, or several things (the summary is the
+/// newest, the screen the oldest): nothing is pressed, and the caller shows the agent.
+@Test func aBannerAnswersOnlyTheQuestionItShowed() async throws {
+    let script = #"stty -icanon -echo; printf 'Do you want to proceed?\n\xe2\x9d\xaf 1. Yes\n  2. No\n'; IFS= read -rsn1 k; [[ -z "$k" ]] && echo ALLOWED; sleep 30"#
+    let p = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
+    let w = try await firstDesk(p), s = try await p.c.call(SessionCreate(worktreeId: w.id, agent: "menu"))
+    func screen() async throws -> String { try await p.c.call(SessionRead(id: s.id)) }
+    #expect(try await waitFor(5) { try await screen().contains("2. No") })
+    let ls = try #require(p.d.sessions.existing(s.id))
+    ls.hook("waiting", message: "Allow rm -rf build?", asker: "")
+    #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow npm test?")) == false)
+    ls.hook("waiting", message: "Allow rm -rf build?", asker: "a subagent")
+    #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")) == false)
+    try await Task.sleep(for: .seconds(1))
+    #expect(!(try await screen()).contains("ALLOWED"))
+    ls.state.withLock { $0.asking["a subagent"] = nil }
+    #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")))
+    #expect(try await waitFor(5) { try await screen().contains("ALLOWED") })
+}
+
 /// A hand-off brief is the conversation itself: what was asked and answered, not tool output.
 @Test func handoffBriefFromTranscript() throws {
     let u = tmp().appendingPathComponent("t.jsonl")

@@ -89,7 +89,7 @@ extension SessionKill: Handled {
 
 extension SessionChoose: Handled {
     func handle(_ sessions: Sessions) throws -> Bool {
-        guard let ls = sessions.existing(id), ls.choose(answer) != nil else { return false }
+        guard let ls = sessions.existing(id), ls.choose(answer, to: question) != nil else { return false }
         sessions.publish(ls)
         return true
     }

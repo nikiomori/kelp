@@ -6522,7 +6522,7 @@
       }
     },
     {
-      "description" : "`answer`: allow | deny, to the menu on screen → false when there is none.",
+      "description" : "`answer`: allow | deny, to the menu on screen → false when there is none. `question`: what the answer was given to (the session's summary a banner showed) → false too once the agent asks something else, or several things at once.",
       "name" : "session.choose",
       "paramStructure" : "by-name",
       "params" : [
@@ -6536,6 +6536,13 @@
         {
           "name" : "id",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "question",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }

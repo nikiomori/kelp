@@ -49,7 +49,17 @@ extension LiveSession.State {
     }
 
     /// A send's Enter wasn't pressed: its text is a draft for the user now, and no line went in for a hook to answer.
-    mutating func enterHeld() { boxEmpty = false; draftWaiting = true; lineSentUp = nil }
+    mutating func enterHeld() {
+        boxEmpty = false
+        draftWaiting = true
+        lineSentUp = nil
+    }
+
+    /// `question` is what it asks now, and nothing else: with several dialogs open the summary is the newest and the screen
+    /// shows the oldest.
+    func asksOnly(_ question: String) -> Bool {
+        record.status == .waiting && record.summary == question && asking.values.reduce(0, +) <= 1
+    }
 
     /// A child's report waits until the agent rests at an empty prompt. In a turn, its Enter could land on a dialog that opened
     /// meanwhile, and nobody sent it to be answered like that; ↑ leaves an old prompt in the box with nothing typed.
@@ -83,9 +93,11 @@ extension LiveSession {
     }
 
     /// Answers the menu the agent shows (a permission request) from outside the terminal — a notification's Allow / Deny.
-    /// The cursor is walked to the option and Enter pressed only there (see `steer`). nil: no such menu on screen.
-    func choose(_ answer: String) -> Session? {
+    /// The cursor is walked to the option and Enter pressed only there (see `steer`). nil: no such menu on screen, or not
+    /// the one `question` was about, so a banner left from before never answers what came after it.
+    func choose(_ answer: String, to question: String? = nil) -> Session? {
         state.withLock { s in
+            if let question, !s.asksOnly(question) { return nil }
             let inTmux = s.record.tmux != nil, screen = inTmux ? StartupQuestion.optionsOnLines(s.menuScreen()) : s.menuScreen()
             let pattern = answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
             let lines = screen.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>")) }

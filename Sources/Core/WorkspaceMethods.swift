@@ -138,10 +138,11 @@ public struct SessionKill: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
-/// `answer`: allow | deny, to the menu on screen → false when there is none.
+/// `answer`: allow | deny, to the menu on screen → false when there is none. `question`: what the answer was given to (the
+/// session's summary a banner showed) → false too once the agent asks something else, or several things at once.
 public struct SessionChoose: RPCMethod {
-    public static let name = "session.choose"; public typealias Result = Bool; public var id: String, answer: String
-    public init(id: String, answer: String) { self.id = id; self.answer = answer }
+    public static let name = "session.choose"; public typealias Result = Bool; public var id: String, answer: String, question: String?
+    public init(id: String, answer: String, question: String? = nil) { self.id = id; self.answer = answer; self.question = question }
 }
 /// Kept in the login keychain, read when the agent starts. No `value`: deleted.
 public struct AgentSetSecret: InternalMethod {
