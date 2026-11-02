@@ -70,7 +70,7 @@ extension SourceControlController {
         switch s {
         case .merge: return [RowAction("plus", "Stage All (Mark Resolved)") { [weak self] in self?.stage(files, true) }]
         case .staged: return [RowAction("minus", "Unstage All") { [weak self] in self?.stage(files, false) }]
-        case .changes: return [RowAction("arrow.uturn.backward", "Discard All Changes") { [weak self] in self?.discard(files) },
+        case .changes: return [RowAction("arrow.uturn.backward", "Discard All Changes…") { [weak self] in self?.discard(files) },
                                RowAction("plus", "Stage All Changes") { [weak self] in self?.stage(files, true) }]
         case .graph: return [RowAction("arrow.clockwise", "Refresh") { [weak self] in Task { await self?.loadGraph() } }]
         }
@@ -81,7 +81,7 @@ extension SourceControlController {
         switch s {
         case .staged: a.append(RowAction("minus", "Unstage Changes") { [weak self] in self?.stage([f], false) })
         case .changes:
-            a.append(RowAction("arrow.uturn.backward", "Discard Changes") { [weak self] in self?.discard([f]) })
+            a.append(RowAction("arrow.uturn.backward", "Discard Changes…") { [weak self] in self?.discard([f]) })
             a.append(RowAction("plus", "Stage Changes") { [weak self] in self?.stage([f], true) })
         case .merge: a.append(RowAction("plus", "Stage (Mark Resolved)") { [weak self] in self?.stage([f], true) })
         case .graph: break
@@ -251,9 +251,25 @@ extension SourceControlController {
             if s != .merge { menu.add(String(localized: "Open Changes")) { [weak self] in self?.open(f, s) } }
             menu.add(String(localized: "Open File")) { [weak self] in self?.openFile(f) }
             menu.addItem(.separator())
-            for a in fileActions(f, s).dropFirst() { menu.add(a.title) { a.run() } }
+            let acts = Array(fileActions(f, s).dropFirst()), discard = s == .changes ? acts.first : nil
+            for a in acts.dropFirst(discard == nil ? 0 : 1) { menu.add(a.title) { a.run() } }
+            if let root = app.worktree(worktreeId)?.path {
+                menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(root + "/" + f.path) }
+            }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(f.path, forType: .string) }
+            if let discard {
+                menu.addItem(.separator())
+                menu.add(discard.title) { discard.run() }
+            }
+        case .section(let s) where s != .graph:
+            // What its row's hover buttons do, with what throws work away last.
+            if s != .merge, let wid = worktreeId { menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) } }
+            let acts = Array(sectionActions(s, n).reversed())
+            for (i, a) in acts.enumerated() {
+                if i == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
+                menu.add(a.title) { a.run() }
+            }
         case .commit(let i):
             let c = commits[i]
             menu.add(String(localized: "Copy Commit Hash")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string) }
