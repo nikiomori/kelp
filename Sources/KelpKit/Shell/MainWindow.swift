@@ -226,6 +226,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func slide(_ columns: [(item: NSSplitViewItem, collapsed: Bool)]) {
         let moves = columns.filter { $0.item.isCollapsed != $0.collapsed }
         guard !moves.isEmpty else { return }
+        if moves.contains(where: { $0.item === sidebarItem && $0.collapsed }) { sidebar.card.close() }   // its row is going, and with it the pointer's way out
         guard !Motion.reduced else { return moves.forEach { $0.item.isCollapsed = $0.collapsed } }
         GhosttyTerminalView.holdSize(true)
         NSAnimationContext.runAnimationGroup { ctx in

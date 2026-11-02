@@ -25,6 +25,23 @@ import WorkbenchKit
     #expect(ProjectIcon.image(for: dir, app: app) === view.image)   // found once
 }
 
+/// Its window losing focus ends the rows' pointer events: a card left open would be laid out over and over, for hours.
+@MainActor @Test func aHoverCardGoesWithItsWindowsFocus() async throws {
+    let rig = try await AppRig(); defer { rig.done() }
+    let vc = NSViewController(); vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+    rig.show(vc, 200, 200)
+    let card = HoverCard(app: rig.app)
+    card.hover("p:" + rig.project.id, rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
+    for _ in 0..<100 where card.shownKey == nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(card.shownKey != nil)
+    NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())   // another window's: not its
+    try await Task.sleep(for: .milliseconds(20))
+    #expect(card.shownKey != nil)
+    NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
+    for _ in 0..<50 where card.shownKey != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(card.shownKey == nil)
+}
+
 @Test func agesAreAsShortAsARowAllows() {
     let now = Date(timeIntervalSince1970: 1_000_000)
     func ago(_ s: Double) -> String { shortAgo(now.addingTimeInterval(-s), now: now) }

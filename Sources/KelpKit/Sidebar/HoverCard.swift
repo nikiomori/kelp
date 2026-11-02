@@ -13,11 +13,18 @@ final class HoverCard {
     private let pending = Debounce()
     private(set) var shownKey: String?
     private var warmUntil = Date.distantPast
+    private weak var anchor: NSWindow?
 
     init(app: AppModel) {
         self.app = app
         popover.behavior = .applicationDefined
         popover.animates = false
+        // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
+        // a card left open costs a core's tenth for as long as it stays, SwiftUI laying it out over and over.
+        NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: nil, queue: .main) { [weak self] n in
+            let window = n.object as? NSWindow
+            MainActor.assumeIsolated { if window === self?.anchor { self?.closeUnlessInside() } }   // queue: .main
+        }
     }
 
     /// The pointer is over a row (`key` "w:…" / "a:…"), or over nothing.
@@ -29,7 +36,7 @@ final class HoverCard {
     }
 
     /// The pointer went into the card, whose buttons are for clicking: it stays, looked at again until the pointer leaves.
-    private func closeUnlessInside() {
+    func closeUnlessInside() {
         guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else { close(); return }
         pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
     }
@@ -43,6 +50,7 @@ final class HoverCard {
     private func show(_ key: String, rect: NSRect, in view: NSView) {
         guard view.window != nil, let model = CardModel(key, app: app) else { close(); return }   // events come only while the window is key
         shownKey = key
+        anchor = view.window
         let host = NSHostingController(rootView: CardView(model: model))
         host.sizingOptions = .preferredContentSize   // else the popover is placed at a pre-layout size and grows down from its top, off the row
         popover.contentViewController = host
