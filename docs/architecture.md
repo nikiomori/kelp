@@ -238,8 +238,9 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
   submit the draft). An auto-answer is pressed only if its question is still on screen and nobody typed meanwhile.
 - Values go into shell commands as variables, never as command text (`ShellTemplate`); refs from clients that read as
   options are refused; paths go to git as literal pathspecs after `--`.
-- The background usage probe only opens folders whose agent config matches the base branch (or has none), and never
-  presses anything while its copy of the agent asks a question.
+- A copy of an agent nobody watches runs nothing of a project's. The usage probe opens Kelp's own folder, and presses
+  nothing while its copy asks a question. The hover card's /context opens the project with hooks and MCP servers off, and
+  only when its agent config matches the base branch: `-p` asks nothing, and project hooks do run there.
 - Language servers run a project's own code (build scripts, `Package.swift`, its `node_modules`' TypeScript), and
   formatters can (rustup takes the toolchain a repo names): neither runs in a project until the user trusts it in
   Kelp's window (a banner on its first file, like VS Code's Workspace Trust), the scratch workspace included. Only the window
