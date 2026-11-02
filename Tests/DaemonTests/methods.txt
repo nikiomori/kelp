@@ -89,6 +89,8 @@ pane.report_agent
 ping
 ports.list
 ports.stop
+ports.forward
+ports.unforward
 process.refreshPath
 process.run
 process.which

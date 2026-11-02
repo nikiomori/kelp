@@ -32,7 +32,7 @@ extension LiveSession {
         var utf8Carry = Data()           // the start of a character the last chunk was cut in (`UTF8Chunks`)
         /// The program turned on bracketed paste (ESC[?2004h): it tells a paste from typing.
         var pasteMode = false, pasteCarry = Data()
-        var sawURL = false, lastLimits: [ClaudeLimits.Reading] = []
+        var sawURL = false, sawBusy = false, lastLimits: [ClaudeLimits.Reading] = []
         /// An agent without hooks printed that its plan ran out: it counts if its turn stops by it (`settleLimit`).
         var limitSeen: (hit: LimitHit, at: Date)?
         var transcript: String?
@@ -200,6 +200,15 @@ extension LiveSession {
                   let r = Range(m.range, in: plain) else { return nil }
             sawURL = true
             return String(plain[r]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(of: "[::]", with: "localhost")
+        }
+
+        /// The port a server couldn't get, once: a run that printed its page got one.
+        mutating func busyPort(_ plain: String) -> Int? {
+            guard !sawURL, !sawBusy, wantsURL else { return nil }
+            guard let m = LiveSession.busyRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)) else { return nil }
+            let r = [1, 2].lazy.compactMap { Range(m.range(at: $0), in: plain) }.first
+            sawBusy = true
+            return r.flatMap { Int(plain[$0]) }
         }
 
         /// Plan limits Claude Code (or Cursor Agent or Codex, once it ran out) printed, when they changed.

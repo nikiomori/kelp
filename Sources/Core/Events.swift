@@ -9,7 +9,7 @@ public protocol RPCEvent: Codable, Sendable {
 }
 
 /// Every event the daemon sends.
-public let rpcEvents: [any RPCEvent.Type] = [Session.self, OutputEvent.self, DevServerEvent.self, ChangedEvent.self, CloneEvent.self,
+public let rpcEvents: [any RPCEvent.Type] = [Session.self, OutputEvent.self, DevServerEvent.self, PortBusyEvent.self, ChangedEvent.self, CloneEvent.self,
                                               SettingsEvent.self, UIEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
                                               GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
                                               LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self,
@@ -30,6 +30,13 @@ public struct DevServerEvent: RPCEvent {
     public static let name = "event.devserver"
     public var worktree: String, url: String, session: String
     public init(worktree: String, url: String, session: String) { self.worktree = worktree; self.url = url; self.session = session }
+}
+
+/// A run couldn't start: what it printed says `port` is taken.
+public struct PortBusyEvent: RPCEvent {
+    public static let name = "event.portBusy"
+    public var worktree: String, port: Int, session: String
+    public init(worktree: String, port: Int, session: String) { self.worktree = worktree; self.port = port; self.session = session }
 }
 
 /// Projects or workspaces changed: read the lists again. The params are just the word. Still sent for clients that read

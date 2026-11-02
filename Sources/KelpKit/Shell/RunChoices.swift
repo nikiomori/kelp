@@ -71,18 +71,43 @@ extension ScriptsMenu {
     /// The port after a tab's name: what its run printed, else what its session listens on.
     func port(of s: Session) -> Int? {
         state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }
-            ?? s.worktreeId.flatMap { app.ports[$0] }?.first { $0.session == s.id && ServedPages.listed($0) }?.port
+            ?? s.worktreeId.flatMap { app.ports[$0] }?.first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+    }
+
+    /// The page as this Mac reaches it, the ports read again when that moved it; nil and a banner when it can't be.
+    func reach(_ p: ServedPage, in wid: String) async -> ServedPage? {
+        let here = await p.reached(in: wid) { await app.call($0) }
+        if here != p { app.watchAgain(.ports, wid) }
+        return here
     }
 
     /// A page beside what you're doing, or the tab that shows it; what isn't one (a database) gets its address copied.
     func open(_ p: ServedPage, in wid: String) {
-        guard p.isWeb else {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(p.address, forType: .string)
-            Banner.show(String(localized: "Copied \(p.address)"))
-            return
+        Task {
+            guard let p = await reach(p, in: wid) else { return }
+            guard p.isWeb else { copy(p); return }
+            app.workbench.open(p.url, split: .right, workspace: wid, focus: false)
         }
-        app.workbench.open(p.url, split: .right, workspace: wid, focus: false)
+    }
+
+    func copy(_ p: ServedPage) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(p.address, forType: .string)
+        Banner.show(String(localized: "Copied \(p.address)"))
+    }
+
+    /// A run that couldn't start: who holds its port, when that's one of Kelp's own screens on this Mac.
+    func portBusy(_ e: PortBusyEvent) {
+        Task {
+            for w in app.worktrees where !w.archived && RemoteHost.of(w.path) == nil {
+                guard let p = await app.quiet(PortsList(worktreeId: w.id))?.first(where: { $0.port == e.port && $0.session != e.session }) else { continue }
+                let screen = app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName
+                Banner.show(String(localized: ":\(e.port) is taken: \(p.command) on \(screen)."), action: (String(localized: "Show"), { [app] in
+                    app.workbench.focus(session: p.session)
+                }))
+                return
+            }
+        }
     }
 
     /// ⇧⌘O: the main page of the workspace on screen.
@@ -209,6 +234,9 @@ extension ScriptsMenu {
         }
         if rows.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
         m.addItem(.separator())
+        if let host = app.worktree(wid).flatMap({ RemoteHost.of($0.path)?.host }) {
+            m.add(String(localized: "Forward a Port from \(host)…"), symbol: "network") { [weak self] in self?.forwardByHand(host, wid) }
+        }
         m.add(String(localized: "Edit Commands…"), symbol: "pencil") { [weak self] in self?.edit() }
         return m
     }
@@ -329,13 +357,22 @@ extension ScriptsMenu {
         let open = m.add(what) { [weak self] in self?.open(page, in: wid) }
         open.show(agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
         open.toolTip = String(localized: "Open \(page.url)")
-        if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · :\(p.port)" }
+        if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · \(page.place)" }
         let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
             Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
         }
         stop.show(.symbol("stop.circle"))
         stop.isAlternate = true
         stop.keyEquivalentModifierMask = .option
+    }
+
+    /// A port Kelp didn't find: on the host, or on what the host reaches. Stays until it's turned off.
+    private func forwardByHand(_ host: String, _ wid: String) {
+        Task {
+            let info = String(localized: "A port on the host, or an address it can reach: 5432, db.internal:5432.")
+            guard let text = await prompt(String(localized: "Forward a Port from \(host)"), info), !text.isEmpty else { return }
+            if await app.call(PortsForward(worktreeId: wid, target: text)) != nil { app.watchAgain(.ports, wid) }
+        }
     }
 
     struct Row {

@@ -25,7 +25,9 @@ extension Daemon {
             } catch { e = GitEvent(worktree: k.key, error: message(error)) }
             return (line(e), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
         case .ports:
-            return ((try? await ask(PortsList(worktreeId: k.key))).flatMap { line(PortsEvent(worktree: k.key, ports: $0)) }, 3)
+            // A host is asked over ssh: less often, and as with git only while watched.
+            let remote = sessions.remote(k.key) != nil
+            return ((try? await ask(PortsList(worktreeId: k.key))).flatMap { line(PortsEvent(worktree: k.key, ports: $0)) }, remote ? 10 : 3)
         case .activity:
             do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) }
             catch { return (line(ActivityEvent(error: message(error))), 2) }

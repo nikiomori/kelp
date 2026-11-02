@@ -112,7 +112,26 @@ extension PortsStop: Handled {
         guard pid > 0, sessions.ports(worktree: worktreeId).contains(where: { $0.pid == pid }) else {
             throw RPCError.invalidParams("That process isn't running in this workspace.")
         }
-        kill(pid, SIGTERM)
+        if let (_, remote) = sessions.remote(worktreeId) {
+            _ = try Git.run(remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory(), executable: remote.ssh)
+        } else { kill(pid, SIGTERM) }
+        return Done()
+    }
+}
+
+extension PortsForward: Handled {
+    func handle(_ sessions: Sessions) throws -> Forwarded {
+        guard let (w, remote) = sessions.remote(worktreeId) else { throw RPCError.invalidParams("Only a remote project's ports are forwarded.") }
+        let f = sessions.forwards
+        let goal = try target.map(Forwards.target) ?? port.map { f.target(port: $0, in: w.id) }
+        guard let goal else { throw RPCError.invalidParams("missing port") }
+        return Forwarded(port: try f.forward(goal, in: w.id, remote, manual: target != nil))
+    }
+}
+
+extension PortsUnforward: Handled {
+    func handle(_ sessions: Sessions) throws -> Done {
+        if let (w, remote) = sessions.remote(worktreeId) { sessions.forwards.drop(port: port, in: w.id, remote) }
         return Done()
     }
 }
@@ -188,7 +207,8 @@ extension SessionLastReply: Handled {
 
 extension Methods {
     static let sessionMethods: [any Handled.Type] = [SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
-        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, SessionUsage.self,
+        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, PortsForward.self,
+        PortsUnforward.self, SessionUsage.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
         SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self]
 }

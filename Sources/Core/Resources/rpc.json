@@ -1601,6 +1601,26 @@
         ],
         "type" : "object"
       },
+      "PortBusyEvent" : {
+        "description" : "A run couldn't start: what it printed says `port` is taken.",
+        "properties" : {
+          "port" : {
+            "type" : "integer"
+          },
+          "session" : {
+            "type" : "string"
+          },
+          "worktree" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "port",
+          "session",
+          "worktree"
+        ],
+        "type" : "object"
+      },
       "PortsEvent" : {
         "properties" : {
           "ports" : {
@@ -1619,16 +1639,39 @@
         ],
         "type" : "object"
       },
+      "PortsForward.Forwarded" : {
+        "properties" : {
+          "port" : {
+            "description" : "On this Mac.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "port"
+        ],
+        "type" : "object"
+      },
       "PortsList.Port" : {
-        "description" : "A port a process of one of the workspace's sessions listens on.",
+        "description" : "A port a process of one of the workspace's sessions listens on; on a remote project's host, one in its folder.",
         "properties" : {
           "command" : {
             "type" : "string"
+          },
+          "here" : {
+            "type" : "integer"
+          },
+          "host" : {
+            "description" : "On a remote project: its host, the port on this Mac once forwarded, and true when the host can't be asked (this is its last answer).",
+            "type" : "string"
+          },
+          "offline" : {
+            "type" : "boolean"
           },
           "pid" : {
             "type" : "integer"
           },
           "port" : {
+            "description" : "`session`: \"\" when it can't be told. `pid` 0: none, a forwarding asked for by hand.",
             "type" : "integer"
           },
           "session" : {
@@ -5720,6 +5763,41 @@
       }
     },
     {
+      "description" : "A port of a remote project's host brought to this Mac: `port` as listed, or `target` (\"5432\", \"db.internal:5432\"). Connects when the connection is gone.",
+      "name" : "ports.forward",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "port",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "target",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/PortsForward.Forwarded"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The ports the workspace's sessions listen on.",
       "name" : "ports.list",
       "paramStructure" : "by-name",
@@ -5768,6 +5846,33 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "name" : "ports.unforward",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "port",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "The login shell's PATH read again, after an installer changed the shell profile: `process.which` and new sessions then find what it installed. Answered once the shell has been asked (seconds, with a slow profile).",
@@ -8353,6 +8458,13 @@
       "name" : "event.output",
       "params" : {
         "$ref" : "#/components/schemas/OutputEvent"
+      }
+    },
+    {
+      "description" : "A run couldn't start: what it printed says `port` is taken.",
+      "name" : "event.portBusy",
+      "params" : {
+        "$ref" : "#/components/schemas/PortBusyEvent"
       }
     },
     {

@@ -72,7 +72,7 @@ final class PaneView: NSView {
         // Paths the agent prints are its folder's: its own worktree once it went into one.
         let cwd = { [app] in app.session(id)?.currentDir ?? s.cwd }, wid = s.worktreeId
         let projects = { [app] in app.repos.map(\.path) }, app = app
-        g.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), in: app) }
+        g.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), workspace: wid, in: app) }
         g.onPasteRefused = { Banner.show(String(localized: "Not pasted: a program put these lines on the clipboard, and this terminal would run them as typed. Copy them yourself to paste here.")) }
         g.onOpenPath = { token, flags in TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), flags: flags, in: app) }
         g.onHoverWord = { [weak self, weak g] tokens, rect in
@@ -156,7 +156,16 @@ final class PaneView: NSView {
     /// behind any text), and an app, a .command file or another app's scheme would run. A link without a scheme is a
     /// path from `cwd` (or another project's, `TerminalPaths.resolve`): one Ghostty found in the text ("banner/x.html"),
     /// or an agent's Markdown link to its own file.
-    static func openLink(_ url: URL, cwd: String, elsewhere: [String], in app: AppModel) {
+    /// A local link in a terminal of a remote project means the host: `url` with the port it has on this Mac. As it was
+    /// on this Mac's own projects, nil when it can't be brought here.
+    private static func hostLink(_ url: String, in wid: String?, _ app: AppModel) async -> String? {
+        guard let wid, app.worktree(wid).flatMap({ RemoteHost.of($0.path) }) != nil, var u = URLComponents(string: url) else { return url }
+        guard let f = await app.call(PortsForward(worktreeId: wid, port: u.port ?? 80)) else { return nil }
+        u.port = f.port
+        return u.string
+    }
+
+    static func openLink(_ url: URL, cwd: String, elsewhere: [String], workspace wid: String? = nil, in app: AppModel) {
         if url.scheme == nil {
             let path = url.path(percentEncoded: false)
             if !TerminalPaths.open(path, cwd: cwd, elsewhere: elsewhere, flags: NSEvent.modifierFlags, in: app) {
@@ -168,7 +177,11 @@ final class PaneView: NSView {
         switch PreviewLinks.target(url) {
         case .web(let s):
             let local = url.host == "localhost" || url.host == "127.0.0.1"
-            if local != option { app.workbench.open(s, split: .right) } else { NSWorkspace.shared.open(url) }
+            guard local else { if option { app.workbench.open(s, split: .right) } else { NSWorkspace.shared.open(url) }; return }
+            Task {
+                guard let here = await hostLink(s, in: wid, app) else { return }
+                if option { URL(string: here).map { _ = NSWorkspace.shared.open($0) } } else { app.workbench.open(here, split: .right) }
+            }
         case .file(let p): app.workbench.open(TabURI.file(p), split: .right)
         case .mail(let m): NSWorkspace.shared.open(m)
         case .refused: PreviewLinks.refuse(url)

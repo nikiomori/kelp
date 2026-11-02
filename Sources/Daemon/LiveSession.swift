@@ -25,6 +25,8 @@ final class LiveSession: Sendable {
         var topic: (@Sendable (String) -> Void)?
         /// First local URL a process prints (dev servers): the app opens it in the worktree's browser.
         var localURL: (@Sendable (String) -> Void)?
+        /// The port a server says it couldn't get, before it printed any URL.
+        var busyPort: (@Sendable (Int) -> Void)?
         /// Plan usage the agent printed (Claude Code's "used 80% of your weekly limit").
         var limits: (@Sendable ([ClaudeLimits.Reading]) -> Void)?
     }
@@ -42,6 +44,10 @@ final class LiveSession: Sendable {
     let sends = DispatchQueue(label: "kelp.session.send")
     private let statusQueue = DispatchQueue(label: "kelp.session.status")
     private let turnWork = DispatchQueue(label: "kelp.session.turn", qos: .utility)
+    // "EADDRINUSE: address already in use :::3000", "Port 3000 is already in use", "… bind(2) for "127.0.0.1" port 3000".
+    // swiftlint:disable:next force_try
+    static let busyRegex = try! NSRegularExpression(
+        pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#, options: .caseInsensitive)
     // swiftlint:disable:next force_try
     static let urlRegex = try! NSRegularExpression(pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?[^\s\x1b'"]*"#)
     /// What an agent prints once its turn was cut short: Claude Code's "Interrupted · What should Claude do instead?", Codex's
@@ -154,7 +160,7 @@ final class LiveSession: Sendable {
 
     /// What a chunk of output asked for, done after the lock.
     private struct Heard: Sendable {
-        var probe = false, topic: String?, url: String?, limits: [ClaudeLimits.Reading] = []
+        var probe = false, topic: String?, url: String?, busy: Int?, limits: [ClaudeLimits.Reading] = []
         var answer: (input: String, asked: NSRegularExpression, after: Double)?
         var attached = Set<Int>(), id = ""
         var trimLog = false
@@ -177,6 +183,7 @@ final class LiveSession: Sendable {
         }
         if !heard.limits.isEmpty { callbacks.limits?(heard.limits) }
         if let url = heard.url { callbacks.localURL?(url) }
+        if let port = heard.busy { callbacks.busyPort?(port) }
         if let topic = heard.topic { callbacks.topic?(topic) }
         if let answer = heard.answer {
             DispatchQueue.global().asyncAfter(deadline: .now() + answer.after) { [weak self] in self?.pressIfStillAsked(answer) }
@@ -201,6 +208,7 @@ final class LiveSession: Sendable {
         s.notePasteMode(d)
         h.answer = s.autoAnswer()
         h.url = s.localURL(plain)
+        h.busy = s.busyPort(plain)
         h.limits = s.newLimits(d)
         h.attached = s.attached
         h.id = s.record.id

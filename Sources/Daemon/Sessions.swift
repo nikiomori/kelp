@@ -28,6 +28,7 @@ final class Sessions: Sendable {
     let watches: Watches
 
     let remotes: Remotes
+    let forwards: Forwards
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
@@ -40,6 +41,7 @@ final class Sessions: Sendable {
         self.socketPath = socketPath
         self.store = store
         self.remotes = remotes
+        forwards = Forwards(store: store)
         self.settings = settings
         self.agentUsage = agentUsage
         self.clients = clients
@@ -232,20 +234,15 @@ final class Sessions: Sendable {
         }
         if let worktree {
             // On a remote project's host, the port comes to this Mac first: the page opens here.
-            let remote = remotes.of(rec.cwd), forwarded = OSAllocatedUnfairLock<String?>(initialState: nil)
+            let remote = remotes.of(rec.cwd)
             c.localURL = { [weak self] url in
-                guard let remote else { self?.notify(DevServerEvent(worktree: worktree, url: url, session: sid)); return }
+                guard let self else { return }
+                guard let remote else { notify(DevServerEvent(worktree: worktree, url: url, session: sid)); return }
                 DispatchQueue.global(qos: .utility).async {
-                    let (here, spec) = remote.forward(url)
-                    forwarded.withLock { $0 = spec }
-                    self?.notify(DevServerEvent(worktree: worktree, url: here, session: sid))
+                    self.notify(DevServerEvent(worktree: worktree, url: self.forwards.forward(url: url, in: worktree, remote), session: sid))
                 }
             }
-            let status = c.status
-            c.status = { ls, s in
-                status(ls, s)
-                if s.status == .exited, let spec = forwarded.withLock({ $0 }) { DispatchQueue.global(qos: .utility).async { remote?.cancel(spec) } }
-            }
+            c.busyPort = { [weak self] port in self?.notify(PortBusyEvent(worktree: worktree, port: port, session: sid)) }
         }
         return c
     }

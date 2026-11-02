@@ -388,6 +388,7 @@ package final class AppModel {
             // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
             // it; the keys stay where they are: the page comes while you may be typing.
             if !scripts.served(e), e.worktree == workbench.workspaceId { workbench.open(e.url, split: .right, workspace: e.worktree, focus: false) }
+        case let e as PortBusyEvent: scripts.portBusy(e)
         case let r as Repo: record(r)
         case let w as Worktree: record(w)
         case let e as RemovedEvent: removed(e)

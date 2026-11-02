@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 /// A blank browser tab offers what the workspace is serving: each port its terminals or agents listen on, to open,
 /// copy, or stop. Refreshed every few seconds while it shows.
@@ -10,7 +11,7 @@ final class PortsView: NSView {
     var onOpen: ((String) -> Void)?
     private let list = NSStackView()
     private let empty = EmptyStateView()
-    private var shown: [Int]?
+    private var shown: [ServedPage]?
     private let app: AppModel
 
     init(app: AppModel) {
@@ -31,7 +32,7 @@ final class PortsView: NSView {
         servers = stack
         empty.place(in: self)
         showEmpty(true)
-        track(owner: self) { [weak self, app] in self?.ports.key.flatMap { app.ports[$0] } } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [weak self] in self?.pages } changed: { [weak self] in self?.show($0) }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -43,7 +44,7 @@ final class PortsView: NSView {
         let wid = window != nil && !isHidden ? app.workbench.workspaceId : nil
         guard wid != ports.key else { return }
         ports.key = wid; shown = nil
-        show(wid.flatMap { app.ports[$0] })
+        show(pages)
     }
     private let ports: Watched
     private var servers: NSView?
@@ -54,19 +55,29 @@ final class PortsView: NSView {
                    text: String(localized: "Servers you start in this screen's terminals and agents show up here. Or type an address above."))
     }
 
-    private func show(_ found: [PortsList.Port]?) {
-        guard let wid = ports.key, let found else { return }
-        let numbers = found.map(\.port)
-        guard numbers != shown else { return }
-        shown = numbers
+    private var pages: [ServedPage]? { ports.key.map { ServedPages.list(printed: [], ports: app.ports[$0] ?? []) } }
+
+    private func show(_ found: [ServedPage]?) {
+        guard let wid = ports.key, let found, found != shown else { return }
+        shown = found
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for p in found { list.addArrangedSubview(row(p, workspace: wid)) }
         showEmpty(found.isEmpty)
     }
 
-    private func row(_ p: PortsList.Port, workspace wid: String) -> NSView {
-        let port = p.port, address = "http://localhost:\(port)"
-        let link = PointerButton(title: "localhost:\(port)") { [weak self] in self?.onOpen?(address) }
+    private static func copy(_ p: ServedPage) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(p.address, forType: .string)
+    }
+
+    private func row(_ p: ServedPage, workspace wid: String) -> NSView {
+        let app = app
+        let link = PointerButton(title: p.host == nil ? p.address : p.place) { [weak self] in
+            Task {
+                guard let here = await p.reached(in: wid, call: { await app.call($0) }) else { return }
+                if p.isWeb { self?.onOpen?(here.url) } else { Self.copy(here) }
+            }
+        }
         link.contentTintColor = .linkColor
         link.font = .uiDigits(13, weight: .medium)
         link.underlinesOnHover = true
@@ -74,16 +85,16 @@ final class PortsView: NSView {
         what.textColor = .secondaryLabelColor
         what.font = .ui(12)
         let copy = ClosureButton(title: String(localized: "Copy")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(address, forType: .string)
+            Task { if let here = await p.reached(in: wid, call: { await app.call($0) }) { Self.copy(here) } }
         }
-        let stop = ClosureButton(title: String(localized: "Stop")) { [app] in
+        let stop = ClosureButton(title: String(localized: "Stop")) {
             Task {
-                if await app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) != nil { app.watchAgain(.ports, wid) }
+                if await app.call(PortsStop(worktreeId: wid, pid: p.pid.map(Int.init))) != nil { app.watchAgain(.ports, wid) }
             }
         }
+        stop.isHidden = p.pid == nil
         for b in [copy, stop] { b.bezelStyle = .push; b.controlSize = .small }
-        stop.toolTip = String(localized: "Stops \(p.command.isEmpty ? String(localized: "the process") : p.command) (PID \(Int(p.pid)))")
+        stop.toolTip = String(localized: "Stops \(p.command.isEmpty ? String(localized: "the process") : p.command) (PID \(Int(p.pid ?? 0)))")
         let r = NSStackView(views: [link, what, NSView(), copy, stop]); r.spacing = 8
         r.widthAnchor.constraint(equalToConstant: 460).isActive = true
         return r

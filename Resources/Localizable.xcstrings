@@ -675,6 +675,16 @@
         }
       }
     },
+    ":%lld is taken: %@ on %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ":%1$lld занят: %2$@ на экране %3$@."
+          }
+        }
+      }
+    },
     "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.": {
       "extractionState": "manual",
       "localizations": {
@@ -682,6 +692,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Баннер «закончил» или «ошибка» ждёт, пока вы 20 секунд не печатаете в Kelp, и потом приходит один на всех. Вопросы агентов приходят сразу."
+          }
+        }
+      }
+    },
+    "A port on the host, or an address it can reach: 5432, db.internal:5432.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порт на хосте или адрес, который с него виден: 5432, db.internal:5432."
           }
         }
       }
@@ -3751,6 +3771,26 @@
         }
       }
     },
+    "Forward a Port from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пробросить порт с %@"
+          }
+        }
+      }
+    },
+    "Forward a Port from %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пробросить порт с %@…"
+          }
+        }
+      }
+    },
     "Free": {
       "extractionState": "manual",
       "localizations": {
@@ -5700,6 +5740,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "За это время разговоров с Claude Code не было."
+          }
+        }
+      }
+    },
+    "No connection to %@. The server keeps running there. Click to connect.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи с %@. Сервер работает там дальше. Нажмите, чтобы подключиться."
           }
         }
       }
@@ -8724,6 +8774,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Остановить и закрыть"
+          }
+        }
+      }
+    },
+    "Stop Forwarding": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить проброс"
           }
         }
       }

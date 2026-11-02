@@ -67,19 +67,35 @@ final class PageChip: NSStackView {
         isHidden = l == nil
         guard let l else { return }
         open.title = compact ? ":\(l.page.port)" : l.page.address
-        open.toolTip = l.page.isWeb ? String(localized: "Open \(l.page.url) (⇧⌘O)") : String(localized: "Copy \(l.page.address) (⇧⌘O)")
+        open.contentTintColor = l.page.offline ? .tertiaryLabelColor : .labelColor
+        open.toolTip = tip(l.page)
         open.menu = menu(l)
         more.isHidden = l.more == 0
         more.title = "+\(l.more)"
     }
 
+    private func tip(_ p: ServedPage) -> String {
+        if p.offline, let host = p.host { return String(localized: "No connection to \(host). The server keeps running there. Click to connect.") }
+        return p.isWeb ? String(localized: "Open \(p.place) (⇧⌘O)") : String(localized: "Copy \(p.place) (⇧⌘O)")
+    }
+
     /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
     private func menu(_ l: Look) -> NSMenu {
         let m = NSMenu(), app = app
-        if l.page.isWeb, let u = URL(string: l.page.url) { m.add(String(localized: "Open in Browser")) { NSWorkspace.shared.open(u) } }
+        if l.page.isWeb {
+            m.add(String(localized: "Open in Browser")) {
+                Task {
+                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) { NSWorkspace.shared.open(u) }
+                }
+            }
+        }
         m.add(String(localized: "Copy Address")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(l.page.address, forType: .string)
+            Task { if let p = await app.scripts.reach(l.page, in: l.workspace) { app.scripts.copy(p) } }
+        }
+        if l.page.host != nil, l.page.forwarded {
+            m.add(String(localized: "Stop Forwarding")) {
+                Task { if await app.call(PortsUnforward(worktreeId: l.workspace, port: l.page.remotePort)) != nil { app.watchAgain(.ports, l.workspace) } }
+            }
         }
         if let pid = l.page.pid {
             m.add(String(localized: "Stop")) {

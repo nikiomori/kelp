@@ -335,27 +335,3 @@ extension RunStart: Handled {
         return try workspaces.sessions.spawn(cwd: w.path, manifest: .custom(command), worktreeId: w.id, l)
     }
 }
-
-extension RemoteHost {
-    /// A server on the host at `url` (its localhost) reached from this Mac over the shared connection: the same port here
-    /// when it's free, else the next free one of ten → the URL to open here, and the forwarding (`cancel` takes it).
-    /// Nothing forwarded (no shared connection, every port taken): the URL as it was, and nil.
-    func forward(_ url: String) -> (url: String, spec: String?) {
-        guard var u = URLComponents(string: url), let port = u.port else { return (url, nil) }
-        let target = u.host == "127.0.0.1" ? "127.0.0.1" : "localhost"
-        for here in port..<port + 10 {
-            let spec = "\(here):\(target):\(port)"
-            do { try control("forward", spec) } catch { continue }   // taken here: the next one
-            u.host = "localhost"
-            u.port = here
-            return (u.string ?? url, spec)
-        }
-        return (url, nil)
-    }
-    func cancel(_ spec: String) { Log.session.attempt("ending the forwarding \(spec)") { try control("cancel", spec) } }
-
-    /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
-    private func control(_ op: String, _ spec: String) throws {
-        _ = try Git.run(["-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory(), executable: ssh)
-    }
-}

@@ -28,6 +28,9 @@ extension Sessions {
 
     /// Read every 3 s while the window shows, so from the kernel: lsof and ps cost 2 % of a core for as long as Kelp is open.
     func ports(worktree wid: String) -> [Port] {
+        if let (w, remote) = remote(wid) {
+            return forwards.ports(w, remote, sessions: live.all.filter { $0.snapshot.worktreeId == wid }.map(\.snapshot.id))
+        }
         var out: [Int: Port] = [:]
         for (pid, session) in owners(worktree: wid).sorted(by: { $0.key < $1.key }) {
             for port in Self.listening(pid) where out[port] == nil {
@@ -35,6 +38,12 @@ extension Sessions {
             }
         }
         return out.values.sorted { $0.port < $1.port }
+    }
+
+    /// The workspace when it's a remote project's.
+    func remote(_ wid: String) -> (Worktree, RemoteHost)? {
+        guard let w = Log.store.attempt("reading a workspace", { try store.worktree(wid) }).flatMap({ $0 }), let r = remotes.of(w.path) else { return nil }
+        return (w, r)
     }
 
     /// The TCP ports a process listens on. Nothing for one that's gone.
