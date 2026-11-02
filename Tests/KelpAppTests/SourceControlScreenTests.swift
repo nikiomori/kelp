@@ -45,6 +45,46 @@ extension AppOfItsOwn {
     #expect(staged < changed)   // staged first, then the rest, as VS Code lists them
 }
 
+/// Each workspace has its own commit message and its own running action: a switch leaves them where they were, and what
+/// ends in another workspace doesn't land on the one on screen.
+@Test func sourceControlKeepsEachWorkspacesWork() async throws {
+    let rig = try await AppRig(files: ["kept.txt": "a\n"]); defer { rig.done() }
+    let vc = SourceControlController(app: rig.app), here = rig.workspace.id
+    rig.show(vc, 320, 700)
+    vc.message.string = "half a message"
+    vc.begin(here, syncing: ("Pushing…", true, false))
+    vc.bind("another")
+    #expect(vc.message.string.isEmpty && !vc.busy && vc.syncing == nil)
+    vc.end(here, syncing: true)
+    #expect(!vc.busy)
+    vc.bind(here)
+    #expect(vc.message.string == "half a message" && !vc.busy)
+}
+
+/// Staging while a push runs: the push still shows, and a second one isn't started.
+@Test func sourceControlActionsDontEndEachOther() async throws {
+    let rig = try await AppRig(files: ["kept.txt": "a\n"]); defer { rig.done() }
+    let vc = SourceControlController(app: rig.app), here = rig.workspace.id
+    rig.show(vc, 320, 700)
+    vc.begin(here, syncing: ("Pushing…", true, false))
+    vc.begin(here)
+    vc.end(here, syncing: false)
+    #expect(vc.busy && vc.syncing?.title == "Pushing…")
+    vc.run { GitRemoteOp(id: $0, op: "push") }
+    #expect(vc.work[here]?.running == 1)
+    vc.end(here, syncing: true)
+    #expect(!vc.busy && vc.syncing == nil)
+}
+
+/// A commit that went in with a push that didn't: not a push that worked.
+@Test func aFailedPushIsntReportedAsPushed() async throws {
+    let rig = try await AppRig(files: ["kept.txt": "a\n"]); defer { rig.done() }
+    rig.show(SourceControlController(app: rig.app), 320, 700)   // the failure's banner needs a window
+    try rig.write("kept.txt", "b\n")   // no remote to push to
+    let r = await GitCommit.run(rig.app, rig.workspace.id, message: "m", push: true, amend: false)
+    #expect(r.committed && !r.pushed)
+}
+
 /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
 /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
 @Test func sourceControlFitsANarrowInspector() async throws {

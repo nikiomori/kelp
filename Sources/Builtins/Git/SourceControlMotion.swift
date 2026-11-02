@@ -3,6 +3,14 @@ import Core
 import DesignKit
 import KelpKit
 
+/// What runs for one workspace.
+struct GitWork {
+    /// While a push, pull or sync runs: what the button says, and whether the ↑ and ↓ arrows pulse.
+    typealias Sync = (title: String, push: Bool, pull: Bool)
+    var running = 0
+    var syncing: Sync?
+}
+
 /// How git's work shows while it happens and when it's done: light on the panel's button, a shade running through the
 /// arrows, a word on the button, and commits and files travelling to where they now belong.
 extension SourceControlController {
@@ -22,8 +30,8 @@ extension SourceControlController {
 
     /// An action ended. The button stays for a moment to say so, green or red with a shake: it's where the eye is. If the
     /// panel isn't on screen, a banner says it instead, unless it's `quiet` (a failure has already said why in one).
-    func finish(_ word: String, ok: Bool, quiet: Bool) {
-        guard view.window != nil else {
+    func finish(_ word: String, ok: Bool, quiet: Bool, in wid: String) {
+        guard view.window != nil, wid == worktreeId else {
             if ok, !quiet { Banner.show(word) }
             return
         }

@@ -10,14 +10,17 @@ extension SourceControlController {
     func run<M: RPCMethod>(done: String? = nil, _ make: (String) -> M) {
         guard let wid = worktreeId else { return }
         let m = make(wid), op = (m as? GitRemoteOp)?.op
-        busy = true
-        if let op {
-            syncing = (op == "push" ? String(localized: "Pushing…") : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
-                       op == "push", op == "pull")
+        if op != nil, busy {   // the menu's Pull and Push too: a second one would race the first
+            NSSound.beep()
+            return
         }
+        begin(wid, syncing: op.map { op in
+            (op == "push" ? String(localized: "Pushing…") : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
+             op == "push", op == "pull")
+        })
         Task {
             let r = await app.tryCall(m)
-            busy = false; syncing = nil
+            end(wid, syncing: op != nil)
             if let e = r.error {
                 // A rejected push or a pull that stopped on conflicts is work for the agent; other failures just say why.
                 if op == "push" { GitFix(app).offer(e, recipe: "fixPush", worktree: wid) }
@@ -26,7 +29,7 @@ extension SourceControlController {
                                       vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
                 } else { Banner.show(e, style: .error) }
             }
-            if op != nil { finish(done ?? String(localized: "Fetched"), ok: r.error == nil, quiet: done == nil) }
+            if op != nil { finish(done ?? String(localized: "Fetched"), ok: r.error == nil, quiet: done == nil, in: wid) }
             else if r.error == nil, let done { Banner.show(done) }
             reloadAll()
         }
@@ -86,6 +89,41 @@ extension SourceControlController {
         return a
     }
 
+    /// An action of `wid` started: one that talks to the remote says so (`syncing`), one that stages only holds the buttons.
+    func begin(_ wid: String, syncing: GitWork.Sync? = nil) {
+        var w = work[wid] ?? GitWork()
+        w.running += 1
+        w.syncing = syncing ?? w.syncing
+        work[wid] = w
+        if wid == worktreeId { showWork() }
+    }
+
+    /// A step of `wid`'s sync.
+    func nowSyncing(_ wid: String, _ syncing: GitWork.Sync) {
+        work[wid]?.syncing = syncing
+        if wid == worktreeId { showWork() }
+    }
+
+    /// One action ended, and with it what `syncing` said if it was the one saying it: a stage ending doesn't end a push.
+    func end(_ wid: String, syncing ended: Bool) {
+        guard var w = work[wid] else { return }
+        w.running -= 1
+        if ended { w.syncing = nil }
+        work[wid] = w.running > 0 ? w : nil
+        if wid == worktreeId { showWork() }
+    }
+
+    /// `wid`'s message went in as a commit: its text is over, wherever it's being kept.
+    private func sent(_ wid: String) {
+        guard wid == worktreeId else {
+            drafts[wid] = nil
+            return
+        }
+        message.string = ""
+        messageChanged()
+        clearing = true
+    }
+
     @objc func commitPressed() { commit(push: false, amend: false) }
 
     func commit(push: Bool, amend: Bool) {
@@ -96,33 +134,30 @@ extension SourceControlController {
             let last = amend ? commits.first { $0.hash.hasPrefix(info?.head ?? "\u{0}") }?.subject : nil
             app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last)); return
         }
-        busy = true
-        if push { syncing = (String(localized: "Pushing…"), true, false) }
+        begin(wid, syncing: push ? (String(localized: "Pushing…"), true, false) : nil)
         Task {
-            let ok = await GitCommit.run(app, wid, message: text, push: push, amend: amend)
-            if ok { message.string = ""; messageChanged() }
-            busy = false; syncing = nil
-            clearing = ok
-            finish(push ? String(localized: "Pushed") : String(localized: "Committed"), ok: ok, quiet: true)
+            let r = await GitCommit.run(app, wid, message: text, push: push, amend: amend)
+            if r.committed { sent(wid) }
+            end(wid, syncing: push)
+            finish(push ? String(localized: "Pushed") : String(localized: "Committed"), ok: push ? r.pushed : r.committed, quiet: !push, in: wid)
             reloadAll()
         }
     }
 
     @objc func sync() {
-        guard let info else { return }
+        guard let info, !busy else { return }
         if info.upstream == nil { run(done: String(localized: "Published \(info.current ?? "HEAD")")) { GitRemoteOp(id: $0, op: "push") }; return }
         guard let wid = worktreeId else { return }
         let ahead = (info.ahead ?? 0) > 0, title = String(localized: "Syncing…")
-        busy = true; syncing = (title, false, true)
+        begin(wid, syncing: (title, false, true))
         Task {
             var ok = await app.call(GitRemoteOp(id: wid, op: "pull")) != nil
             if ok, ahead {
-                syncing = (title, true, false)
+                nowSyncing(wid, (title, true, false))
                 ok = await app.call(GitRemoteOp(id: wid, op: "push")) != nil
             }
-            busy = false
-            syncing = nil
-            finish(String(localized: "Synced"), ok: ok, quiet: true)
+            end(wid, syncing: true)
+            finish(String(localized: "Synced"), ok: ok, quiet: true, in: wid)
             reloadAll()
         }
     }

@@ -8,6 +8,7 @@ import KelpKit
 extension SourceControlController {
     func bind(_ wid: String?) {
         guard wid != worktreeId else { return }
+        if let old = worktreeId { drafts[old] = message.string.isEmpty ? nil : message.string }
         worktreeId = wid
         showNoProject(wid == nil)
         changes = []
@@ -18,7 +19,12 @@ extension SourceControlController {
         openCommits = []
         limit = 200
         ciRuns = []; ciRow.show([], failure: nil)
-        message.string = ""; messageChanged()
+        message.string = wid.flatMap { drafts[$0] } ?? ""
+        messageChanged()
+        finishes += 1   // what the last one's button was saying isn't about this one
+        confirmed = nil
+        commitButton?.work = .none
+        showWork()
         rebuild()
         followWatches()
         apply(app.git[wid ?? ""])

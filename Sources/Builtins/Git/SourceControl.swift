@@ -59,8 +59,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var clearing = false
     /// Files were staged, unstaged or discarded: the rows travel to their places when the status shows it (the shape then).
     var staging: Set<String>?
-    /// While a push, pull or sync runs: what the button says, and whether the ↑ arrows pulse.
-    var syncing: (title: String, push: Bool, pull: Bool)? { didSet { showWork() } }
+    /// What runs, by workspace: an action outlives a switch to another one, and ends on its own.
+    var work: [String: GitWork] = [:]
+    /// Commit messages being written in the workspaces not on screen.
+    var drafts: [String: String] = [:]
+    var syncing: GitWork.Sync? { worktreeId.flatMap { work[$0]?.syncing } }
+    var busy: Bool { worktreeId.flatMap { work[$0] } != nil }
     var more = false, limit = 200, loadingMore = false
     var commitFiles: [String: [FileChange]] = [:]
     var openCommits = Set<String>()
@@ -85,7 +89,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// The workspace's git and its branch's CI, watched while the panel is on screen (the daemon pushes changes).
     lazy var gitWatch = Watched(.git, in: app)
     lazy var ciWatch = Watched(.ci, in: app)
-    var busy = false { didSet { updateCommitButton() } }
     let stats = NSTextField(labelWithString: "")
     let ciRow = CIStatusRow()
     var ciRuns: [CIRuns.Run] = []

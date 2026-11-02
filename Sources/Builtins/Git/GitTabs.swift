@@ -169,7 +169,9 @@ final class CommitMessageTab: TabContent {
         guard !message.isEmpty, commitButton.isEnabled else { NSSound.beep(); return }
         commitButton.isEnabled = false
         Task {
-            if await GitCommit.run(app, worktreeId, message: message, push: push, amend: amend) { dismiss() }
+            let r = await GitCommit.run(app, worktreeId, message: message, push: push, amend: amend)
+            if r.pushed { Banner.show(String(localized: "Pushed")) }
+            if r.committed { dismiss() }
             commitButton.isEnabled = true
         }
     }
@@ -182,16 +184,19 @@ final class CommitMessageTab: TabContent {
 /// Failures go to the banner, where an agent can be asked to fix them.
 @MainActor
 enum GitCommit {
-    static func run(_ app: AppModel, _ wid: String, message: String, push: Bool, amend: Bool) async -> Bool {
+    /// A commit that went in and a push that didn't are two results: the one who asked says what's left.
+    static func run(_ app: AppModel, _ wid: String, message: String, push: Bool, amend: Bool) async -> (committed: Bool, pushed: Bool) {
         // Unread, nothing would look staged and every change would go in: stop with the banner instead.
-        guard let changes = await app.call(GitStatus(id: wid)) else { return false }
+        guard let changes = await app.call(GitStatus(id: wid)) else { return (false, false) }
         let all = !changes.contains { $0.staged && !$0.conflicted }
         let r = await app.tryCall(Core.GitCommit(id: wid, message: message, all: all, amend: amend))   // this enum's namesake
-        if let e = r.error { GitFix(app).offer(e, recipe: "fixCommit", worktree: wid); return false }
-        if push {
-            let p = await app.tryCall(GitPush(id: wid))
-            if let e = p.error { GitFix(app).offer(e, recipe: "fixPush", worktree: wid) } else { Banner.show(String(localized: "Pushed")) }
+        if let e = r.error {
+            GitFix(app).offer(e, recipe: "fixCommit", worktree: wid)
+            return (false, false)
         }
-        return true
+        guard push else { return (true, false) }
+        let p = await app.tryCall(GitPush(id: wid))
+        if let e = p.error { GitFix(app).offer(e, recipe: "fixPush", worktree: wid) }
+        return (true, p.error == nil)
     }
 }
