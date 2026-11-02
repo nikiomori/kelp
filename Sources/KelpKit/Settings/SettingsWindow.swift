@@ -173,7 +173,7 @@ struct SettingRow: View {
     private var store: SettingsStore { app.settings }
     init(spec: SettingSpec, reveal: (() -> Void)? = nil) { self.spec = spec; self.reveal = reveal }
 
-    /// Set to something other than its default: a dot in the row's margin, and Reset on a right-click.
+    /// Set to something other than its default: a dot after its title, and Reset on a right-click.
     private var changed: Bool { store.values[spec.key].map { $0 != spec.default } ?? false }
 
     var body: some View {
@@ -183,9 +183,6 @@ struct SettingRow: View {
 
     private var marked: some View {
         control
-            .overlay(alignment: .topLeading) {
-                if changed { Circle().fill(Color.accentColor).frame(width: 6, height: 6).offset(x: -9, y: 5).accessibilityLabel("Changed") }
-            }
             .help(spec.key)
             .contextMenu {
                 Button("Reset to Default") { store.set(spec.key, nil) }.disabled(!changed)
@@ -195,8 +192,15 @@ struct SettingRow: View {
     }
 
     @ViewBuilder private var label: some View {
-        Text(loc(spec.title))
+        title
         if let d = spec.description { Text(loc(d)) }
+    }
+
+    private var title: some View {
+        HStack(spacing: Metrics.gap) {
+            Text(loc(spec.title))
+            if changed { Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel("Changed") }
+        }
     }
 
     @ViewBuilder private var control: some View {
@@ -229,7 +233,7 @@ struct SettingRow: View {
                 }
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
-                Text(loc(spec.title)).alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
+                title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
                 if let d = spec.description { Text(loc(d)) }
             }
         case "enum":
