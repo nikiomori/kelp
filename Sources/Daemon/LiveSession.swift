@@ -463,7 +463,8 @@ extension LiveSession {
             Handover.Session(id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
                              bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
                              status: .init(holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
-                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty),
+                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty,
+                                           pasteMode: s.pasteMode, draftWaiting: s.draftWaiting, typing: s.typing, hooksSpoke: s.hooksSpoke),
                              reports: s.reports)
         }
     }
@@ -483,7 +484,11 @@ extension LiveSession {
                 s.asking = status.asking; s.questionOpen = status.questionOpen
                 s.turnEnd = status.turnEnd; s.transcript = status.transcript
                 s.boxEmpty = status.boxEmpty ?? false
+                s.draftWaiting = status.draftWaiting ?? false
+                s.typing = status.typing ?? ""
+                s.hooksSpoke = status.hooksSpoke ?? false
             }
+            s.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
             s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked)
             s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
             // A question read again and found to be none: the turn ended long ago, so one already read stays read.

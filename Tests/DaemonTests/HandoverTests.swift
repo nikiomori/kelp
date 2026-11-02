@@ -8,6 +8,38 @@ import TestSupport
 
 private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 
+/// A session's state is a long list, and hand-overs lost a field more than once: a new one has to say here which it is.
+@Test func everyFieldOfASessionGoesOverAnUpdateOrIsLetGoOnPurpose() {
+    let s = LiveSession.State(record: Session(cwd: "/", command: "x"), manifest: AgentManifest(id: "x", name: "x", command: "x"),
+                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+    let carried: Set = ["record", "detector", "ring", "ringModes", "logSize", "holding", "parked", "asking", "questionOpen", "turnEnd", "transcript",
+                        "boxEmpty", "pasteMode", "draftWaiting", "typing", "hooksSpoke", "pendingPrompts", "reports"]
+    let fromLaunch: Set = ["hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "wantsLimits", "autoAnswers"]
+    // Set by `adopted` as what's true of a program long past starting.
+    let settled: Set = ["startedUp", "typedYet", "dialogSettled", "sawFirstPrompt"]
+    // Of this connection or this moment, a carry of half a sequence, or only for a while: nothing is lost with it.
+    let letGo: Set = ["attached", "lastOutputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended", "oscCarry", "titleCarry",
+                      "lastTopic", "utf8Carry", "pasteCarry", "sawURL", "lastLimits", "limitSeen", "lastHookAt", "compactManual", "compactSummary",
+                      "lastLifeUp", "newestHook", "lineSentUp", "commands", "commandChanges", "interruptArmed", "goalAsked", "stopKeyAt",
+                      "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn"]
+    #expect(Set(Mirror(reflecting: s).children.compactMap(\.label)) == carried.union(fromLaunch).union(settled).union(letGo))
+}
+
+/// An unread draft or a half-typed line stays in the box over an update, and a send's Enter mustn't take it along.
+@Test func whatTextWouldLandOnGoesOverAnUpdate() async throws {
+    let (d, c, root) = try daemon(); defer { d.stop() }
+    let from = try await c.call(SessionCreate(cwd: root.path, command: "cat")), to = try await c.call(SessionCreate(cwd: root.path, command: "cat"))
+    let old = try #require(d.sessions.existing(from.id)), new = try #require(d.sessions.existing(to.id))
+    old.state.withLock { $0.pasteMode = true; $0.draftWaiting = true; $0.typing = "half a li"; $0.hooksSpoke = true }
+    let handed = try JSONDecoder().decode(Handover.Session.self, from: JSONEncoder().encode(old.handedOver(fd: 0)))
+    new.adopted(modes: handed.modes, bytes: 0, status: handed.status)
+    let s = new.state.withLock { ($0.pasteMode, $0.draftWaiting, $0.typing, $0.hooksSpoke, $0.readyForText(submits: true)) }
+    #expect(s.0 && s.1 && s.2 == "half a li" && s.3 && !s.4)
+    // A kelpd that didn't say leaves the modes it was in.
+    new.adopted(modes: "\u{1B}[?2004h", bytes: 0, status: Handover.Status(holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(), transcript: nil))
+    #expect(new.state.withLock { $0.pasteMode })
+}
+
 /// An update hands each running session to the next kelpd (`handOver`, then `start(adopting:)`; kelpd execs in between):
 /// the same program goes on, its history comes along, typing reaches it, and its end is still seen.
 @Test func runningSessionsCarryOnIntoTheNextDaemon() async throws {

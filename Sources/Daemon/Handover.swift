@@ -21,6 +21,10 @@ public struct Handover: Codable, Sendable {
     struct Status: Codable, Sendable {
         var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], questionOpen: Bool, turnEnd: TurnEnd, transcript: String?
         var boxEmpty: Bool?
+        /// How text goes in, and what it would land on: lost, a multi-line send submitted line by line, and the next send's
+        /// Enter sent an unread draft or the user's half line.
+        var pasteMode: Bool?, draftWaiting: Bool?, typing: String?
+        var hooksSpoke: Bool?
     }
     var socket: Int32, lock: Int32
     var sessions: [Session]

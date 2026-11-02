@@ -424,8 +424,9 @@ extension LiveSession {
 
         /// The user's keys into `typing`; the first line of 8 characters or more they send (once), which names the session.
         mutating func noteTyping(_ d: Data) -> String? {
-            boxEmpty = false
             let s = String(decoding: d, as: UTF8.self)
+            // Esc puts nothing in the box: a report waiting for it to be empty would wait on the next Return.
+            if s != "\u{1B}", LiveSession.kittyKey(s)?.key != 27 { boxEmpty = false }
             if s.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
                 typing += s.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(of: "\u{1B}[201~", with: "")
                     .replacingOccurrences(of: "\r", with: "\n")

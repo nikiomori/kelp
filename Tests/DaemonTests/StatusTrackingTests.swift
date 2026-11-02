@@ -64,6 +64,17 @@ private func onHost() -> LiveSession.State {
     #expect(s.turnMoved(to: .waiting) == (false, false))   // no turn to end
 }
 
+/// Esc in an empty box leaves it empty: a report waiting for that would wait for the next Return, and nothing says so.
+@Test func escLeavesTheBoxEmpty() {
+    var s = hooked()
+    s.boxEmpty = true
+    _ = s.noteTyping(Data([0x1B]))
+    _ = s.noteTyping(Data("\u{1B}[27u".utf8))
+    #expect(s.boxEmpty)
+    _ = s.noteTyping(Data("a".utf8))
+    #expect(!s.boxEmpty)
+}
+
 /// Claude Code compacts a conversation that sits idle ("Compacted while idle…", trigger "auto"): no turn follows to end it,
 /// so the row must not turn working (it stayed so for hours, with the Mac kept awake) nor done (a notification for nothing).
 @Test func anIdleCompactionLeavesTheRowAsItWas() {
