@@ -11,16 +11,19 @@ extension LiveSession {
         state.withLock { s in
             s.spoke()
             guard let at else { return true }
-            guard at >= s.newestHook else { return false }
+            // The same time twice: a hook sent again when the daemon went away with its reply, already counted.
+            guard says ? at > s.newestHook : at >= s.newestHook else { return false }
             if says { s.newestHook = at }
             return true
         }
     }
 
-    /// `State.hook`: the record goes out when its status or what the row says changed.
+    /// `State.hook`: the record goes out when its status or what the row says changed. `at`: checked again here, in the lock
+    /// the change is made in: a newer hook on another thread may have gone first since `newest` said yes.
     func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
-              goal: String? = nil) {
+              goal: String? = nil, at: TimeInterval? = nil) {
         state.withLock { s in
+            if let at, at < s.newestHook { return }
             let said = s.record.summary, awaited = s.record.awaiting
             s.hook(event, trigger: trigger, message: message, asker: asker, question: question, goal: goal)
             emit(s.sync() ?? (s.record.summary != said || s.record.awaiting != awaited ? s.record : nil))
@@ -44,8 +47,10 @@ extension LiveSession {
     /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
     /// what runs in the background. `failure`: an API error ended the turn, and what it said. Returns the verdict and the
     /// hook's time, which `release` checks.
-    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil) -> (TurnEnd.Verdict, Date) {
+    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil, at: TimeInterval? = nil)
+        -> (TurnEnd.Verdict, Date)? {
         state.withLock { s in
+            if let at, at < s.newestHook { return nil }   // as in `hook`
             let now = Date()
             s.heard(at: now)
             let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)

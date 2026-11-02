@@ -153,7 +153,7 @@ extension SessionHook: Handled {
         ls.trail.add(trailLine)
         guard event == "done" else {
             ls.hook(event, trigger: trigger, message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },
-                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, question: hookName == "PreToolUse", goal: goal)
+                    asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, question: hookName == "PreToolUse", goal: goal, at: at)
             return Done()
         }
         let limit = notification.flatMap(Hooks.limitHit)
@@ -162,12 +162,14 @@ extension SessionHook: Handled {
         let last = path.flatMap(GoalStatus.last(inFile:))
         let asked = ls.takeGoalAsked().map { GoalStatus(met: false, condition: $0, id: "") }   // its first check isn't written yet
         let failure = limit == nil ? notification.flatMap(Hooks.failure) : nil
-        let (verdict, at) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: asked ?? last, failure: failure)
+        guard let (verdict, stoppedAt) = ls.stop(backgroundTasks ?? [], crons: sessionCrons ?? [], goal: asked ?? last, failure: failure, at: at) else {
+            return Done()
+        }
         switch verdict {
         case .goal:
-            guard let path, let after = last ?? asked else { ls.release(at); break }
-            Self.watchGoal(ls, path: path, after: after, stoppedAt: at)
-        case .command: DispatchQueue.global().asyncAfter(deadline: .now() + Self.commandWait) { ls.release(at) }
+            guard let path, let after = last ?? asked else { ls.release(stoppedAt); break }
+            Self.watchGoal(ls, path: path, after: after, stoppedAt: stoppedAt)
+        case .command: DispatchQueue.global().asyncAfter(deadline: .now() + Self.commandWait) { ls.release(stoppedAt) }
         case .done, .working: break
         }
         return Done()
