@@ -170,7 +170,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         inspector.show(panel: panel)
     }
     @objc func toggleSidebarPanel() {
-        if focusMode != nil { togglePeek(sidebarItem) } else if autoHide.sidebar { togglePin(sidebarItem) } else { slide([(sidebarItem, !sidebarItem.isCollapsed)]) }
+        if focusMode != nil { return togglePeek(sidebarItem) }
+        if autoHide.sidebar { return togglePin(sidebarItem) }
+        slide([(sidebarItem, !sidebarItem.isCollapsed)])
     }
     var sidebarShown: Bool { !sidebarItem.isCollapsed || peeking === sidebarItem }
     var inspectorShown: Bool { !inspectorItem.isCollapsed || peeking === inspectorItem }

@@ -24,7 +24,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     private var clickTaken = false
     let scrollIndicator = ScrollIndicator()
     private let sizeBadge = SizeBadge()
-    private var shownGrid: (cols: Int, rows: Int)?
+    var shownGrid: (cols: Int, rows: Int)?
     private var placedAt = Date.distantFuture
     var cellSize = NSSize(width: 8, height: 16)
     static let padX = 12.0, padY = 8.0   // window-padding in `GhosttyRuntime.overrides`
@@ -140,21 +140,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         CATransaction.commit()
         updateSize()
     }
-    /// A panel slides beside the terminals: each stays at its size until `false`, then takes its new one once and without
-    /// the "120 × 40" badge, which is for someone resizing by hand. Nested holds count.
-    public static func holdSize(_ on: Bool) {
-        holds = max(0, holds + (on ? 1 : -1))
-        guard !on, holds == 0 else { return }
-        NotificationCenter.default.post(name: sizeReleased, object: nil)
-    }
-    private static var holds = 0
-    private static let sizeReleased = Notification.Name("GhosttyTerminalView.sizeReleased")
-    @objc private func takeSize() {
-        updateSize()
-        shownGrid = gridSize
-    }
-
-    private func updateSize() {
+    func updateSize() {
         guard Self.holds == 0, let surface, window != nil, bounds.width > 0, bounds.height > 0 else { return }
         let fb = convertToBacking(bounds)
         ghostty_surface_set_content_scale(surface, fb.width / bounds.width, fb.height / bounds.height)
