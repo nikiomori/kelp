@@ -21,12 +21,6 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
     #expect(DockIcon.cells([session(.hibernated, unread: true)]) == [.done])   // paused with a result you haven't read
 }
 
-@MainActor @Test func aDockIconWithTooManyAgentsKeepsTheOnesThatWantYou() {
-    let cells = DockIcon.cells(Array(repeating: session(.working), count: 12) + [session(.waiting)])
-    #expect(cells.count == DockFace.cells)
-    #expect(cells.first == .asks)
-}
-
 @MainActor @Test func thePlanOnTheDockIconTurnsAtTheWarningLevel() {
     #expect(DockIcon.usage(79.6, warnAt: 80) == .usage(percent: 80, high: false))   // reads 80, is under it
     #expect(DockIcon.usage(80, warnAt: 80) == .usage(percent: 80, high: true))

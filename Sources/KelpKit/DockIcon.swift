@@ -75,10 +75,8 @@ final class DockIcon {
         .usage(percent: Int(percent.rounded()), high: warnAt.map { percent >= Double($0) } ?? false)
     }
 
-    /// The agents in the order to deal with them. More than fit: the ones that want you stay, as the rest only work.
-    static func cells(_ sessions: [Session]) -> [DockFace.Cell] {
-        Array(sessions.compactMap(cell).sorted().prefix(DockFace.cells))
-    }
+    /// The agents in the order to deal with them.
+    static func cells(_ sessions: [Session]) -> [DockFace.Cell] { sessions.compactMap(cell).sorted() }
 
     private static func cell(_ s: Session) -> DockFace.Cell? {
         guard s.isChat else { return nil }
