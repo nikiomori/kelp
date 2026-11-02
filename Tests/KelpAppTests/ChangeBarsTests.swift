@@ -48,5 +48,5 @@ extension OneAtATime {
     _ = small.view
     _ = big.view
     #expect(small.preferredContentSize.height > 0 && small.preferredContentSize.width > 0)
-    #expect(big.preferredContentSize.height > small.preferredContentSize.height * 10)
+    #expect(big.preferredContentSize.height > small.preferredContentSize.height * 5)   // 24 lines and a "more", not 40
 }
