@@ -62,6 +62,32 @@ private final class Heard: @unchecked Sendable {
     #expect(after.routines.isEmpty && after.runs.isEmpty)
 }
 
+/// A due time that can't start its agent leaves a failed run saying why, and the next routine still runs.
+@Test func aRoutineThatCantStartSaysWhy() async throws {
+    let w = try await world(agents: [bot]); defer { w.d.stop() }
+    let bad = try await w.c.call(RoutineSet(routine: Routine(name: "Gone", repoId: w.repo.id, agent: "uninstalled", prompt: "x", every: .daily, time: farOff)))
+    let good = try await w.c.call(RoutineSet(routine: Routine(name: "Here", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff)))
+    let due = try #require(bad.next(after: bad.checked))
+    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(5))
+    let runs = try await w.c.call(RoutineList()).runs
+    let failed = try #require(runs.first { $0.routineId == bad.id })
+    #expect(failed.outcome == .failed && failed.summary.contains("uninstalled") && failed.ended != nil)
+    #expect(runs.first { $0.routineId == good.id }?.outcome == .running)
+}
+
+/// A prompt behind a dialog nobody answers leaves its agent idle: taken for a run in progress, every later one was skipped.
+@Test func aRunThatNeverStartedFails() async throws {
+    let w = try await world(agents: [bot]); defer { w.d.stop() }
+    let r = try await w.c.call(RoutineSet(routine: Routine(name: "Stuck", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff)))
+    let due = try #require(r.next(after: r.checked))
+    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(5))
+    let run = try #require(try await w.c.call(RoutineList()).runs.first)
+    try w.d.store.update(Routine.Run.self, run.id) { $0.started = Date().addingTimeInterval(-Routines.neverStartedAfter - 1) }
+    _ = try await w.c.call(SessionAnnotate(id: try #require(run.sessionId), summary: "", status: "idle"))
+    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(6))
+    #expect(try await w.c.call(RoutineList()).runs.first?.outcome == .failed)
+}
+
 /// Due while the Mac slept or Kelp was off: one run when it's back, or a missed one when the routine skips those.
 /// Several due times gone by make one run, not one each.
 @Test func aRoutineDueWhileAwayRunsOnceOrIsMissed() async throws {

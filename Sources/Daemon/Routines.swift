@@ -58,7 +58,10 @@ final class Routines: Sendable {
                 if now.timeIntervalSince(last) > Routine.lateAfter && !r.onWake {
                     try store.save(Routine.Run(routineId: r.id, due: last, started: now, ended: now, outcome: .missed))
                 } else if try open(r.id) == nil {   // still at the last one: this one is skipped
-                    try begin(r, due: last, now: now, desks: desks)
+                    // One that can't start leaves a run that says why: its time has passed, and the others are still due.
+                    do { try begin(r, due: last, now: now, desks: desks) } catch {
+                        try store.save(Routine.Run(routineId: r.id, due: last, started: now, ended: now, outcome: .failed, summary: Self.why(error)))
+                    }
                 }
             }
             for run in try store.db.read({ try Routine.Run.filter(Self.isOpen).fetchAll($0) }) where try follow(run) { told = true }
@@ -134,12 +137,15 @@ final class Routines: Sendable {
         return w
     }
 
-    /// The runs past the last few close their tabs, unless their agent works or waits for an answer still.
+    static let neverStartedAfter: TimeInterval = 1800
+    private static func why(_ e: Error) -> String { (e as? RPCError)?.message ?? e.localizedDescription }
+
+    /// The runs past the last few close their tabs, unless their agent works or waits for an answer still, or its tab is open.
     private func closeOld(_ routine: String) {
         Log.store.attempt("closing a routine's old runs") {
             let runs = try store.db.read { try Routine.Run.filter(Column("routineId") == routine).order(Column("started").desc).fetchAll($0) }
             let old = try runs.dropFirst(Self.keepRuns).compactMap { try $0.sessionId.flatMap(store.session) }
-                .filter { ![.working, .waiting].contains($0.status) }
+                .filter { ![.working, .waiting].contains($0.status) && sessions.existing($0.id)?.isAttached != true }   // not one in an open tab
             if !old.isEmpty { sessions.discard(old) }
         }
     }
@@ -150,6 +156,9 @@ final class Routines: Sendable {
         // The live one when it runs: its status is saved a moment later.
         let s = try run.sessionId.flatMap { id in try sessions.existing(id)?.snapshot ?? store.session(id) }
         switch s?.status {
+        // Its prompt behind a dialog nobody answers: left running, every later run would be skipped, and nothing would say so.
+        case .idle? where Date().timeIntervalSince(run.started) > Self.neverStartedAfter:
+            (r.outcome, r.ended, r.summary) = (.failed, Date(), String(localized: "The agent didn't start on it"))
         case .working?, .idle?: r.outcome = .running
         case .waiting?: (r.outcome, r.summary) = (.asked, s?.summary ?? "")
         case .done?: (r.outcome, r.ended, r.summary) = (.done, s?.statusAt ?? Date(), s.map(reply) ?? "")
