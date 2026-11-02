@@ -64,11 +64,12 @@ public final class ListRowView: NSTableRowView {
         effectiveAppearance.performAsCurrentDrawingAppearance { color = hovering && !isSelected ? NSColor.fillHover.cgColor : nil }
         let old = hoverFill.presentation()?.backgroundColor ?? hoverFill.backgroundColor
         hoverFill.backgroundColor = color
-        guard !Motion.reduced else { return }
+        guard !Motion.reduced, old != color else { return }
         let a = CABasicAnimation(keyPath: "backgroundColor")
         a.fromValue = old ?? NSColor.clear.cgColor
         a.toValue = color ?? NSColor.clear.cgColor
         a.duration = Motion.fast
+        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
         hoverFill.add(a, forKey: "fade")
     }
     override public func layout() {

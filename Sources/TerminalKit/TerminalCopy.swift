@@ -208,8 +208,17 @@ final class ScrollIndicator: NSView {
         CATransaction.commit()
         alphaValue = 1
         hide?.cancel()
-        let w = DispatchWorkItem { [weak self] in NSAnimationContext.runAnimationGroup { $0.duration = 0.3; self?.animator().alphaValue = 0 } }
+        let w = DispatchWorkItem { [weak self] in fadeOut(self) }
         hide = w; DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: w)
+    }
+}
+
+/// `view` fades away, at once under Reduce Motion (TerminalKit has no DesignKit: this is the app's `Motion.appear`).
+@MainActor
+private func fadeOut(_ view: NSView?) {
+    NSAnimationContext.runAnimationGroup {
+        $0.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.3
+        view?.animator().alphaValue = 0
     }
 }
 
@@ -220,7 +229,7 @@ final class SizeBadge: NSView {
     private var hide: DispatchWorkItem?
     override init(frame: NSRect) {
         super.init(frame: frame)
-        wantsLayer = true; layer?.cornerRadius = 8; isHidden = true
+        wantsLayer = true; layer?.cornerRadius = 8; isHidden = true; alphaValue = 0
         label.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium); label.textColor = .labelColor
         label.translatesAutoresizingMaskIntoConstraints = false; addSubview(label)
         NSLayoutConstraint.activate([label.centerXAnchor.constraint(equalTo: centerXAnchor), label.centerYAnchor.constraint(equalTo: centerYAnchor)])
@@ -232,9 +241,10 @@ final class SizeBadge: NSView {
         let w = label.intrinsicContentSize.width + 28
         frame = NSRect(x: b.midX - w / 2, y: b.midY - 18, width: w, height: 36)
         effectiveAppearance.performAsCurrentDrawingAppearance { layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor }
+        alphaValue = 1
         isHidden = false
         hide?.cancel()
-        let item = DispatchWorkItem { [weak self] in self?.isHidden = true }
+        let item = DispatchWorkItem { [weak self] in fadeOut(self) }
         hide = item; DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: item)
     }
 }

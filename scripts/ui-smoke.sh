@@ -32,7 +32,7 @@ scene() {
 }
 scene start
 scene settings KELP_SNAPSHOT_WINDOW=settings
-scene file KELP_SNAPSHOT_OPEN="file:$repo/README.md"
+scene file KELP_SNAPSHOT_OPEN="file://$repo/README.md"
 # A terminal running a command: its answer (42) isn't in the command's text, so finding it means the shell ran it.
 scene terminal KELP_SNAPSHOT_OPEN='terminal:?cmd=expr%2040%20%2B%202' KELP_TYPE='{wait}{wait}'
 if ! grep -rqs '42' "$home/history"; then

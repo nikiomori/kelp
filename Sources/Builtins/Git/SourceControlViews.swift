@@ -295,7 +295,7 @@ final class CommitCell: NSTableCellView, Hoverable {
     /// While the push runs, the arrows of the commits on their way pulse.
     func pulse(_ on: Bool) {
         guard !up.isHidden else { return }
-        if on { up.addSymbolEffect(.pulse, options: .repeating) } else { up.removeAllSymbolEffects() }
+        if on, !Motion.reduced { up.addSymbolEffect(.pulse, options: .repeating) } else { up.removeAllSymbolEffects() }
     }
 
     /// Just reached the remote: the arrow hops up and fades.

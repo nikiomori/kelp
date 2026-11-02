@@ -169,12 +169,14 @@ private final class BannerCard: NSView {
     func appear() {
         alphaValue = 0
         wantsLayer = true
-        let slide = CABasicAnimation(keyPath: "transform.translation.x")
-        slide.fromValue = Motion.reduced ? 0 : 16
-        slide.toValue = 0
-        slide.duration = Motion.duration(Motion.fast)
-        slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer?.add(slide, forKey: "in")
+        if !Motion.reduced {
+            let slide = CABasicAnimation(keyPath: "transform.translation.x")
+            slide.fromValue = 16
+            slide.toValue = 0
+            slide.duration = Motion.fast
+            slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            layer?.add(slide, forKey: "in")
+        }
         NSAnimationContext.runAnimationGroup { $0.duration = Motion.duration(Motion.fast); animator().alphaValue = 1 }
     }
 

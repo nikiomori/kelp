@@ -42,6 +42,9 @@ final class ContextMeter: NSView {
             track.strokeColor = NSColor.tertiaryLabelColor.cgColor
             fill.strokeColor = [NSColor.secondaryLabelColor, .systemYellow, .systemOrange, .systemRed][level].cgColor
         }
+        CATransaction.begin()
+        CATransaction.setDisableActions(Motion.reduced)
         fill.strokeEnd = min(1, share)
+        CATransaction.commit()
     }
 }

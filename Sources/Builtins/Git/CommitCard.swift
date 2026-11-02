@@ -18,7 +18,10 @@ final class CommitCard {
     /// The author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
 
-    init() { popover.behavior = .applicationDefined }   // as the sidebar's: it goes when the pointer leaves
+    init() {   // as the sidebar's: it goes when the pointer leaves, and moves from row to row without popping
+        popover.behavior = .applicationDefined
+        popover.animates = false
+    }
 
     /// The pointer came onto or left a commit's row. A card already up follows the pointer to the next row at once.
     func hover(_ on: Bool, commit c: GraphCommit, pushed: Bool?, over row: NSView) {
@@ -197,8 +200,12 @@ final class CommitCardView: NSView {
         weak var button: NSButton?
         let copy = ClosureButton(title: String(c.hash.prefix(7))) {
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string)
+            button?.crossfade()
             button?.image = .symbol("checkmark", String(localized: "Copied"))
-            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { button?.image = .symbol("doc.on.doc", copyTitle) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) {
+                button?.crossfade()
+                button?.image = .symbol("doc.on.doc", copyTitle)
+            }
         }
         button = copy
         copy.font = .monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)

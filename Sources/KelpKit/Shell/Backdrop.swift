@@ -33,7 +33,12 @@ final class Backdrop: NSView {
 
     override func layout() {
         super.layout()
-        if bounds.size != built { build() }
+        // Dragging the window's edge, the scene just stretches: built anew at every step, its motes jumped about.
+        if inLiveResize { stage.frame = bounds } else if bounds.size != built { build() }
+    }
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        needsLayout = true
     }
 
     @objc private func build() {

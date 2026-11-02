@@ -140,7 +140,10 @@ package final class StatusMark: NSView {
             effectiveAppearance.performAsCurrentDrawingAppearance {
                 track.strokeColor = NSColor.secondaryLabelColor.cgColor; bar.strokeColor = NSColor.secondaryLabelColor.cgColor
             }
+            CATransaction.begin()
+            CATransaction.setDisableActions(Motion.reduced)   // a layer of its own: it would ease over 0.25 s
             bar.strokeEnd = min(1, max(0, filling))
+            CATransaction.commit()
             return
         }
         // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion a
@@ -192,15 +195,11 @@ package final class StatusMark: NSView {
     }
 }
 
-/// Status as an SF Symbol, animated while the agent works.
-struct StatusIcon: View {
+/// `StatusMark` in SwiftUI (a hover card, an extension's list): one look for a state, Reduce Motion included.
+struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
-    var body: some View {
-        Image(systemName: status == .working ? "circle.dotted" : status.symbol)
-            .foregroundStyle(status.color)
-            .symbolEffect(.variableColor.iterative.dimInactiveLayers, isActive: status == .working)
-            .help(status.words)
-    }
+    func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
+    func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status }
 }
 
 extension Session {
