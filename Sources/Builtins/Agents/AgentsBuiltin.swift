@@ -14,6 +14,7 @@ extension Builtins {
                               closeUnbuilt: { await SessionTab.close(app, session: TabURI.body($0)) },
                               menu: { SessionTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) })]
         c.tabs.append(TabProvider(schemes: ["usage"]) { _ in UsageTab(app: app) })
+        c.tabs.append(TabProvider(schemes: ["subagent"]) { SubagentTab(uri: $0, app: app) })
         c.settings = [
             SettingsSection(id: "agents", title: "Agents", icon: "sparkles", specs: [
                 s("agents.default", "Default agent", "enum", "claude",
