@@ -28,15 +28,6 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public var isNoReply: Bool { message.hasPrefix("no reply to ") }
 }
 
-/// A line on the wire: either a response (has `result`/`error`) or a notification/request (has `method`).
-public struct RPCMessage: Codable, Sendable {
-    public var id: Int?
-    public var method: String?
-    public var params: JSONValue?
-    public var result: JSONValue?
-    public var error: RPCError?
-}
-
 /// A method declared as a type (Methods.swift), shared by the app, the CLI and the daemon like Zed's proto messages:
 /// a misspelled key or a wrong result shape doesn't compile. Its fields are the request's params, exactly the JSON
 /// the method takes when written by hand, so untyped callers (older apps, scripts) keep working.
@@ -61,7 +52,7 @@ extension RPCMethod {
 }
 
 /// A method for Kelp's own window and tools: `kelp schema` lists it as such, and a client of someone else's gets no promise
-/// about it. Its name and shape still stay, for an older app (Tests/DaemonTests/methods.txt, rpc.json).
+/// about it. Its name and shape still stay, for an older app (rpc.json).
 public protocol InternalMethod: RPCMethod {}
 
 /// The result of a method that answers null.

@@ -169,7 +169,7 @@ extension WorktreeRemove: Handled {
         let force = force == true, drop = dropCommits == true
         // A remote project's folder is on its host: looked for there.
         let host = workspaces.remotes.of(r.path)   // the project's: its worktrees are on its host too
-        let exists = try host.map { String(decoding: try $0.run("[ -e \(RemoteHost.quote(w.path)) ] && echo yes || true"), as: UTF8.self).hasPrefix("yes") }
+        let exists = try host.map { String(decoding: try $0.run("[ -e \(IDE.shellWord(w.path)) ] && echo yes || true"), as: UTF8.self).hasPrefix("yes") }
             ?? FileManager.default.fileExists(atPath: w.path)
         if exists {
             // Refuse before anything stops; then stop its agents and only then remove, checking again: an agent still

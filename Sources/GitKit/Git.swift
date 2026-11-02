@@ -62,7 +62,7 @@ extension Git {
                 if remote == nil { off = RepoFilters.off(cwd) }
             }
             if let r = remote {   // a remote project: the same git, on its host
-                args = r.sshArgs(tty: false) + ["cd \(RemoteHost.cdArg(r.path)) && git " + args.map(RemoteHost.quote).joined(separator: " ")]
+                args = r.sshArgs(tty: false) + ["cd \(RemoteHost.cdArg(r.path)) && git " + args.map(IDE.shellWord).joined(separator: " ")]
                 executable = r.ssh; cwd = NSHomeDirectory()
             }
         }
@@ -149,7 +149,7 @@ extension Git {
 extension RemoteHost {
     /// `script` in sh on the host (whatever its login shell is), its output as the bytes it wrote.
     public func run(_ script: String, timeLimit: TimeInterval = 300) throws -> Data {
-        try Git.runData(sshArgs(tty: false) + ["sh -c " + Self.quote(script)], cwd: NSHomeDirectory(), executable: ssh, timeLimit: timeLimit)
+        try Git.runData(sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), executable: ssh, timeLimit: timeLimit)
     }
 }
 

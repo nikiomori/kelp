@@ -24,7 +24,7 @@ extension RemoteListFolders: Handled {
             + #"for f in *; do [ -d "$f" ] || continue; if [ -e "$f/.git" ]; then echo "g $f"; else echo "d $f"; fi; done"#
         let out: String
         do {
-            out = try Git.run(["-o", "ConnectTimeout=10"] + remotes.host(host, path: "~").sshArgs(tty: false) + ["sh -c " + RemoteHost.quote(script)],
+            out = try Git.run(["-o", "ConnectTimeout=10"] + remotes.host(host, path: "~").sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)],
                               cwd: NSHomeDirectory(), executable: remotes.ssh)
         } catch let e as GitError {
             let why = e.stderr.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -36,7 +36,7 @@ public struct RemoteHost: Codable, Sendable, Equatable {
         guard let argv, !argv.isEmpty else { return cd + " && exec \"$SHELL\" -l" }
         // A local absolute path means nothing there: the host finds the program by name.
         let words = [(argv[0] as NSString).lastPathComponent] + argv.dropFirst()
-        return cd + " && exec \"$SHELL\" -ilc " + Self.quote(words.map(Self.quote).joined(separator: " "))
+        return cd + " && exec \"$SHELL\" -ilc " + IDE.shellWord(words.map(IDE.shellWord).joined(separator: " "))
     }
 
     /// `argv` as `command` runs it, inside tmux session `name` on the host, or attached to that session again while it still
@@ -46,27 +46,24 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// none. Without tmux on the host, `argv` runs as it is.
     public func command(_ argv: [String], inTmux name: String) -> String {
         guard !argv.isEmpty else { return command(nil) }
-        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(Self.quote).joined(separator: " ")
-        let pane = "exec \"$SHELL\" -ilc " + Self.quote(words)   // tmux runs a pane's one-string command in a shell
+        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(IDE.shellWord).joined(separator: " ")
+        let pane = "exec \"$SHELL\" -ilc " + IDE.shellWord(words)   // tmux runs a pane's one-string command in a shell
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
         let options = [["status", "off"], ["mouse", "on"], ["set-titles", "on"], ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"],
                        ["allow-passthrough", "on"]]
         // "=name:": exactly that session (an option's target is a pane, and "=name" alone isn't read as a session there).
         let tmux = ["tmux", "new-session", "-A", "-s", name, pane] + options.flatMap { [";", "set-option", "-t", "=" + name + ":"] + $0 }
-        let missed = "s=$(tmux show-options -qv -t \(Self.quote("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
+        let missed = "s=$(tmux show-options -qv -t \(IDE.shellWord("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
             + #"[ -z "$s" ] || printf '\033]7501;%s\007' "$s"; "#
         let cd = "cd \(Self.cdArg(path))"
         return cd + " && exec \"$SHELL\" -ilc "
-            + Self.quote(missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(Self.quote).joined(separator: " ") + " || exec " + words)
+            + IDE.shellWord(missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(IDE.shellWord).joined(separator: " ") + " || exec " + words)
     }
 
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.
     public static func cdArg(_ path: String) -> String {
-        path == "~" ? "~" : path.hasPrefix("~/") ? "~/" + quote(String(path.dropFirst(2))) : quote(path)
+        path == "~" ? "~" : path.hasPrefix("~/") ? "~/" + IDE.shellWord(String(path.dropFirst(2))) : IDE.shellWord(path)
     }
-
-    /// One shell word, single-quoted.
-    public static func quote(_ s: String) -> String { IDE.shellWord(s) }
 }
 
 /// The remote projects of one Kelp home. A `.kelp-remote` counts only in its `remote` folder: one anywhere else (say,

@@ -93,7 +93,7 @@ extension Git {
             let real = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
             // A host's path as git lists it, links followed there (git lists /private/tmp for /tmp).
             let here = try host.map { h in
-                String(decoding: try h.run("cd -- \(RemoteHost.quote(path)) 2>/dev/null && pwd -P || printf %s \(RemoteHost.quote(path))"),
+                String(decoding: try h.run("cd -- \(IDE.shellWord(path)) 2>/dev/null && pwd -P || printf %s \(IDE.shellWord(path))"),
                        as: UTF8.self).trimmingCharacters(in: .newlines)
             } ?? real(path)
             guard let entry = try linkedWorktrees(repo, remotes: remotes).first(where: { (local ? real($0.path) : $0.path) == here }) else {
@@ -107,7 +107,7 @@ extension Git {
         // ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two removals
         // of a same-named folder in one second apart.
         if let host {
-            let q = RemoteHost.quote, aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
+            let q = IDE.shellWord, aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
             _ = try host.run("d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(q(path)) ]; then mv -- \(q(path)) \"$d\"/\(q(aside))-$$; fi")
         }
         // Its record only: `worktree prune` would also drop worktrees whose folder is just away (an unmounted disk).

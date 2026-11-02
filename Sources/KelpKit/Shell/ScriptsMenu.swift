@@ -145,7 +145,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     func choice(of s: Session) -> String? {
         if let r = state.active[s.id] { return r.choice }
         guard s.agent == "custom", let wid = s.worktreeId, let line = s.argv.last else { return nil }
-        if let o = state.found[wid]?.options.first(where: { ($0.folder.isEmpty ? $0.command : "cd \(RemoteHost.quote($0.folder)) && \($0.command)") == line }) {
+        if let o = state.found[wid]?.options.first(where: { ($0.folder.isEmpty ? $0.command : "cd \(IDE.shellWord($0.folder)) && \($0.command)") == line }) {
             return o.id
         }
         return state.kelp[wid]?.first { $0.command == line }.map { "kelp:" + $0.name }

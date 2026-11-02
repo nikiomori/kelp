@@ -206,7 +206,7 @@ extension Git {
         for start in stride(from: 0, to: paths.count, by: 200) {
             let chunk = paths[start..<min(start + 200, paths.count)]
             guard left > 0 else { chunk.forEach { out[$0] = .some(nil) }; continue }
-            let names = chunk.map { RemoteHost.quote(r.path + "/" + $0) }.joined(separator: " ")
+            let names = chunk.map { IDE.shellWord(r.path + "/" + $0) }.joined(separator: " ")
             // Each file as a line with its length (-1: not read, -2: the budget is spent) and then that many bytes.
             let script = "t=$(mktemp) || exit 1; left=\(left); for f in \(names); do if [ $left -le 0 ]; then echo -2; "
                 + "elif [ -f \"$f\" ] && head -c 1000001 -- \"$f\" > \"$t\" 2>/dev/null; "
