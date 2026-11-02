@@ -125,6 +125,7 @@ final class FileTab: SavableTab {
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
+            md.onEditing = { [weak bar] in bar?.editing = $0 }
             markdown = md; box.pin(stacked(md.view, bar))
         } else {
             box.pin(stacked(e.view, bar))

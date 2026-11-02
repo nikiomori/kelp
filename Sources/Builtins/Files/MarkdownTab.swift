@@ -29,6 +29,8 @@ final class MarkdownTab: NSViewController {
         }
     }
     private var narrow = false
+    /// Told whether the source can be edited on screen: the status bar's cursor means nothing in the preview.
+    var onEditing: ((Bool) -> Void)?
 
     var currentMode: String {
         switch mode.selectedSegment {
@@ -174,6 +176,7 @@ final class MarkdownTab: NSViewController {
         let m = mode.selectedSegment
         editor.view.isHidden = m == 2; web.isHidden = m == 0 || (m == 1 && narrow)
         formatting.isHidden = m == 2   // nothing to format in the preview
+        onEditing?(m != 2)
         placeSelectionBar()
         split.adjustSubviews()
         if m == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }

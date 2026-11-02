@@ -9,16 +9,22 @@ import KelpKit
 @MainActor
 final class EditorStatusBar: NSView {
     private let place = NSTextField(labelWithString: "")
+    private let format = NSTextField(labelWithString: "")
+    private let indent: String
+    /// Off in a Markdown preview: there's no cursor to place, and how the source is indented says nothing.
+    var editing = true {
+        didSet { place.isHidden = !editing; layoutFormat() }
+    }
 
     init(url: URL, text: String) {
-        super.init(frame: .zero)
-        let kind = NSTextField(labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription ?? url.pathExtension.uppercased())
-        let indent: String = switch Indentation.detect(text) {
+        indent = switch Indentation.detect(text) {
         case .tabs?: String(localized: "Tab Indentation")
         case .spaces(let n)?: String(localized: "Spaces: \(n)")
         case nil: ""
         }
-        let format = NSTextField(labelWithString: ["UTF-8", indent].filter { !$0.isEmpty }.joined(separator: "  ·  "))
+        super.init(frame: .zero)
+        layoutFormat()
+        let kind = NSTextField(labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription ?? url.pathExtension.uppercased())
         for l in [kind, place, format] {
             l.font = .ui(11)
             l.textColor = .secondaryLabelColor
@@ -38,6 +44,10 @@ final class EditorStatusBar: NSView {
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private func layoutFormat() {
+        format.stringValue = ["UTF-8", editing ? indent : ""].filter { !$0.isEmpty }.joined(separator: "  ·  ")
+    }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""
