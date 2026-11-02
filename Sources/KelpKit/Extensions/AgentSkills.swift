@@ -8,6 +8,7 @@ import Core
 enum AgentSkills {
     static func write(_ app: AppModel) {
         let s = app.settings
+        for old in ["krill-extensions", "krill-settings"] { put(old, on: false, description: "", body: "") }   // the app's old name's
         put("kelp-extensions", on: s.bool("agents.skills.extensions") != false,
             description: "Use when the user wants something added to or changed in Kelp, the IDE this session runs in: a panel, list, tab, command, "
                 + "setting, theme or language server — e.g. “add a Kelp panel with my Docker containers”, “show Android emulators in Kelp”. Kelp extensions are "
