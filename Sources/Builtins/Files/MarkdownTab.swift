@@ -7,7 +7,7 @@ import KelpKit
 
 /// A Markdown file: editor, live preview, or both, with a formatting bar for specs and plans you write for agents.
 @MainActor
-final class MarkdownTab: NSViewController {
+final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
     let url: URL
     private let app: AppModel
@@ -29,6 +29,8 @@ final class MarkdownTab: NSViewController {
         }
     }
     private var narrow = false
+    /// Until then the source is following the preview, and doesn't lead it back.
+    private var followingPreview = Date.distantPast
     /// Told whether the source can be edited on screen: the status bar's cursor means nothing in the preview.
     var onEditing: ((Bool) -> Void)?
 
@@ -92,6 +94,7 @@ final class MarkdownTab: NSViewController {
         split.isVertical = true; split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
+        web.configuration.userContentController.add(WeakHandler(self), name: "kelpSync")
         split.addArrangedSubview(editor.view); split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
         view = stacked(bar, split)
@@ -117,7 +120,29 @@ final class MarkdownTab: NSViewController {
         selectionBar.show(over: view.convert(r, from: editor.view), in: view)
     }
 
-    @objc private func scrolled() { if !selectionBar.isHidden { placeSelectionBar() } }
+    @objc private func scrolled() {
+        if !selectionBar.isHidden { placeSelectionBar() }
+        guard currentMode == "split", !web.isHidden, Date() > followingPreview else { return }
+        web.evaluateJavaScript("kelpToLine(\(editor.topLine))", completionHandler: nil)
+    }
+
+    /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
+    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        guard let body = m.body as? [String: Any], let line = (body["line"] as? NSNumber)?.intValue else { return }
+        if body["kind"] as? String == "open" {
+            if currentMode == "preview" { selectMode(1) }
+            editor.goTo(line: line)
+            editor.focus()
+        } else if currentMode == "split" {
+            followingPreview = Date().addingTimeInterval(0.2)
+            editor.scroll(toLine: line)
+        }
+    }
+
+    private func selectMode(_ segment: Int) {
+        mode.selectedSegment = segment
+        applyMode()
+    }
 
     private var positioned = false
     override func viewDidLayout() {
@@ -152,13 +177,16 @@ final class MarkdownTab: NSViewController {
                 page = (p.background.hexString, p.text.hexString)
             }
             let html = await Task.detached { [page] in
-                MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark, page: page) + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "")
+                MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
+                    + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "") + MarkdownHTML.scrollSync
             }.value
             guard !Task.isCancelled else { return }
             // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).
             let y = (try? await web.evaluateJavaScript("window.scrollY")) as? Double ?? 0
             guard !Task.isCancelled else { return }
-            web.loadHTMLString(html + "<script>window.scrollTo(0, \(y))</script>", baseURL: base)
+            // In Split, on the block being edited; the place it had otherwise.
+            let place = currentMode == "split" ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
+            web.loadHTMLString(html + "<script>\(place)</script>", baseURL: base)
         }
     }
 

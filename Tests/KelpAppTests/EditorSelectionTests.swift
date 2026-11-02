@@ -65,3 +65,14 @@ extension OneAtATime {
     #expect(short.preferredContentSize.height > 0 && short.preferredContentSize.height < 100)
     #expect(long.preferredContentSize.height == 200)
 }
+
+@MainActor @Test func theEditorSaysAndTakesItsTopLine() {
+    _ = NSApplication.shared
+    let e = CodeEditor(text: (1...400).map { "line \($0)\n" }.joined(), url: URL(fileURLWithPath: "/t.txt"))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = e.view
+    e.view.layoutSubtreeIfNeeded()
+    #expect(e.topLine == 1)
+    e.scroll(toLine: 120)
+    #expect(abs(e.topLine - 120) <= 1)
+}

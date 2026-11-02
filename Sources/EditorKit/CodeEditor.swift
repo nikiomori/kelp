@@ -284,6 +284,22 @@ public final class CodeEditor: NSObject {
         textView.scrollRangeToVisible(NSRange(location: i, length: 0))
     }
 
+    /// The 1-based line at the top of what's on screen.
+    public var topLine: Int {
+        guard let lm = textView.layoutManager, let tc = textView.textContainer else { return 1 }
+        let glyph = lm.glyphIndex(for: NSPoint(x: 0, y: textView.visibleRect.minY), in: tc)
+        return lineIndex.line(at: lm.characterIndexForGlyph(at: glyph), in: textView.string as NSString) + 1
+    }
+
+    /// `line` (1-based) at the top of what's on screen; the cursor stays.
+    public func scroll(toLine line: Int) {
+        let s = textView.string as NSString
+        guard let lm = textView.layoutManager, s.length > 0, let start = lineIndex.start(ofLine: max(0, line - 1), in: s), start < s.length else { return }
+        let y = lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil).minY
+        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: y))
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
+
     public func focus() { textView.window?.makeFirstResponder(textView) }
 
     // MARK: Colors

@@ -3,13 +3,42 @@ import Foundation
 /// Dependency-free GitHub-flavoured Markdown → HTML.
 /// Raw HTML is escaped, but for the tags and attributes on a list (MarkdownGFM): safety over fidelity.
 public enum MarkdownHTML {
-    public static func render(_ md: String) -> String {
+    /// `marking`: each top-level block goes after an invisible mark of its source line, for `scrollSync` to go by.
+    public static func render(_ md: String, marking: Bool = false) -> String {
         let src = md.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = src.split(separator: "\n", omittingEmptySubsequences: false).map { Line(s: detab(String($0))) }
         let r = Renderer()
         r.collectRefs(lines)
-        return r.blocks(lines) + r.footnotes()
+        return r.blocks(lines, marking: marking) + r.footnotes()
     }
+
+    /// Keeps a preview with its source: `kelpToLine(n)` scrolls to source line `n`, between the marks around it; scrolling
+    /// and double-clicking post the line to the `kelpSync` handler. A scroll it did itself doesn't echo back.
+    public static let scrollSync = """
+    <script>(function () {
+      const marks = () => [...document.querySelectorAll('[data-line]')].map(e => ({ l: +e.dataset.line, y: e.getBoundingClientRect().top + scrollY }));
+      const between = (list, get, v) => {
+        let a = list[0], b = null;
+        for (const m of list) { if (get(m) <= v) a = m; else { b = m; break; } }
+        return [a, b];
+      };
+      let quiet = 0;
+      window.kelpToLine = n => {
+        const [a, b] = between(marks(), m => m.l, n);
+        if (!a) return;
+        quiet = Date.now() + 200;
+        scrollTo(0, a.y + (b ? (b.y - a.y) * (n - a.l) / (b.l - a.l) : 0));
+      };
+      const lineAt = y => {
+        const [a, b] = between(marks(), m => m.y, y);
+        if (!a) return 1;
+        return Math.round(a.l + (b && b.y > a.y ? (b.l - a.l) * (y - a.y) / (b.y - a.y) : 0));
+      };
+      const post = (kind, line) => webkit.messageHandlers.kelpSync?.postMessage({ kind, line });
+      addEventListener('scroll', () => { if (Date.now() > quiet) post('scroll', lineAt(scrollY)); }, { passive: true });
+      addEventListener('dblclick', e => post('open', lineAt(e.clientY + scrollY)));
+    })();</script>
+    """
 
     /// Full HTML document around `body`. `baseURL` (the document's URL) resolves relative links and images.
     /// `dark: true` forces the dark palette; otherwise `prefers-color-scheme` decides.
@@ -171,7 +200,7 @@ final class Renderer {
         }
     }
 
-    func blocks(_ ls: [Line], tight: Bool = false) -> String {
+    func blocks(_ ls: [Line], tight: Bool = false, marking: Bool = false) -> String {
         var out: [String] = [], i = 0
         while i < ls.count {
             let l = ls[i], ind = l.indent
@@ -189,7 +218,7 @@ final class Renderer {
             else if def(s) != nil { block = (nil, i + 1) }   // a link reference definition: read already, shows nothing
             else if startsHTML(s) { block = htmlBlock(ls, i) }
             else { block = paragraph(ls, i, tight: tight) }
-            if let html = block.html { out.append(html) }
+            if let html = block.html { out.append(marking ? "<i data-line=\"\(i + 1)\" style=\"display:block;height:0\"></i>\n" + html : html) }
             i = block.end
         }
         return out.joined(separator: "\n")

@@ -271,3 +271,10 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(h.contains("<p>After.</p>") && !h.contains("[^2]:"))
     #expect(r("No note[^x].") == "<p>No note[^x].</p>")
 }
+
+@Test func topLevelBlocksCarryTheirSourceLineWhenAsked() {
+    let html = MarkdownHTML.render("# One\n\ntext\n\n- a\n  - b\n", marking: true)
+    #expect(html.contains("data-line=\"1\"") && html.contains("data-line=\"3\"") && html.contains("data-line=\"5\""))
+    #expect(!html.contains("data-line=\"6\""))    // only the top level
+    #expect(!MarkdownHTML.render("# One").contains("data-line"))
+}
