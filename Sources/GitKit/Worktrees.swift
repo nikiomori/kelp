@@ -77,7 +77,8 @@ extension Git {
     }
 
     public static func isDirty(_ path: String, remotes: Remotes = .none) throws -> Bool {
-        !(try run(["status", "--porcelain"], cwd: path, remotes: remotes)).isEmpty
+        // Whatever `status.showUntrackedFiles` says: new files count, it decides what's asked before a folder goes.
+        !(try run(["status", "--porcelain", "--untracked-files=normal"], cwd: path, remotes: remotes)).isEmpty
     }
 
     /// Remove worktree and its branch. Refuses dirty worktrees unless `force`, and a branch with commits that are on no

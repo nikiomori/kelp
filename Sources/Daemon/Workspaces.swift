@@ -48,6 +48,22 @@ final class Workspaces: Sendable {
 
     func isMain(_ w: Worktree, _ r: Repo) -> Bool { w.path == r.path }
 
+    /// A branch group's branch as it is: renamed in its folder (`git branch -m`), what the record says no longer exists, and
+    /// closing it would ask about nothing and then fail. A switch to another branch doesn't count: that one isn't the group's to delete.
+    func branchNow(of w: Worktree, in r: Repo) -> String {
+        guard !Git.branchExists(r.path, w.branch, remotes: remotes),
+              let now = Log.store.attempt("reading \(w.path)'s branch", { try Git.currentBranch(w.path, remotes: remotes) }), now != "HEAD" else {
+            return w.branch
+        }
+        return now
+    }
+
+    /// A group a home seeded from Kelp's (`HomeSeed`) shares: its folder is in Kelp's home, and an agent there may be at work in
+    /// it. Closing it here closes it here.
+    static func borrowed(_ path: String, seed: URL?) -> Bool {
+        seed.map { path.hasPrefix($0.appendingPathComponent("worktrees").path + "/") } == true
+    }
+
     /// Every project keeps at least one desk; desks follow the folder's checked-out branch.
     func syncMainWorkspaces() throws { try deskLock.withLock { try syncDesks() } }
 

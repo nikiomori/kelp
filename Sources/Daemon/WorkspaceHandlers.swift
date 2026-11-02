@@ -158,6 +158,14 @@ extension WorktreeRemove: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
         if workspaces.isMain(w, r) { try workspaces.removeDesk(w, r); return Done() }
+        if Workspaces.borrowed(w.path, seed: Paths.seed) {
+            try workspaces.sessions.pauseSessions(of: w.id)
+            workspaces.sessions.discard(try workspaces.store.sessions().filter { $0.worktreeId == w.id })
+            try workspaces.store.delete(w)
+            workspaces.notify(ChangedEvent.worktree)
+            return Done()
+        }
+        let branch = workspaces.branchNow(of: w, in: r)
         let force = force == true, drop = dropCommits == true
         // A remote project's folder is on its host: looked for there.
         let host = workspaces.remotes.of(r.path)   // the project's: its worktrees are on its host too
@@ -166,9 +174,9 @@ extension WorktreeRemove: Handled {
         if exists {
             // Refuse before anything stops; then stop its agents and only then remove, checking again: an agent still
             // writing can't have its work deleted under it.
-            try Git.checkRemovable(repo: r.path, path: w.path, branch: w.branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
+            try Git.checkRemovable(repo: r.path, path: w.path, branch: branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
             try workspaces.sessions.pauseSessions(of: w.id)
-            try Git.removeWorktree(repo: r.path, path: w.path, branch: w.branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
+            try Git.removeWorktree(repo: r.path, path: w.path, branch: branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
         } else {
             try workspaces.sessions.pauseSessions(of: w.id)
         }
@@ -190,8 +198,10 @@ extension WorktreeUnarchive: Handled {
 extension WorktreeUnmerged: Handled {
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
-        guard let r = try workspaces.store.repo(w.repoId), Git.branchExists(r.path, w.branch, remotes: workspaces.remotes) else { return 0 }
-        return try Git.onlyOnBranch(repo: r.path, w.branch, remotes: workspaces.remotes)
+        guard let r = try workspaces.store.repo(w.repoId) else { return 0 }
+        let branch = workspaces.branchNow(of: w, in: r)
+        guard Git.branchExists(r.path, branch, remotes: workspaces.remotes) else { return 0 }
+        return try Git.onlyOnBranch(repo: r.path, branch, remotes: workspaces.remotes)
     }
 }
 

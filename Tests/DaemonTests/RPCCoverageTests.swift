@@ -191,6 +191,35 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await r.c.call("session.turn", .obj(["id": "gone"])) == .null)
 }
 
+/// `git branch -m` in a branch group's folder: the record's name is gone, and closing it asks about what's really there.
+@Test func aRenamedBranchIsTheOneThatCounts() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    try write(r, "new.txt", "work")
+    try Git.run(["add", "new.txt"], cwd: r.wt.path)
+    try Git.run(["commit", "-qm", "work"], cwd: r.wt.path)
+    try Git.run(["branch", "-m", "feat/renamed"], cwd: r.wt.path)
+    #expect(try await r.c.call(WorktreeUnmerged(id: r.wt.id)) == 1)
+    await #expect(throws: RPCError.self) { try await r.c.call(WorktreeRemove(id: r.wt.id)) }   // the commit is only there
+    _ = try await r.c.call(WorktreeRemove(id: r.wt.id, force: true, dropCommits: true))
+    #expect(try !Git.branchExists(r.repo.path, "feat/renamed"))
+}
+
+/// A folder with new files is dirty though the repository doesn't list them.
+@Test func newFilesCountWhateverStatusShows() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    try Git.run(["config", "status.showUntrackedFiles", "no"], cwd: r.wt.path)
+    try write(r, "new.txt", "work")
+    #expect(try Git.isDirty(r.wt.path))
+}
+
+/// A home seeded from Kelp's shares its branch groups' folders: closing one here doesn't trash what Kelp may be working in.
+@Test func aSeededHomeLeavesKelpsFolders() {
+    let stable = URL(fileURLWithPath: "/Users/me/.kelp")
+    #expect(Workspaces.borrowed("/Users/me/.kelp/worktrees/app-1/x", seed: stable))
+    #expect(!Workspaces.borrowed("/Users/me/.kelp-dev/worktrees/app-1/x", seed: stable))
+    #expect(!Workspaces.borrowed("/Users/me/.kelp/worktrees/app-1/x", seed: nil))
+}
+
 @Test func theScratchProjectIsMadeOnceAndReused() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let a = try await r.c.call("scratch.ensure", as: Worktree.self)
