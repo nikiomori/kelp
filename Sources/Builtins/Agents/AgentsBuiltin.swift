@@ -49,6 +49,8 @@ extension Builtins {
                   options: ["sound", "banner", "off"], group: "Notifications"),
                 s("agents.onWaiting", "When an agent needs you", "enum", "sound", "Comes at once, even while you type.",
                   options: ["sound", "banner", "off"], group: "Notifications"),
+                s("agents.remindAfter", "Remind once if an agent still waits (min)", "enum", "10", "Not after you opened it or muted its row.",
+                  options: ["off", "5", "10", "30"], group: "Notifications"),
                 s("agents.onError", "When an agent fails", "enum", "sound", options: ["sound", "banner", "off"], group: "Notifications"),
                 s("agents.quietUnder", "Stay quiet for turns under", "number", 20, "Finished agents only; the row shows them either way.",
                   options: ["0", "10", "20", "30", "60"], group: "Notifications"),

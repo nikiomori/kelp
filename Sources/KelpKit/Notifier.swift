@@ -32,6 +32,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             return e
         }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.releaseHeld() }
+        track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.lookedAt() }
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.lookedAt() }   // queue: .main
+        }
         track(owner: self) { [app] in app.routines?.runs.filter { $0.outcome == .missed }.map(\.id) ?? [] } changed: { [weak self] _ in self?.missedRuns() }
     }
 
@@ -241,6 +245,32 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         clearSeen()
     }
 
+    // MARK: Reminders
+
+    private var reminders: [String: Task<Void, Never>] = [:]   // session → the wait for its question's one reminder
+
+    /// `.continuous`: the Mac's sleep counts, and a question an hour old on waking is reminded of at once.
+    private func remind(of s: Session) {
+        reminders[s.id]?.cancel(); reminders[s.id] = nil
+        guard s.status == .waiting, s.limitHit == nil, let minutes = QuestionReminder.minutes(app.settings.string("agents.remindAfter")) else { return }
+        reminders[s.id] = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(minutes * 60), clock: .continuous) } catch { return }
+            self?.reminderDue(s)
+        }
+    }
+
+    private func reminderDue(_ asked: Session) {
+        reminders[asked.id] = nil
+        guard QuestionReminder.stillStands(asked, now: app.session(asked.id)), let s = app.session(asked.id), !app.isMuted(s) else { return }
+        post(s, holding: false, again: true)
+    }
+
+    /// Seen with Kelp in front, it needs no reminder: what the question asks stays marked on its row.
+    private func lookedAt() {
+        guard NSApp.isActive else { return }
+        for sid in reminders.keys where app.workbench.isViewing(session: sid) { reminders.removeValue(forKey: sid)?.cancel() }
+    }
+
     /// Banners already answered (the agent was looked at, or moved on) leave Notification Center, like Messages does.
     private var posted: [String: String] = [:]   // session → request id
     private func clearSeen() {
@@ -317,7 +347,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         return s.count > 90 ? String(s.prefix(89)) + "…" : s
     }
 
-    private func post(_ s: Session, holding: Bool = true) {
+    /// `again`: the one reminder of a question, in place of its banner.
+    private func post(_ s: Session, holding: Bool = true, again: Bool = false) {
         let app = self.app
         // No banner if the user is already looking at that pane (what it asks stays marked until it's answered).
         if NSApp.isActive, app.workbench.isViewing(session: s.id) { return }
@@ -329,6 +360,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let m = app, wt = m.worktree(s.worktreeId)
         let c = UNMutableNotificationContent()
         c.title = app.catalog.displayName(s) + (s.limitHit != nil ? String(localized: " hit its limit")
+            : again ? String(localized: " still needs you")
             : s.status == .waiting ? String(localized: " needs you")
             : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
         c.subtitle = [m.groupName(wt), m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
@@ -340,10 +372,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             Banner.show(c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
                         title: c.title, subtitle: c.subtitle, icon: app.catalog.icon(s.agent, size: 24))
         }
-        let rid = "\(s.id)-\(s.status.rawValue)"
+        // Under an id of its own: macOS may show one added again under the same id silently.
+        let rid = again ? "\(s.id)-again-\(s.status.rawValue)" : "\(s.id)-\(s.status.rawValue)"
+        if again, let first = posted[s.id] { center?.removeDeliveredNotifications(withIdentifiers: [first]) }
         center?.add(UNNotificationRequest(identifier: rid, content: c, trigger: nil))
         posted[s.id] = rid
         NSApp.requestUserAttention(.informationalRequest)
+        if !again { remind(of: s) }
     }
 
     /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt. A question

@@ -27,6 +27,16 @@
         }
       }
     },
+    " still needs you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " всё ещё ждёт вас"
+          }
+        }
+      }
+    },
     " Untracked files are deleted.": {
       "localizations": {
         "ru": {
@@ -6174,6 +6184,16 @@
         }
       }
     },
+    "Not after you opened it or muted its row.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не напоминает, если вы открыли агента или заглушили его строку."
+          }
+        }
+      }
+    },
     "Nothing to show": {
       "localizations": {
         "ru": {
@@ -7681,6 +7701,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перезагрузить без кеша"
+          }
+        }
+      }
+    },
+    "Remind once if an agent still waits (min)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напомнить один раз, если агент ещё ждёт (мин)"
           }
         }
       }

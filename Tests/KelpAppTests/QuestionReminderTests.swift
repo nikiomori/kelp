@@ -1,0 +1,23 @@
+import Foundation
+import Testing
+import Core
+@testable import KelpKit
+
+@Test func theReminderFollowsItsSetting() {
+    #expect(QuestionReminder.minutes(nil) == 10)
+    #expect(QuestionReminder.minutes("30") == 30)
+    #expect(QuestionReminder.minutes("off") == nil)
+}
+
+@Test func aReminderIsForTheQuestionItWasSetFor() {
+    let at = Date()
+    var asked = Session(cwd: "/", command: "x", agent: "claude", status: .waiting, unread: true, summary: "Allow rm?")
+    asked.statusAt = at
+    var now = asked
+    #expect(QuestionReminder.stillStands(asked, now: now))
+    #expect(!QuestionReminder.stillStands(asked, now: nil))
+    now.status = .working
+    #expect(!QuestionReminder.stillStands(asked, now: now))   // answered
+    now.status = .waiting; now.statusAt = at.addingTimeInterval(60)
+    #expect(!QuestionReminder.stillStands(asked, now: now))   // the next question counts for itself
+}
