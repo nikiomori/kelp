@@ -592,3 +592,10 @@ extension OneAtATime {
     #expect(abs(taken(180) - 4) < 0.01)
     #expect(abs(taken(900) - 4) < 0.01)
 }
+
+/// Rings and glows started at different moments still keep step: each starts on the clock's beat, already past.
+@MainActor @Test func endlessMotionStartsOnTheBeat() {
+    let start = Motion.beat(2.4)
+    #expect(start <= CACurrentMediaTime())
+    #expect(fmod(start, 2.4) < 0.001)
+}

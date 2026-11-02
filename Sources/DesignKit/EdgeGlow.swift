@@ -7,6 +7,7 @@ import AppKit
 public final class EdgeGlow: NSView {
     private let frameLayer = CAShapeLayer()
     private var color: NSColor?
+    private var breathing = false
     /// The corner it follows (a tab's capsule changes it as it lays out).
     public var radius: CGFloat { didSet { layer?.cornerRadius = radius; needsLayout = true } }
 
@@ -25,6 +26,7 @@ public final class EdgeGlow: NSView {
         frameLayer.shadowRadius = spread
         frameLayer.shadowOpacity = strength
         layer?.addSublayer(frameLayer)
+        followReduceMotion(#selector(motionChanged))
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -33,6 +35,7 @@ public final class EdgeGlow: NSView {
     /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none.
     public func show(_ color: NSColor?, breathing: Bool) {
         self.color = color
+        self.breathing = breathing
         guard let color else {
             // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
             NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.disappear); animator().alphaValue = 0 }) { [weak self] in
@@ -57,6 +60,8 @@ public final class EdgeGlow: NSView {
         breathe(breathing && !Motion.reduced)
     }
 
+    @objc private func motionChanged() { breathe(color != nil && breathing && !Motion.reduced) }
+
     private func breathe(_ on: Bool) {
         let breathingNow = frameLayer.animation(forKey: "breathe") != nil
         guard on != breathingNow else { return }
@@ -66,10 +71,12 @@ public final class EdgeGlow: NSView {
         a.fromValue = opacity
         a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         if on {
+            a.fromValue = 1
             a.toValue = 0.35
             a.duration = 1.2
             a.autoreverses = true
             a.repeatCount = .infinity
+            a.beginTime = Motion.beat(2 * a.duration)
             frameLayer.add(a, forKey: "breathe")
         } else {
             a.toValue = 1   // back to full from wherever the breath was
@@ -80,7 +87,7 @@ public final class EdgeGlow: NSView {
 
     override public func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        if let color, !isHidden { show(color, breathing: frameLayer.animation(forKey: "breathe") != nil) }
+        if let color, !isHidden { show(color, breathing: breathing) }
     }
 
     override public func layout() {

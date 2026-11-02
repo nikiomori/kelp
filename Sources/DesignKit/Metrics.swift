@@ -61,6 +61,21 @@ public enum Motion {
     /// What a press scales a view of `size` to: 4 pt off its longer side, and no more than 10 %. A share alone took 90 pt
     /// off a bar under a terminal for the 2 pt it takes off an icon.
     public static func pressDip(_ size: CGSize) -> CGFloat { 1 - min(0.1, 4 / max(size.width, size.height, 1)) }
+    /// When an endless animation of this `period` starts: on the clock's beat, in the past, so every ring and glow keeps
+    /// step wherever it shows, and one rebuilt carries on from where the others are.
+    public static func beat(_ period: TimeInterval) -> CFTimeInterval {
+        let now = CACurrentMediaTime()
+        return now - fmod(now, period)
+    }
     /// `d`, or 0 when the person asked for less motion.
     public static func duration(_ d: TimeInterval) -> TimeInterval { reduced ? 0 : d }
+}
+
+extension NSObject {
+    /// Reduce Motion was switched: `selector` runs on the main thread. What moves on its own (a ring, a glow, a theme's
+    /// backdrop) was built for the old setting and would go on as it was.
+    @MainActor public func followReduceMotion(_ selector: Selector) {
+        let name = NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: selector, name: name, object: nil)
+    }
 }

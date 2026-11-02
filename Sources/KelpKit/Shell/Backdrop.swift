@@ -3,7 +3,7 @@ import DesignKit
 import QuartzCore
 
 /// What a theme paints on the window's surface, under the panels and, in a theme whose card is clear, the terminals. The
-/// layers move on the render server at a few frames a second and stop while Kelp isn't the active app or under Reduce Motion.
+/// layers move on the render server at a few frames a second and stop while Kelp isn't the active app or under Reduce Motion (switched while it's open too).
 @MainActor
 final class Backdrop: NSView {
     private var ambient: WindowLook.Ambient?
@@ -19,6 +19,7 @@ final class Backdrop: NSView {
                 MainActor.assumeIsolated { self?.run(run) }   // queue: .main
             }
         }
+        followReduceMotion(#selector(build))
     }
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
@@ -35,7 +36,7 @@ final class Backdrop: NSView {
         if bounds.size != built { build() }
     }
 
-    private func build() {
+    @objc private func build() {
         built = bounds.size
         stage.sublayers = nil
         stage.frame = bounds
