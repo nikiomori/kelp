@@ -245,3 +245,17 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(try await c.call(SessionSubagentJournal(id: id, subagent: "a1"))?.steps.count == 1)
     #expect(try await c.call(SessionSubagentJournal(id: id, subagent: "../a1")) == nil)
 }
+
+/// A command an agent starts belongs to it, unlike an agent it starts it's no child: it hears nothing of it, and it goes on
+/// when the agent ends. A terminal starts commands of its own.
+@Test func aCommandBelongsToTheAgentThatStartedItAndOutlivesIt() async throws {
+    let f = try await family(); defer { f.w.d.stop() }
+    let desk = try #require(f.parent.worktreeId)
+    let run = try await f.w.c.call(SessionCreate(worktreeId: desk, command: "swift build; exec cat", parent: f.parent.id))
+    #expect(run.startedBy == f.parent.id && run.parent == nil && run.title == "swift build")
+    let shell = try await f.w.c.call(SessionCreate(worktreeId: desk, agent: "shell"))
+    #expect(try await f.w.c.call(SessionCreate(worktreeId: desk, command: "cat", parent: shell.id)).startedBy == nil)
+    _ = try await f.w.c.call(SessionKill(id: f.parent.id))
+    #expect(try await waitFor(10) { [.exited, nil].contains(try await f.status(f.parent.id)) })
+    #expect(try await f.status(run.id) != .exited)
+}

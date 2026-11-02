@@ -113,7 +113,7 @@ final class AgentSummary: NSView {
                 MainActor.assumeIsolated { self?.update() }
             }
         }
-        let agents = app.sessions.filter { $0.agent != "shell" && $0.status != .exited }
+        let agents = app.sessions.filter { $0.isChat && $0.status != .exited }
         let busy = agents.filter { $0.status == .working }.count
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)

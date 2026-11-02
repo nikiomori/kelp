@@ -112,6 +112,7 @@ final class Sessions: Sendable {
         var tmux: String?   // restart: the host's tmux session the old one's agent still runs in
         var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
         var parent: String?   // the agent that started it
+        var startedBy: String?   // the agent whose line shows this command
 
         /// A terminal size: anything out of range is clamped, nothing (or 0) is 120 × 32.
         static func size(cols: Int?, rows: Int?) -> (cols: UInt16, rows: UInt16) {
@@ -158,6 +159,7 @@ final class Sessions: Sendable {
         rec.argv = argv
         rec.profile = o.profile
         rec.parent = o.parent
+        rec.startedBy = o.startedBy
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
         if !local, o.onHostInTmux || !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
         let env = launchEnv(manifest, rec)

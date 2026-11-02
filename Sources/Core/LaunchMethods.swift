@@ -17,7 +17,7 @@ public protocol LaunchOptions {
 
 /// A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`;
 /// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that
-/// started this agent, if it is one (see `Session.parent`).
+/// started this agent, or this command (see `Session.parent`, `Session.startedBy`), if it is an agent.
 public struct SessionCreate: RPCMethod, LaunchOptions {
     public static let name = "session.create"; public typealias Result = Session
     public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?

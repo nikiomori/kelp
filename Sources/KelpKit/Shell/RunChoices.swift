@@ -40,7 +40,17 @@ extension ScriptsMenu {
     /// restarted Kelp doesn't bring their tabs back).
     /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
     var shown: [Session] { app.sessions.filter { !isHidden($0.id) } }
-    func isHidden(_ sid: String) -> Bool { state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) }
+    func isHidden(_ sid: String) -> Bool {
+        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) || app.session(sid).map(isOnLine) == true
+    }
+    /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
+    func isOnLine(_ s: Session) -> Bool { app.sessions.owner(of: s) != nil && !app.uiState.strings(Session.inTabKey).contains(s.id) }
+    /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
+    package func openInTab(_ sid: String) {
+        let live = app.uiState.strings(Session.inTabKey).filter { app.session($0).map { $0.status != .exited } ?? false }
+        app.uiState[Session.inTabKey] = .array((live.filter { $0 != sid } + [sid]).map(JSONValue.string))
+        app.workbench.open(TabURI.session(sid), workspace: app.session(sid)?.worktreeId)
+    }
     func hide(_ sid: String) {
         state.hidden.insert(sid)
         let live = app.uiState.strings("run.hidden").filter { app.session($0).map { $0.status != .exited } ?? false }

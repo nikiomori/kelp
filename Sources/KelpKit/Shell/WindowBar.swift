@@ -219,7 +219,7 @@ final class WindowBar: NSView {
     /// The setting ("always", "agents", "off"), or "working": agents keep the Mac awake right now (as the daemon counts them).
     private static func awakeMode(_ app: AppModel) -> String {
         let mode = app.settings.string("power.keepAwake") ?? "agents"
-        let working = app.sessions.contains { $0.agent != "shell" && $0.status == .working }
+        let working = app.sessions.contains { $0.isChat && $0.status == .working }
         return mode == "agents" && working ? "working" : mode
     }
 

@@ -149,6 +149,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var continueAt: Date?
     /// The agent that started it (`kelp session new --agent`): it hears how this one is doing and takes it along when it ends.
     public var parent: String?
+    /// The agent a command belongs to (`kelp session new --cmd` inside it): the line under that agent's terminal shows it,
+    /// instead of a tab and a sidebar row of its own. Unlike a child, it goes on when the agent ends, and gets a tab then.
+    public var startedBy: String?
     /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
     public var subagents: [String: String]? { didSet { followSubagents() } }
     /// What each of them does, by the same id, when the agent says (OSC 7501's `title`).
@@ -163,6 +166,10 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         self.title = title; self.titleManual = titleManual; self.summary = summary; self.argv = argv
     }
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
+    /// Where the app keeps the commands moved off their agent's line to a tab (a list in UI state).
+    public static let inTabKey = "run.inTab"
+    /// A conversation or a program of its own: not a terminal, nor a command on an agent's line.
+    public var isChat: Bool { agent != "shell" && startedBy == nil }
     /// Its subagents at work: who asks first, then in the order they started.
     public var runningSubagents: [Subagent] {
         let running = (subagentRuns ?? []).filter { $0.ended == nil }
@@ -212,6 +219,12 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 }
 
 extension [Session] {
+    /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went elsewhere.
+    public func owner(of s: Session) -> Session? {
+        guard let id = s.startedBy, let a = first(where: { $0.id == id }), a.status != .exited, a.worktreeId == s.worktreeId else { return nil }
+        return a
+    }
+
     /// The agents `id` started that haven't ended, and those they started.
     public func children(of id: String) -> [Session] { filter { $0.parent == id && $0.status != .exited }.flatMap { [$0] + children(of: $0.id) } }
 

@@ -23,7 +23,7 @@ extension QuickOpen {
                 items.append(Item(kind: "Group", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
                                   action: { app.workbench.show(workspace: w.id) }))
             }
-            for s in app.sessions where s.status != .exited {
+            for s in app.sessions where s.status != .exited && s.startedBy == nil {
                 let wt = app.worktree(s.worktreeId)
                 items.append(Item(kind: s.agent == "shell" ? "Terminal" : "Agent", icon: "terminal", title: app.catalog.displayName(s),
                                   detail: [s.status.words, shortAgo(s.statusAt ?? s.createdAt), app.groupName(wt) ?? app.projectName(wt?.repoId) ?? ""]
@@ -103,7 +103,7 @@ extension QuickOpen {
         let app = self.app
         let m = app
         let queue = AttentionQueue(app).sessions
-        let rest = m.sessions.filter { s in s.agent != "shell" && s.status != .exited && !queue.contains { $0.id == s.id } }
+        let rest = m.sessions.filter { s in s.isChat && s.status != .exited && !queue.contains { $0.id == s.id } }
             .sorted { ($0.statusAt ?? $0.createdAt) > ($1.statusAt ?? $1.createdAt) }
         var out = (queue + rest).prefix(6).map { s -> Item in
             let w = m.worktree(s.worktreeId)

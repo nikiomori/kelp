@@ -3639,6 +3639,16 @@
         }
       }
     },
+    "exit code %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "код %lld"
+          }
+        }
+      }
+    },
     "Extension Turned Off": {
       "localizations": {
         "ru": {
@@ -6194,6 +6204,16 @@
         }
       }
     },
+    "Open in Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть во вкладке"
+          }
+        }
+      }
+    },
     "Open Page": {
       "localizations": {
         "ru": {
@@ -8536,6 +8556,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Службы"
+          }
+        }
+      }
+    },
+    "Serving a page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отдаёт страницу"
           }
         }
       }

@@ -232,7 +232,7 @@ extension SidebarController {
             default: nil
             }
         }
-        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.agent != "shell" && s.status != .exited }.map(\.id)
+        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.isChat && s.status != .exited }.map(\.id)
         let agents = Array(Set(picked + inside))
         if agents.contains(where: { m.session($0)?.unread == true }) {
             menu.add(String(localized: "Mark as Read")) {

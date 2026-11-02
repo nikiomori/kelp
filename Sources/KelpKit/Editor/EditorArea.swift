@@ -361,7 +361,7 @@ package final class EditorArea: NSViewController {
         default: break
         }
         if wb.focusedSession.flatMap({ app.session($0)?.worktreeId }) != workspaceId {
-            wb.focusedSession = app.sessions.last { $0.worktreeId == workspaceId && $0.status != .exited && $0.agent != "shell" }?.id
+            wb.focusedSession = app.sessions.last { $0.worktreeId == workspaceId && $0.status != .exited && $0.isChat }?.id
         }
         app.publishUIState()
     }

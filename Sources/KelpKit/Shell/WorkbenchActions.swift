@@ -333,7 +333,7 @@ package struct FileActions {
     package var targetAgent: Session? {
         let m = app, wid = app.workbench.workspaceId
         if let s = app.workbench.focusedSession.flatMap(m.session), s.agent != "shell", s.worktreeId == wid, s.status != .exited { return s }
-        return m.sessions.last { $0.worktreeId == wid && $0.agent != "shell" && $0.status != .exited }
+        return m.sessions.last { $0.worktreeId == wid && $0.isChat && $0.status != .exited }
     }
 
     /// Types the reference into the agent's prompt without pressing Return, and shows the agent.

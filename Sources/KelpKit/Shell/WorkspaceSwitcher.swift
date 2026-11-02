@@ -178,7 +178,7 @@ final class WorkspaceSwitcher {
     /// Status | project | name, place, badges, when — and the agent the mark is for on a second line, when there is one.
     private func row(_ w: Worktree) -> NSView {
         let m = app
-        let agents = m.sessions.filter { $0.worktreeId == w.id && $0.agent != "shell" && $0.status != .exited }
+        let agents = m.sessions.filter { $0.worktreeId == w.id && $0.isChat && $0.status != .exited }
         let top = AgentStatus.mostUrgent(agents.map(SidebarCell.shownStatus))
         let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
         let mark = StatusMark(size: 14)

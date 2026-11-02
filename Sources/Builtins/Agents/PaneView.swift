@@ -31,15 +31,18 @@ final class PaneView: NSView {
     /// `kelp attach` then), this one's included.
     /// Limit: a pause and a wake handled in one run-loop turn look like no change; a per-session pause count would see it.
     private var lastStatus: AgentStatus?
+    /// In the line under an agent's terminal, which says itself how the command ended: no bar for that, no splits.
+    private let embedded: Bool
 
     var onClose: ((PaneView) -> Void)?
     var onRestart: ((PaneView) -> Void)?
 
-    init(session: Session, app: AppModel) {
+    init(session: Session, app: AppModel, embedded: Bool = false) {
         sessionId = session.id
         self.app = app
+        self.embedded = embedded
         attachedTo = app.connections
-        commands = CommandsBar(session: session.id, app: app, watch: session.agent != "shell")
+        commands = CommandsBar(session: session.id, app: app, watch: !["shell", "custom"].contains(session.agent))
         super.init(frame: .zero)
         wantsLayer = true
         commands.translatesAutoresizingMaskIntoConstraints = false; addSubview(commands)
@@ -47,6 +50,7 @@ final class PaneView: NSView {
                                      commands.bottomAnchor.constraint(equalTo: bottomAnchor)])
         buildEndedBar()
         buildTerminal(session)
+        commands.onClosed = { [weak self] in self?.focus() }
         registerForDraggedTypes([.fileURL, .png, .tiff, .string])
         update(session)
         track(owner: self) { [app] in app.connections } changed: { [weak self] _ in self?.settle() }
@@ -111,7 +115,7 @@ final class PaneView: NSView {
         lastStatus = s?.status
         if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached { reattach(s) }
         let paused = !attached && s?.status == .hibernated
-        let stopped = !attached || s?.status == .exited
+        let stopped = !embedded && (!attached || s?.status == .exited)
         if stopped != (endedHeight.constant > 0) {
             endedHeight.constant = stopped ? endedBar.fittingSize.height : 0
             if stopped { endedBar.comeIn() }
@@ -204,6 +208,12 @@ final class PaneView: NSView {
 
     func focus() { ghostty?.focus() }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = newSize.height != frame.height
+        super.setFrameSize(newSize)
+        if changed { commands.paneResized() }
+    }
+
     /// Columns × rows now; the last one seen anywhere (`app.workbench.terminalGrid`) sizes the next terminal before it's on screen.
     var gridSize: (cols: Int, rows: Int)? {
         if let g = ghostty?.gridSize { app.workbench.terminalGrid = g; return g }
@@ -231,6 +241,7 @@ final class PaneView: NSView {
         }
         m.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
         if shell { m.add(String(localized: "Clear")) { _ = g.perform(action: "clear_screen") } }
+        if embedded { return m }
         m.addItem(.separator())
         m.add(String(localized: "Split Right")) { [weak self] in self?.focus(); self?.app.workbench.editor?.splitFocused(.right) }
         m.add(String(localized: "Split Down")) { [weak self] in self?.focus(); self?.app.workbench.editor?.splitFocused(.down) }

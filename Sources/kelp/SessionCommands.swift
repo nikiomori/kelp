@@ -8,8 +8,9 @@ extension Main {
         case ("session", "new"):
             let wait = has("--wait"), split = flag("--split"), outlive = has("--outlive")
             var p = SessionCreate(agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"), title: flag("--title"))
-            // Inside an agent, an agent it starts is its child; the daemon ignores this for anything else.
-            if !outlive { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
+            // Inside an agent, an agent it starts is its child, and a command goes on its line, unless it asked for a place of
+            // its own. The daemon ignores this for anything else.
+            if !outlive, split == nil || p.command == nil { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let w = flag("--worktree") { p.worktreeId = try await resolve(c, w, "worktree.list") }
             else if let w = try? await currentWorktree(c) { p.worktreeId = w.id }

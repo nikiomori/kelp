@@ -255,7 +255,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// Each `event.session`, as it comes: a status that changes back within a moment still gets its banner.
     func statusChanged(_ s: Session, _ old: Session?) {
-        guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.agent != "shell" else { return }
+        guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.isChat else { return }
         if Self.leftToItsParent(s) { return }
         let turn = NotifyRule.turn(s, after: old)
         // What the agent itself said with this change (a permission request, an error) beats its last reply.

@@ -59,6 +59,12 @@ extension Sessions {
         return p.id
     }
 
+    /// The agent a command belongs to: `parent` on a command, which is no child (it hears nothing and outlives the agent).
+    func starter(_ id: String?, of create: SessionCreate) throws -> String? {
+        guard let id, create.command != nil, let p = try store.session(id), !["shell", "custom"].contains(p.agent ?? "shell") else { return nil }
+        return p.id
+    }
+
     /// Every saved change of a session: its parent's news, and the end of its children. Never on the caller's queue, which is
     /// the session's own: these read the disk and take other sessions' locks.
     func familyHeard(_ s: Session) {

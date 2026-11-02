@@ -26,6 +26,7 @@ extension SessionCreate: Handled {
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
         o.parent = try sessions.parent(parent, of: self)
+        o.startedBy = try sessions.starter(parent, of: self)
         if o.title == nil, let command { o.title = CommandName.of(command) }   // "swift build", not the program's "Custom"
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
             let name = Tmux.name(tmux)
@@ -73,6 +74,7 @@ extension SessionRestart: Handled {
         let m = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var o = Sessions.Launch(self); o.title = old.titleManual ? old.title : nil
         o.parent = old.parent
+        o.startedBy = old.startedBy
         if o.profile == nil { o.profile = old.profile }   // the same account unless told otherwise
         // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.

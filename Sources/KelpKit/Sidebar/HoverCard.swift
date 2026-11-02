@@ -116,7 +116,7 @@ final class CardModel {
             let r = m.repo(w.repoId)
             title = w.displayName
             subtitle = [m.projectName(r?.id), w.path == r?.path ? nil : String(localized: "branch \(w.branch)")].compactMap { $0 }.joined(separator: " · ")
-            agents = m.sessions.filter { $0.worktreeId == w.id && $0.agent != "shell" && $0.status != .exited }.map { Agent(id: $0.id, session: $0) }
+            agents = m.sessions.filter { $0.worktreeId == w.id && $0.isChat && $0.status != .exited }.map { Agent(id: $0.id, session: $0) }
             workspaceId = w.id
             agentOnly = false
             repo = nil

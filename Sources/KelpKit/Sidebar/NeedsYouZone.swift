@@ -97,7 +97,7 @@ final class NeedsYouZone: NSView {
                 MainActor.assumeIsolated { self?.update() }
             }
         }
-        let agents = app.sessions.filter { $0.agent != "shell" && $0.status != .exited }
+        let agents = app.sessions.filter { $0.isChat && $0.status != .exited }
         let questions = Set(inbox.queue.map(\.id))
         let new = seen.map { s in shown.filter { !s.contains($0.id) }.map(\.id) } ?? []
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)

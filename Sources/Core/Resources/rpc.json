@@ -2217,6 +2217,10 @@
             "description" : "The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.",
             "type" : "string"
           },
+          "startedBy" : {
+            "description" : "The agent a command belongs to (`kelp session new --cmd` inside it): the line under that agent's terminal shows it, instead of a tab and a sidebar row of its own. Unlike a child, it goes on when the agent ends, and gets a tab then.",
+            "type" : "string"
+          },
           "status" : {
             "$ref" : "#/components/schemas/AgentStatus"
           },
@@ -6908,7 +6912,7 @@
       "x-internal" : true
     },
     {
-      "description" : "A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`; `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that started this agent, if it is one (see `Session.parent`).",
+      "description" : "A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`; `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that started this agent, or this command (see `Session.parent`, `Session.startedBy`), if it is an agent.",
       "name" : "session.create",
       "paramStructure" : "by-name",
       "params" : [

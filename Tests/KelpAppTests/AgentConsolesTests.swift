@@ -4,6 +4,7 @@ import AppKit
 import Core
 import WorkbenchKit
 @testable import KelpKit
+@testable import BuiltinAgents
 
 /// A session of the workspace, known to the app.
 @MainActor private func session(_ rig: AppRig, _ p: SessionCreate) async throws -> Session {
@@ -37,4 +38,46 @@ extension OneAtATime {
         #expect(area.layout.root?.sessions.count == 2)
         #expect(area.layout.focusedGroup?.selectedTab?.uri == TabURI.session(mine.id))
     }
+}
+
+extension OneAtATime {
+    /// An agent's command lives on the agent's line: no tab, no sidebar row, not an agent among agents. The agent gone, a
+    /// command still running gets a tab; moved to a tab, it stays there.
+    @Test func aCommandBelongsToItsAgentWhileItLives() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let wid = rig.workspace.id, app = rig.app
+        var agent = Session(worktreeId: wid, cwd: "/", command: "claude", agent: "claude")
+        var run = Session(worktreeId: wid, cwd: "/", command: "swift build", agent: "custom", title: "swift build")
+        run.startedBy = agent.id
+        app.sessions = [agent, run]
+        let area = EditorArea(app: app, workspaceId: wid)
+        area.reconcile()
+        #expect(area.layout.tab(uri: TabURI.session(agent.id)) != nil)
+        #expect(area.layout.tab(uri: TabURI.session(run.id)) == nil)
+        #expect(app.scripts.shown.map(\.id) == [agent.id])
+        #expect(!run.isChat && agent.isChat)
+
+        agent.status = .exited
+        app.sessions = [agent, run]
+        area.reconcile()
+        #expect(area.layout.tab(uri: TabURI.session(run.id)) != nil)
+
+        agent.status = .idle
+        app.sessions = [agent, run]
+        app.scripts.openInTab(run.id)
+        #expect(!app.scripts.isOnLine(run))
+    }
+}
+
+/// What a command last printed: the last line with anything on it, a progress line's latest state.
+@MainActor @Test func aRunsLastLineIsWhatItPrintedLast() {
+    #expect(CommandsBar.lastLine("Compiling\n[1/5] a\r[2/5] b\r\n\n") == "[2/5] b")
+    #expect(CommandsBar.lastLine("  \n") == nil)
+}
+
+/// A command's end, by its exit code.
+@MainActor @Test func aRunEndsFineStoppedOrFailed() {
+    #expect(CommandRow.status(exit: 0) == .done)
+    #expect(CommandRow.status(exit: 143) == .exited)
+    #expect(CommandRow.status(exit: 1) == .error && CommandRow.status(exit: nil) == .error)
 }

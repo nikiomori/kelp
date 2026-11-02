@@ -276,7 +276,7 @@ final class SidebarCell: NSTableCellView {
         muted.isHidden = app.mutedUntil(node.muteIds) == nil
         updateBadges()
         let m = app
-        func live(_ wid: String) -> [Session] { m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.agent != "shell" } }
+        func live(_ wid: String) -> [Session] { m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat } }
         switch node.kind {
         case .project(let id):
             let r = m.repo(id)
@@ -474,7 +474,7 @@ final class SidebarCell: NSTableCellView {
     /// Asks for you, failed, or finished and not looked at yet.
     static func wantsYou(_ s: Session) -> Bool {
         let st = shownStatus(s)
-        return s.agent != "shell" && (st == .waiting || st == .error || (st == .done && s.unread))
+        return s.isChat && (st == .waiting || st == .error || (st == .done && s.unread))
     }
 
     /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
