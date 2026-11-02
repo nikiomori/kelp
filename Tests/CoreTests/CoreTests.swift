@@ -427,3 +427,22 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(try #require(c.range(of: "set-titles-string")).lowerBound < #require(c.range(of: "allow-passthrough")).lowerBound)
     #expect(try #require(c.range(of: RemoteHost.statusOption)).lowerBound < #require(c.range(of: "new-session")).lowerBound)
 }
+
+/// A command's short name, from commands agents really ran.
+@Test func aCommandIsCalledByItsProgram() {
+    for (command, name) in [
+        ("swift build --scratch-path /tmp/kelp-build/A --product kelp > /private/tmp/out.log 2>&1", "swift build"),
+        ("cd /private/tmp/claude-501/x && swift test --filter 'AgentsTests|CoreTests'", "swift test"),
+        ("export KELP_V1='release'; make release", "make release"),
+        ("/private/tmp/claude-501/scratchpad/run.sh 2>&1 | tee run.out", "run.sh"),
+        ("./Scripts/make-app.sh", "make-app.sh"),
+        ("for i in 1 2 3; do swift test --filter x; done", "swift test"),
+        ("KELP_HOME=/tmp/k /tmp/debug/KelpApp", "KelpApp"),
+        ("npm run dev -- --port 3000", "npm run dev"),
+        ("python3 -m pytest", "python3"),
+        ("sleep 30", "sleep"),
+        ("(cd web && pnpm build)", "pnpm build"),
+        ("exec cat", "cat"),
+        ("cd /tmp", "cd /tmp")
+    ] { #expect(CommandName.of(command) == name, "\(command)") }
+}

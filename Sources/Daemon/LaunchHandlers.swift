@@ -26,6 +26,7 @@ extension SessionCreate: Handled {
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
         o.parent = try sessions.parent(parent, of: self)
+        if o.title == nil, let command { o.title = CommandName.of(command) }   // "swift build", not the program's "Custom"
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
             let name = Tmux.name(tmux)
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
