@@ -73,14 +73,14 @@ public final class EdgeGlow: NSView {
         if on {
             a.fromValue = 1
             a.toValue = 0.35
-            a.duration = 1.2
+            a.duration = Motion.breathe
             a.autoreverses = true
             a.repeatCount = .infinity
             a.beginTime = Motion.beat(2 * a.duration)
             frameLayer.add(a, forKey: "breathe")
         } else {
             a.toValue = 1   // back to full from wherever the breath was
-            a.duration = 0.3
+            a.duration = Motion.appear
             frameLayer.add(a, forKey: "settle")
         }
     }

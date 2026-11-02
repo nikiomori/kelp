@@ -159,7 +159,7 @@ final class NeedsYouZone: NSView {
         effectiveAppearance.performAsCurrentDrawingAppearance { from = NSColor.labelColor.withAlphaComponent(0.3).cgColor }
         let a = CABasicAnimation(keyPath: "backgroundColor")
         a.fromValue = from; a.toValue = NSColor.clear.cgColor
-        a.duration = 1.2; a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        a.duration = Motion.flash; a.timingFunction = CAMediaTimingFunction(name: .easeOut)
         header.layer?.add(a, forKey: "flash")
     }
 

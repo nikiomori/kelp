@@ -144,7 +144,7 @@ extension SourceControlController {
         loadingMore = false
         rebuild()
         // Landed once: a later rebuild (a commit unfolded) shows them as they are now.
-        if !landing.isEmpty { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.landing = [:] } }
+        if !landing.isEmpty { DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.landing = [:] } }
     }
 
     func pulseArrows() {

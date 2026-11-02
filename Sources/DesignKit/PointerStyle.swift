@@ -23,7 +23,7 @@ public struct PointerButtonStyle: ButtonStyle {
                 .animation(configuration.isPressed || Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: configuration.isPressed)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
                 .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
-                .animation(Motion.reduced ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+                .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
                 .onHover { hovering = $0 }
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         }
@@ -48,9 +48,14 @@ public struct PointerCardStyle: ButtonStyle {
                 .contentShape(Rectangle())
                 .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
-                .animation(Motion.reduced ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+                .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
                 .onHover { hovering = $0 }
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         }
     }
+}
+
+extension Animation {
+    /// A press dipping and coming back, in SwiftUI (AppKit's is `pressBounce`).
+    fileprivate static var pressSpring: Animation { .spring(response: 0.25, dampingFraction: 0.6) }
 }

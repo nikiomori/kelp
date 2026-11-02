@@ -160,7 +160,7 @@ private final class BannerCard: NSView {
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) {
         hovering = false
-        if let at = leaveAt, at < Date() { leave(after: 1.5) }   // its time came while it was read: a moment more, then away
+        if let at = leaveAt, at < Date() { leave(after: Motion.linger) }   // its time came while it was read: a moment more, then away
     }
 
     /// In from the right as it fades in.

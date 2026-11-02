@@ -51,6 +51,14 @@ public enum Motion {
     public static let slow: TimeInterval = 0.25   // a banner fading
     public static let appear: TimeInterval = 0.3  // a row coming in, the attention glow
     public static let disappear: TimeInterval = 0.4
+    public static let press: TimeInterval = 0.3   // a click's dip and spring
+    public static let linger: TimeInterval = 1.5  // "Copied" stays, a banner stays after the pointer leaves it
+
+    // What goes on while a state lasts, one way (a breath is this there and this back).
+    public static let spin: TimeInterval = 1      // the ring's turn: working
+    public static let pulse: TimeInterval = 0.9   // compacting
+    public static let breathe: TimeInterval = 1.2 // an agent asks
+    public static let flash: TimeInterval = 1.2   // Needs You lights up and fades back
 
     // A hover card: the pointer rests this long on a row (a card already up follows sooner); it closes this long after.
     public static let hoverOpen: TimeInterval = 0.5

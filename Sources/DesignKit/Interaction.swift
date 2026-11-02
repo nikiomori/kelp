@@ -41,7 +41,7 @@ extension NSView {
         let a = CAKeyframeAnimation(keyPath: "transform")
         a.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
         a.keyTimes = [0, 0.3, 0.7, 1]
-        a.duration = Motion.appear
+        a.duration = Motion.press
         a.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),
                              CAMediaTimingFunction(name: .easeIn)]
         layer.add(a, forKey: "press")

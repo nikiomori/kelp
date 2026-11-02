@@ -198,7 +198,7 @@ final class CommitCardView: NSView {
         let copy = ClosureButton(title: String(c.hash.prefix(7))) {
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string)
             button?.image = .symbol("checkmark", String(localized: "Copied"))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { button?.image = .symbol("doc.on.doc", copyTitle) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { button?.image = .symbol("doc.on.doc", copyTitle) }
         }
         button = copy
         copy.font = .monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)

@@ -157,7 +157,7 @@ package final class StatusMark: NSView {
             let a = CABasicAnimation(keyPath: "transform.rotation.z")
             a.fromValue = 0
             a.toValue = -2 * Double.pi
-            a.duration = 1
+            a.duration = Motion.spin
             a.repeatCount = .infinity
             a.beginTime = Motion.beat(a.duration)
             ring.add(a, forKey: "spin")
@@ -172,7 +172,7 @@ package final class StatusMark: NSView {
                 let p = CABasicAnimation(keyPath: "opacity")
                 p.fromValue = 1
                 p.toValue = 0.3
-                p.duration = 0.9
+                p.duration = Motion.pulse
                 p.autoreverses = true; p.repeatCount = .infinity
                 p.beginTime = Motion.beat(2 * p.duration)
                 image.layer?.add(p, forKey: "pulse")
