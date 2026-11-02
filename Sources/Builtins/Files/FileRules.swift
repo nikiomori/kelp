@@ -28,7 +28,8 @@ final class FileRules {
         } changed: { [weak self] _ in self?.apply() }
         track(owner: self) { [settings = app.settings] in
             [settings.string("editor.rulers", language: language) ?? "", settings.string("editor.renderWhitespace", language: language) ?? "",
-             "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)", "\(settings.bool("editor.stickyScroll", language: language) != false)"]
+             "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)", "\(settings.bool("editor.stickyScroll", language: language) != false)",
+             "\(settings.bool("editor.bracketColors", language: language) == true)", "\(settings.bool("editor.indentGuides", language: language) == true)"]
         } changed: { [weak self] _ in self?.applyLooks() }
         Task { [weak self] in await self?.readConfig() }
     }
@@ -46,6 +47,8 @@ final class FileRules {
         let column = Int(s.number("editor.wordWrapColumn", language: language) ?? 0)
         e.wrapColumn = column > 0 ? column : nil
         e.stickyEnabled = s.bool("editor.stickyScroll", language: language) != false
+        e.bracketColors = s.bool("editor.bracketColors", language: language) == true
+        e.indentGuides = s.bool("editor.indentGuides", language: language) == true
     }
 
     private var tabSize: Int {

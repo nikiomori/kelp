@@ -28,6 +28,9 @@ public final class EditorTextView: NSTextView {
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items.
     var onComplete: (() -> Void)?
+    var indentGuides = false { didSet { needsDisplay = true } }
+    /// Columns between two guides: the file's indent.
+    var guideColumns = 4
     /// Where thin lines stand across the text.
     var rulerColumns: [Int] = [] { didSet { needsDisplay = true } }
     var whitespaceMarks = WhitespaceMarks.selection { didSet { needsDisplay = true } }
@@ -264,8 +267,13 @@ public final class EditorTextView: NSTextView {
 
     public override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawLineHighlight(in: rect)
         drawRulers(in: rect)
+        drawIndentGuides(in: rect)
         drawFindMarks(in: rect)
+    }
+
+    private func drawLineHighlight(in rect: NSRect) {
         guard cursors.count == 1, selectedRange().length == 0, lineHighlight.alphaComponent > 0 else { return }
         var line = caretRect(at: selectedRange().location)
         line.origin.x = 0

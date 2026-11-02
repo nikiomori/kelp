@@ -2512,6 +2512,16 @@
         }
       }
     },
+    "Color brackets by depth": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красить скобки по глубине"
+          }
+        }
+      }
+    },
     "Color theme": {
       "extractionState": "manual",
       "localizations": {
@@ -4652,6 +4662,16 @@
         }
       }
     },
+    "Faint lines at each level; the block around the cursor's is brighter.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкие линии на каждом уровне, у блока с курсором ярче."
+          }
+        }
+      }
+    },
     "Fetch": {
       "localizations": {
         "ru": {
@@ -5705,6 +5725,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В заголовке окна, справа от поиска; правый клик по ней скрывает её. ⌃⌘T работает в любом случае."
+          }
+        }
+      }
+    },
+    "Indent guides": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Направляющие отступов"
           }
         }
       }
@@ -7778,6 +7808,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Поверх полноэкранных приложений"
+          }
+        }
+      }
+    },
+    "Pairs come from the code, so brackets in strings stay as they are.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пары берутся из кода, скобки в строках не меняются."
           }
         }
       }

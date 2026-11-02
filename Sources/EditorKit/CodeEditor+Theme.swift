@@ -81,6 +81,7 @@ extension CodeEditor {
         gutter?.fit(lines: lineCount)   // a bigger font needs a wider one
         gutter?.needsDisplay = true
         highlighter?.colors = Self.captureColors(l)
+        highlighter?.bracketColors = bracketColors ? [l.number, l.keyword, l.type] : []
         wrap(wrapsHere ?? Self.wrapLines || alwaysWraps)
         colored = nil
         colorVisible()

@@ -79,6 +79,14 @@ public final class CodeEditor: NSObject {
         get { textView.whitespaceMarks }
         set { textView.whitespaceMarks = newValue }
     }
+    /// Brackets coloured by depth (`editor.bracketColors`).
+    public var bracketColors = false {
+        didSet { if bracketColors != oldValue { refreshAppearance() } }
+    }
+    public var indentGuides: Bool {
+        get { textView.indentGuides }
+        set { textView.indentGuides = newValue }
+    }
     /// The scopes around the top line stay pinned over the text (`editor.stickyScroll`).
     public var stickyEnabled = true {
         didSet { refreshSticky() }
@@ -87,6 +95,7 @@ public final class CodeEditor: NSObject {
     public private(set) var tabWidth = 4
     /// This file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.
     public func useIndent(tabWidth: Int, spaces: Bool) {
+        textView.guideColumns = tabWidth
         textView.indentUnit = spaces ? String(repeating: " ", count: tabWidth) : "\t"
         guard tabWidth != self.tabWidth else { return }
         self.tabWidth = tabWidth
@@ -375,6 +384,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         if signatureCard?.isShown == true { askSignature() }
         if completing != nil { refreshCompletions() }
         refreshScrollMarks()
+        if textView.indentGuides { textView.setNeedsDisplay(textView.visibleRect) }   // which guide is the cursor's
         gutter?.needsDisplay = true
         markBrackets()
         onSelection?()

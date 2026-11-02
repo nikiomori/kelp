@@ -9,6 +9,7 @@ import os
 final class SyntaxHighlighter {
     private let worker = Worker()
     private let query: Query
+    let bracketQuery: Query?
     /// The latest parse, for coloring on the main thread.
     private(set) var tree: Tree?
     /// Edits described before they happen (the old text is needed for them), applied to the tree when they have.
@@ -17,6 +18,8 @@ final class SyntaxHighlighter {
     /// Once a text was long, its parses stay off the main thread (a short one waiting on a long one there would block).
     private var background = false
     var colors: [String: NSColor] = [:]
+    /// By depth, round and round; none: brackets keep their grammar's colour.
+    var bracketColors: [NSColor] = []
     /// A parse done on the worker's queue came in: color again.
     var parsed: (() -> Void)?
     /// Longer texts parse off the main thread so typing never waits for tree-sitter (5 MB took 2 s from scratch); their
@@ -26,6 +29,7 @@ final class SyntaxHighlighter {
     init?(_ language: CodeLanguage) {
         guard let l = language.language, let q = TreeSitterModel.shared.query(for: language.id), worker.setLanguage(l) else { return nil }
         query = q
+        bracketQuery = Self.bracketQuery(l)
     }
 
     /// An edit about to happen: `range` of the current text becomes `text`. Positions come from `lines` (the old text's).
@@ -90,6 +94,7 @@ final class SyntaxHighlighter {
             }
             paint(found, at: inj.range.location, within: range, lm)
         }
+        colorBrackets(range, in: s, lm)
     }
 
     /// The less specific first: a later, narrower one wins.
