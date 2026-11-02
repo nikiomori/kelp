@@ -323,43 +323,6 @@ extension OneAtATime {
     }
 }
 
-@Test func asTabsEachAgentThatNeedsYouHasARowOverTheListAndPastSixTheLastSaysHowManyMore() throws {
-    let sessions = (1...8).map { i in
-        var s = Session(worktreeId: "w\(i)", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask \(i)", summary: "Question")
-        s.statusAt = Date() - 60
-        return s
-    }
-    let desks = (1...8).map { desk("w\($0)", "b\($0)") }
-    // Checked after the closure: its statements are type-checked with the call, and Xcode 26.6 ran out of budget there.
-    var shown: [String] = [], all: [String] = [], listed: [String] = []
-    try withSidebar(repos: [project], worktrees: desks, sessions: sessions, settings: ["workbench.sidebar.needsYou": .string("tabs")]) { vc, o in
-        let zone = try #require(vc.view.subviews.compactMap { $0 as? NeedsYouZone }.first)
-        shown = texts(zone)
-        all = texts(vc.view)
-        listed = rows(of: o).flatMap { $0 }
-    }
-    #expect(shown.contains("Needs You") && shown.contains("8"))
-    #expect(shown.filter { $0.hasPrefix("Ask ") }.count == 5 && shown.contains("3 more"))
-    #expect(!all.contains("8 need you"))   // no capsule beside the zone
-    #expect(listed.filter { $0 == "Ask 1" }.count == 1)   // the list keeps its own row too
-}
-
-@Test func automaticCountsWhileWhoNeedsYouIsInViewAndListsThemOnceOneIsNot() throws {
-    func asking(_ w: String) -> Session {
-        var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask " + w, summary: "Question")
-        s.statusAt = Date() - 60
-        return s
-    }
-    let many = (1...40).map { desk("w\($0)", "b\($0)") }
-    try withSidebar(repos: [project], worktrees: many, sessions: [asking("w1")], settings: ["workbench.sidebar.needsYou": .string("automatic")]) { vc, _ in
-        #expect(vc.view.subviews.contains { $0 is AgentSummary })   // its row is on screen: the count will do
-        vc.app.sessions = [asking("w1"), asking("w40")]   // the 40th workspace is far below the window's bottom
-        vc.refresh()
-        #expect(vc.view.subviews.contains { $0 is NeedsYouZone })
-        #expect(!vc.view.subviews.contains { $0 is AgentSummary })
-    }
-}
-
 @Test func nobodyAskingOrWorkingLeavesNoEmptyBandOverTheList() throws {
     let done = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Old chat")
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [done]) { vc, _ in
@@ -456,21 +419,21 @@ extension OneAtATime {
 /// there, and a click keeps it.
 @MainActor @Test func aPartOfTheWindowSetsItsLookFromItsMenu() throws {
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: []) { vc, _ in
-        let app = vc.app, key = "workbench.sidebar.needsYou"
+        let app = vc.app, key = "workbench.sidebar.agentDetail"
         app.extensions.reload()   // the choices come from the settings extensions declare
         @MainActor func now() -> String? { app.settings.string(key) }
-        let m = NeedsYouZone.viewMenu(app)
-        #expect(m.items.first { $0.title == "Count" }?.state == .on)
-        let tabs = try #require(m.items.first { $0.title == "Tabs" })
-        let other = try #require(m.items.first { $0.title == "Automatic" })
-        m.delegate?.menu?(m, willHighlight: tabs)
-        #expect(now() == "tabs")
-        m.delegate?.menu?(m, willHighlight: other)
-        #expect(now() == "automatic")
+        let m = AgentSummary.viewMenu(app)
+        #expect(m.items.first { $0.title == "When They Need You" }?.state == .on)
+        let always = try #require(m.items.first { $0.title == "Always" })
+        let never = try #require(m.items.first { $0.title == "Never" })
+        m.delegate?.menu?(m, willHighlight: always)
+        #expect(now() == "always")
+        m.delegate?.menu?(m, willHighlight: never)
+        #expect(now() == "never")
         m.delegate?.menu?(m, willHighlight: nil)
-        #expect(now() == "count")
-        m.performActionForItem(at: m.index(of: tabs))
-        #expect(now() == "tabs")
+        #expect(now() == "needsYou")
+        m.performActionForItem(at: m.index(of: always))
+        #expect(now() == "always")
     }
 }
 

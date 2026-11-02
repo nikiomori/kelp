@@ -14162,17 +14162,6 @@
         }
       }
     },
-    "Count": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Счётчик"
-          }
-        }
-      }
-    },
     "Over the list: how many agents wait for you, or a row for each. Automatic shows the rows while one of them is out of view.": {
       "extractionState": "manual",
       "localizations": {
@@ -14180,17 +14169,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Над списком: сколько агентов ждут вас, или строка для каждого. «Автоматически» показывает строки, пока кто-то из них не виден."
-          }
-        }
-      }
-    },
-    "Automatic": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Автоматически"
           }
         }
       }

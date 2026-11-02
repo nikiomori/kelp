@@ -42,8 +42,6 @@ final class AgentSummary: NSView {
     private var settleTimer: Timer?
     /// What the line says, and the words that matter when that doesn't fit the sidebar (a large Text size).
     private var wording: (full: NSAttributedString, short: NSAttributedString)?
-    /// After each update: who needs you may have changed (Automatic looks whether they are all in view).
-    var updated: () -> Void = {}
 
     init(app: AppModel) {
         self.app = app
@@ -61,7 +59,7 @@ final class AgentSummary: NSView {
         sheen.layer?.cornerCurve = .continuous
         for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
         capsule.translatesAutoresizingMaskIntoConstraints = false; addSubview(capsule)
-        capsule.contextMenu = { [weak self] in self.map { NeedsYouZone.viewMenu($0.app) } }
+        capsule.contextMenu = { [weak self] in self.map { Self.viewMenu($0.app) } }
         capsule.press = { [weak self] in if self?.asking == true { self?.app.workbench.showNextNeedingAttention() } }
         capsule.look = { [weak self] hovering, pressed in   // only the capsule that goes somewhere answers
             guard let self else { return }
@@ -153,7 +151,30 @@ final class AgentSummary: NSView {
             capsule.alphaValue = 0.4
             NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; capsule.animator().alphaValue = 1 }
         }
-        updated()
+    }
+
+    /// The capsule's: where who waits for you is, and what their rows say.
+    static func viewMenu(_ app: AppModel) -> NSMenu {
+        let m = NSMenu()
+        if !Inbox.current(app).shown.isEmpty {
+            m.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
+            m.addItem(.separator())
+        }
+        m.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
+        m.addItem(.separator())
+        m.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", app)
+        return m
+    }
+}
+
+extension Inbox {
+    /// Who needs you now: the agent on screen isn't counted.
+    @MainActor static func current(_ app: AppModel) -> Inbox {
+        // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
+        var inbox = Inbox(queue: AttentionQueue(app).sessions.filter { SidebarCell.shownStatus($0) != .done })
+        let tab = app.workbench.focusedTab ?? ""
+        if TabURI.scheme(tab) == "session" { inbox.viewing = [TabURI.body(tab)] }
+        return inbox
     }
 }
 

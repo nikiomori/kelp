@@ -68,10 +68,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         set { app.uiState["sidebar.pinned"] = try? .from(newValue) }
     }
     private let noMatch = NSStackView()
-    /// Over the list, who needs you (Appearance › Sidebar › Needs You): a capsule counting them, or a row for each.
-    private var needsYou: NSView?
-    private var needsYouTabs = false, placing = false
-    private weak var list: NSScrollView?
 
     override func loadView() {
         let col = NSTableColumn(identifier: .init("main")); col.resizingMask = .autoresizingMask
@@ -100,7 +96,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         // When the list gets shorter (the limits below load), the selected workspace stays in view.
         scroll.postsFrameChangedNotifications = true
         NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: scroll, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.keepOpenInView(); self?.placeNeedsYou() }   // queue: .main
+            MainActor.assumeIsolated { self?.keepOpenInView() }   // queue: .main
         }
 
         let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
@@ -134,12 +130,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         ])
         buildEmpty()
         view = v
-        list = scroll
-        track(owner: self) { [app] in app.settings.string("workbench.sidebar.needsYou") } changed: { [weak self] _ in self?.placeNeedsYou() }
-        scroll.contentView.postsBoundsChangedNotifications = true   // Automatic: scrolled, someone who needs you may leave the view
-        NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scroll.contentView, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.placeNeedsYou() }   // queue: .main
-        }
+        placeSummary(over: scroll)
         track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.scripts.shown } changed: { [weak self] _ in self?.refresh() }
@@ -284,7 +275,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         syncing = false
         instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
         syncSelection()
-        placeNeedsYou()
         settle(from: before)
         closeUp(after: before, rows: places, cards: cardFrames)
     }
@@ -317,52 +307,16 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 
     /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
-    /// The capsule or the zone, under the search and over the list (added after it: the zone hangs over its top).
-    /// Automatic: the zone while someone who needs you is out of view, the capsule once they are all in it.
-    func placeNeedsYou() {
-        guard let list else { return }
-        let mode = app.settings.string("workbench.sidebar.needsYou")
-        let tabs = mode == "tabs" || (mode == "automatic" && !needsYouInView())
-        guard needsYou == nil || tabs != needsYouTabs, !placing else { return }
-        placing = true
-        defer { placing = false }   // the inset going scrolls the list, which asks again
-        needsYou?.removeFromSuperview()
-        list.contentInsets.top = 0
-        let line: NSLayoutGuide, v: NSView
-        let later = { [weak self] in DispatchQueue.main.async { self?.placeNeedsYou() } }   // not while the old one is updating
-        if tabs {
-            let zone = NeedsYouZone(app: app)
-            line = zone.line; v = zone
-            view.addSubview(zone)
-            zone.list = list
-            zone.updated = later
-        } else {
-            let capsule = AgentSummary(app: app)
-            line = capsule.line; v = capsule
-            view.addSubview(capsule)
-            capsule.updated = later
-        }
-        needsYou = v; needsYouTabs = tabs
-        v.translatesAutoresizingMaskIntoConstraints = false
+    /// Under the search, over the list: who needs you and who's working.
+    private func placeSummary(over list: NSScrollView) {
+        let summary = AgentSummary(app: app)
+        summary.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(summary)
         NSLayoutConstraint.activate([   // in line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge
-            v.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 6), v.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            v.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            list.topAnchor.constraint(equalTo: line.bottomAnchor, constant: 4)
+            summary.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 6),
+            summary.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8), summary.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            list.topAnchor.constraint(equalTo: summary.line.bottomAnchor, constant: 4)
         ])
-    }
-
-    /// Every agent that needs you has its row on screen: not scrolled away, under the zone, folded or filtered out.
-    private func needsYouInView() -> Bool {
-        guard let list else { return true }
-        // What the clip shows, in the list's terms (flipped: the top is minY), less what the zone covers at its top.
-        var seen = outline.convert(list.contentView.bounds, from: list.contentView)
-        seen.origin.y += list.contentInsets.top
-        seen.size.height -= list.contentInsets.top
-        return Inbox.current(app).shown.allSatisfy { s in
-            guard let n = node("a:" + s.id), case let row = outline.row(forItem: n), row >= 0 else { return false }
-            let r = outline.rect(ofRow: row)
-            return r.minY >= seen.minY && r.maxY <= seen.maxY
-        }
     }
 
     private func keepOpenInView() {
@@ -463,8 +417,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         return cell
     }
 
-    func outlineViewItemDidCollapse(_ n: Notification) { remember(n, collapsed: true); placeNeedsYou() }
-    func outlineViewItemDidExpand(_ n: Notification) { remember(n, collapsed: false); placeNeedsYou() }
+    func outlineViewItemDidCollapse(_ n: Notification) { remember(n, collapsed: true) }
+    func outlineViewItemDidExpand(_ n: Notification) { remember(n, collapsed: false) }
     private func remember(_ n: Notification, collapsed c: Bool) {
         guard !syncing, let node = n.userInfo?["NSObject"] as? Node, node.id != nil else { return }
         // A project folding folds its workspaces with it: that isn't the user folding them.
