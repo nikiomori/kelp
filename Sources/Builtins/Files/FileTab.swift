@@ -134,6 +134,7 @@ final class FileTab: SavableTab {
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
         bar.onProblems = { [weak e] in e?.goToProblem(forward: true) }
         statusBar = bar
+        let crumbs = Breadcrumbs(app: app, path: path, root: root, editor: e)
         let language = e.languageId
         // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
         track(owner: self) { app.settings.bool("editor.wordWrap", language: language) ?? false } changed: { [weak e, weak bar] wraps in
@@ -145,9 +146,9 @@ final class FileTab: SavableTab {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
             md.onEditing = { [weak bar] in bar?.editing = $0 }
-            markdown = md; box.pin(stacked(md.view, bar))
+            markdown = md; box.pin(stacked(crumbs, md.view, bar))
         } else {
-            box.pin(stacked(e.view, bar))
+            box.pin(stacked(crumbs, e.view, bar))
         }
         let before = e.onSelection   // Markdown's selection bar follows the selection too
         e.onSelection = { [weak bar, weak e] in

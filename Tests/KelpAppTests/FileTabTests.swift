@@ -257,3 +257,12 @@ extension AppOfItsOwn {
     window.layoutIfNeeded()
     #expect(window.contentLayoutRect.size == NSSize(width: 800, height: 600))
 }
+
+@MainActor @Test func aBreadcrumbShowsWhatsBesideIt() {
+    #expect(Breadcrumbs.parts("/p/Sources/a.swift", root: "/p") == ["Sources", "a.swift"])
+    #expect(Breadcrumbs.parts("/other/a.swift", root: "/p") == ["a.swift"])
+    let paths = ["README.md", "Sources/b/x.swift", "Sources/b/y.swift", "Sources/a.swift", "Tests/t.swift"]
+    #expect(Breadcrumbs.children(of: "", in: paths).map(\.name) == ["Sources", "Tests", "README.md"])
+    #expect(Breadcrumbs.children(of: "Sources", in: paths).map(\.name) == ["b", "a.swift"])
+    #expect(Breadcrumbs.children(of: "Sources", in: paths).map(\.isFolder) == [true, false])
+}

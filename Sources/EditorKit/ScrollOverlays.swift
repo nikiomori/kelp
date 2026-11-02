@@ -125,9 +125,22 @@ extension CodeEditor {
         (scroll as? EditorScrollView)?.marks.ticks = ticks
     }
 
-    /// The scopes around the top line, outermost first: lines above it less indented, or headings, whose fold reaches it.
-    func stickyLines() -> [Int] {
-        let s = textView.string as NSString, top = topLine - 1
+    func stickyLines() -> [Int] { scopeLines(around: topLine - 1) }
+
+    /// The scopes around the cursor, outermost first, as `(0-based line, its text)`.
+    public var scopesAtCursor: [(line: Int, text: String)] { scopeRows(scopeLines(around: (cursor?.line ?? 1) - 1)) }
+
+    private func scopeRows(_ lines: [Int]) -> [(line: Int, text: String)] {
+        let s = textView.string as NSString
+        return lines.compactMap { n in
+            guard let start = lineIndex.start(ofLine: n, in: s) else { return nil }
+            return (n, s.substring(with: s.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(in: .newlines))
+        }
+    }
+
+    /// The scopes around `top`, outermost first: lines above it less indented, or headings, whose fold reaches it.
+    private func scopeLines(around top: Int) -> [Int] {
+        let s = textView.string as NSString
         guard top > 0, let at = lineIndex.start(ofLine: top, in: s) else { return [] }
         var found: [Int] = [], least = Folds.indent(s.lineRange(for: NSRange(location: at, length: 0)), in: s) ?? Int.max, n = top - 1
         while n >= 0, top - n <= Self.stickyReach, found.count < StickyLines.most, least > 0 || isMarkdown {
@@ -144,12 +157,7 @@ extension CodeEditor {
 
     func refreshSticky() {
         guard let view = scroll as? EditorScrollView, let tv = Optional(textView), let lm = tv.layoutManager else { return }
-        let s = tv.string as NSString
-        let lines = stickyEnabled ? stickyLines() : []
-        let rows = lines.compactMap { n -> (line: Int, text: String)? in
-            guard let start = lineIndex.start(ofLine: n, in: s) else { return nil }
-            return (n, s.substring(with: s.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(in: .newlines))
-        }
+        let rows = scopeRows(stickyEnabled ? stickyLines() : [])
         let indent = (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x + (tv.textContainer?.lineFragmentPadding ?? 0)
         let row = lm.defaultLineHeight(for: Self.font)
         view.sticky.show(rows, look: (Self.font, Self.page.text, Self.page.background), indent: indent, rowHeight: row)

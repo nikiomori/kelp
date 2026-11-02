@@ -43,3 +43,12 @@ import Testing
     #expect(tv.indentLevel(NSRange(location: 6, length: 3), in: s) == 1)
     #expect(tv.indentLevel(NSRange(location: 9, length: 1), in: s) == nil)
 }
+
+@MainActor @Test func theScopesAtTheCursorComeFromTheCode() {
+    let e = opened("class A {\n    func f() {\n        let x = 1\n    }\n}\n", "s.swift")
+    e.goTo(line: 3)
+    #expect(e.scopesAtCursor.map(\.line) == [0, 1])
+    #expect(e.scopesAtCursor.last?.text == "    func f() {")
+    e.goTo(line: 1)
+    #expect(e.scopesAtCursor.isEmpty)
+}

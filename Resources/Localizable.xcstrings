@@ -2113,6 +2113,16 @@
         }
       }
     },
+    "Breadcrumbs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хлебные крошки"
+          }
+        }
+      }
+    },
     "Bring All to Front": {
       "extractionState": "manual",
       "localizations": {
@@ -12000,6 +12010,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Расширение, которое показывает «%@», выключено или удалено."
+          }
+        }
+      }
+    },
+    "The file's folders and the scopes around the cursor, in a thin bar over the editor.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папки файла и области вокруг курсора в тонкой полосе над редактором."
           }
         }
       }

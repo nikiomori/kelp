@@ -37,6 +37,7 @@ extension Builtins {
               "A symbol's signature and documentation, and the arguments of a call as you type it."),
             s("editor.bracketColors", "Color brackets by depth", "boolean", false, "Pairs come from the code, so brackets in strings stay as they are."),
             s("editor.indentGuides", "Indent guides", "boolean", false, "Faint lines at each level; the block around the cursor's is brighter."),
+            s("editor.breadcrumbs", "Breadcrumbs", "boolean", false, "The file's folders and the scopes around the cursor, in a thin bar over the editor."),
             s("editor.stickyScroll", "Keep the enclosing scopes at the top", "boolean", true,
               "The lines that open the class and function you're in stay pinned as you scroll."),
             s("editor.tabSize", "Tab size", "number", 4, "Spaces to a level. A file's own indentation and its .editorconfig come first."),
