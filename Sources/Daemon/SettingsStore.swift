@@ -14,16 +14,10 @@ final class SettingsStore: Sendable {
     let file = NSLock()
     private var lastGood: URL { url.deletingLastPathComponent().appendingPathComponent("settings.last-good.json") }
 
-    /// config.json keys from before settings.json; read once, when settings.json doesn't exist yet.
-    static let legacyKeys = ["hibernateMinutes": "sessions.hibernateMinutes", "keepAwake": "power.keepAwake", "profiles": "accounts.profiles"]
-
     init(root: URL) {
         url = root.appendingPathComponent("settings.json")
         if FileManager.default.fileExists(atPath: url.path) { _ = reloadIfChanged(); return }
-        let old = (try? Data(contentsOf: root.appendingPathComponent("config.json"))).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
-        var values: [String: JSONValue] = [:]
-        for (k, v) in Self.legacyKeys { if let x = old?[k] { values[v] = x } }
-        file.withLock { _ = Log.store.attempt("writing settings.json from config.json") { try write(values) } }
+        file.withLock { _ = Log.store.attempt("writing a new settings.json") { try write([:]) } }
     }
 
     var values: [String: JSONValue] { state.withLock { $0 }.values }

@@ -10,16 +10,16 @@ final class EventBox: @unchecked Sendable {
     func last(_ m: String) -> JSONValue? { l.withLock { events.last { $0.0 == m }?.1 } }
 }
 
-@Test func settingsMigrateSetAndHandEdit() async throws {
+@Test func settingsLoadSetAndHandEdit() async throws {
     let root = tmp()
-    try #"{"hibernateMinutes":5,"keepAwake":"off","profiles":[{"name":"Work","agent":"claude","dir":"/x"}],"other":1}"#
-        .write(to: root.appendingPathComponent("config.json"), atomically: true, encoding: .utf8)
+    try #"{"sessions.hibernateMinutes":5,"power.keepAwake":"off","accounts.profiles":[{"name":"Work","agent":"claude","dir":"/x"}]}"#
+        .write(to: root.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
     let d = try Daemon(root: root); try d.start(); defer { d.stop() }
     let c = try client(root)
     let box = EventBox(); c.onNotification = { box.add($0, $1) }
 
     let s0 = try await c.call("settings.get")
-    #expect(s0["sessions.hibernateMinutes"] == 5 && s0["power.keepAwake"] == "off" && s0["accounts.profiles"]?.array?.count == 1 && s0["other"] == nil)
+    #expect(s0["sessions.hibernateMinutes"] == 5 && s0["power.keepAwake"] == "off" && s0["accounts.profiles"]?.array?.count == 1)
 
     let s1 = try await c.call("settings.set", .obj(["key": "editor.fontSize", "value": 13]))
     #expect(s1["editor.fontSize"] == 13)

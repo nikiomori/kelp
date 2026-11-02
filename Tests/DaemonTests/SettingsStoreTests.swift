@@ -29,16 +29,6 @@ private func home() throws -> URL {
     #expect(FileManager.default.fileExists(atPath: d.appendingPathComponent("settings.json").path))
 }
 
-@Test func theOldConfigIsReadOnceWhenThereIsNoSettingsFileYet() throws {
-    let d = try home()
-    try #"{"hibernateMinutes":30,"keepAwake":"always","unknown":1}"#.write(to: d.appendingPathComponent("config.json"), atomically: true, encoding: .utf8)
-    let s = SettingsStore(root: d)
-    #expect(s["sessions.hibernateMinutes"] == .int(30) && s["power.keepAwake"] == .string("always"))
-    #expect(s["unknown"] == nil)   // only the keys that had a new home
-    try #"{"hibernateMinutes":5}"#.write(to: d.appendingPathComponent("config.json"), atomically: true, encoding: .utf8)
-    #expect(SettingsStore(root: d)["sessions.hibernateMinutes"] == .int(30))   // settings.json exists now: config.json is not read again
-}
-
 @Test func setKeepsKeysAndNullRemovesThem() throws {
     let d = try home()
     let s = SettingsStore(root: d)
