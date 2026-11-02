@@ -40,6 +40,17 @@ extension LiveSession.State {
         steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !asks && !trustQuestionOpen() && !menuOpen()
     }
 
+    /// Nothing came up since a send's `text` went in. A dialog that opens in those moments would take its Enter as the answer,
+    /// usually "Yes". The text's own first line beside the input box's cursor ("❯ 1. fix the tests") is no menu.
+    func takesEnter(after text: String) -> Bool {
+        guard steering == nil, !asks, !trustQuestionOpen() else { return false }
+        guard menuOpen(), let option = AgentManifest.AutoAnswer.optionAtCursor(menuScreen()) else { return true }
+        return text.hasPrefix(option)
+    }
+
+    /// A send's Enter wasn't pressed: its text is a draft for the user now, and no line went in for a hook to answer.
+    mutating func enterHeld() { boxEmpty = false; draftWaiting = true; lineSentUp = nil }
+
     /// A child's report waits until the agent rests at an empty prompt. In a turn, its Enter could land on a dialog that opened
     /// meanwhile, and nobody sent it to be answered like that; ↑ leaves an old prompt in the box with nothing typed.
     func takesReport() -> Bool {
@@ -165,11 +176,19 @@ extension LiveSession {
         // line of it. One line instead, so nothing goes before the user presses Return.
         if !enter, !takesPastes { text = text.replacingOccurrences(of: "\n", with: " ") }
         // A program that never asked for pastes (a plain line reader) has no modes to trip: it gets the text as is.
-        let body = (paste || text.contains("\n")) && takesPastes ? "\u{1B}[200~" + text + "\u{1B}[201~" : text
+        let typed = text, body = (paste || text.contains("\n")) && takesPastes ? "\u{1B}[200~" + text + "\u{1B}[201~" : text
         // One after another, Enter included: two quick sends must arrive as text, Enter, text, Enter, not text, text, Enter, Enter.
         sends.async { [weak self] in
-            self?.pty.write(Data(body.utf8))
-            if enter { Thread.sleep(forTimeInterval: 0.3); self?.pty.write(Data("\r".utf8)) }
+            guard let self else { return }
+            pty.write(Data(body.utf8))
+            guard enter else { return }
+            Thread.sleep(forTimeInterval: 0.3)
+            let safe = state.withLock { s in
+                if s.takesEnter(after: typed) { return true }
+                s.enterHeld()
+                return false
+            }
+            if safe { pty.write(Data("\r".utf8)) }
         }
     }
 

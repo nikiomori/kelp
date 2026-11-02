@@ -54,6 +54,44 @@ import Agents
     #expect(try await lines().suffix(2) == ["hello", "x"])
 }
 
+/// A dialog that opens between a send's text and its Return doesn't take that Return as its answer: the first option is
+/// usually "Yes". The text stays a draft for the user to read.
+@Test func aDialogOpeningDuringASendKeepsItsReturn() async throws {
+    let script = tmp().appendingPathComponent("dialog.sh")
+    try FileManager.default.createDirectory(at: script.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try #"""
+    stty -echo -icanon -icrnl
+    echo ready
+    dd bs=1 count=1 2>/dev/null >/dev/null
+    printf '\n\xe2\x9d\xaf 1. Yes\n  2. No\n'
+    while :; do
+      case "$(dd bs=1 count=1 2>/dev/null | od -An -c)" in *'\r'*|*'\n'*) echo ANSWERED;; esac
+    done
+    """#.write(to: script, atomically: true, encoding: .utf8)
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "dialog")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "/bin/bash \(script.path)"))
+    func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
+    #expect(try await waitFor(10) { try await screen().contains("ready") })
+    #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
+    _ = try await w.c.call(SessionSend(id: s.id, text: "hello"))
+    #expect(try await waitFor(5) { try await screen().contains("2. No") })
+    #expect(try await waitFor(5) { w.d.sessions.existing(s.id)?.state.withLock(\.draftWaiting) == true })
+    try await Task.sleep(for: .seconds(1))
+    #expect(!(try await screen()).contains("ANSWERED"))
+}
+
+/// A numbered line the send itself put beside the input box's cursor looks like a menu, and it still gets its Return.
+@Test func aSendThatLooksLikeAMenuIsStillSent() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "numbered")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "printf '\\342\\235\\257 '; exec cat"))
+    func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
+    #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
+    _ = try await w.c.call(SessionSend(id: s.id, text: "1. fix the tests"))
+    #expect(try await waitFor(5) { try await screen().components(separatedBy: "1. fix the tests").count == 3 })   // the echo, then cat's
+}
+
 /// What the user typed and hasn't sent, followed from their keys.
 @Test func theUsersUnsentLineIsFollowedFromTheirKeys() {
     var s = LiveSession.State(record: Session(cwd: "/", command: "cat"), manifest: AgentManifest(id: "custom", name: "Custom", command: "/bin/cat"),

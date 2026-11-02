@@ -238,7 +238,8 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
   and not the user's word, and `agents.childReports` turns reports off for someone who wants no such path.
 - Text sent to a session goes through one gate (`LiveSession.submit`): it waits while the agent is starting, while a
   question or numbered menu is on screen (its Enter would pick the default), and behind an unread draft (its Enter would
-  submit the draft). An auto-answer is pressed only if its question is still on screen and nobody typed meanwhile.
+  submit the draft). Its Enter looks again just before it's pressed: a dialog that opened after the text went in leaves the
+  text a draft. An auto-answer is pressed only if its question is still on screen and nobody typed meanwhile.
 - Values go into shell commands as variables, never as command text (`ShellTemplate`); refs from clients that read as
   options are refused; paths go to git as literal pathspecs after `--`.
 - A copy of an agent nobody watches runs nothing of a project's. The usage probe opens Kelp's own folder, and presses
