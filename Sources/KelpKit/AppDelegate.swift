@@ -114,6 +114,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var unsavedAnswered = false
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }   // the daemon keeps sessions alive
+    /// A new copy, then this one quits: the daemon and everything running in it carry on under the new window.
+    static func relaunch() {
+        let fresh = NSWorkspace.OpenConfiguration()
+        fresh.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: fresh) { _, error in
+            Task { @MainActor in
+                if let error { Banner.show(String(localized: "Couldn't relaunch Kelp: \(error.localizedDescription)"), style: .error) }
+                else { NSApp.terminate(nil) }
+            }
+        }
+    }
+
     func applicationWillTerminate(_ n: Notification) {
         main?.leaveFocusMode()
         EditorArea.saveLayouts()   // a tab moved in the last half second

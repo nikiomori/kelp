@@ -10,10 +10,13 @@ import WorkbenchKit
 @MainActor
 enum SettingsWindow {
     private(set) static var window: NSWindow?
+    /// Workbench language as the window first opened, which is what this launch runs in unless it changed before that.
+    private(set) static var language: String?
     static func show(_ app: AppModel, section: String? = nil) {
         if let s = section { UserDefaults.standard.set(s, forKey: "settings.section") }
         let fresh = window == nil
         if fresh {
+            language = app.settings.string("workbench.language")
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 600), styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
                              backing: .buffered, defer: false)
             w.title = String(localized: "Settings")
@@ -125,7 +128,7 @@ private struct SearchResults: View {
             if found.isEmpty, !keys { Text("No settings match “\(query)”.").foregroundStyle(.secondary) }
             ForEach(found) { f in
                 Section(f.title) {
-                    ForEach(f.specs) { SettingRow(spec: $0) }
+                    ForEach(f.specs) { spec in SettingRow(spec: spec) { open(f.section.id) } }
                     ForEach(f.screens, id: \.self) { word in
                         LabeledContent(word) { Button("Open") { open(f.section.id) } }
                     }
@@ -141,34 +144,55 @@ private struct SearchResults: View {
                                                     keywords: ["Extensions", "Library"])
 }
 
-/// One row, typed by its spec; reads and writes settings.json through the daemon.
+/// One row, typed by its spec; reads and writes settings.json through the daemon. The description is the control's own
+/// label, so macOS sets it, keeps it left of the control and reads it out with it.
 struct SettingRow: View {
     let spec: SettingSpec
+    /// In search results: back to the row's section.
+    var reveal: (() -> Void)?
     @Environment(AppModel.self) private var app
     private var store: SettingsStore { app.settings }
-    init(spec: SettingSpec) { self.spec = spec }
+    init(spec: SettingSpec, reveal: (() -> Void)? = nil) { self.spec = spec; self.reveal = reveal }
+
+    /// Set to something other than its default: a dot in the row's margin, and Reset on a right-click.
+    private var changed: Bool { store.values[spec.key].map { $0 != spec.default } ?? false }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            control
-            if let d = spec.description { Text(loc(d)).font(.caption).foregroundStyle(.secondary) }
-        }
-        .help(spec.key)
+        marked
+        if spec.key == "workbench.language" { RelaunchRow() }
+    }
+
+    private var marked: some View {
+        control
+            .overlay(alignment: .topLeading) {
+                if changed { Circle().fill(Color.accentColor).frame(width: 6, height: 6).offset(x: -9, y: 5).accessibilityLabel("Changed") }
+            }
+            .help(spec.key)
+            .contextMenu {
+                Button("Reset to Default") { store.set(spec.key, nil) }.disabled(!changed)
+                Button("Copy Key") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(spec.key, forType: .string) }
+                if let reveal { Button("Show in Section", action: reveal) }
+            }
+    }
+
+    @ViewBuilder private var label: some View {
+        Text(loc(spec.title))
+        if let d = spec.description { Text(loc(d)) }
     }
 
     @ViewBuilder private var control: some View {
         switch spec.type {
         case "boolean":
-            Toggle(loc(spec.title), isOn: Binding(get: { store.bool(spec.key) ?? false }, set: { store.set(spec.key, .bool($0)) }))
+            Toggle(isOn: Binding(get: { store.bool(spec.key) ?? false }, set: { store.set(spec.key, .bool($0)) })) { label }
         case "number" where spec.options?.isEmpty == false:
             // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
             let current = store.number(spec.key) ?? 0
             let values = (spec.options ?? []).compactMap(Double.init)
-            Picker(loc(spec.title), selection: Binding(get: { current }, set: { store.set(spec.key, $0 == $0.rounded() ? .int(Int($0)) : .double($0)) })) {
+            Picker(selection: Binding(get: { current }, set: { store.set(spec.key, $0 == $0.rounded() ? .int(Int($0)) : .double($0)) })) {
                 ForEach(values.contains(current) ? values : values + [current], id: \.self) { v in
                     Text(Self.label(spec.key, v == v.rounded() ? String(Int(v)) : String(v), app)).tag(v)
                 }
-            }
+            } label: { label }
         case "number":
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
             let value = Binding(get: { store.number(spec.key) ?? 0 }, set: {
@@ -178,31 +202,35 @@ struct SettingRow: View {
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
             LabeledContent {
                 HStack(spacing: 4) {
-                    if let b = spec.bounds { Text("\(Int(b.lowerBound))…\(Int(b.upperBound))").font(.ui(11)).foregroundStyle(.secondary).padding(.trailing, 4) }
+                    if let b = spec.bounds {
+                        Text("\(Int(b.lowerBound))…\(Int(b.upperBound))").font(.subheadline).foregroundStyle(.secondary).padding(.trailing, 4)
+                    }
                     TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 56)
-                    Stepper("", value: value, in: spec.bounds ?? -Double.greatestFiniteMagnitude...Double.greatestFiniteMagnitude).labelsHidden()
+                    Stepper("", value: value, in: spec.bounds ?? -.greatestFiniteMagnitude ... .greatestFiniteMagnitude).labelsHidden()
                 }
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
                 Text(loc(spec.title)).alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
+                if let d = spec.description { Text(loc(d)) }
             }
         case "enum":
-            Picker(loc(spec.title), selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
+            Picker(selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
                 ForEach(Self.shown(Self.options(spec, app), store.string(spec.key) ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
-            }
+            } label: { label }
         case "theme":
-            ThemeGallery(selection: Binding(get: { store.string(spec.key) ?? "auto" }, set: { store.set(spec.key, .string($0)) }))
+            ThemeGallery(selection: Binding(get: { store.string(spec.key) ?? "auto" }, set: { store.set(spec.key, .string($0)) }),
+                         about: spec.description.map(loc))
         case "color":
-            ColorPicker(loc(spec.title), selection: Binding(get: { Color(hex: store.string(spec.key) ?? "") ?? .accentColor },
-                                                            set: { store.set(spec.key, .string($0.hex)) }))
+            ColorPicker(selection: Binding(get: { Color(hex: store.string(spec.key) ?? "") ?? .accentColor },
+                                           set: { store.set(spec.key, .string($0.hex)) })) { label }
         case "font":
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
-            Picker(loc(spec.title), selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
+            Picker(selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
                 Text("Default").tag("")
                 ForEach(Self.shown(Self.monospaced, store.string(spec.key) ?? ""), id: \.self) { Text($0).tag($0) }
-            }
+            } label: { label }
         default:
-            LabeledContent(loc(spec.title)) { SettingTextField(key: spec.key).frame(width: 220) }
+            LabeledContent { SettingTextField(key: spec.key).frame(width: 220) } label: { label }
         }
     }
 
@@ -263,6 +291,21 @@ struct SettingRow: View {
 
     static let monospaced: [String] = NSFontManager.shared.availableFontFamilies.filter { fam in
         NSFont(name: fam, size: 12)?.isFixedPitch == true || fam.contains("Mono") || fam.contains("Code")
+    }
+}
+
+/// Language takes effect at launch: once it differs from what this launch read, a button to get there.
+private struct RelaunchRow: View {
+    @Environment(AppModel.self) private var app
+    var body: some View {
+        if app.settings.string("workbench.language") != SettingsWindow.language {
+            LabeledContent("Kelp needs to reopen for this.") {
+                Button("Relaunch") {
+                    guard app.workbench.editedFiles.isEmpty else { Banner.show(String(localized: "Save your files, then relaunch.")); return }
+                    AppDelegate.relaunch()
+                }
+            }
+        }
     }
 }
 

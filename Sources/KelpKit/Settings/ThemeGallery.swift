@@ -7,6 +7,8 @@ import DesignKit
 /// window in the theme: its surface, its card, its lines of text.
 struct ThemeGallery: View {
     @Binding var selection: String
+    /// What a theme covers, under the heading: below the gallery it was half a screen from anything it could be about.
+    var about: String?
     @Environment(AppModel.self) private var app
     @State private var classics = false
 
@@ -15,6 +17,7 @@ struct ThemeGallery: View {
         let classic = all.filter { popular.contains($0.id) }
         VStack(alignment: .leading, spacing: 12) {
             heading("Theme")
+            if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             grid(following(all) + all.filter { kelp.contains($0.id) }.map(card))
             heading("Looks")
             grid(all.filter { looks.contains($0.id) }.map(card))
