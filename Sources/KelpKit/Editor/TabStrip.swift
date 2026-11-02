@@ -151,18 +151,44 @@ final class TabStrip: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     func set(_ items: [Item], selected: String?) {
-        // Reuse buttons by position: tabs change titles and status far more often than they move.
-        while buttons.count > items.count { buttons.removeLast().removeFromSuperview() }
-        while buttons.count < items.count {
-            let b = TabButton()
-            b.strip = self
-            buttons.append(b)
-            stack.addArrangedSubview(b)
+        // A button stays with its tab: closing, opening or moving one moves only that, and the rest slide.
+        let kept = Dictionary(zip(self.items.map(\.id), buttons)) { first, _ in first }
+        let next = items.map { kept[$0.id] ?? newButton() }
+        let moved = next != buttons
+        // Nothing in common: another workspace's tabs, which simply show.
+        let places = moved && window != nil && items.contains { kept[$0.id] != nil }
+            ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
+        for b in buttons where !next.contains(b) { b.removeFromSuperview() }
+        for (i, b) in next.enumerated() where stack.arrangedSubviews.indices.contains(i) ? stack.arrangedSubviews[i] !== b : true {
+            stack.insertArrangedSubview(b, at: i)
         }
+        buttons = next
         for (b, it) in zip(buttons, items) { b.set(it, selected: it.id == selected, groupFocused: focused) }
         self.items = items; selectedId = selected
         needsLayout = true
+        if !places.isEmpty { settle(from: places) }
         DispatchQueue.main.async { [weak self] in self?.revealSelected() }
+    }
+
+    private func newButton() -> TabButton {
+        let b = TabButton()
+        b.strip = self
+        return b
+    }
+
+    /// The tabs travel from where they stood, a new one fades in at its place. The next tab can come to rest under a
+    /// pointer that closed the last: its ✕ is there for the next click, as in a browser.
+    private func settle(from places: [ObjectIdentifier: NSPoint]) {
+        layoutSubtreeIfNeeded()
+        for b in buttons {
+            if let place = places[ObjectIdentifier(b)] {
+                b.slide(from: place, duration: Motion.base)
+            } else if !Motion.reduced {
+                b.alphaValue = 0
+                NSAnimationContext.runAnimationGroup { $0.duration = Motion.base; b.animator().alphaValue = 1 }
+            }
+            b.followPointer()
+        }
     }
 
     override func layout() {
@@ -239,7 +265,16 @@ final class TabStrip: NSView {
     private func showInsertion(_ i: Int) {
         let local = i < buttons.count ? buttons[i].frame.minX - 1 : (buttons.last?.frame.maxX ?? 6)
         let x = convert(NSPoint(x: local, y: 0), from: stack).x
-        insertion.frame = NSRect(x: x, y: 4, width: 2, height: bounds.height - 8); insertion.isHidden = false
+        let frame = NSRect(x: x, y: 4, width: 2, height: bounds.height - 8)
+        if insertion.isHidden {   // it comes in where it's needed, then glides from gap to gap
+            insertion.frame = frame
+            insertion.isHidden = false
+        } else {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.duration(Motion.fast)
+                insertion.animator().frame = frame
+            }
+        }
     }
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { draggingUpdated(s) }
     override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
@@ -430,6 +465,11 @@ private final class TabButton: NSControl, NSDraggingSource {
     }
     override func mouseEntered(with e: NSEvent) { hover = true }
     override func mouseExited(with e: NSEvent) { hover = false }
+    /// Moved under or from under a pointer that stayed still: AppKit says so only when it next moves.
+    func followPointer() {
+        guard let window else { return }
+        hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+    }
     override func mouseDown(with e: NSEvent) {
         if let id = item?.id { strip?.onSelect?(id) }
     }
@@ -446,50 +486,6 @@ private final class TabButton: NSControl, NSDraggingSource {
         beginDraggingSession(with: [d], event: e, source: self)
     }
     nonisolated func draggingSession(_ s: NSDraggingSession, sourceOperationMaskFor c: NSDraggingContext) -> NSDragOperation { .move }
-}
-
-@MainActor
-/// How full an agent's conversation is: nothing while there's room, then a ring that fills, yellow where answers may
-/// start to slip, orange where it's time to compact or hand off, red just before the agent compacts by itself. Past
-/// half a 200k window, or 200k tokens of a bigger one: long-context benchmarks slip by absolute tokens, so a 1M
-/// window turns yellow at 200k, orange at 400k and red at 600k (a 200k one at 100k, 130k and 150k, under Claude Code's
-/// own compaction).
-final class ContextMeter: NSView {
-    private let track = CAShapeLayer(), fill = CAShapeLayer()
-    var usage: SessionContextWindow.Usage? { didSet { isHidden = Self.level(usage) == 0; update() } }
-    /// 0 room, 1 yellow, 2 orange, 3 red.
-    static func level(_ u: SessionContextWindow.Usage?) -> Int {
-        guard let u, u.window > 0 else { return 0 }
-        let w = Double(u.window), used = Double(u.used)
-        return used >= min(0.75 * w, 600_000) ? 3 : used >= min(0.65 * w, 400_000) ? 2 : used >= min(0.5 * w, 200_000) ? 1 : 0
-    }
-    init() {
-        super.init(frame: .zero)
-        wantsLayer = true; isHidden = true
-        let path = CGMutablePath()   // from the top, clockwise (the layer's y goes up)
-        path.addArc(center: CGPoint(x: 6, y: 6), radius: 4.5, startAngle: .pi / 2, endAngle: .pi / 2 - 2 * .pi, clockwise: true)
-        for l in [track, fill] {
-            l.path = path
-            l.fillColor = nil
-            l.lineWidth = 2
-            layer?.addSublayer(l)
-        }
-        fill.lineCap = .round
-        translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 12), heightAnchor.constraint(equalToConstant: 12)])
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
-    private func update() {
-        guard let usage, usage.window > 0 else { return }
-        let share = Double(usage.used) / Double(usage.window), level = Self.level(usage)
-        toolTip = String(localized: "Context \(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            track.strokeColor = NSColor.tertiaryLabelColor.cgColor
-            fill.strokeColor = [NSColor.secondaryLabelColor, .systemYellow, .systemOrange, .systemRed][level].cgColor
-        }
-        fill.strokeEnd = min(1, share)
-    }
 }
 
 extension NSView {
