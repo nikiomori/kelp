@@ -98,3 +98,10 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     for _ in 0..<100 where strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
     #expect(!strip.isShowing)
 }
+
+@MainActor @Test func thePillSaysWhatACommandIsAndTheCardKeepsItWhole() {
+    #expect(StripModel.brief("Allow SP=/private/tmp/x FOO=1 swift build --product KelpApp?") == "Allow swift build --product KelpApp?")
+    #expect(StripModel.brief("Allow npm test?") == "Allow npm test?")
+    #expect(StripModel.brief("Allow A=1?") == "Allow A=1?")   // nothing else to say
+    #expect(StripModel.brief("Which layout, a=1 or b=2?") == "Which layout, a=1 or b=2?")   // a question, not a command
+}

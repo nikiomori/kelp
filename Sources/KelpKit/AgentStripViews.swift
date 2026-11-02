@@ -41,7 +41,7 @@ final class StripPanel: NSPanel {
 /// A workspace on the strip: its project's tile with its state in the corner, and in a pill what its agent asks.
 final class StripButton: PointerControl {
     static let stripHeight: CGFloat = 40
-    private static let height: CGFloat = 32, tile: CGFloat = 24, markInset: CGFloat = 2
+    private static let height: CGFloat = 32, tile: CGFloat = 24, markInset: CGFloat = 2, wordsWidth: CGFloat = 240
 
     var onClick: (() -> Void)?
     var onMenu: (() -> NSMenu)?
@@ -64,7 +64,7 @@ final class StripButton: PointerControl {
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4), icon.centerYAnchor.constraint(equalTo: centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: Self.tile), icon.heightAnchor.constraint(equalToConstant: Self.tile),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Metrics.gapWide),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor), label.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor), label.widthAnchor.constraint(lessThanOrEqualToConstant: Self.wordsWidth),
             mark.centerXAnchor.constraint(equalTo: icon.trailingAnchor, constant: -Self.markInset),
             mark.centerYAnchor.constraint(equalTo: icon.bottomAnchor, constant: -Self.markInset)
         ])
@@ -75,12 +75,13 @@ final class StripButton: PointerControl {
     /// The mark sits in a bite out of the tile's corner, so it reads on the strip's own glass in any theme, with no disc of its own.
     private func notch() {
         icon.wantsLayer = true
+        icon.imageScaling = .scaleProportionallyUpOrDown   // a project's own icon can be a 16-pt favicon
         let bite = CAShapeLayer(), side = Self.tile, around = Self.markInset + 6
-        let path = CGMutablePath()
-        path.addRect(CGRect(x: 0, y: 0, width: side, height: side))
-        path.addEllipse(in: CGRect(x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around))
-        bite.path = path
-        bite.fillRule = .evenOdd
+        let square = CGRect(x: 0, y: 0, width: side, height: side), corner = Metrics.radiusSM
+        let tile = CGPath(roundedRect: square, cornerWidth: corner, cornerHeight: corner, transform: nil)
+        let round = CGRect(x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around)
+        let hole = CGPath(ellipseIn: round, transform: nil)
+        bite.path = tile.subtracting(hole)
         icon.layer?.mask = bite
     }
 
@@ -93,6 +94,8 @@ final class StripButton: PointerControl {
         case .done: .done
         }
         mark.status = status
+        // A clear icon keeps the tile's shape.
+        effectiveAppearance.performAsCurrentDrawingAppearance { icon.layer?.backgroundColor = NSColor.fillHover.cgColor }
         label.isHidden = !open
         trailing?.isActive = false
         trailing = trailingAnchor.constraint(equalTo: open ? label.trailingAnchor : icon.trailingAnchor, constant: open ? 12 : 4)
@@ -107,11 +110,16 @@ final class StripButton: PointerControl {
     }
 
     private func words(_ item: StripItem) -> NSAttributedString {
-        let t = NSMutableAttributedString(string: item.name, attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.labelColor])
-        let color: NSColor = item.cell == .asks ? .textOrange : .textRed
-        t.append(NSAttributedString(string: "  " + (item.words ?? ""), attributes: [.font: NSFont.ui(12), .foregroundColor: color]))
+        // In the string itself: attributed text doesn't take the field's truncation, and would stop dead at a word.
+        let cut = NSMutableParagraphStyle()
+        cut.lineBreakMode = .byTruncatingTail
+        func text(_ s: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
+            NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
+        }
+        let t = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
+        t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), item.cell == .asks ? .textOrange : .textRed))
         guard item.count > 1 else { return t }
-        t.append(NSAttributedString(string: "  \(item.count)", attributes: [.font: NSFont.uiDigits(11), .foregroundColor: NSColor.secondaryLabelColor]))
+        t.append(text("  \(item.count)", .uiDigits(11), .secondaryLabelColor))
         return t
     }
 

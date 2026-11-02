@@ -50,6 +50,15 @@ enum StripModel {
         return items.contains { $0.cell != .working && $0.cell <= loudest }
     }
 
+    /// The pill's words: what a command is, without the variables set before it. Only here, for a glance: the card beside Allow
+    /// says the whole command, as `LD_PRELOAD=… npm test` isn't `npm test`.
+    static func brief(_ words: String) -> String {
+        guard words.hasPrefix("Allow ") else { return words }
+        let parts = words.dropFirst(6).split(separator: " ", omittingEmptySubsequences: true)
+        let rest = parts.drop { $0.range(of: #"^[A-Za-z_][A-Za-z0-9_]*=\S*$"#, options: .regularExpression) != nil }
+        return rest.isEmpty ? words : "Allow " + rest.joined(separator: " ")
+    }
+
     /// A question put off: it comes back as a new one when the agent's state changes.
     static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
