@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// CI of the branch on screen: runs → jobs → steps, the failed job's log under them (the latest failure opens by itself),
-/// Re-run Failed, Ask Agent to Fix, and Run Workflow… for workflows started by hand. GitHub Actions (gh) or GitLab (glab);
+/// CI of the branch on screen: runs → jobs → steps, what broke in the picked job under them (the latest failure opens by
+/// itself; `CIJobPane`), and Run Workflow… for workflows started by hand. GitHub Actions (gh) or GitLab (glab);
 /// without them, a button that installs and signs in. The globe opens the project's pages on its site.
 @MainActor
 final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
@@ -37,23 +37,17 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var moreButton: NSButton?
     private var pages: GitWebPages.Pages?
-    private let log = NSTextView()
-    /// Over the log, as every tab's tools (DS content bar): the job's name, then its actions as icons with their names in
-    /// tooltips. Four push buttons in a row ran past a narrow inspector, "Ask Agent to Fix" cut off and two not seen.
-    private lazy var logBar = Bar.content([logTitle], [
-        IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy Log")) { [weak self] in self?.copyLog() },
-        IconButton(.symbol("sparkles"), tip: String(localized: "Ask Agent to Fix")) { [weak self] in self?.askAgent() },
-        IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Re-run Failed")) { [weak self] in self?.rerun() },
-        IconButton(.symbol("globe"), tip: String(localized: "Open in Browser")) { [weak self] in if let u = self?.shownJob?.job.url { Forge.open(u) } }
-    ])
-    private let logTitle = NSTextField(labelWithString: "")
+    private lazy var jobPane: CIJobPane = {
+        let p = CIJobPane(app: app)
+        p.onRerun = { [weak self] in self?.reload() }
+        return p
+    }()
     /// The log's half of the split, shown once a job is picked: empty, it took most of the height and left the runs a strip.
     private var logPane: (view: NSView, room: NSLayoutConstraint, split: NSSplitView)?
     private let workflowsButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var runs: [Item] = []
     private var workflows: [CIRuns.Workflow] = []
     private var worktree: String?
-    private var shownLog = "", shownJob: (job: CIRuns.Job, run: Int)?
     private var branchName = ""
     /// The branch's runs, watched while the panel shows: the daemon looks again while one runs, and says when they changed.
     private lazy var ciWatch = Watched(.ci, in: app)
@@ -96,7 +90,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         setupButton.action = #selector(runSetup)
         if #available(macOS 26, *) { setupButton.tintProminence = .primary }
 
-        let bottom = makeLogPane()
+        let bottom = jobPane.view
 
         let split = NSSplitView()
         split.isVertical = false
@@ -116,31 +110,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.loadPages()
         }
         track(owner: self) { [weak self, app] in app.ci[self?.worktree ?? ""] } changed: { [weak self] in self?.apply($0) }
-    }
-
-    /// The selected job's log under the runs, with what can be done with it above it (hidden until a job is picked).
-    private func makeLogPane() -> NSStackView {
-        log.isEditable = false
-        log.font = .uiMono(11)
-        log.textContainerInset = NSSize(width: 6, height: 6)
-        log.drawsBackground = false
-        // Lines wrap at the pane's width: a long one (a URL, a command) was cut off at the edge.
-        log.isVerticallyResizable = true
-        log.isHorizontallyResizable = false
-        log.autoresizingMask = .width
-        log.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
-        log.textContainer?.widthTracksTextView = true
-        let logScroll = NSScrollView()
-        logScroll.documentView = log
-        logScroll.hasVerticalScroller = true
-        logScroll.drawsBackground = false
-        logTitle.font = .ui(12, weight: .semibold)
-        logTitle.lineBreakMode = .byTruncatingTail
-        logTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let bottom = NSStackView(views: [logBar, logScroll])
-        bottom.orientation = .vertical
-        bottom.spacing = 0
-        return bottom
     }
 
     /// From origin, not gh: there even when gh or glab isn't set up.
@@ -176,12 +145,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         p.view.isHidden = !on
         p.room.isActive = on
         if on { p.split.setPosition(p.split.bounds.height * 0.45, ofDividerAt: 0) }
-    }
-
-    private func copyLog() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(shownLog, forType: .string)
-        Banner.show(String(localized: "Log copied"))
     }
 
     // MARK: loading
@@ -247,7 +210,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         outline.enclosingScrollView?.superview?.isHidden = text != nil
         if text != nil {
             showLogPane(false)
-            log.string = ""
+            jobPane.clear()
         }
     }
 
@@ -272,39 +235,11 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     private func showLog(_ job: CIRuns.Job, run: Int) {
         guard let w = worktree else { return }
-        shownJob = (job, run)
-        logTitle.stringValue = job.name
         showLogPane(true)
-        log.string = ""
-        // gh hands out a job's log only once it's over; the next refresh after that brings it.
-        guard job.status == "completed" else {
-            shownLog = ""
-            log.string = String(localized: "The log appears when the job finishes.")
-            return
-        }
-        let slow = whileSlow { [weak self] in if self?.shownJob?.job.id == job.id { self?.log.string = String(localized: "Loading the log…") } }
-        Task {
-            defer { slow.cancel() }
-            let r = await app.tryCall(CILog(worktreeId: w, job: job.id))
-            guard shownJob?.job.id == job.id else { return }
-            shownLog = r.value ?? r.error ?? ""
-            log.string = shownLog
-            log.scrollToEndOfDocument(nil)
-        }
+        jobPane.show(job, run: run, in: w)
     }
 
     // MARK: actions
-
-    private func askAgent() {
-        guard let w = worktree, let j = shownJob else { return }
-        guard FileActions(app).targetAgent != nil else {
-            Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)
-            return
-        }
-        GitFix(app).send("fixCI", worktree: w, vars: ["check": j.job.name, "error": shownLog])
-    }
-
-    private func rerun() { if let w = worktree, let j = shownJob { rerun(w, run: j.run) } }
 
     private func rerun(_ w: String, run: Int) {
         Task {
@@ -380,7 +315,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
     func outlineViewSelectionDidChange(_ n: Notification) {
         guard let i = outline.item(atRow: outline.selectedRow) as? Item, case .job(let j, let run) = i.kind else { return }
-        if let s = shownJob, s.job.id == j.id, s.job.status == j.status { shownJob = (j, run); return }   // a refresh, nothing new to read
+        if let s = jobPane.shown, s.job.id == j.id, s.job.status == j.status { jobPane.keep(j, run: run); return }   // a refresh, nothing new to read
         showLog(j, run: run)
     }
 
