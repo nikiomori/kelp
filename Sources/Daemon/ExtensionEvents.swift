@@ -41,6 +41,7 @@ extension Sessions {
             let asks = s.status != .done
             fire(event, cwd: s.currentDir, values: ["KELP_SESSION_ID": s.id, "KELP_AGENT": s.agent ?? "", "KELP_TITLE": s.displayTitle,
                                                     "KELP_SUMMARY": asks ? s.summary : "", "KELP_WORKSPACE_ID": s.worktreeId ?? ""])
+            phoneHeard(s)
         }
     }
 

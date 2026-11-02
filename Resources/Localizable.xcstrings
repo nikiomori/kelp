@@ -6355,6 +6355,16 @@
         }
       }
     },
+    "Off: the agent's and the workspace's names only.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено: только имена агента и воркспейса."
+          }
+        }
+      }
+    },
     "Open %@ (⇧⌘O)": {
       "localizations": {
         "ru": {
@@ -7314,6 +7324,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Личный API-ключ"
+          }
+        }
+      }
+    },
+    "Phone notifications (ntfy address)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомления на телефон (адрес ntfy)"
           }
         }
       }
@@ -9082,6 +9102,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать выполненные команды (%lld)"
+          }
+        }
+      }
+    },
+    "Show what the agent says on the phone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать на телефоне слова агента"
           }
         }
       }
@@ -10947,6 +10977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Что показывает значок Kelp в Доке. То же есть в его меню по правому клику."
+          }
+        }
+      }
+    },
+    "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда агент спрашивает, падает или упирается в лимит, а вас нет у Mac 5 минут или Kelp закрыт. Кто знает этот адрес, тот может читать отправленное."
           }
         }
       }
