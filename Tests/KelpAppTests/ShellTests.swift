@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Foundation
 import Testing
 import WorkbenchKit
@@ -40,6 +41,30 @@ import WorkbenchKit
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
     for _ in 0..<50 where card.shownKey != nil { try await Task.sleep(for: .milliseconds(20)) }
     #expect(card.shownKey == nil)
+}
+
+/// A tab's look is compared with its last on every session's change: a new image each time never equals it.
+@MainActor @Test func anAgentsIconIsTheSameImageUntilItsSourceChanges() {
+    let app = AppModel(builtins: Builtins.all)
+    let id = "some-agent-without-an-icon"
+    let letter = app.catalog.icon(id)
+    #expect(letter != nil && letter === app.catalog.icon(id))
+    #expect(letter !== app.catalog.icon(id, size: 24))
+    #expect(app.catalog.icon("shell") === app.catalog.icon(nil))
+    for key in app.agentIcons.made.keys { app.agentIcons.made[key]?.source = NSImage() }   // not what agentIcons holds now
+    #expect(app.catalog.icon(id) !== letter)
+}
+
+/// Off stays off: a tab's refresh must not start a fade on a glow nobody sees.
+@MainActor @Test func aGlowAskedForWhatItAlreadyShowsDoesNothing() {
+    let glow = EdgeGlow(radius: 4, spread: 2)
+    glow.show(nil, breathing: false)
+    #expect(glow.isHidden)
+    glow.show(.systemOrange, breathing: false)
+    #expect(!glow.isHidden)
+    glow.alphaValue = 0.3
+    glow.show(.systemOrange, breathing: false)
+    #expect(glow.alphaValue == 0.3)
 }
 
 @Test func agesAreAsShortAsARowAllows() {

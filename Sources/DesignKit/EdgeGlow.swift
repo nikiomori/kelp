@@ -34,6 +34,7 @@ public final class EdgeGlow: NSView {
 
     /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none.
     public func show(_ color: NSColor?, breathing: Bool) {
+        guard color != self.color || breathing != self.breathing else { return }   // every tab's every refresh comes here
         self.color = color
         self.breathing = breathing
         guard let color else {
@@ -87,7 +88,10 @@ public final class EdgeGlow: NSView {
 
     override public func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        if let color, !isHidden { show(color, breathing: breathing) }
+        if let color, !isHidden {
+            self.color = nil   // the same colour, resolved anew
+            show(color, breathing: breathing)
+        }
     }
 
     override public func layout() {

@@ -47,7 +47,7 @@ package final class EditorArea: NSViewController {
                 + (app.ports[self?.workspaceId ?? ""] ?? []).map { "\($0.port) \($0.session)" }
         } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
         track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in   // the tabs' titles take the new size
-            self?.groupViews.keys.forEach { self?.refreshGroup($0) }
+            self?.groupViews.values.forEach { $0.strip.restyle() }
         }
         // The empty workspace lists the agents that work, with their icons; rebuild it when either changes.
         track(owner: self) { app.availability.ids } changed: { [weak self] _ in self?.rebuildStart() }

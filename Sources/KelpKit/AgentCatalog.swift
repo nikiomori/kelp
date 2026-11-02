@@ -96,11 +96,27 @@ package struct AgentCatalog {
     }
 
     /// The agent's real icon when there is one (AgentIcons), else its initial on a tile of the same shape; a terminal's symbol.
+    /// The same image each time: a tab's look is compared with its last one, on every session's every change, and a new
+    /// image never equals the last. `agentIcons` is still read, so whoever shows this hears when the real icon arrives.
     package func icon(_ id: String?, size: CGFloat = 16) -> NSImage? {
-        guard let id, id != "shell", id != "custom" else { return .symbol(id == "custom" ? "apple.terminal" : "terminal") }
-        guard let real = app.agentIcons.image(id)?.copy() as? NSImage else { return IconTile.letter(name(id), color: Self.brand[id], size: size) }
-        real.size = NSSize(width: size, height: size)
-        return real
+        guard let id, id != "shell", id != "custom" else {
+            let name = id == "custom" ? "apple.terminal" : "terminal"
+            if let known = app.agentIcons.made[name] { return known.image }
+            let image = NSImage.symbol(name)
+            app.agentIcons.made[name] = (nil, image)
+            return image
+        }
+        let real = app.agentIcons.image(id), title = name(id), key = "\(id) \(size) \(title)"
+        if let known = app.agentIcons.made[key], known.source === real { return known.image }
+        let image: NSImage
+        if let copy = real?.copy() as? NSImage {
+            copy.size = NSSize(width: size, height: size)
+            image = copy
+        } else {
+            image = IconTile.letter(title, color: Self.brand[id], size: size)
+        }
+        app.agentIcons.made[key] = (real, image)
+        return image
     }
     /// Colours for the initials of agents whose icon isn't found (yet): the vendor's, near enough.
     private static let brand: [String: NSColor] = ["claude": NSColor(srgbRed: 0.85, green: 0.47, blue: 0.34, alpha: 1),

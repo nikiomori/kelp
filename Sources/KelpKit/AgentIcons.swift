@@ -21,6 +21,9 @@ final class AgentIcons {
         "omp": ([], "omp.sh"), "fx": ([], "fx.sh"), "hermes": ([], "hermes-agent.nousresearch.com"), "pi": ([], "pi.dev")
     ]
 
+    /// What `AgentCatalog.icon` made, by agent and size, with the icon it came from.
+    @ObservationIgnored var made: [String: (source: NSImage?, image: NSImage)] = [:]
+
     func image(_ id: String) -> NSImage? {
         if !asked.contains(id) { asked.insert(id); load(id) }
         return images[id]

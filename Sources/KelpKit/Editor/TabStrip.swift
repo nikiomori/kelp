@@ -11,7 +11,7 @@ extension NSPasteboard.PasteboardType { static let kelpTab = NSPasteboard.Pasteb
 final class TabStrip: NSView {
     /// Room around the tabs: they don't run into the strip's edges or the pane dividers.
     static let height: CGFloat = 40
-    struct Item {
+    struct Item: Equatable {
         let id: String
         var title: String
         var icon: NSImage?
@@ -36,7 +36,7 @@ final class TabStrip: NSView {
     var onNewAgent: (() -> Void)?
     var onUnzoom: (() -> Void)?
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
-    var zoomed = false { didSet { unzoom.isHidden = !zoomed } }
+    var zoomed = false { didSet { unzoom.isHidden = !zoomed; measured = nil } }
     private let unzoom = PointerButton(frame: .zero)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     private let stack = NSStackView()
@@ -58,6 +58,10 @@ final class TabStrip: NSView {
     /// "+" follows the last tab (set in layout); with the strip full, it stays at the right end.
     private var addLead: NSLayoutConstraint?
     private var laidOutWidth: CGFloat = 0
+    /// How wide the tabs and the buttons beside them want to be: the same at any width of the strip, and asking takes a
+    /// layout pass, for each step of a panel sliding by.
+    private var measured: (tabs: CGFloat, others: CGFloat)?
+    private var revealing = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -151,6 +155,8 @@ final class TabStrip: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     func set(_ items: [Item], selected: String?) {
+        guard items != self.items || selected != selectedId else { return }   // any session's change comes here, for every pane
+        measured = nil
         // A button stays with its tab: closing, opening or moving one moves only that, and the rest slide.
         let kept = Dictionary(zip(self.items.map(\.id), buttons)) { first, _ in first }
         let next = items.map { kept[$0.id] ?? newButton() }
@@ -170,7 +176,24 @@ final class TabStrip: NSView {
         self.items = items; selectedId = selected
         needsLayout = true
         if !places.isEmpty { settle(from: places) }
-        DispatchQueue.main.async { [weak self] in self?.revealSelected() }
+        revealSoon()
+    }
+
+    /// The titles' font changed: the tabs take it, and their widths with it.
+    func restyle() {
+        buttons.forEach { $0.restyle() }
+        measured = nil
+        needsLayout = true
+    }
+
+    /// Next turn of the run loop, once however often it's asked.
+    private func revealSoon() {
+        guard !revealing else { return }
+        revealing = true
+        DispatchQueue.main.async { [weak self] in
+            self?.revealing = false
+            self?.revealSelected()
+        }
     }
 
     private func newButton() -> TabButton {
@@ -198,17 +221,19 @@ final class TabStrip: NSView {
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // Before super.layout(): set after it, the constant only took effect on the next pass, so a tab whose title
         // grew (a page finishing loading) stayed clipped until something else laid the strip out.
-        let natural = stack.fittingSize.width
-        let room = bounds.width - 6 - (overflow.superview?.fittingSize.width ?? 0) - 2 - adds.fittingSize.width
+        let sizes = measured ?? (stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width)
+        measured = sizes
+        let natural = sizes.tabs, room = bounds.width - 6 - sizes.others - 2
         let x = max(0, min(natural, room))
         if abs((addLead?.constant ?? 0) - x) > 0.5 { addLead?.constant = x }
-        overflow.isHidden = natural <= room + 1
+        let fits = natural <= room + 1
+        if overflow.isHidden != fits { overflow.isHidden = fits; measured = nil }
         super.layout()
         fadeEdges()
         // Squeezed (a narrower window, the inspector opening): the chosen tab is scrolled back into view.
         if bounds.width != laidOutWidth {
             laidOutWidth = bounds.width
-            DispatchQueue.main.async { [weak self] in self?.revealSelected() }
+            revealSoon()
         }
     }
 
@@ -238,6 +263,7 @@ final class TabStrip: NSView {
     @objc private func stripScrolled() { fadeEdges() }
     /// The agent "+" would start first (nil: no agent CLI found, the button hides).
     func setNewAgent(icon: NSImage?, name: String) {
+        if newAgent.isHidden != (icon == nil) { measured = nil }
         newAgent.isHidden = icon == nil
         newAgent.image = icon
         newAgent.toolTip = String(localized: "New \(name) (⌥⌘T)"); newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
@@ -312,7 +338,7 @@ private final class TabButton: NSControl, NSDraggingSource {
     weak var strip: TabStrip?
     private var item: TabStrip.Item?
     private var selected = false
-    var groupFocused = false { didSet { updateLook() } }
+    var groupFocused = false { didSet { if groupFocused != oldValue { updateLook() } } }
     private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero), editedDot = NSImageView()
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
@@ -426,6 +452,8 @@ private final class TabButton: NSControl, NSDraggingSource {
         default: nil
         }
     }
+
+    func restyle() { updateLook() }
 
     private func updateLook() {
         let edited = item?.edited == true
