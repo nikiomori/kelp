@@ -27,6 +27,10 @@ public final class EdgeGlow: NSView {
         frameLayer.shadowOpacity = strength
         layer?.addSublayer(frameLayer)
         followReduceMotion(#selector(motionChanged))
+        // A pane's ring lights a screenful: with nobody at the window it holds still.
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(motionChanged), name: name, object: nil)
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -58,10 +62,11 @@ public final class EdgeGlow: NSView {
                 frameLayer.fillColor = color.cgColor; frameLayer.shadowColor = color.cgColor
             }
         }
-        breathe(breathing && !Motion.reduced)
+        breathe(breathes)
     }
 
-    @objc private func motionChanged() { breathe(color != nil && breathing && !Motion.reduced) }
+    private var breathes: Bool { color != nil && breathing && !Motion.reduced && NSApplication.shared.isActive }
+    @objc private func motionChanged() { breathe(breathes) }
 
     private func breathe(_ on: Bool) {
         let breathingNow = frameLayer.animation(forKey: "breathe") != nil
@@ -78,6 +83,7 @@ public final class EdgeGlow: NSView {
             a.autoreverses = true
             a.repeatCount = .infinity
             a.beginTime = Motion.beat(2 * a.duration)
+            a.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)   // no faster than it shows
             frameLayer.add(a, forKey: "breathe")
         } else {
             a.toValue = 1   // back to full from wherever the breath was
