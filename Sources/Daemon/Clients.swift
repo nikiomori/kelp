@@ -23,13 +23,16 @@ final class Clients: Sendable {
     /// Raw until it asks for something (`kelp attach` sends `session.stream` first): an event broadcast before then would
     /// land in its byte stream, on the screen.
     func add(fd: Int32) -> Connection {
-        state.withLock { s in
-            let c = Connection(id: s.next, fd: fd)
-            s.next += 1
-            s.all[c.id] = c
-            s.raw.insert(c.id)
-            return c
+        let id = state.withLock { s in
+            defer { s.next += 1 }
+            return s.next
         }
+        let c = Connection(id: id, fd: fd)   // asks the system who connected: not under the lock every event takes
+        state.withLock { s in
+            s.all[id] = c
+            s.raw.insert(id)
+        }
+        return c
     }
 
     /// Gone: it gets nothing more, and the app's published state goes with the last app.

@@ -24,6 +24,9 @@ extension Forges {
     func clone(_ url: String, into parent: String, folder: String? = nil, id: String, conn: Int) async throws -> String {
         let url = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !url.hasPrefix("-") else { throw RPCError.invalidParams("Enter the repository's URL.") }
+        // Holds a slot, so an update waits for it (`Daemon.upgrade`).
+        guard await offloads.acquire() else { throw RPCError.invalidParams("Kelp is updating. Try again in a moment.") }
+        defer { offloads.release() }
         let dest = try Self.newFolder(folder ?? RepoClone.folderName(url), in: parent)
         // Made here, atomically: two clones that pick the same name can't both get past this, so the cleanup below only
         // ever removes this clone's own folder (git clones into an empty folder that exists).
@@ -44,7 +47,8 @@ extension Forges {
         // git rewrites its progress line with \r: pass the latest one on, at most a few times a second.
         let log = CloneLog(), eof = DispatchSemaphore(value: 0)
         err.fileHandleForReading.readabilityHandler = { [weak self] h in
-            let d = h.availableData
+            // Not `availableData`, which raises on a read error and would take the daemon down.
+            let d = (Log.store.attempt("reading git's progress") { try h.read(upToCount: 65536) } ?? nil) ?? Data()
             // The end: the handler goes (it would be called again and again with nothing), and the failure can be read.
             guard !d.isEmpty else {
                 h.readabilityHandler = nil

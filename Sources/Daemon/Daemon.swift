@@ -225,9 +225,12 @@ public final class Daemon: Sendable {
             Upgrade.refuse(root: root, executable: executable, "The new background service can't take the running sessions over.")
             return nil
         }
-        // A clone or a worktree being made finishes, not cut off mid-way; none starts from here (a client is told why).
+        // A clone or a worktree being made finishes, not cut off mid-way; none starts from here (a client is told why). A
+        // clone that takes longer is cancelled: past the exec nothing here would remove its half-made folder.
         offloads.close()
         offloads.waitIdle(seconds: checked ? 3 : 5)
+        forges.clones.cancelAll()
+        offloads.waitIdle(seconds: 2)
         guard let h = handOver() else { return nil }
         let file = root.appendingPathComponent("handover.json")
         do {

@@ -16,7 +16,10 @@ final class Forges: Sendable {
     final class Clones: Sendable {
         private let running = OSAllocatedUnfairLock<[String: Process]>(initialState: [:])
         func set(_ id: String, _ p: Process?) { running.withLock { $0[id] = p } }
-        func cancel(_ id: String) { running.withLock { $0[id] }?.interrupt() }
+        /// Not one still starting: `interrupt` raises before `run`, and that would take the daemon down.
+        func cancel(_ id: String) { running.withLock { $0[id] }.map(Self.interrupt) }
+        func cancelAll() { running.withLock { Array($0.values) }.forEach(Self.interrupt) }
+        private static func interrupt(_ p: Process) { if p.isRunning { p.interrupt() } }
     }
 
     let store: Store, clients: Clients, remotes: Remotes

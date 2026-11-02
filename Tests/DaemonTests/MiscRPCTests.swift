@@ -52,6 +52,14 @@ func trustQuestionStandIn() -> String {
     _ = try await w.c.call("repo.cloneCancel", .obj(["id": "never-started"]))
 }
 
+/// A cancel can land between a clone's `set` and its `run`: `interrupt` raises there, and that would end the daemon.
+@Test func cancellingACloneStillStartingIsHarmless() {
+    let c = Forges.Clones()
+    c.set("x", Process())
+    c.cancel("x")
+    c.cancelAll()
+}
+
 @Test func anIssueBecomesABranchADeskAndABriefedAgent() async throws {
     let script = #"read -r l; echo "BRIEF:$l""#
     let fake = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script], autoAnswers: [], resumeArgs: [])
