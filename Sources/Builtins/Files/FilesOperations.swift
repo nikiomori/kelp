@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// File operations, done by the daemon (`files.*`: the same rules for every client, and a remote project's refused there
@@ -25,7 +26,11 @@ extension FilesPanel {
     func trash(_ paths: @escaping @MainActor () async -> [String], undo name: String) -> Task<[FileMove], Never> {
         let t = Task {
             let p = await paths()
-            guard !p.isEmpty, let r = await app.call(FilesTrash(paths: p)) else { return [FileMove]() }
+            fadeRows(Set(p))
+            guard !p.isEmpty, let r = await app.call(FilesTrash(paths: p)) else {
+                showFadedRows()
+                return [FileMove]()
+            }
             return done(r)
         }
         undoable(name, t) { $0.move({ await t.value.reversed().map(\.back) }, undo: name) }
@@ -48,6 +53,25 @@ extension FilesPanel {
         let t = Task { await app.call(FilesCreate(path: dir + "/untitled", unique: true)).map { [$0] } ?? [] }
         undoable(name, t) { $0.trash({ await t.value }, undo: name) }
         return Task { await t.value.first }
+    }
+
+    /// A row's key across a reload.
+    func rowKey(_ row: Int) -> String? { (outline.item(atRow: row) as? FileNode)?.path }
+
+    /// On their way to the Trash: the rows fade where they stand, and the reload closes the gap.
+    private func fadeRows(_ paths: Set<String>) {
+        guard !Motion.reduced else { return }
+        outline.enumerateAvailableRowViews { v, row in
+            guard let key = rowKey(row), paths.contains(URL(fileURLWithPath: root).appendingPathComponent(key).path) else { return }
+            fadedRows.append(v)
+            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; v.animator().alphaValue = 0 }
+        }
+    }
+
+    /// A row view is used again for another row: before a reload, or if the Trash refused.
+    func showFadedRows() {
+        fadedRows.forEach { $0.alphaValue = 1 }
+        fadedRows = []
     }
 
     /// What moved; why the rest didn't, said.

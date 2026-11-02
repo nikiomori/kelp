@@ -76,6 +76,39 @@ extension NSView {
         layer.add(a, forKey: "slide")
     }
 
+    /// Coming into view (what appears over content, not a row): it fades in, rising a little.
+    public func comeIn() {
+        guard !Motion.reduced, window != nil else { return }
+        wantsLayer = true
+        alphaValue = 0
+        slide(from: NSPoint(x: placeInWindow.x, y: placeInWindow.y - Metrics.gapWide))
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            animator().alphaValue = 1
+        }
+    }
+
+    /// About to go in a change that can't animate it: a picture of the view stays where it stood, over `parent`, and
+    /// fades. Call it before the view is removed.
+    public func leaveGhost(in parent: NSView) {
+        guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
+              let picture = bitmapImageRepForCachingDisplay(in: bounds) else { return }
+        cacheDisplay(in: bounds, to: picture)
+        let image = NSImage(size: bounds.size)
+        image.addRepresentation(picture)
+        let ghost = Ghost(image: image)
+        ghost.frame = parent.convert(bounds, from: self)
+        parent.addSubview(ghost)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ghost.animator().alphaValue = 0
+        } completionHandler: {
+            MainActor.assumeIsolated { ghost.removeFromSuperview() }   // AppKit runs it on the main thread
+        }
+    }
+
     /// Something failed: the view shakes its head, as a password field does.
     public func shake() {
         wantsLayer = true
@@ -112,5 +145,45 @@ extension NSView {
     private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
         CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),
                             CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
+    }
+}
+
+/// What `leaveGhost` leaves: only a picture, clicks go through it.
+private final class Ghost: NSImageView {
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+@MainActor
+extension NSTableView {
+    /// Where the rows on show stand, by a key that outlives a reload: for `settleRows` after it.
+    public func rowPlaces(_ key: (Int) -> String?) -> [String: NSPoint] {
+        var places: [String: NSPoint] = [:]
+        enumerateAvailableRowViews { v, row in
+            if let k = key(row) { places[k] = v.placeInWindow }
+        }
+        return places
+    }
+
+    /// After a reload: rows that stayed travel from where they stood, new ones fade in. More than a few coming or going
+    /// is the list changing as a whole, not something happening: that just shows.
+    public func settleRows(from places: [String: NSPoint], _ key: (Int) -> String?) {
+        guard !places.isEmpty, !Motion.reduced, window?.isVisible == true else { return }
+        layoutSubtreeIfNeeded()
+        var rows: [(NSTableRowView, String)] = []
+        enumerateAvailableRowViews { v, row in
+            if let k = key(row) { rows.append((v, k)) }
+        }
+        let came = rows.filter { places[$0.1] == nil }, kept = Set(rows.map(\.1))
+        guard came.count + places.keys.filter({ !kept.contains($0) }).count <= 3 else { return }
+        for (row, k) in rows { if let place = places[k] { row.slide(from: place) } }
+        for (row, _) in came {
+            row.wantsLayer = true
+            let a = CABasicAnimation(keyPath: "opacity")
+            a.fromValue = 0
+            a.toValue = 1
+            a.duration = Motion.appear
+            a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            row.layer?.add(a, forKey: "arrive")
+        }
     }
 }

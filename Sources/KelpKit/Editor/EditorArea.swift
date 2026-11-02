@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 package enum SplitDirection: String { case right, down }
@@ -80,7 +81,13 @@ package final class EditorArea: NSViewController {
 
     // MARK: rendering
 
+    /// The panes on show, to tell a change of shape from a tab moving.
+    private var shownPanes: Set<String>?
     func render() {
+        // A pane opened, closed or zoomed: everything in the area changes place at once, so it fades into its new shape.
+        let panes = Set(layout.allTabs.isEmpty ? [] : layout.root?.sessions ?? []).union(zoomed.map { [$0] } ?? [])
+        if let shownPanes, shownPanes != panes, view.window != nil { view.crossfade(Motion.base) }
+        shownPanes = panes
         view.subviews.forEach { $0.removeFromSuperview() }
         guard var root = layout.root, !layout.allTabs.isEmpty else { showStart(); return }
         start = nil

@@ -18,6 +18,7 @@ enum SettingsWindow {
                              backing: .buffered, defer: false)
             w.title = String(localized: "Settings")
             w.isReleasedWhenClosed = false
+            w.animationBehavior = .documentWindow   // the system's own open and close
             w.toolbarStyle = .unified
             w.standardWindowButton(.zoomButton)?.isEnabled = false   // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
             let host = NSHostingController(rootView: SettingsView().environment(app))

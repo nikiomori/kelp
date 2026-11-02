@@ -38,6 +38,7 @@ extension DiffViewController {
                 // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
                 let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: header, fingerprint: print)
                 if let e = await app.tryCall(m).error { Banner.show(e, style: .error) }
+                self.fadesNextLoad = true
                 await self.load()
                 app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
             }

@@ -110,7 +110,9 @@ final class PaneView: NSView {
         lastStatus = s?.status
         if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached { reattach(s) }
         let paused = !attached && s?.status == .hibernated
+        let wasHidden = endedCard.isHidden
         endedCard.isHidden = attached && s?.status != .exited
+        if wasHidden, !endedCard.isHidden { endedCard.comeIn() }
         // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
         let lost = s?.connectionLost == true
         endedLabel.stringValue = paused ? String(localized: "Paused") : lost ? String(localized: "Connection lost") : String(localized: "Session ended")

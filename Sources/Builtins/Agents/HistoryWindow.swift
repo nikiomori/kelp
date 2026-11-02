@@ -59,6 +59,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 600), styleMask: [.titled, .closable, .resizable, .miniaturizable],
                          backing: .buffered, defer: false)
         w.title = String(localized: "Session History")
+        w.animationBehavior = .documentWindow   // the system's own open and close
         let content = stacked(bar, sv)
         w.contentView = content
         spinner.style = .spinning

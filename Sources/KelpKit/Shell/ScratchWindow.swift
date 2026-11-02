@@ -39,6 +39,7 @@ final class ScratchWindow: NSObject, NSWindowDelegate {
             p.hidesOnDeactivate = false
             p.becomesKeyOnlyIfNeeded = false
             p.isReleasedWhenClosed = false
+            p.animationBehavior = .utilityWindow   // it comes and goes with one key: the system's fade, not a cut
             p.delegate = self
             p.contentViewController = a   // (the window takes the controller's empty view's size: set it after)
             p.minSize = NSSize(width: 420, height: 240)

@@ -42,9 +42,22 @@ extension SourceControlController {
 
     // MARK: files
 
-    /// Where the file rows stand, while staged files are about to change sections; nil-like empty otherwise.
+    private var changeShape: Set<String> { Set(changes.map { "\($0.staged) \($0.path)" }) }
+    /// Files are about to be staged or discarded: the next status that differs moves the rows.
+    func noteChanges() { staging = changeShape }
+
+    /// Discarded: the rows fade where they stand; the status then closes the gap (and a failed discard rebuilds them).
+    func fadeRows(_ paths: Set<String>) {
+        guard !Motion.reduced else { return }
+        for r in 0..<outline.numberOfRows {
+            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell, paths.contains(cell.path) else { continue }
+            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; cell.animator().alphaValue = 0 }
+        }
+    }
+
+    /// Where the file rows stand, while files are about to change; empty otherwise.
     func stagingPlaces() -> [String: NSPoint] {
-        guard let was = staging, was != Set(changes.filter(\.staged).map(\.path)) else { return [:] }
+        guard let was = staging, was != changeShape else { return [:] }
         staging = nil
         var places: [String: NSPoint] = [:]
         for r in 0..<outline.numberOfRows {

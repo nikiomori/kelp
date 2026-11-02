@@ -26,6 +26,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     let status = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
     var diffs: [FileDiff] = []
+    /// A hunk was discarded: what's left fades in rather than the lines jumping up.
+    var fadesNextLoad = false
     var rows: [ReviewRow] = []
     var comments: [DiffComment] = []
     var changes: [FileChange] = []
@@ -345,6 +347,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         Task {
             let built = await buildRows(d, cm, sideBySide: layout)
             guard n == builds else { return }
+            if fadesNextLoad { table.crossfade(Motion.base) }
+            fadesNextLoad = false
             (rows, words) = built; table.reloadData()
         }
     }

@@ -15,6 +15,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     let outline = FilesOutline()
     /// The row whose name is being edited in place (a rename, or a new file).
     var renaming: (field: NSTextField, url: URL, open: Bool)?
+    /// Rows fading on their way to the Trash.
+    var fadedRows: [NSTableRowView] = []
     let results = ResultsTable()
     let search = NSSearchField()
     let leftScroll = NSScrollView(), resultsScroll = NSScrollView()
@@ -185,6 +187,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             (outline.item(atRow: $0) as? FileNode).flatMap { outline.isItemExpanded($0) ? $0.path : nil }
         })
         let selected = (outline.item(atRow: outline.selectedRow) as? FileNode)?.path
+        let places = outline.rowPlaces(rowKey)
+        showFadedRows()
         nodes = FileNode.tree(paths, ignored: e.ignored ?? [])
         // outer first
         for f in opened.keys.sorted(by: { $0.count < $1.count }) { FileNode.find(f, in: nodes).map { if $0.ignored { $0.read(opened[f] ?? []) } } }
@@ -197,6 +201,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         expand(nodes)
         if let selected, let n = node(at: selected) { outline.selectRowIndexes([outline.row(forItem: n)], byExtendingSelection: false) }
+        outline.settleRows(from: places, rowKey)
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { QLPreviewPanel.shared().reloadData() }
     }
 

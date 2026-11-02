@@ -158,7 +158,10 @@ final class TabStrip: NSView {
         // Nothing in common: another workspace's tabs, which simply show.
         let places = moved && window != nil && items.contains { kept[$0.id] != nil }
             ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
-        for b in buttons where !next.contains(b) { b.removeFromSuperview() }
+        for b in buttons where !next.contains(b) {
+            if !places.isEmpty { b.leaveGhost(in: self) }
+            b.removeFromSuperview()
+        }
         for (i, b) in next.enumerated() where stack.arrangedSubviews.indices.contains(i) ? stack.arrangedSubviews[i] !== b : true {
             stack.insertArrangedSubview(b, at: i)
         }

@@ -57,7 +57,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var finishes = 0
     /// A commit went through: the list of changes fades to what's left rather than switching.
     var clearing = false
-    /// Files were staged or unstaged: they travel to their section when the status shows it (the staged set then).
+    /// Files were staged, unstaged or discarded: the rows travel to their places when the status shows it (the shape then).
     var staging: Set<String>?
     /// While a push, pull or sync runs: what the button says, and whether the ↑ arrows pulse.
     var syncing: (title: String, push: Bool, pull: Bool)? { didSet { showWork() } }

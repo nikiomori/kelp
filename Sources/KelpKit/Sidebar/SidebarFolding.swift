@@ -168,6 +168,17 @@ extension SidebarController {
         }
     }
 
+    /// Rows `next` doesn't have (an agent ended, a workspace deleted) fade where they stood, as long as they're few.
+    func leaveGhosts(of shown: Set<String>, next: [Node]) {
+        func keys(_ ns: [Node]) -> [String] { ns.flatMap { [$0.key] + keys($0.children) } }
+        let gone = shown.subtracting(keys(next))
+        guard !gone.isEmpty, gone.count <= 3, let list = outline.enclosingScrollView else { return }
+        for key in gone {
+            guard let n = node(key), case let row = outline.row(forItem: n), row >= 0 else { continue }
+            outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(in: list)
+        }
+    }
+
     /// Where the rows on show stand, for `closeUp`.
     func rowPlaces() -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]

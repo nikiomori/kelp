@@ -271,6 +271,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         search.isHidden = projects.isEmpty
         if nextShape == shape { updateVisibleCells(); return }
         let before = shownRows(), places = rowPlaces(), cardFrames = cards.mapValues(\.frame)
+        leaveGhosts(of: before, next: next)
         roots = next; shape = nextShape
         syncing = true
         outline.reloadData()

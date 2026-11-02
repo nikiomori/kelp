@@ -34,7 +34,7 @@ extension SourceControlController {
 
     private func stage(_ files: [FileChange], _ on: Bool) {
         let paths = files.map(\.path)
-        staging = Set(changes.filter(\.staged).map(\.path))
+        noteChanges()
         if on { run { GitStage(id: $0, files: paths) } } else { run { GitUnstage(id: $0, files: paths) } }
     }
 
@@ -56,6 +56,8 @@ extension SourceControlController {
         a.addButton(withTitle: String(localized: "Cancel"))
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            noteChanges()
+            fadeRows(Set(files.map(\.path)))
             run { GitDiscard(id: $0, files: files.map(\.path)) }
         }
     }
