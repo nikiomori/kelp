@@ -170,25 +170,26 @@ extension EditorArea {
 
     func tabMenu(_ id: String) -> NSMenu {
         let m = NSMenu()
+        if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, let items = app.extensions.tabProvider(for: uri)?.menu {
+            items(m, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
+            if !m.items.isEmpty { m.addItem(.separator()) }
+        }
         m.add(String(localized: "Split Right")) { [weak self] in self?.select(id); self?.splitFocused(.right) }
         m.add(String(localized: "Split Down")) { [weak self] in self?.select(id); self?.splitFocused(.down) }
         m.addItem(.separator())
-        if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, let items = app.extensions.tabProvider(for: uri)?.menu {
-            let before = m.items.count
-            items(m, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
-            if m.items.count > before { m.addItem(.separator()) }
-        }
         // A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
            let s = app.session(TabURI.body(uri)), s.status != .exited, app.scripts.choice(of: s) != nil {
             m.add(String(localized: "Hide in Run Menu")) { [app] in app.scripts.hide(s.id) }
         }
         m.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
-        m.add(String(localized: "Close Other Tabs")) { [weak self] in
-            guard let self, let gid = layout.group(of: id) else { return }
-            let others = (layout.groups[gid]?.tabs ?? []).filter { $0.id != id }
-            Task { for t in others { await self.closeTabAsking(t.id) } }   // one question at a time
+        let tabs = layout.group(of: id).flatMap { layout.groups[$0]?.tabs } ?? []
+        func close(_ title: String, _ gone: [TabRef]) {
+            guard !gone.isEmpty else { return }
+            m.add(title) { [weak self] in Task { for t in gone { await self?.closeTabAsking(t.id) } } }   // one question at a time
         }
+        close(String(localized: "Close Other Tabs"), tabs.filter { $0.id != id })
+        close(String(localized: "Close Tabs to the Right"), Array(tabs.drop { $0.id != id }.dropFirst()))
         return m
     }
 

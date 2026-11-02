@@ -110,10 +110,11 @@ extension OneAtATime {
         let area = EditorArea(app: app, workspaceId: "menu-test")
         let agent = area.layout.add("session:s1"), page = area.layout.add(TabURI.file("/tmp/a.html")), web = area.layout.add("https://example.com")
         func titles(_ id: String) -> [String] { area.tabMenu(id).items.map { $0.isSeparatorItem ? "-" : $0.title } }
-        let around = (["Split Right", "Split Down", "-"], ["Close Tab", "Close Other Tabs"])
-        #expect(titles(agent.id) == around.0 + ["Rename…", "Restart", "Copy Context", "Hand Off to", "Changes in Its Last Turn", "-"] + around.1)
-        #expect(titles(page.id) == around.0 + ["Reveal in Finder", "Copy Path", "Copy Web Link", "Send to Agent", "Open Preview to the Side", "-"] + around.1)
-        #expect(titles(web.id) == around.0 + around.1)
+        let splits = ["Split Right", "Split Down", "-", "Close Tab", "Close Other Tabs"]
+        #expect(titles(agent.id) == ["Rename…", "Hand Off to", "Copy Context", "Changes in Its Last Turn", "Restart", "-"] + splits + ["Close Tabs to the Right"])
+        let open = WorkspaceActions.installedEditors.isEmpty ? [] : ["Open In"]
+        #expect(titles(page.id) == ["Send to Agent", "Open Preview to the Side", "-", "Reveal in Finder"] + open + ["Copy", "-"] + splits + ["Close Tabs to the Right"])
+        #expect(titles(web.id) == splits)   // nothing to its right
     }
 }
 

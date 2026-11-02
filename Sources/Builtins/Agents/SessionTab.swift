@@ -60,14 +60,15 @@ final class SessionTab: TabContent {
     static func menu(_ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void) {
         let sid = TabURI.body(uri)
         m.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
-        m.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
-        guard app.session(sid)?.agent != "shell" else { return }   // a terminal has no conversation to copy or hand over
-        m.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
-        m.setSubmenu(AgentActions(app).handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
-        m.add(String(localized: "Changes in Its Last Turn")) {
-            app.workbench.focusedSession = sid
-            openBeside(TabURI.diff(workspace, source: "turn"))
+        if app.session(sid)?.agent != "shell" {   // a terminal has no conversation to copy or hand over
+            m.setSubmenu(AgentActions(app).handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            m.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
+            m.add(String(localized: "Changes in Its Last Turn")) {
+                app.workbench.focusedSession = sid
+                openBeside(TabURI.diff(workspace, source: "turn"))
+            }
         }
+        m.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
     }
 
     /// Also for a tab that was never built (EditorArea closes those without making them).

@@ -488,13 +488,12 @@ final class FileTab: SavableTab {
 
     static func menu(_ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void) {
         let path = TabURI.filePath(uri).path
-        m.add(String(localized: "Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
-        m.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string) }
-        m.add(String(localized: "Copy Web Link")) { FileActions(app).copyWebLink(path) }
         m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
         if ["html", "htm"].contains((path as NSString).pathExtension.lowercased()) {
             m.add(String(localized: "Open Preview to the Side")) { openBeside("preview:" + path) }
         }
+        m.addItem(.separator())
+        WorkspaceActions.addLocate(to: m, path: path, copies: [(String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })])
     }
 
     /// What the tab shows instead of the file: the empty state, a warning when it couldn't be opened.
