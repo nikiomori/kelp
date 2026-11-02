@@ -1,5 +1,6 @@
 import AppKit
 import DesignKit
+import KelpKit
 
 /// A push button with a menu: the menu's arrow inside its capsule behind a hairline, as VS Code's Commit, not a second
 /// capsule beside it (two capsules read as two actions). macOS's NSComboButton would do it, but takes no accent tint.
@@ -9,6 +10,32 @@ final class SplitPushButton: NSButton {
     let arrow = NSButton()
     private let divider = NSView()
     private var keyWatch: [NSObjectProtocol] = []
+    private let glow = EdgeGlow(radius: Metrics.radiusSM, spread: 4, strength: 0.7)
+    private let ring = StatusMark(size: 12)
+    /// What the button's action is doing. The state is light along its edge, as a tab's and a pane's are, with the words
+    /// on the button saying which; a ring turns in the capsule while it goes on.
+    enum Work { case none, running, done, failed }
+    var work = Work.none {
+        didSet {
+            guard work != oldValue else { return }
+            ring.status = work == .running ? .working : nil
+            switch work {
+            case .none: glow.show(nil, breathing: false)
+            case .running: glow.show(.themeAccent, breathing: true)
+            case .done: glow.show(.systemGreen, breathing: false)
+            case .failed:
+                glow.show(.systemRed, breathing: false)
+                shake()
+            }
+            tint()
+        }
+    }
+    /// The words change in a fade, the capsule keeping its place.
+    func say(_ words: String) {
+        guard words != title else { return }
+        if window != nil { crossfade() }
+        title = words
+    }
     /// The accent fill (macOS 26's primary tint): the panel's main action while it has something to do.
     var primary = false {
         didSet {
@@ -32,12 +59,14 @@ final class SplitPushButton: NSButton {
         arrow.isBordered = false
         arrow.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: .semibold)
         divider.wantsLayer = true
-        for v in [arrow, divider] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [arrow, divider, ring] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        addSubview(glow)
         NSLayoutConstraint.activate([
             arrow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4), arrow.centerYAnchor.constraint(equalTo: centerYAnchor),
             arrow.widthAnchor.constraint(equalToConstant: 26), arrow.heightAnchor.constraint(equalToConstant: 22),
             divider.trailingAnchor.constraint(equalTo: arrow.leadingAnchor, constant: -2), divider.centerYAnchor.constraint(equalTo: centerYAnchor),
-            divider.widthAnchor.constraint(equalToConstant: 1), divider.heightAnchor.constraint(equalToConstant: 16)
+            divider.widthAnchor.constraint(equalToConstant: 1), divider.heightAnchor.constraint(equalToConstant: 16),
+            ring.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.inset), ring.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         tint()
     }
@@ -51,6 +80,13 @@ final class SplitPushButton: NSButton {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             divider.layer?.backgroundColor = (filled ? NSColor.white.withAlphaComponent(0.35) : .separatorColor).cgColor
         }
+    }
+
+    /// The capsule, not the frame around it, follows the glow.
+    override func layout() {
+        super.layout()
+        glow.frame = alignmentRect(forFrame: bounds).offsetBy(dx: -frame.origin.x, dy: -frame.origin.y)
+        glow.radius = glow.frame.height / 2
     }
 
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); tint() }

@@ -76,6 +76,38 @@ extension NSView {
         layer.add(a, forKey: "slide")
     }
 
+    /// Something failed: the view shakes its head, as a password field does.
+    public func shake() {
+        wantsLayer = true
+        guard !Motion.reduced, let layer else { return }
+        let a = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        a.values = [0, -5, 5, -3, 3, -1, 0]
+        a.duration = Motion.press
+        layer.add(a, forKey: "shake")
+    }
+
+    /// Work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again and
+    /// again. nil: it stops. Nothing under Reduce Motion: the words on the panel's button say it.
+    public func flow(up: Bool?) {
+        wantsLayer = true
+        guard let layer else { return }
+        guard let up, !Motion.reduced else { layer.mask = nil; return }
+        let band = CAGradientLayer()
+        band.frame = bounds.insetBy(dx: -40, dy: 0)   // the count beside the arrow may grow or go while it runs
+        band.colors = [NSColor.black, .black.withAlphaComponent(0.3), .black].map(\.cgColor)
+        // A gradient's y runs up the screen whichever way its view is flipped.
+        band.startPoint = CGPoint(x: 0.5, y: up ? 0 : 1)
+        band.endPoint = CGPoint(x: 0.5, y: up ? 1 : 0)
+        let a = CABasicAnimation(keyPath: "locations")
+        a.fromValue = [-0.5, -0.25, 0]
+        a.toValue = [1, 1.25, 1.5]
+        a.duration = Motion.pulse
+        a.repeatCount = .infinity
+        a.beginTime = Motion.beat(a.duration)
+        band.add(a, forKey: "flow")
+        layer.mask = band
+    }
+
     /// `t` about the view's middle: a layer-backed view's anchor is its corner.
     private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
         CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),

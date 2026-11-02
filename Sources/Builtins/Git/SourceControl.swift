@@ -32,7 +32,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     let message = CommitTextView()
     private let placeholder = NSTextField(labelWithString: "")
     private var messageHeight: NSLayoutConstraint?
-    private var commitButton: SplitPushButton?
+    var commitButton: SplitPushButton?
     /// Beside Commit: its other ways (Commit & Push, Amend), or Push / Pull while it offers to sync.
     private let commitMenu = NSMenu(), syncMenu = NSMenu()
     private var moreMenu: NSMenu?
@@ -49,8 +49,18 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var unpushed = Set<String>()
     /// Commits that just reached the remote, and when each one lands: oldest first, as they left.
     var landing: [String: Double] = [:]
+    /// Commits just made or pulled: they come into the graph one after another (hash: when).
+    var arriving: [String: Double] = [:]
+    /// What the panel's button says it just did, for a moment after.
+    var confirmed: String?
+    /// Which `finish` is on show: a later one, or new work, takes over its moment.
+    var finishes = 0
+    /// A commit went through: the list of changes fades to what's left rather than switching.
+    var clearing = false
+    /// Files were staged or unstaged: they travel to their section when the status shows it (the staged set then).
+    var staging: Set<String>?
     /// While a push, pull or sync runs: what the button says, and whether the ↑ arrows pulse.
-    var syncing: (title: String, push: Bool)? { didSet { updateCommitButton(); pulseArrows() } }
+    var syncing: (title: String, push: Bool, pull: Bool)? { didSet { showWork() } }
     var more = false, limit = 200, loadingMore = false
     var commitFiles: [String: [FileChange]] = [:]
     var openCommits = Set<String>()
@@ -245,8 +255,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         // What a commit takes: the staged files, or all of them when none are staged.
         let files = changes.filter { $0.staged && !$0.conflicted }.count
         let count = files > 0 ? files : changes.count
-        cb.title = syncing?.title ?? next ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files"))
-        let idle = next == nil && syncing == nil
+        cb.say(syncing?.title ?? confirmed ?? next ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files")))
+        let idle = next == nil && syncing == nil && confirmed == nil
         moreMenu = next == nil ? commitMenu : syncMenu
         pullItem?.isHidden = info?.upstream == nil
         cb.action = next == nil ? #selector(commitPressed) : #selector(sync)
@@ -254,7 +264,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let what = files > 0 ? String(localized: "Commit the staged files on “\(branch)” (⌘↩ in the message)")
             : String(localized: "Commit all changes on “\(branch)” (⌘↩ in the message)")
         cb.toolTip = next == nil ? what : info?.upstream.map { String(localized: "Pull from and push to \($0)") }
-        cb.isEnabled = !busy && (!changes.isEmpty || next != nil)   // with no message, Commit opens a page to write one
+        // Saying what it's doing or did, it reads as lit, not switched off, and does nothing when pressed.
+        let saying = syncing != nil || confirmed != nil
+        if saying { cb.action = nil }
+        cb.isEnabled = saying || (!busy && (!changes.isEmpty || next != nil))   // with no message, Commit opens a page to write one
+        cb.arrow.isEnabled = !saying && cb.isEnabled
         bar.update(info, changes: changes.count, busy: busy)
         cb.primary = idle && !changes.isEmpty
     }
@@ -282,6 +296,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// Sections fold through `collapsed`, not the outline's own expansion state, which goes stale across reloads
     /// (a click then "expanded" a section already open).
     func rebuildChanges() {
+        let places = stagingPlaces()
+        if clearing {
+            clearing = false
+            outline.crossfade(Motion.base)
+        }
         var out: [Node] = []
         func section(_ s: Section, _ files: [FileChange]) {
             guard !files.isEmpty else { return }
@@ -300,6 +319,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let rows = outline.numberOfRows
         let height = rows > 0 ? outline.rect(ofRow: rows - 1).maxY : 0
         changesRoom?.constant = min(80, height)
+        slideStaged(from: places)
     }
 
     private func rebuildGraph() {
@@ -380,7 +400,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             let c = commits[i]
             let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(c.hash)
             let cell = CommitCell(c, graphWidth: Self.graphWidth(c), isHead: c.hash.hasPrefix(info?.head ?? "\u{0}"), pushed: pushed,
-                                  landsAfter: landing[c.hash])
+                                  landsAfter: landing[c.hash], arrivesAfter: arriving[c.hash])
             if syncing?.push == true { cell.pulse(true) }
             cell.onHover = { [weak self, weak cell] on in
                 if let self, let cell { self.card.hover(on, commit: c, pushed: pushed, over: cell) }

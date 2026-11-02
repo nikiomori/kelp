@@ -134,7 +134,8 @@ extension SourceControlController {
         let r = await app.quiet(GitGraph(id: wid, limit: limit), timeout: 60)
         guard wid == worktreeId else { return }
         if let r {
-            let list = r.commits
+            let list = r.commits, known = Set(commits.map(\.hash))
+            noteArrivals(list, known: known)
             commits = list; more = r.more
             let before = unpushed
             unpushed = Git.unpushed(list, remotes: Set(info?.remote ?? []))
@@ -142,9 +143,16 @@ extension SourceControlController {
             landing = Dictionary(uniqueKeysWithValues: landed.enumerated().map { ($1.hash, Double(min($0, 12)) * 0.05) })
         }
         loadingMore = false
+        let places = arriving.isEmpty ? [:] : commitPlaces()
         rebuild()
+        slideCommits(from: places)
         // Landed once: a later rebuild (a commit unfolded) shows them as they are now.
-        if !landing.isEmpty { DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.landing = [:] } }
+        if !landing.isEmpty || !arriving.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in
+                self?.landing = [:]
+                self?.arriving = [:]
+            }
+        }
     }
 
     func pulseArrows() {

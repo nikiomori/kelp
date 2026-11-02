@@ -1700,6 +1700,16 @@
         }
       }
     },
+    "Committed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закоммичено"
+          }
+        }
+      }
+    },
     "Compact Now": {
       "extractionState": "manual",
       "localizations": {
@@ -8772,6 +8782,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Синхронизировать"
+          }
+        }
+      }
+    },
+    "Synced": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировано"
           }
         }
       }

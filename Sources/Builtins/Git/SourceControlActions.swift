@@ -13,7 +13,7 @@ extension SourceControlController {
         busy = true
         if let op {
             syncing = (op == "push" ? String(localized: "Pushing…") : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
-                       op == "push")
+                       op == "push", op == "pull")
         }
         Task {
             let r = await app.tryCall(m)
@@ -25,13 +25,16 @@ extension SourceControlController {
                     GitFix(app).offer(e, recipe: "resolveConflicts", worktree: wid,
                                       vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
                 } else { Banner.show(e, style: .error) }
-            } else if let done { Banner.show(done) }
+            }
+            if op != nil { finish(done ?? String(localized: "Fetched"), ok: r.error == nil, quiet: done == nil) }
+            else if r.error == nil, let done { Banner.show(done) }
             reloadAll()
         }
     }
 
     private func stage(_ files: [FileChange], _ on: Bool) {
         let paths = files.map(\.path)
+        staging = Set(changes.filter(\.staged).map(\.path))
         if on { run { GitStage(id: $0, files: paths) } } else { run { GitUnstage(id: $0, files: paths) } }
     }
 
@@ -92,10 +95,13 @@ extension SourceControlController {
             app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last)); return
         }
         busy = true
-        if push { syncing = (String(localized: "Pushing…"), true) }
+        if push { syncing = (String(localized: "Pushing…"), true, false) }
         Task {
-            if await GitCommit.run(app, wid, message: text, push: push, amend: amend) { message.string = ""; messageChanged() }
+            let ok = await GitCommit.run(app, wid, message: text, push: push, amend: amend)
+            if ok { message.string = ""; messageChanged() }
             busy = false; syncing = nil
+            clearing = ok
+            finish(push ? String(localized: "Pushed") : String(localized: "Committed"), ok: ok, quiet: true)
             reloadAll()
         }
     }
@@ -104,13 +110,17 @@ extension SourceControlController {
         guard let info else { return }
         if info.upstream == nil { run(done: String(localized: "Published \(info.current ?? "HEAD")")) { GitRemoteOp(id: $0, op: "push") }; return }
         guard let wid = worktreeId else { return }
-        busy = true; syncing = (String(localized: "Syncing…"), (info.ahead ?? 0) > 0)
+        let ahead = (info.ahead ?? 0) > 0, title = String(localized: "Syncing…")
+        busy = true; syncing = (title, false, true)
         Task {
-            if await app.call(GitRemoteOp(id: wid, op: "pull")) != nil {
-                if (info.ahead ?? 0) > 0 { _ = await app.call(GitRemoteOp(id: wid, op: "push")) }
+            var ok = await app.call(GitRemoteOp(id: wid, op: "pull")) != nil
+            if ok, ahead {
+                syncing = (title, true, false)
+                ok = await app.call(GitRemoteOp(id: wid, op: "push")) != nil
             }
             busy = false
             syncing = nil
+            finish(String(localized: "Synced"), ok: ok, quiet: true)
             reloadAll()
         }
     }

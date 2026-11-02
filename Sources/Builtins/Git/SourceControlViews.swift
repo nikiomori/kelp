@@ -174,8 +174,10 @@ final class GraphBar: NSView {
 
 final class FileCell: NSTableCellView, Hoverable {
     private let actions: NSStackView
+    let path: String
     init(_ f: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat, actions a: [RowAction]) {
         actions = actionButtons(a)
+        path = f.path
         super.init(frame: .zero)
         let icon = NSImageView(image: image)
         icon.imageScaling = .scaleProportionallyDown
@@ -231,10 +233,18 @@ final class CommitCell: NSTableCellView, Hoverable {
         super.layout()
     }
 
-    init(_ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil) {
+    /// A commit's row, for following it across a rebuild.
+    let commitHash: String
+    init(_ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
+         arrivesAfter arrival: Double? = nil) {
         let s = CommitSubject(c.subject)
         subject = NSTextField(labelWithString: s.text)
+        commitHash = c.hash
         super.init(frame: .zero)
+        if let arrival, !Motion.reduced {
+            alphaValue = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 + arrival) { [weak self] in self?.arrive() }
+        }
         let unpushed = pushed == false
         let g = GraphView()
         g.commit = c
@@ -291,6 +301,16 @@ final class CommitCell: NSTableCellView, Hoverable {
             + (unpushed ? "\n" + notPushed : ""))
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// New in the graph: it comes in from above its place, where new commits come from.
+    private func arrive() {
+        slide(from: NSPoint(x: placeInWindow.x, y: placeInWindow.y + Metrics.row))
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.appear
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            animator().alphaValue = 1
+        }
+    }
 
     /// While the push runs, the arrows of the commits on their way pulse.
     func pulse(_ on: Bool) {
