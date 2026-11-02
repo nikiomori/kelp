@@ -260,18 +260,19 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     func filter() {
         scoring?.cancel()
-        var q = field.stringValue
-        if let t = tmux { setRows(tmuxItems(t, q), grouped: false); return }
-        var pool = commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
-        if !commandsOnly, choosing == nil, let prefix = Prefix(q) {
+        let typed = field.stringValue
+        if let t = tmux { setRows(tmuxItems(t, typed), grouped: false); return }
+        let prefix = commandsOnly || choosing != nil ? nil : Prefix(typed)
+        if let prefix {
             showingRecents = false
             if filterPrefix(prefix) { return }
-            if case .files(let name) = prefix {
-                q = name
-                pool = all.filter { $0.kind == "File" }
-                if q.isEmpty { setRows(Array(pool.prefix(200)), grouped: false); return }
-            }
         }
+        var filesOnly: String?
+        if case .files(let name)? = prefix { filesOnly = name }
+        let q = filesOnly ?? typed
+        let pool = filesOnly != nil ? all.filter { $0.kind == "File" }
+            : commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
+        if filesOnly != nil, q.isEmpty { setRows(Array(pool.prefix(200)), grouped: false); return }
         if !commandsOnly, choosing == nil, q.hasPrefix("#") {
             setRows([], grouped: false)
             searchPullRequests(q)
@@ -289,7 +290,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             // Off the main thread: a big project's files take a while to score on every keystroke.
             let grouped = !commandsOnly && choosing == nil, keys = pool.map { Match(fuzzy: $0.fuzzy, title: $0.title, command: $0.kind == "Command") }
             scoring = Task { [weak self] in
-                let best = await Task.detached { [q] in Self.best(keys, q) }.value
+                let best = await Task.detached { Self.best(keys, q) }.value
                 guard let self, !Task.isCancelled else { return }
                 setRows(best.map { pool[$0] }, grouped: grouped)
             }
