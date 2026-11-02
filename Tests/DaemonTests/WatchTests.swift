@@ -219,3 +219,16 @@ private final class Heard: Sendable {
     let list = try await w.c.call(SessionCommands(id: s.id))
     #expect(list.first?.exitCode == 1 && list.first?.output == "1 failed")
 }
+
+/// What's asked over the network slows down while nothing changes, up to a ceiling; a CI run going on and the local
+/// clocks don't.
+@Test func pollsOfTheNetworkSlowDownWhileNothingChanges() {
+    #expect(Watches.slowed(.pr, 60, quiet: 0) == 60)
+    #expect(Watches.slowed(.pr, 60, quiet: 1) == 120)
+    #expect(Watches.slowed(.pr, 60, quiet: 50) == 480)
+    #expect(Watches.slowed(.ci, 120, quiet: 3) == 960)
+    #expect(Watches.slowed(.ci, 10, quiet: 9) == 10)
+    #expect(Watches.slowed(.git, 10, quiet: 9) == 60)
+    #expect(Watches.slowed(.ports, 3, quiet: 9) == 3)
+    #expect(Watches.slowed(.limits, 10, quiet: 9) == 10)
+}

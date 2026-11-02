@@ -18,6 +18,7 @@ final class Watches: Sendable {
         var files: FileWatcher?
         var fastUntil = Date.distantPast
         var tag: String?               // context: the session's status at the last read
+        var quiet = 0                  // reads in a row that found nothing new
     }
     private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let closed = OSAllocatedUnfairLock(initialState: false)
@@ -50,7 +51,7 @@ final class Watches: Sendable {
         let (new, again, last) = entries.withLock { e -> (Bool, Bool, Data?) in
             guard var x = e[k] else { e[k] = Entry(number: n, watchers: [conn]); return (true, false, nil) }
             let again = !x.watchers.insert(conn).inserted
-            if again { x.fastUntil = Date().addingTimeInterval(45) }
+            if again { x.fastUntil = Date().addingTimeInterval(45); x.quiet = 0 }
             e[k] = x
             return (false, again, x.last)
         }
@@ -170,22 +171,39 @@ final class Watches: Sendable {
         }
         guard let (fastUntil, number) = go else { return }
         Task {
+            let began = Date()
             let (line, next) = await reading.withLock({ $0.read })?(k, fastUntil > Date()) ?? (nil, nil)
             reads.withLock { $0[k, default: 0] += 1 }
-            let ours = entries.withLock { e -> (send: Data?, to: Set<Int>, again: Bool)? in
+            let ours = entries.withLock { e -> (send: Data?, to: Set<Int>, again: Bool, quiet: Int)? in
                 // Stopped meanwhile, maybe started again: what it read may be older than the new watch's first value,
                 // and the new one keeps its own clock.
                 guard var x = e[k], x.number == number else { return nil }
                 x.reading = false
                 let changed = line != nil && line != x.last
                 if changed { x.last = line }
+                x.quiet = changed ? 0 : x.quiet + 1
                 let again = x.again; x.again = false
                 e[k] = x
-                return (changed ? line : nil, x.watchers, again)
+                return (changed ? line : nil, x.watchers, again, x.quiet)
             }
-            guard let (send, to, again) = ours else { return }
+            guard let (send, to, again, quiet) = ours else { return }
             if let send { clients.targets(to).forEach { $0.send(send) } }
-            if again { read(k) } else if let next { schedule(k, after: next) }
+            // Files changing all through a read: not back to back, or a large repository's git never stops.
+            if again { schedule(k, after: max(0.4, 4 * Date().timeIntervalSince(began))) }
+            else if let next { schedule(k, after: fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)) }
         }
+    }
+
+    /// When to read again what's asked over the network (gh, glab, ssh) after `quiet` reads that found nothing new: twice
+    /// as long each time, so projects nobody is working on stop costing processes, quota and wake-ups. A change, or a
+    /// watcher asking again, starts over. A CI run going on isn't slowed: its clock is short for a reason.
+    static func slowed(_ topic: WatchTopic, _ next: TimeInterval, quiet: Int) -> TimeInterval {
+        let polls = switch topic {
+        case .pr, .git, .files, .ports: next >= 10
+        case .ci: next >= 120
+        default: false
+        }
+        guard polls else { return next }
+        return min(next * pow(2, Double(min(quiet, 6))), next >= 60 ? next * 8 : 60)
     }
 }
