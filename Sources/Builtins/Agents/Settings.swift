@@ -313,8 +313,10 @@ struct AgentsSettings: View {
 
     private func reset(_ m: AgentManifest) {
         Task {
-            guard await confirm(String(localized: "Reset how \(m.name) starts?"), detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
-                                action: String(localized: "Reset")) else { return }
+            let question = NSAlert(question: String(localized: "Reset how \(m.name) starts?"),
+                                   detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
+                                   action: String(localized: "Reset"))
+            guard await runSheet(question) == .alertFirstButtonReturn else { return }
             AgentManifest.resetOverride(id: m.id, dir: Paths.agents)
             reload()
         }

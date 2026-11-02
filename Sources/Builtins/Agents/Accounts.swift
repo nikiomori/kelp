@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Core
+import DesignKit
 import WorkbenchKit
 import KelpKit
 
@@ -80,8 +81,9 @@ struct AccountsSettings: View {
     private func remove() {
         guard let p = profiles.first(where: { $0.id == selection }) else { return }
         Task {
-            guard await confirm(String(localized: "Remove the profile “\(p.name)”?"),
-                                detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove")) else { return }
+            let question = NSAlert(question: String(localized: "Remove the profile “\(p.name)”?"),
+                                   detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove"))
+            guard await runSheet(question) == .alertFirstButtonReturn else { return }
             profiles.removeAll { $0.id == p.id }
             await Accounts.save(app, profiles)
         }

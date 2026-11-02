@@ -158,9 +158,10 @@ struct KeyboardSettings: View {
                     Spacer()
                     Button("Restore Defaults…") {
                         Task {
-                            guard await confirm(String(localized: "Restore every shortcut to Kelp's default?"),
-                                                detail: String(localized: "The shortcuts you set are lost."),
-                                                action: String(localized: "Restore Defaults")) else { return }
+                            let question = NSAlert(question: String(localized: "Restore every shortcut to Kelp's default?"),
+                                                   detail: String(localized: "The shortcuts you set are lost."),
+                                                   action: String(localized: "Restore Defaults"))
+                            guard await runSheet(question) == .alertFirstButtonReturn else { return }
                             KeyBindings.resetAll(app.settings)
                             later()
                         }
