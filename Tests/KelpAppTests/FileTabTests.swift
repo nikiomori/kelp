@@ -66,8 +66,10 @@ extension AppOfItsOwn {
         try await until { rig.app.fileVersions[p]?.stamp != was }
         try await Task.sleep(for: .milliseconds(200))   // its text read meanwhile
         #expect(tab.editor?.text == "mine\n" && tab.isEdited)
+        #expect(!tab.gone)   // failed once on CI by saving over the file: this and `now` say which way it got there
         #expect(await !tab.save())
-        #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
+        let now = try String(contentsOfFile: p, encoding: .utf8)
+        #expect(now == "theirs\n")
     }
 
     /// A file only touched (a new modification time, the same text) while edited here asks nothing: ⌘S writes the edit,

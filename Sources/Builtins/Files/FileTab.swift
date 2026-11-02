@@ -46,7 +46,7 @@ final class FileTab: SavableTab {
         isEdited = false
     }
     /// The file was moved or deleted under the tab (often by an agent): the tab says so, ⌘S asks before writing it back.
-    private var gone = false
+    var gone = false
     /// The last save (each waits for the one before) and whether it wrote; `writing` while one is on its way to disk.
     private var saving: Task<Bool, Never>?
     private var writing = false
@@ -125,6 +125,7 @@ final class FileTab: SavableTab {
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path   // the help is for reading
+            md.onEditing = { [weak bar] in bar?.editing = $0 }
             markdown = md; box.pin(stacked(md.view, bar))
         } else {
             box.pin(stacked(e.view, bar))
