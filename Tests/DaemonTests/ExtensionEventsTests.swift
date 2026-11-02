@@ -33,6 +33,22 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
     #expect(lines(out) == ["agent.waiting|\(title)|Allow rm?"] && !FileManager.default.fileExists(atPath: pwned.path))
 }
 
+/// A result stands though its agent ended right after, as a one-shot does. A question has nobody left to answer it.
+@Test func aResultIsHeardThoughItsAgentEnded() async throws {
+    let w = try await world(agents: [fake]), out = temporary(); defer { w.d.stop() }
+    try install(w, out: out)
+    let desk = try await firstDesk(w).id
+    let done = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "done"))
+    let asks = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "asks"))
+    _ = try await w.c.call(SessionReport(id: done.id, state: "done"))
+    _ = try await w.c.call(SessionReport(id: asks.id, state: "blocked"))
+    _ = try await w.c.call(SessionKill(id: done.id))
+    _ = try await w.c.call(SessionKill(id: asks.id))
+    #expect(try await waitFor(10) { !lines(out).isEmpty })
+    try await Task.sleep(for: .seconds(1))
+    #expect(lines(out) == ["agent.done|done|"])
+}
+
 /// A stop it goes on from isn't one, a child's result is its parent's, and an extension switched off hears nothing.
 @Test func anEventIsForAStopThatStands() async throws {
     let w = try await world(agents: [fake]), out = temporary(), off = temporary(); defer { w.d.stop() }

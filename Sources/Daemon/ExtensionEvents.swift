@@ -8,13 +8,15 @@ import os
 /// shell would run it.
 final class ExtensionEvents: Sendable {
     private let told = OSAllocatedUnfairLock(initialState: [String: AgentStatus]())
+    /// One thread however many fire. Limit: a command that hangs holds the next back for its 30 s.
+    let queue = DispatchQueue(label: "dev.kelp.extension-events", qos: .utility)
     /// A status from before this daemon was told before it.
     private let started = Date()
 
     /// The event a saved session is, once per stop. A child's result is its parent's to read, as it is for notifications.
     func event(of s: Session) -> String? {
         told.withLock { told in
-            if s.status == .working { told[s.id] = nil }
+            if s.status == .working || s.status == .exited { told[s.id] = nil }
             guard s.agent != nil, s.agent != "shell", s.agent != "custom", told[s.id] != s.status, (s.statusAt ?? .distantPast) >= started,
                   let name = [.waiting: "agent.waiting", .done: "agent.done", .error: "agent.failed"][s.status],
                   s.parent == nil || s.status != .done else { return nil }
@@ -31,8 +33,11 @@ extension Sessions {
 
     func eventsHeard(_ s: Session) {
         guard let event = events.event(of: s) else { return }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
-            guard let self, existing(s.id)?.snapshot.status == s.status else { return }
+        events.queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
+            guard let self else { return }
+            // Gone since: a result still stands, and a question has nobody left to answer it.
+            let now = existing(s.id)?.snapshot.status
+            guard now == s.status || (now == nil && s.status != .waiting) else { return }
             let asks = s.status != .done
             fire(event, cwd: s.currentDir, values: ["KELP_SESSION_ID": s.id, "KELP_AGENT": s.agent ?? "", "KELP_TITLE": s.displayTitle,
                                                     "KELP_SUMMARY": asks ? s.summary : "", "KELP_WORKSPACE_ID": s.worktreeId ?? ""])
@@ -40,7 +45,7 @@ extension Sessions {
     }
 
     func workspaceAdded(_ w: Worktree) {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        events.queue.async { [weak self] in
             self?.fire("workspace.created", cwd: w.path, values: ["KELP_TITLE": w.displayName, "KELP_WORKSPACE_ID": w.id])
         }
     }
