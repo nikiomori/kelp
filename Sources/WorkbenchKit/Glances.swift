@@ -1,14 +1,14 @@
 import Foundation
 
-/// A finished agent counts as read once its pane has been on screen in the front window for a second: a glance, not a
-/// click. Opening a workspace in passing doesn't clear anything. The decision without the window: which sessions to
+/// A finished agent counts as read once its pane has been the one you're in, in the front window, for a second: a glance,
+/// not a click. Opening a workspace in passing doesn't clear anything, nor does a neighbouring pane. The decision without the window: which sessions to
 /// mark read now, each asked once until the record says it's read (or the ask failed).
 public struct Glances: Sendable {
     private var since: [String: Date] = [:]
     private var asked: Set<String> = []
     public init() {}
 
-    /// `front`: the window is the key one, in the active app, on screen. `shown`: the sessions whose panes it shows.
+    /// `front`: the window is the key one, in the active app, on screen. `shown`: the sessions being looked at.
     /// `readable`: finished and unread (not a question, not a failure). `unread`: the record still says unread.
     public mutating func tick(front: Bool, shown: [String], readable: (String) -> Bool, unread: (String) -> Bool, now: Date) -> [String] {
         guard front else { since = [:]; return [] }

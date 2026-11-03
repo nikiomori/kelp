@@ -34,6 +34,20 @@ private func twoPanes() throws -> (WorkspaceLayout, left: String, right: String,
     _ = t
 }
 
+/// Among panes side by side only the one you're in is being looked at; alone or zoomed, a pane is.
+@Test func onlyTheFocusedPaneIsAttendedAmongSeveral() throws {
+    var (l, left, right, _) = try twoPanes()
+    l.focused = right
+    #expect(l.attendedTabs(zoomed: nil).map(\.uri) == ["file:///c"])
+    l.focused = left
+    #expect(l.attendedTabs(zoomed: nil).map(\.uri) == ["file:///b"])
+    #expect(l.attendedTabs(zoomed: right).map(\.uri) == ["file:///c"])
+    var one = WorkspaceLayout(); _ = one.add("file:///a")
+    one.focused = nil
+    #expect(one.attendedTabs(zoomed: nil).map(\.uri) == ["file:///a"])
+    #expect(WorkspaceLayout().attendedTabs(zoomed: nil).isEmpty)
+}
+
 @Test func aFileOpenedAtAnotherLineIsTheSameTab() throws {
     let (l, _, _, t) = try twoPanes()
     #expect(l.fileTab(sameFileAs: "file:///b#L40")?.id == t[1])

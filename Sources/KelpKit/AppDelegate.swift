@@ -160,7 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let w = main?.window, e = app.workbench.editor
         let front = NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil
         let app = app
-        let mark = glances.tick(front: front, shown: e?.visibleSessions ?? [], readable: { app.session($0).map(Self.readOnSight) ?? false },
+        let mark = glances.tick(front: front, shown: e?.attendedSessions ?? [], readable: { app.session($0).map(Self.readOnSight) ?? false },
                                 unread: { app.session($0)?.unread == true }, now: Date())
         for sid in mark {
             Task { [weak self] in if await self?.app.call(SessionMarkRead(id: sid)) == nil { self?.glances.failed(sid) } }   // try again later

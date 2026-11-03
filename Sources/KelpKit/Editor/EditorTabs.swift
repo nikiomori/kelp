@@ -109,10 +109,9 @@ extension EditorArea {
         focusSelected()
     }
 
-    /// Sessions whose tab is on screen right now (the selected tab of each pane shown).
-    var visibleSessions: [String] {
-        let groups = zoomed.map { [$0] } ?? layout.root?.sessions ?? []
-        return groups.compactMap { layout.groups[$0]?.selectedTab?.uri }.filter { TabURI.scheme($0) == "session" }.map(TabURI.body)
+    /// Sessions being looked at, which a finished agent's second on screen counts for (`Glances`).
+    var attendedSessions: [String] {
+        layout.attendedTabs(zoomed: zoomed).map(\.uri).filter { TabURI.scheme($0) == "session" }.map(TabURI.body)
     }
 
     package var focusedContent: TabContent? { layout.focusedGroup?.selectedTab.flatMap { contents[$0.id] } }
