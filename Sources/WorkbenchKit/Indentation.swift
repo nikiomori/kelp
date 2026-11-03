@@ -4,10 +4,11 @@ import Foundation
 public enum Indentation: Equatable, Sendable {
     case tabs, spaces(Int)
 
-    /// Read from the file's first lines: tabs if most indented lines start with one; else the widest step (8, 4, 3, 2)
-    /// that nine in ten of the indented lines are a multiple of. Nil when nothing is indented.
+    /// Read from the file's first lines: tabs if most indented lines start with one; else the step the indent most often
+    /// moves by from one line to the next, the smaller of two as common, not how deep most lines are (a long function's body
+    /// all at 8 is still indented by 4). Nil when nothing is indented.
     public static func detect(_ text: String) -> Indentation? {
-        var tabs = 0, widths: [Int] = [], lines = 0
+        var tabs = 0, indented = 0, lines = 0, last = 0, steps: [Int: Int] = [:]
         // Bytes, stopping at the 2000th line: splitting all of a 5 MB file into Characters took 80 ms of main thread.
         let b = text.utf8
         var i = b.startIndex
@@ -19,12 +20,15 @@ public enum Indentation: Equatable, Sendable {
             lines += 1
             if line.first == 9 { tabs += 1; continue }
             let n = line.prefix { $0 == 32 }.count
-            if n > 0, n < line.count { widths.append(n) }
+            guard n < line.count else { continue }   // only spaces: says nothing
+            if n > 0 { indented += 1 }
+            if [2, 3, 4, 8].contains(abs(n - last)) { steps[abs(n - last), default: 0] += 1 }
+            last = n
         }
-        if tabs > widths.count { return .tabs }
-        guard !widths.isEmpty else { return nil }
-        let step = [8, 4, 3, 2].first { s in Double(widths.filter { $0 % s == 0 }.count) >= 0.9 * Double(widths.count) } ?? 1
-        return .spaces(step)
+        if tabs > indented { return .tabs }
+        guard indented > 0 else { return nil }
+        let best = steps.max { ($0.value, -$0.key) < ($1.value, -$1.key) }
+        return .spaces(best?.key ?? 4)
     }
 
     /// `text` with each line's leading whitespace in this indentation, the same depth with `tabSize` columns to a level.
