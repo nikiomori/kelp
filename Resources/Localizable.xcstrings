@@ -6196,6 +6196,26 @@
         }
       }
     },
+    "Kelp %@ is ready. Click to restart.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp %@ готов. Нажмите, чтобы перезапустить."
+          }
+        }
+      }
+    },
+    "Kelp isn't allowed to run in the background, so macOS ends its agents when it quits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp не разрешено работать в фоне, поэтому при выходе macOS завершит его агентов."
+          }
+        }
+      }
+    },
     "Kelp needs to reopen for this.": {
       "localizations": {
         "ru": {
@@ -6212,6 +6232,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kelp напечатает здесь «continue» через минуту после сброса, даже с закрытым окном."
+          }
+        }
+      }
+    },
+    "Kelp updated to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp обновлён до %@"
           }
         }
       }
@@ -12552,6 +12582,46 @@
         }
       }
     },
+    "Update Anyway": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё равно обновить"
+          }
+        }
+      }
+    },
+    "Update Kelp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить Kelp"
+          }
+        }
+      }
+    },
+    "Update Kelp to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить Kelp до %@"
+          }
+        }
+      }
+    },
+    "Updating ends running agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление завершит работающих агентов"
+          }
+        }
+      }
+    },
     "URL:": {
       "localizations": {
         "ru": {
@@ -12992,6 +13062,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Что показывает значок Kelp в Доке. То же есть в его меню по правому клику."
+          }
+        }
+      }
+    },
+    "What's New": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что нового"
           }
         }
       }

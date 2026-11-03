@@ -31,4 +31,10 @@ enum BackgroundItem {
         }
     }
     @MainActor private static var told = false
+
+    /// macOS would end what Kelp started when it quits.
+    static var blocked: Bool {
+        get async { bundled ? await Task.detached(priority: .utility) { service.status == .requiresApproval }.value : false }
+    }
+    static func openSettings() { SMAppService.openSystemSettingsLoginItems() }
 }

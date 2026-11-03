@@ -71,7 +71,10 @@ extension AppDelegate {
     private func appMenu(_ b: MenuBuilder) {
         let app = b.sub("Kelp")
         app.addItem(withTitle: "About Kelp", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        if let u = updater {
+        if let ready = self.app.updates.ready {
+            let model = self.app
+            app.add(String(localized: "Update Kelp to \(ready.version)")) { Task { await model.updates.install(model) } }
+        } else if let u = updater {
             app.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "").target = u
         }
         b.add(app, "-", "workbench.openSettings", "workbench.openExtensions", "workbench.restartService", "-")

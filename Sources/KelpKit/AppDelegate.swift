@@ -31,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingOpens: [URL]? = []
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
     lazy var updater: SPUStandardUpdaterController? = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") == nil ? nil
-        : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ n: Notification) {
         let app = self.app
@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         track(owner: self) { [app] in app.extensions.revision } changed: { [weak self] _ in self?.buildMenu() }
         track(owner: self) { app.availability.ids } changed: { [weak self] _ in self?.buildMenu() }
         track(owner: self) { [app] in app.settings.value("keys") } changed: { [weak self] _ in self?.buildMenu() }
+        track(owner: self) { [app] in app.updates.ready } changed: { [weak self] _ in self?.buildMenu() }
         app.extensions.watch()
         Task {
             await app.connect()
@@ -68,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? await Task.sleep(for: .milliseconds(30))
             if let w = pick ?? last ?? app.worktrees.first(where: { !$0.archived }) { app.workbench.show(workspace: w.id) }
             UnsavedBackups.reopen(app, in: app.workbench.window?.editors)
+            app.updates.sayInstalled()
             let early = pendingOpens ?? []; pendingOpens = nil
             if !early.isEmpty { application(NSApp, open: early) }
             if ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil { OnboardingSheet.showIfFirstLaunch(app) }

@@ -31,6 +31,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// Where a hiding panel is while it's away, and comes in from.
     private let leftFloat = Floater(width: 260, inset: 0), rightFloat = Floater(width: 300, inset: Card.gap)
     private lazy var bar = WindowBar(app: app)
+    private lazy var updatePill = UpdatePill(app: app)
+    /// While the pill shows, the sidebar's toggle stays clear of it (a hidden view still holds constraints).
+    private lazy var clearOfPill = sidebarToggle.leadingAnchor.constraint(greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
     /// Fixed in the window bar's corners, whichever panels are open.
     private let sidebarToggle = NSButton.titlebar("sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar (⌘0)"))
     private let inspectorToggle = NSButton.titlebar("sidebar.trailing", String(localized: "Inspector"),
@@ -65,7 +68,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         root.view.pin(split.view)
         // The inspector's toggle under its floater: on the floater's corner it stood half on its border. The sidebar's stays
         // over its floater, beside the traffic lights, which are over everything anyway.
-        for v in [bar, leftFloat, inspectorToggle, rightFloat, sidebarToggle, leftEdge, rightEdge] {
+        for v in [bar, leftFloat, inspectorToggle, rightFloat, updatePill, sidebarToggle, leftEdge, rightEdge] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.view.addSubview(v)
         }
@@ -84,6 +87,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sidebarToggle.leadingAnchor.constraint(greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12),
             sidebarToggle.trailingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: -8).withPriority(600),
             sidebarToggle.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12),
+            updatePill.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
             // The workspace starts over the editor area; with the sidebar away, after its toggle.
             bar.context.leadingAnchor.constraint(greaterThanOrEqualTo: sidebarToggle.trailingAnchor, constant: 12),
             bar.context.leadingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: 12).withPriority(700),
@@ -100,6 +105,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.delegate = self
         if w.frame.origin == .zero { w.center() }
         track { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.updateTitle() }
+        track { app.updates.ready != nil } changed: { [weak self] in self?.clearOfPill.isActive = $0 }
         track { app.themes.look } changed: { [weak self] look in
             self?.surface.show(look)
             for f in [self?.leftFloat, self?.rightFloat] { f?.tint.layer?.backgroundColor = look.surface?.cgColor }

@@ -6,7 +6,7 @@ import WorkbenchKit
 
 /// Developer aids driven by environment variables; inert in normal use.
 ///   KELP_SNAPSHOT=/x.png  render the window to a PNG and quit (no screen-recording permission needed)
-///   KELP_SNAPSHOT_WORKTREE / _OPEN / _INSPECTOR / _SIZE / _SHEET / _WINDOW / _DELAY  set the scene first
+///   KELP_SNAPSHOT_WORKTREE / _OPEN / _INSPECTOR / _SIZE / _SHEET / _WINDOW / _DELAY / _UPDATE  set the scene first
 extension AppDelegate {
     /// KELP_HANG_WATCH=1: logs every main-thread stall over 150 ms (what users feel as freezes).
     static func watchHangs() {
@@ -39,6 +39,7 @@ extension AppDelegate {
             main.window?.setFrame(NSRect(x: 80, y: 80, width: 1440, height: 900), display: true); main.window?.contentView?.layoutSubtreeIfNeeded()
             print("FRAME", main.window?.frame ?? .zero, main.window?.contentView?.superview?.bounds ?? .zero)
             if let p = env["KELP_SNAPSHOT_INSPECTOR"] { main.showInspector(panel: p) }
+            if let v = env["KELP_SNAPSHOT_UPDATE"] { app.updates.arrived(.init(version: v, notes: nil)) {} }
             // KELP_SNAPSHOT_SIZE=1000x760: the window's content size (people's windows are rarely 1440 wide).
             if let s = env["KELP_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), s.count == 2 {
                 main.window?.setContentSize(NSSize(width: s[0], height: s[1]))

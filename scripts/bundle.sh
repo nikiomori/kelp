@@ -47,12 +47,12 @@ if [ -n "$CH" ]; then
 fi
 [ "$CH" != dev ] || "${P[@]}" -c "Delete :SUFeedURL"   # updated by `make dev`
 if [ "$CH" = beta ]; then
-  # Its own feed and update key (login keychain, account kelp-beta), installed without asking.
+  # Its own feed and update key (login keychain, account kelp-beta).
   # Numbered by main's commits (Sparkle compares CFBundleVersion), named by the next minor version and the day (UTC);
   # KelpCommit: the commit built, which scripts/publish-beta.sh tags.
   V=$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)
   "${P[@]}" -c "Set :SUFeedURL https://github.com/nikiomori/kelp/releases/download/beta/appcast.xml" \
-    -c "Set :SUPublicEDKey $(<Resources/BetaUpdateKey.pub)" -c "Add :SUAutomaticallyUpdate bool true" \
+    -c "Set :SUPublicEDKey $(<Resources/BetaUpdateKey.pub)" \
     -c "Set :CFBundleVersion $(git rev-list --count HEAD)" -c "Add :KelpCommit string $(git rev-parse HEAD)" \
     -c "Set :CFBundleShortVersionString ${V%%.*}.$(( ${${V#*.}%%.*} + 1 )).0-beta.$(date -u +%Y%m%d)"
 fi

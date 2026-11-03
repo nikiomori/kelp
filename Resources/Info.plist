@@ -73,6 +73,8 @@
 	<string>A program running in a Kelp terminal wants to use the microphone.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
