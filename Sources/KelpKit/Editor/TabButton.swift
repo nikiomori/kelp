@@ -101,9 +101,9 @@ final class TabButton: NSControl, NSDraggingSource {
         full.textColor = .textRed
         chip.isHidden = it.background == 0
         chip.show("apple.terminal", count: it.background)
-        chip.toolTip = it.backgroundTip
-        chip.setAccessibilityLabel(chip.toolTip)
-        toolTip = it.toolTip ?? it.title
+        chip.toolTip = it.card == nil ? it.backgroundTip : nil   // the card lists them
+        chip.setAccessibilityLabel(it.backgroundTip)
+        toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
         setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title); setAccessibilityValue(selected)
         updateLook()
@@ -183,20 +183,27 @@ final class TabButton: NSControl, NSDraggingSource {
         if #available(macOS 26, *) { layer?.cornerRadius = bounds.height / 2 }
         edgeGlow.radius = layer?.cornerRadius ?? Metrics.radiusSM   // the glow follows the capsule
     }
-    override func mouseEntered(with e: NSEvent) { hover = true }
-    override func mouseExited(with e: NSEvent) { hover = false }
+    override func mouseEntered(with e: NSEvent) {
+        hover = true
+        if let key = item?.card { strip?.hoverCard?.hover(key, rect: bounds, in: self) }
+    }
+    override func mouseExited(with e: NSEvent) {
+        hover = false
+        if item?.card != nil { strip?.hoverCard?.hover(nil, rect: .zero, in: self) }
+    }
     /// Moved under or from under a pointer that stayed still: AppKit says so only when it next moves.
     func followPointer() {
         guard let window else { return }
         hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
     }
     override func mouseDown(with e: NSEvent) {
+        strip?.hoverCard?.close()
         if let id = item?.id { strip?.onSelect?(id) }
     }
     override func mouseUp(with e: NSEvent) { pressBounce() }   // a click springs as every control's does; a drag never comes here
     override func accessibilityPerformPress() -> Bool { if let id = item?.id { strip?.onSelect?(id) }; return true }
     override func otherMouseUp(with e: NSEvent) { closeTapped() }
-    override func menu(for event: NSEvent) -> NSMenu? { item.flatMap { strip?.onMenu?($0.id) } }
+    override func menu(for event: NSEvent) -> NSMenu? { strip?.hoverCard?.close(); return item.flatMap { strip?.onMenu?($0.id) } }
     @objc private func closeTapped() { if let id = item?.id { strip?.onClose?(id) } }
 
     override func mouseDragged(with e: NSEvent) {

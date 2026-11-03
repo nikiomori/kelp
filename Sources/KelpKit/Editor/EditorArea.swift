@@ -13,6 +13,8 @@ package final class EditorArea: NSViewController {
     package var layout: WorkspaceLayout
     var contents: [String: TabContent] = [:]       // by tab id
     var groupViews: [String: GroupView] = [:]
+    /// The card under an agent's tab, one for all of this workspace's strips: moving along them goes from card to card.
+    private lazy var tabCard = HoverCard(app: app, underTabs: true)
     private var renders = 0
     var start: StartView?
     private var responderObservation: NSKeyValueObservation?
@@ -180,6 +182,7 @@ package final class EditorArea: NSViewController {
         g.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
         g.strip.onNewAgent = { [weak self] in self?.layout.focused = gid; self?.newAgent() }
         g.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
+        g.strip.hoverCard = tabCard
         g.strip.onDropTab = { [weak self] id, index in
             guard let self else { return }
             if layout.group(of: id) != gid { arrangedByHand() }   // into another pane's strip, not reordering its own
@@ -258,6 +261,7 @@ package final class EditorArea: NSViewController {
     private func runLook(_ item: TabStrip.Item, _ t: TabRef) -> TabStrip.Item {
         guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)), s.status != .exited else { return item }
         var item = item
+        if s.agent != "shell" { item.card = "a:" + s.id }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
         if let look = app.scripts.look(s) {
             item.icon = look.icon
             item.run = look.glow

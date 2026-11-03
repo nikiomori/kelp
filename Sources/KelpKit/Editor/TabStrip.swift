@@ -26,6 +26,8 @@ final class TabStrip: NSView {
         var waitsFor = false
         /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
         var run: NSColor?
+        /// An agent's tab: the sidebar's card for it ("a:<session>") under the pointer, in place of the tooltip.
+        var card: String?
     }
 
     var onSelect: ((String) -> Void)?
@@ -35,6 +37,8 @@ final class TabStrip: NSView {
     var addMenu: (() -> NSMenu)?
     var onNewAgent: (() -> Void)?
     var onUnzoom: (() -> Void)?
+    /// Shows `Item.card` under a tab the pointer rests on.
+    var hoverCard: HoverCard?
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
     var zoomed = false { didSet { unzoom.isHidden = !zoomed; measured = nil } }
     private let unzoom = PointerButton(frame: .zero)

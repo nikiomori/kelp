@@ -4,11 +4,15 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// What a sidebar row holds, in full, when the pointer rests on it: the row itself stays one line.
+/// What a sidebar row or an agent's tab holds, in full, when the pointer rests on it: the row itself stays one line.
 /// After half a second the card appears; while one is open, moving to another row shows that row's card at once.
+/// Typing, ⌘W included, puts it away.
 @MainActor
 final class HoverCard {
     private let app: AppModel
+    /// Under a tab: the card hangs below it and leaves out the place (the tab is in this workspace).
+    private let underTabs: Bool
+    private var keys: Any?
     private let popover = NSPopover()
     private let pending = Debounce()
     private(set) var shownKey: String?
@@ -16,8 +20,9 @@ final class HoverCard {
     private var warmUntil = Date.distantPast
     private weak var anchor: NSWindow?
 
-    init(app: AppModel) {
+    init(app: AppModel, underTabs: Bool = false) {
         self.app = app
+        self.underTabs = underTabs
         popover.behavior = .applicationDefined
         popover.animates = false
         // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
@@ -47,6 +52,7 @@ final class HoverCard {
         shown?.stop()
         if popover.isShown { warmUntil = Date().addingTimeInterval(0.8); popover.close() }
         shownKey = nil
+        if let keys { NSEvent.removeMonitor(keys); self.keys = nil }
     }
 
     /// A row's card without the wait: a click asked for it.
@@ -56,7 +62,8 @@ final class HoverCard {
     }
 
     private func show(_ key: String, rect: NSRect, in view: NSView) {
-        guard view.window != nil, let model = CardModel(key, app: app) else { close(); return }   // events come only while the window is key
+        // Events come only while the window is key.
+        guard view.window != nil, let model = CardModel(key, app: app, placed: !underTabs) else { close(); return }
         shown?.stop()
         shown = model
         shownKey = key
@@ -64,8 +71,12 @@ final class HoverCard {
         let host = NSHostingController(rootView: CardView(model: model))
         host.sizingOptions = .preferredContentSize   // else the popover is placed at a pre-layout size and grows down from its top, off the row
         popover.contentViewController = host
-        popover.show(relativeTo: rect, of: view, preferredEdge: .maxX)
+        popover.show(relativeTo: rect, of: view, preferredEdge: underTabs ? .minY : .maxX)
         model.load()
+        keys = keys ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
+            return e
+        }
     }
 }
 
@@ -93,13 +104,14 @@ final class CardModel {
     /// What its subagents did last, read while the card is up.
     private var watches: [Watched] = []
 
-    init?(_ key: String, app: AppModel) {
+    /// `placed`: the subtitle says where the agent is (group · project); a tab's card leaves it out.
+    init?(_ key: String, app: AppModel, placed: Bool = true) {
         self.app = app
         let m = app
         if key.hasPrefix("a:"), let s = m.session(String(key.dropFirst(2))) {
             title = app.catalog.displayName(s)
             let w = m.worktree(s.worktreeId)
-            subtitle = [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ")
+            subtitle = placed ? [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ") : ""
             agents = [Agent(id: s.id, session: s)]
             workspaceId = s.worktreeId ?? ""
             agentOnly = true
@@ -216,7 +228,8 @@ struct CardView: View {
                         Text(shortAgo(a.session.statusAt ?? a.session.createdAt)).font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
                     }
                     if !a.session.summary.isEmpty {
-                        Text(a.session.summary).font(.caption).foregroundStyle(.secondary).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                        Text(Self.linked(a.session.summary)).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let g = a.session.goal { Text("Goal: \(g)").font(.caption).foregroundStyle(.secondary).lineLimit(3) }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
@@ -243,6 +256,12 @@ struct CardView: View {
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)
+    }
+
+    /// An agent's summary often ends with a Markdown link ("Plan ready: [Plan](https://…)"): its words, clickable.
+    static func linked(_ text: String) -> AttributedString {
+        do { return try AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) }
+        catch { return AttributedString(text) }   // not Markdown: as written
     }
 }
 
