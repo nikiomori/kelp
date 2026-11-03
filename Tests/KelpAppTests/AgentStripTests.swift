@@ -157,3 +157,11 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(pill.width > tile.width)
     #expect(abs(pill.midX - tile.midX) < 1 && abs(pill.minY - tile.minY) < 1)
 }
+
+@MainActor @Test func aClickAnywhereOnATileReachesItsButton() {
+    let button = StripButton(frame: NSRect(x: 0, y: 0, width: 200, height: 32))
+    let rig = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 40))
+    rig.addSubview(button)
+    for x in [6, 16, 60, 150] as [CGFloat] { #expect(rig.hitTest(NSPoint(x: x, y: 16)) === button) }   // the icon, the mark, the words
+    #expect(rig.hitTest(NSPoint(x: 260, y: 16)) !== button)
+}

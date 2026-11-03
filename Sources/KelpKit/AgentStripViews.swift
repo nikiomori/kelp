@@ -13,17 +13,20 @@ final class StripPanel: NSPanel {
     private static let dragFrom: CGFloat = 4
 
     /// Follows the pointer until the button is let go; says if it went anywhere, as if not this was a click.
-    func drag() -> Bool {
-        let start = frame.origin, from = NSEvent.mouseLocation
+    func drag(from down: NSEvent) -> Bool {
+        let start = frame.origin, from = Self.onScreen(down)
         var moved = false
         while let e = nextEvent(matching: [.leftMouseUp, .leftMouseDragged]), e.type == .leftMouseDragged {
-            let at = NSEvent.mouseLocation, dx = at.x - from.x, dy = at.y - from.y
+            let at = Self.onScreen(e), dx = at.x - from.x, dy = at.y - from.y
             moved = moved || hypot(dx, dy) >= Self.dragFrom
-            if moved { setFrameOrigin(NSPoint(x: start.x + dx, y: start.y + dy)) }
+            if moved { setFrameOrigin(NSPoint(x: start.x + dx, y: start.y - dy)) }
         }
         if moved { onDropped?() }
         return moved
     }
+
+    /// From the event itself, in the screen's own coordinates: `locationInWindow` shifts as the window follows the pointer.
+    private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }
 
     static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
         let p = StripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -58,7 +61,9 @@ final class StripPanel: NSPanel {
 
 /// The strip's own ground, between its tiles: it moves the strip too.
 final class StripRow: NSStackView {
-    override func mouseDown(with event: NSEvent) { _ = (window as? StripPanel)?.drag() }
+    override func mouseDown(with event: NSEvent) { _ = (window as? StripPanel)?.drag(from: event) }
+    /// With Kelp behind, the click that reaches a window goes only to a view that takes a first click.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
 }
 
@@ -152,7 +157,7 @@ final class StripButton: PointerControl {
     override func mouseDown(with event: NSEvent) {
         guard let panel = window as? StripPanel else { return super.mouseDown(with: event) }
         fadeBackground(to: .fillSelected, held: true)
-        let moved = panel.drag()
+        let moved = panel.drag(from: event)
         refreshPointer()
         guard !moved else { return }
         pressBounce()
@@ -161,6 +166,9 @@ final class StripButton: PointerControl {
     override func menu(for event: NSEvent) -> NSMenu? { onMenu?() }
     /// Kelp is behind and stays there: the first click is the click, and the pointer answers with it inactive.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    /// The whole tile is the button. A click over its icon or words would otherwise go to them, which don't take a first click,
+    /// and with Kelp behind it would be lost.
+    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         anyApp = retracked(anyApp, .activeAlways)
