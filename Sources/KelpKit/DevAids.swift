@@ -174,6 +174,10 @@ extension AppDelegate {
 
 extension AppDelegate {
     static var hovered = false
+    /// `{f2}`, `{shift+f12}`.
+    static let functionKeys: [String: (char: String, code: UInt16)] = [
+        "f2": ("\u{F705}", 120), "f8": ("\u{F70B}", 100), "f12": ("\u{F70F}", 111)
+    ]
     /// Quits, and takes along the daemon the app started in a KELP_HOME of the snapshot's own: each one would stay behind.
     /// Never one under ~/.kelp*, a home someone lives in.
     private func finishSnapshot() {
@@ -197,7 +201,7 @@ extension AppDelegate {
     }
 
     /// Dev aid: real key events through NSApp (menus, key equivalents, the terminal's keyDown/IME path).
-    /// "echo hi\r" types text; "{cmd+t}" / "{cmd+\\}" press shortcuts; "{wait}" pauses a second (async UI).
+    /// "echo hi\r" types text; "{cmd+t}" / "{cmd+\\}" press shortcuts; "{wait}" pauses a second (async UI); "{ok}" presses a sheet's default button.
     func typeKeys(_ spec: String) {
         let app = self.app
         let codes: [Character: UInt16] = ["a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13,
@@ -215,7 +219,7 @@ extension AppDelegate {
                 for m in combo.dropLast() { mods.insert(["cmd": .command, "shift": .shift, "opt": .option, "ctrl": .control][String(m)] ?? []) }
                 var key = String(combo.last ?? "")
                 key = ["up": "\u{F700}", "down": "\u{F701}", "left": "\u{F702}", "right": "\u{F703}", "tab": "\t", "esc": "\u{1B}",
-                       "delete": "\u{7F}", "space": " ", "return": "\r"][key] ?? key
+                       "delete": "\u{7F}", "space": " ", "return": "\r"][key] ?? Self.functionKeys[key]?.char ?? key
                 events.append((mods.contains(.shift) ? key.uppercased() : key, mods)); rest = rest[rest.index(after: end)...]
             } else { events.append((String(c), [])); rest = rest.dropFirst() }
         }
@@ -225,9 +229,18 @@ extension AppDelegate {
         for (ch, mods) in events {
             if ch == "wait", mods.isEmpty { at += 1; continue }
             at += 0.05
+            if ch == "ok", mods.isEmpty {   // The sheet's default button: a window in the background doesn't get ↩ to it.
+                DispatchQueue.main.asyncAfter(deadline: .now() + at) { [self] in
+                    let sheet = main.window?.attachedSheet, buttons = sheet?.contentView?.allSubviews(of: NSButton.self) ?? []
+                    let chosen = buttons.first { $0.keyEquivalent == "\r" || ($0.cell === sheet?.defaultButtonCell && $0.cell != nil) }
+                    chosen?.performClick(nil)
+                }
+                continue
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + at) { [self] in
                 let named: [String: UInt16] = ["\u{F700}": 126, "\u{F701}": 125, "\u{F702}": 123, "\u{F703}": 124, "\t": 48, "\u{1B}": 53, "\u{7F}": 51]
-                let code = named[ch] ?? (ch.count == 1 ? codes[Character(ch.lowercased())] ?? 0 : 0)
+                let function = Self.functionKeys.values.first { $0.char == ch }?.code
+                let code = function ?? named[ch] ?? (ch.count == 1 ? codes[Character(ch.lowercased())] ?? 0 : 0)
                 defer {
                     if !mods.isEmpty {
                         DispatchQueue.main.async {
@@ -240,7 +253,8 @@ extension AppDelegate {
                 // responder chain (Find…, Copy) are disabled: send their action along the window's chain instead.
                 if !NSApp.isActive, mods.contains(.command), let item = Self.menuItem(ch, mods), item.target == nil, let a = item.action,
                    main.window?.firstResponder?.tryToPerform(a, with: item) == true { return }
-                let flags = (123...126).contains(code) ? mods.union([.numericPad, .function]) : mods   // arrows carry these
+                // As a keyboard's do.
+                let flags = (123...126).contains(code) ? mods.union([.numericPad, .function]) : function != nil ? mods.union(.function) : mods
                 for type in [NSEvent.EventType.keyDown, .keyUp] {
                     guard let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
                                                    windowNumber: (NSApp.keyWindow ?? main.window)?.windowNumber ?? 0, context: nil,
