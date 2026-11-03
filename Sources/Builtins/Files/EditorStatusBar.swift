@@ -12,7 +12,7 @@ final class EditorStatusBar: NSView {
     private let format = NSTextField(labelWithString: "")
     /// "Wrap" while long lines wrap: a click turns it off.
     private let wrap = PointerButton()
-    /// How many problems the file has: a click goes to the next.
+    /// How many problems the file has: a click lists those of every open file.
     private let problems = PointerButton()
     /// What the one under the cursor says.
     private let problem = NSTextField(labelWithString: "")
@@ -56,7 +56,7 @@ final class EditorStatusBar: NSView {
         problems.font = .ui(11)
         problems.padding = Metrics.gap
         problems.isHidden = true
-        problems.toolTip = String(localized: "Next Problem (F8)")
+        problems.toolTip = String(localized: "Show Problems")
         problem.font = .ui(11)
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail

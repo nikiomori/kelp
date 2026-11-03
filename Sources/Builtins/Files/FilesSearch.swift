@@ -80,6 +80,21 @@ extension FilesPanel {
         resultsTop.constant = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
     }
 
+    /// What the language servers say of the project's open files, in a search's place; errors first.
+    func showProblems() {
+        let found = Self.problems(in: app.fileVersions.mapValues { $0.problems ?? [] }, root: root)
+        show(references: found)
+        noResults.show(found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle", buttons: [clearButton()])
+    }
+
+    static func problems(in files: [String: [CodeProblem]], root: String) -> [SearchMatch] {
+        let all = files.filter { $0.key.hasPrefix(root + "/") }.sorted { $0.key < $1.key }.flatMap { path, found in
+            found.sorted { $0.line < $1.line }.map { (isError: $0.isError, match: SearchMatch(
+                path: String(path.dropFirst(root.count + 1)), line: $0.line + 1, text: ($0.isError ? "✕ " : "⚠ ") + $0.message)) }
+        }
+        return all.filter(\.isError).map(\.match) + all.filter { !$0.isError }.map(\.match)
+    }
+
     /// The replace field comes with what it would replace.
     func showReplace() {
         replaceRow.isHidden = byName || matches.isEmpty || resultsScroll.isHidden

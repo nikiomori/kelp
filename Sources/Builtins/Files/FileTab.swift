@@ -132,7 +132,7 @@ final class FileTab: SavableTab {
         bar.contextMenu = { [app, weak e] in EditorStatusBar.menu(app, language: e?.languageId) }
         bar.show(cursor: e.cursor)
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
-        bar.onProblems = { [weak e] in e?.goToProblem(forward: true) }
+        bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
         statusBar = bar
         let crumbs = Breadcrumbs(app: app, path: path, root: root, editor: e)
         let language = e.languageId

@@ -7618,6 +7618,16 @@
         }
       }
     },
+    "No problems in open files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В открытых файлах проблем нет"
+          }
+        }
+      }
+    },
     "No profiles yet: agents use their own login.": {
       "localizations": {
         "ru": {
@@ -10841,6 +10851,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать лимит плана"
+          }
+        }
+      }
+    },
+    "Show Problems": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать проблемы"
           }
         }
       }

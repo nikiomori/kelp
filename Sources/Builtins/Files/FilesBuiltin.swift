@@ -119,6 +119,10 @@ extension Builtins {
                           app.workbench.showPanel("files")
                           DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findInFiles() }   // after the panel is built
                       },
+                      cmd("files.showProblems", "Show Problems") {
+                          app.workbench.showPanel("files")
+                          DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.showProblems() }   // after the panel
+                      },
                       cmd("files.findByName", "Find File by Name…") {
                           app.workbench.showPanel("files")
                           DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findByName() }   // after the panel is built

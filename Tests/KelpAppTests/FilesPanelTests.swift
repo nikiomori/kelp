@@ -161,3 +161,12 @@ extension AppOfItsOwn {
         #expect(!FileManager.default.fileExists(atPath: rig.repo + "/sub/untitled"))
     }
 }
+
+@MainActor @Test func problemsListTheProjectsErrorsFirst() {
+    let warning = CodeProblem(line: 1, column: 0, endLine: 1, endColumn: 1, isError: false, message: "unused")
+    let error = CodeProblem(line: 9, column: 0, endLine: 9, endColumn: 1, isError: true, message: "wrong")
+    let found = FilesPanel.problems(in: ["/p/a.swift": [warning], "/p/b.swift": [error], "/other/c.swift": [error]], root: "/p")
+    #expect(found.map(\.path) == ["b.swift", "a.swift"])
+    #expect(found.map(\.line) == [10, 2])
+    #expect(found[0].text == "✕ wrong" && found[1].text == "⚠ unused")
+}
