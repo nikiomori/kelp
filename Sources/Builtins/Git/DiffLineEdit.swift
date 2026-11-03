@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 import WorkbenchKit
 
@@ -23,16 +24,31 @@ extension DiffViewController: NSTextFieldDelegate {
 
     private func beginEdit(_ row: Int, path: String, line: Int, text: String) {
         endEdit()
-        var rect = table.rect(ofRow: row)
-        if case .diff(.pair) = rows[row] { rect = NSRect(x: rect.midX, y: rect.minY, width: rect.width / 2, height: rect.height) }
         let field = NSTextField(string: text)
         field.font = font
-        field.frame = rect.insetBy(dx: Metrics.inset, dy: 0)
+        field.isBordered = false
+        field.drawsBackground = true
+        field.backgroundColor = CodeEditor.page.background   // over the line: what it says now mustn't show through
+        field.textColor = CodeEditor.page.text
+        field.frame = place(in: row)
         field.delegate = self
         field.focusRingType = .none
         table.addSubview(field)
         lineEdit = (field, path, line, text)
         view.window?.makeFirstResponder(field)
+    }
+
+    /// Over the line's own cell, the last column in either layout, so the words don't move as it opens.
+    private func place(in row: Int) -> NSRect {
+        guard let cell = table.view(atColumn: table.numberOfColumns - 1, row: row, makeIfNecessary: false) else {
+            return table.rect(ofRow: row).insetBy(dx: Metrics.inset, dy: 0)
+        }
+        var rect = table.convert(cell.bounds, from: cell)
+        // The cell's text starts after its prefix: "+ " in the unified layout, one space in the split one.
+        let lead = ((table.numberOfColumns < 4 ? "  " : " ") as NSString).size(withAttributes: [.font: font]).width
+        rect.origin.x += lead
+        rect.size.width -= lead
+        return rect
     }
 
     private func endEdit() {

@@ -39,6 +39,7 @@ extension FilesPanel {
             let sheet = ReplaceSheet(files, leftOut: names.count - files.count)
             guard let w = sheet.window, await runSheet(w) == .OK else { return }
             await Self.write(sheet.files, app: app)
+            self.runSearch()   // what it found has changed
         }
     }
 
