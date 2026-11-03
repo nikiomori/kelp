@@ -4,8 +4,8 @@ import DesignKit
 import WorkbenchKit
 
 /// The row over the projects, beside Add Project. While agents need you: a glass capsule counting them, which goes to the
-/// next one, as ⇧⌘U does. Beside it in grey, how many work: words, not a button, so nothing says more than the capsule's
-/// click does. The rows say what each one wants (SidebarCell's second line), so the capsule doesn't list them again. With
+/// next one, as ⇧⌘U does. Beside it in grey, how many work and how many finished unread: words, not a button, so nothing
+/// says more than the capsule's click does. The rows say what each one wants (SidebarCell's second line), so the capsule doesn't list them again. With
 /// nobody asking and nobody working the row names the list under it. It keeps its place whatever it says: nothing in the
 /// list moves when an agent starts asking or stops. A new question lights the capsule up for a moment.
 @MainActor
@@ -35,6 +35,8 @@ final class AgentSummary: NSView {
     private let aside = NSStackView()
     private let asideMark = StatusMark(size: 12)
     private let asideText = NSTextField(labelWithString: "")
+    private let doneMark = StatusMark(size: 12)
+    private let doneText = NSTextField(labelWithString: "")
     private let row = NSStackView()
     /// The words' room, as wished rather than required: a stack around a label has no width of its own, and a required one
     /// would widen the sidebar.
@@ -73,7 +75,11 @@ final class AgentSummary: NSView {
         asideText.lineBreakMode = .byClipping
         asideText.maximumNumberOfLines = 1
         asideText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        for v in [asideMark, asideText] as [NSView] { aside.addArrangedSubview(v) }
+        doneText.font = .ui(11)
+        doneText.textColor = .secondaryLabelColor
+        doneMark.status = .done
+        doneMark.announces = false
+        for v in [asideMark, asideText, doneMark, doneText] as [NSView] { aside.addArrangedSubview(v) }
         aside.spacing = Metrics.gap
         aside.detachesHiddenViews = true
         for v in [capsule, aside] as [NSView] { row.addArrangedSubview(v) }
@@ -100,13 +106,23 @@ final class AgentSummary: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// A mark has no size of its own, only constraints.
+    private static func width(_ views: [NSView], gap: CGFloat) -> CGFloat {
+        views.reduce(0) { $0 + ($1 is StatusMark ? 12 : $1.intrinsicContentSize.width) } + CGFloat(max(views.count - 1, 0)) * gap + 2
+    }
+
     /// The grey words go first when the row is short of room (a large Text size): the capsule says what matters.
     override func layout() {
         super.layout()
-        let words = asideText.intrinsicContentSize.width + (asideMark.isHidden ? 0 : 12 + aside.spacing) + 2
-        if asideWidth.constant != words { asideWidth.constant = words }
         let room = asking ? bounds.width - (title.intrinsicContentSize.width + 12 + Metrics.gap + 22) - row.spacing : .infinity
-        let hide = asideText.stringValue.isEmpty || words > room
+        let working = [asideMark, asideText].filter { !$0.isHidden } as [NSView]
+        let finished: [NSView] = doneText.stringValue.isEmpty ? [] : [doneMark, doneText]
+        let fits = Self.width(working + finished, gap: aside.spacing) <= room   // what finished goes first: it asks for nothing
+        for v in [doneMark, doneText] as [NSView] { v.isHidden = !fits || finished.isEmpty }
+        let parts = fits ? working + finished : working
+        let words = Self.width(parts, gap: aside.spacing)
+        if asideWidth.constant != words { asideWidth.constant = words }
+        let hide = parts.isEmpty || words > room
         if aside.isHidden != hide { aside.isHidden = hide }
     }
 
@@ -120,6 +136,7 @@ final class AgentSummary: NSView {
             }
         }
         let busy = app.sessions.filter { $0.isChat && $0.status == .working }.count
+        let done = AttentionQueue(app).sessions.filter { SidebarCell.shownStatus($0) == .done }.count
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
@@ -135,9 +152,11 @@ final class AgentSummary: NSView {
         asideMark.status = busy > 0 ? .working : nil
         asideMark.unread = true
         asideMark.isHidden = busy == 0
-        asideText.stringValue = busy > 0 ? String(localized: "\(busy) working") : asking ? "" : String(localized: "Projects")
+        asideText.stringValue = busy > 0 ? String(localized: "\(busy) working") : asking || done > 0 ? "" : String(localized: "Projects")
+        asideText.isHidden = asideText.stringValue.isEmpty
+        doneText.stringValue = done > 0 ? String(localized: "\(done) done") : ""
         asideText.font = busy > 0 ? .ui(11) : .ui(11, weight: .semibold)
-        aside.isHidden = asideText.stringValue.isEmpty
+        aside.isHidden = busy == 0 && done == 0 && asking
         needsLayout = true
         capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(shown.count). Show the next one."))
         capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")

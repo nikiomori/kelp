@@ -284,6 +284,23 @@ extension OneAtATime {
     }
 }
 
+/// Nobody asking: what works and what finished stand side by side over the list, words and marks with a width of their own.
+@Test func theLineOverTheListSaysWhatWorksAndWhatFinished() throws {
+    func agent(_ w: String, _ status: AgentStatus) -> Session {
+        var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: "Report", summary: "")
+        s.unread = status == .done
+        return s
+    }
+    try withSidebar(repos: [project], worktrees: [desk("w1", "a"), desk("w2", "b")], sessions: [agent("w1", .working), agent("w2", .done)]) { vc, _ in
+        vc.view.layoutSubtreeIfNeeded()
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        for words in ["1 working", "1 done"] {
+            let field = try #require(textFields(line).first { $0.stringValue == words })
+            #expect(!field.isHidden && field.frame.width > 0)
+        }
+    }
+}
+
 /// Too narrow for the whole line (a large Text size): one line still, saying how many need you, never two inside the capsule.
 @Test func theCapsuleDropsWhoWorksWhenItsLineWontFit() throws {
     var ask = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask")
@@ -316,6 +333,7 @@ extension OneAtATime {
     // w4 is archived: the daemon doesn't list it, its agent stays in the session list.
     try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, o in
         #expect(texts(vc.view).contains("1 need you"))   // the question: finished reports nobody has read ask for nothing; nor the archived one's
+        #expect(texts(vc.view).contains("2 done"))       // beside it in grey, those two and not the archived one
         let listed: [String] = rows(of: o).flatMap { $0 }
         #expect(listed.contains("Report A") && listed.contains("Report B"))   // each on its own row
     }
