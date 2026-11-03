@@ -39,6 +39,9 @@ usage: kelp <command>
   settings | settings get <key> | set <key> <json-or-text> | unset <key>
   ui state                             what the app shows: workspace, tabs, extensions, commands
   shot [file]                          the app's window as a PNG; prints where it went (a temporary file by default)
+  \(Main.browserUsage)
+                                       a page in a tab beside you, the user watching: snapshot lists what's on it with refs
+                                       (e12) to click and type in; its own cookies unless --shared (the user's)
   run <command-id> [json-args]         run an app command (ids from `kelp ui state`)
   ext list | new <id> [--name N] [--description D] | enable <id> | disable <id> | reload | path
   ext search [text]                    the extension library (github.com/nikiomori/kelp-extensions)
@@ -189,6 +192,7 @@ func plist() -> String {
         case "open": try await open(sub, c)
         case "edit": try await edit(sub, c)
         case "shot": try await shot(sub, c)
+        case "browser": try await browser(sub, c)
         case "routine": try await routines(sub, c)
         default: print(usage)
         }

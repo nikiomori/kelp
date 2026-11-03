@@ -2975,6 +2975,28 @@
         ],
         "type" : "object"
       },
+      "UIBrowserEvent" : {
+        "description" : "An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "args" : {
+
+          },
+          "request" : {
+            "type" : "string"
+          },
+          "worktreeId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "action",
+          "request"
+        ],
+        "type" : "object"
+      },
       "UIEvent" : {
         "description" : "An agent's `ui.open` / `ui.command`, relayed to the app: the request's fields and which it was.",
         "properties" : {
@@ -8844,6 +8866,76 @@
       "x-internal" : true
     },
     {
+      "description" : "`kelp browser`: `action` (open, snapshot, click, type, eval, screenshot, wait) on the browser tab of workspace `worktreeId`, done by the app, whose answer is the result. It waits for the page, up to `wait` seconds.",
+      "name" : "ui.browser",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "action",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "args",
+          "required" : false,
+          "schema" : {
+
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The app's answer to `event.ui.browser` (its `request`): the result, or what went wrong. Only Kelp's window.",
+      "name" : "ui.browser.reply",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "error",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "request",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "result",
+          "required" : false,
+          "schema" : {
+
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Runs the app's command `id` (as in the palette) with `args`.",
       "name" : "ui.command",
       "paramStructure" : "by-name",
@@ -9460,6 +9552,13 @@
       "name" : "event.ui",
       "params" : {
         "$ref" : "#/components/schemas/UIEvent"
+      }
+    },
+    {
+      "description" : "An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.",
+      "name" : "event.ui.browser",
+      "params" : {
+        "$ref" : "#/components/schemas/UIBrowserEvent"
       }
     },
     {

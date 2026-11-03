@@ -45,7 +45,9 @@ extension Builtins {
                 s("agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
                   "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
                 s("agents.skills.agents", "Hand work to other agents", "boolean", true,
-                  "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills")
+                  "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills"),
+                s("agents.skills.browser", "Use pages in Kelp's browser", "boolean", true,
+                  "Claude Code opens your app in a tab beside it, reads it, clicks and types while you watch.", group: "Claude Code skills")
             ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30),
             SettingsSection(id: "notifications", title: "Notifications", icon: "bell", specs: [
                 s("agents.holdBanners", "Hold finished agents while I type", "boolean", true,

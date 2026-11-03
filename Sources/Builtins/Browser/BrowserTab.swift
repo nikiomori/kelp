@@ -3,13 +3,14 @@ import WebKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 /// One web page as a tab: address bar, back/forward, and Design Mode (click an element → its HTML, computed
 /// styles and a cropped screenshot go into the focused agent's prompt).
 @MainActor @Observable
 final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMessageHandler, NSTextFieldDelegate {
     let view: NSView
-    private let web: WKWebView
+    let web: WKWebView
     private let address = NSTextField()
     private let designButton = PointerButton(frame: .zero)
     /// Shown instead of a blank page: the workspace's servers.
@@ -23,20 +24,31 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     private var watcher: FileWatcher?
     /// The page's address and title as of its last commit or load: what the tab shows follows these.
     private var page: (url: URL?, title: String?) = (nil, nil)
-    var uri: String { previewFile != nil ? start : page.url?.absoluteString ?? start }
+    var uri: String {
+        let shown = previewFile != nil ? start : page.url?.absoluteString ?? start
+        return agent ? TabURI.agentPage(shown) : shown
+    }
     private let start: String
+    /// An agent's page (`kelp browser open`): cookies and storage of its own, gone when the tab is.
+    let agent: Bool
+    /// Why the last load failed, until the next one commits (`kelp browser` says it).
+    var loadError: String?
     var title: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page.url?.host
             ?? String(localized: "New Page")
     }
     var icon: NSImage? { .symbol(previewFile == nil ? "safari" : "eye") }
-    var toolTip: String? { page.url?.absoluteString }
+    var toolTip: String? {
+        page.url.map { agent ? String(localized: "\($0.absoluteString)\nAn agent's page: cookies and storage of its own") : $0.absoluteString }
+    }
 
     init(uri: String, app: AppModel) {
-        start = uri
+        agent = TabURI.scheme(uri) == TabURI.agentScheme
+        start = TabURI.pageURL(uri)
         self.app = app
         ports = PortsView(app: app)
         let cfg = WKWebViewConfiguration()
+        if agent { cfg.websiteDataStore = .nonPersistent() }
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
         web = WKWebView(frame: .zero, configuration: cfg)
@@ -71,7 +83,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         ext.target = self; ext.action = #selector(openExternal)
         more.target = self; more.action = #selector(showMore(_:))
         designButton.target = self; designButton.action = #selector(toggleDesign)
-        load(uri)
+        load(start)
     }
 
     func focus() { if web.url == nil { view.window?.makeFirstResponder(address) } else { view.window?.makeFirstResponder(web) } }
@@ -131,6 +143,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func webView(_ w: WKWebView, didCommit n: WKNavigation!) {
+        if w.url?.absoluteString != "about:blank" { loadError = nil }   // the error page (about:blank) keeps it
         address.stringValue = w.url?.absoluteString ?? ""
         ports.isHidden = true
         page = (w.url, w.title)
@@ -146,6 +159,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
         // Showing the error page for those cancelled the navigation the user had just started.
         if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled || ns.domain == "WebKitErrorDomain" && ns.code == 102 { return }
+        loadError = ns.localizedDescription + ((ns.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).map { " (\($0))" } ?? "")
         let text = ns.localizedDescription + " " + String(localized: "Is the dev server running?")
         web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
@@ -181,13 +195,17 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.takeSnapshot(with: cfg) { [weak self] img, _ in MainActor.assumeIsolated { self?.sendDesign(d, image: img) } }   // on main
     }
 
+    /// The image as a PNG at `path` (a temporary file named after `kind` when nil); nil when it couldn't be written.
+    static func savePNG(_ image: NSImage?, kind: String, to path: String? = nil) -> String? {
+        guard let tiff = image?.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return nil }
+        let u = path.map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("kelp-\(kind)-\(UUID().uuidString.prefix(6)).png")
+        do { try png.write(to: u) } catch { return nil }
+        return u.path
+    }
+
     private func sendDesign(_ d: [String: Any], image: NSImage?) {
-        var shot = ""
-        if let img = image, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
-           let png = rep.representation(using: .png, properties: [:]) {
-            let u = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-design-\(UUID().uuidString.prefix(6)).png")
-            try? png.write(to: u); shot = u.path
-        }
+        let shot = Self.savePNG(image, kind: "design") ?? ""
         let styles = (d["styles"] as? [String: String] ?? [:]).filter { !$0.value.isEmpty && $0.value != "none" && $0.value != "normal" }
             .sorted { $0.key < $1.key }.map { "  \($0.key): \($0.value);" }.joined(separator: "\n")
         let source = (d["source"] as? String).map(relativeSource) ?? ""

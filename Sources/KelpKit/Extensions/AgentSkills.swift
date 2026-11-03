@@ -26,6 +26,11 @@ enum AgentSkills {
             description: "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
                 + "another model, a long job while you go on. Start it with kelp session new --agent; its result comes back to you by itself.",
             body: agentsGuide)
+        put("kelp-browser", on: s.bool("agents.skills.browser") != false,
+            description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
+                + "text — in Kelp, the IDE this session runs in: open it in a tab beside you that the user watches, read it, click, "
+                + "type, run JavaScript, take a screenshot. Done with kelp browser, not a headless browser.",
+            body: browserGuide)
         try? IDE.writeGuide(in: ExtensionRegistry.userDir)   // the guide also sits next to the user's extensions, for people
     }
 
@@ -92,6 +97,30 @@ enum AgentSkills {
         - It works in your folder, on your branch. For edits that may collide with yours, give it a branch of its own:
           `kelp worktree create <branch>`, then `--worktree <id>` on `kelp session new`. Reading and reviewing need none.
         - Children end when you do. `--outlive` starts one that isn't your child: it stays, and tells you nothing.
+
+        """
+
+    private static let browserGuide = """
+        # Using a web page in Kelp
+
+        This session runs inside Kelp and the `kelp` CLI is on PATH. `kelp browser` drives a page tab beside your terminal:
+        the user sees every step. It's Safari's engine (WebKit), in Kelp's window.
+
+        - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints its url and title once
+          it loaded; `error` says why it didn't. The page has cookies and storage of its own, so you start logged out.
+          `--shared` uses the user's instead: only when they ask, it acts as them.
+        - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`,
+          `- textbox "Email" [ref=e3]: "a@b.c"`, `- link "Docs" [ref=e5] -> /docs`. Read it rather than a screenshot.
+        - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — the refs of the last snapshot; take a new one
+          after the page changed (a stale ref says so). Both wait for a page they load.
+        - `kelp browser wait --text "Saved" [--selector ".toast"] [--timeout 10]` — until it shows.
+        - `kelp browser eval "document.querySelectorAll('li').length"` — an expression in the page, its value as JSON; for
+          statements, `(() => { … })()`.
+        - `kelp browser screenshot [file.png]` — prints where it went; look at it with your image reading.
+        - `kelp browser info` — where the page is now.
+
+        Clicks and typing are DOM events: a page that only takes trusted ones (some payment and captcha widgets) ignores
+        them. Tell the user rather than work around it.
 
         """
 

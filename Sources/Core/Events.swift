@@ -10,7 +10,7 @@ public protocol RPCEvent: Codable, Sendable {
 
 /// Every event the daemon sends.
 public let rpcEvents: [any RPCEvent.Type] = [Session.self, OutputEvent.self, DevServerEvent.self, PortBusyEvent.self, ChangedEvent.self, CloneEvent.self,
-                                              SettingsEvent.self, UIEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
+                                              SettingsEvent.self, UIEvent.self, UIBrowserEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
                                               GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
                                               LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self,
                                               RoutinesEvent.self]
@@ -68,6 +68,13 @@ public struct UIEvent: RPCEvent {
     public var id: String?, args: JSONValue?                                   // command
     public init(_ o: UIOpen) { action = "open"; uri = o.uri; split = o.split; focus = o.focus; worktreeId = o.worktreeId }
     public init(_ c: UICommand) { action = "command"; id = c.id; args = c.args }
+}
+
+/// An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.
+public struct UIBrowserEvent: RPCEvent {
+    public static let name = "event.ui.browser"
+    public var request: String, action: String, args: JSONValue?, worktreeId: String?
+    public init(_ b: UIBrowser, request: String) { self.request = request; action = b.action; args = b.args; worktreeId = b.worktreeId }
 }
 
 /// The wire form of an event: one encode, no JSONValue in between (output events are many).

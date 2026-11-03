@@ -26,6 +26,8 @@ package final class EditorArea: NSViewController {
     var startDraft = ""
     /// The group shown alone (⇧⌘↩), not saved: a relaunch shows every pane.
     var zoomed: String?
+    /// The page `kelp browser` last drove here (a tab id): its next command goes to the same one.
+    var browsing: String?
 
     var worktree: Worktree? { app.worktree(workspaceId) }
 
@@ -291,8 +293,9 @@ package final class EditorArea: NSViewController {
             return .init(id: t.id, title: (p as NSString).lastPathComponent, icon: app.fileIcons.image((p as NSString).lastPathComponent),
                          status: nil, toolTip: p)
         case "diff": return .init(id: t.id, title: String(localized: "Changes"), icon: .symbol("plus.forwardslash.minus"), status: nil, toolTip: nil)
-        case "http", "https", "about":
-            return .init(id: t.id, title: URL(string: t.uri)?.host ?? String(localized: "New Page"), icon: .symbol("safari"), status: nil, toolTip: t.uri)
+        case "http", "https", "about", TabURI.agentScheme:
+            return .init(id: t.id, title: URL(string: TabURI.pageURL(t.uri))?.host ?? String(localized: "New Page"), icon: .symbol("safari"),
+                         status: nil, toolTip: t.uri)
         case "preview": return .init(id: t.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil, toolTip: body)
         case "usage": return .init(id: t.id, title: String(localized: "Usage"), icon: .symbol("chart.bar"), status: nil, toolTip: nil)
         case "routines": return .init(id: t.id, title: String(localized: "Routines"), icon: .symbol("clock.arrow.circlepath"), status: nil, toolTip: nil)
@@ -303,7 +306,7 @@ package final class EditorArea: NSViewController {
         }
     }
 
-    private func content(_ t: TabRef) -> TabContent? {
+    func content(_ t: TabRef) -> TabContent? {
         if let c = contents[t.id] { return c }
         let c = app.extensions.tabProvider(for: t.uri)?.make(t.uri) ?? UnavailableTab(uri: t.uri, app: app)
         contents[t.id] = c

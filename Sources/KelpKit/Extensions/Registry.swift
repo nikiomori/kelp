@@ -173,11 +173,13 @@ struct IconThemeSpec {
 package struct TabProvider {
     package init(schemes: [String], make: @escaping @MainActor (String) -> TabContent?,
                  closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)? = nil,
-                 menu: (@MainActor (_ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void) -> Void)? = nil) {
+                 menu: (@MainActor (_ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void) -> Void)? = nil,
+                 browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)? = nil) {
         self.schemes = schemes
         self.make = make
         self.closeUnbuilt = closeUnbuilt
         self.menu = menu
+        self.browse = browse
     }
     let schemes: [String]
     let make: @MainActor (String) -> TabContent?
@@ -186,6 +188,8 @@ package struct TabProvider {
     /// Its items in the tab's context menu, added to `menu` above Close Tab: `workspace` is the editor area's, and
     /// `openBeside` opens a URI in a pane to the right.
     var menu: (@MainActor (_ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void) -> Void)?
+    /// `kelp browser`'s `action` on a page tab it made (`UIBrowser`).
+    var browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)?
 }
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.

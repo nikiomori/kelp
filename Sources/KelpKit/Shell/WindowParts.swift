@@ -218,6 +218,8 @@ final class EditorHost: NSViewController {
     private var areas: [String: EditorArea] = [:]
     private var recent: [String] = []
     private(set) var current: EditorArea?
+    /// A workspace's editor area while it's loaded (shown lately), on screen or not.
+    func area(_ id: String) -> EditorArea? { areas[id] }
     var editedFiles: [SavableTab] { areas.values.flatMap(\.editedFiles) }
     func editedFiles(in ids: [String]) -> [SavableTab] { ids.compactMap { areas[$0] }.flatMap(\.editedFiles) }
     private var welcome: NSView?

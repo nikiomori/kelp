@@ -425,6 +425,7 @@ package final class AppModel {
         case let e as CloneEvent: CloneSheet.cloneProgress(id: e.id, line: e.line)
         case let e as SettingsEvent: settings.received(e.settings)
         case let e as UIEvent: UIRequests(self).handle(e)
+        case let e as UIBrowserEvent: UIRequests(self).browse(e)
         default: watched(event)   // event.changed is left: the records themselves follow (event.repo / .worktree / .removed)
         }
     }

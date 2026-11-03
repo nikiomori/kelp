@@ -239,7 +239,8 @@ private func codeOnly(_ s: String) -> String {
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Git/CommitCard.swift": "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
-        "KelpKit/Extensions/DeclarativeExtension.swift": "an extension's own refresh interval for its panel's badge command"
+        "KelpKit/Extensions/DeclarativeExtension.swift": "an extension's own refresh interval for its panel's badge command",
+        "Builtins/Browser/BrowserAutomation.swift": "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
     ]
     let all = try matches(#"repeats: true|Task\.sleep\("#, in: appDirs)
     let found = all.filter { m in !clocks.keys.contains { m.hasPrefix("Sources/" + $0 + ":") } }
@@ -331,7 +332,8 @@ private func codeOnly(_ s: String) -> String {
     // checks `onlyFromKelp` itself right after (SessionLanes).
     let reads = try matches(#"\bdecoded\("#, in: ["Sources/Daemon"]).filter { !$0.hasPrefix("Sources/Daemon/Handlers.swift:") }
     #expect(reads.map { $0.split(separator: ":")[0] } == ["Sources/Daemon/SessionLanes.swift"], "params read without the caller check: \(reads)")
-    #expect(try matches(#"var onlyFromKelp: String\? \{ (?!nil \}|get \})"#, in: ["Sources/Daemon"]).count == 4)   // ui.publish, scripts.trust, state.set, session.annotate
+    // ui.publish, scripts.trust, state.set, session.annotate, ui.browser.reply
+    #expect(try matches(#"var onlyFromKelp: String\? \{ (?!nil \}|get \})"#, in: ["Sources/Daemon"]).count == 5)
 }
 
 /// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it

@@ -146,7 +146,8 @@ extension Daemon {
                                         RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self]
             + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods + Methods.integrationMethods + Methods.projectMethods
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
-        let all = sync.map { $0 as any Answered.Type } + (Methods.asyncMethods + Methods.lspAsyncMethods).map { $0 as any Answered.Type }
+        let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
+        let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()
 

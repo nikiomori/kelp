@@ -17,6 +17,7 @@ final class Clients: Sendable {
         var app = Set<Int>()          // Kelp's window (ui.publish): it gets event.ui
         var muted = Set<Int>()        // asked for no broadcasts (client.events): kelp attach's control connection
         var uiState: JSONValue = .object([:])   // what the app last published; cleared when no app is connected
+        var replies: [String: CheckedContinuation<JSONValue, Error>] = [:]   // ui.browser requests the app hasn't answered
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
@@ -72,6 +73,23 @@ final class Clients: Sendable {
     }
 
     func setMuted(_ id: Int, _ muted: Bool) { state.withLock { if muted { $0.muted.insert(id) } else { $0.muted.remove(id) } } }
+
+    /// The app's answer to `request`, sent by `send`; an error once `seconds` pass without one.
+    func reply(to request: String, within seconds: TimeInterval, send: () -> Void) async throws -> JSONValue {
+        try await withCheckedThrowingContinuation { k in
+            state.withLock { $0.replies[request] = k }
+            send()
+            Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
+                self?.answer(request, .failure(RPCError.internalError("Kelp didn't answer in \(Int(seconds)) s")))
+            }
+        }
+    }
+
+    /// The first answer wins; a late one (after the timeout, from a second window) finds nothing waiting.
+    func answer(_ request: String, _ r: Result<JSONValue, Error>) {
+        state.withLock { $0.replies.removeValue(forKey: request) }?.resume(with: r)
+    }
 
     func publishUI(_ ui: JSONValue, from id: Int) { state.withLock { $0.uiState = ui; $0.app.insert(id) } }
     var uiState: JSONValue { state.withLock { $0.uiState } }

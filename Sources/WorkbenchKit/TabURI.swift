@@ -14,6 +14,13 @@ public enum TabURI {
     /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
     public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
     public static func session(_ id: String) -> String { "session:\(id)" }
+    /// A page an agent drives (`kelp browser open`), with cookies and storage of its own: `agentweb:` and its address.
+    public static let agentScheme = "agentweb"
+    public static func agentPage(_ url: String) -> String { agentScheme + ":" + url }
+    /// The address a page's tab shows (an agent's without its prefix).
+    public static func pageURL(_ uri: String) -> String { scheme(uri) == agentScheme ? body(uri) : uri }
+    /// A tab that shows a web page: `kelp browser` can drive it.
+    public static func isPage(_ uri: String) -> Bool { ["http", "https", "about", "preview", agentScheme].contains(scheme(uri)) }
     /// What a subagent of `session` did: a journal, it has no terminal.
     public static func subagent(session: String, id: String) -> String { "subagent:\(session)/\(id)" }
     public static func file(_ path: String, line: Int? = nil) -> String {

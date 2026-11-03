@@ -63,6 +63,29 @@ final class EventBox: @unchecked Sendable {
     #expect(try await agent.call("ui.state") == .object([:]))
 }
 
+/// `kelp browser`: the app gets the request, and its answer, or what went wrong, is the agent's reply.
+@Test func browserRequestsWaitForTheApp() async throws {
+    let (d, agent, root) = try daemon(); defer { d.stop() }
+    await #expect(throws: RPCError.internalError("The Kelp app isn't running")) { try await agent.call("ui.browser", .obj(["action": "info"])) }
+    let app = try client(root)
+    let box = EventBox(); app.onNotification = { box.add($0, $1) }
+    _ = try await app.call("ui.publish", .obj(["state": .object([:])]))
+
+    let page = Task { try await agent.call("ui.browser", .obj(["action": "snapshot", "worktreeId": "w1"])) }
+    #expect(try await waitFor { box.last("event.ui.browser")?["action"] == "snapshot" })
+    #expect(box.last("event.ui.browser")?["worktreeId"] == "w1")
+    let first = try #require(box.last("event.ui.browser")?["request"])
+    _ = try await app.call("ui.browser.reply", .obj(["request": first, "result": "- button [ref=e1]"]))
+    #expect(try await page.value == "- button [ref=e1]")
+
+    let click = Task { try await agent.call("ui.browser", .obj(["action": "click"])) }
+    #expect(try await waitFor { box.last("event.ui.browser")?["request"] != first })
+    let second = try #require(box.last("event.ui.browser")?["request"])
+    _ = try await app.call("ui.browser.reply", .obj(["request": second, "error": "No e9 on the page now"]))
+    await #expect(throws: RPCError.internalError("No e9 on the page now")) { try await click.value }
+    _ = try await app.call("ui.browser.reply", .obj(["request": second, "result": "late"]))   // nobody waits: nothing happens
+}
+
 /// What the app restores lives in the daemon: by key, by prefix, null deletes; a removed workspace takes its layout along.
 @Test func uiStateByKeyAndPrefix() async throws {
     let (d, c, _) = try daemon(); defer { d.stop() }

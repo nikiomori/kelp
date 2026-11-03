@@ -32,6 +32,25 @@ public struct UICommand: InternalMethod {
     public init(id: String, args: JSONValue? = nil) { self.id = id; self.args = args }
 }
 
+/// `kelp browser`: `action` (open, snapshot, click, type, eval, screenshot, wait) on the browser tab of workspace
+/// `worktreeId`, done by the app, whose answer is the result. It waits for the page, up to `wait` seconds.
+public struct UIBrowser: InternalMethod {
+    public static let name = "ui.browser"; public typealias Result = JSONValue
+    /// How long the daemon waits for the app's answer; the call itself a little longer.
+    public static let wait: TimeInterval = 60
+    public static var timeout: TimeInterval? { wait + 5 }
+    public var action: String, args: JSONValue?, worktreeId: String?
+    public init(action: String, args: JSONValue? = nil, worktreeId: String? = nil) {
+        self.action = action; self.args = args; self.worktreeId = worktreeId
+    }
+}
+/// The app's answer to `event.ui.browser` (its `request`): the result, or what went wrong. Only Kelp's window.
+public struct UIBrowserReply: InternalMethod {
+    public static let name = "ui.browser.reply"; public typealias Result = Done
+    public var request: String, result: JSONValue?, error: String?
+    public init(request: String, result: JSONValue? = nil, error: String? = nil) { self.request = request; self.result = result; self.error = error }
+}
+
 /// An agent's prompt in a tab of the app (`kelp edit`, the tab's `prompt:` URI).
 public enum Prompts {
     /// Beside the file: written when the tab closes.

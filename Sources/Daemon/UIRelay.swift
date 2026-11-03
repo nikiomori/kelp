@@ -27,8 +27,27 @@ extension UIOpen: Handled {
 
 extension UICommand: Handled { func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) } }
 
+/// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
+extension UIBrowser: AsyncHandled {
+    func handle(_ clients: Clients) async throws -> JSONValue {
+        let apps = clients.apps
+        guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
+        let request = UUID().uuidString
+        return try await clients.reply(to: request, within: Self.wait) { clients.notify(UIBrowserEvent(self, request: request), to: apps) }
+    }
+}
+
+extension UIBrowserReply: Handled {
+    var onlyFromKelp: String? { "Only Kelp's window answers browser requests." }
+    func handle(_ clients: Clients) throws -> Done {
+        clients.answer(request, error.map { .failure(RPCError.internalError($0)) } ?? .success(result ?? .null))
+        return Done()
+    }
+}
+
 extension Methods {
-    static let uiMethods: [any Handled.Type] = [UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self]
+    static let uiMethods: [any Handled.Type] = [UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowserReply.self]
+    static let uiAsyncMethods: [any AsyncHandled.Type] = [UIBrowser.self]
 }
 
 extension Clients {
