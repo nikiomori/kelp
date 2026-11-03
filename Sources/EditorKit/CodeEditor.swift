@@ -138,7 +138,12 @@ public final class CodeEditor: NSObject {
     /// The editors there are, to find the focused one (CodeEditor+Edits).
     static let all = NSHashTable<CodeEditor>.weakObjects()
 
+    /// The editor showing the file at `url`, if one is.
+    public static func showing(_ url: URL) -> CodeEditor? { all.allObjects.first { $0.url.standardizedFileURL == url.standardizedFileURL } }
+    public let url: URL
+
     public init(text: String, url: URL, editable: Bool = true) {
+        self.url = url
         language = CodeLanguage.detectLanguageFrom(url: url, prefixBuffer: String(text.prefix(200)))
         // Past it a file is only read, and tree-sitter's tree takes more than 50 times the text (54 MB of JSON: 3 GB).
         highlighter = text.utf8.count <= Self.readOnlyLimit ? SyntaxHighlighter(language) : nil
@@ -308,8 +313,11 @@ public final class CodeEditor: NSObject {
         textView.setSelectedRange(selection)
     }
 
-    public func goTo(line: Int) {
-        let i = lineIndex.start(ofLine: max(0, line - 1), in: textView.string as NSString) ?? textView.length
+    /// `column` 1-based, within the line.
+    public func goTo(line: Int, column: Int = 1) {
+        let s = textView.string as NSString
+        var i = lineIndex.start(ofLine: max(0, line - 1), in: s) ?? textView.length
+        if column > 1, i < s.length { i = min(i + column - 1, MultiCursor.lineEnd(s, i)) }
         textView.setSelectedRange(NSRange(location: i, length: 0))
         textView.scrollRangeToVisible(NSRange(location: i, length: 0))
     }

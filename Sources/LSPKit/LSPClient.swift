@@ -165,7 +165,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         _ = try await request("initialize", .obj([
             "processId": .int(Int(ProcessInfo.processInfo.processIdentifier)), "rootUri": .string(uri),
             "workspaceFolders": .array([.obj(["uri": .string(uri), "name": .string((root as NSString).lastPathComponent)])]),
-            "capabilities": .obj(["textDocument": .obj(["definition": .obj([:]), "references": .obj([:]), "rename": .obj([:]),
+            "capabilities": .obj(["workspace": .obj(["symbol": .obj([:])]),
+                                  "textDocument": .obj(["definition": .obj([:]), "references": .obj([:]), "rename": .obj([:]),
                                                    "codeAction": .obj(["codeActionLiteralSupport": .obj(["codeActionKind": .obj([
                                                        "valueSet": .array(["quickfix", "refactor", "source"].map(JSONValue.string))
                                                    ])])]),
@@ -385,6 +386,21 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     private static let symbolKinds = [2: "module", 3: "namespace", 5: "class", 6: "method", 7: "property", 8: "field", 9: "initializer", 10: "enum",
                                       11: "interface", 12: "function", 13: "variable", 14: "constant", 22: "case", 23: "struct"]
+
+    /// The project's names matching `query`, as the server's index has them.
+    public func workspaceSymbols(_ query: String) async throws -> [CodeSymbol] {
+        Self.workspaceSymbols(try await request("workspace/symbol", .obj(["query": .string(query)])))
+    }
+
+    /// SymbolInformation or WorkspaceSymbol (which may leave the range out: the file's top).
+    static func workspaceSymbols(_ result: JSONValue) -> [CodeSymbol] {
+        (result.array ?? []).compactMap { s in
+            let path = s["location"]?["uri"]?.string.flatMap { URL(string: $0)?.path }
+            guard let name = s["name"]?.string, let path else { return nil }
+            let line = (s["location"]?["range"]?["start"]?["line"]?.int ?? 0) + 1
+            return CodeSymbol(name: name, kind: symbolKinds[s["kind"]?.int ?? 0] ?? "symbol", line: line, path: path)
+        }
+    }
 
     static func symbols(_ result: JSONValue) -> [CodeSymbol] {
         var out: [CodeSymbol] = []

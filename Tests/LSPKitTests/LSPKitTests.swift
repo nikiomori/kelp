@@ -138,3 +138,14 @@ final class Counter: @unchecked Sendable {
     c.terminateNow()
     #expect(kill(pid, 0) != 0 || Subprocess.isZombie(pid))   // gone, or ended and waiting for its parent to reap it
 }
+
+@Test func workspaceSymbolsReadEitherShape() {
+    let result: JSONValue = .array([
+        .obj(["name": .string("Basket"), "kind": .int(23), "location": .obj(["uri": .string("file:///p/a.swift"),
+              "range": .obj(["start": .obj(["line": .int(4), "character": .int(0)]), "end": .obj(["line": .int(4), "character": .int(6)])])])]),
+        .obj(["name": .string("total"), "kind": .int(12), "location": .obj(["uri": .string("file:///p/b.swift")])]),
+        .obj(["name": .string("lost")])
+    ])
+    #expect(LSPClient.workspaceSymbols(result) == [CodeSymbol(name: "Basket", kind: "struct", line: 5, path: "/p/a.swift"),
+                                                   CodeSymbol(name: "total", kind: "function", line: 1, path: "/p/b.swift")])
+}

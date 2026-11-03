@@ -19,9 +19,12 @@ public struct CodeProblem: Codable, Sendable, Equatable {
 }
 
 /// A name a file defines: what it's called, what it is ("class", "function"…) and its 1-based line.
+/// `path`: the file, in a project-wide list.
 public struct CodeSymbol: Codable, Sendable, Equatable {
-    public var name: String, kind: String, line: Int
-    public init(name: String, kind: String, line: Int) { self.name = name; self.kind = kind; self.line = line }
+    public var name: String, kind: String, line: Int, path: String?
+    public init(name: String, kind: String, line: Int, path: String? = nil) {
+        self.name = name; self.kind = kind; self.line = line; self.path = path
+    }
 }
 
 /// A call's signature as the cursor stands in it: `label`, with the argument being typed at `active` (UTF-16 offsets in it).
@@ -141,6 +144,13 @@ public struct LSPSymbols: InternalMethod {
     public static let name = "lsp.symbols"; public typealias Result = [CodeSymbol]
     public var root: String, path: String
     public init(root: String, path: String) { self.root = root; self.path = path }
+}
+
+/// The names matching `query` in every file of the project, as the server of the file at `path` knows them (its index).
+public struct LSPWorkspaceSymbols: InternalMethod {
+    public static let name = "lsp.workspaceSymbols"; public typealias Result = [CodeSymbol]
+    public var root: String, path: String, query: String
+    public init(root: String, path: String, query: String) { self.root = root; self.path = path; self.query = query }
 }
 
 /// What the server says of the symbol at a 1-based position: its signature and documentation, as Markdown.

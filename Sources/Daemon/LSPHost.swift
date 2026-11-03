@@ -218,7 +218,7 @@ extension Methods {
     static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self]
     static let lspAsyncMethods: [any AsyncHandled.Type] = [
         LSPDefinition.self, LSPCompletion.self, LSPSymbol.self, LSPSymbols.self, LSPHover.self, LSPSignature.self,
-        LSPReferences.self, LSPRename.self, LSPActions.self
+        LSPReferences.self, LSPRename.self, LSPActions.self, LSPWorkspaceSymbols.self
     ]
 }
 
@@ -278,6 +278,18 @@ extension LSPSymbols: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
         guard let c = await lsp.client(root, path) else { return [] }
         return try await c.symbols(path)
+    }
+}
+
+extension LSPWorkspaceSymbols: AsyncHandled {
+    /// The project's own: a toolchain's or a dependency's names aren't what's looked for.
+    func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
+        guard let c = await lsp.client(root, path) else { return [] }
+        let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
+        return try await c.workspaceSymbols(query).compactMap { s in
+            guard let p = s.path, case let real = URL(fileURLWithPath: p).resolvingSymlinksInPath().path, real.hasPrefix(base) else { return nil }
+            return CodeSymbol(name: s.name, kind: s.kind, line: s.line, path: root + "/" + real.dropFirst(base.count))
+        }
     }
 }
 

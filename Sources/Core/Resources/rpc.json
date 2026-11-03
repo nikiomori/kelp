@@ -682,7 +682,7 @@
         "type" : "object"
       },
       "CodeSymbol" : {
-        "description" : "A name a file defines: what it's called, what it is (\"class\", \"function\"…) and its 1-based line.",
+        "description" : "A name a file defines: what it's called, what it is (\"class\", \"function\"…) and its 1-based line. `path`: the file, in a project-wide list.",
         "properties" : {
           "kind" : {
             "type" : "string"
@@ -691,6 +691,9 @@
             "type" : "integer"
           },
           "name" : {
+            "type" : "string"
+          },
+          "path" : {
             "type" : "string"
           }
         },
@@ -6530,6 +6533,44 @@
       "params" : [
         {
           "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/CodeSymbol"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The names matching `query` in every file of the project, as the server of the file at `path` knows them (its index).",
+      "name" : "lsp.workspaceSymbols",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "query",
           "required" : true,
           "schema" : {
             "type" : "string"

@@ -5376,6 +5376,16 @@
         }
       }
     },
+    "Go to Line %lld, Column %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти к строке %1$lld, колонке %2$lld"
+          }
+        }
+      }
+    },
     "Go to Line…": {
       "extractionState": "manual",
       "localizations": {
@@ -7688,6 +7698,16 @@
         }
       }
     },
+    "No symbols (the language server may need a build)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Символов нет (серверу языка может понадобиться сборка)"
+          }
+        }
+      }
+    },
     "Not a valid pattern": {
       "localizations": {
         "ru": {
@@ -7786,6 +7806,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Откройте чат, чтобы войти в %@."
+          }
+        }
+      }
+    },
+    "Open a file of the project first": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала откройте файл проекта"
           }
         }
       }
@@ -12557,6 +12587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Введите номер строки"
+          }
+        }
+      }
+    },
+    "Type a name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите имя"
           }
         }
       }

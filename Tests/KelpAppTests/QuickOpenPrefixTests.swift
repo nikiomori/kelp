@@ -4,11 +4,12 @@ import Core
 
 @MainActor @Test func theFirstCharacterSaysWhatQuickOpenLists() {
     #expect(QuickOpen.Prefix(":120") == .line(120))
-    #expect(QuickOpen.Prefix(":120:8") == .line(120))
+    #expect(QuickOpen.Prefix(":120:8") == .line(120, column: 8))
     #expect(QuickOpen.Prefix(":") == .line(nil))
     #expect(QuickOpen.Prefix("/Sources/Daemon") == .files("Sources/Daemon"))
     #expect(QuickOpen.Prefix("file:notes") == .files("notes"))
     #expect(QuickOpen.Prefix("@init") == .symbols("init"))
+    #expect(QuickOpen.Prefix("@@Basket") == .everywhere("Basket"))
     #expect(QuickOpen.Prefix("plain") == nil)
     #expect(QuickOpen.Prefix("#12") == nil)
 }
