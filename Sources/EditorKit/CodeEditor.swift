@@ -104,6 +104,8 @@ public final class CodeEditor: NSObject {
     /// This file's own say over `wrapLines`, its language's settings.
     public var wrapsHere: Bool?
     /// The language as settings.json names it: "markdown", "swift", "plaintext".
+    /// Every `languageId` there is, for a setting's "[language]" block.
+    public static var languageIds: [String] { (["plaintext"] + CodeLanguage.allLanguages.map(\.tsName)).filter { !$0.isEmpty } }
     public var languageId: String { language.id == .plainText ? "plaintext" : language.tsName }
     /// Prose, whatever `wrapLines` says.
     public var alwaysWraps = false

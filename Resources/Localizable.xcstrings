@@ -1042,6 +1042,16 @@
         }
       }
     },
+    "A language's own value wins over the one for all files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значение для языка важнее значения для всех файлов."
+          }
+        }
+      }
+    },
     "A notification at this level, and again at 95%.": {
       "extractionState": "manual",
       "localizations": {
@@ -1315,6 +1325,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все агенты"
+          }
+        }
+      }
+    },
+    "All Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все файлы"
           }
         }
       }
@@ -5090,6 +5110,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Размер шрифта"
+          }
+        }
+      }
+    },
+    "For": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для"
           }
         }
       }
@@ -12832,6 +12862,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Искать выделенное"
+          }
+        }
+      }
+    },
+    "Use the Value for All Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять значение для всех файлов"
           }
         }
       }

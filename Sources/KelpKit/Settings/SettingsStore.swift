@@ -65,6 +65,17 @@ package final class SettingsStore {
         return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(n) ?? n
     }
 
+    /// `language`'s own block, whether it had the key or not (Settings' language picker); nil `v` takes it out.
+    func setOwn(_ key: String, _ v: JSONValue?, language: String) {
+        var block: [String: JSONValue] = [:]
+        if case .object(let o)? = values["[\(language)]"] { block = o }
+        block[key] = v
+        set("[\(language)]", block.isEmpty ? nil : .object(block))
+    }
+
+    /// The languages settings.json has a block for.
+    var languagesSet: [String] { values.keys.filter { $0.hasPrefix("[") && $0.hasSuffix("]") }.map { String($0.dropFirst().dropLast()) }.sorted() }
+
     /// Shows a value without saving it (the palette trying themes on); `set` keeps one, `preview(key, saved)` goes back.
     func preview(_ key: String, _ v: JSONValue?) {
         var next = values; next[key] = v

@@ -108,16 +108,22 @@ private struct SectionForm: View {
     let section: SettingsSection
     /// A group a menu sent us to (`SettingsWindow.show`): scrolled to, then forgotten.
     @AppStorage("settings.group") private var target = ""
+    /// The Editor's rows for one language's files ("" all of them): settings.json's `"[markdown]": { … }`.
+    @State private var language = ""
 
     var body: some View {
         let groups = section.groups
         ScrollViewReader { scroller in
             Form {
+                if section.id == "editor" { LanguagePicker(language: $language) }
                 ForEach(groups.indices, id: \.self) { i in
-                    if let title = groups[i].0 {
-                        Section(loc(title)) { ForEach(groups[i].1) { SettingRow(spec: $0) } }.id(title)
+                    let rows = groups[i].1.filter { language.isEmpty || SettingRow.perLanguage.contains($0.key) }
+                    if rows.isEmpty {
+                        EmptyView()
+                    } else if let title = groups[i].0 {
+                        Section(loc(title)) { ForEach(rows) { row($0) } }.id(title)
                     } else {
-                        Section { ForEach(groups[i].1) { SettingRow(spec: $0) } }
+                        Section { ForEach(rows) { row($0) } }
                     }
                 }
                 section.custom?()
@@ -126,6 +132,10 @@ private struct SectionForm: View {
             .onAppear { go(scroller) }
             .onChange(of: target) { _, _ in go(scroller) }
         }
+    }
+
+    private func row(_ spec: SettingSpec) -> SettingRow {
+        SettingRow(spec: spec, language: language.isEmpty ? nil : language)
     }
 
     private func go(_ scroller: ScrollViewProxy) {
@@ -169,12 +179,15 @@ struct SettingRow: View {
     let spec: SettingSpec
     /// In search results: back to the row's section.
     var reveal: (() -> Void)?
-    @Environment(AppModel.self) private var app
-    private var store: SettingsStore { app.settings }
-    init(spec: SettingSpec, reveal: (() -> Void)? = nil) { self.spec = spec; self.reveal = reveal }
-
-    /// Set to something other than its default: a dot after its title, and Reset on a right-click.
-    private var changed: Bool { store.values[spec.key].map { $0 != spec.default } ?? false }
+    /// The value for this language's files, kept in its block.
+    var language: String?
+    @Environment(AppModel.self) var app
+    var store: SettingsStore { app.settings }
+    init(spec: SettingSpec, language: String? = nil, reveal: (() -> Void)? = nil) {
+        self.spec = spec
+        self.language = language
+        self.reveal = reveal
+    }
 
     var body: some View {
         marked
@@ -185,7 +198,7 @@ struct SettingRow: View {
         control
             .help(spec.key)
             .contextMenu {
-                Button("Reset to Default") { store.set(spec.key, nil) }.disabled(!changed)
+                Button(language == nil ? "Reset to Default" : "Use the Value for All Files") { put(nil) }.disabled(!changed)
                 Button("Copy Key") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(spec.key, forType: .string) }
                 if let reveal { Button("Show in Section", action: reveal) }
             }
@@ -206,21 +219,21 @@ struct SettingRow: View {
     @ViewBuilder private var control: some View {
         switch spec.type {
         case "boolean":
-            Toggle(isOn: Binding(get: { store.bool(spec.key) ?? false }, set: { store.set(spec.key, .bool($0)) })) { label }
+            Toggle(isOn: Binding(get: { bool() ?? false }, set: { put(.bool($0)) })) { label }
         case "number" where spec.options?.isEmpty == false:
             // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
-            let current = store.number(spec.key) ?? 0
+            let current = number() ?? 0
             let values = (spec.options ?? []).compactMap(Double.init)
-            Picker(selection: Binding(get: { current }, set: { store.set(spec.key, $0 == $0.rounded() ? .int(Int($0)) : .double($0)) })) {
+            Picker(selection: Binding(get: { current }, set: { put($0 == $0.rounded() ? .int(Int($0)) : .double($0)) })) {
                 ForEach(values.contains(current) ? values : values + [current], id: \.self) { v in
                     Text(Self.label(spec.key, v == v.rounded() ? String(Int(v)) : String(v), app)).tag(v)
                 }
             } label: { label }
         case "number":
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
-            let value = Binding(get: { store.number(spec.key) ?? 0 }, set: {
+            let value = Binding(get: { number() ?? 0 }, set: {
                 let v = spec.clamped($0)
-                store.set(spec.key, v == v.rounded() ? .int(Int(v)) : .double(v))
+                put(v == v.rounded() ? .int(Int(v)) : .double(v))
             })
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
             LabeledContent {
@@ -237,23 +250,23 @@ struct SettingRow: View {
                 if let d = spec.description { Text(loc(d)) }
             }
         case "enum":
-            Picker(selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
-                ForEach(Self.shown(Self.options(spec, app), store.string(spec.key) ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
+            Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
+                ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
             } label: { label }
         case "theme":
-            ThemeGallery(selection: Binding(get: { store.string(spec.key) ?? "auto" }, set: { store.set(spec.key, .string($0)) }),
+            ThemeGallery(selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
                          about: spec.description.map(loc))
         case "color":
-            ColorPicker(selection: Binding(get: { Color(hex: store.string(spec.key) ?? "") ?? .accentColor },
-                                           set: { store.set(spec.key, .string($0.hex)) })) { label }
+            ColorPicker(selection: Binding(get: { Color(hex: string() ?? "") ?? .accentColor },
+                                           set: { put(.string($0.hex)) })) { label }
         case "font":
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
-            Picker(selection: Binding(get: { store.string(spec.key) ?? "" }, set: { store.set(spec.key, .string($0)) })) {
+            Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 Text("Default").tag("")
-                ForEach(Self.shown(Self.monospaced, store.string(spec.key) ?? ""), id: \.self) { Text($0).tag($0) }
+                ForEach(Self.shown(Self.monospaced, string() ?? ""), id: \.self) { Text($0).tag($0) }
             } label: { label }
         default:
-            LabeledContent { SettingTextField(key: spec.key).frame(width: 220) } label: { label }
+            LabeledContent { SettingTextField(key: spec.key, language: language).frame(width: 220) } label: { label }
         }
     }
 
@@ -342,11 +355,12 @@ private struct RelaunchRow: View {
 /// a change arriving from elsewhere (the CLI, an agent) shows unless the field is being edited.
 private struct SettingTextField: View {
     let key: String
+    var language: String?
     @Environment(AppModel.self) private var app
     private var store: SettingsStore { app.settings }
     @State private var draft = ""
     @FocusState private var editing: Bool
-    init(key: String) { self.key = key }
+    init(key: String, language: String? = nil) { self.key = key; self.language = language }
 
     var body: some View {
         // Bordered, as the number fields: borderless in a grouped form an empty one (Branch prefix) didn't show at all.
@@ -354,13 +368,16 @@ private struct SettingTextField: View {
             .textFieldStyle(.roundedBorder)
             .focused($editing)
             .onSubmit(commit)
-            .onAppear { draft = store.string(key) ?? "" }
+            .onAppear { draft = store.string(key, language: language) ?? "" }
             .onDisappear(perform: commit)   // the window closed while typing
             .onChange(of: editing) { _, now in if !now { commit() } }
-            .onChange(of: store.string(key)) { _, v in if !editing { draft = v ?? "" } }
+            .onChange(of: store.string(key, language: language)) { _, v in if !editing { draft = v ?? "" } }
     }
 
-    private func commit() { if draft != store.string(key) ?? "" { store.set(key, .string(draft)) } }
+    private func commit() {
+        guard draft != store.string(key, language: language) ?? "" else { return }
+        if let language { store.setOwn(key, .string(draft), language: language) } else { store.set(key, .string(draft)) }
+    }
 }
 
 /// Installed extensions: turn them on or off, remove, create (by hand or with an agent); or the library's, to install.

@@ -20,6 +20,21 @@ extension OneAtATime {
         #expect(s.number("editor.tabSize", language: "markdown") == 2)
     }
 
+    /// Settings' language picker writes the language's block even when it had nothing yet, and its reset empties it.
+    @Test func thePickersValueGoesInTheLanguagesOwnBlock() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        defer { CodeEditor.wrapLines = false }
+        let s = rig.app.settings
+        s.apply(["editor.tabSize": .int(4)])
+        s.setOwn("editor.tabSize", .int(2), language: "python")
+        #expect(s.number("editor.tabSize", language: "python") == 2)
+        #expect(s.number("editor.tabSize") == 4)
+        #expect(s.languagesSet == ["python"])
+        s.setOwn("editor.tabSize", nil, language: "python")
+        #expect(s.values["[python]"] == nil)
+        #expect(CodeEditor.languageIds.contains("python") && CodeEditor.languageIds.contains("markdown"))
+    }
+
     /// Word Wrap in a Markdown file changes Markdown; in Swift, every file: each where it's read.
     @Test func aChangeGoesWhereTheValueIsRead() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
