@@ -107,6 +107,7 @@ extension EditorTextView {
         }
         for (k, c) in chars.enumerated() {
             let i = shown.location + k
+            if folds.fold(at: i) != nil { continue }   // in no line: its mark would land on the fold's
             if Self.isUnusualSpace(c) {
                 NSColor.textOrange.setStroke()
                 let p = place(i), box = NSBezierPath(rect: NSRect(x: p.x, y: p.y - 5, width: max(spaceWidth, 3), height: 10))

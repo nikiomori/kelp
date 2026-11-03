@@ -77,7 +77,7 @@ extension EditorTextView: NSViewToolTipOwner {
         guard !problemMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
         let origin = textContainerOrigin
-        for m in problemMarks where NSIntersectionRange(m.range, shown).length > 0 {
+        for m in problemMarks where NSIntersectionRange(m.range, shown).length > 0 && !folds.intersects(m.range) {
             (m.isError ? NSColor.textRed : NSColor.textOrange).setStroke()
             lm.enumerateEnclosingRects(forGlyphRange: lm.glyphRange(forCharacterRange: m.range, actualCharacterRange: nil),
                                        withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc) { r, _ in

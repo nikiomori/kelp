@@ -265,6 +265,7 @@ extension EditorTextView {
         let origin = textContainerOrigin
         for m in findMarks[lo...] {
             if m.location > NSMaxRange(shown) { break }
+            if folds.intersects(m) { continue }
             NSColor.findHighlightColor.withAlphaComponent(m == findCurrent ? 0.7 : 0.3).setFill()
             lm.enumerateEnclosingRects(forGlyphRange: lm.glyphRange(forCharacterRange: m, actualCharacterRange: nil),
                                        withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc) { r, _ in
