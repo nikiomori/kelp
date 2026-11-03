@@ -32,9 +32,15 @@ final class ShellSplit: NSSplitViewController {
 final class Floater: NSView {
     private static let radius: CGFloat = 12
     private let inset: CGFloat
-    /// The panel's background, the same material the window's surface is, and the theme's colour over it.
-    let box = NSVisualEffectView()
+    /// What holds the panel, with the theme's colour (`tint`) under it.
+    let box = NSView()
     let tint = NSView()
+    /// Under `box`: the material the window's surface is or, in a theme on macOS's own material, Liquid Glass (macOS 26),
+    /// which blurs the code and terminals the panel slides over rather than the desktop behind the window. A theme with a
+    /// colour of its own keeps that colour; Reduce Transparency makes both opaque.
+    private let material = NSVisualEffectView()
+    private var glass: NSView?
+    private var glassy: Bool?
     private var edge: NSLayoutConstraint?, widthC: NSLayoutConstraint?
     private var shown = false
     var width: CGFloat { didSet { widthC?.constant = width } }
@@ -44,19 +50,44 @@ final class Floater: NSView {
         self.inset = inset
         super.init(frame: .zero)
         isHidden = true; wantsLayer = true
-        box.material = .sidebar
-        box.blendingMode = .behindWindow
-        box.state = .followsWindowActiveState
+        material.material = .sidebar
+        material.blendingMode = .behindWindow
+        material.state = .followsWindowActiveState
+        material.wantsLayer = true
+        material.layer?.borderWidth = 1
         box.wantsLayer = true
-        box.layer?.cornerRadius = Self.radius
-        box.layer?.cornerCurve = .continuous
-        box.layer?.masksToBounds = true
-        box.layer?.borderWidth = 1
-        pin(box)
+        for v in [material, box] {
+            v.layer?.cornerRadius = Self.radius; v.layer?.cornerCurve = .continuous
+            v.layer?.masksToBounds = true
+        }
+        pin(material)
         tint.wantsLayer = true
         box.pin(tint)
+        show(WindowLook())
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    func show(_ look: WindowLook) {
+        tint.layer?.backgroundColor = look.surface?.cgColor
+        let on = look.surface == nil
+        guard on != glassy else { return }   // moving `box` would take the focus from the panel in it
+        glassy = on
+        box.removeFromSuperview()
+        if on, #available(macOS 26, *) {
+            let g = glass as? NSGlassEffectView ?? NSGlassEffectView()
+            if glass == nil {
+                g.cornerRadius = Self.radius; pin(g)
+                glass = g
+            }
+            g.contentView = box
+        } else {
+            if #available(macOS 26, *) { (glass as? NSGlassEffectView)?.contentView = nil }
+            pin(box)
+        }
+        material.isHidden = glass != nil && on
+        glass?.isHidden = !material.isHidden
+        needsDisplay = true
+    }
 
     /// Against the window's leading or trailing edge, its full height; out of sight until it slides in.
     func attach(leading: Bool) {
@@ -88,9 +119,9 @@ final class Floater: NSView {
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        box.layer?.borderColor = NSColor.separatorColor.cgColor
+        material.layer?.borderColor = NSColor.separatorColor.cgColor
         layer?.shadowColor = NSColor.shadowColor.cgColor
-        layer?.shadowOpacity = 0.3
+        layer?.shadowOpacity = material.isHidden ? 0 : 0.3   // glass draws its own
         layer?.shadowRadius = 14
         layer?.shadowOffset = .zero
     }

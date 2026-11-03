@@ -110,7 +110,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         track { app.updates.ready != nil } changed: { [weak self] in self?.clearOfPill.isActive = $0 }
         track { app.themes.look } changed: { [weak self] look in
             self?.surface.show(look)
-            for f in [self?.leftFloat, self?.rightFloat] { f?.tint.layer?.backgroundColor = look.surface?.cgColor }
+            for f in [self?.leftFloat, self?.rightFloat] { f?.show(look) }
         }
         track { app.settings.bool("workbench.sidebar.autoHide") == true } changed: { [weak self] in
             self?.setAutoHide(sidebar: true, $0)
