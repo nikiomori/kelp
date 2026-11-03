@@ -50,3 +50,28 @@ extension OneAtATime {
         #expect(e.text == "foo1 bar foo2 bar foo3\n")
     }
 }
+
+/// The keys stay in the field, whose field editor is a text view too: a ⌘G sent up the chain would stop there, and the menu's
+/// item would even be off. It has to go by the window, the way a key equivalent does before the menu.
+@MainActor @Test func cmdGStepsWithTheKeysInTheField() throws {
+    _ = NSApplication.shared
+    let e = CodeEditor(text: "aa b aa b aa", url: URL(fileURLWithPath: "/tmp/f.txt"))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = e.view
+    e.view.layoutSubtreeIfNeeded()
+    e.textView.setSelectedRange(NSRange(location: 0, length: 2))
+    e.find(.setFindString)
+    window.makeFirstResponder(e.findBar?.field)
+    #expect(window.firstResponder is NSTextView)
+    func press(_ mods: NSEvent.ModifierFlags) throws -> Bool {
+        let key = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: window.windowNumber,
+                                                context: nil, characters: "g", charactersIgnoringModifiers: "g", isARepeat: false, keyCode: 5))
+        return window.performKeyEquivalent(with: key)
+    }
+    let start = e.textView.selectedRange().location
+    #expect(try press(.command))
+    let next = e.textView.selectedRange().location
+    #expect(next != start)
+    #expect(try press([.command, .shift]))
+    #expect(e.textView.selectedRange().location == start)
+}

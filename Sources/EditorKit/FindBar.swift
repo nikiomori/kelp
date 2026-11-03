@@ -196,7 +196,17 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     func flipRegexForTest() { flip(\.regex) }
     func replaceAllForTest() { replaceAll() }
 
-    /// ⌘G and ⇧⌘G with the keys in the field, which the text view isn't behind.
+    /// ⌘G and ⇧⌘G with the keys in a field. Before the menu: its item would go to the field's editor, a text view too, whose
+    /// find panel is off. By key code, as a Russian layout sends another letter.
+    override func performKeyEquivalent(with e: NSEvent) -> Bool {
+        let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard e.keyCode == 5, mods.subtracting(.shift) == .command, !isHidden,
+              (window?.firstResponder as? NSView)?.isDescendant(of: self) == true else { return super.performKeyEquivalent(with: e) }
+        step(forward: !mods.contains(.shift))
+        return true
+    }
+
+    /// The menu's Find items with the keys on one of the bar's buttons, which the text view isn't behind.
     @objc func performFindPanelAction(_ sender: Any?) {
         switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
         case .next: step(forward: true)
