@@ -79,6 +79,7 @@ final class StripButton: PointerControl {
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
+    private let bite = CAShapeLayer(), rounded = CAShapeLayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -106,13 +107,14 @@ final class StripButton: PointerControl {
     private func notch() {
         icon.wantsLayer = true
         icon.imageScaling = .scaleProportionallyUpOrDown   // a project's own icon can be a 16-pt favicon
-        let bite = CAShapeLayer(), side = Self.tile, around = Self.markInset + 6
+        let side = Self.tile, around = Self.markInset + 6
         let square = CGRect(x: 0, y: 0, width: side, height: side), corner = Metrics.radiusSM
         let tile = CGPath(roundedRect: square, cornerWidth: corner, cornerHeight: corner, transform: nil)
         let round = CGRect(x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around)
         let hole = CGPath(ellipseIn: round, transform: nil)
         bite.path = tile.subtracting(hole)
         icon.layer?.mask = bite
+        rounded.path = tile
     }
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
@@ -123,7 +125,9 @@ final class StripButton: PointerControl {
         case .working: .working
         case .done: .done
         }
-        mark.status = status
+        // Working is a tile's own state: no mark. A mark is something to look at, and only then is the tile cut for it.
+        mark.status = item.cell == .working ? nil : status
+        icon.layer?.mask = item.cell == .working ? rounded : bite
         // A clear icon keeps the tile's shape.
         effectiveAppearance.performAsCurrentDrawingAppearance { icon.layer?.backgroundColor = NSColor.fillHover.cgColor }
         label.isHidden = !open

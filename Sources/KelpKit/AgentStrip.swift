@@ -44,9 +44,19 @@ struct StripPlace: Equatable {
 /// What the strip shows, without a window.
 @MainActor
 enum StripModel {
-    static func items(_ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)]) -> [StripItem] {
+    /// How long finished work stays after it's been seen in Kelp: time to get to it from the strip.
+    static let recent: TimeInterval = 600
+
+    /// What an agent says on the strip: as on the Dock's icon, but finished work stays a while once read.
+    static func cell(_ s: Session, now: Date) -> DockFace.Cell? {
+        if let c = DockIcon.cell(s) { return c }
+        let finished = s.isChat && s.parent == nil && SidebarCell.shownStatus(s) == .done
+        return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
+    }
+
+    static func items(_ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()) -> [StripItem] {
         workspaces.compactMap { w in
-            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in DockIcon.cell(s).map { (s, $0) } }
+            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }
             guard let worst = own.map(\.1).min() else { return nil }
             let same = own.filter { $0.1 == worst }.map(\.0).sorted { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
             guard let lead = same.first else { return nil }
@@ -135,6 +145,8 @@ final class AgentStrip {
     private var place = StripPlace.load()
     private var corner: StripCorner { place?.corner ?? .bottom }
     private var tip: StripTip?
+    /// When finished work read in Kelp leaves the strip.
+    private var expiry: Timer?
     private var tipTimer: Timer?
     private var panel: StripPanel?
     private let row = StripRow()
@@ -224,6 +236,18 @@ final class AgentStrip {
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) { closeCard() }
         put(appearing: !wasUp)
         follow(opened)
+        expireDone()
+    }
+
+    /// Wakes when the next finished-and-read agent's while is up; nothing else changes then, so nothing else would refresh.
+    private func expireDone() {
+        expiry?.invalidate()
+        let ends = app.sessions.filter { DockIcon.cell($0) == nil && StripModel.cell($0, now: Date()) == .done }
+            .compactMap { $0.statusAt?.addingTimeInterval(StripModel.recent) }
+        guard let next = ends.min() else { return }
+        expiry = Timer.scheduledTimer(withTimeInterval: max(1, next.timeIntervalSinceNow), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }   // the main run loop's timer
+        }
     }
 
     /// After an answer, the next question is up at once: several in a row take a click each, not two.
@@ -254,12 +278,20 @@ final class AgentStrip {
         }
     }
 
+    /// A question or a failure opens its card; finished work goes to its result in Kelp, and work going on to its workspace.
     private func clicked(_ item: StripItem) {
         tip?.hide()
-        guard item.cell != .working else {
+        switch item.cell {
+        case .working:
             NSApp.activate()
             app.workbench.show(workspace: item.workspace)
             return
+        case .done:
+            closeCard()
+            NSApp.activate()
+            app.workbench.focus(session: item.session)
+            return
+        case .asks, .failed: break
         }
         if card?.session == item.session { closeCard(); return }
         open(item)

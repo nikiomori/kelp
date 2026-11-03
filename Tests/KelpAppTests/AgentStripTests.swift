@@ -169,3 +169,12 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.items([session("a", .working)], workspaces: places).first?.words == "Working")
     #expect(StripModel.items([session("a", .done, unread: true, summary: "Release notes updated")], workspaces: places).first?.words == "Done: Release notes updated")
 }
+
+@MainActor @Test func finishedWorkStaysAWhileOnceReadInKelp() {
+    let now = Date()
+    let read = session("a", .done, summary: "Release notes updated", at: now.timeIntervalSince1970 - 120)
+    #expect(StripModel.items([read], workspaces: places, now: now).first?.cell == .done)   // read two minutes ago: still there
+    let old = session("a", .done, at: now.timeIntervalSince1970 - StripModel.recent - 1)
+    #expect(StripModel.items([old], workspaces: places, now: now).isEmpty)
+    #expect(StripModel.items([session("a", .idle, at: now.timeIntervalSince1970)], workspaces: places, now: now).isEmpty)
+}
