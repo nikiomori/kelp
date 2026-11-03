@@ -29,7 +29,7 @@ enum AgentSkills {
         put("kelp-browser", on: s.bool("agents.skills.browser") != false,
             description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
                 + "text — in Kelp, the IDE this session runs in: open it in a tab beside you that the user watches, read it, click, "
-                + "type, run JavaScript, take a screenshot. Done with kelp browser, not a headless browser.",
+                + "type, run JavaScript, take a screenshot, read its console and requests. Done with kelp browser, not a headless browser.",
             body: browserGuide)
         try? IDE.writeGuide(in: ExtensionRegistry.userDir)   // the guide also sits next to the user's extensions, for people
     }
@@ -117,7 +117,13 @@ enum AgentSkills {
         - `kelp browser eval "document.querySelectorAll('li').length"` — an expression in the page, its value as JSON; for
           statements, `(() => { … })()`.
         - `kelp browser screenshot [file.png]` — prints where it went; look at it with your image reading.
+        - `kelp browser console [--clear]` — what the page logged: `console.*`, uncaught errors, resources that failed to
+          load, and `[page] url` at each load. `--clear` empties it once printed, so the next call shows only what's new.
+        - `kelp browser network [--clear]` — the page's loads and its `fetch` / XHR calls: `200 GET url (fetch, 34 ms)`,
+          `failed POST url (fetch, 12 ms: TypeError…)`. Images, scripts and styles show only when they fail (in console).
         - `kelp browser info` — where the page is now.
+
+        After a click or a submit that misbehaves, read `console` and `network` before guessing.
 
         Clicks and typing are DOM events: a page that only takes trusted ones (some payment and captcha widgets) ignores
         them. Tell the user rather than work around it.

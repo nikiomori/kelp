@@ -4,7 +4,7 @@ import Core
 extension Main {
     static let browserUsage = """
     browser open <url> [--shared] | snapshot | click <ref> | type <ref> <text> [--submit] | eval <js>
-            | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | info
+            | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
     """
 
     /// `browser <action>`: a page tab in the app, beside the agent's terminal, driven from here (`UIBrowser`).
@@ -32,6 +32,7 @@ extension Main {
             if let t = flag("--text") { a["text"] = .string(t) }
             if let s = flag("--selector") { a["selector"] = .string(s) }
             if let t = flag("--timeout").flatMap(Double.init) { a["timeout"] = .double(t) }
+        case "console", "network": a["clear"] = .bool(has("--clear"))
         case "snapshot", "info": break
         default: fail("usage: kelp " + browserUsage)
         }

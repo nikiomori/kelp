@@ -13,7 +13,9 @@ extension BrowserTab {
             guard let v = args[k]?.string, !v.isEmpty else { throw RPCError.invalidParams("\(action) needs \(k)") }
             return v
         }
+        watch()
         switch action {
+        case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
         case "info": return try await settled()
         case "open": load(try need("url")); return try await settled()
         case "snapshot": return .string(try await run(Self.snapshotJS) as? String ?? "")

@@ -35,3 +35,19 @@ import WorkbenchKit
 
     await #expect(throws: RPCError.self) { try await tab.browse("click", .object(["ref": .string("e9")])) }
 }
+
+/// An agent's page keeps what it logged from its first script on, and its fetch calls, failed ones too.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserKeepsConsoleAndRequests() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString("<script>console.log('hi', {a: 1})</script><p>x</p>", baseURL: URL(string: "http://127.0.0.1:9/"))
+    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse("eval", .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
+    let end = Date().addingTimeInterval(5)
+    while !tab.logs.contains(where: { $0.contains("boom") }), Date() < end { try await Task.sleep(for: .milliseconds(100)) }
+
+    let log = try #require(try await tab.browse("console", .object(["clear": .bool(true)])).string)
+    #expect(log.contains(#"[log] hi {"a":1}"#) && log.contains("[error] boom") && log.contains("[page] http://127.0.0.1:9/"))
+    #expect(try await tab.browse("console", .object([:])) == .string("No console messages."))
+    let net = try #require(try await tab.browse("network", .object([:])).string)
+    #expect(net.contains("failed GET http://127.0.0.1:9/api/x (fetch"))
+}

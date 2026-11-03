@@ -33,6 +33,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
+    /// `kelp browser console | network` (BrowserLogs.swift): kept once an agent drives the page.
+    @ObservationIgnored var watching = false
+    @ObservationIgnored var logs: [String] = []
+    @ObservationIgnored var requests: [String] = []
     var title: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page.url?.host
             ?? String(localized: "New Page")
@@ -83,6 +87,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         ext.target = self; ext.action = #selector(openExternal)
         more.target = self; more.action = #selector(showMore(_:))
         designButton.target = self; designButton.action = #selector(toggleDesign)
+        if agent { watch() }
         load(start)
     }
 
@@ -147,10 +152,18 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.stringValue = w.url?.absoluteString ?? ""
         ports.isHidden = true
         page = (w.url, w.title)
+        if watching, let u = w.url?.absoluteString, u != "about:blank" { noteLog("[page] \(u)") }
+    }
+    func webView(_ w: WKWebView, decidePolicyFor r: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+        if watching, r.isForMainFrame, let h = r.response as? HTTPURLResponse, let u = h.url {
+            noteRequest("\(h.statusCode) \(u.absoluteString) (page)")
+        }
+        return r.canShowMIMEType ? .allow : .cancel   // WebKit's own choice without this method
     }
     func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
         address.stringValue = w.url?.absoluteString ?? ""; page = (w.url, w.title)
         if designOn { w.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
+        if watching { w.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
     }
     func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { showError(e) }
     func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { showError(e) }
@@ -187,6 +200,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        if m.name == "kelpWatch" { note(m); return }
         // Any site can post to this handler: only one message per click the user made while Design Mode is on counts.
         guard designOn, m.frameInfo.isMainFrame, clicks.take(), let d = m.body as? [String: Any] else { return }
         let r = d["rect"] as? [String: Double] ?? [:]
