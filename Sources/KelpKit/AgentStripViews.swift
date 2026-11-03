@@ -74,6 +74,7 @@ final class StripButton: PointerControl {
 
     var onClick: (() -> Void)?
     var onMenu: (() -> NSMenu)?
+    var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
@@ -130,8 +131,9 @@ final class StripButton: PointerControl {
         trailing = trailingAnchor.constraint(equalTo: open ? label.trailingAnchor : icon.trailingAnchor, constant: open ? 12 : 4)
         trailing?.isActive = true
         label.attributedStringValue = open ? words(item) : NSAttributedString()
-        glow.show(open ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: open && item.cell == .asks)
-        restFill = open ? .fillHover : nil
+        let calls = open && item.cell <= .failed
+        glow.show(calls ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: calls && item.cell == .asks)
+        restFill = calls ? .fillHover : nil
         toolTip = "\(item.name): \(status.words)"
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
@@ -146,13 +148,20 @@ final class StripButton: PointerControl {
             NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
         let t = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
-        t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), item.cell == .asks ? .textOrange : .textRed))
+        let color: NSColor = switch item.cell {
+        case .asks: .textOrange
+        case .failed: .textRed
+        case .working, .done: .secondaryLabelColor
+        }
+        t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
         guard item.count > 1 else { return t }
         t.append(text("  \(item.count)", .uiDigits(11), .secondaryLabelColor))
         return t
     }
 
     override func clicked() { onClick?() }
+    override func mouseEntered(with event: NSEvent) { super.mouseEntered(with: event); onHover?(true) }
+    override func mouseExited(with event: NSEvent) { super.mouseExited(with: event); onHover?(false) }
     /// A tile is most of the strip, so a drag from one moves it; held still and let go, it's a click.
     override func mouseDown(with event: NSEvent) {
         guard let panel = window as? StripPanel else { return super.mouseDown(with: event) }
@@ -302,14 +311,15 @@ final class StripCard {
         onEnd(.answered)
     }
 
-    /// Over the strip, or under it when that's where the room is, as the strip can be put at the top of a screen.
-    func show(by strip: NSRect, in area: NSRect?) {
+    /// Over the strip, or under it at the top of a screen; lined up with the strip's corner.
+    func show(by strip: NSRect, in area: NSRect?, at corner: StripCorner) {
         guard let p = panel, let content = p.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let size = content.fittingSize
-        var frame = NSRect(x: strip.midX - size.width / 2, y: strip.maxY + Metrics.gapWide, width: size.width, height: size.height)
+        let x = corner.isLeft ? strip.minX : corner.isRight ? strip.maxX - size.width : strip.midX - size.width / 2
+        let y = corner.isTop ? strip.minY - Metrics.gapWide - size.height : strip.maxY + Metrics.gapWide
+        var frame = NSRect(x: x, y: y, width: size.width, height: size.height)
         if let area {
-            if frame.maxY > area.maxY { frame.origin.y = strip.minY - Metrics.gapWide - size.height }
             frame.origin.x = min(max(frame.minX, area.minX + Metrics.gapWide), area.maxX - size.width - Metrics.gapWide)
         }
         p.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : -8), display: false)
@@ -327,4 +337,48 @@ final class StripCard {
         panel?.orderOut(nil)
         panel = nil
     }
+}
+
+/// What a tile says under the pointer: its workspace and what its agents do, over the strip (under it at the top of a screen).
+/// It takes no clicks: the pointer goes through to the strip.
+@MainActor
+final class StripTip {
+    private let name = NSTextField(labelWithString: ""), words = NSTextField(labelWithString: "")
+    private lazy var panel: StripPanel = {
+        name.font = .ui(12, weight: .medium)
+        words.font = .ui(11)
+        words.textColor = .secondaryLabelColor
+        for f in [name, words] {
+            f.lineBreakMode = .byTruncatingTail
+            f.maximumNumberOfLines = 1
+            f.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
+        }
+        let stack = NSStackView(views: [name, words])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 2
+        stack.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.gapWide + 2, bottom: Metrics.gap, right: Metrics.gapWide + 2)
+        let p = StripPanel.floating(stack, radius: Metrics.radiusMD, fullScreen: true)
+        p.ignoresMouseEvents = true
+        return p
+    }()
+
+    var isShowing: Bool { panel.isVisible }
+
+    func show(_ item: StripItem, over tile: NSRect, below: Bool) {
+        name.stringValue = item.count > 1 ? "\(item.name) · \(item.count)" : item.name
+        words.stringValue = StripModel.brief(item.words ?? "")
+        let content = panel.contentView
+        content?.layoutSubtreeIfNeeded()
+        let size = content?.fittingSize ?? .zero
+        var frame = NSRect(x: tile.midX - size.width / 2, y: below ? tile.minY - 12 - size.height : tile.maxY + 12, width: size.width, height: size.height)
+        if let area = NSScreen.screens.first(where: { $0.frame.intersects(tile) })?.visibleFrame {
+            frame.origin.x = min(max(frame.minX, area.minX + 4), area.maxX - size.width - 4)
+        }
+        panel.setFrame(frame, display: true)
+        panel.alphaValue = 1
+        panel.orderFrontRegardless()
+    }
+
+    func hide() { panel.orderOut(nil) }
 }

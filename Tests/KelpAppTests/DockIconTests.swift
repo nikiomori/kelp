@@ -11,7 +11,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
 
 @MainActor @Test func theDockIconPutsWhatWantsYouFirst() {
     let cells = DockIcon.cells([session(.working), session(.done, unread: true), session(.error), session(.waiting)])
-    #expect(cells == [.asks, .failed, .working, .done])
+    #expect(cells == [.asks, .failed, .done, .working])
 }
 
 @MainActor @Test func theDockIconLeavesOutWhatNeedsNothing() {

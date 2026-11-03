@@ -35,7 +35,8 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     let items = StripModel.items([session("a", .error, at: 0), session("b", .waiting, at: 5), session("c", .waiting, at: 3)], workspaces: places)
     #expect(StripModel.opened(items) == "c")   // a question before a failure, the oldest first
     #expect(StripModel.opened(StripModel.items([session("a", .working), session("b", .error)], workspaces: places)) == "b")
-    #expect(StripModel.opened(StripModel.items([session("a", .working), session("c", .done, unread: true)], workspaces: places)) == nil)
+    #expect(StripModel.opened(StripModel.items([session("a", .working), session("c", .done, unread: true)], workspaces: places)) == "c")
+    #expect(StripModel.opened(StripModel.items([session("b", .working)], workspaces: places)) == "b")   // the strip always says something
 }
 
 @MainActor @Test func theStripComesWhenKelpIsBehindAndSomethingWantsYou() {
@@ -109,53 +110,48 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 
 @MainActor @Test func theStripStandsAboveTheDockUntilItIsPut() {
-    let f = StripModel.frame(NSSize(width: 200, height: 40), in: screenArea, spot: nil)
+    let f = StripModel.frame(NSSize(width: 200, height: 40), in: screenArea, at: .bottom)
     #expect(f.midX == 1000 && f.minY == 8)
 }
 
-@MainActor @Test func aStripPutSomewhereStaysThereAndWidensAroundIt() throws {
-    let at = NSRect(x: 300, y: 600, width: 100, height: 40)
-    let spot = try #require(StripModel.spot(of: at, in: screenArea, display: 1))
-    #expect(StripModel.frame(at.size, in: screenArea, spot: spot) == at)
-    let wide = StripModel.frame(NSSize(width: 300, height: 40), in: screenArea, spot: spot)   // a pill opened
-    #expect(wide.midX == at.midX && wide.minY == at.minY)
+@MainActor @Test func aStripLetGoGoesToTheNearestCorner() {
+    func near(_ x: CGFloat, _ y: CGFloat) -> StripCorner { StripModel.corner(nearest: NSRect(x: x, y: y, width: 120, height: 40), in: screenArea) }
+    #expect(near(40, 900) == .topLeft)
+    #expect(near(1800, 1100) == .topRight)
+    #expect(near(100, 200) == .bottomLeft)
+    #expect(near(1700, 30) == .bottomRight)
+    #expect(near(950, 20) == .bottom)
+    #expect(near(900, 1150) == .top)
 }
 
-@MainActor @Test func aStripLetGoNearItsPlaceGoesBackAboveTheDock() {
-    #expect(StripModel.spot(of: NSRect(x: 920, y: 30, width: 200, height: 40), in: screenArea, display: 1) == nil)
-    #expect(StripModel.spot(of: NSRect(x: 600, y: 30, width: 200, height: 40), in: screenArea, display: 1) != nil)
+@MainActor @Test func aStripInACornerGrowsAwayFromIt() {
+    let tile = StripModel.frame(NSSize(width: 40, height: 40), in: screenArea, at: .topRight)
+    let pill = StripModel.frame(NSSize(width: 300, height: 40), in: screenArea, at: .topRight)
+    #expect(tile.maxX == pill.maxX && tile.maxY == pill.maxY && pill.maxX == 1992 && pill.maxY == 1192)
+    let left = StripModel.frame(NSSize(width: 300, height: 40), in: screenArea, at: .bottomLeft)
+    #expect(left.minX == 8 && left.minY == 8)
 }
 
-@MainActor @Test func aStripIsAlwaysWholeOnTheScreen() {
-    let corner = StripSpot(x: 0.99, y: 0.99, display: nil)
-    let f = StripModel.frame(NSSize(width: 400, height: 40), in: screenArea, spot: corner)
-    #expect(screenArea.contains(f))
-    let smaller = NSRect(x: 0, y: 0, width: 1000, height: 700)   // put on a bigger screen, seen on a smaller one
-    #expect(smaller.contains(StripModel.frame(NSSize(width: 400, height: 40), in: smaller, spot: corner)))
-}
-
-@MainActor @Test func aDroppedStripKeepsItsPlaceAndAPillOpensAroundIt() async throws {
+@MainActor @Test func aDroppedStripGoesToItsCornerAndStaysThere() async throws {
     let rig = try await AppRig()
     _ = NSApplication.shared
     let strip = AgentStrip(app: rig.app)
-    defer { StripSpot.save(nil) }
+    defer { StripPlace.save(nil) }
     strip.start()
     rig.app.sessions = [session(rig.workspace.id, .working)]
     for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
     try await Task.sleep(for: .milliseconds(400))
     let area = try #require(NSScreen.main?.visibleFrame)
-    let target = NSPoint(x: area.minX + 200, y: area.minY + 300)
-    strip.panelForTests?.setFrameOrigin(target)
+    strip.panelForTests?.setFrameOrigin(NSPoint(x: area.minX + 90, y: area.maxY - 160))
     strip.dropped()
-    try await Task.sleep(for: .milliseconds(500))
+    try await Task.sleep(for: .milliseconds(600))
     let tile = try #require(strip.frame)
-    #expect(abs(tile.minX - target.x) < 1 && abs(tile.minY - target.y) < 1)
-    #expect(StripSpot.load() != nil)
+    #expect(abs(tile.minX - (area.minX + 8)) < 1 && abs(tile.maxY - (area.maxY - 8)) < 1)
+    #expect(StripPlace.load()?.corner == .topLeft)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
     try await Task.sleep(for: .milliseconds(700))
     let pill = try #require(strip.frame)
-    #expect(pill.width > tile.width)
-    #expect(abs(pill.midX - tile.midX) < 1 && abs(pill.minY - tile.minY) < 1)
+    #expect(abs(pill.minX - tile.minX) < 1 && abs(pill.maxY - tile.maxY) < 1)
 }
 
 @MainActor @Test func aClickAnywhereOnATileReachesItsButton() {
@@ -164,4 +160,12 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     rig.addSubview(button)
     for x in [6, 16, 60, 150] as [CGFloat] { #expect(rig.hitTest(NSPoint(x: x, y: 16)) === button) }   // the icon, the mark, the words
     #expect(rig.hitTest(NSPoint(x: 260, y: 16)) !== button)
+}
+
+@MainActor @Test func everyStateHasWordsForThePillAndTheTip() {
+    var working = session("a", .working)
+    working.title = "Fix the login race"
+    #expect(StripModel.items([working], workspaces: places).first?.words == "Fix the login race")
+    #expect(StripModel.items([session("a", .working)], workspaces: places).first?.words == "Working")
+    #expect(StripModel.items([session("a", .done, unread: true, summary: "Release notes updated")], workspaces: places).first?.words == "Done: Release notes updated")
 }

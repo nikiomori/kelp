@@ -5,7 +5,7 @@ import AppKit
 enum DockFace: Equatable {
     /// One agent's mark. In the order they are drawn: what wants you first.
     enum Cell: Int, Comparable {
-        case asks, failed, working, done
+        case asks, failed, done, working   // finished work is news; work going on is not
         static func < (a: Cell, b: Cell) -> Bool { a.rawValue < b.rawValue }
     }
     /// What fits in the pill.
