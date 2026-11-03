@@ -80,3 +80,13 @@ import Testing
     try await Task.sleep(for: .milliseconds(50))
     #expect(e.completing == nil)
 }
+
+/// A scope's neighbours are those as far in within the same scope; a heading's, those of its level under the same parent.
+@MainActor @Test func aScopesSiblingsAreBesideItInTheSameScope() {
+    let e = opened("class A {\n    func f() {\n        x\n    }\n    var v = 1\n    func g() {\n        y\n    }\n}\nclass B {\n    func h() {\n    }\n}\n", "sib.swift")
+    #expect(e.siblingScopes(ofLine: 1).map(\.line) == [1, 5])
+    #expect(e.siblingScopes(ofLine: 0).map(\.line) == [0, 9])
+    let md = opened("# A\n## a1\ntext\n## a2\n# B\n## b1\n", "sib.md")
+    #expect(md.siblingScopes(ofLine: 1).map(\.line) == [1, 3])
+    #expect(md.siblingScopes(ofLine: 0).map(\.line) == [0, 4])
+}

@@ -43,7 +43,9 @@ final class Breadcrumbs: NSView {
             self?.cursorMoved()
         }
         let language = editor.languageId
-        track(owner: self) { [settings = app.settings] in settings.bool("editor.breadcrumbs", language: language) == true } changed: { [weak self] on in
+        track(owner: self) { [settings = app.settings, workbench = app.workbench] in
+            settings.bool("editor.breadcrumbs", language: language) == true && !workbench.inFocusMode
+        } changed: { [weak self] on in
             self?.isHidden = !on
             self?.height?.constant = on ? TextSize.of(Metrics.statusBar) : 0
             self?.rebuild()
@@ -110,11 +112,22 @@ final class Breadcrumbs: NSView {
         let parts = Self.parts(path, root: root)
         guard b.tag < parts.count else {
             let k = b.tag - parts.count
-            if scopes.indices.contains(k) { editor?.goTo(line: scopes[k].line + 1) }
+            if scopes.indices.contains(k) { showSiblings(of: scopes[k].line, under: b) }
             return
         }
         let folder = parts[..<b.tag].joined(separator: "/")
         Task { await showSiblings(in: folder, under: b) }
+    }
+
+    /// The scopes beside it, from the code; the one the cursor is in ticked.
+    private func showSiblings(of line: Int, under b: NSButton) {
+        guard let e = editor else { return }
+        let menu = NSMenu()
+        for scope in e.siblingScopes(ofLine: line) {
+            let item = menu.add(Self.name(scope.text)) { [weak e] in e?.goTo(line: scope.line + 1) }
+            item.state = scope.line == line ? .on : .off
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
     }
 
     private func showSiblings(in folder: String, under b: NSButton) async {

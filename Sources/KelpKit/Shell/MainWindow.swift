@@ -22,7 +22,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let sidebarItem: NSSplitViewItem
     /// Focus mode (⌃⌘Z): both panels away; they slide in while the pointer is at the window's edge.
     /// Holds the panels' state from before, to put back on leaving.
-    private var focusMode: (sidebar: Bool, inspector: Bool)?
+    private var focusMode: (sidebar: Bool, inspector: Bool)? {
+        didSet { app.workbench.inFocusMode = focusMode != nil }
+    }
     /// Settings › Appearance › Auto-hide: that panel stays away the same way, for good.
     private var autoHide = (sidebar: false, inspector: false)
     /// Auto-hide panels the toggle (⌘0 / ⌥⌘0) pinned: they stay in like a normal panel until it's pressed again.

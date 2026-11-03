@@ -11,6 +11,8 @@ package final class Workbench {
     @ObservationIgnored let app: AppModel
     /// The main window, once it's made (it hands itself over).
     @ObservationIgnored weak var window: MainWindowController?
+    /// Focus Mode: the side panels away, and what a tab adds over its content (breadcrumbs) too.
+    package internal(set) var inFocusMode = false
 
     // What an extension may ask of the window (it never gets the window itself).
     /// Brings the main window to the front, as after a sheet or a settings change made elsewhere.

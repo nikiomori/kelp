@@ -130,6 +130,29 @@ extension CodeEditor {
     /// The scopes around the cursor, outermost first, as `(0-based line, its text)`.
     public var scopesAtCursor: [(line: Int, text: String)] { scopeRows(scopeLines(around: (cursor?.line ?? 1) - 1)) }
 
+    /// The scopes beside the one opened on `line` (0-based), itself among them: as far in, in the same scope around it (the
+    /// file, at the top), or a Markdown heading's of its level. Limit: 5000 lines of it are looked through.
+    public func siblingScopes(ofLine line: Int) -> [(line: Int, text: String)] {
+        let s = textView.string as NSString
+        guard let start = lineIndex.start(ofLine: line, in: s) else { return [] }
+        let own = s.lineRange(for: NSRange(location: start, length: 0))
+        let level = Folds.indent(own, in: s), hashes = s.substring(with: own).prefix { $0 == "#" }.count
+        var within = NSRange(location: 0, length: s.length)
+        if let parent = scopeLines(around: line).last, let p = lineIndex.start(ofLine: parent, in: s),
+           let r = foldRegion(s.lineRange(for: NSRange(location: p, length: 0)), in: s) { within = r }
+        var found: [Int] = [], at = within.location, n = lineIndex.line(at: at, in: s)
+        while at < NSMaxRange(within), found.count < 500, n - line < 5000 {
+            let l = s.lineRange(for: NSRange(location: at, length: 0))
+            let text = s.substring(with: l)
+            let same = isMarkdown ? text.prefix { $0 == "#" }.count == hashes && text.dropFirst(hashes).hasPrefix(" ")
+                : Folds.indent(l, in: s) == level && foldRegion(l, in: s) != nil
+            if same, l.location >= within.location { found.append(lineIndex.line(at: l.location, in: s)) }
+            at = NSMaxRange(l)
+            n += 1
+        }
+        return scopeRows(found)
+    }
+
     private func scopeRows(_ lines: [Int]) -> [(line: Int, text: String)] {
         let s = textView.string as NSString
         return lines.compactMap { n in

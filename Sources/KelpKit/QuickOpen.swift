@@ -9,7 +9,7 @@ import WorkbenchKit
 /// while it's open. ⇧↩ opens the choice in a split. A setting with choices (Color Theme, File Icon Theme, on/off…) lists them
 /// right here, the one in effect ticked; for looks, moving through them tries each on, ↩ keeps it, esc goes back.
 @MainActor
-package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSWindowDelegate {
+package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init() }
 
@@ -181,7 +181,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         panel.standardWindowButton(.closeButton)?.isHidden = true; panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.hidesOnDeactivate = true
-        panel.delegate = self
+        // Gone when another window takes the keys; observed rather than delegated, so the shell declares less for built-ins.
+        NotificationCenter.default.addObserver(self, selector: #selector(panelResignedKey), name: NSWindow.didResignKeyNotification, object: panel)
         panel.isReleasedWhenClosed = false
         // Spotlight's ground: Liquid Glass on macOS 26, the popover material before. Its views go in `effect`.
         let effect = NSView()
@@ -394,7 +395,10 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         if split, let s = it.split { s() } else { it.action() }
     }
-    package func windowDidResignKey(_ n: Notification) { stopChoosing(); hide() }
+    @objc private func panelResignedKey(_ n: Notification) {
+        stopChoosing()
+        hide()
+    }
 
     package func numberOfRows(in t: NSTableView) -> Int { rows.count }
     package func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool { if case .item = rows[row] { true } else { false } }
