@@ -5,7 +5,7 @@ import Core
 
 /// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, a slow ring of dots once
 /// it only waits for its command, an orange ◎ when it
-/// needs you, a filled grey ✓ when it finished and you haven't looked, nothing after (as an agent that did nothing),
+/// needs you, a filled ✓ in the text's colour when it finished and you haven't looked, nothing after (as an agent that did nothing),
 /// a moon when paused.
 extension AgentStatus {
     package var symbol: String {
@@ -23,7 +23,7 @@ extension AgentStatus {
         switch self {
         case .working: .secondaryLabelColor
         case .waiting: .systemOrange
-        case .done: .secondaryLabelColor   // quiet: what's new is said by the bold name and the line over the list
+        case .done: .labelColor   // no state colour, and brighter than a working ring: it's what's new among the greys
         case .idle: .tertiaryLabelColor   // nothing to look at: it stays quiet
         case .hibernated: .secondaryLabelColor   // quiet, but a mark must still read (tertiary is about 2:1)
         case .exited: .secondaryLabelColor

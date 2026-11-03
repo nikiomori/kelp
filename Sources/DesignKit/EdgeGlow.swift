@@ -8,6 +8,7 @@ public final class EdgeGlow: NSView {
     private let frameLayer = CAShapeLayer()
     private var color: NSColor?
     private var breathing = false
+    private var faint = false
     /// The corner it follows (a tab's capsule changes it as it lays out).
     public var radius: CGFloat { didSet { layer?.cornerRadius = radius; needsLayout = true } }
 
@@ -36,11 +37,13 @@ public final class EdgeGlow: NSView {
 
     override public func hitTest(_ p: NSPoint) -> NSView? { nil }
 
-    /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none.
-    public func show(_ color: NSColor?, breathing: Bool) {
-        guard color != self.color || breathing != self.breathing else { return }   // every tab's every refresh comes here
+    /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none. `faint`: half
+    /// the light, for what's there to notice and not to answer.
+    public func show(_ color: NSColor?, breathing: Bool, faint: Bool = false) {
+        guard color != self.color || breathing != self.breathing || faint != self.faint else { return }   // every tab's every refresh comes here
         self.color = color
         self.breathing = breathing
+        self.faint = faint
         guard let color else {
             // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
             NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.disappear); animator().alphaValue = 0 }) { [weak self] in
@@ -58,8 +61,9 @@ public final class EdgeGlow: NSView {
             ctx.allowsImplicitAnimation = true
             animator().alphaValue = 1
             effectiveAppearance.performAsCurrentDrawingAppearance {
-                layer?.borderColor = color.withAlphaComponent(0.5).cgColor
-                frameLayer.fillColor = color.cgColor; frameLayer.shadowColor = color.cgColor
+                let light = color.withAlphaComponent(faint ? 0.5 : 1).cgColor
+                layer?.borderColor = color.withAlphaComponent(faint ? 0.25 : 0.5).cgColor
+                frameLayer.fillColor = light; frameLayer.shadowColor = light
             }
         }
         breathe(breathes)
@@ -96,7 +100,7 @@ public final class EdgeGlow: NSView {
         super.viewDidChangeEffectiveAppearance()
         if let color, !isHidden {
             self.color = nil   // the same colour, resolved anew
-            show(color, breathing: breathing)
+            show(color, breathing: breathing, faint: faint)
         }
     }
 

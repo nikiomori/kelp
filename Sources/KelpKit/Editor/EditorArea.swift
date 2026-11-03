@@ -217,7 +217,8 @@ package final class EditorArea: NSViewController {
         g.strip.focused = layout.focused == gid || (layout.focused == nil && layout.root?.sessions.first == gid)
         g.strip.zoomed = zoomed == gid
         let agent = app.catalog.startable
-        g.strip.setNewAgent(icon: agent.flatMap { app.catalog.icon($0) }, name: app.catalog.name(agent))
+        let agentIcon = agent.flatMap { app.catalog.icon($0) }
+        g.strip.setNewAgent(icon: agentIcon, grey: agentIcon.map(app.agentIcons.grey), name: app.catalog.name(agent))
         // Only the visible tab is built: a background agent tab must not wake a paused agent.
         let visible = model.selectedTab.flatMap { content($0) }
         g.strip.set(Self.disambiguated(model.tabs.map { t in
@@ -231,9 +232,10 @@ package final class EditorArea: NSViewController {
             return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)
         g.show(visible?.view)
-        // Like Ghostty's unfocused splits: with panes side by side, a terminal without focus fades a little. Never the one
-        // that calls for you: it's the pane to look at.
-        g.dimmed = !g.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible?.badge.map { $0.attention == nil } == true
+        // With panes side by side, those without focus fade, tabs too: the one you're in is the lit one, whatever it shows.
+        // Never the one that calls for you: it's the pane to look at.
+        g.dimmed = !g.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible != nil && visible?.badge?.attention == nil
+        g.strip.dimmed = g.dimmed
         g.attention = visible?.badge?.attention
         g.breathing = visible?.badge?.status == .waiting
         showEdited()

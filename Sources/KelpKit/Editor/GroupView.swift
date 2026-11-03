@@ -27,12 +27,20 @@ final class GroupView: NSView {
     /// The editor area's frame in window coordinates, and a hint drawn across it (nil: none).
     var editorFrame: (() -> NSRect?)?
     var showOuterHint: ((NSRectEdge?) -> Void)?
-    /// A terminal pane without focus, among several: it fades toward the terminal's background (Ghostty does the same).
+    /// A pane without focus, among several: it fades toward the terminal's background (Ghostty does the same).
     var dimmed = false {
         didSet {
             guard dimmed != oldValue else { return }
-            veil.layer?.backgroundColor = themes.terminalBackground.withAlphaComponent(0.3).cgColor
-            veil.isHidden = !dimmed
+            veil.layer?.backgroundColor = themes.terminalBackground.withAlphaComponent(Metrics.paneDim).cgColor
+            if dimmed { veil.alphaValue = 0; veil.isHidden = false }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = Motion.duration(Motion.fast)
+                veil.animator().alphaValue = dimmed ? 1 : 0
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {  // AppKit runs the completion on the main thread
+                    if let self, !self.dimmed { self.veil.isHidden = true }
+                }
+            })
         }
     }
 

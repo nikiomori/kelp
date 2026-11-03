@@ -21,7 +21,6 @@ package enum Help {
     | spinning ring | working |
     | orange ◎ | asked you something — needs your input (hover for the question) |
     | filled ✓, bold name | finished and you haven't looked yet |
-    | plain ✓ | finished, seen |
     | moon, dimmed | paused to save memory — opens where it left off |
     | none | ready for a task |
 

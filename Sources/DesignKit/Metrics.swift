@@ -39,6 +39,8 @@ public enum Metrics {
     public static let iconWeight: NSFont.Weight = .medium
     public static let iconGap: CGFloat = 2        // between two icon buttons side by side
     public static let iconGlow: CGFloat = 7       // the blur of a project's colour around its icon
+    public static let paneDim: CGFloat = 0.5      // how far a pane without focus fades toward the background
+    public static let tabDim: CGFloat = 0.7       // what its tabs keep
 
     // Sheets
     public static let sheetWidth: CGFloat = 480
