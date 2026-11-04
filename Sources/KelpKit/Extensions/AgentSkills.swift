@@ -109,6 +109,8 @@ enum AgentSkills {
         - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints its url and title once
           it loaded; `error` says why it didn't. The page has cookies and storage of its own, so you start logged out.
           `--shared` uses the user's instead: only when they ask, it acts as them.
+        - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
+          address it shows does the same).
         - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`,
           `- textbox "Email" [ref=e3]: "a@b.c"`, `- link "Docs" [ref=e5] -> /docs`. Read it rather than a screenshot.
         - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — the refs of the last snapshot; take a new one

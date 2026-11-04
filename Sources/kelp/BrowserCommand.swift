@@ -4,7 +4,7 @@ import Core
 extension Main {
     static let browserUsage = """
     browser open <url> [--shared] | snapshot | click <ref> | hover <ref> | type <ref> <text> [--submit] | press <key> [ref]
-            | scroll [down|up|top|bottom|<ref>] | back | eval <js>
+            | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js>
             | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
     """
 
@@ -39,7 +39,7 @@ extension Main {
             if let s = flag("--selector") { a["selector"] = .string(s) }
             if let t = flag("--timeout").flatMap(Double.init) { a["timeout"] = .double(t) }
         case "console", "network": a["clear"] = .bool(has("--clear"))
-        case "snapshot", "info", "back": break
+        case "snapshot", "info", "back", "reload": break
         default: fail("usage: kelp " + browserUsage)
         }
         let w = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)

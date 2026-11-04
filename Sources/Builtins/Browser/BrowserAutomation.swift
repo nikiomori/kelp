@@ -18,7 +18,13 @@ extension BrowserTab {
         switch action {
         case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
         case "info": return try await settled()
-        case "open": load(try need("url")); return try await settled()
+        case "open":
+            // The page it shows already: an agent opens it again after changing the code, so nothing comes from the cache
+            // (a dev server that doesn't ask for revalidation would hand back the old script).
+            let url = try need("url")
+            if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
+            return try await settled()
+        case "reload": web.reloadFromOrigin(); return try await settled()
         case "snapshot": return .string(try await run(Self.snapshotJS) as? String ?? "")
         case "click", "hover":
             _ = try await run(Self.findJS + Self.flashJS + (action == "click" ? Self.clickJS : Self.hoverJS), shown(["ref": try need("ref")]))
@@ -67,6 +73,12 @@ extension BrowserTab {
     private func sized() {
         guard web.window == nil, web.frame.width < 200 || web.frame.height < 200 else { return }
         web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
+    }
+
+    /// Two spellings of one address: `http://localhost:3000` and `http://localhost:3000/`.
+    static func same(_ a: String, _ b: String) -> Bool {
+        func bare(_ s: String) -> String { s.hasSuffix("/") ? String(s.dropLast()) : s }
+        return bare(a) == bare(b)
     }
 
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.

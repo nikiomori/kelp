@@ -88,7 +88,7 @@ import WorkbenchKit
 
 }
 
-/// Back goes to the page a click left.
+/// Back goes to the page a click left; opening the page it shows, or reload, loads it again.
 @MainActor @Test(.timeLimit(.minutes(1))) func browserGoesBack() async throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-back-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -102,4 +102,13 @@ import WorkbenchKit
     _ = try await tab.browse("snapshot", .object([:]))
     #expect(try await tab.browse("click", .object(["ref": .string("e1")]))["url"]?.string?.hasSuffix("two.html") == true)
     #expect(try await tab.browse("back", .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
+
+    // Opening the page it shows loads it again (a page's own state goes), as reload does.
+    _ = try await tab.browse("eval", .object(["js": .string("window.kept = 1")]))
+    let here = try #require(tab.web.url?.absoluteString)
+    _ = try await tab.browse("open", .object(["url": .string(here)]))
+    #expect(try await tab.browse("eval", .object(["js": .string("window.kept ?? 0")])) == .int(0))
+    _ = try await tab.browse("eval", .object(["js": .string("window.kept = 1")]))
+    _ = try await tab.browse("reload", .object([:]))
+    #expect(try await tab.browse("eval", .object(["js": .string("window.kept ?? 0")])) == .int(0))
 }
