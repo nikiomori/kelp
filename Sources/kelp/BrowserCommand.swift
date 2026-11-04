@@ -3,7 +3,8 @@ import Core
 
 extension Main {
     static let browserUsage = """
-    browser open <url> [--shared] | snapshot | click <ref> | type <ref> <text> [--submit] | eval <js>
+    browser open <url> [--shared] | snapshot | click <ref> | hover <ref> | type <ref> <text> [--submit] | press <key> [ref]
+            | scroll [down|up|top|bottom|<ref>] | back | eval <js>
             | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
     """
 
@@ -16,9 +17,14 @@ extension Main {
             a["shared"] = .bool(has("--shared"))
             guard let u = args.first else { fail("browser open <url> [--shared]") }
             a["url"] = .string(address(u))
-        case "click":
-            guard let r = args.first else { fail("browser click <ref>") }
+        case "click", "hover":
+            guard let r = args.first else { fail("browser \(action) <ref>") }
             a["ref"] = .string(r)
+        case "press":
+            guard let k = args.first else { fail("browser press <key> [ref]  (Enter, Escape, Tab, Shift+Tab, ArrowDown, a…)") }
+            a["key"] = .string(k)
+            if args.count > 1 { a["ref"] = .string(args[1]) }
+        case "scroll": a["to"] = .string(args.first ?? "down")
         case "type":
             a["submit"] = .bool(has("--submit"))
             guard args.count >= 2 else { fail("browser type <ref> <text> [--submit]") }
@@ -33,7 +39,7 @@ extension Main {
             if let s = flag("--selector") { a["selector"] = .string(s) }
             if let t = flag("--timeout").flatMap(Double.init) { a["timeout"] = .double(t) }
         case "console", "network": a["clear"] = .bool(has("--clear"))
-        case "snapshot", "info": break
+        case "snapshot", "info", "back": break
         default: fail("usage: kelp " + browserUsage)
         }
         let w = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)

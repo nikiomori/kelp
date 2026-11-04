@@ -112,7 +112,13 @@ enum AgentSkills {
         - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`,
           `- textbox "Email" [ref=e3]: "a@b.c"`, `- link "Docs" [ref=e5] -> /docs`. Read it rather than a screenshot.
         - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — the refs of the last snapshot; take a new one
-          after the page changed (a stale ref says so). Both wait for a page they load.
+          after the page changed (a stale ref says so). Both wait for a page they load, and outline the element a moment
+          so the user sees it.
+        - `kelp browser press Escape` (`Enter`, `Tab`, `Shift+Tab`, `ArrowDown`, … `[ref]` to focus one first) — closes a
+          menu, moves through a list, submits. Not for text: `type` it.
+        - `kelp browser hover e7` — menus that open on hover from script; pure CSS `:hover` doesn't follow.
+        - `kelp browser scroll [down|up|top|bottom|e7]` — the page or its main scrolling pane; prints where it is, and
+          waits a little for what scrolling loads. `kelp browser back` — the previous page.
         - `kelp browser wait --text "Saved" [--selector ".toast"] [--timeout 10]` — until it shows.
         - `kelp browser eval "document.querySelectorAll('li').length"` — an expression in the page, its value as JSON; for
           statements, `(() => { … })()`.

@@ -16,9 +16,10 @@ import WorkbenchKit
         <label>Email <input id="email"></label>
         <button onclick="document.getElementById('out').textContent = 'saved ' + document.getElementById('email').value">Save</button>
         <div style="display: none"><button>Hidden</button></div>
-        <a href="/docs">Docs</a><p id="out"></p>
+        <a href="/docs">Docs</a><p id="out"></p><span role="link">Ghost</span>
         """, baseURL: URL(string: "http://localhost/"))
     _ = try await tab.browse("info", .object([:]))
+    #expect(try await tab.browse("eval", .object(["js": .string("innerWidth > 0 && innerHeight > 0")])) == .bool(true))
 
     let page = try #require(try await tab.browse("snapshot", .object([:])).string)
     #expect(page.contains(#"- heading "Cart" [level=1]"#))
@@ -26,6 +27,7 @@ import WorkbenchKit
     #expect(page.contains(#"- button "Save" [ref=e2]"#))
     #expect(page.contains(#"- link "Docs" [ref=e3] -> /docs"#))
     #expect(!page.contains("Hidden"))
+    #expect(page.contains(#"- link "Ghost" [ref=e4]"#) && !page.contains("Ghost\" [ref=e4] ->"))
 
     _ = try await tab.browse("type", .object(["ref": .string("e1"), "text": .string("a@b.c")]))
     _ = try await tab.browse("click", .object(["ref": .string("e2")]))
@@ -50,4 +52,54 @@ import WorkbenchKit
     #expect(try await tab.browse("console", .object([:])) == .string("No console messages."))
     let net = try #require(try await tab.browse("network", .object([:])).string)
     #expect(net.contains("failed GET http://127.0.0.1:9/api/x (fetch"))
+}
+
+/// Keys do what the browser would (Tab moves on, Enter clicks), a hover reaches the page's handler, a scroll moves
+/// the page.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserPressesHoversAndScrolls() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString("""
+        <input id="a"><button onclick="out.textContent += 'clicked '">Go</button>
+        <div onmouseenter="out.textContent += 'hovered '">Menu</div><p id="out"></p>
+        <script>addEventListener('keydown', e => { if (e.key === 'Escape') out.textContent += 'escape ' })</script>
+        <div style="height: 5000px"></div>
+        """, baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse("snapshot", .object([:]))
+    func out() async throws -> JSONValue { try await tab.browse("eval", .object(["js": .string("out.textContent")])) }
+
+    _ = try await tab.browse("press", .object(["key": .string("Tab"), "ref": .string("e1")]))
+    #expect(try await tab.browse("eval", .object(["js": .string("document.activeElement.localName")])) == .string("button"))
+    _ = try await tab.browse("press", .object(["key": .string("Enter")]))
+    _ = try await tab.browse("press", .object(["key": .string("Esc")]))
+    #expect(try await out() == .string("clicked escape "))
+    await #expect(throws: RPCError.self) { try await tab.browse("press", .object(["key": .string("Hyper")])) }
+
+    let page = try #require(try await tab.browse("snapshot", .object([:])).string)
+    #expect(!page.contains("hovered"))
+    _ = try await tab.browse("eval", .object(["js": .string("document.querySelector('div').setAttribute('role', 'button')")]))
+    let menu = try #require(try await tab.browse("snapshot", .object([:])).string?.split(separator: "\n")
+        .first { $0.contains("\"Menu\"") }.flatMap { $0.firstMatch(of: /ref=(e\d+)/)?.1 })
+    _ = try await tab.browse("hover", .object(["ref": .string(String(menu))]))
+    #expect(try await out() == .string("clicked escape hovered "))
+
+    let down = try await tab.browse("scroll", .object(["to": .string("down")]))
+    #expect(down["scroll"]?.string?.hasPrefix("0 of") == false)
+
+}
+
+/// Back goes to the page a click left.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserGoesBack() async throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-back-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try Data(#"<a href="two.html">Two</a>"#.utf8).write(to: dir.appendingPathComponent("one.html"))
+    try Data("<p>two</p>".utf8).write(to: dir.appendingPathComponent("two.html"))
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    await #expect(throws: RPCError.self) { try await tab.browse("back", .object([:])) }
+    tab.web.loadFileURL(dir.appendingPathComponent("one.html"), allowingReadAccessTo: dir)
+    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse("snapshot", .object([:]))
+    #expect(try await tab.browse("click", .object(["ref": .string("e1")]))["url"]?.string?.hasSuffix("two.html") == true)
+    #expect(try await tab.browse("back", .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
 }

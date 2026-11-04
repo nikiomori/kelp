@@ -1,6 +1,7 @@
 import AppKit
 import WebKit
 import Core
+import DesignKit
 
 /// `kelp browser`: what an agent does on the page. Kelp's scripts run in a world of their own (`world`): the page can't see
 /// or change them, but they see its DOM. Clicks and typing are DOM events (`isTrusted` false), so they work while the tab
@@ -13,18 +14,28 @@ extension BrowserTab {
             guard let v = args[k]?.string, !v.isEmpty else { throw RPCError.invalidParams("\(action) needs \(k)") }
             return v
         }
-        watch()
+        watch(); sized()
         switch action {
         case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
         case "info": return try await settled()
         case "open": load(try need("url")); return try await settled()
         case "snapshot": return .string(try await run(Self.snapshotJS) as? String ?? "")
-        case "click":
-            _ = try await run(Self.findJS + Self.clickJS, ["ref": try need("ref")])
+        case "click", "hover":
+            _ = try await run(Self.findJS + Self.flashJS + (action == "click" ? Self.clickJS : Self.hoverJS), shown(["ref": try need("ref")]))
             return try await settled()
         case "type":
-            _ = try await run(Self.findJS + Self.typeJS, ["ref": try need("ref"), "text": args["text"]?.string ?? "",
-                                                          "submit": args["submit"]?.bool == true])
+            _ = try await run(Self.findJS + Self.flashJS + Self.typeJS, shown(["ref": try need("ref"), "text": args["text"]?.string ?? "",
+                                                                                "submit": args["submit"]?.bool == true]))
+            return try await settled()
+        case "press":
+            _ = try await run(Self.pressJS, ["key": try need("key"), "ref": args["ref"]?.string ?? ""])
+            return try await settled()
+        case "scroll":
+            let at = try await run(Self.scrollJS, ["to": args["to"]?.string ?? "down"]) as? String ?? ""
+            return try await settled(["scroll": .string(at)])
+        case "back":
+            guard web.canGoBack else { throw RPCError.invalidParams("No page to go back to.") }
+            web.goBack()
             return try await settled()
         case "eval":
             // The page's own world: the agent asks about the page's state (its globals, its framework).
@@ -32,6 +43,7 @@ extension BrowserTab {
             let text = try await run(body, page: true) as? String ?? "null"
             return (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
         case "screenshot":
+            _ = try await run(Self.calmJS)   // what an action started has played out and been drawn
             let image: NSImage
             do { image = try await web.takeSnapshot(configuration: nil) } catch {
                 throw RPCError.internalError("No screenshot: \(error.localizedDescription) Show the page's tab and try again.")
@@ -50,16 +62,26 @@ extension BrowserTab {
         }
     }
 
+    /// A page no pane shows (a tab behind another, a workspace not on screen) has no size, and one with none lays nothing
+    /// out: no text to read, nothing to click. It gets a laptop window's size until a pane shows it and sizes it.
+    private func sized() {
+        guard web.window == nil, web.frame.width < 200 || web.frame.height < 200 else { return }
+        web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
+    }
+
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
-    private func settled() async throws -> JSONValue {
+    private func settled(_ extra: [String: JSONValue] = [:]) async throws -> JSONValue {
         try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
         let end = Date().addingTimeInterval(30)
         while web.isLoading, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
-        var o: [String: JSONValue] = ["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]
+        var o = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
         if web.isLoading { o["loading"] = .bool(true) }
         if let e = loadError { o["error"] = .string(e) }
         return .object(o)
     }
+
+    /// The arguments of an action the user sees done: the element's outline is drawn in the accent colour.
+    private func shown(_ args: [String: Any]) -> [String: Any] { args.merging(["accent": NSColor.themeAccent.hexString]) { $1 } }
 
     /// An async function body with `args` as its variables; a script's exception comes back as its message.
     private func run(_ body: String, _ args: [String: Any] = [:], page: Bool = false) async throws -> Any? {
@@ -81,7 +103,7 @@ extension BrowserTab {
       'option','spinbutton','img','heading','clickable']);
     const FIELD = new Set(['textbox','searchbox','combobox','slider','spinbutton']);
     const clean = s => (s || '').replace(/\s+/g, ' ').trim();
-    const cut = s => s.length > 100 ? s.slice(0, 100) + '…' : s;
+    const cut = s => (s = s || '').length > 100 ? s.slice(0, 100) + '…' : s;
     const SKIP = new Set(['script','style','noscript','template','head','svg','iframe']);
     const INPUT = {checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', button: 'button', submit: 'button',
       reset: 'button', image: 'button', file: 'button', search: 'searchbox'};
@@ -134,7 +156,7 @@ extension BrowserTab {
         if (el.disabled || el.getAttribute('aria-disabled') === 'true') line += ' [disabled]';
         const ex = el.getAttribute('aria-expanded'); if (ex) line += ' [expanded=' + ex + ']';
         if (ACT.has(role)) { const ref = 'e' + (++n); refs.set(ref, el); line += ' [ref=' + ref + ']'; }
-        if (role === 'link') line += ' -> ' + cut(el.getAttribute('href'));
+        if (role === 'link' && el.getAttribute('href')) line += ' -> ' + cut(el.getAttribute('href'));
         if (FIELD.has(role)) {
           const v = clean(el.isContentEditable ? el.innerText : el.localName === 'select' ? (el.selectedOptions[0] || {}).text : el.value);
           if (v) line += ': ' + JSON.stringify(cut(v));
@@ -153,6 +175,30 @@ extension BrowserTab {
     const el = window.__kelpRefs && window.__kelpRefs.get(ref);
     if (!el || !el.isConnected) throw new Error('No ' + ref + ' on the page now: take a new snapshot');
     el.scrollIntoView({block: 'center', inline: 'center'});
+    """#
+
+    /// An outline on `el` for a moment, so the user watching sees what the agent is about to click or type in; the
+    /// action waits a beat for it when the page is on screen.
+    static let flashJS = #"""
+    const fr = el.getBoundingClientRect(), fl = document.createElement('div');
+    fl.setAttribute('data-kelp-flash', '');
+    fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483647;border-radius:6px;transition:opacity .4s;'
+      + 'left:' + (fr.left - 3) + 'px;top:' + (fr.top - 3) + 'px;width:' + (fr.width + 6) + 'px;height:' + (fr.height + 6) + 'px;'
+      + 'border:2px solid ' + accent + ';background:' + accent + '22';
+    document.documentElement.appendChild(fl);
+    setTimeout(() => { fl.style.opacity = '0'; setTimeout(() => fl.remove(), 450); }, 700);
+    if (document.visibilityState === 'visible') await new Promise(r => setTimeout(r, 250));
+    """#
+
+    /// Before a screenshot: no outline of ours, finite animations done (a dialog closing), and a frame drawn.
+    static let calmJS = #"""
+    try {
+      document.querySelectorAll('[data-kelp-flash]').forEach(e => e.remove());
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const finite = document.getAnimations().filter(a => a.playState === 'running' && a.effect && a.effect.getComputedTiming().endTime !== Infinity);
+      await Promise.race([Promise.all(finite.map(a => a.finished.catch(() => 0))), wait(1500)]);
+      await Promise.race([new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))), wait(150)]);
+    } catch (_) {}
     """#
 
     /// What a mouse click sends: pointer and mouse down, focus, up, then click (which follows a link, ticks a box, submits).
@@ -189,5 +235,74 @@ extension BrowserTab {
 
     static let waitJS = #"""
     return (!selector || !!document.querySelector(selector)) && (!text || !!(document.body && document.body.innerText.includes(text)));
+    """#
+
+    /// What the pointer moving onto `el` sends: menus that open from script do; a CSS `:hover` doesn't follow events.
+    static let hoverJS = #"""
+    const r = el.getBoundingClientRect();
+    const o = {bubbles: true, cancelable: true, composed: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2};
+    const p = {...o, pointerId: 1, pointerType: 'mouse', isPrimary: true};
+    el.dispatchEvent(new PointerEvent('pointerover', p)); el.dispatchEvent(new PointerEvent('pointerenter', {...p, bubbles: false}));
+    el.dispatchEvent(new MouseEvent('mouseover', o)); el.dispatchEvent(new MouseEvent('mouseenter', {...o, bubbles: false}));
+    el.dispatchEvent(new PointerEvent('pointermove', p)); el.dispatchEvent(new MouseEvent('mousemove', o));
+    """#
+
+    /// A key (`Escape`, `Shift+Tab`, `ArrowDown`, `a`) on the focused element, or on `ref` once it's focused. Events
+    /// from a script do nothing by themselves, so what the browser would do follows unless the page prevented it:
+    /// Tab moves the focus, Enter clicks a link or button or submits a field's form, Space clicks a button or a box.
+    static let pressJS = #"""
+    let el = document.activeElement || document.body;
+    if (ref) {
+      const r = window.__kelpRefs && window.__kelpRefs.get(ref);
+      if (!r || !r.isConnected) throw new Error('No ' + ref + ' on the page now: take a new snapshot');
+      r.focus(); el = r;
+    }
+    const parts = key.split('+'), name = parts.pop(), mods = new Set(parts.map(m => m.toLowerCase()));
+    const NAMED = {Enter: 13, Escape: 27, Esc: 27, Tab: 9, Backspace: 8, Delete: 46, Space: 32, ArrowLeft: 37, ArrowUp: 38,
+      ArrowRight: 39, ArrowDown: 40, PageUp: 33, PageDown: 34, Home: 36, End: 35};
+    const k = name === 'Esc' ? 'Escape' : name === 'Space' ? ' ' : name;
+    const keyCode = NAMED[name] || (k.length === 1 ? k.toUpperCase().charCodeAt(0) : 0);
+    if (!keyCode) throw new Error('No key ' + name + ': Enter, Escape, Tab, Backspace, Delete, Space, an arrow, PageUp, PageDown, Home, End or one character');
+    const code = NAMED[name] ? (name === 'Esc' ? 'Escape' : name) : /[a-z]/i.test(k) ? 'Key' + k.toUpperCase() : /[0-9]/.test(k) ? 'Digit' + k : k;
+    const o = {key: k, code, keyCode, which: keyCode, bubbles: true, cancelable: true, composed: true, shiftKey: mods.has('shift'),
+      ctrlKey: mods.has('ctrl') || mods.has('control'), altKey: mods.has('alt') || mods.has('option'),
+      metaKey: mods.has('meta') || mods.has('cmd') || mods.has('command')};
+    const go = el.dispatchEvent(new KeyboardEvent('keydown', o));
+    if (go && k.length === 1) el.dispatchEvent(new KeyboardEvent('keypress', o));
+    const button = el.localName === 'button' || el.getAttribute('role') === 'button';
+    if (go && k === 'Tab') {
+      const all = [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex],[contenteditable]')]
+        .filter(e => e.tabIndex >= 0 && !e.disabled && e.getClientRects().length);
+      const next = all[(all.indexOf(el) + (o.shiftKey ? -1 : 1) + all.length) % all.length];
+      if (next) next.focus();
+    } else if (go && k === 'Enter') {
+      if (el.localName === 'a' || button) el.click();
+      else if (el.form && el.localName === 'input') el.form.requestSubmit();
+    } else if (go && k === ' ' && (button || el.type === 'checkbox' || el.type === 'radio')) el.click();
+    (document.activeElement || el).dispatchEvent(new KeyboardEvent('keyup', o));
+    """#
+
+    /// Scrolls the page, or the biggest box that scrolls when the page itself doesn't (an app's main pane), by most of
+    /// a screen, to an end, or `ref` into view; then waits a little for what scrolling loads. Says where it is.
+    static let scrollJS = #"""
+    if (/^e\d+$/.test(to)) {
+      const el = window.__kelpRefs && window.__kelpRefs.get(to);
+      if (!el || !el.isConnected) throw new Error('No ' + to + ' on the page now: take a new snapshot');
+      el.scrollIntoView({block: 'center'});
+    } else {
+      let s = document.scrollingElement || document.documentElement;
+      if (s.scrollHeight <= s.clientHeight + 1) for (const e of document.querySelectorAll('*')) {
+        if (e.scrollHeight <= e.clientHeight + 1 || e.clientHeight < 100) continue;
+        const y = getComputedStyle(e).overflowY;
+        if ((y === 'auto' || y === 'scroll') && (s === document.scrollingElement || e.clientHeight * e.clientWidth > s.clientHeight * s.clientWidth)) s = e;
+      }
+      const h = s.clientHeight;
+      if (to === 'down') s.scrollBy(0, h * 0.8); else if (to === 'up') s.scrollBy(0, -h * 0.8);
+      else if (to === 'top') s.scrollTo(0, 0); else if (to === 'bottom') s.scrollTo(0, s.scrollHeight);
+      else throw new Error('scroll down, up, top, bottom or to a ref');
+    }
+    await new Promise(r => setTimeout(r, 300));
+    const s = document.scrollingElement || document.documentElement;
+    return Math.round(s.scrollTop) + ' of ' + Math.max(0, s.scrollHeight - s.clientHeight);
     """#
 }
