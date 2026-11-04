@@ -309,6 +309,7 @@ import GitKit
 
 @Test func cutShortTurnsAreRecognisedOnScreen() {
     #expect(LiveSession.printedStopped("⎿ Interrupted · What should Claude do instead?"))
+    #expect(LiveSession.printedStopped("● User declined to answer   questions"))
     #expect(LiveSession.printedStopped("■ Conversation   interrupted - tell the model\nwhat to do differently."))
     #expect(!LiveSession.printedStopped("Reading the interrupt handler in main.swift"))
 }

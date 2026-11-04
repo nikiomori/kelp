@@ -50,10 +50,11 @@ final class LiveSession: Sendable {
         pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#, options: .caseInsensitive)
     // swiftlint:disable:next force_try
     static let urlRegex = try! NSRegularExpression(pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?[^\s\x1b'"]*"#)
-    /// What an agent prints once its turn was cut short: Claude Code's "Interrupted · What should Claude do instead?", Codex's
+    /// What an agent prints once its turn was cut short: Claude Code's "Interrupted · What should Claude do instead?" (and
+    /// "User declined to answer questions" for Esc on its question, which ends the turn with no hook), Codex's
     /// "■ Conversation interrupted - tell the model what to do differently." Words placed one by one come with odd spacing.
     static let stoppedMarkers = ["Interrupted", "What should Claude do instead", "tell Claude what to do",
-                                 "Conversation interrupted", "tell the model what to do"]
+                                 "declined to answer questions", "Conversation interrupted", "tell the model what to do"]
     static func printedStopped(_ seen: String) -> Bool {
         let flat = seen.replacing(/\s+/, with: " ")
         return stoppedMarkers.contains(where: flat.contains)
