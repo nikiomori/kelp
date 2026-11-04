@@ -3,9 +3,10 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// How much of the agents' plans is used: for the fullest limit of any agent (or of each, by setting) the agent's icon and
-/// name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick where an
-/// even pace would have the bar by now; on hover every agent that has used anything, each limit with its bar and reset.
+/// How much of the agents' plans is used: for each agent's fullest limit (or only the fullest of all, by setting) the agent's
+/// icon and name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick
+/// where an even pace would have the bar by now. On hover, that agent's limits each with its bar and reset; with one row
+/// shown, every agent's.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
 /// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
 struct UsageView: View {
@@ -48,10 +49,11 @@ struct UsageView: View {
     /// The agents that have used anything of their plans: a row at 0% says nothing.
     private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
+    private var all: Bool { app.settings.string("usage.limits") != "fullest" }
     /// The rows on show (Settings › Agents, or the footer's right-click): nothing once plan limits are turned off.
     private var shown: [Row] {
         guard app.settings.bool("usage.readPlans") != false else { return [] }
-        return app.settings.string("usage.limits") == "all" ? used.sorted { ($0.main?.used ?? 0) > ($1.main?.used ?? 0) } : fullest
+        return all ? used.sorted { ($0.main?.used ?? 0) > ($1.main?.used ?? 0) } : fullest
     }
 
     var body: some View {
@@ -105,9 +107,11 @@ struct UsageView: View {
                 .onHover { hovered = $0 ? r.id : (hovered == r.id ? nil : hovered) }
                 .onTapGesture { hovered = r.id }   // trackpads, and anyone who'd rather click
                 .popover(isPresented: Binding(get: { hovered == r.id }, set: { if !$0, hovered == r.id { hovered = nil } }), arrowEdge: .top) {
+                    // A row per agent: the card is about the one under the pointer. One row: it's the only way to the others.
+                    let cards = all ? [r] : used
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(used) { u in
-                            if u.id != used.first?.id { Divider() }
+                        ForEach(cards) { u in
+                            if u.id != cards.first?.id { Divider() }
                             Details(row: u, forecast: app.forecast, pace: pace)
                         }
                     }
@@ -133,13 +137,11 @@ struct UsageView: View {
             GeometryReader { g in
                 let w = g.size.width
                 ZStack(alignment: .leading) {
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.quaternary)
-                        Capsule().fill(UsageView.tint(used)).frame(width: max(height, w * min(used, 1)))
-                        if let p = pace { Rectangle().frame(width: 3, height: height).offset(x: w * p - 1.5).blendMode(.destinationOut) }
-                    }
-                    .compositingGroup()
-                    if let p = pace { Capsule().fill(.primary).frame(width: 1, height: height + 4).offset(x: w * p - 0.5) }
+                    Capsule().fill(.quaternary)
+                    Capsule().fill(UsageView.tint(used)).frame(width: max(height, w * min(used, 1)))
+                    // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
+                    // popover's vibrancy (the track went black).
+                    if let p = pace { Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(x: (w * p).rounded()) }
                 }
             }
             .frame(minWidth: 48, maxWidth: .infinity)   // a bar, not a dot, when the text beside it is long
@@ -172,9 +174,14 @@ struct UsageView: View {
                         }
                         let even = pace ? l.pace() : nil
                         Bar(used: l.used, pace: even)
-                        if let r = l.resets {
-                            Text(even.map { String(localized: "Resets \(r) · \(UsageView.percent($0)) at an even pace") } ?? String(localized: "Resets \(r)"))
-                                .font(.caption).foregroundStyle(.secondary)
+                        // One line: when it resets at the left, the tick's value at the right (it wrapped as one sentence).
+                        if l.resets != nil || even != nil {
+                            HStack {
+                                if let r = l.resets { Text("Resets \(r)").lineLimit(1) }
+                                Spacer(minLength: Metrics.gapWide)
+                                if let e = even { Text("Even pace \(UsageView.percent(e))").fixedSize().monospacedDigit() }
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
                         }
                         if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resets.flatMap { ResetTime.parse($0) }) {
                             Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(Color.textOrange)

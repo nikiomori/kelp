@@ -32,7 +32,7 @@ extension Builtins {
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),
                 s("usage.readPlans", "Show plan limits", "boolean", true,
                   "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.", group: "Plan limits"),
-                s("usage.limits", "Limits to show", "enum", "fullest", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
+                s("usage.limits", "Limits to show", "enum", "all", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
                   options: ["fullest", "all"], group: "Plan limits"),
                 s("usage.resets", "Reset time beside a limit", "boolean", true, "Only when it resets within 12 hours.", group: "Plan limits"),
                 s("usage.pace", "Even pace mark", "boolean", true,

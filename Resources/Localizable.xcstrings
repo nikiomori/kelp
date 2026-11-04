@@ -18246,16 +18246,6 @@
         }
       }
     },
-    "Resets %@ · %@ at an even pace": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сброс %1$@ · по ровному темпу было бы %2$@"
-          }
-        }
-      }
-    },
     "Pace Mark": {
       "localizations": {
         "ru": {
@@ -18292,6 +18282,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Только когда сброс в ближайшие 12 часов."
+          }
+        }
+      }
+    },
+    "Even pace %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ровный темп %@"
           }
         }
       }
