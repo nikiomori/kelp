@@ -205,6 +205,9 @@ package final class AppModel {
             self.reconnectSoon()
         } }
         if await checkDaemonVersion(c) { return }
+        // Dropped while the update's question waited for an answer: the reconnect that noticed waited for this, so this one
+        // tries again rather than load lists over a connection that's gone.
+        guard client === c else { return reconnectSoon() }
         await uiState.load()
         if uiState.strings("sidebar.order") != order { order = uiState.strings("sidebar.order") }
         if Mutes.read(uiState[Mutes.key]) != mutes { mutes = Mutes.read(uiState[Mutes.key]) }
