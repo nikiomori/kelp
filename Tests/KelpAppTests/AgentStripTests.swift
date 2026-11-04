@@ -204,3 +204,14 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(s.runs.compactMap(\.link) == [URL(string: "https://claude.ai/artifact/x")])
     #expect(String(CardView.linked("a [b").characters) == "a [b")
 }
+
+/// Allow answers the question the card shows: a second one asked meanwhile isn't approved unseen.
+@MainActor @Test func theCardAnswersTheQuestionItShows() {
+    let app = AppModel()
+    var s = session("a", .waiting, summary: "Allow npm test?")
+    app.sessions = [s]
+    let card = StripCard(s, app: app, fullScreen: false) { _ in }
+    s.summary = "Allow rm -rf build?"
+    app.sessions = [s]
+    #expect(card.question == "Allow npm test?")
+}

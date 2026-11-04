@@ -251,6 +251,8 @@ final class AgentStrip {
         row.setViews(shownNow, in: .leading)
         buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) { closeCard() }
+        // Another question while one was up: the card shows what Allow answers, so the new one comes in a card of its own.
+        else if let card, card.question != app.session(card.session)?.summary { closeCard(); goesOn = true }
         put(appearing: !wasUp)
         follow(opened)
         expireDone()

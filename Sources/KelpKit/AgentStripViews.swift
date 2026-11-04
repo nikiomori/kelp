@@ -207,6 +207,8 @@ final class StripCard {
     enum End { case later, answered, left }
 
     let session: String
+    /// The question it shows: Allow answers this one. Another asked meanwhile is the strip's to show in a new card.
+    let question: String
     private let app: AppModel
     private let onEnd: (End) -> Void
     private var panel: StripPanel?
@@ -214,6 +216,7 @@ final class StripCard {
 
     init(_ s: Session, app: AppModel, fullScreen: Bool, onEnd: @escaping (End) -> Void) {
         session = s.id
+        question = s.summary
         self.app = app
         self.onEnd = onEnd
         let stack = NSStackView()
@@ -295,7 +298,7 @@ final class StripCard {
     }
 
     private func answer(_ action: String) {
-        app.notifier?.answer(session, action, question: app.session(session)?.summary)
+        app.notifier?.answer(session, action, question: question)
         onEnd(.answered)
     }
 
