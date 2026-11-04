@@ -36,11 +36,14 @@ final class LSPHost: Sendable {
 
     let store: Store   // who trusted which project (`lsp.trusted`, written by Kelp's window)
     let remotes: Remotes
+    /// Where files are read for an answer (references' lines): never the cooperative pool.
+    let offloads: Slots
 
     /// Tests shorten the delays.
-    init(store: Store, remotes: Remotes, retryDelay: TimeInterval, idleDelay: TimeInterval) {
+    init(store: Store, remotes: Remotes, offloads: Slots, retryDelay: TimeInterval, idleDelay: TimeInterval) {
         self.store = store
         self.remotes = remotes
+        self.offloads = offloads
         self.retryDelay = retryDelay
         self.idleDelay = idleDelay
     }
@@ -83,13 +86,18 @@ final class LSPHost: Sendable {
 
     func problems(_ path: String) -> [CodeProblem] { state.withLock { $0.problems[path] ?? [] } }
 
-    /// A server may name a file by its real path (/private/tmp), a tab by the one it was given.
+    /// A server may name a file by its real path (/private/tmp), a tab by the one it was given. Kept only for a file open in
+    /// a tab (a server may report on the whole project, and the next open is told again); the paths are resolved outside
+    /// the lock, which opens and changes take on a connection's reader thread.
     private func heard(_ reported: String, _ found: [CodeProblem]) {
-        let real = URL(fileURLWithPath: reported).resolvingSymlinksInPath().path
-        let (path, changed) = state.withLock { s -> (String, (@Sendable (String) -> Void)?) in
-            let path = s.docs.values.first { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path == real }?.path ?? reported
+        func real(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().path }
+        let open = state.withLock { s in Set(s.docs.values.map(\.path)) }
+        let target = real(reported)
+        guard let path = open.contains(reported) ? reported : open.first(where: { real($0) == target }) else { return }
+        let changed = state.withLock { s -> (@Sendable (String) -> Void)? in
+            guard s.docs.values.contains(where: { $0.path == path }) else { return nil }   // closed meanwhile
             s.problems[path] = found.isEmpty ? nil : found
-            return (path, s.problemsChanged)
+            return s.problemsChanged
         }
         changed?(path)
     }
@@ -99,9 +107,9 @@ final class LSPHost: Sendable {
         let idle = state.withLock { s -> Key? in
             guard let n = s.owners[conn]?[id], n > 0, var d = s.docs[id] else { return nil }   // not opened by this connection
             s.owners[conn]?[id] = n > 1 ? n - 1 : nil
-            if n == 1 { s.problems[path] = nil }
             if s.owners[conn]?.isEmpty == true { s.owners[conn] = nil }
             d.count -= 1; s.docs[id] = d.count > 0 ? d : nil
+            if d.count == 0 { s.problems[path] = nil }   // the last tab on it, of any connection
             Self.send(.close(path: path), to: d.key, in: &s)
             return s.docs.values.contains { $0.key == d.key } ? nil : d.key
         }
@@ -310,9 +318,15 @@ extension LSPSignature: AsyncHandled {
 extension LSPReferences: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [SearchMatch] {
         guard let c = await lsp.client(root, path) else { return [] }
+        let found = try await c.references(path, line: line, column: column), root = root
+        return try await lsp.offloads.run { Self.lines(of: found, in: root) }
+    }
+
+    /// Each place with its line's text, read from disk, for the project's files.
+    private static func lines(of found: [CodeLocation], in root: String) -> [SearchMatch] {
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
         var texts: [String: [Substring]] = [:]
-        return try await c.references(path, line: line, column: column).compactMap { l in
+        return found.compactMap { l in
             let real = URL(fileURLWithPath: l.path).resolvingSymlinksInPath().path
             guard real.hasPrefix(base) else { return nil }   // the toolchain's own files: the panel lists the project's
             if texts[real] == nil {

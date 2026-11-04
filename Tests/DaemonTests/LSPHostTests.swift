@@ -46,6 +46,8 @@ private func fakeServer(in dir: String) throws -> (command: String, args: [Strin
                     send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": doc.get("uri"), "diagnostics": [
                         {"range": at, "severity": 1, "message": "no such name"}, {"range": at, "severity": 2, "message": "unused"},
                         {"range": at, "severity": 4, "message": "a hint"}]}})
+                    send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file:///tmp/elsewhere.swift",
+                        "diagnostics": [{"range": at, "severity": 1, "message": "not open"}]}})
             if meth == "exit": break
     log.write("gone\n")
     """#.write(toFile: script, atomically: true, encoding: .utf8)
@@ -151,7 +153,13 @@ private func lines(_ log: String) -> [String] {
     let found = try await c.call(LSPProblems(path: file))
     #expect(found.map(\.isError) == [true, false])
     #expect(found[0] == CodeProblem(line: 1, column: 2, endLine: 1, endColumn: 6, isError: true, message: "no such name"))
+    #expect(try await c.call(LSPProblems(path: "/tmp/elsewhere.swift")).isEmpty)   // no tab has it: not kept for the server's life
+    // Open in another connection's tab too: closed in one, its problems stay for the other.
+    let other = try client(d.root)
+    _ = try await other.call(LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "a problem\n  name\n"))
     try await c.call(LSPClose(root: root, path: file))
+    #expect(try await c.call(LSPProblems(path: file)).count == 2)
+    try await other.call(LSPClose(root: root, path: file))
     #expect(try await c.call(LSPProblems(path: file)).isEmpty)
 }
 
