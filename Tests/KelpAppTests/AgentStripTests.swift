@@ -23,12 +23,27 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     #expect(StripModel.items([session("a", .waiting)], workspaces: places).first?.words == "Needs your input")
 }
 
-@MainActor @Test func twoQuestionsInAWorkspaceShowTheOldestAndCount() {
-    let old = session("a", .waiting, summary: "Old", at: 1), new = session("a", .waiting, summary: "New", at: 2)
+@MainActor @Test func twoQuestionsInAWorkspaceShowTheOldestAndListTheOther() {
+    var old = session("a", .waiting, summary: "Old", at: 1), new = session("a", .waiting, summary: "New", at: 2)
+    old.title = "Login"
+    new.title = "Docs"
     let item = StripModel.items([new, old], workspaces: places).first
     #expect(item?.words == "Old")
     #expect(item?.session == old.id)
-    #expect(item?.count == 2)
+    #expect(item?.others == ["Docs — Needs your input"])
+}
+
+/// One agent finished while another (or one it started) still works: the project isn't done yet, and the tip says who is.
+@MainActor @Test func aProjectIsDoneOnlyOnceNothingInItWorks() {
+    var done = session("a", .done, unread: true, summary: "Release notes updated", at: 5), busy = session("a", .working, at: 1)
+    done.title = "Notes"
+    busy.title = "Dev release"
+    let item = StripModel.items([done, busy], workspaces: places).first
+    #expect(item?.cell == .working)
+    #expect(item?.words == "Dev release")
+    #expect(item?.others == ["Notes — Done"])
+    #expect(StripModel.items([done], workspaces: places).first?.cell == .done)
+    #expect(StripTip.lines((1...7).map { "\($0)" }) == "1\n2\n3\n4\n5\nand 2 more")
 }
 
 @MainActor @Test func onlyTheOldestQuestionOpensIntoAPill() {
@@ -160,6 +175,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     rig.addSubview(button)
     for x in [6, 16, 60, 150] as [CGFloat] { #expect(rig.hitTest(NSPoint(x: x, y: 16)) === button) }   // the icon, the mark, the words
     #expect(rig.hitTest(NSPoint(x: 260, y: 16)) !== button)
+    #expect(button.layer?.masksToBounds == false)   // the mark stands past the round corner of a closed tile
 }
 
 @MainActor @Test func everyStateHasWordsForThePillAndTheTip() {

@@ -8,8 +8,8 @@ struct StripItem: Equatable {
     var repo: String?
     var cell: DockFace.Cell
     var session: String
-    /// How many of its agents are in that state.
-    var count: Int
+    /// Its other agents, each "title — state", in the same order: what the tile's one mark leaves out.
+    var others: [String] = []
     /// What it says: what the agent asks, what failed or what it did, or the chat's title while it works.
     var words: String?
     var since: Date
@@ -54,12 +54,25 @@ enum StripModel {
         return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
     }
 
+    /// In a workspace, work going on comes before work finished: a project is done once nothing in it works, as an agent waits
+    /// for the ones it started. Across workspaces finished work opens first (`opened`): it's news, work isn't.
+    private nonisolated static let inWorkspace: [DockFace.Cell] = [.asks, .failed, .working, .done]
+
+    static func status(_ c: DockFace.Cell) -> AgentStatus {
+        switch c {
+        case .asks: .waiting
+        case .failed: .error
+        case .working: .working
+        case .done: .done
+        }
+    }
+
     static func items(_ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()) -> [StripItem] {
         workspaces.compactMap { w in
-            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }
-            guard let worst = own.map(\.1).min() else { return nil }
-            let same = own.filter { $0.1 == worst }.map(\.0).sorted { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
-            guard let lead = same.first else { return nil }
+            func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) { (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt) }
+            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }.sorted { rank($0) < rank($1) }
+            guard let (lead, worst) = own.first else { return nil }
+            let others = own.dropFirst().map { "\($0.0.displayTitle) — \(status($0.1).words)" }
             let says = lead.summary.isEmpty ? nil : lead.summary
             let words = switch worst {
             case .asks: says ?? String(localized: "Needs your input")
@@ -67,7 +80,7 @@ enum StripModel {
             case .done: says.map { String(localized: "Done: \($0)") } ?? String(localized: "Done")
             case .working: lead.title.isEmpty ? String(localized: "Working") : lead.title
             }
-            return StripItem(workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, count: same.count, words: words,
+            return StripItem(workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, others: others, words: words,
                              since: lead.statusAt ?? lead.createdAt)
         }
     }
@@ -261,7 +274,8 @@ final class AgentStrip {
     /// stays under the pointer. A moment's rest brings it, as a hover card; moving to the next tile, at once.
     private func hover(_ item: StripItem, on: Bool, over b: NSView, open: Bool) {
         tipTimer?.invalidate()
-        guard on, !open else {
+        // The open pill says its own; it has a tip only for the agents its words leave out.
+        guard on, !open || !item.others.isEmpty else {
             tipTimer = Timer.scheduledTimer(withTimeInterval: Motion.hoverClose, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tip?.hide() }   // the main run loop's timer
             }

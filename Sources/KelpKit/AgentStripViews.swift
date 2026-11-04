@@ -84,6 +84,7 @@ final class StripButton: PointerControl {
     override init(frame: NSRect) {
         super.init(frame: frame)
         layer?.cornerRadius = Self.height / 2
+        clipsToBounds = false   // a closed tile is a circle, and its corner would cut the mark in two
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         for v in [glow, icon, label, mark] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
@@ -119,12 +120,7 @@ final class StripButton: PointerControl {
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
-        let status: AgentStatus = switch item.cell {
-        case .asks: .waiting
-        case .failed: .error
-        case .working: .working
-        case .done: .done
-        }
+        let status = StripModel.status(item.cell)
         // Working is a tile's own state: no mark. A mark is something to look at, and only then is the tile cut for it.
         mark.status = item.cell == .working ? nil : status
         icon.layer?.mask = item.cell == .working ? rounded : bite
@@ -138,7 +134,6 @@ final class StripButton: PointerControl {
         let calls = open && item.cell <= .failed
         glow.show(calls ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: calls && item.cell == .asks)
         restFill = calls ? .fillHover : nil
-        toolTip = "\(item.name): \(status.words)"
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel([item.name, status.words, open ? item.words : nil].compactMap { $0 }.joined(separator: ", "))
@@ -158,8 +153,6 @@ final class StripButton: PointerControl {
         case .working, .done: .secondaryLabelColor
         }
         t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
-        guard item.count > 1 else { return t }
-        t.append(text("  \(item.count)", .uiDigits(11), .secondaryLabelColor))
         return t
     }
 
@@ -343,21 +336,24 @@ final class StripCard {
     }
 }
 
-/// What a tile says under the pointer: its workspace and what its agents do, over the strip (under it at the top of a screen).
-/// It takes no clicks: the pointer goes through to the strip.
+/// What a tile says under the pointer: its workspace, what its first agent says and how the others are, over the strip (under it
+/// at the top of a screen). It takes no clicks: the pointer goes through to the strip.
 @MainActor
 final class StripTip {
-    private let name = NSTextField(labelWithString: ""), words = NSTextField(labelWithString: "")
+    /// Agents listed by name; past them, how many more.
+    static let listed = 5
+    private let name = NSTextField(labelWithString: ""), words = NSTextField(labelWithString: ""), others = NSTextField(labelWithString: "")
     private lazy var panel: StripPanel = {
         name.font = .ui(12, weight: .medium)
         words.font = .ui(11)
-        words.textColor = .secondaryLabelColor
-        for f in [name, words] {
+        others.font = .ui(11)
+        for f in [words, others] { f.textColor = .secondaryLabelColor }
+        for f in [name, words, others] {
             f.lineBreakMode = .byTruncatingTail
-            f.maximumNumberOfLines = 1
+            f.maximumNumberOfLines = f === others ? Self.listed + 1 : 1
             f.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
         }
-        let stack = NSStackView(views: [name, words])
+        let stack = NSStackView(views: [name, words, others])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 2
@@ -370,8 +366,10 @@ final class StripTip {
     var isShowing: Bool { panel.isVisible }
 
     func show(_ item: StripItem, over tile: NSRect, below: Bool) {
-        name.stringValue = item.count > 1 ? "\(item.name) · \(item.count)" : item.name
+        name.stringValue = item.name
         words.stringValue = StripModel.brief(item.words ?? "")
+        others.stringValue = Self.lines(item.others)
+        others.isHidden = item.others.isEmpty
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = content?.fittingSize ?? .zero
@@ -385,4 +383,9 @@ final class StripTip {
     }
 
     func hide() { panel.orderOut(nil) }
+
+    static func lines(_ others: [String]) -> String {
+        let more = others.count - listed
+        return (others.prefix(listed) + (more > 0 ? [String(localized: "and \(more) more")] : [])).joined(separator: "\n")
+    }
 }
