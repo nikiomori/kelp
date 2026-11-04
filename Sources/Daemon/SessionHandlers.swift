@@ -32,6 +32,7 @@ extension SessionDetach: Handled {
 
 extension SessionWrite: SessionInput {
     static var inOrder: Bool { true }   // keystrokes
+    var actsOn: String? { id }
     func apply(to s: LiveSession) throws -> Done {
         let data: Data
         if let base64, let b = Data(base64Encoded: base64) {
@@ -50,6 +51,7 @@ extension SessionWrite: SessionInput {
 extension SessionSend: SessionInput {
     /// Two sends in a row reach the session in that order (`submit` only queues: nothing here waits on the agent).
     static var inOrder: Bool { true }
+    var actsOn: String? { id }
     func apply(to s: LiveSession) throws -> Done {
         // Still starting (woken just now, by this send or anyone else), a question open, an unread draft in the box, or
         // text still waiting ahead: queued, and typed once the program is ready for it (`LiveSession.submit`). A paused
@@ -72,6 +74,7 @@ extension SessionResize: Handled {
 /// Under its wake lock, as waking is: a paused session marked ended here can't be woken halfway through, nor this kill land
 /// on the old copy while a wake starts a new one.
 extension SessionKill: Handled {
+    var actsOn: String? { id }
     func handle(_ sessions: Sessions) throws -> Done {
         // A remote agent's tmux session ends with it, and its record then names none: it reads as ended, not as an agent
         // still running on the host (`connectionLost`). The live record too, before its exit is saved.
@@ -88,6 +91,8 @@ extension SessionKill: Handled {
 }
 
 extension SessionChoose: Handled {
+    var actsOn: String? { id }
+    var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id), ls.choose(answer, to: question) != nil else { return false }
         sessions.publish(ls)

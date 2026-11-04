@@ -28,11 +28,19 @@ protocol Answered: RPCMethod {
     /// The session whose status it reports (hooks, `kelp report`, herdr's): a program running inside one session may
     /// report only for that one. From outside every session (the app, a terminal elsewhere), for any.
     var reportsFor: String? { get }
+    /// The session it types into or stops: a program running inside one session may act on that one and on those it
+    /// started (`parent`, `startedBy`, and theirs), no other. From outside every session, on any.
+    var actsOn: String? { get }
+    /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
+    /// started, which would approve its own question or another agent's.
+    var answersQuestion: Bool { get }
 }
 
 extension Answered {
     var onlyFromKelp: String? { nil }
     var reportsFor: String? { nil }
+    var actsOn: String? { nil }
+    var answersQuestion: Bool { false }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -126,13 +134,22 @@ enum Methods {}
 
 extension Daemon {
     /// Whether the client on `conn` may make this call: the one place every path asks (`checked`, a session's input).
-    /// A report comes from inside a session for that session only, by its process tree. Limit: a program that left the
-    /// tree (a double fork, `nohup … &`) is taken for one outside every session; macOS doesn't show another process's
-    /// environment (its KELP_SESSION) to tell, and any program of the user's may report anyway (the socket is theirs).
+    /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
+    /// a terminal it started, types into, stops and answers for only the sessions that agent started; the user's own
+    /// terminals drive any. Limit: a program that left the tree (a double fork, `nohup … &`) is taken for one outside every
+    /// session, and an agent typed into a plain terminal by hand counts as that terminal; macOS doesn't show another
+    /// process's environment (its KELP_SESSION) to tell, and any program of the user's may call anyway (the socket is theirs).
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        if let id = m.reportsFor, let pid = clients.peerPID(conn), let own = sessions.session(running: pid), own != id {
-            throw RPCError.invalidParams("A session reports only its own status.")
+        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion,
+              let pid = clients.peerPID(conn), let own = sessions.session(running: pid) else { return }
+        if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session reports only its own status.") }
+        guard try sessions.lineage(own).contains(where: { !["shell", "custom"].contains($0.agent ?? "shell") }) else { return }
+        if m.answersQuestion {
+            throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
+        }
+        if let id = m.actsOn, id != own, try !sessions.lineage(id).contains(where: { $0.id == own }) {
+            throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
         }
     }
 

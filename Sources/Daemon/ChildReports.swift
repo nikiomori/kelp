@@ -51,6 +51,16 @@ final class ChildReports: Sendable {
 }
 
 extension Sessions {
+    /// `id` and the sessions that started it, theirs in turn, nearest first (`parent`, else `startedBy`).
+    func lineage(_ id: String) throws -> [Session] {
+        var line: [Session] = [], next: String? = id
+        while let n = next, line.count < 32, !line.contains(where: { $0.id == n }), let s = try store.session(n) {
+            line.append(s)
+            next = s.parent ?? s.startedBy
+        }
+        return line
+    }
+
     /// The parent of `create`, if it makes one: an agent's, and of an agent. A shell or a test run has no input to report to:
     /// typed there, a report would be run as a command. A command it runs is its own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {

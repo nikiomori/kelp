@@ -335,6 +335,32 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor { try await sessions(r).first { $0.id == other.id }?.status == .waiting })
 }
 
+/// A program an agent runs types into, stops and answers for only the sessions that agent started, and never answers an
+/// agent's question: one approved `kelp` call doesn't reach every other agent. The user's own terminals, and callers outside
+/// every session, drive any.
+@Test func anAgentActsOnlyOnTheSessionsItStarted() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"; "#
+        + #"read -u $REPLY line; print -r -- "$1 $line"; exec {REPLY}>&-; }"#
+    let send = #"r session.send "{\"id\":\"$1\",\"text\":\"hi\",\"enter\":false}""#
+    let script = "zmodload zsh/net/socket; \(call); s() { \(send); }; read kid; s \(other.id); s $kid; "
+        + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
+    let me = try await session(r, "/bin/zsh -c '\(script)'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    let kid = try await r.c.call("session.create", .obj(["worktreeId": .string(r.wt.id), "command": "cat", "parent": .string(me.id)]), as: Session.self)
+    #expect(kid.startedBy == me.id)
+    _ = try await r.c.call(SessionWrite(id: me.id, text: kid.id + "\n"))   // this test process is in no session
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("user's to answer") })
+    let out = try await r.c.call(SessionRead(id: me.id))
+    #expect(out.contains("acts only on its own session"))
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
+    #expect(try await !r.c.call(SessionRead(id: other.id)).contains("hi"))
+}
+
 /// An agent that ended unread is read at a glance too: its record, as it isn't live any more.
 @Test func anEndedSessionCanBeMarkedRead() async throws {
     let r = try await rig(); defer { r.d.stop() }
