@@ -218,16 +218,27 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         return u.path
     }
 
+    /// A field the page wrote, for the draft: one line, short, with nothing that ends Kelp's framing (a fence, a backtick).
+    nonisolated static func pageText(_ v: Any?, most: Int = 200) -> String {
+        String((v as? String ?? "").filter { !$0.isNewline && $0 != "`" }.prefix(most))
+    }
+
+    /// The element's markup as the page gave it, in a fence it can't close.
+    nonisolated static func pageMarkup(_ v: Any?) -> String {
+        String((v as? String ?? "").prefix(4000)).replacingOccurrences(of: "```", with: "`\u{200B}``")
+    }
+
     private func sendDesign(_ d: [String: Any], image: NSImage?) {
         let shot = Self.savePNG(image, kind: "design") ?? ""
         let styles = (d["styles"] as? [String: String] ?? [:]).filter { !$0.value.isEmpty && $0.value != "none" && $0.value != "normal" }
-            .sorted { $0.key < $1.key }.map { "  \($0.key): \($0.value);" }.joined(separator: "\n")
-        let source = (d["source"] as? String).map(relativeSource) ?? ""
+            .sorted { $0.key < $1.key }.prefix(80).map { "  \(Self.pageText($0.key, most: 60)): \(Self.pageText($0.value));" }.joined(separator: "\n")
+        let source = relativeSource(Self.pageText(d["source"])), component = Self.pageText(d["component"])
+        // The address is Kelp's own reading, not the page's word.
         let msg = """
-        Design change for the element `\(d["selector"] as? String ?? "")` on \(d["url"] as? String ?? ""):
-        \(source.isEmpty ? "" : "Source: \(source)\((d["component"] as? String).map { " (component \($0))" } ?? "")\n")
+        Design change for the element `\(Self.pageText(d["selector"]))` on \(web.url?.absoluteString ?? ""):
+        \(source.isEmpty ? "" : "Source: \(source)\(component.isEmpty ? "" : " (component \(component))")\n")
         ```html
-        \(d["html"] as? String ?? "")
+        \(Self.pageMarkup(d["html"]))
         ```
         Computed styles:
         ```css
