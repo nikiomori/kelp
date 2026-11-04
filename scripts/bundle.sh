@@ -99,7 +99,13 @@ osascript - "$MNT" "$NAME.app" <<'EOF'
 on run {mnt, appName}
   tell application "Finder"
     set d to folder (POSIX file mnt as alias)
-    open d
+    repeat 50 times -- Finder learns of a just-attached disk a moment later: "Can't get disk" (-1728) until then
+      try
+        open d
+        exit repeat
+      end try
+      delay 0.2
+    end repeat
     set w to container window of d
     set current view of w to icon view
     set toolbar visible of w to false
