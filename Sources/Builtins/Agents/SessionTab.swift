@@ -19,9 +19,14 @@ final class SessionTab: TabContent {
         pane = PaneView(session: s, app: app)
         pane.onRestart = { p in AgentActions(app).restart(p.sessionId) }
         pane.onClose = { p in app.workbench.closeTab(uri: TabURI.session(p.sessionId)) }
+        // A terminal left with `exit` (code 0) while its tab is open closes, as Terminal's does; an agent, a failed
+        // command or a tab opened onto an ended session keeps its output and the Restart / Close bar.
+        var running = s.status != .exited
         track(owner: self) { [app] in app.session(sid) } changed: { [weak self] s in
             guard let self, let s else { return }
             pane.update(s)
+            if running, s.status == .exited, s.agent == "shell", s.exitCode == 0 { app.workbench.closeTab(uri: uri) }
+            running = s.status != .exited
         }
     }
 
