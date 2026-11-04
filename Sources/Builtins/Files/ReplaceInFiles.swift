@@ -22,10 +22,12 @@ extension FilesPanel {
         options.matchCase = o.matchCase
         options.wholeWord = o.wholeWord
         options.regex = o.regex
-        let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL?.path })
+        // By real path: a tab may name its file through a link (/tmp, /private/tmp).
+        func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
+        let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })
         Task { @MainActor in
             var files: [ReplaceFile] = []
-            for name in names where !edited.contains(root + "/" + name) {
+            for name in names where !edited.contains(real(root + "/" + name)) {
                 guard let r = await app.quiet(FilesRead(path: root + "/" + name)) else { continue }
                 do {
                     let plan = try ReplaceInText.plan(r.text, query: query, options: options, template: template)
@@ -45,14 +47,15 @@ extension FilesPanel {
 
     /// Over the versions read. One Undo puts every file back, over the versions written.
     static func write(_ files: [ReplaceFile], app: AppModel) async {
-        var undo: [(path: String, text: String, stamp: FileStamp?)] = [], refused: [String] = []
+        var undo: [FileBatch.Done] = [], refused: [String] = []
         for f in files where !f.chosen.isEmpty {
-            let r = await app.call(FilesWrite(path: f.path, text: f.result, base: f.stamp))
-            if let stamp = r?.stamp { undo.append((f.path, f.text, stamp)) } else { refused.append(f.name) }
+            if let stamp = await FileBatch.write(f.path, f.result, over: f.stamp, app: app) {
+                undo.append(FileBatch.Done(path: f.path, old: f.text, stamp: stamp))
+            } else { refused.append(f.name) }
         }
         let note = refused.isEmpty ? "" : " " + String(localized: "Changed since it was read, so left alone: \(refused.joined(separator: ", ")).")
         Banner.show(String(localized: "Replaced in \(undo.count) files.") + note, action: (String(localized: "Undo"), {
-            Task { for u in undo { await app.call(FilesWrite(path: u.path, text: u.text, base: u.stamp)) } }
+            Task { await FileBatch.undoSaying(undo, app: app) }
         }))
     }
 }

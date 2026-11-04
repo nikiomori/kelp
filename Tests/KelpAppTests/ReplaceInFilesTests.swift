@@ -34,3 +34,24 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: b, encoding: .utf8) == "changed\n")
     }
 }
+
+/// A rename across files is all or none: one that changed since it was read stops it, the files written go back, and the
+/// one an agent edited keeps the agent's text. Undo never writes over a newer version either.
+@MainActor @Test func aRefusedWriteIsNothingWrittenAndUndoKeepsNewerText() async throws {
+    let rig = try await AppRig(files: ["a.txt": "a\n", "b.txt": "b\n"]); defer { rig.done() }
+    let a = rig.repo + "/a.txt", b = rig.repo + "/b.txt"
+    let ra = try #require(await rig.app.call(FilesRead(path: a))), rb = try #require(await rig.app.call(FilesRead(path: b)))
+    try await Task.sleep(for: .milliseconds(20))
+    try rig.write("b.txt", "agent\n")
+    let r = await FileBatch.writeAll([(a, ra.text, "A\n", ra.stamp), (b, rb.text, "B\n", rb.stamp)], app: rig.app)
+    guard case .failure(let refused) = r else { Issue.record("a refused write counted as written"); return }
+    #expect(refused.path == b && refused.stuck.isEmpty)
+    #expect(try String(contentsOfFile: a, encoding: .utf8) == "a\n" && String(contentsOfFile: b, encoding: .utf8) == "agent\n")
+
+    let fresh = try #require(await rig.app.call(FilesRead(path: b)))
+    guard case .success(let done) = await FileBatch.writeAll([(b, fresh.text, "B\n", fresh.stamp)], app: rig.app) else { Issue.record("not written"); return }
+    try await Task.sleep(for: .milliseconds(20))
+    try rig.write("b.txt", "agent again\n")
+    #expect(await FileBatch.undo(done, app: rig.app) == [b])
+    #expect(try String(contentsOfFile: b, encoding: .utf8) == "agent again\n")
+}

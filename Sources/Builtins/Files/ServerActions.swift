@@ -32,12 +32,8 @@ struct ServerActions {
             guard let files = await app.call(LSPRename(root: root, path: p.path, line: p.line, column: p.column, name: name)) else { return }
             guard !files.isEmpty else { return Banner.show(String(localized: "The language server can't rename this.")) }
             if files.count > 1 {
-                let a = NSAlert()
-                a.messageText = String(localized: "Rename “\(word)” to “\(name)” in \(files.count) files?")
-                a.informativeText = files.map { ($0.path as NSString).lastPathComponent }.prefix(12).joined(separator: "\n")
-                a.addButton(withTitle: String(localized: "Rename"))
-                a.addButton(withTitle: String(localized: "Cancel"))
-                guard await runSheet(a) == .alertFirstButtonReturn else { return }
+                guard await Self.confirm(String(localized: "Rename “\(word)” to “\(name)” in \(files.count) files?"), files,
+                                         button: String(localized: "Rename")) else { return }
             }
             await apply(files)
         }
@@ -48,7 +44,18 @@ struct ServerActions {
         let problem = e.problemAtCursor, app = app, path = tab.path, m = LSPActions(root: root, path: p.path, line: p.line, column: p.column), tab = tab
         Task { @MainActor in
             let actions = await app.call(m) ?? [], menu = NSMenu()
-            for a in actions { menu.add(a.title) { Task { await ServerActions(app: app, tab: tab, root: tab.root).apply(a.files) } } }
+            for a in actions {
+                menu.add(a.title) {
+                    Task {
+                        // A fix that reaches other files (the server names them, anywhere) shows which first, as a rename does.
+                        if a.files.contains(where: { $0.path != path }) {
+                            guard await Self.confirm(String(localized: "“\(a.title)” changes \(a.files.count) files. Apply it?"), a.files,
+                                                     button: String(localized: "Apply")) else { return }
+                        }
+                        await ServerActions(app: app, tab: tab, root: tab.root).apply(a.files)
+                    }
+                }
+            }
             if let problem {
                 if !actions.isEmpty { menu.addItem(.separator()) }
                 menu.add(String(localized: "Fix with Agent")) { FileActions(app).sendToAgent(text: "\(path):\(problem.line + 1): \(problem.message)") }
@@ -56,6 +63,15 @@ struct ServerActions {
             guard menu.numberOfItems > 0 else { return Banner.show(String(localized: "No fixes here.")) }
             e.popUpAtCursor(menu)
         }
+    }
+
+    private static func confirm(_ question: String, _ files: [CodeFileEdit], button: String) async -> Bool {
+        let a = NSAlert()
+        a.messageText = question
+        a.informativeText = files.map { ($0.path as NSString).abbreviatingWithTildeInPath }.prefix(12).joined(separator: "\n")
+        a.addButton(withTitle: button)
+        a.addButton(withTitle: String(localized: "Cancel"))
+        return await runSheet(a) == .alertFirstButtonReturn
     }
 
     /// The tab's own file takes the edits in its buffer, for its undo. Others are written, over the version just read; a file
@@ -68,23 +84,26 @@ struct ServerActions {
         if let held = others.first(where: { edited.contains(real($0.path)) }) {
             return Banner.show(String(localized: "Save \((held.path as NSString).lastPathComponent) first: the change reaches it too."), style: .error)
         }
-        var read: [(file: CodeFileEdit, text: String, stamp: FileStamp)] = []
+        var read: [(path: String, old: String, new: String, base: FileStamp)] = []
         for f in others {
             guard let r = await app.call(FilesRead(path: f.path)) else { return }
-            read.append((f, r.text, r.stamp))
+            read.append((f.path, r.text, TextEdits.applied(f.edits, to: r.text), r.stamp))
         }
-        var undo: [(path: String, text: String, stamp: FileStamp?)] = []
-        for (f, text, stamp) in read {
-            guard let written = await app.call(FilesWrite(path: f.path, text: TextEdits.applied(f.edits, to: text), base: stamp)) else { break }
-            undo.append((f.path, text, written.stamp))
+        let done: [FileBatch.Done]
+        switch await FileBatch.writeAll(read, app: app) {
+        case .success(let d): done = d
+        case .failure(let r):
+            let back = r.stuck.isEmpty ? "" : " " + String(localized: "Changed again, so kept as it is: \(FileBatch.names(r.stuck)).")
+            let name = (r.path as NSString).lastPathComponent
+            return Banner.show(String(localized: "\(name) changed since it was read: nothing was changed.") + back, style: .error)
         }
         if let mine = files.first(where: { real($0.path) == own }) {
             tab.editor?.perform(mine.edits.map { .init(line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, text: $0.text) })
         }
-        guard !undo.isEmpty else { return }
+        guard !done.isEmpty else { return }
         let app = app
-        Banner.show(String(localized: "Changed \(undo.count) other files."), action: (String(localized: "Undo"), {
-            Task { for u in undo { await app.call(FilesWrite(path: u.path, text: u.text, base: u.stamp)) } }
+        Banner.show(String(localized: "Changed \(done.count) other files."), action: (String(localized: "Undo"), {
+            Task { await FileBatch.undoSaying(done, app: app) }
         }))
     }
 }
