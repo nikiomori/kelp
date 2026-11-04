@@ -16,6 +16,7 @@ final class ChangeBars {
     private var reading: Task<Void, Never>?
     private var hunks: [Hunk] = []
     private var card: NSPopover?
+    private struct Seen: Equatable { let changes: [FileChange], branches: BranchInfo? }
 
     /// Nil for a file outside the workspaces.
     init?(app: AppModel, path: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
@@ -28,8 +29,11 @@ final class ChangeBars {
         git = Watched(.git, in: app)
         git.key = w.id
         editor.onChangeMark = { [weak self] m, at, view in self?.show(m, at: at, in: view) }
-        let id = w.id
-        track(owner: self) { [app] in app.git[id] } changed: { [weak self] _ in self?.refresh() }
+        let id = w.id, mine = file
+        // This file's line in the status and the branch: a change to other files says nothing about its bars (the disk's
+        // changes to it come through `refresh` from its tab).
+        track(owner: self) { [app] in Seen(changes: app.git[id]?.changes?.filter { $0.path == mine } ?? [], branches: app.git[id]?.branches) }
+            changed: { [weak self] _ in self?.refresh() }
         refresh()
     }
 
