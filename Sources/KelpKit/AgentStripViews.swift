@@ -59,9 +59,23 @@ final class StripPanel: NSPanel {
     }
 }
 
-/// The strip's own ground, between its tiles: it moves the strip too.
+/// The strip's own ground, between its tiles: it moves the strip too, and a click on it (the handle of a hidden strip) is its own.
 final class StripRow: NSStackView {
-    override func mouseDown(with event: NSEvent) { _ = (window as? StripPanel)?.drag(from: event) }
+    var onHover: ((Bool) -> Void)?
+    var onClick: (() -> Void)?
+    /// The pointer is on the strip, its tiles included.
+    var pointerOn = false
+    private var anyApp: NSTrackingArea?
+
+    override func mouseDown(with event: NSEvent) {
+        if (window as? StripPanel)?.drag(from: event) == false { onClick?() }
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        anyApp = retracked(anyApp, .activeAlways)
+    }
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
     /// With Kelp behind, the click that reaches a window goes only to a view that takes a first click.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }

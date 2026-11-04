@@ -1,0 +1,106 @@
+import AppKit
+import Core
+import Testing
+@testable import KelpKit
+
+private let area = NSRect(x: 0, y: 0, width: 2000, height: 1200)
+
+private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0) -> StripItem {
+    StripItem(workspace: session, name: session, cell: cell, session: session, words: "Allow npm test?", since: Date(timeIntervalSince1970: at))
+}
+
+@MainActor @Test func aStripLetGoPastASideHidesBehindIt() {
+    func edge(_ x: CGFloat) -> StripEdge? { StripModel.edge(dropped: NSRect(x: x, y: 300, width: 120, height: 40), in: area) }
+    #expect(edge(1930) == .right)   // 50 of 120 past: more than a third
+    #expect(edge(1900) == nil)      // 20 past: it goes to a corner
+    #expect(edge(-50) == .left)
+    #expect(edge(8) == nil)
+}
+
+@MainActor @Test func aSideWithAnotherScreenPastItIsNoEdge() {
+    let other = NSRect(x: 2000, y: 0, width: 1600, height: 1000)
+    #expect(!StripModel.outer(.right, of: area, among: [other]))
+    #expect(StripModel.outer(.left, of: area, among: [other]))
+    #expect(StripModel.outer(.right, of: area, among: [NSRect(x: 2000, y: 1300, width: 800, height: 600)]))   // above it, not beside
+}
+
+@MainActor @Test func aHiddenStripLeavesItsSliverAndComesAllOut() {
+    let size = NSSize(width: 140, height: 40)
+    let hid = StripModel.tucked(size, in: area, edge: .right, y: 300, out: false)
+    #expect(hid.minX == 2000 - StripModel.sliver && hid.minY == 300)
+    let out = StripModel.tucked(size, in: area, edge: .right, y: 300, out: true)
+    #expect(out.maxX == 2000 - StripModel.margin && out.minY == 300)
+    #expect(StripModel.tucked(size, in: area, edge: .left, y: 300, out: false).maxX == StripModel.sliver)
+    #expect(StripModel.tucked(size, in: area, edge: .left, y: 5000, out: false).maxY == 1200 - StripModel.margin)   // whole on the screen's height
+}
+
+@MainActor @Test func aQuestionComesOutOfTheEdgeOnceAndFinishedWorkNever() {
+    let ask = item(.asks, "a", at: 5), fail = item(.failed, "b", at: 1), done = item(.done, "c")
+    #expect(StripModel.news([fail, ask, done], told: [])?.session == "a")   // a question before a failure
+    #expect(StripModel.news([fail, ask], told: [StripModel.newsKey(ask)])?.session == "b")
+    #expect(StripModel.news([done, item(.working, "d")], told: []) == nil)
+    var again = ask
+    again.since = Date(timeIntervalSince1970: 9)   // the agent asks something else
+    #expect(StripModel.news([again], told: [StripModel.newsKey(ask)])?.session == "a")
+}
+
+/// Where the strip stands is one value on this Mac: the tests that save it go one at a time.
+@MainActor @Suite(.serialized) struct StripPlaceTests {
+    private func session(_ place: String, _ status: AgentStatus, summary: String = "") -> Session {
+        var s = Session(cwd: "/", command: "x", agent: "claude", status: status, summary: summary)
+        s.worktreeId = place
+        return s
+    }
+
+    @Test func aDroppedStripGoesToItsCornerAndStaysThere() async throws {
+        let rig = try await AppRig()
+        _ = NSApplication.shared
+        let strip = AgentStrip(app: rig.app)
+        defer { StripPlace.save(nil) }
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .working)]
+        for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+        try await Task.sleep(for: .milliseconds(400))
+        let area = try #require(NSScreen.main?.visibleFrame)
+        strip.panelForTests?.setFrameOrigin(NSPoint(x: area.minX + 90, y: area.maxY - 160))
+        strip.dropped()
+        try await Task.sleep(for: .milliseconds(600))
+        let tile = try #require(strip.frame)
+        #expect(abs(tile.minX - (area.minX + 8)) < 1 && abs(tile.maxY - (area.maxY - 8)) < 1)
+        #expect(StripPlace.load()?.corner == .topLeft)
+        rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
+        try await Task.sleep(for: .milliseconds(700))
+        let pill = try #require(strip.frame)
+        #expect(abs(pill.minX - tile.minX) < 1 && abs(pill.maxY - tile.maxY) < 1)
+    }
+
+    @Test func aHiddenPlaceIsKept() {
+        defer { StripPlace.save(nil) }
+        let place = StripPlace(corner: .bottomRight, display: 7, edge: .right, y: 312)
+        StripPlace.save(place)
+        #expect(StripPlace.load() == place)
+    }
+
+    @Test func aStripDroppedPastTheRightSideHidesThere() async throws {
+        let rig = try await AppRig()
+        _ = NSApplication.shared
+        let strip = AgentStrip(app: rig.app)
+        defer { StripPlace.save(nil) }
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .working)]
+        for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+        try await Task.sleep(for: .milliseconds(400))
+        let screen = try #require(NSScreen.main)
+        let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+        guard StripModel.outer(.right, of: screen.frame, among: others) else { return }   // a screen past it on this Mac
+        let area = screen.visibleFrame
+        let width = try #require(strip.frame).width
+        strip.panelForTests?.setFrameOrigin(NSPoint(x: area.maxX - width / 2, y: area.minY + 300))
+        strip.dropped()
+        try await Task.sleep(for: .milliseconds(600))
+        let hid = try #require(strip.frame)
+        #expect(abs(hid.minX - (area.maxX - StripModel.sliver)) < 1)
+        #expect(abs(hid.minY - (area.minY + 300)) < 1)
+        #expect(StripPlace.load()?.edge == .right)
+    }
+}

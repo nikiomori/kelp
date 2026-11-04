@@ -5729,6 +5729,16 @@
         }
       }
     },
+    "Hide Behind the Edge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрятать за край"
+          }
+        }
+      }
+    },
     "Hide Agents Above the Dock for 1 Hour": {
       "localizations": {
         "ru": {

@@ -147,28 +147,6 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(left.minX == 8 && left.minY == 8)
 }
 
-@MainActor @Test func aDroppedStripGoesToItsCornerAndStaysThere() async throws {
-    let rig = try await AppRig()
-    _ = NSApplication.shared
-    let strip = AgentStrip(app: rig.app)
-    defer { StripPlace.save(nil) }
-    strip.start()
-    rig.app.sessions = [session(rig.workspace.id, .working)]
-    for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
-    try await Task.sleep(for: .milliseconds(400))
-    let area = try #require(NSScreen.main?.visibleFrame)
-    strip.panelForTests?.setFrameOrigin(NSPoint(x: area.minX + 90, y: area.maxY - 160))
-    strip.dropped()
-    try await Task.sleep(for: .milliseconds(600))
-    let tile = try #require(strip.frame)
-    #expect(abs(tile.minX - (area.minX + 8)) < 1 && abs(tile.maxY - (area.maxY - 8)) < 1)
-    #expect(StripPlace.load()?.corner == .topLeft)
-    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    try await Task.sleep(for: .milliseconds(700))
-    let pill = try #require(strip.frame)
-    #expect(abs(pill.minX - tile.minX) < 1 && abs(pill.maxY - tile.maxY) < 1)
-}
-
 @MainActor @Test func aClickAnywhereOnATileReachesItsButton() {
     let button = StripButton(frame: NSRect(x: 0, y: 0, width: 200, height: 32))
     let rig = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 40))

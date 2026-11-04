@@ -29,16 +29,21 @@ enum StripCorner: String, CaseIterable {
 struct StripPlace: Equatable {
     var corner: StripCorner
     var display: UInt32?
+    /// Hidden behind this side, `y` up from the foot of the screen's visible part.
+    var edge: StripEdge?
+    var y: CGFloat = 0
 
     private static let key = "agents.dockStrip.place"
     static func load() -> StripPlace? {
         guard let d = UserDefaults.standard.dictionary(forKey: key), let c = (d["corner"] as? String).flatMap(StripCorner.init) else { return nil }
-        return StripPlace(corner: c, display: (d["display"] as? NSNumber)?.uint32Value)
+        return StripPlace(corner: c, display: (d["display"] as? NSNumber)?.uint32Value, edge: (d["edge"] as? String).flatMap(StripEdge.init),
+                          y: (d["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
     }
     static func save(_ place: StripPlace?) {
         guard let place else { UserDefaults.standard.removeObject(forKey: key); return }
-        var d: [String: Any] = ["corner": place.corner.rawValue]
+        var d: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
         d["display"] = place.display
+        d["edge"] = place.edge?.rawValue
         UserDefaults.standard.set(d, forKey: key)
     }
 }
@@ -118,7 +123,7 @@ enum StripModel {
     }
 
     /// From the screen's edges.
-    private static let margin: CGFloat = 8
+    static let margin: CGFloat = 8
 
     /// At its corner, whole on the screen.
     static func frame(_ size: NSSize, in area: NSRect, at corner: StripCorner) -> NSRect {
@@ -165,6 +170,14 @@ final class AgentStrip {
     /// When finished work read in Kelp leaves the strip.
     private var expiry: Timer?
     private var tipTimer: Timer?
+    /// Hidden behind an edge, it's all out while the pointer is on it.
+    private var peeking = false
+    private var peekTimer: Timer?
+    private let line = StripLine()
+    /// The questions and failures a line has told of, so each comes out of the edge once.
+    private var told: Set<String> = []
+    private let glint = StripGlint()
+    private var glintSide: [NSLayoutConstraint] = []
     private var panel: StripPanel?
     private let row = StripRow()
     private var buttons: [String: StripButton] = [:]
@@ -237,8 +250,10 @@ final class AgentStrip {
         state = Self.state(app, putOff: putOff)
         guard wanted else { goAway(); return }
         panel?.apply(fullScreen: state.fullScreen)
+        line.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
-        let opened = StripModel.opened(state.items)
+        let hidden = place?.edge != nil && !peeking
+        let opened = hidden ? nil : StripModel.opened(state.items)
         let shownNow = state.items.map { item in
             let b = buttons[item.workspace] ?? StripButton()
             buttons[item.workspace] = b
@@ -253,9 +268,65 @@ final class AgentStrip {
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) { closeCard() }
         // Another question while one was up: the card shows what Allow answers, so the new one comes in a card of its own.
         else if let card, card.question != app.session(card.session)?.summary { closeCard(); goesOn = true }
+        showEdge(hidden: hidden)
         put(appearing: !wasUp)
         follow(opened)
         expireDone()
+        tell(hidden: hidden)
+    }
+
+    /// The handle and its sign, on the side away from the edge it hides behind.
+    private func showEdge(hidden: Bool) {
+        let edge = place?.edge
+        if glint.superview == nil {
+            row.addSubview(glint)
+            glint.centerYAnchor.constraint(equalTo: row.centerYAnchor).isActive = true
+        }
+        glint.isHidden = edge == nil
+        glint.cell = state.items.map(\.cell).min()
+        let side: CGFloat = 4, room = StripModel.handle + side
+        row.edgeInsets = NSEdgeInsets(top: side, left: edge == .right ? room : side, bottom: side, right: edge == .left ? room : side)
+        NSLayoutConstraint.deactivate(glintSide)
+        guard let edge else { return }
+        let inset = (StripModel.sliver - StripGlint.size.width) / 2
+        glintSide = [edge == .right ? glint.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: inset)
+                                    : glint.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -inset)]
+        NSLayoutConstraint.activate(glintSide)
+    }
+
+    /// A question or a failure that came while it hides comes out of the edge as a line; each once.
+    private func tell(hidden: Bool) {
+        defer { told = Set(state.items.filter { $0.cell <= .failed }.map(StripModel.newsKey)) }
+        guard hidden, let edge = place?.edge, let panel, isShowing, let news = StripModel.news(state.items, told: told) else { return }
+        line.onClick = { [weak self] in self?.peekFromLine() }
+        let stays = news.cell == .asks ? StripModel.questionStays : StripModel.failureStays
+        line.show(news, app: app, by: panel.frame, edge: edge, stays: stays)
+    }
+
+    /// The pointer on a hidden strip brings it all out at once; off it, it goes back after a moment.
+    private func hoverStrip(_ on: Bool) {
+        row.pointerOn = on
+        peekTimer?.invalidate()
+        guard place?.edge != nil, on != peeking, on || card == nil else { return }
+        peekTimer = Timer.scheduledTimer(withTimeInterval: on ? Motion.hoverOpenWarm : Motion.hoverOpen, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.peek(on) }   // the main run loop's timer
+        }
+    }
+
+    /// Out from a click on the line: the pointer isn't on it yet, so it goes back unless the pointer comes.
+    private func peekFromLine() {
+        peek(true)
+        peekTimer = Timer.scheduledTimer(withTimeInterval: Motion.linger, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { if self?.row.pointerOn == false, self?.card == nil { self?.peek(false) } }   // the main run loop's timer
+        }
+    }
+
+    private func peek(_ on: Bool) {
+        peekTimer?.invalidate()
+        guard place?.edge != nil, on != peeking else { return }
+        peeking = on
+        if on { line.hide() } else { tip?.hide() }
+        refresh()
     }
 
     /// Wakes when the next finished-and-read agent's while is up; nothing else changes then, so nothing else would refresh.
@@ -336,6 +407,7 @@ final class AgentStrip {
     private func closeCard() {
         card?.close()
         card = nil
+        if peeking, !row.pointerOn { hoverStrip(false) }
     }
 
     private func menu() -> NSMenu {
@@ -345,6 +417,7 @@ final class AgentStrip {
         m.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
         m.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
         m.addItem(.separator())
+        if place?.edge == nil { m.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
         if place != nil { m.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) } }
         m.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
         m.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
@@ -354,6 +427,7 @@ final class AgentStrip {
     private func goAway() {
         closeCard()
         tip?.hide()
+        line.hide()
         guard let panel, panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup { c in
             c.duration = Motion.duration(Motion.fast)
@@ -371,17 +445,47 @@ final class AgentStrip {
 
     /// Let go after a drag: it goes to the nearest corner of the screen it's on; a card it left behind goes.
     func dropped() {
-        guard let panel, let screen = panel.screen else { return }
-        let corner = StripModel.corner(nearest: panel.frame, in: screen.visibleFrame)
+        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+        let area = screen.visibleFrame
+        if let edge = StripModel.edge(dropped: panel.frame, in: area), Self.outer(edge, of: screen) {
+            moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
+            return
+        }
+        let corner = StripModel.corner(nearest: panel.frame, in: area)
         moved(to: corner == .bottom && screen == NSScreen.main ? nil : StripPlace(corner: corner, display: Self.number(of: screen)))
+    }
+
+    /// From the menu: behind the side of its screen it's nearer, where it stands.
+    private func tuck() {
+        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+        let area = screen.visibleFrame
+        let nearer: StripEdge = panel.frame.midX > area.midX ? .right : .left
+        guard let edge = [nearer, nearer == .right ? .left : .right].first(where: { Self.outer($0, of: screen) }) else { return }
+        moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
+    }
+
+    /// At the height it stands; the corner is the one it would take by that side.
+    private static func place(behind edge: StripEdge, of screen: NSScreen, at frame: NSRect) -> StripPlace {
+        StripPlace(corner: edge == .right ? .bottomRight : .bottomLeft, display: number(of: screen), edge: edge, y: frame.minY - screen.visibleFrame.minY)
+    }
+
+    /// The screen most of it is on: one pushed past an edge has no `screen` of its own.
+    private static func screen(under frame: NSRect) -> NSScreen? {
+        NSScreen.screens.max { $0.frame.intersection(frame).width < $1.frame.intersection(frame).width } ?? NSScreen.main
+    }
+
+    private static func outer(_ edge: StripEdge, of screen: NSScreen) -> Bool {
+        StripModel.outer(edge, of: screen.frame, among: NSScreen.screens.filter { $0 != screen }.map(\.frame))
     }
 
     private func moved(to place: StripPlace?) {
         self.place = place
         StripPlace.save(place)
+        peeking = false
         closeCard()
         tip?.hide()
-        put(appearing: false)
+        line.hide()
+        refresh()
     }
 
     private static func number(of screen: NSScreen) -> UInt32? {
@@ -400,7 +504,8 @@ final class AgentStrip {
         guard let area = screen(appearing: appearing, of: p)?.visibleFrame, let content = p.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
-        let frame = StripModel.frame(size, in: area, at: corner)
+        let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
+        let frame = behind ?? StripModel.frame(size, in: area, at: corner)
         guard appearing else {
             NSAnimationContext.runAnimationGroup { c in
                 c.duration = Motion.duration(Motion.appear)
@@ -421,7 +526,9 @@ final class AgentStrip {
 
     private func makePanel() -> StripPanel {
         row.spacing = 2
-        row.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        showEdge(hidden: place?.edge != nil)
+        row.onHover = { [weak self] on in self?.hoverStrip(on) }
+        row.onClick = { [weak self] in self?.peek(true) }
         let p = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
         p.onDropped = { [weak self] in self?.dropped() }
         panel = p
