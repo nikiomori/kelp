@@ -91,8 +91,8 @@ package final class AppModel {
         ordered(worktrees.filter { $0.repoId == r.id && !$0.archived }.sorted { $0.createdAt < $1.createdAt })
     }
 
-    /// Projects as the sidebar lists them: No Project first, then by name, unless dragged into another order.
-    var projects: [Repo] { repos.filter(NoProject.holds) + ordered(repos.filter { !NoProject.holds($0) }) }
+    /// Projects as the sidebar lists them: by name, unless dragged into another order, and No Project last.
+    var projects: [Repo] { ordered(repos.filter { !NoProject.holds($0) }) + repos.filter(NoProject.holds) }
 
     /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
     var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }

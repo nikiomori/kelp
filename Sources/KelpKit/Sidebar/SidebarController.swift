@@ -165,7 +165,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let m = app
         var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
-        tree.pinned = m.repos.first(where: NoProject.holds)?.id
+        tree.pinnedLast = m.repos.first(where: NoProject.holds)?.id
         tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in a }
         watchHosts(Set(tree.hosts.values))
         projectHosts = tree.hosts

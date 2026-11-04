@@ -12,7 +12,7 @@ extension SidebarController {
     /// Projects and a project's groups move.
     func outlineView(_ o: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         guard let n = item as? Node, n.id != nil else { return nil }
-        if case .project(let id) = n.kind, NoProject.holds(app.repo(id)) { return nil }   // always first
+        if case .project(let id) = n.kind, NoProject.holds(app.repo(id)) { return nil }   // always last
         let p = NSPasteboardItem(); p.setString(n.key, forType: Self.rowType)
         return p
     }

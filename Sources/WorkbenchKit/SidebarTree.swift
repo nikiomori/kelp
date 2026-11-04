@@ -23,8 +23,8 @@ public struct SidebarTree {
     /// Project id → the host it's on, for remote projects: they come after this Mac's, each host's together, where its
     /// first project stood. No headings: their rows say where they are (the sidebar marks them).
     public var hosts: [String: String] = [:]
-    /// The project that stays first whatever the order (No Project: chats outside any project).
-    public var pinned: String?
+    /// The project that stays last whatever the order (No Project: chats outside any project).
+    public var pinnedLast: String?
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
         self.projects = projects; self.workspaces = workspaces; self.sessions = sessions
@@ -46,8 +46,8 @@ public struct SidebarTree {
         }
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
         let all = sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
-        func isPinned(_ i: SidebarItem) -> Bool { pinned != nil && i.kind == .project(pinned ?? "") }
-        return all.filter(isPinned) + all.filter { !isPinned($0) }
+        func isPinned(_ i: SidebarItem) -> Bool { pinnedLast != nil && i.kind == .project(pinnedLast ?? "") }
+        return all.filter { !isPinned($0) } + all.filter(isPinned)
     }
 
     private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {

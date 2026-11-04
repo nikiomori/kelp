@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import Core
 
-/// Chats outside any project: "No Project", the first row of the sidebar, over a folder of Kelp's own (~/.kelp/scratch)
+/// Chats outside any project: "No Project", the last row of the sidebar, over a folder of Kelp's own (~/.kelp/scratch)
 /// where each agent gets a folder of its own for its task. A quick question, a one-off script, something in Downloads.
 /// ⌃⌥⌘K from any app starts one in the main window.
 @MainActor
