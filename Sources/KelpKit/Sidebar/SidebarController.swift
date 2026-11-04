@@ -115,7 +115,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
-        track(owner: self) { [app] in app.hostStats } changed: { [weak self] _ in self?.updateVisibleCells() }
+        // What the headings say, not every reading: the server tab's come every 2 s.
+        track(owner: self) { [app] in app.hostStats.keys.sorted().map { [$0, app.serverWord($0)?.text ?? ""] } }
+            changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
