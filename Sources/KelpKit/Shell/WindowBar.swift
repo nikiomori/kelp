@@ -156,7 +156,7 @@ final class WindowBar: NSView {
         // the branch's first one, beside the chip with the real one. The whole path in its tooltip and its menu.
         let place = app.repo(w.repoId).map(app.projectPlace) ?? (w.path as NSString).abbreviatingWithTildeInPath
         let path = w.path == app.repo(w.repoId)?.path ? place : (w.path as NSString).abbreviatingWithTildeInPath
-        folder.title = (place as NSString).lastPathComponent
+        folder.title = NoProject.holds(app.repo(w.repoId)) ? app.projectName(w.repoId) ?? "" : (place as NSString).lastPathComponent
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }

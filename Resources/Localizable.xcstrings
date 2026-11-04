@@ -1,6 +1,56 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "New Chat Without Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый чат без проекта"
+          }
+        }
+      }
+    },
+    "New Chat in Folder…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый чат в папке…"
+          }
+        }
+      }
+    },
+    "Start Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать чат"
+          }
+        }
+      }
+    },
+    "The agent works in this folder. It isn't added as a project.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент работает в этой папке. Проектом она не становится."
+          }
+        }
+      }
+    },
+    "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросите агента о чём угодно сразу или добавьте папку проекта: агенты, терминалы и файлы рядом."
+          }
+        }
+      }
+    },
     "": {
       "shouldTranslate": false
     },
@@ -7977,7 +8027,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Нет проекта"
+            "value": "Без проекта"
           }
         }
       }

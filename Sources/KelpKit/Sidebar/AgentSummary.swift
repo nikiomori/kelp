@@ -140,7 +140,7 @@ final class AgentSummary: NSView {
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
-        isHidden = app.repos.allSatisfy(ScratchWindow.isScratch)   // the first run says it in the middle of the window
+        isHidden = app.repos.allSatisfy(NoProject.holds)   // the first run says it in the middle of the window
         asking = !shown.isEmpty
         capsule.isHidden = !asking
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer

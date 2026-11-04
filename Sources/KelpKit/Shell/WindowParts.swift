@@ -334,7 +334,7 @@ final class EditorHost: NSViewController {
     }
 
     private func showWelcome() {
-        let hasRepos = app.repos.contains { !ScratchWindow.isScratch($0) }
+        let hasRepos = app.repos.contains { !NoProject.holds($0) }
         if let w = welcome as? WelcomeView, w.hasRepos == hasRepos { return }
         welcome?.removeFromSuperview()
         let w = WelcomeView(hasRepos: hasRepos, app: app)
@@ -350,21 +350,21 @@ final class WelcomeView: NSView {
     init(hasRepos: Bool, app: AppModel) {
         self.hasRepos = hasRepos
         super.init(frame: .zero)
-        let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "folder.badge.plus"))
+        let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "bubble.left"))
         icon.symbolConfiguration = .init(pointSize: 40, weight: .light); icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos
             ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")
-            : String(localized: "Add a project folder: agents, terminals and files side by side."))
+            : String(localized: "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."))
         body.alignment = .center; body.textColor = .secondaryLabelColor
-        let button = ClosureButton(title: hasRepos ? String(localized: "New Chat") : String(localized: "Add Project…")) { [app] in
-            hasRepos ? app.workbench.newChat() : app.workbench.addProject()
-        }
-        button.bezelStyle = .push
-        button.keyEquivalent = "\r"
-        button.controlSize = .large
-        let stack = NSStackView(views: [icon, title, body, button])
+        // With no project yet a chat needs none: it's the first thing to do, adding a project the second.
+        let chat = ClosureButton(title: String(localized: "New Chat")) { [app] in app.workbench.newChat() }
+        let add = ClosureButton(title: String(localized: "Add Project…")) { [app] in app.workbench.addProject() }
+        let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
+        for case let b as NSButton in buttons.arrangedSubviews { b.bezelStyle = .push; b.controlSize = .large }
+        chat.keyEquivalent = "\r"
+        let stack = NSStackView(views: [icon, title, body, buttons])
         stack.orientation = .vertical
         stack.spacing = 10
         stack.setCustomSpacing(18, after: body)

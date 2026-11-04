@@ -19,6 +19,10 @@ enum ProjectIcon {
     /// `view` shows the project's icon: its initial at once, the icon when found. `initial` false: what it shows now
     /// (the empty workspace's folder) stays until there's a real icon, the initial being too big a guess at 56 pt.
     static func show(_ repo: String, in view: NSImageView, app: AppModel, initial: Bool = true) {
+        if NoProject.holds(path: repo) {   // chats with no project: Kelp's own folder, not a project's icon
+            view.image = .symbol("bubble.left"); view.shadow = nil
+            return
+        }
         let image = image(for: repo, app: app)
         if initial || cache[repo] != nil { view.image = image }
         looking[repo]?.append(Weak(view: view, showing: view.image))

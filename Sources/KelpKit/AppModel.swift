@@ -25,7 +25,7 @@ package final class AppModel {
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
     @ObservationIgnored private(set) package lazy var quickOpen = QuickOpen(app: self)
     @ObservationIgnored private(set) package lazy var scripts = ScriptsMenu(app: self)
-    @ObservationIgnored private(set) lazy var scratch = ScratchWindow(app: self)
+    @ObservationIgnored private(set) lazy var noProject = NoProject(app: self)
     @ObservationIgnored private(set) lazy var switcher = WorkspaceSwitcher(app: self)
     /// What a built-in keeps once per app (its windows, what it asked about), made when first asked for: the app holds
     /// them by type without naming them (see `part`).
@@ -91,8 +91,8 @@ package final class AppModel {
         ordered(worktrees.filter { $0.repoId == r.id && !$0.archived }.sorted { $0.createdAt < $1.createdAt })
     }
 
-    /// Projects as the sidebar lists them: by name, unless dragged into another order.
-    var projects: [Repo] { ordered(repos.filter { !ScratchWindow.isScratch($0) }) }
+    /// Projects as the sidebar lists them: No Project first, then by name, unless dragged into another order.
+    var projects: [Repo] { repos.filter(NoProject.holds) + ordered(repos.filter { !NoProject.holds($0) }) }
 
     /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
     var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }
@@ -484,6 +484,7 @@ package final class AppModel {
 
     func projectName(_ id: String?) -> String? {
         guard let r = repo(id) else { return nil }
+        if NoProject.holds(r) { return String(localized: "No Project") }
         guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host else { return r.name }
         return "\(r.name) · \(host)"
     }

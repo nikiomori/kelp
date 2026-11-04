@@ -23,7 +23,7 @@ extension Builtins {
                 if let p = a["panel"]?.string { app.workbench.window?.showInspector(panel: p) }
             },
             cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") { app.quickOpen.show(commandsOnly: true) },
-            cmd("workbench.scratch", "Scratch", "ctrl+opt+cmd+k") { app.scratch.toggle() },
+            cmd("workbench.scratch", "New Chat Without Project", "ctrl+opt+cmd+k") { app.noProject.newChat() },
             cmd("view.biggerText", "Bigger Text", "cmd+plus") { zoomText(app, 1) },
             cmd("view.smallerText", "Smaller Text", "cmd+-") { zoomText(app, -1) },
             cmd("view.defaultTextSize", "Default Text Size") { zoomText(app, nil) },

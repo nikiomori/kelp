@@ -5,12 +5,10 @@ import WorkbenchKit
 /// Entry points everything uses to act on the window: open URIs, switch workspaces, focus agents.
 @MainActor
 extension Workbench {
-    /// Every unsaved file in the app: the main window's loaded workspaces and the Scratch panel's.
-    package var editedFiles: [SavableTab] { (window?.editors.editedFiles ?? []) + app.scratch.editedFiles }
-    /// The editor area with the keyboard: the Scratch panel's while it's key, else the workspace on screen's.
-    package var editor: EditorArea? { keyArea ?? window?.editors.current }
-    /// An editor area that is a window's whole content (the Scratch panel) and has the keys.
-    private var keyArea: EditorArea? { NSApp.keyWindow?.contentViewController as? EditorArea }
+    /// Every unsaved file in the app: the main window's loaded workspaces'.
+    package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
+    /// The editor area with the keyboard: the workspace on screen's.
+    package var editor: EditorArea? { window?.editors.current }
 
     package func show(workspace id: String) { show(workspace: id, remember: true) }
 
@@ -57,7 +55,6 @@ extension Workbench {
     func showAside(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil) { area(workspace)?.showAside(uri, split: split) }
 
     private func area(_ workspace: String?) -> EditorArea? {
-        if let k = keyArea, workspace == nil || workspace == k.workspaceId { return k }
         if let workspace, workspace != workspaceId { show(workspace: workspace) }
         if workspaceId == nil, let first = app.worktrees.first { show(workspace: first.id) }
         return window?.editors.current
@@ -67,17 +64,14 @@ extension Workbench {
     /// (Restart from the sidebar).
     func replace(session old: String, with new: String, workspace: String?) {
         let o = TabURI.session(old), n = TabURI.session(new)
-        if let k = keyArea, workspace == nil || workspace == k.workspaceId { k.replace(o, with: n); return }
         if let workspace, workspace != workspaceId { window?.editors.replaceInBackground(o, with: n, workspace: workspace); return }
         window?.editors.current?.replace(o, with: n)
     }
 
     package func focus(session id: String) {
         guard let s = app.session(id) else { return }
-        if let k = keyArea, s.worktreeId == k.workspaceId { k.focus(session: id) } else {
-            if let w = s.worktreeId, w != workspaceId { show(workspace: w) }
-            window?.editors.current?.focus(session: id)
-        }
+        if let w = s.worktreeId, w != workspaceId { show(workspace: w) }
+        window?.editors.current?.focus(session: id)
         // Opening a finished agent is reading it; a question stays marked until it's answered (typing clears it).
         if s.unread, s.status == .done { Task { await app.call(SessionMarkRead(id: id)) } }
     }
@@ -116,14 +110,14 @@ extension Workbench {
     }
 
     package func closeTab(uri: String, remember: Bool = true) {
-        guard let e = [keyArea, window?.editors.current].compactMap({ $0 }).first(where: { $0.layout.tab(uri: uri) != nil }),
+        guard let e = window?.editors.current, e.layout.tab(uri: uri) != nil,
               let t = e.layout.tab(uri: uri) else { return }
         e.closeTab(t.id, remember: remember)
     }
 
     /// Takes a tab off the screen without closing what it shows: a run hidden in the Run menu keeps running.
     func hideTab(uri: String) {
-        guard let e = [keyArea, window?.editors.current].compactMap({ $0 }).first(where: { $0.layout.tab(uri: uri) != nil }),
+        guard let e = window?.editors.current, e.layout.tab(uri: uri) != nil,
               let t = e.layout.tab(uri: uri) else { return }
         e.drop(t.id)
     }
@@ -192,15 +186,16 @@ extension Workbench {
 
     /// New isolated workspace in the project on screen (or the first one).
     /// ⌘N, and New Chat on a project's row: a new agent on the screen you're on, or on that project's own from another project.
-    func newChat(repo: String? = nil) {
+    /// With nothing on screen it's a chat with no project. `cwd`: in that folder (New Chat in Folder…).
+    func newChat(repo: String? = nil, cwd: String? = nil) {
         Task {
             // Right after launch the project list may not be in yet: ⌘N must not turn into "Add Project".
             let m = app
             await m.waitForConnection()
             let here = m.worktree(workspaceId)
-            guard let rid = repo ?? here?.repoId ?? m.repos.first?.id else { addProject(); return }
+            guard let rid = repo ?? here?.repoId ?? m.repos.first(where: NoProject.holds)?.id ?? m.repos.first?.id else { addProject(); return }
             guard let w = m.repo(rid).flatMap({ newChatScreen(in: $0, current: here, rows: m.worktrees) }) else { return }
-            await startChat(on: w.id)
+            await startChat(on: w.id, cwd: cwd)
         }
     }
 
@@ -235,10 +230,10 @@ extension Workbench {
 
     /// A new agent of the default kind, started before anything shows: it comes as a row of its own. With no agent on this
     /// Mac the empty screen offers to install one.
-    private func startChat(on id: String) async {
+    private func startChat(on id: String, cwd: String? = nil) async {
         var chat: Session?
         if let a = app.catalog.startable {
-            var p = SessionCreate(worktreeId: id, agent: a)
+            var p = SessionCreate(cwd: cwd, worktreeId: id, agent: a)
             if let g = terminalGrid { p.cols = g.cols; p.rows = g.rows }
             chat = await app.call(p)
         }

@@ -34,6 +34,17 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(kinds(t.build()) == [.project("r3"), .project("r1"), .project("r2")])
 }
 
+/// No Project (chats outside any project) stays the first row, whatever order the rest are in.
+@Test func thePinnedProjectStaysFirst() {
+    let r3 = Repo(id: "r3", name: "gamma", path: "/c")
+    var t = SidebarTree(projects: [r1, r2, r3], workspaces: [wt("w1", "r1", "main"), wt("w2", "r2", "main"), wt("w3", "r3", "main")],
+                        sessions: [agent("a3", in: "w3", .working)])
+    t.pinned = "r2"
+    #expect(kinds(t.build()) == [.project("r2"), .project("r1"), .project("r3")])
+    t.activeFirst = true
+    #expect(kinds(t.build()) == [.project("r2"), .project("r3"), .project("r1")])
+}
+
 private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     Worktree(id: id, repoId: r.id, branch: "main", path: r.path, createdAt: Date(timeIntervalSince1970: t))
 }

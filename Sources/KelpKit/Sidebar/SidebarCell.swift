@@ -357,7 +357,10 @@ final class SidebarCell: NSTableCellView {
             mark.waitsForCommand = s.waitsForCommand
             mark.progress = s.progress.map { Double($0) / 100 }
             // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
-            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : ""
+            // A chat with no project working in a folder you picked says which (its own folders are just dates).
+            let r = m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }
+            let picked = NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path ? (s.cwd as NSString).lastPathComponent : ""
+            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : picked
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
             showState(s)

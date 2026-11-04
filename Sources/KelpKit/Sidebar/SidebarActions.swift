@@ -92,6 +92,7 @@ extension SidebarController {
         switch n.kind {
         case .project(let id):
             guard let r = m.repo(id) else { return }
+            if NoProject.holds(r) { return noProjectMenu(menu, r, n) }
             if !FileManager.default.fileExists(atPath: r.path) {
                 menu.add(String(localized: "Locate…")) { WorkspaceActions(app).relocate(r) }
                 menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(r) }
@@ -117,7 +118,11 @@ extension SidebarController {
             menu.setSubmenu(AgentActions(app).handoffMenu(sid), for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
-            moveItems(menu, chat: sid)
+            if let s = m.session(sid), NoProject.holds(m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }) {
+                WorkspaceActions.addLocate(to: menu, path: s.cwd)   // its own folder, where its results are
+            } else {
+                moveItems(menu, chat: sid)
+            }
             if m.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
             }
@@ -126,6 +131,16 @@ extension SidebarController {
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
         }
+    }
+
+    /// No Project's row: chats, and its folder. Nothing to rename, colour or remove: it's Kelp's own.
+    private func noProjectMenu(_ menu: NSMenu, _ r: Repo, _ n: Node) {
+        let app = self.app
+        menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(r.id) }
+        menu.add(String(localized: "New Chat in Folder…")) { app.noProject.newChat(inFolderOf: r) }
+        menu.addItem(.separator())
+        muteItem(menu, n.muteIds)
+        WorkspaceActions.addLocate(to: menu, path: r.path)
     }
 
     /// Under the rows: the ways in, as the + shows them, and how the list looks.

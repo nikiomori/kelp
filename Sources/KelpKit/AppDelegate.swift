@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.extensions.reload()
         main = MainWindowController(app: app)
         main.showWindow(nil)
-        app.scratch.registerHotKey()
+        app.noProject.registerHotKey()
         app.notifier = notifier; notifier.start()
         dockIcon.start()
         app.agentStrip = agentStrip; agentStrip.start()
@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.extensions.watch()
         Task {
             await app.connect()
+            await app.noProject.ensure()
             app.extensions.reload()   // settings (disabled extensions) are known now
             app.availability.refresh(force: true)
             #if DEBUG
@@ -67,7 +68,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let last = app.uiState["workbench.lastWorkspace"]?.string.flatMap { app.worktree($0) }
             // Next turn of the run loop: the sidebar lays out its new rows before it gets a selection.
             try? await Task.sleep(for: .milliseconds(30))
-            if let w = pick ?? last ?? app.worktrees.first(where: { !$0.archived }) { app.workbench.show(workspace: w.id) }
+            // The first run's Welcome, not the No Project screen, when there's nothing to go back to.
+            let first = app.worktrees.first { !$0.archived && !NoProject.holds(app.repo($0.repoId)) }
+            if let w = pick ?? last ?? first { app.workbench.show(workspace: w.id) }
             UnsavedBackups.reopen(app, in: app.workbench.window?.editors)
             app.updates.sayInstalled()
             let early = pendingOpens ?? []; pendingOpens = nil

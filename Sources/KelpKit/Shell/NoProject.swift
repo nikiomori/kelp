@@ -2,65 +2,56 @@ import AppKit
 import Carbon.HIToolbox
 import Core
 
-/// Agents and terminals outside any project: a floating window over a folder of their own (~/.kelp/scratch), for a
-/// quick question or a one-off script. Window › Scratch, or ⌃⌥⌘K from any app. It isn't listed with the projects.
+/// Chats outside any project: "No Project", the first row of the sidebar, over a folder of Kelp's own (~/.kelp/scratch)
+/// where each agent gets a folder of its own for its task. A quick question, a one-off script, something in Downloads.
+/// ⌃⌥⌘K from any app starts one in the main window.
 @MainActor
-final class ScratchWindow: NSObject, NSWindowDelegate {
+final class NoProject: NSObject {
     let app: AppModel
     init(app: AppModel) { self.app = app; super.init() }
-    private var panel: NSPanel?
-    private var area: EditorArea?
     private var hotKey: EventHotKeyRef?
 
-    /// Its unsaved files (a file opened from a scratch terminal): quitting and Save All count them too.
-    var editedFiles: [SavableTab] { area?.editedFiles ?? [] }
-
-    /// The scratch project's path, so lists of projects can leave it out.
+    /// Its project's path, so lists of projects can tell it apart.
     static var path: String { URL(fileURLWithPath: Paths.scratch.path).resolvingSymlinksInPath().path }
-    static func isScratch(_ r: Repo?) -> Bool { r.map { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path == path } ?? false }
+    static func holds(_ r: Repo?) -> Bool { r.map { holds(path: $0.path) } ?? false }
+    static func holds(path p: String) -> Bool { URL(fileURLWithPath: p).resolvingSymlinksInPath().path == path }
 
-    func toggle() {
-        if let p = panel, p.isVisible, p.isKeyWindow { p.orderOut(nil); return }
-        Task { await show() }
+    /// Made the first time (the daemon's), so the row is there before anyone asks.
+    func ensure() async {
+        guard !app.repos.contains(where: Self.holds), await app.quiet(ScratchEnsure()) != nil else { return }
+        await app.refresh()
     }
 
-    private var opening = false
-    private func show() async {
-        guard !opening else { return }   // ⌃⌥⌘K twice while the first is still setting up: one panel
-        opening = true; defer { opening = false }
-        if panel == nil {
-            guard let w = await app.call(ScratchEnsure()) else { return }   // the banner says why
-            await app.refresh()
-            let a = EditorArea(app: app, workspaceId: w.id)
-            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 480), styleMask: [.titled, .closable, .resizable, .utilityWindow],
-                            backing: .buffered, defer: false)
-            p.title = String(localized: "Scratch")
-            p.isFloatingPanel = true
-            p.hidesOnDeactivate = false
-            p.becomesKeyOnlyIfNeeded = false
-            p.isReleasedWhenClosed = false
-            p.animationBehavior = .utilityWindow   // it comes and goes with one key: the system's fade, not a cut
-            p.delegate = self
-            p.contentViewController = a   // (the window takes the controller's empty view's size: set it after)
-            p.minSize = NSSize(width: 420, height: 240)
-            p.setContentSize(NSSize(width: 760, height: 480))
-            p.setFrameAutosaveName("scratch"); if p.frame.origin == .zero { p.center() }
-            panel = p; area = a
-        }
+    /// A new chat on it, in the main window, from wherever you are.
+    func newChat() {
         NSApp.activate()
-        panel?.makeKeyAndOrderFront(nil)
-        area?.reconcile()
-        if area?.layout.allTabs.isEmpty == true { area?.newAgent() } else { area?.focusSelected() }
+        app.workbench.bringToFront()
+        Task {
+            await ensure()
+            if let r = app.repos.first(where: Self.holds) { app.workbench.newChat(repo: r.id) }
+        }
+    }
+
+    /// One already working in a folder you pick (Downloads, a game, photos): the folder stays as it is, not a project.
+    func newChat(inFolderOf r: Repo) {
+        let p = NSOpenPanel()
+        p.canChooseDirectories = true; p.canChooseFiles = false
+        p.prompt = String(localized: "Start Chat")
+        p.message = String(localized: "The agent works in this folder. It isn't added as a project.")
+        Task {
+            guard await runSheet(p) == .OK, let url = p.url else { return }
+            app.workbench.newChat(repo: r.id, cwd: url.path)
+        }
     }
 
     /// ⌃⌥⌘K from anywhere (a Carbon hot key: no Accessibility permission needed).
     func registerHotKey() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        // The handler is a C function: it finds this window through the pointer it's handed (the app keeps the window).
+        // The handler is a C function: it finds this object through the pointer it's handed (the app keeps it).
         InstallEventHandler(GetApplicationEventTarget(), { _, _, me in
             guard let me else { return noErr }
-            let scratch = Unmanaged<ScratchWindow>.fromOpaque(me).takeUnretainedValue()
-            DispatchQueue.main.async { scratch.toggle() }
+            let np = Unmanaged<NoProject>.fromOpaque(me).takeUnretainedValue()
+            DispatchQueue.main.async { np.newChat() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
         let id = EventHotKeyID(signature: OSType(0x4B524C4C), id: 1)   // 'KRLL'
