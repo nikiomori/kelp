@@ -73,8 +73,6 @@ final class SidebarCell: NSTableCellView {
     /// is short of room, the CI mark last.
     private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero), ci = PointerButton(frame: .zero)
     private let ciMark = CIMark()
-    /// A remote project's server, on its icon's corner (nil on this Mac's).
-    private var server: ServerMark?
 
     init(node: SidebarController.Node, owner: SidebarController) {
         self.node = node
@@ -108,7 +106,6 @@ final class SidebarCell: NSTableCellView {
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
             layout(row: [slot, title, muted, detail, summary, changes, pr, ci, trailing, b])
-            markServer(id, owner)   // over the slot, once it's in the row
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
@@ -137,6 +134,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
                                          ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
                                          ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
+        case .host: break   // a ServerHeader
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
@@ -228,7 +226,6 @@ final class SidebarCell: NSTableCellView {
     /// A little wider than what's drawn, from the pill's edge to the name, and as high as the pill.
     private var actionArea: NSRect { action.convert(action.bounds, to: self).insetBy(dx: -3, dy: -4) }
     override func hitTest(_ p: NSPoint) -> NSView? {
-        if let server, server.frame.insetBy(dx: -2, dy: -2).contains(convert(p, from: superview)) { return server }
         if !action.isHidden, actionArea.contains(convert(p, from: superview)) { return action }
         return super.hitTest(p)
     }
@@ -253,7 +250,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent: nil
+        case .agent, .host: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
@@ -309,8 +306,8 @@ final class SidebarCell: NSTableCellView {
             let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
             if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
             icon.contentTintColor = .secondaryLabelColor
-            // Not under a rename (a status change re-reads the row). A remote one's server is beside it (`detail`), not in it.
-            if !title.isEditable { title.stringValue = server == nil ? m.projectName(id) ?? "" : r?.name ?? "" }
+            // Not under a rename (a status change re-reads the row). A remote one's server heads its card, not its name.
+            if !title.isEditable { title.stringValue = owner?.projectHosts[id] == nil ? m.projectName(id) ?? "" : r?.name ?? "" }
             // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
             let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(13, weight: busy ? .medium : .regular)
@@ -320,12 +317,9 @@ final class SidebarCell: NSTableCellView {
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable {
-                // The server, in grey, once on its card: by its first project.
-                detail.stringValue = owner?.serverStarts.contains(id) == true ? server?.host ?? "" : ""
-                detail.font = .ui(11)
-                detail.isHidden = detail.stringValue.isEmpty
+                detail.stringValue = ""
+                detail.isHidden = true
             }
-            showServer()
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
             showSummary(folded ? node : nil)
@@ -369,6 +363,7 @@ final class SidebarCell: NSTableCellView {
             showState(s)
             showAsk(s)
             speak(s)
+        case .host: break
         }
     }
 
@@ -526,31 +521,5 @@ extension SidebarCell {
         detail.font = .ui(11); detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
-    }
-}
-
-extension SidebarCell {
-    /// A project on a host: the server's mark on its icon's corner, over the slot (the fold's chevron included).
-    fileprivate func markServer(_ id: String, _ owner: SidebarController) {
-        guard owner.projectHosts[id] != nil, let host = app.repo(id).flatMap({ RemoteHost.of($0.path)?.host }) else { return }
-        let mark = ServerMark()
-        mark.host = host
-        mark.opened = { [app] in app.openServer($0) }
-        mark.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(mark)
-        NSLayoutConstraint.activate([mark.centerXAnchor.constraint(equalTo: slot.trailingAnchor, constant: -1),
-                                     mark.centerYAnchor.constraint(equalTo: slot.bottomAnchor, constant: -1),
-                                     mark.widthAnchor.constraint(equalToConstant: ServerMark.side),
-                                     mark.heightAnchor.constraint(equalToConstant: ServerMark.side)])
-        server = mark
-    }
-
-    /// The mark's colour and what it says: the server, how it is, and the click.
-    fileprivate func showServer() {
-        guard let server, let host = server.host else { return }
-        server.color = app.serverMarkColor(host)
-        let state = app.serverWord(host)?.text
-        server.toolTip = [host + (state.map { " · " + $0 } ?? ""), String(localized: "Click to open the server")].joined(separator: "\n")
-        server.setAccessibilityLabel(String(localized: "Server \(host)") + (state.map { ", " + $0 } ?? ""))
     }
 }

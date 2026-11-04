@@ -86,11 +86,14 @@ private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     #expect(inbox.shown.map(\.id) == ["a1"])     // you're looking at it already
 }
 
-/// Projects on hosts come after this Mac's, each host's together where its first project stood; no headings.
-@Test func remoteProjectsComeAfterThisMacsByHost() {
+/// Projects on hosts come after this Mac's, each host's together under its header where its first project stood; a
+/// folded host is its header alone. This Mac's have none.
+@Test func remoteProjectsComeAfterThisMacsUnderTheirHost() {
     let r3 = Repo(id: "r3", name: "gamma", path: "/c"), r4 = Repo(id: "r4", name: "delta", path: "/d")
     var t = SidebarTree(projects: [r3, r1, r4, r2], workspaces: [], sessions: [])
     #expect(kinds(t.build()) == [.project("r3"), .project("r1"), .project("r4"), .project("r2")])
     t.hosts = ["r3": "box", "r4": "pi", "r2": "box"]
-    #expect(kinds(t.build()) == [.project("r1"), .project("r3"), .project("r2"), .project("r4")])
+    #expect(kinds(t.build()) == [.project("r1"), .host("box"), .project("r3"), .project("r2"), .host("pi"), .project("r4")])
+    t.folded = ["box"]
+    #expect(kinds(t.build()) == [.project("r1"), .host("box"), .host("pi"), .project("r4")])
 }

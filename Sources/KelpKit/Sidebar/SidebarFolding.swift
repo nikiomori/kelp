@@ -99,7 +99,7 @@ extension SidebarController {
     /// A project's card from its row to the last row under it: one shape, so it grows and shrinks with the rows (each row
     /// drew a slice of it, which couldn't follow a project opening). A project with nothing under it has none unless its
     /// colour is drawn on one: then it's where the row's pill goes. Under them, one hatched card for each server's
-    /// projects ("s:<host>"), after a gap: where one machine's projects end and another's begin.
+    /// header and projects ("s:<host>"), after a gap: where one machine's projects end and another's begin.
     func placeCards() {
         var shown: Set<String> = [], made = false
         let look = app.projectLook
@@ -120,24 +120,27 @@ extension SidebarController {
         var server: (host: String, rows: NSRect)?
         func endServer() {
             guard let s = server else { return }
-            // 2 pt around the rows' pills, from under the gap.
+            // 2 pt around the rows' pills, from under the header's gap.
             var r = SidebarRowView.band(s.rows, 4).insetBy(dx: 0, dy: -1)
             r.origin.y += Self.serverGap; r.size.height -= Self.serverGap
             put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: true))
             server = nil
         }
         for p in roots {
-            guard case .project(let id) = p.kind,
-                  case let first = outline.row(forItem: p), first >= 0, case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
-            let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last)), host = projectHosts[id]
-            if host != server?.host { endServer() }
-            if let host { server = (host, server.map { $0.rows.union(rows) } ?? rows) }
+            guard case let first = outline.row(forItem: p), first >= 0, case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
+            let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last))
+            if case .host(let h) = p.kind {   // a server's card starts at its header
+                endServer()
+                server = (h, rows)
+                continue
+            }
+            guard case .project(let id) = p.kind else { continue }
+            if let host = projectHosts[id], let s = server, host == s.host { server = (host, s.rows.union(rows)) } else { endServer() }
             let color = look.style == .card ? look.colors[id] : nil
             guard !p.children.isEmpty || color != nil else { continue }
             var r = SidebarRowView.band(rows, 6)
-            // Flipped: 4 in from the first row's top and the last row's bottom, under a server's gap.
+            // Flipped: 4 in from the first row's top and the last row's bottom.
             if p.children.isEmpty { r = r.insetBy(dx: 0, dy: 1) } else { r.origin.y += 4; r.size.height -= 8 }
-            r.origin.y += serverGap(p); r.size.height -= serverGap(p)
             put(p.key, r, ProjectCard.Look(color: color, plain: p.children.isEmpty))
         }
         endServer()

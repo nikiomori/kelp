@@ -6,7 +6,8 @@ import Core
 /// someone made, a row of its own. An agent's children stand on its row, not on rows of their own. What needs you is in
 /// the line over the list (`Inbox`).
 public struct SidebarItem: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String) }
+    /// `host`: a server's header, its projects after it on the same card (not under it: they keep their place in the outline).
+    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), host(String) }
     public var kind: Kind
     public var children: [SidebarItem] = []
     /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
@@ -20,9 +21,11 @@ public struct SidebarTree {
     public var sessions: [Session]
     /// Projects with live agents first, each part in the order people gave them (Settings › Project order).
     public var activeFirst = false
-    /// Project id → the host it's on, for remote projects: they come after this Mac's, each host's together, where its
-    /// first project stood. No headings: their rows say where they are (the sidebar marks them).
+    /// Project id → the host it's on, for remote projects: they come after this Mac's, each host's together under its
+    /// header, where its first project stood.
     public var hosts: [String: String] = [:]
+    /// Hosts whose projects are folded away: the header alone.
+    public var folded: Set<String> = []
     /// The project that stays last whatever the order (No Project: chats outside any project).
     public var pinnedLast: String?
 
@@ -55,7 +58,11 @@ public struct SidebarTree {
         func host(_ i: SidebarItem) -> String { if case .project(let id) = i.kind { hosts[id] ?? "" } else { "" } }
         var order: [String] = []
         for h in [""] + listed.map(host) where !order.contains(h) { order.append(h) }
-        return order.flatMap { h in listed.filter { host($0) == h } }
+        return order.flatMap { h -> [SidebarItem] in
+            let mine = listed.filter { host($0) == h }
+            guard !h.isEmpty, !mine.isEmpty else { return mine }
+            return [SidebarItem(kind: .host(h))] + (folded.contains(h) ? [] : mine)
+        }
     }
 }
 
