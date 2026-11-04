@@ -63,21 +63,17 @@ final class HoverCard {
 
     private func show(_ key: String, rect: NSRect, in view: NSView) {
         // Events come only while the window is key.
-        let server = key.hasPrefix("h:") ? String(key.dropFirst(2)) : nil
-        let model = server == nil ? CardModel(key, app: app, placed: !underTabs) : nil
-        guard view.window != nil, model != nil || server?.isEmpty == false else { close(); return }
+        guard view.window != nil, let model = CardModel(key, app: app, placed: !underTabs) else { close(); return }
         shown?.stop()
         shown = model
         shownKey = key
         anchor = view.window
-        let content = if let model { AnyView(CardView(model: model)) } else {
-            AnyView(ServerCard(app: app, host: server ?? "") { [weak self] in self?.close() })
-        }
-        let host = NSHostingController(rootView: content)
+        model.closeCard = { [weak self] in self?.close() }
+        let host = NSHostingController(rootView: CardView(model: model))
         host.sizingOptions = .preferredContentSize   // else the popover is placed at a pre-layout size and grows down from its top, off the row
         popover.contentViewController = host
         popover.show(relativeTo: rect, of: view, preferredEdge: underTabs ? .minY : .maxX)
-        model?.load()
+        model.load()
         keys = keys ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
             return e
@@ -106,6 +102,10 @@ final class CardModel {
     var context: SessionContextWindow.Usage?
     var parts: SessionContextParts.Parts?
     var pages: [ServedPage] = []
+    /// The host a remote project's card shows how it's doing.
+    let server: String?
+    /// Puts the card away (a button in it opened something else).
+    @ObservationIgnored var closeCard: () -> Void = {}
     /// What its subagents did last, read while the card is up.
     private var watches: [Watched] = []
 
@@ -122,6 +122,7 @@ final class CardModel {
             agentOnly = true
             repo = nil
             muteIds = [s.id]
+            server = nil
         } else if key.hasPrefix("p:"), let r = m.repo(String(key.dropFirst(2))) {
             title = m.projectName(r.id) ?? r.name; subtitle = m.projectPlace(r)
             agents = []
@@ -129,6 +130,7 @@ final class CardModel {
             agentOnly = false
             repo = r
             muteIds = [r.id]
+            server = RemoteHost.of(r.path)?.host
         } else if key.hasPrefix("w:"), let w = m.worktree(String(key.dropFirst(2))) {
             let r = m.repo(w.repoId)
             // A project's own screen has no name of its own: the row stands for the project.
@@ -142,6 +144,7 @@ final class CardModel {
             repo = nil
             let alone = m.worktrees.filter { $0.repoId == w.repoId && !$0.archived }.count == 1
             muteIds = [w.id] + (alone ? [w.repoId] : [])
+            server = r.flatMap { RemoteHost.of($0.path)?.host }
         } else { return nil }
     }
 
@@ -216,6 +219,7 @@ struct CardView: View {
                 Text(model.title).font(.ui(13, weight: .semibold)).lineLimit(2)
                 if !model.subtitle.isEmpty { Text(model.subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
             }
+            if let h = model.server { ServerSection(app: model.app, host: h, close: model.closeCard) }
             if let r = model.repo { WorktreeSizes(items: model.worktrees, root: r.path) }
             if let pr = model.pr { PRLine(pr: pr) }
             if let c = model.changes, c.totalAdded + c.totalRemoved > 0 {

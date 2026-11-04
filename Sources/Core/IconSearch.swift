@@ -22,7 +22,10 @@ public enum IconSearch {
                             size: (String) -> Int = { (try? FileManager.default.attributesOfItem(atPath: $0)[.size] as? Int) ?? 0 }) -> String? {
         let words = (name ?? (repo as NSString).lastPathComponent).lowercased()
             .split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count >= 3 }
+        // A folder that's a repository of its own is another project: its icon isn't this one's (a home folder holding
+        // projects took the first project's).
         let tops = (list(repo) ?? []).filter { !$0.hasPrefix(".") && $0 != "node_modules" }.sorted().prefix(40)
+            .filter { list(repo + "/" + $0 + "/")?.contains(".git") != true }
         for base in [""] + tops.map({ $0 + "/" }) {
             let dirs = places.compactMap { p -> (String, [String])? in
                 let dir = repo + "/" + base + p

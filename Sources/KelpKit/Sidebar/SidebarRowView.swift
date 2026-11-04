@@ -187,10 +187,12 @@ final class SidebarRowView: NSTableRowView {
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it.
+    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;
+    /// `remote`, a project on a host: hatched over that, so it reads as elsewhere whatever its colour.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
+        var remote = false
     }
     var look = Look(color: nil, plain: false) {
         didSet {
@@ -204,9 +206,15 @@ final class ProjectCard: NSView {
         return look.plain ? nil : .fillRest
     }
 
+    /// The remote project's stripes, over the fill.
+    private let hatch = CALayer()
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
+        hatch.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        hatch.cornerRadius = 9
+        hatch.masksToBounds = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -214,6 +222,27 @@ final class ProjectCard: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = 9
         layer?.backgroundColor = fill?.cgColor
+        if hatch.superlayer == nil { layer?.addSublayer(hatch) }
+        hatch.frame = layer?.bounds ?? bounds
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        hatch.backgroundColor = look.remote ? Self.stripes(dark: dark).cgColor : nil
+    }
+
+    /// Thin diagonal stripes, a step over the ground: no colour of their own, so a project's colour and the pill keep theirs.
+    private static func stripes(dark: Bool) -> NSColor {
+        let side: CGFloat = 6
+        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
+            (dark ? NSColor.white.withAlphaComponent(0.07) : NSColor.black.withAlphaComponent(0.06)).setStroke()
+            for dx in [-side, 0, side] {
+                let p = NSBezierPath()
+                p.move(to: NSPoint(x: dx, y: 0))
+                p.line(to: NSPoint(x: dx + side, y: side))
+                p.lineWidth = 1.5
+                p.stroke()
+            }
+            return true
+        }
+        return NSColor(patternImage: tile)
     }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
     override var allowsVibrancy: Bool { false }

@@ -2,41 +2,28 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// A server heading's hover card: how the machine is doing now, who on it wants you, and the way into its tab.
-struct ServerCard: View {
+/// In a remote project's hover card: its server, how the machine is doing now, and the way into the server's tab.
+struct ServerSection: View {
     let app: AppModel, host: String
     let close: () -> Void
 
     var body: some View {
         let s = app.hostStats[host]
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(host).font(.ui(13, weight: .semibold)).lineLimit(1)
-                Text(serverLine(s)).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            HStack(spacing: 6) {
+                Image(systemName: "server.rack").font(.caption).foregroundStyle(.secondary)
+                Text(host).font(.ui(12, weight: .semibold)).lineLimit(1)
+                if let word = app.serverWord(host) { Text(word.text).font(.caption).foregroundStyle(Color(nsColor: word.color)) }
             }
+            Text(serverLine(s)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             if let s, s.connected { ServerMeters(stats: s) }
-            ForEach(waiting, id: \.id) { a in
-                HStack(spacing: 6) {
-                    StatusIcon(status: a.markStatus, waitsForCommand: a.waitsForCommand).font(.caption)
-                    Text(app.catalog.displayName(a)).font(.callout).lineLimit(1)
-                    Text(a.statusWords).font(.caption).foregroundStyle(.secondary)
-                }
-            }
             HStack(spacing: Metrics.gapWide) {
                 Button(String(localized: "Open Server")) { close(); app.openServer(host) }
                 Button("htop") { close(); app.openHtop(host) }
             }
             .controlSize(.small)
         }
-        .padding(12)
-        .frame(width: 300, alignment: .leading)
-    }
-
-    /// The agents on this host that want you.
-    private var waiting: [Session] {
-        let folders = Set(app.projects(onServer: host).map(\.id))
-        let screens = Set(app.worktrees.filter { folders.contains($0.repoId) }.map(\.id))
-        return app.sessions.filter { screens.contains($0.worktreeId ?? "") && SidebarCell.wantsYou($0) }
     }
 }
 

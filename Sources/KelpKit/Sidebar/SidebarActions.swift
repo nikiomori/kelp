@@ -9,7 +9,6 @@ extension SidebarController.Node {
         switch kind {
         case .project(let id): [id] + (workspace.map { [$0] } ?? [])
         case .workspace(let id), .agent(let id): [id]
-        case .host: []
         }
     }
 }
@@ -103,6 +102,7 @@ extension SidebarController {
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
             menu.addItem(.separator())
+            if let host = RemoteHost.of(r.path)?.host { serverItems(menu, host) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             muteItem(menu, n.muteIds)
@@ -125,7 +125,6 @@ extension SidebarController {
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
-        case .host(let h): if h.isEmpty { emptySpaceMenu(menu) } else { serverMenu(menu, h) }
         }
     }
 

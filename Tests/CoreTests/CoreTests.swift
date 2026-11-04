@@ -357,6 +357,8 @@ final class Flag: @unchecked Sendable {   // the bool under lock
                                         "/p/Pretype_lending/public/assets/": ["github-icon.svg", "og.png", "pretype-icon.svg", "pretype-logo.png"]])
         == "/p/Pretype_lending/public/assets/pretype-icon.svg")
     #expect(find("/p/site", ["/p/site": ["public"], "/p/site/public/": ["github-icon.svg", "site.css"]]) == nil)
+    // A home folder with projects in it: theirs aren't its own.
+    #expect(find("/home/niko", ["/home/niko": ["nikiomori_CV"], "/home/niko/nikiomori_CV/": [".git", "favicon.svg"]]) == nil)
 }
 
 /// When a routine is due next: weekdays skip the weekend, weekly keeps its day, hourly its minute; a time the clocks skip
