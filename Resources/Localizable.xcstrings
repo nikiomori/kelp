@@ -13364,6 +13364,16 @@
         }
       }
     },
+    "Working: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работают: %lld"
+          }
+        }
+      }
+    },
     "Working Tree": {
       "localizations": {
         "ru": {

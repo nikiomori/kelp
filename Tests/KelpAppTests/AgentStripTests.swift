@@ -30,7 +30,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     let item = StripModel.items([new, old], workspaces: places).first
     #expect(item?.words == "Old")
     #expect(item?.session == old.id)
-    #expect(item?.agents == ["Login — Old", "Docs — Needs your input"])
+    #expect(item?.agents == ["Old · Login", "Needs your input · Docs"])
 }
 
 /// One agent finished while another (or one it started) still works: the project isn't done yet, and the tip says who is.
@@ -40,8 +40,8 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     busy.title = "Dev release"
     let item = StripModel.items([done, busy], workspaces: places).first
     #expect(item?.cell == .working)
-    #expect(item?.words == "Dev release")
-    #expect(item?.agents == ["Dev release — Working", "Notes — Done"])
+    #expect(item?.words == "Working")
+    #expect(item?.agents == ["Working · Dev release", "Done · Notes"])
     #expect(StripModel.items([done], workspaces: places).first?.cell == .done)
     #expect(StripTip.lines((1...7).map { "\($0)" }) == "1\n2\n3\n4\n5\nand 2 more")
 }
@@ -181,7 +181,9 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 @MainActor @Test func everyStateHasWordsForThePillAndTheTip() {
     var working = session("a", .working)
     working.title = "Fix the login race"
-    #expect(StripModel.items([working], workspaces: places).first?.words == "Fix the login race")
+    #expect(StripModel.items([working], workspaces: places).first?.words == "Working")   // the pill says it works; the tip, at what
+    #expect(StripModel.items([working], workspaces: places).first?.agents == ["Working · Fix the login race"])
+    #expect(StripModel.items([working, session("a", .working)], workspaces: places).first?.words == "Working: 2")
     #expect(StripModel.items([session("a", .working)], workspaces: places).first?.words == "Working")
     #expect(StripModel.items([session("a", .done, unread: true, summary: "Release notes updated")], workspaces: places).first?.words == "Done: Release notes updated")
 }
