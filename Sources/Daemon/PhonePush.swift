@@ -5,7 +5,7 @@ import os
 
 /// A push to a phone through a service like ntfy (Settings › Agents, off until it has an address), when an agent needs you
 /// and you're away from the Mac. In the daemon: closing Kelp's window is when it's needed. It only tells: answering stays on
-/// the Mac, so that knowing the channel's address never lets anyone approve a command. A failed send is lost, unretried.
+/// the Mac, so that knowing the channel's address never lets anyone approve a command. A failed send is tried once more.
 enum PhonePush {
     /// No input for this long is being away.
     static let awayAfter: TimeInterval = 300
@@ -71,8 +71,15 @@ extension Sessions {
         let (title, body) = PhonePush.message(s, name: name, place: w?.displayName ?? s.displayTitle, details: settings["phone.details"]?.bool == true)
         guard let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
-            do { _ = try await URLSession.shared.data(for: request) } catch {
-                Log.session.error("phone push: \(error.localizedDescription, privacy: .public)")
+            // Once more a little later: right after a wake the network often isn't back yet, and being away is that.
+            for wait in [0, 30] {
+                do {
+                    try await Task.sleep(for: .seconds(wait))
+                    _ = try await URLSession.shared.data(for: request)
+                    return
+                } catch {
+                    Log.session.error("phone push: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
     }

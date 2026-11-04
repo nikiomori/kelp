@@ -188,8 +188,9 @@ final class Watches: Sendable {
             }
             guard let (send, to, again, quiet) = ours else { return }
             if let send { clients.targets(to).forEach { $0.send(send) } }
-            // Files changing all through a read: not back to back, or a large repository's git never stops.
-            if again { schedule(k, after: max(0.4, 4 * Date().timeIntervalSince(began))) }
+            // Files changing all through a read: not back to back, or a large repository's git never stops; and not more than
+            // 8 s behind either, or a slow repository's panels stay stale while an agent writes.
+            if again { schedule(k, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began)))) }
             else if let next { schedule(k, after: fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)) }
         }
     }
