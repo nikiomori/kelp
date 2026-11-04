@@ -34,7 +34,7 @@ extension UIBrowser: AsyncHandled {
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         let request = UUID().uuidString
-        return try await clients.reply(to: request, within: Self.wait) { clients.notify(UIBrowserEvent(self, request: request), to: apps) }
+        return try await clients.reply(to: request, from: apps, within: Self.wait) { clients.notify(UIBrowserEvent(self, request: request), to: apps) }
     }
 }
 

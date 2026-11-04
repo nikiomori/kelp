@@ -45,7 +45,11 @@ extension BrowserTab {
             return try await settled()
         case "eval":
             // The page's own world: the agent asks about the page's state (its globals, its framework).
-            let body = "const v = await (\n\(try need("js"))\n);\nreturn v === undefined ? 'null' : (JSON.stringify(v) ?? 'null');"
+            // A promise that never settles ends here, before the daemon stops waiting: nothing is left awaiting it.
+            let limit = Int(UIBrowser.wait - 10) * 1000
+            let body = "const v = await Promise.race([(\n\(try need("js"))\n), new Promise((_, no) => setTimeout(() => "
+                + "no(new Error('No answer from the script in \(limit / 1000) s')), \(limit)))]);\n"
+                + "return v === undefined ? 'null' : (JSON.stringify(v) ?? 'null');"
             let text = try await run(body, page: true) as? String ?? "null"
             return (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
         case "screenshot":
@@ -63,7 +67,8 @@ extension BrowserTab {
                 guard Date() < end else { throw RPCError.internalError("Not on the page after \(Int(seconds)) s: \(text ?? selector ?? "")") }
                 try await Task.sleep(for: .milliseconds(250))
             }
-            return try await settled()
+            // What's left of the daemon's wait: an answer after it would find nobody waiting.
+            return try await settled(within: min(30, max(1, UIBrowser.wait - 5 - seconds + end.timeIntervalSinceNow)))
         default: throw RPCError.invalidParams("kelp browser knows no \(action)")
         }
     }
@@ -82,9 +87,9 @@ extension BrowserTab {
     }
 
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
-    private func settled(_ extra: [String: JSONValue] = [:]) async throws -> JSONValue {
+    private func settled(_ extra: [String: JSONValue] = [:], within: TimeInterval = 30) async throws -> JSONValue {
         try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
-        let end = Date().addingTimeInterval(30)
+        let end = Date().addingTimeInterval(within)
         while web.isLoading, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
         var o = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
         if web.isLoading { o["loading"] = .bool(true) }

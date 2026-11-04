@@ -48,3 +48,17 @@ import Core
     #expect(await reader.value == reply.count)
     c.close(); close(fd)
 }
+
+/// A `kelp browser` request asked of Kelp's window ends when that window hangs up, not a minute later: nobody is left to
+/// answer it.
+@Test(.timeLimit(.minutes(1))) func aBrowserRequestEndsWhenItsWindowGoes() async throws {
+    var sv: [Int32] = [0, 0]
+    #expect(socketpair(AF_UNIX, SOCK_STREAM, 0, &sv) == 0)
+    Unix.noSigPipe(sv[0])
+    defer { close(sv[1]) }
+    let clients = Clients(), app = clients.add(fd: sv[0]).id
+    let asked = Task { try await clients.reply(to: "r1", from: [app], within: 60) {} }
+    try await Task.sleep(for: .milliseconds(100))
+    clients.remove(app)
+    await #expect(throws: RPCError.internalError("Kelp's window closed before it answered")) { try await asked.value }
+}
