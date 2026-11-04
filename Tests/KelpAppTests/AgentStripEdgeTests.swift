@@ -34,6 +34,15 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     #expect(StripModel.tucked(size, in: area, edge: .left, y: 5000, out: false).maxY == 1200 - StripModel.margin)   // whole on the screen's height
 }
 
+@MainActor @Test func aPointerPushedToTheEdgeKeepsTheStripOut() {
+    let out = StripModel.tucked(NSSize(width: 140, height: 40), in: area, edge: .right, y: 300, out: true)
+    #expect(StripModel.inGap(NSPoint(x: 1999, y: 320), beside: out, edge: .right))
+    #expect(!StripModel.inGap(NSPoint(x: 1999, y: 200), beside: out, edge: .right))   // below it
+    #expect(!StripModel.inGap(NSPoint(x: out.minX - 2, y: 320), beside: out, edge: .right))   // off its inner side
+    let left = StripModel.tucked(NSSize(width: 140, height: 40), in: area, edge: .left, y: 300, out: true)
+    #expect(StripModel.inGap(NSPoint(x: 0, y: 320), beside: left, edge: .left))
+}
+
 @MainActor @Test func aQuestionComesOutOfTheEdgeOnceAndFinishedWorkNever() {
     let ask = item(.asks, "a", at: 5), fail = item(.failed, "b", at: 1), done = item(.done, "c")
     #expect(StripModel.news([fail, ask, done], told: [])?.session == "a")   // a question before a failure

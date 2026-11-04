@@ -41,6 +41,15 @@ extension StripModel {
         return NSRect(x: x, y: top, width: size.width, height: size.height)
     }
 
+    /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
+    static func inGap(_ p: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
+        let x = switch edge {
+        case .right: p.x >= strip.maxX && p.x <= strip.maxX + margin + 1
+        case .left: p.x <= strip.minX && p.x >= strip.minX - margin - 1
+        }
+        return x && p.y >= strip.minY && p.y <= strip.maxY
+    }
+
     /// What comes out of the edge as a line: a question or a failure not told yet, the oldest question first. Finished work
     /// is only the sliver's dot, and work going on says nothing.
     static func news(_ items: [StripItem], told: Set<String>) -> StripItem? {

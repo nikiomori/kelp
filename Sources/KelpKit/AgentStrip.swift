@@ -309,8 +309,16 @@ final class AgentStrip {
         peekTimer?.invalidate()
         guard place?.edge != nil, on != peeking, on || card == nil else { return }
         peekTimer = Timer.scheduledTimer(withTimeInterval: on ? Motion.hoverOpenWarm : Motion.hoverOpen, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.peek(on) }   // the main run loop's timer
+            MainActor.assumeIsolated { self?.settle(on) }   // the main run loop's timer
         }
+    }
+
+    /// Off the strip into the gap it left at the edge isn't off: it waits again instead of going under the pointer.
+    private func settle(_ on: Bool) {
+        if !on, let edge = place?.edge, let panel, StripModel.inGap(NSEvent.mouseLocation, beside: panel.frame, edge: edge) {
+            return hoverStrip(false)
+        }
+        peek(on)
     }
 
     /// Out from a click on the line: the pointer isn't on it yet, so it goes back unless the pointer comes.
