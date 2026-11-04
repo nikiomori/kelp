@@ -233,6 +233,11 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let shell = try await w.c.call(SessionCreate(worktreeId: a.id, agent: "shell"))
     #expect(one.cwd != two.cwd && (one.cwd as NSString).deletingLastPathComponent == a.path && (two.cwd as NSString).deletingLastPathComponent == a.path)
     #expect(shell.cwd == a.path)
+    // Resumed from History once its empty folder was swept: in that folder again, on the No Project row.
+    try FileManager.default.removeItem(atPath: one.cwd)
+    let back = try w.d.sessions.resumePlace(one.cwd, worktreeId: nil)
+    #expect(back.cwd == one.cwd && back.worktreeId == a.id && FileManager.default.fileExists(atPath: one.cwd))
+    #expect(try w.d.sessions.resumePlace(one.cwd, worktreeId: a.id).cwd == one.cwd)   // not the scratch folder itself
     // A folder picked for the chat ("New Chat in Folder…") is used as it is.
     let picked = try makeRepo()
     #expect(try await w.c.call(SessionCreate(cwd: picked, worktreeId: a.id, agent: "sleepy")).cwd == picked)
@@ -246,8 +251,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(chats.isFresh(empty) && !chats.isFresh(chats.folder.path) && !chats.isFresh("/tmp"))
     try "done".write(toFile: result + "/out.txt", atomically: true, encoding: .utf8)
     #expect(!chats.isFresh(result))
-    chats.sweep(keeping: [kept])
     let fm = FileManager.default
+    chats.sweep(keeping: [kept])   // just made: its session's record may not be saved yet
+    #expect(fm.fileExists(atPath: empty))
+    chats.sweep(keeping: [kept], now: Date() + 2 * 86400)
     #expect(fm.fileExists(atPath: kept) && !fm.fileExists(atPath: empty) && fm.fileExists(atPath: result))
     // A home from before, where scratch was an empty git repo: back to a plain folder. One with a commit stays a repo.
     let old = ScratchChats(root: root.appendingPathComponent("old"))

@@ -15,7 +15,7 @@ extension Sessions {
                 discard(s, keepTmux: !s.connectionLost)
             }
             let left = try store.sessions(), known = Set(left.map(\.id)), fm = FileManager.default
-            ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)))
+            ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)), now: now)
             let logs = (try? fm.contentsOfDirectory(at: root.appendingPathComponent("history"),
                                                     includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
             for f in logs where ["log", "trail"].contains(f.pathExtension) && !known.contains(f.deletingPathExtension().lastPathComponent) {

@@ -111,16 +111,28 @@ extension SessionHandoff: Handled {
 extension HistoryResume: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let s = session else { throw RPCError.invalidParams("session required") }
-        var cwd = s.cwd, wid = worktreeId
-        if let w = wid, let wt = try sessions.store.worktree(w) { cwd = wt.path } else {
-            let real = URL(fileURLWithPath: s.cwd).resolvingSymlinksInPath().path
-            wid = try sessions.store.worktrees().first { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path == real }?.id
-        }
+        let (cwd, wid) = try sessions.resumePlace(s.cwd, worktreeId: worktreeId)
         guard FileManager.default.fileExists(atPath: cwd) else { throw RPCError.invalidParams("the session's folder no longer exists: \(cwd)") }
         var o = Sessions.Launch(self); o.title = s.title.isEmpty ? "Resumed \(s.agent.rawValue)" : s.title
         var m = try sessions.manifest(s.agent.rawValue, command: nil)
         m.args += Array(History.resumeCommand(for: s).dropFirst())
         return try sessions.spawn(cwd: cwd, manifest: m, worktreeId: wid, o)
+    }
+}
+
+extension Sessions {
+    /// Where a conversation from History goes on: `worktreeId`'s folder, else the folder it was in, on the workspace there.
+    /// A chat with no project stays in its own folder (the agent finds its conversation by it), made again if it was swept
+    /// empty, and on the No Project row.
+    func resumePlace(_ was: String, worktreeId: String?) throws -> (cwd: String, worktreeId: String?) {
+        let scratch = ScratchChats(root: root)
+        if scratch.isChat(was) {
+            try FileManager.default.createDirectory(atPath: was, withIntermediateDirectories: true)
+            return (was, try store.worktrees().first { scratch.holds($0.path) }?.id)
+        }
+        if let w = worktreeId, let wt = try store.worktree(w) { return (wt.path, w) }
+        let real = URL(fileURLWithPath: was).resolvingSymlinksInPath().path
+        return (was, try store.worktrees().first { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path == real }?.id)
     }
 }
 

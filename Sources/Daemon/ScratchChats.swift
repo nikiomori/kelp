@@ -33,15 +33,24 @@ struct ScratchChats {
         return (p as NSString).deletingLastPathComponent == real && Self.isEmpty(p)
     }
 
-    /// Chat folders left empty that no session works in any more go (ended records are pruned a week after the end, so a
-    /// chat reopened meanwhile still finds its folder). Anything with a file in it stays: it's someone's result.
-    func sweep(keeping cwds: Set<String>) {
+    /// Whether `cwd` is a chat's own folder, there or gone.
+    func isChat(_ cwd: String) -> Bool {
+        let p = Paths.real(cwd) ?? cwd
+        return [real, folder.path].contains((p as NSString).deletingLastPathComponent)
+    }
+
+    /// Chat folders left empty that no session works in any more go (ended records are pruned a week after the end; a chat
+    /// resumed later gets its folder again). Anything with a file in it stays: it's someone's result. A day old at least: a
+    /// new chat's folder is made just before its record is saved.
+    func sweep(keeping cwds: Set<String>, now: Date = Date()) {
         let used = Set(cwds.map { Paths.real($0) ?? $0 })
         let fm = FileManager.default
         for name in Self.names(real) {
             let p = real + "/" + name
             var dir: ObjCBool = false
-            guard fm.fileExists(atPath: p, isDirectory: &dir), dir.boolValue, !used.contains(p), Self.isEmpty(p) else { continue }
+            guard fm.fileExists(atPath: p, isDirectory: &dir), dir.boolValue, !used.contains(p), Self.isEmpty(p),
+                  let made = Log.store.attempt("reading when \(name) was made", { try fm.attributesOfItem(atPath: p)[.creationDate] as? Date }) ?? nil,
+                  made < now - 86400 else { continue }
             Log.store.attempt("removing the empty chat folder \(name)") { try fm.removeItem(atPath: p) }
         }
     }
