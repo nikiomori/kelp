@@ -18245,6 +18245,56 @@
           }
         }
       }
+    },
+    "Resets %@ · %@ at an even pace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сброс %1$@ · по ровному темпу было бы %2$@"
+          }
+        }
+      }
+    },
+    "Pace Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметка темпа"
+          }
+        }
+      }
+    },
+    "Even pace mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметка ровного темпа"
+          }
+        }
+      }
+    },
+    "A tick on the bar: how much would be used by now, spending evenly until the reset.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Черточка на полосе: сколько было бы потрачено к этому времени при ровном расходе до сброса."
+          }
+        }
+      }
+    },
+    "Only when it resets within 12 hours.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только когда сброс в ближайшие 12 часов."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -34,7 +34,9 @@ extension Builtins {
                   "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.", group: "Plan limits"),
                 s("usage.limits", "Limits to show", "enum", "fullest", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
                   options: ["fullest", "all"], group: "Plan limits"),
-                s("usage.resets", "Reset time beside a limit", "boolean", true, group: "Plan limits"),
+                s("usage.resets", "Reset time beside a limit", "boolean", true, "Only when it resets within 12 hours.", group: "Plan limits"),
+                s("usage.pace", "Even pace mark", "boolean", true,
+                  "A tick on the bar: how much would be used by now, spending evenly until the reset.", group: "Plan limits"),
                 s("usage.alertAt", "Warn about limits at", "enum", "80", "A notification at this level, and again at 95%.",
                   options: ["off", "70", "80", "90"], group: "Plan limits"),
                 // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.

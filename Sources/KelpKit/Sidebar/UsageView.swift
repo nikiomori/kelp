@@ -3,9 +3,9 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// How much of the agents' plans is used: one line for the fullest limit of any agent — name, a bar and percentage, the
-/// agent's next fullest as a thin line under it, and when a 5-hour window resets — and on hover every agent that has used
-/// anything, each limit with its bar and when it resets. One line: six plans in six rows took the list's room.
+/// How much of the agents' plans is used: for the fullest limit of any agent (or of each, by setting) the agent's icon and
+/// name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick where an
+/// even pace would have the bar by now; on hover every agent that has used anything, each limit with its bar and reset.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
 /// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
 struct UsageView: View {
@@ -13,8 +13,24 @@ struct UsageView: View {
         var label: String
         var used: Double
         var resets: String?
-        var session = false
+        var resetAt: Date?
+        /// How long its window is (nil: not known, so no pace tick).
+        var window: TimeInterval?
         var kind = ""
+
+        /// How much of the window has gone, which is where the bar would be now at an even pace; nil when that can't be told.
+        func pace(now: Date = Date()) -> Double? {
+            guard let resetAt, let window, window > 0 else { return nil }
+            let left = resetAt.timeIntervalSince(now)
+            return left > 0 && left <= window ? 1 - left / window : nil
+        }
+
+        /// The reset beside the bar: only one within 12 hours says when work can go on today; later ones are in the card.
+        func soon(now: Date = Date()) -> String? {
+            guard let resetAt, let resets else { return nil }
+            let left = resetAt.timeIntervalSince(now)
+            return left > 0 && left < 12 * 3600 ? resets : nil
+        }
     }
     struct Row: Identifiable, Equatable {
         var id: String, name: String, fullName: String
@@ -23,8 +39,6 @@ struct UsageView: View {
         var readAt: Date?
         var stale: Bool { readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false }
         var main: Line? { lines.max { $0.used < $1.used } }
-        /// The fullest of the rest, a thin line under the main bar.
-        var other: Line? { lines.filter { $0 != main }.max { $0.used < $1.used } }
     }
     let app: AppModel
     init(app: AppModel) { self.app = app }
@@ -62,25 +76,30 @@ struct UsageView: View {
     }
 
     private func bars(resets: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        let pace = app.settings.bool("usage.pace") != false
+        return VStack(alignment: .leading, spacing: Metrics.gapWide) {
             ForEach(shown) { r in
                 let main = r.main ?? Line(label: "", used: 0)
-                HStack(spacing: 8) {
-                    Text(r.name).fixedSize()
-                    VStack(spacing: 2) {
-                        Bar(used: main.used)
-                        if let o = r.other { Bar(used: o.used, height: 2) }
+                HStack(spacing: Metrics.gapWide) {
+                    // The agent's icon over both lines, as in the sidebar's rows above.
+                    if let icon = app.catalog.icon(r.id) { Image(nsImage: icon).frame(width: 16, height: 16) }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: Metrics.gap) {
+                            Text(r.name).lineLimit(1)
+                            Spacer(minLength: Metrics.gapWide)
+                            if resets, let at = main.soon() { Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary) }
+                            Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
+                                .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
+                        }
+                        Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }
-                    Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
-                        .monospacedDigit().foregroundStyle(UsageView.tint(main.used))
-                    if resets, main.session, let at = main.resets { Text(at).fixedSize().foregroundStyle(.secondary) }
                 }
                 .font(.caption)
                 .opacity(r.stale ? 0.45 : 1)
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
-                .padding(.horizontal, 4).padding(.vertical, 1)
+                .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))
-                .padding(.horizontal, -4).padding(.vertical, -1)
+                .padding(.horizontal, -4).padding(.vertical, -2)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
                 .contentShape(Rectangle())
                 .onHover { hovered = $0 ? r.id : (hovered == r.id ? nil : hovered) }
@@ -89,7 +108,7 @@ struct UsageView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(used) { u in
                             if u.id != used.first?.id { Divider() }
-                            Details(row: u, forecast: app.forecast)
+                            Details(row: u, forecast: app.forecast, pace: pace)
                         }
                     }
                 }
@@ -104,15 +123,23 @@ struct UsageView: View {
 
     private static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
 
-    /// How full a limit is (a bar can't be mistaken for the "working" spinner); orange from 70 %, red from 90 %.
+    /// How full a limit is (a bar can't be mistaken for the "working" spinner); orange from 70 %, red from 90 %. `pace`: a
+    /// tick where an even pace would have it now, cut out of the bar on both sides so it shows on the fill as on the track.
     private struct Bar: View {
         let used: Double
+        var pace: Double?
         var height: CGFloat = 4
         var body: some View {
             GeometryReader { g in
+                let w = g.size.width
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary)
-                    Capsule().fill(UsageView.tint(used)).frame(width: max(height, g.size.width * min(used, 1)))
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.quaternary)
+                        Capsule().fill(UsageView.tint(used)).frame(width: max(height, w * min(used, 1)))
+                        if let p = pace { Rectangle().frame(width: 3, height: height).offset(x: w * p - 1.5).blendMode(.destinationOut) }
+                    }
+                    .compositingGroup()
+                    if let p = pace { Capsule().fill(.primary).frame(width: 1, height: height + 4).offset(x: w * p - 0.5) }
                 }
             }
             .frame(minWidth: 48, maxWidth: .infinity)   // a bar, not a dot, when the text beside it is long
@@ -123,6 +150,7 @@ struct UsageView: View {
     private struct Details: View {
         let row: Row
         let forecast: LimitForecast
+        let pace: Bool
         /// Each limit gets its own bar, so the one that's running out shows at a glance.
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -142,8 +170,12 @@ struct UsageView: View {
                             Spacer()
                             Text(UsageView.percent(l.used)).monospacedDigit().fontWeight(.semibold).foregroundStyle(UsageView.tint(l.used, quiet: .primary))
                         }
-                        Bar(used: l.used)
-                        if let r = l.resets { Text("Resets \(r)").font(.caption).foregroundStyle(.secondary) }
+                        let even = pace ? l.pace() : nil
+                        Bar(used: l.used, pace: even)
+                        if let r = l.resets {
+                            Text(even.map { String(localized: "Resets \(r) · \(UsageView.percent($0)) at an even pace") } ?? String(localized: "Resets \(r)"))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resets.flatMap { ResetTime.parse($0) }) {
                             Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -191,12 +223,20 @@ struct UsageView: View {
     /// Readings as the daemon passes them: kind ("session", "week", "week · Fable", "Gemini week"), percent, resets.
     private static func lines(_ readings: [UsageGet.Limit]) -> [Line] {
         readings.map { l in
-            let kind = l.kind
-            let label = kind == "session" ? String(localized: "5 hours") : kind == "week" ? String(localized: "Week")
-                : kind == "month" ? String(localized: "Month")
-                : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
-            return Line(label: label, used: l.percent / 100, resets: l.resets.map { ResetTime.shown($0) }, session: kind == "session", kind: kind)
+            Line(label: label(l.kind), used: l.percent / 100, resets: l.resets.map { ResetTime.shown($0) },
+                 resetAt: l.resets.flatMap { ResetTime.parse($0) }, window: window(l.kind), kind: l.kind)
         }
+    }
+
+    private static func label(_ kind: String) -> String {
+        kind == "session" ? String(localized: "5 hours") : kind == "week" ? String(localized: "Week")
+            : kind == "month" ? String(localized: "Month")
+            : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
+    }
+
+    /// A window's length by its kind; a month is taken as 30 days (Codex's free plan says 43 200 minutes itself).
+    static func window(_ kind: String) -> TimeInterval? {
+        kind == "session" ? 5 * 3600 : kind.lowercased().contains("week") ? 7 * 86400 : kind.lowercased().contains("month") ? 30 * 86400 : nil
     }
 
     /// Claude Code's /usage, or the percentages a session printed.
@@ -207,12 +247,15 @@ struct UsageView: View {
     private static func codex(_ u: UsageGet.Result) -> [Line] {
         guard let x = u.codex.first else { return [] }
         let now = Date().timeIntervalSince1970
-        return [(String(localized: "5 hours"), x.primaryUsedPercent, x.primaryResetsAt, true),
-                (String(localized: "Week"), x.secondaryUsedPercent, x.secondaryResetsAt, false)].compactMap { label, used, reset, session in
+        // The window's own length names it: the free plan's only window is a month, not 5 hours.
+        return [(x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
+                (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)].compactMap { used, reset, minutes, primary in
             guard let p = used else { return nil }
+            let kind = UsageGet.Codex.kind(minutes: minutes, primary: primary)
             let t = reset ?? 0, expired = t > 0 && t < now
-            let resets = t > now ? ResetTime.shown(Date(timeIntervalSince1970: t)) : nil
-            return Line(label: label, used: expired ? 0 : p / 100, resets: resets, session: session, kind: session ? "session" : "week")
+            let at = t > now ? Date(timeIntervalSince1970: t) : nil
+            return Line(label: label(kind), used: expired ? 0 : p / 100, resets: at.map { ResetTime.shown($0) }, resetAt: at,
+                        window: minutes.map { $0 * 60 } ?? window(kind), kind: kind)
         }
     }
 }
@@ -256,6 +299,7 @@ final class UsageFooter: NSHostingView<UsageView> {
         let m = NSMenu()
         m.addChoices("usage.limits", app, heading: String(localized: "Show"))
         m.addToggle("usage.resets", app, title: String(localized: "Reset Time"))
+        m.addToggle("usage.pace", app, title: String(localized: "Pace Mark"))
         m.addItem(.separator())
         m.add(String(localized: "Open Usage")) { app.extensions.run("agents.usage") }
         m.addChoiceMenu("usage.alertAt", app, title: String(localized: "Warn At"), tryOn: false)
