@@ -21,11 +21,13 @@ public struct RemoteHost: Codable, Sendable, Equatable {
         !h.isEmpty && !h.hasPrefix("-") && !h.contains(where: \.isWhitespace) && !h.contains("/") && h != "." && h != ".."
     }
 
-    /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them.
+    /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them. A host gone
+    /// quiet (the network dropped, the Mac woke elsewhere) is given up on in 30 s, not ssh's 90: until then every read
+    /// waits on it, and its panels show it connected.
     public func sshArgs(tty: Bool) -> [String] {
         (tty ? ["-tt"] : ["-T", "-o", "BatchMode=yes"])
-            + ["-o", "ConnectTimeout=15", "-o", "ControlMaster=auto",
-                "-o", "ControlPath=\(controlDir)/%C", "-o", "ControlPersist=600", "-o", "ServerAliveInterval=30", "--", host]
+            + ["-o", "ConnectTimeout=15", "-o", "ControlMaster=auto", "-o", "ControlPath=\(controlDir)/%C", "-o", "ControlPersist=600",
+               "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "--", host]
     }
 
     /// What the host's shell runs: `argv` in the project's folder, through an interactive login shell so the host's PATH
