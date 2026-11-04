@@ -163,7 +163,8 @@ final class AgentUsage: Sendable {
     static func codex(_ l: CodexLimits) -> UsageGet.Codex {
         UsageGet.Codex(observedAt: l.observedAt.timeIntervalSince1970, primaryUsedPercent: l.primaryUsedPercent,
                        primaryResetsAt: l.primaryResetsAt?.timeIntervalSince1970, secondaryUsedPercent: l.secondaryUsedPercent,
-                       secondaryResetsAt: l.secondaryResetsAt?.timeIntervalSince1970)
+                       secondaryResetsAt: l.secondaryResetsAt?.timeIntervalSince1970,
+                       primaryWindowMinutes: l.primaryWindowMinutes, secondaryWindowMinutes: l.secondaryWindowMinutes)
     }
 
     /// Claude's own percentages from the last 12 hours (they reset; older readings mislead).

@@ -75,6 +75,8 @@ public struct CodexLimits: Sendable, Equatable {
     public var primaryUsedPercent: Double?, primaryResetsAt: Date?
     public var secondaryUsedPercent: Double?, secondaryResetsAt: Date?
     public var observedAt: Date
+    /// How long each window is: 300 on paid plans' first, 10 080 on their second, 43 200 (a month) on the free plan's only one.
+    public var primaryWindowMinutes: Double?, secondaryWindowMinutes: Double?
 }
 
 public enum CodexUsage {
@@ -102,20 +104,21 @@ public enum CodexUsage {
         return limits(rateLimits: p["rate_limits"], at: at)
     }
 
-    /// A rollout's `rate_limits` (`primary: {used_percent, resets_at | resets_in_seconds}`, or the older flat
-    /// `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent, resetsAt}`), read at `at`.
+    /// A rollout's `rate_limits` (`primary: {used_percent, window_minutes, resets_at | resets_in_seconds}`, or the older flat
+    /// `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent, windowDurationMins, resetsAt}`), read at `at`.
     public static func limits(rateLimits: Any?, at: Date) -> CodexLimits? {
         guard let rl = rateLimits as? [String: Any] else { return nil }
-        func window(_ k: String) -> (used: Double, resets: Date?)? {
+        func window(_ k: String) -> (used: Double, resets: Date?, minutes: Double?)? {
             let w = rl[k] as? [String: Any]
                 ?? Dictionary(uniqueKeysWithValues: rl.compactMap { $0.key.hasPrefix(k + "_") ? (String($0.key.dropFirst(k.count + 1)), $0.value) : nil })
             guard let used = ((w["used_percent"] ?? w["usedPercent"]) as? NSNumber)?.doubleValue else { return nil }
             let resets = JSONL.date(w["resets_at"] ?? w["resetsAt"]) ?? (w["resets_in_seconds"] as? NSNumber).map { at + $0.doubleValue }
-            return (used, resets)
+            return (used, resets, ((w["window_minutes"] ?? w["windowDurationMins"]) as? NSNumber)?.doubleValue)
         }
         let primary = window("primary"), secondary = window("secondary")
         guard primary != nil || secondary != nil else { return nil }
         return CodexLimits(primaryUsedPercent: primary?.used, primaryResetsAt: primary?.resets,
-                           secondaryUsedPercent: secondary?.used, secondaryResetsAt: secondary?.resets, observedAt: at)
+                           secondaryUsedPercent: secondary?.used, secondaryResetsAt: secondary?.resets, observedAt: at,
+                           primaryWindowMinutes: primary?.minutes, secondaryWindowMinutes: secondary?.minutes)
     }
 }

@@ -212,13 +212,20 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let l1 = try #require(CodexUsage.latest(in: f1))
     #expect(l1 == CodexLimits(primaryUsedPercent: 12.5, primaryResetsAt: Date(timeIntervalSince1970: 1_792_000_000),
                               secondaryUsedPercent: 40, secondaryResetsAt: Date(timeIntervalSince1970: 1_792_500_000),
-                              observedAt: date("2026-10-17T10:01:00.000Z")))
+                              observedAt: date("2026-10-17T10:01:00.000Z"), primaryWindowMinutes: 300, secondaryWindowMinutes: 10080))
     let l = try #require(CodexUsage.latest(root: root))
     #expect(l.observedAt == date("2026-10-18T09:05:00.000Z") && l.primaryUsedPercent == 50)
     #expect(l.primaryResetsAt == date("2026-10-18T09:15:00.000Z") && l.secondaryUsedPercent == nil)
 
     let flat = CodexUsage.limits(tokens("2026-10-18T09:05:00Z", ["primary_used_percent": 7, "secondary_used_percent": 3]))
     #expect(flat?.primaryUsedPercent == 7 && flat?.secondaryUsedPercent == 3)
+
+    // The free plan's one window is a month; the app server names its length differently.
+    let at = Date(timeIntervalSince1970: 1_792_000_000)
+    let free = CodexUsage.limits(rateLimits: ["primary": ["used_percent": 34, "window_minutes": 43200, "resets_at": 1_795_396_544], "secondary": NSNull()], at: at)
+    #expect(free?.primaryWindowMinutes == 43200 && free?.secondaryUsedPercent == nil)
+    let server = CodexUsage.limits(rateLimits: ["primary": ["usedPercent": 5, "windowDurationMins": 300]], at: at)
+    #expect(server?.primaryWindowMinutes == 300)
 
     // Conversations Codex Desktop imported from Claude Code: newer than the real ones, and without limits.
     for i in 0..<12 {

@@ -23,8 +23,13 @@ struct LimitAlerts {
         if fresh("claude") { add("claude", u.plans?["claude"] ?? u.claudeLimits ?? []) }
         if let x = u.codex.first, now.timeIntervalSince1970 - x.observedAt <= 1800 {
             let at = { (t: Double?) in t.map { Date(timeIntervalSince1970: $0) } }
-            if let p = x.primaryUsedPercent { out.append(("codex", .init(kind: "session", percent: p, resets: nil), at(x.primaryResetsAt))) }
-            if let p = x.secondaryUsedPercent { out.append(("codex", .init(kind: "week", percent: p, resets: nil), at(x.secondaryResetsAt))) }
+            let kind = UsageGet.Codex.kind
+            if let p = x.primaryUsedPercent {
+                out.append(("codex", .init(kind: kind(x.primaryWindowMinutes, true), percent: p, resets: nil), at(x.primaryResetsAt)))
+            }
+            if let p = x.secondaryUsedPercent {
+                out.append(("codex", .init(kind: kind(x.secondaryWindowMinutes, false), percent: p, resets: nil), at(x.secondaryResetsAt)))
+            }
         }
         return out
     }

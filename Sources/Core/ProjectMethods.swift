@@ -161,9 +161,18 @@ public struct UsageGet: InternalMethod {
     /// Codex's own limits from its latest log line (percent used, resets as seconds since 1970).
     public struct Codex: Codable, Sendable, Equatable {
         public var observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?, secondaryResetsAt: Double?
-        public init(observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?, secondaryResetsAt: Double?) {
+        /// Each window's length as Codex says it (nil from an older Codex: then the first is 5 hours, the second a week).
+        public var primaryWindowMinutes: Double?, secondaryWindowMinutes: Double?
+        public init(observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?, secondaryResetsAt: Double?,
+                    primaryWindowMinutes: Double? = nil, secondaryWindowMinutes: Double? = nil) {
             self.observedAt = observedAt; self.primaryUsedPercent = primaryUsedPercent; self.primaryResetsAt = primaryResetsAt
             self.secondaryUsedPercent = secondaryUsedPercent; self.secondaryResetsAt = secondaryResetsAt
+            self.primaryWindowMinutes = primaryWindowMinutes; self.secondaryWindowMinutes = secondaryWindowMinutes
+        }
+        /// The kind of limit a window is, as the other agents name theirs: "session" (5 hours), "week" or "month" (the free plan's one window).
+        public static func kind(minutes: Double?, primary: Bool) -> String {
+            guard let m = minutes else { return primary ? "session" : "week" }
+            return m <= 24 * 60 ? "session" : m <= 8 * 24 * 60 ? "week" : "month"
         }
     }
     /// One limit as an agent shows it: kind ("session", "week", "week · Fable"…), percent used, when it resets.

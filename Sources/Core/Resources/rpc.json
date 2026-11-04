@@ -3429,10 +3429,17 @@
           "primaryUsedPercent" : {
             "type" : "number"
           },
+          "primaryWindowMinutes" : {
+            "description" : "Each window's length as Codex says it (nil from an older Codex: then the first is 5 hours, the second a week).",
+            "type" : "number"
+          },
           "secondaryResetsAt" : {
             "type" : "number"
           },
           "secondaryUsedPercent" : {
+            "type" : "number"
+          },
+          "secondaryWindowMinutes" : {
             "type" : "number"
           }
         },
