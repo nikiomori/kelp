@@ -309,7 +309,8 @@ final class SidebarCell: NSTableCellView {
             let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
             if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
             icon.contentTintColor = .secondaryLabelColor
-            if !title.isEditable { title.stringValue = m.projectName(id) ?? "" }   // not under a rename (a status change re-reads the row)
+            // Not under a rename (a status change re-reads the row). A remote one's server is beside it (`detail`), not in it.
+            if !title.isEditable { title.stringValue = server == nil ? m.projectName(id) ?? "" : r?.name ?? "" }
             // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
             let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(13, weight: busy ? .medium : .regular)
@@ -319,8 +320,10 @@ final class SidebarCell: NSTableCellView {
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable {
-                detail.stringValue = ""
-                detail.isHidden = true
+                // The server it's on, in grey: two servers' projects look alike otherwise.
+                detail.stringValue = server?.host ?? ""
+                detail.font = .ui(11)
+                detail.isHidden = detail.stringValue.isEmpty
             }
             showServer()
             let folded = owner?.isCollapsed(node) == true

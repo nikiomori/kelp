@@ -9,7 +9,7 @@ final class ServerMark: NSView {
     var host: String?
     var color: NSColor = .secondaryLabelColor { didSet { if color != oldValue { needsDisplay = true } } }
     var opened: ((String) -> Void)?
-    static let side: CGFloat = 11
+    static let side: CGFloat = 12
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -28,7 +28,7 @@ final class ServerMark: NSView {
         color.setFill()
         NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1)).fill()
         guard let glyph = NSImage.symbol("server.rack")
-            .withSymbolConfiguration(.init(pointSize: 6, weight: .bold).applying(.init(paletteColors: [ground]))) else { return }
+            .withSymbolConfiguration(.init(pointSize: 7, weight: .semibold).applying(.init(paletteColors: [ground]))) else { return }
         let s = glyph.size
         glyph.draw(in: NSRect(x: bounds.midX - s.width / 2, y: bounds.midY - s.height / 2, width: s.width, height: s.height))
     }

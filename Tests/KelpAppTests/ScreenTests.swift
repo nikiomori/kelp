@@ -111,7 +111,8 @@ extension OneAtATime {
     let here = Repo(id: "r1", name: "infra", path: "/tmp/kelp-screen-infra"), there = Repo(id: "r2", name: "infra", path: folder.path)
     try withSidebar(repos: [here, there], worktrees: [], sessions: []) { vc, o in
         let names = rows(of: o).flatMap { $0 }
-        #expect(names.contains("infra") && names.contains("infra · beet"))   // this Mac's stays bare
+        // Both by their names; the remote one has its machine beside it, in grey, and this Mac's nothing.
+        #expect(names.filter { $0 == "infra" }.count == 2 && names.filter { $0 == "beet" }.count == 1)
         #expect(vc.app.projectPlace(there) == "beet:/srv/infra")
         // The project's row edits the project's own name, not the workspace it stands for.
         vc.startRename("r2", project: true)

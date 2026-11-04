@@ -202,19 +202,13 @@ final class ProjectCard: NSView {
         }
     }
     private var fill: NSColor? {
-        if let c = look.color { return .fillTint(c.color) }
-        return look.plain ? nil : .fillRest
+        let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
+        return look.remote ? Self.stripes(over: base) : base
     }
-
-    /// The remote project's stripes, over the fill.
-    private let hatch = CALayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        hatch.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        hatch.cornerRadius = 9
-        hatch.masksToBounds = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -222,17 +216,20 @@ final class ProjectCard: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = 9
         layer?.backgroundColor = fill?.cgColor
-        if hatch.superlayer == nil { layer?.addSublayer(hatch) }
-        hatch.frame = layer?.bounds ?? bounds
-        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        hatch.backgroundColor = look.remote ? Self.stripes(dark: dark).cgColor : nil
     }
 
-    /// Thin diagonal stripes, a step over the ground: no colour of their own, so a project's colour and the pill keep theirs.
-    private static func stripes(dark: Bool) -> NSColor {
+    /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
+    /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
+    /// height of a row that was still arriving).
+    private static let stripe = NSColor.dynamic(light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
+    private static func stripes(over base: NSColor?) -> NSColor {
         let side: CGFloat = 6
-        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
-            (dark ? NSColor.white.withAlphaComponent(0.07) : NSColor.black.withAlphaComponent(0.06)).setStroke()
+        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+            if let base {
+                base.setFill()
+                r.fill()
+            }
+            stripe.setStroke()
             for dx in [-side, 0, side] {
                 let p = NSBezierPath()
                 p.move(to: NSPoint(x: dx, y: 0))
