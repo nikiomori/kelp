@@ -20,20 +20,24 @@ extension UIRequests {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
         let args = e.args ?? .object([:])
-        if e.action == "open", let t = area.pageForOpen(shared: args["shared"]?.bool == true, args: args) {
+        if e.action == "open", let t = try await area.pageForOpen(shared: args["shared"]?.bool == true, args: args) {
             return try await area.browse(t, "info", args)
         }
-        guard let t = area.browsedPage() else { throw RPCError.invalidParams("No page open in this workspace: kelp browser open <url> first.") }
+        guard let t = area.browsedPage() else { throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.") }
         return try await area.browse(t, e.action, args)
     }
 }
 
 extension EditorArea {
     /// A new page tab for `open`, beside the agent's pane; nil when there's one to navigate already: the page it drove, or
-    /// an agent's own, of the kind asked (`shared`: the user's cookies, which only a plain page has).
-    func pageForOpen(shared: Bool, args: JSONValue) -> TabRef? {
+    /// an agent's own, of the kind asked (`shared`: the user's cookies, which only a plain page has). A shared one acts as
+    /// the user, so the user says so first.
+    func pageForOpen(shared: Bool, args: JSONValue) async throws -> TabRef? {
         if let t = ownPage(), shared == (TabURI.scheme(t.uri) != TabURI.agentScheme) { return nil }
         guard let url = args["url"]?.string, !url.isEmpty else { return nil }
+        if shared, await !Self.allowShared(url) {
+            throw RPCError.invalidParams("The user didn't let you use their logged-in browser: kelp browser open without --shared.")
+        }
         let uri = shared ? url : TabURI.agentPage(url)
         if app.workbench.window?.editors.current === self { showAside(uri, split: .right) } else { open(uri, split: .right, focus: false) }
         guard let t = layout.tab(uri: uri) ?? layout.pageTab(for: uri) else { return nil }
@@ -41,13 +45,22 @@ extension EditorArea {
         return t
     }
 
-    /// The page `kelp browser` drives here: its own, else one on screen, else any.
+    /// The page `kelp browser` drives here: one it opened. The user's own page tabs carry their logins, so an agent never
+    /// takes one of those by itself.
     func browsedPage() -> TabRef? {
-        let pages = layout.allTabs.filter { TabURI.isPage($0.uri) }
-        let shown = Set(layout.groups.values.compactMap(\.selectedTab?.id))
-        let t = ownPage() ?? pages.first { shown.contains($0.id) } ?? pages.first
+        let t = ownPage()
         browsing = t?.id
         return t
+    }
+
+    /// Asked before `open --shared`: the page gets the user's cookies, and what the agent does there it does as them.
+    private static func allowShared(_ url: String) async -> Bool {
+        let a = NSAlert()
+        a.messageText = String(localized: "Let an agent use your logged-in browser?")
+        a.informativeText = String(localized: "It opens \(url) with your cookies and can act as you on that site.")
+        a.addButton(withTitle: String(localized: "Allow"))
+        a.addButton(withTitle: String(localized: "Don't Allow"))
+        return await runSheet(a) == .alertFirstButtonReturn
     }
 
     /// The action, by the tab's provider, on the tab, built if it wasn't yet.
@@ -58,7 +71,7 @@ extension EditorArea {
         return try await browse(tab, action, args)
     }
 
-    /// The page it drove last, else an agent's own.
+    /// The page it drove last (one it opened: `browsing` is set only by `open` and by this), else an agent's own.
     private func ownPage() -> TabRef? {
         layout.allTabs.first { $0.id == browsing && TabURI.isPage($0.uri) } ?? layout.allTabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
     }

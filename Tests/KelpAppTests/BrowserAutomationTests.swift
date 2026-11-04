@@ -112,3 +112,13 @@ import WorkbenchKit
     _ = try await tab.browse("reload", .object([:]))
     #expect(try await tab.browse("eval", .object(["js": .string("window.kept ?? 0")])) == .int(0))
 }
+
+/// The user's own page tabs carry their logins: `kelp browser` drives only a page an agent opened, never one of those.
+@MainActor @Test func anAgentDrivesOnlyItsOwnPage() async throws {
+    let rig = try await AppRig(files: [:]); defer { rig.done() }
+    let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
+    _ = area.layout.add("https://example.com/", to: nil)   // as the tab's own (no provider here: `open` would hand it to Safari)
+    #expect(area.browsedPage() == nil)
+    _ = area.layout.add(TabURI.agentPage("about:blank"), to: nil)
+    #expect(area.browsedPage()?.uri == TabURI.agentPage("about:blank"))
+}
