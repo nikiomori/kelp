@@ -80,6 +80,11 @@ final class LiveSession: Sendable {
         return kittyKey(s).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
     }
 
+    /// Keys that move a menu's cursor without picking: arrows, Tab, ⇧Tab.
+    static func movesInMenu(_ d: Data) -> Bool {
+        String(decoding: d, as: UTF8.self).wholeMatch(of: /(?:\x1B(?:\[[0-9;]*|O)[A-DZ]|\t)+/) != nil
+    }
+
     /// The one key some agents take for an answer (Codex's y, a, n).
     static func saysYesOrNo(_ d: Data) -> Bool { d.count == 1 && "yanYAN".utf8.contains(d[0]) }
 
@@ -351,7 +356,9 @@ final class LiveSession: Sendable {
             let answering = s.trustQuestionOpen() || s.menuOpen() || (s.record.status == .waiting && d.count == 1 && (0x31...0x39).contains(d[0]))
             s.typedYet = true
             s.lastInputAt = Date()
-            s.dialogSettled = true
+            // Moving through "trust this folder?" doesn't answer it: a launch prompt typed then would land its Enter on
+            // whichever option the cursor reached ("No, exit"), and its text would be lost.
+            if !(s.trustQuestionOpen() && Self.movesInMenu(d)) { s.dialogSettled = true }
             s.draftWaiting = false
             s.detector.input(typing: !d.contains(0x0D))   // keys without Return: the prompt is still being written
             var read: Session?
