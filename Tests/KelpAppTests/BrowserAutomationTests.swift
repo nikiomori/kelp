@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 import Foundation
 import Testing
 import Core
@@ -121,4 +122,27 @@ import WorkbenchKit
     #expect(area.browsedPage() == nil)
     _ = area.layout.add(TabURI.agentPage("about:blank"), to: nil)
     #expect(area.browsedPage()?.uri == TabURI.agentPage("about:blank"))
+}
+
+/// An extension's page runs its own scripts, and markup it shows from elsewhere (an issue's title through innerHTML) runs
+/// none: `kelp.exec` is one call away from it.
+@MainActor @Test(.timeLimit(.minutes(1))) func anExtensionPageRunsNoScriptFromMarkupItShows() async throws {
+    let folder = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ext-\(UUID().uuidString.prefix(6))")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try "window.fromFile = 1;".write(to: folder.appendingPathComponent("app.js"), atomically: true, encoding: .utf8)
+    try """
+        <div id="d"></div><script src="app.js"></script><script>
+        window.own = 1;
+        document.getElementById('d').innerHTML = '<img src="nothing.png" onerror="window.pwned = 1">';
+        </script>
+        """.write(to: folder.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+    let page = ExtWebController(page: folder.appendingPathComponent("index.html"), folder: folder, app: AppModel())
+    _ = page.view
+    let web = try #require(page.web)
+    for _ in 0..<100 where try await web.evaluateJavaScript("window.own === 1") as? Bool != true { try await Task.sleep(for: .milliseconds(50)) }
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(try await web.evaluateJavaScript("window.own === 1 && window.fromFile === 1 && !!window.kelp") as? Bool == true)
+    #expect(try await web.evaluateJavaScript("window.pwned === undefined") as? Bool == true)
+    #expect(ExtWebController.isOwn(try #require(web.url), folder))
 }

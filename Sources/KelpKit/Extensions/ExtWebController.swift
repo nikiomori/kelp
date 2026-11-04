@@ -13,7 +13,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     private let page: URL, folder: URL, app: AppModel
     /// The panel icon's badge `kelp.badge` sets (nil in a tab).
     private let badge: ExtBadge?
-    private var web: WKWebView!
+    private(set) var web: WKWebView!
     init(page: URL, folder: URL, app: AppModel, badge: ExtBadge? = nil) {
         self.page = page
         self.folder = folder
@@ -25,14 +25,15 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 
     override func loadView() {
         let app = self.app
-        let cfg = WKWebViewConfiguration()
+        let cfg = WKWebViewConfiguration(), pages = ExtPages(folder: folder)
+        cfg.setURLSchemeHandler(pages, forURLScheme: ExtPages.scheme)
         cfg.userContentController.add(WeakHandler(self), name: "kelp")
         cfg.userContentController.addUserScript(WKUserScript(source: Self.bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: .zero, configuration: cfg); web.isInspectable = true
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         view = web
-        web.loadFileURL(page, allowingReadAccessTo: folder)
+        if let u = pages.url(of: page) { web.load(URLRequest(url: u)) }
         track(owner: self) { app.workbench.workspaceId } changed: { [weak self] _ in self?.push() }
         track(owner: self) { app.settings.values } changed: { [weak self] _ in self?.push() }
     }
@@ -46,9 +47,11 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         if a.navigationType == .linkActivated { PreviewLinks.open(u, in: app) }
     }
 
-    /// A page in the extension's folder; nothing else is (a site, `about:blank`, a file elsewhere).
+    /// A page in the extension's folder (served from it: `ExtPages`, which serves this web view's folder only); nothing else
+    /// is (a site, `about:blank`, a file elsewhere).
     static func isOwn(_ u: URL, _ folder: URL) -> Bool {
-        u.isFileURL && u.resolvingSymlinksInPath().path.hasPrefix(folder.resolvingSymlinksInPath().path + "/")
+        if u.scheme == ExtPages.scheme { return ExtPages(folder: folder).file(u) != nil }
+        return u.isFileURL && u.resolvingSymlinksInPath().path.hasPrefix(folder.resolvingSymlinksInPath().path + "/")
     }
 
     private func push() {

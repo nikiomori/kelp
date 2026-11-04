@@ -99,6 +99,9 @@ kelp.workspace                            // {name, path, branch, project}
 kelp.on("settings", s => …); kelp.on("workspace", w => …)
 kelp.badge(2)                             // the panel icon's badge (see badge above)
 ```
+A page may show other people's text, and `kelp.exec` runs commands, so markup never runs script: inline event attributes
+(`onclick="…"`, `onerror="…"`) are off. Attach listeners in a script (`el.addEventListener("click", …)`); `<script>` tags,
+the folder's files and scripts from a site work as usual.
 
 ## Actions (list rows, toolbars, commands)
 Exactly one of:

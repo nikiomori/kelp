@@ -396,6 +396,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/Registry.swift": (7, "extensions' folders, Kelp's own"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (4, "an extension's manifest"),
         "KelpKit/Extensions/ExtensionReview.swift": (1, "an extension's manifest, before it's installed"),
+        "KelpKit/Extensions/ExtPages.swift": (1, "an extension's own page, served to its web view"),
         "KelpKit/Extensions/AgentSkills.swift": (4, "the skills Kelp gives agents, in Kelp's home"),
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
         "KelpKit/Shell/WorkbenchActions.swift": (3, "a dropped or linked path: a file, a folder, or nothing"),
