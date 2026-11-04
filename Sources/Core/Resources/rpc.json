@@ -200,6 +200,29 @@
         ],
         "type" : "object"
       },
+      "BrowserSkill" : {
+        "properties" : {
+          "choice" : {
+            "type" : "string"
+          },
+          "hint" : {
+            "type" : "boolean"
+          },
+          "on" : {
+            "description" : "`why`: \"Vite in package.json\", \"no web app found\"… `choice`: the project's own, nil when it follows Settings. `hint`: off, but the agent is told where the guide is (not when Settings says Never).",
+            "type" : "boolean"
+          },
+          "why" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "hint",
+          "on",
+          "why"
+        ],
+        "type" : "object"
+      },
       "CIEvent" : {
         "properties" : {
           "error" : {
@@ -2593,6 +2616,10 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "browser" : {
+            "description" : "Whether Claude Code got Kelp's browser skill, and why (\"on · Vite in package.json\"); nil for agents without skills.",
+            "type" : "string"
           },
           "command" : {
             "type" : "string"
@@ -8872,6 +8899,27 @@
 
           },
           "type" : "object"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Whether a new Claude Code chat in this workspace gets Kelp's browser skill, and why: `agents.skills.browser` (auto / on / off), laid under the project's own choice (UI state `browser.choice.<repo>`: \"on\" / \"off\").",
+      "name" : "skills.browser",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/BrowserSkill"
         }
       },
       "x-internal" : true

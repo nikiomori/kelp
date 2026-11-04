@@ -303,6 +303,8 @@ struct SettingRow: View {
             return ["agents": String(localized: "Show Agents"), "usage": String(localized: "Show Plan Usage"),
                     "icon": String(localized: "Show Application Icon")][v] ?? v
         case "terminal.opacity": return v == "theme" ? String(localized: "From Theme") : "\(v)%"
+        case "agents.skills.browser":
+            return ["auto": String(localized: "In Web Projects"), "on": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         case "power.keepAwake":
             return ["agents": String(localized: "While Agents Work"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         // Each language in its own words, so it can be found whichever language Kelp is in.

@@ -242,6 +242,9 @@ struct CardView: View {
                     }
                     if let g = a.session.goal { Text("Goal: \(g)").font(.caption).foregroundStyle(.secondary).lineLimit(3) }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                    if model.agentOnly, let b = a.session.browser {
+                        Text("Browser \(BrowserSkillWords.line(b))").font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                    }
                 }
                 AgentWork(model: model, id: a.id)
             }

@@ -387,7 +387,7 @@ extension TaskFromIssue: AsyncHandled {
 extension Methods {
     static let launchMethods: [any Handled.Type] = [SessionCreate.self, TmuxList.self, SessionRestart.self, SessionHandoff.self, HistoryResume.self,
         SessionHook.self, SessionAnnotate.self, RecipeRender.self, Ping.self, DaemonShutdown.self, DaemonUpgrade.self, ProcessRun.self, ProcessWhich.self,
-        ProcessRefreshPath.self]
+        ProcessRefreshPath.self, SkillsBrowser.self]
 }
 
 extension ProcessRefreshPath: Handled {

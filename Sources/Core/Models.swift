@@ -152,6 +152,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// The agent a command belongs to (`kelp session new --cmd` inside it): the line under that agent's terminal shows it,
     /// instead of a tab and a sidebar row of its own. Unlike a child, it goes on when the agent ends, and gets a tab then.
     public var startedBy: String?
+    /// Whether Claude Code got Kelp's browser skill, and why ("on · Vite in package.json"); nil for agents without skills.
+    public var browser: String?
     /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
     public var subagents: [String: String]? { didSet { followSubagents() } }
     /// What each of them does, by the same id, when the agent says (OSC 7501's `title`).

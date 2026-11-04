@@ -9,19 +9,6 @@ import AgentData
 /// conversation, titles, and the agent manifests.
 extension Sessions {
 
-    /// One sentence naming the skills that are turned on (their folders exist).
-    static func kelpContext(_ dir: URL) -> String? {
-        let on = ["kelp-extensions", "kelp-settings"].filter { FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path) }
-        guard !on.isEmpty else { return nil }
-        return "This Claude Code session runs inside Kelp, a macOS IDE; the user sees Kelp's window, not Claude Code's UI. Any request to add "
-            + "or change a panel, tab, list, command, setting or theme means Kelp: follow the \(on.joined(separator: " / ")) skill. "
-            + "Never create Claude Code mods, plugins, hooks or MCP servers for such requests — Kelp doesn't load them."
-    }
-
-    static func hasPlugins(_ dir: URL) -> Bool {
-        ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []).contains(where: \.hasDirectoryPath)
-    }
-
     /// One place for a session's environment, used to start it and to wake it: the account profile it was started with
     /// comes back with it (it used to be dropped on wake and restart, so the session returned on the default login).
     func launchEnv(_ m: AgentManifest, _ rec: Session) -> [String: String] {

@@ -72,6 +72,23 @@ public struct RunStart: RPCMethod {
     public init(worktreeId: String, id: String) { self.worktreeId = worktreeId; self.id = id }
 }
 
+/// Whether a new Claude Code chat in this workspace gets Kelp's browser skill, and why: `agents.skills.browser`
+/// (auto / on / off), laid under the project's own choice (UI state `browser.choice.<repo>`: "on" / "off").
+public struct SkillsBrowser: InternalMethod {
+    public static let name = "skills.browser"; public typealias Result = BrowserSkill; public var worktreeId: String
+    public init(worktreeId: String) { self.worktreeId = worktreeId }
+}
+public struct BrowserSkill: Codable, Sendable, Equatable {
+    /// `why`: "Vite in package.json", "no web app found"… `choice`: the project's own, nil when it follows Settings.
+    /// `hint`: off, but the agent is told where the guide is (not when Settings says Never).
+    public var on: Bool, why: String, choice: String?, hint: Bool
+    public init(on: Bool, why: String, choice: String? = nil, hint: Bool = false) { self.on = on; self.why = why; self.choice = choice; self.hint = hint }
+    /// The hover card's line.
+    public var line: String { (on ? "on · " : "off · ") + why }
+    /// The project's choice in UI state.
+    public static func choiceKey(_ repo: String) -> String { "browser.choice.\(repo)" }
+}
+
 /// A project on `host` at `path` (its local folder stands for the one there); `init` makes a plain folder a repository.
 public struct RepoAddRemote: RPCMethod {
     public static let name = "repo.addRemote"; public typealias Result = Repo; public var host: String, path: String, `init`: Bool?

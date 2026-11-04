@@ -148,13 +148,13 @@ final class Sessions: Sendable {
             try Hooks.writeSettings(to: f)
             argv += [flag, f.path]
         }
-        // Kelp's skills (written by the app into this home, only the ones turned on), for this session only: nothing goes
-        // into ~/.claude.
-        let agentSkills = root.appendingPathComponent("agent-skills")
-        if local, o.argv == nil, let flag = manifest.pluginDirFlag, Self.hasPlugins(agentSkills) {
-            argv += [flag, agentSkills.path]
-            // Without a word of context, "add a panel" reads as a request for the agent's own UI.
-            if let ctx = manifest.contextFlag, let text = Self.kelpContext(agentSkills) { argv += [ctx, text] }
+        // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
+        // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
+        if local, let flag = manifest.pluginDirFlag, o.argv == nil || Self.hasSkills(argv, root: root) {
+            argv = Self.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
+            let skills = skillArgs(flag: flag, contextFlag: manifest.contextFlag, worktreeId: worktreeId, cwd: cwd)
+            argv += skills.argv
+            rec.browser = skills.browser
         }
         // Its own id, unless it resumes one (a restart's argv carries none: see session.restart).
         if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) { argv += [flag, rec.id.lowercased()] }

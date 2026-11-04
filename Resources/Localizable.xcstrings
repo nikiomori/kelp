@@ -1,6 +1,146 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "set for this project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "задано для этого проекта"
+          }
+        }
+      }
+    },
+    "Always, in Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Всегда» в настройках"
+          }
+        }
+      }
+    },
+    "Never, in Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Никогда» в настройках"
+          }
+        }
+      }
+    },
+    "an agent used it here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агент уже открывал здесь страницы"
+          }
+        }
+      }
+    },
+    "a local page is open here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "здесь открыта локальная страница"
+          }
+        }
+      }
+    },
+    "no web app found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "веб-приложение не найдено"
+          }
+        }
+      }
+    },
+    "on": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вкл."
+          }
+        }
+      }
+    },
+    "off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "выкл."
+          }
+        }
+      }
+    },
+    "In Web Projects": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В веб-проектах"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически"
+          }
+        }
+      }
+    },
+    "Browser for Agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Браузер для агентов"
+          }
+        }
+      }
+    },
+    "For new chats in this project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для новых чатов в этом проекте"
+          }
+        }
+      }
+    },
+    "New chats: browser %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые чаты: браузер %@"
+          }
+        }
+      }
+    },
+    "Browser %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Браузер %@"
+          }
+        }
+      }
+    },
     "New Chat Without Project": {
       "localizations": {
         "ru": {

@@ -26,7 +26,8 @@ enum AgentSkills {
             description: "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
                 + "another model, a long job while you go on. Start it with kelp session new --agent; its result comes back to you by itself.",
             body: agentsGuide)
-        put("kelp-browser", on: s.bool("agents.skills.browser") != false,
+        // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
+        put("kelp-browser", on: true,
             description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
                 + "text — in Kelp, the IDE this session runs in: open it in a tab beside you that the user watches, read it, click, "
                 + "type, run JavaScript, take a screenshot, read its console and requests. Done with kelp browser, not a headless browser.",
