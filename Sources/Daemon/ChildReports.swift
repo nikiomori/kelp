@@ -11,6 +11,27 @@ final class ChildReports: Sendable {
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// A status from before this daemon was told before it, or will be found by asking.
     private let started = Date()
+    /// Where reports are made, one after another: a child's "needs you" can't reach its parent after the result that came
+    /// next. Not the caller's queue, which is the session's own: these read the disk and take other sessions' locks.
+    private let queue = DispatchQueue(label: "dev.kelp.child-reports", qos: .utility)
+    /// Reports being made: a hand-over waits for them, as they're marked told already and the next kelpd wouldn't make them.
+    private let making = DispatchGroup()
+
+    func make(_ work: @escaping @Sendable () -> Void) {
+        making.enter()
+        queue.async { [making] in work(); making.leave() }
+    }
+
+    /// Before a hand-over: the reports on their way are kept (typed or owed) first, for up to `seconds`.
+    func settle(within seconds: Double) { _ = making.wait(timeout: .now() + seconds) }
+
+    /// An ended child's replies, kept only to tell its next one from the last (its status stays: an exit is said once).
+    func ended(_ id: String) { state.withLock { $0.replies[id] = nil; $0.said[id] = nil } }
+    /// A deleted one's everything.
+    func forget(_ id: String) {
+        state.withLock { $0.told[id] = nil; $0.replies[id] = nil }
+        ended(id)
+    }
 
     func restarting(_ id: String, _ on: Bool) { state.withLock { if on { $0.restarting.insert(id) } else { $0.restarting.remove(id) } } }
     func isRestarting(_ id: String) -> Bool { state.withLock { $0.restarting.contains(id) } }
@@ -81,11 +102,17 @@ extension Sessions {
         guard !reports.isRestarting(s.id) else { return }
         let news = s.parent != nil && settings["agents.childReports"]?.bool != false && reports.isNews(s)
         guard news || s.status == .exited else { return }
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        reports.make { [weak self] in
             guard let self else { return }
-            if news, let parent = s.parent, let body = reportBody(s) { tell(parent, ChildReports.text(s, body: body)) }
-            if s.status == .exited { endChildren(of: s.id) }
+            if news, let parent = s.parent, !askedEarlier(s), let body = reportBody(s) { tell(parent, ChildReports.text(s, body: body)) }
+            if s.status == .exited { endChildren(of: s.id); reports.ended(s.id) }
         }
+    }
+
+    /// A question it has moved on from: what came next reports itself, and a "needs you" after it would be read as news.
+    private func askedEarlier(_ s: Session) -> Bool {
+        guard s.status == .waiting, let now = existing(s.id)?.snapshot else { return false }
+        return (now.statusAt ?? .distantPast) > (s.statusAt ?? .distantPast) && now.status != .waiting
     }
 
     /// A report for `parent`. One that's paused, or between two kelpds, gets it when it runs again: it's been marked as told,
@@ -133,8 +160,9 @@ extension Sessions {
     /// Deleted, not ended (their workspace closed): no exit gets saved for them, so what one does happens here.
     func familyLeft(_ all: [Session]) {
         let ids = Set(all.map(\.id)), left = all.filter { $0.status != .exited && !reports.isRestarting($0.id) }
+        for id in ids { reports.forget(id) }
         guard !left.isEmpty else { return }
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        reports.make { [weak self] in
             guard let self else { return }
             for var s in left {
                 endChildren(of: s.id)

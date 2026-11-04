@@ -3,6 +3,7 @@ import Testing
 import Core
 import Agents
 import GRDB
+import os
 @testable import Daemon
 
 private let fake = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"])
@@ -258,4 +259,14 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     _ = try await f.w.c.call(SessionKill(id: f.parent.id))
     #expect(try await waitFor(10) { [.exited, nil].contains(try await f.status(f.parent.id)) })
     #expect(try await f.status(run.id) != .exited)
+}
+
+/// Reports are made one after another, so a child's "needs you" can't reach its parent behind the result that came next,
+/// and a hand-over waits for the ones on their way: they're marked told, and the next kelpd wouldn't make them again.
+@Test func childReportsGoInOrderAndAHandOverWaitsForThem() {
+    let r = ChildReports(), order = OSAllocatedUnfairLock(initialState: [Int]())
+    r.make { Thread.sleep(forTimeInterval: 0.3); order.withLock { $0.append(1) } }
+    r.make { order.withLock { $0.append(2) } }
+    r.settle(within: 5)
+    #expect(order.withLock { $0 } == [1, 2])
 }

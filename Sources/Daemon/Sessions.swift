@@ -302,6 +302,7 @@ final class Sessions: Sendable {
     func handOver() -> [Handover.Session] {
         sleepAssertion.withLock { if $0.id != 0 { IOPMAssertionRelease($0.id); $0 = (0, nil) } }   // the next one takes its own
         let all = live.close()
+        reports.settle(within: 5)   // a child's report on its way: typed into its parent below, or owed
         // What was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text): the program has
         // it before the next kelpd takes over, which couldn't send it.
         DispatchQueue.concurrentPerform(iterations: all.count) { all[$0].drainInput(within: 2) }
