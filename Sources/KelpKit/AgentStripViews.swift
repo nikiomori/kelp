@@ -336,24 +336,23 @@ final class StripCard {
     }
 }
 
-/// What a tile says under the pointer: its workspace, what its first agent says and how the others are, over the strip (under it
-/// at the top of a screen). It takes no clicks: the pointer goes through to the strip.
+/// What a tile says under the pointer: its workspace and how each of its agents is, over the strip (under it at the top of a
+/// screen). It takes no clicks: the pointer goes through to the strip.
 @MainActor
 final class StripTip {
     /// Agents listed by name; past them, how many more.
     static let listed = 5
-    private let name = NSTextField(labelWithString: ""), words = NSTextField(labelWithString: ""), others = NSTextField(labelWithString: "")
+    private let name = NSTextField(labelWithString: ""), agents = NSTextField(labelWithString: "")
     private lazy var panel: StripPanel = {
         name.font = .ui(12, weight: .medium)
-        words.font = .ui(11)
-        others.font = .ui(11)
-        for f in [words, others] { f.textColor = .secondaryLabelColor }
-        for f in [name, words, others] {
+        agents.font = .ui(11)
+        agents.textColor = .secondaryLabelColor
+        for f in [name, agents] {
             f.lineBreakMode = .byTruncatingTail
-            f.maximumNumberOfLines = f === others ? Self.listed + 1 : 1
+            f.maximumNumberOfLines = f === agents ? Self.listed + 1 : 1
             f.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
         }
-        let stack = NSStackView(views: [name, words, others])
+        let stack = NSStackView(views: [name, agents])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 2
@@ -367,9 +366,7 @@ final class StripTip {
 
     func show(_ item: StripItem, over tile: NSRect, below: Bool) {
         name.stringValue = item.name
-        words.stringValue = StripModel.brief(item.words ?? "")
-        others.stringValue = Self.lines(item.others)
-        others.isHidden = item.others.isEmpty
+        agents.stringValue = Self.lines(item.agents)
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = content?.fittingSize ?? .zero
@@ -384,8 +381,8 @@ final class StripTip {
 
     func hide() { panel.orderOut(nil) }
 
-    static func lines(_ others: [String]) -> String {
-        let more = others.count - listed
-        return (others.prefix(listed) + (more > 0 ? [String(localized: "and \(more) more")] : [])).joined(separator: "\n")
+    static func lines(_ agents: [String]) -> String {
+        let more = agents.count - listed
+        return (agents.prefix(listed) + (more > 0 ? [String(localized: "and \(more) more")] : [])).joined(separator: "\n")
     }
 }

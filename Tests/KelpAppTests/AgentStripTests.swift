@@ -30,7 +30,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     let item = StripModel.items([new, old], workspaces: places).first
     #expect(item?.words == "Old")
     #expect(item?.session == old.id)
-    #expect(item?.others == ["Docs — Needs your input"])
+    #expect(item?.agents == ["Login — Old", "Docs — Needs your input"])
 }
 
 /// One agent finished while another (or one it started) still works: the project isn't done yet, and the tip says who is.
@@ -41,7 +41,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     let item = StripModel.items([done, busy], workspaces: places).first
     #expect(item?.cell == .working)
     #expect(item?.words == "Dev release")
-    #expect(item?.others == ["Notes — Done"])
+    #expect(item?.agents == ["Dev release — Working", "Notes — Done"])
     #expect(StripModel.items([done], workspaces: places).first?.cell == .done)
     #expect(StripTip.lines((1...7).map { "\($0)" }) == "1\n2\n3\n4\n5\nand 2 more")
 }

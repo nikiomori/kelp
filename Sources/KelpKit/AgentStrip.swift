@@ -8,8 +8,8 @@ struct StripItem: Equatable {
     var repo: String?
     var cell: DockFace.Cell
     var session: String
-    /// Its other agents, each "title — state", in the same order: what the tile's one mark leaves out.
-    var others: [String] = []
+    /// Each of its agents, "title — state", the one above first with its words: what the tile's one mark leaves out.
+    var agents: [String] = []
     /// What it says: what the agent asks, what failed or what it did, or the chat's title while it works.
     var words: String?
     var since: Date
@@ -72,7 +72,6 @@ enum StripModel {
             func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) { (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt) }
             let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }.sorted { rank($0) < rank($1) }
             guard let (lead, worst) = own.first else { return nil }
-            let others = own.dropFirst().map { "\($0.0.displayTitle) — \(status($0.1).words)" }
             let says = lead.summary.isEmpty ? nil : lead.summary
             let words = switch worst {
             case .asks: says ?? String(localized: "Needs your input")
@@ -80,7 +79,9 @@ enum StripModel {
             case .done: says.map { String(localized: "Done: \($0)") } ?? String(localized: "Done")
             case .working: lead.title.isEmpty ? String(localized: "Working") : lead.title
             }
-            return StripItem(workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, others: others, words: words,
+            let said = words == lead.displayTitle ? status(worst).words : brief(words)
+            let agents = ["\(lead.displayTitle) — \(said)"] + own.dropFirst().map { "\($0.0.displayTitle) — \(status($0.1).words)" }
+            return StripItem(workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, agents: agents, words: words,
                              since: lead.statusAt ?? lead.createdAt)
         }
     }
@@ -275,7 +276,7 @@ final class AgentStrip {
     private func hover(_ item: StripItem, on: Bool, over b: NSView, open: Bool) {
         tipTimer?.invalidate()
         // The open pill says its own; it has a tip only for the agents its words leave out.
-        guard on, !open || !item.others.isEmpty else {
+        guard on, !open || item.agents.count > 1 else {
             tipTimer = Timer.scheduledTimer(withTimeInterval: Motion.hoverClose, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tip?.hide() }   // the main run loop's timer
             }
