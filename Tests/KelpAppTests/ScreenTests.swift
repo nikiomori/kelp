@@ -397,8 +397,10 @@ extension OneAtATime {
 
 @Test func theSidebarActuallyDrawsItsRows() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Allow rm?")
-    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login")], sessions: [agent]) { vc, _ in
+    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login")], sessions: [agent]) { vc, o in
         let v = vc.view
+        // A window on screen makes its table's rows as it draws; this one is never shown, and cacheDisplay doesn't.
+        for r in 0..<o.numberOfRows { _ = o.rowView(atRow: r, makeIfNecessary: true) }
         let rep = try #require(v.bitmapImageRepForCachingDisplay(in: v.bounds))
         v.cacheDisplay(in: v.bounds, to: rep)
         var colors = Set<UInt32>()
@@ -408,7 +410,8 @@ extension OneAtATime {
                 colors.insert(UInt32(c.redComponent * 255) << 16 | UInt32(c.greenComponent * 255) << 8 | UInt32(c.blueComponent * 255))
             }
         }
-        #expect(colors.count > 5, "the sidebar rendered as a flat fill: \(colors.count) distinct colors")   // text, icons and the status mark are not one color
+        // Text, icons and the status mark: the card's rounded corners alone make about 8 colors, its rows over 150.
+        #expect(colors.count > 40, "the sidebar's rows weren't drawn: \(colors.count) distinct colors")
     }
 }
 
