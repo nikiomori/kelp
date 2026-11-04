@@ -41,22 +41,39 @@ extension FileTab {
         statusBar?.show(errors: errors, warnings: found.count - errors)
     }
 
+    func sendUnsent() {
+        guard let t = lspUnsent else { return }
+        lspUnsent = nil
+        app.lsp.change(app, root: root, path: path, text: t)
+    }
+
+    /// Before asking the server about a place in the file: what's typed and not sent yet goes first, so the question is
+    /// about the text it has (`foo.` asks for foo's members, not for a column it hasn't got).
+    func lspCaughtUp() async {
+        lspTask?.cancel()
+        sendUnsent()
+        await app.lsp.sent()
+    }
+
     /// What the language server answers, once it has the file.
     func connectServer(to e: CodeEditor, root r: String, path p: String) {
         let app = app
-        e.completionProvider = { line, col in
-            await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
+        e.completionProvider = { [weak self] line, col in
+            await self?.lspCaughtUp()
+            return await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
                 CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind, documentation: $0.documentation,
                                       snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
             }
         }
-        e.hoverProvider = { line, col in
+        e.hoverProvider = { [weak self] line, col in
             guard app.settings.bool("editor.hover") != false else { return nil }
+            await self?.lspCaughtUp()
             return await app.quiet(LSPHover(root: r, path: p, line: line, column: col)) ?? nil
         }
-        e.signatureProvider = { line, col in
-            guard app.settings.bool("editor.hover") != false,
-                  let found = await app.quiet(LSPSignature(root: r, path: p, line: line, column: col)) ?? nil else { return nil }
+        e.signatureProvider = { [weak self] line, col in
+            guard app.settings.bool("editor.hover") != false else { return nil }
+            await self?.lspCaughtUp()
+            guard let found = await app.quiet(LSPSignature(root: r, path: p, line: line, column: col)) ?? nil else { return nil }
             let active = found.activeStart.flatMap { a in found.activeEnd.map { NSRange(location: a, length: $0 - a) } }
             return (found.label, active)
         }

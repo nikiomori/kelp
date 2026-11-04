@@ -16,6 +16,7 @@ struct ServerActions {
         guard let p = place else { return }
         let app = app, m = LSPReferences(root: root, path: p.path, line: p.line, column: p.column)
         Task {
+            await tab.lspCaughtUp()
             let found = await app.call(m) ?? []
             guard !found.isEmpty else { return Banner.show(String(localized: "No references found.")) }
             app.workbench.showPanel("files")
@@ -29,6 +30,7 @@ struct ServerActions {
         Task { @MainActor in
             guard let name = await prompt(String(localized: "Rename Symbol"), String(localized: "Every use changes, in every file."), initial: word),
                   !name.isEmpty, name != word else { return }
+            await tab.lspCaughtUp()
             guard let files = await app.call(LSPRename(root: root, path: p.path, line: p.line, column: p.column, name: name)) else { return }
             guard !files.isEmpty else { return Banner.show(String(localized: "The language server can't rename this.")) }
             if files.count > 1 {
@@ -43,6 +45,7 @@ struct ServerActions {
         guard let e = tab.editor, let p = place else { return }
         let problem = e.problemAtCursor, app = app, path = tab.path, m = LSPActions(root: root, path: p.path, line: p.line, column: p.column), tab = tab
         Task { @MainActor in
+            await tab.lspCaughtUp()
             let actions = await app.call(m) ?? [], menu = NSMenu()
             for a in actions {
                 menu.add(a.title) {

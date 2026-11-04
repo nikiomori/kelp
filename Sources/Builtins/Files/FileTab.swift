@@ -30,7 +30,9 @@ final class FileTab: SavableTab {
     private var comparing: Task<Void, Never>?
     private var autosave: Bool { app.settings.bool("editor.autoSave") == true }
     private let autosaving = Debounce()
-    private var lspTask: Task<Void, Never>?
+    var lspTask: Task<Void, Never>?
+    /// Typed and not sent to the language server yet (changes go a moment after the last key).
+    var lspUnsent: String?
     /// The connection (`AppModel.connections`) its language server was given this file on; nil when it has none. A new
     /// daemon knows nothing of it: the file is given again.
     private var lspOpenedOn: Int?
@@ -217,11 +219,11 @@ final class FileTab: SavableTab {
         markdown?.textChanged()
         guard lspOpenedOn != nil else { return }   // no language server for it (or for a file on another machine)
         lspTask?.cancel()
-        let p = path, r = root, app = app
-        lspTask = Task {
+        lspUnsent = t
+        lspTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            app.lsp.change(app, root: r, path: p, text: t)
+            self?.sendUnsent()
         }
     }
 
@@ -427,6 +429,7 @@ final class FileTab: SavableTab {
         guard let e = editor, let (l, c) = e.cursor else { return }
         let p = path, r = root, app = app
         Task {
+            await lspCaughtUp()
             guard let loc = await app.lsp.definition(app, root: r, path: p, line: l, column: c) else { NSSound.beep(); return }
             app.workbench.open(TabURI.file(loc.path, line: loc.line))
         }
@@ -444,6 +447,7 @@ final class FileTab: SavableTab {
         let (line, column) = editor?.cursor ?? (1, 1)
         var symbol = ""
         if template.contains("${symbol}") {
+            await lspCaughtUp()
             symbol = await app.lsp.symbol(app, root: root, path: path, line: line) ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
         }
         let relative = path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path

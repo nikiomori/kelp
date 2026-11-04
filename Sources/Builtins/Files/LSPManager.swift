@@ -90,7 +90,7 @@ final class LSPManager {
     private let outbox = DispatchQueue(label: "dev.kelp.lsp-changes")
     private let changes = OSAllocatedUnfairLock<[String: LSPChange]>(initialState: [:])
     /// Once what's queued is on its way.
-    private func sent() async { await withCheckedContinuation { c in outbox.async { c.resume() } } }
+    func sent() async { await withCheckedContinuation { c in outbox.async { c.resume() } } }
 
     /// Completions at a 1-based position; none when the server can't say (quietly: they're offered while typing).
     func completion(_ app: AppModel, root: String, path: String, line: Int, column: Int) async -> [CodeCompletion] {
