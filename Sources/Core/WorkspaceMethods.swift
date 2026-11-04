@@ -13,7 +13,7 @@ public struct RepoAdd: RPCMethod {
 }
 /// All projects.
 public struct RepoList: RPCMethod { public static let name = "repo.list"; public typealias Result = [Repo]; public init() {} }
-/// The scratch project's workspace, made (with a git repo of its own) the first time.
+/// The workspace of the chats outside any project (No Project), a plain folder made the first time; each agent started on it works in a folder of its own inside.
 public struct ScratchEnsure: InternalMethod { public static let name = "scratch.ensure"; public typealias Result = Worktree; public init() {} }
 /// The project's folder moved: the project and its desks point at `path`.
 public struct RepoRelocate: RPCMethod {

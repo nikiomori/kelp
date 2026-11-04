@@ -7576,7 +7576,7 @@
       }
     },
     {
-      "description" : "The scratch project's workspace, made (with a git repo of its own) the first time.",
+      "description" : "The workspace of the chats outside any project (No Project), a plain folder made the first time; each agent started on it works in a folder of its own inside.",
       "name" : "scratch.ensure",
       "paramStructure" : "by-name",
       "params" : [

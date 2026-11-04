@@ -186,8 +186,9 @@ extension Sessions {
         // The config the agent will read: the session's variables over the daemon's own (a kelpd started from a shell
         // passes on that shell's CLAUDE_CONFIG_DIR), as PTY builds its environment.
         let env = ProcessInfo.processInfo.environment.merging(env) { $1 }
+        // A chat's own empty folder that Kelp just made for it ("No Project") has nothing in it the question guards.
         let expectedAndSettled = !AgentTrust.trusts(agent: m.id, folders: [cwd], env: env)
-            && project.map { AgentTrust.trusts(agent: m.id, folders: [$0], env: env) } == true
+            && (project.map { AgentTrust.trusts(agent: m.id, folders: [$0], env: env) } == true || ScratchChats(root: root).isFresh(cwd))
         return expectedAndSettled ? m : out
     }
 

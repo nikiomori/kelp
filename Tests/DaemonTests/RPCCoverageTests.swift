@@ -221,11 +221,44 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func theScratchProjectIsMadeOnceAndReused() async throws {
-    let r = try await rig(); defer { r.d.stop() }
-    let a = try await r.c.call("scratch.ensure", as: Worktree.self)
-    let b = try await r.c.call("scratch.ensure", as: Worktree.self)
-    #expect(a.id == b.id && FileManager.default.fileExists(atPath: a.path + "/.git"))
-    #expect(try await r.c.call("repo.list", as: [Repo].self).filter { $0.name == "Scratch" }.count == 1)
+    let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"])])
+    defer { w.d.stop() }
+    let a = try await w.c.call("scratch.ensure", as: Worktree.self)
+    let b = try await w.c.call("scratch.ensure", as: Worktree.self)
+    #expect(a.id == b.id && !FileManager.default.fileExists(atPath: a.path + "/.git"))   // a plain folder: no project, no git
+    #expect(try await w.c.call("repo.list", as: [Repo].self).filter { $0.name == "Scratch" }.count == 1)
+    // Each agent on it gets a folder of its own for its task; a terminal stays in the scratch folder itself.
+    let one = try await w.c.call(SessionCreate(worktreeId: a.id, agent: "sleepy"))
+    let two = try await w.c.call(SessionCreate(worktreeId: a.id, agent: "sleepy"))
+    let shell = try await w.c.call(SessionCreate(worktreeId: a.id, agent: "shell"))
+    #expect(one.cwd != two.cwd && (one.cwd as NSString).deletingLastPathComponent == a.path && (two.cwd as NSString).deletingLastPathComponent == a.path)
+    #expect(shell.cwd == a.path)
+    // A folder picked for the chat ("New Chat in Folder…") is used as it is.
+    let picked = try makeRepo()
+    #expect(try await w.c.call(SessionCreate(cwd: picked, worktreeId: a.id, agent: "sleepy")).cwd == picked)
+}
+
+@Test func emptyChatFoldersGoOnceNoSessionWorksInThem() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("kscr-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let chats = ScratchChats(root: root)
+    let kept = try chats.newChat(), empty = try chats.newChat(), result = try chats.newChat()
+    #expect(chats.isFresh(empty) && !chats.isFresh(chats.folder.path) && !chats.isFresh("/tmp"))
+    try "done".write(toFile: result + "/out.txt", atomically: true, encoding: .utf8)
+    #expect(!chats.isFresh(result))
+    chats.sweep(keeping: [kept])
+    let fm = FileManager.default
+    #expect(fm.fileExists(atPath: kept) && !fm.fileExists(atPath: empty) && fm.fileExists(atPath: result))
+    // A home from before, where scratch was an empty git repo: back to a plain folder. One with a commit stays a repo.
+    let old = ScratchChats(root: root.appendingPathComponent("old"))
+    try Paths.ensure(old.folder)
+    try Git.run(["init", "-q"], cwd: old.folder.path)
+    old.dropUnusedRepo(remotes: .none)
+    #expect(!fm.fileExists(atPath: old.folder.path + "/.git"))
+    try Git.run(["init", "-q"], cwd: old.folder.path)
+    try Git.run(["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], cwd: old.folder.path)
+    old.dropUnusedRepo(remotes: .none)
+    #expect(fm.fileExists(atPath: old.folder.path + "/.git"))
 }
 
 @Test func relocatingAProjectPointsItsDeskAtTheNewFolder() async throws {

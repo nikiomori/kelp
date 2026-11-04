@@ -1,0 +1,71 @@
+import Foundation
+import Core
+import GitKit
+
+/// Chats outside any project ("No Project" in the sidebar): the scratch folder in Kelp's home, with each agent in a folder
+/// of its own named by its day, so one task's files don't land among another's and an agent's resume list is its own.
+/// Rules for all of them go in the scratch folder's own CLAUDE.md / AGENTS.md: agents read those from the folder above.
+struct ScratchChats {
+    let folder: URL
+    init(root: URL) { folder = root.appendingPathComponent("scratch") }
+
+    private var real: String { Paths.real(folder.path) ?? folder.path }
+
+    /// Whether `path` is the scratch folder itself (its workspace's), where a new agent gets a folder of its own.
+    func holds(_ path: String) -> Bool { (Paths.real(path) ?? path) == real }
+
+    /// A new empty folder for a chat: 2026-11-04-1, -2… the first free one that day.
+    func newChat(now: Date = Date()) throws -> String {
+        try Paths.ensure(folder)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        let day = f.string(from: now)
+        var n = 1
+        while FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(day)-\(n)").path) { n += 1 }
+        let dir = folder.appendingPathComponent("\(day)-\(n)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
+        return Paths.real(dir.path) ?? dir.path
+    }
+
+    /// A chat folder Kelp made with nothing in it yet: an agent's "trust this folder?" has nothing there to guard.
+    func isFresh(_ cwd: String) -> Bool {
+        let p = Paths.real(cwd) ?? cwd
+        return (p as NSString).deletingLastPathComponent == real && Self.isEmpty(p)
+    }
+
+    /// Chat folders left empty that no session works in any more go (ended records are pruned a week after the end, so a
+    /// chat reopened meanwhile still finds its folder). Anything with a file in it stays: it's someone's result.
+    func sweep(keeping cwds: Set<String>) {
+        let used = Set(cwds.map { Paths.real($0) ?? $0 })
+        let fm = FileManager.default
+        for name in Self.names(real) {
+            let p = real + "/" + name
+            var dir: ObjCBool = false
+            guard fm.fileExists(atPath: p, isDirectory: &dir), dir.boolValue, !used.contains(p), Self.isEmpty(p) else { continue }
+            Log.store.attempt("removing the empty chat folder \(name)") { try fm.removeItem(atPath: p) }
+        }
+    }
+
+    /// Homes from before: scratch was a git repo Kelp made. One that never got a commit or a file goes back to a plain folder.
+    func dropUnusedRepo(remotes: Remotes) {
+        let fm = FileManager.default
+        // `rev-parse --verify -q` prints nothing and exits 1 when there's no commit.
+        guard fm.fileExists(atPath: folder.appendingPathComponent(".git").path),
+              Self.names(folder.path).allSatisfy({ [".git", ".DS_Store"].contains($0) }),
+              Log.store.attempt("reading scratch's git", {
+                  try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: folder.path, ok: [0, 1], remotes: remotes)
+              })?.isEmpty == true else { return }
+        Log.store.attempt("removing scratch's empty git repo") { try fm.removeItem(at: folder.appendingPathComponent(".git")) }
+    }
+
+    private static func isEmpty(_ path: String) -> Bool {
+        FileManager.default.fileExists(atPath: path) && names(path).allSatisfy { $0 == ".DS_Store" }
+    }
+
+    /// What's right in a folder (none when it isn't one).
+    private static func names(_ path: String) -> [String] {
+        let e = FileManager.default.enumerator(at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil,
+                                               options: [.skipsSubdirectoryDescendants])
+        return (e?.allObjects as? [URL] ?? []).map(\.lastPathComponent)
+    }
+}

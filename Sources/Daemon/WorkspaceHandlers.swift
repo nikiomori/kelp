@@ -32,11 +32,10 @@ extension RepoList: Handled { func handle(_ workspaces: Workspaces) throws -> [R
 
 extension ScratchEnsure: Handled {
     func handle(_ workspaces: Workspaces) throws -> Worktree {
-        let dir = workspaces.root.appendingPathComponent("scratch")
-        if !FileManager.default.fileExists(atPath: dir.appendingPathComponent(".git").path) {
-            try Paths.ensure(dir); try Git.run(["init", "-q"], cwd: dir.path, remotes: workspaces.remotes)
-        }
-        let path = try Git.root(of: dir.path, remotes: workspaces.remotes)
+        let scratch = ScratchChats(root: workspaces.root)
+        try Paths.ensure(scratch.folder)
+        scratch.dropUnusedRepo(remotes: workspaces.remotes)
+        let path = Paths.real(scratch.folder.path) ?? scratch.folder.path
         var r = try workspaces.store.repos().first { $0.path == path }
         if r == nil {
             let n = Repo(name: "Scratch", path: path, baseBranch: Git.defaultBranch(repo: path, remotes: workspaces.remotes))

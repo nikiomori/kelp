@@ -14,7 +14,8 @@ extension Sessions {
                 // A remote one's host is asked only when its agent may still run there, in the background (endOwnTmux).
                 discard(s, keepTmux: !s.connectionLost)
             }
-            let known = Set(try store.sessions().map(\.id)), fm = FileManager.default
+            let left = try store.sessions(), known = Set(left.map(\.id)), fm = FileManager.default
+            ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)))
             let logs = (try? fm.contentsOfDirectory(at: root.appendingPathComponent("history"),
                                                     includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
             for f in logs where ["log", "trail"].contains(f.pathExtension) && !known.contains(f.deletingPathExtension().lastPathComponent) {

@@ -22,7 +22,12 @@ extension SessionCreate: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         // cwd wins when both are given (e.g. an agent building an extension, shown in the current workspace).
         var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
-        if let worktreeId, dir == nil { dir = try sessions.store.worktree(named: worktreeId).path }
+        if let worktreeId, dir == nil {
+            let w = try sessions.store.worktree(named: worktreeId)
+            // An agent with no project ("No Project"): a folder of its own for its task, not the shared one.
+            let agentHere = tmux == nil && command == nil && agent.map { $0 != "shell" } == true
+            dir = agentHere && ScratchChats(root: sessions.root).holds(w.path) ? try ScratchChats(root: sessions.root).newChat() : w.path
+        }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
         o.parent = try sessions.parent(parent, of: self)
