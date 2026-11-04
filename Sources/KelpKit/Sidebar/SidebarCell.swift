@@ -134,6 +134,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
                                          ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
                                          ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
+        case .host: break   // a ServerHeading
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
@@ -249,7 +250,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent: nil
+        case .agent, .host: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
@@ -358,6 +359,7 @@ final class SidebarCell: NSTableCellView {
             showState(s)
             showAsk(s)
             speak(s)
+        case .host: break
         }
     }
 

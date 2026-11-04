@@ -6,7 +6,8 @@ import Core
 /// someone made, a row of its own. An agent's children stand on its row, not on rows of their own. What needs you is in
 /// the line over the list (`Inbox`).
 public struct SidebarItem: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String) }
+    /// `host`: a machine's heading, its projects after it (not under it: they keep their place in the outline); "" is this Mac.
+    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), host(String) }
     public var kind: Kind
     public var children: [SidebarItem] = []
     /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
@@ -20,6 +21,11 @@ public struct SidebarTree {
     public var sessions: [Session]
     /// Projects with live agents first, each part in the order people gave them (Settings › Project order).
     public var activeFirst = false
+    /// Project id → the host it's on, for remote projects. With any, the list is in sections, a heading a machine: this Mac
+    /// first, then each host where its first project stands.
+    public var hosts: [String: String] = [:]
+    /// Hosts ("" this Mac) whose sections are folded: the heading alone.
+    public var folded: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
         self.projects = projects; self.workspaces = workspaces; self.sessions = sessions
@@ -40,7 +46,18 @@ public struct SidebarTree {
             return SidebarItem(kind: .project(r.id), children: (own.map(workspace)?.children ?? []) + groups, workspace: own?.id)
         }
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
-        return activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed
+        return sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
+    }
+
+    private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {
+        guard !hosts.isEmpty else { return listed }
+        func host(_ i: SidebarItem) -> String { if case .project(let id) = i.kind { hosts[id] ?? "" } else { "" } }
+        var order: [String] = []
+        for h in [""] + listed.map(host) where !order.contains(h) { order.append(h) }
+        return order.flatMap { h -> [SidebarItem] in
+            let mine = listed.filter { host($0) == h }
+            return mine.isEmpty ? [] : [SidebarItem(kind: .host(h))] + (folded.contains(h) ? [] : mine)
+        }
     }
 }
 

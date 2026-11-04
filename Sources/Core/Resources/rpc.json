@@ -1558,6 +1558,17 @@
         ],
         "type" : "object"
       },
+      "HostEvent" : {
+        "properties" : {
+          "stats" : {
+            "$ref" : "#/components/schemas/HostStats"
+          }
+        },
+        "required" : [
+          "stats"
+        ],
+        "type" : "object"
+      },
       "HostStats" : {
         "properties" : {
           "connected" : {
@@ -3561,7 +3572,9 @@
           "commands",
           "subagents",
           "file",
-          "files"
+          "files",
+          "host",
+          "hostDetail"
         ],
         "type" : "string"
       },
@@ -9677,6 +9690,12 @@
       "name" : "event.git",
       "params" : {
         "$ref" : "#/components/schemas/GitEvent"
+      }
+    },
+    {
+      "name" : "event.host",
+      "params" : {
+        "$ref" : "#/components/schemas/HostEvent"
       }
     },
     {

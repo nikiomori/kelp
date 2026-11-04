@@ -63,16 +63,21 @@ final class HoverCard {
 
     private func show(_ key: String, rect: NSRect, in view: NSView) {
         // Events come only while the window is key.
-        guard view.window != nil, let model = CardModel(key, app: app, placed: !underTabs) else { close(); return }
+        let server = key.hasPrefix("h:") ? String(key.dropFirst(2)) : nil
+        let model = server == nil ? CardModel(key, app: app, placed: !underTabs) : nil
+        guard view.window != nil, model != nil || server?.isEmpty == false else { close(); return }
         shown?.stop()
         shown = model
         shownKey = key
         anchor = view.window
-        let host = NSHostingController(rootView: CardView(model: model))
+        let content = if let model { AnyView(CardView(model: model)) } else {
+            AnyView(ServerCard(app: app, host: server ?? "") { [weak self] in self?.close() })
+        }
+        let host = NSHostingController(rootView: content)
         host.sizingOptions = .preferredContentSize   // else the popover is placed at a pre-layout size and grows down from its top, off the row
         popover.contentViewController = host
         popover.show(relativeTo: rect, of: view, preferredEdge: underTabs ? .minY : .maxX)
-        model.load()
+        model?.load()
         keys = keys ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
             return e

@@ -209,11 +209,12 @@ package final class StatusMark: NSView {
 }
 
 /// `StatusMark` in SwiftUI (a hover card, an extension's list): one look for a state, Reduce Motion included.
-struct StatusIcon: NSViewRepresentable {
+package struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
     var waitsForCommand = false
-    func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
-    func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status; mark.waitsForCommand = waitsForCommand }
+    package init(status: AgentStatus, waitsForCommand: Bool = false) { self.status = status; self.waitsForCommand = waitsForCommand }
+    package func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
+    package func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status; mark.waitsForCommand = waitsForCommand }
 }
 
 extension Session {

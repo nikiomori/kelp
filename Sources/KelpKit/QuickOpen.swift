@@ -335,7 +335,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     private static func group(_ it: Item) -> String {
         if it.recent { return "Recently Used" }
         return ["File": "Files", "Agent": "Chats", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings", "Group": "Groups",
-                "Tab": "Tabs"][it.kind]
+                "Server": "Servers", "Tab": "Tabs"][it.kind]
             ?? it.kind
     }
 

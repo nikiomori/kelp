@@ -22,6 +22,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             case .project(let id): "p:" + id
             case .workspace(let id): "w:" + id
             case .agent(let id): "a:" + id
+            case .host(let h): "h:" + h
             }
         }
         /// What a dragged row reorders: a project's or a workspace's id.
@@ -44,7 +45,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var cards: [String: ProjectCard] = [:]
     var roots: [Node] = []
     private var shape: [String] = []
-    private var collapsed: Set<String> {
+    /// Hosts whose headings watch how they're doing (`WatchTopic.host`).
+    var watchedHosts: Set<String> = []
+    var collapsed: Set<String> {
         get { Set(app.uiState.strings("sidebar.collapsed")) }
         set { app.uiState["sidebar.collapsed"] = try? .from(newValue.sorted()) }
     }
@@ -68,6 +71,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.allowsMultipleSelection = true   // ⌘/⇧-click: the menu then acts on all of them
         outline.dataSource = self; outline.delegate = self
         outline.target = self; outline.doubleAction = #selector(doubleClicked)
+        outline.action = #selector(clicked)   // a server's heading, which isn't picked
         outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a folder from Finder becomes a project; rows move
         outline.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
                                                owner: self, userInfo: nil))
@@ -111,6 +115,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in app.hostStats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
@@ -127,7 +132,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     func updateVisibleCells() {
         updateCard()
-        for row in 0..<outline.numberOfRows { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
+        for row in 0..<outline.numberOfRows {
+            let v = outline.view(atColumn: 0, row: row, makeIfNecessary: false)
+            (v as? SidebarCell)?.update()
+            (v as? ServerHeading)?.update()
+        }
     }
 
     // MARK: hover cards
@@ -154,6 +163,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let m = app
         var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
+        tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in a }
+        tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
+        watchHosts(Set(tree.hosts.values))
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)
             n.children = i.children.map(node); n.workspace = i.workspace
@@ -251,15 +263,21 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { (item as? Node)?.children.count ?? roots.count }
     func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any { (item as? Node)?.children[i] ?? roots[i] }
     func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool { !((item as? Node)?.children.isEmpty ?? true) }
+    static func isServer(_ item: Any?) -> Bool {
+        if case .host? = (item as? Node)?.kind { true } else { false }
+    }
     static func isHeader(_ item: Any?) -> Bool {
         if case .project? = (item as? Node)?.kind { true } else { false }
     }
-    func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool { !Self.isHeader(item) || (item as? Node)?.workspace != nil }
+    func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+        !Self.isServer(item) && (!Self.isHeader(item) || (item as? Node)?.workspace != nil)
+    }
     // A project too: the outline doesn't fold an item without one. Its triangle isn't drawn (SidebarOutline), it has its own chevron.
     func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { true }
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let n = item as? Node else { return TextSize.of(rowBase) }
+        if Self.isServer(n) { return TextSize.of(Metrics.rowSection) }
         if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
@@ -306,6 +324,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         case .project(let id)?: app.projectName(id)
         case .workspace(let id)?: app.worktree(id)?.displayName
         case .agent(let id)?: app.session(id).map(app.catalog.displayName)
+        case .host(let h)?: h
         default: nil
         }
     }
@@ -318,6 +337,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let n = item as? Node else { return nil }
+        if case .host(let h) = n.kind {
+            let heading = ServerHeading(host: h, owner: self)
+            heading.update()
+            return heading
+        }
         let cell = SidebarCell(node: n, owner: self)
         cell.update()
         return cell
@@ -369,6 +393,7 @@ extension SidebarController {
             guard let id = node.workspace else { break }
             // Already there: the pill stays with the tab.
             if id == app.workbench.workspaceId { syncSelection() } else { app.workbench.show(workspace: id) }
+        case .host: break
         }
     }
 }

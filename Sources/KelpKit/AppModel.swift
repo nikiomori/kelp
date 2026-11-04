@@ -69,6 +69,8 @@ package final class AppModel {
     /// Watched files' versions by path (`WatchTopic.file`; a nil stamp: gone), and workspaces' files (`WatchTopic.files`).
     package var fileVersions: [String: FileEvent] = [:]
     package var fileLists: [String: FilesEvent] = [:]
+    /// Remote hosts as they're doing, by host (`WatchTopic.host` / `.hostDetail`, and what `host.stats` answered).
+    package var hostStats: [String: HostStats] = [:]
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
     /// `event.repo` / `event.worktree` / `event.removed` handled so far, per id: a list asked for before one may be older.

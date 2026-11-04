@@ -9,6 +9,7 @@ extension SidebarController.Node {
         switch kind {
         case .project(let id): [id] + (workspace.map { [$0] } ?? [])
         case .workspace(let id), .agent(let id): [id]
+        case .host: []
         }
     }
 }
@@ -124,6 +125,7 @@ extension SidebarController {
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
+        case .host(let h): if h.isEmpty { emptySpaceMenu(menu) } else { serverMenu(menu, h) }
         }
     }
 

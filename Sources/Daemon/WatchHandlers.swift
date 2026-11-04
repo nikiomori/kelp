@@ -70,6 +70,9 @@ extension Daemon {
                 e = FilesEvent(worktree: k.key, paths: try await ask(FilesList(id: k.key)), ignored: try? await ask(FilesIgnored(id: k.key)))
             } catch { e = FilesEvent(worktree: k.key, error: message(error)) }
             return (line(e), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+        case .host, .hostDetail:
+            let again: TimeInterval = k.topic == .host ? 10 : 2
+            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch { return (nil, again) }
         }
     }
 

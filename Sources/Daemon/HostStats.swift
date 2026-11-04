@@ -39,7 +39,7 @@ enum HostStatsReader {
             return HostStats(host: host, connected: false, error: why)
         }
         errors.withLock { $0[host] = nil }
-        let owner = Dictionary(sessions.compactMap { s in s.tmux.map { ($0, s) } }) { a, b in a.status == .exited ? b : a }.mapValues(\.id)
+        let owner = Dictionary(sessions.compactMap { s in Sessions.tmuxName(s).map { ($0, s) } }) { a, b in a.status == .exited ? b : a }.mapValues(\.id)
         return parse(String(decoding: out.stdout, as: UTF8.self), host: host, owner: owner)
     }
 
@@ -126,7 +126,7 @@ enum HostStatsReader {
         guard f.count == 7, let pid = Int(f[0]), let ppid = Int(f[1]), let cpu = Double(f[3]), let rss = Int(f[4]) else { return nil }
         let args = String(f[6]).trimmingCharacters(in: .whitespaces)
         let command = args.hasPrefix("[") ? String(args.dropFirst().prefix { $0 != "]" })
-            : ((args.split(separator: " ").first.map(String.init) ?? args) as NSString).lastPathComponent
+            : ((args.split(separator: " ").first.map(String.init) ?? args) as NSString).lastPathComponent.trimmingCharacters(in: [":"])   // "sshd:"
         let p = HostStats.Process(pid: pid, user: String(f[2]), cpu: cpu, memory: rss * 1024, seconds: seconds(String(f[5])),
                                   command: command, args: String(args.prefix(300)))
         return (p, ppid)

@@ -72,3 +72,18 @@ private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     inbox.viewing = ["b1"]
     #expect(inbox.shown.map(\.id) == ["a1"])     // you're looking at it already
 }
+
+/// With a project on a host the list is in sections: this Mac first, then each host where its first project stands. A
+/// folded section is its heading alone; without remote projects there are no headings at all.
+@Test func remoteProjectsGoUnderTheirHostsHeading() {
+    let r3 = Repo(id: "r3", name: "gamma", path: "/c"), r4 = Repo(id: "r4", name: "delta", path: "/d")
+    var t = SidebarTree(projects: [r3, r1, r2, r4], workspaces: [], sessions: [])
+    #expect(kinds(t.build()) == [.project("r3"), .project("r1"), .project("r2"), .project("r4")])
+    t.hosts = ["r3": "box", "r4": "pi", "r2": "box"]
+    #expect(kinds(t.build()) == [.host(""), .project("r1"), .host("box"), .project("r3"), .project("r2"), .host("pi"), .project("r4")])
+    t.folded = ["box"]
+    #expect(kinds(t.build()) == [.host(""), .project("r1"), .host("box"), .host("pi"), .project("r4")])
+    t.hosts = ["r1": "box", "r2": "box", "r3": "box", "r4": "box"]   // nothing on this Mac: no heading for it
+    t.folded = []
+    #expect(kinds(t.build()).first == .host("box"))
+}

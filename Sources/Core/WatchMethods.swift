@@ -29,6 +29,11 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     /// A workspace's files (`FilesEvent`, `files.list` and `files.ignored`'s answers): read when its files change, a remote one's every 10 s.
     /// Key: worktree id.
     case files
+    /// How a remote host is doing (`HostEvent`): read every 10 s while watched (the sidebar's heading), never dialing: without
+    /// an open connection only that it's off. Key: the host.
+    case host
+    /// The same every 2 s, for the server tab on screen. Key: the host.
+    case hostDetail
 }
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
@@ -97,6 +102,12 @@ public struct SubagentsEvent: RPCEvent, Equatable {
     public static let name = "event.subagents"
     public var session: String, steps: SessionSubagentSteps.Result
     public init(session: String, steps: SessionSubagentSteps.Result) { self.session = session; self.steps = steps }
+}
+
+public struct HostEvent: RPCEvent, Equatable {
+    public static let name = "event.host"
+    public var stats: HostStats
+    public init(stats: HostStats) { self.stats = stats }
 }
 
 public struct LimitsEvent: RPCEvent, Equatable {

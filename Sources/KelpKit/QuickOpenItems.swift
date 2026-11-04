@@ -23,6 +23,11 @@ extension QuickOpen {
                 items.append(Item(kind: "Group", icon: "arrow.triangle.branch", title: w.displayName, detail: "\(repo) · \(w.branch)",
                                   action: { app.workbench.show(workspace: w.id) }))
             }
+            for host in app.remoteHosts {
+                let projects = app.projects(onServer: host).compactMap { app.projectName($0.id) }
+                items.append(Item(kind: "Server", icon: "server.rack", title: host, detail: projects.joined(separator: ", "),
+                                  action: { app.openServer(host) }))
+            }
             for s in app.sessions where s.status != .exited && s.startedBy == nil {
                 let wt = app.worktree(s.worktreeId)
                 items.append(Item(kind: s.agent == "shell" ? "Terminal" : "Agent", icon: "terminal", title: app.catalog.displayName(s),
