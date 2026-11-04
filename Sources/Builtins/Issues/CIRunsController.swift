@@ -62,6 +62,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// The branch's runs, watched while the panel shows: the daemon looks again while one runs, and says when they changed.
     private lazy var ciWatch = Watched(.ci, in: app)
     private var autoOpened = Set<Int>()
+    /// The list being shown, its open runs read again.
+    private var applying: Task<Void, Never>?
     private let clock = CIClock()
     private let history = CIHistoryStrip()
 
@@ -182,7 +184,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     private func apply(_ e: CIEvent?) {
         guard let e, e.worktree == worktree else { return }
-        Task {
+        // A newer list replaces the rows the last one's jobs were being opened in: that one stops at its next step.
+        applying?.cancel()
+        applying = Task {
             if let error = e.error {
                 branch.stringValue = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
                 workflowsButton.isHidden = true
@@ -202,11 +206,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             history.show(CIRuns.history(allRuns))
             for run in runs where open.contains(run.key ?? "") {
                 await expand(run, openFailed: false)
+                guard !Task.isCancelled else { return }
                 for item in openBelow(run) where open.contains(item.key ?? "") { outline.expandItem(item) }
-                if let job = run.children?.first(where: { $0.id == selected }) {
-                    outline.selectRowIndexes([outline.row(forItem: job)], byExtendingSelection: false)
+                if let job = run.children?.first(where: { $0.id == selected }), case let row = outline.row(forItem: job), row >= 0 {
+                    outline.selectRowIndexes([row], byExtendingSelection: false)
                 }
             }
+            guard !Task.isCancelled else { return }
             // A workflow's latest run failed (what Source Control's CI line shows): open it at the first failed job,
             // with its log (once, so closing it sticks).
             let failing = Set(CIRuns.latest(allRuns).filter(\.failed).map(\.id))
@@ -220,6 +226,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func reveal(_ run: CIRuns.Run) {
         guard let item = runs.first(where: { $0.id == run.id }) else { return }
         let row = outline.row(forItem: item)
+        guard row >= 0 else { return }
         outline.selectRowIndexes([row], byExtendingSelection: false)
         outline.scrollRowToVisible(row)
     }
@@ -253,6 +260,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         guard case .run(let run) = item.kind, let w = worktree else { return }
         if item.children == nil {
             guard let jobs = await app.call(CIJobs(worktreeId: w, run: run.id)) else { return }   // the banner says why; asked again next time
+            guard runs.contains(where: { $0 === item }) else { return }   // a newer list came meanwhile: these rows are gone
             item.children = jobs.map { j in
                 let i = Item(.job(j, run: run.id))
                 i.children = CIRuns.rows(j.steps).map { row in
