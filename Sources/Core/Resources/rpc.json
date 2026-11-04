@@ -1558,6 +1558,160 @@
         ],
         "type" : "object"
       },
+      "HostStats" : {
+        "properties" : {
+          "connected" : {
+            "type" : "boolean"
+          },
+          "cores" : {
+            "type" : "integer"
+          },
+          "cpu" : {
+            "description" : "Busy share of all cores, 0–100, over a moment of the read. Linux only.",
+            "type" : "number"
+          },
+          "disk" : {
+            "type" : "integer"
+          },
+          "diskTotal" : {
+            "type" : "integer"
+          },
+          "error" : {
+            "description" : "Why the last connection failed, in ssh's words; nil once one worked.",
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "load" : {
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "memory" : {
+            "description" : "Bytes used and in all. Memory and swap: Linux only.",
+            "type" : "integer"
+          },
+          "memoryTotal" : {
+            "type" : "integer"
+          },
+          "os" : {
+            "description" : "\"Ubuntu 24.04.5 LTS\", else `uname -sr`.",
+            "type" : "string"
+          },
+          "ports" : {
+            "description" : "TCP ports something listens on.",
+            "items" : {
+              "$ref" : "#/components/schemas/HostStats.Port"
+            },
+            "type" : "array"
+          },
+          "processCount" : {
+            "type" : "integer"
+          },
+          "processes" : {
+            "description" : "The busiest processes, and every one of Kelp's agents, by CPU.",
+            "items" : {
+              "$ref" : "#/components/schemas/HostStats.Process"
+            },
+            "type" : "array"
+          },
+          "swap" : {
+            "type" : "integer"
+          },
+          "swapTotal" : {
+            "type" : "integer"
+          },
+          "tmux" : {
+            "description" : "Kelp's tmux sessions there (`Tmux.isOwn`), with the Kelp session each belongs to, if one does.",
+            "items" : {
+              "$ref" : "#/components/schemas/HostStats.TmuxSession"
+            },
+            "type" : "array"
+          },
+          "uptime" : {
+            "description" : "Seconds since boot; the 1, 5 and 15 minute load averages. Linux only, the load also on macOS and BSD.",
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "connected",
+          "host"
+        ],
+        "type" : "object"
+      },
+      "HostStats.Port" : {
+        "properties" : {
+          "local" : {
+            "description" : "Reached only from the server itself (127.0.0.1, ::1): forward it to use it here.",
+            "type" : "boolean"
+          },
+          "port" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "local",
+          "port"
+        ],
+        "type" : "object"
+      },
+      "HostStats.Process" : {
+        "properties" : {
+          "args" : {
+            "type" : "string"
+          },
+          "command" : {
+            "description" : "The program's name, and its whole command line.",
+            "type" : "string"
+          },
+          "cpu" : {
+            "type" : "number"
+          },
+          "memory" : {
+            "description" : "Resident bytes; seconds it has run.",
+            "type" : "integer"
+          },
+          "pid" : {
+            "type" : "integer"
+          },
+          "seconds" : {
+            "type" : "integer"
+          },
+          "session" : {
+            "description" : "The Kelp session it runs under (its tmux pane's), if any.",
+            "type" : "string"
+          },
+          "user" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "args",
+          "command",
+          "cpu",
+          "memory",
+          "pid",
+          "seconds",
+          "user"
+        ],
+        "type" : "object"
+      },
+      "HostStats.TmuxSession" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "session" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name"
+        ],
+        "type" : "object"
+      },
       "Hunk" : {
         "properties" : {
           "header" : {
@@ -5808,6 +5962,55 @@
           "$ref" : "#/components/schemas/Session"
         }
       }
+    },
+    {
+      "description" : "Closes the host's shared connection (`ssh -O exit`): agents in tmux there go on.",
+      "name" : "host.disconnect",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "host",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "How a remote projects' host is doing, read in one call over its shared connection: what htop shows, plus which of its processes are Kelp's agents. `connect` false (the sidebar's look every few seconds) never dials: without an open connection the answer is only `connected` false and why the last try failed.",
+      "name" : "host.stats",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "connect",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "host",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/HostStats"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "`jql`, else my open issues.",

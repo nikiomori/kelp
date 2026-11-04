@@ -29,6 +29,8 @@ final class Sessions: Sendable {
 
     let remotes: Remotes
     let forwards: Forwards
+    /// Remote hosts whose last connection failed, and ssh's reason (`host.stats`).
+    let hostErrors = HostErrors(initialState: [:])
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())

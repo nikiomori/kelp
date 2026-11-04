@@ -207,7 +207,7 @@ extension SessionLastReply: Handled {
 extension Methods {
     static let sessionMethods: [any Handled.Type] = [SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
         SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, PortsForward.self,
-        PortsUnforward.self, SessionUsage.self,
+        PortsUnforward.self, SessionUsage.self, HostStatsRead.self, HostDisconnect.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
         SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self]
 }
