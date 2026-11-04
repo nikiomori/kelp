@@ -320,8 +320,8 @@ final class SidebarCell: NSTableCellView {
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable {
-                // The server it's on, in grey: two servers' projects look alike otherwise.
-                detail.stringValue = server?.host ?? ""
+                // The server, in grey, once on its card: by its first project.
+                detail.stringValue = owner?.serverStarts.contains(id) == true ? server?.host ?? "" : ""
                 detail.font = .ui(11)
                 detail.isHidden = detail.stringValue.isEmpty
             }
@@ -532,7 +532,7 @@ extension SidebarCell {
 extension SidebarCell {
     /// A project on a host: the server's mark on its icon's corner, over the slot (the fold's chevron included).
     fileprivate func markServer(_ id: String, _ owner: SidebarController) {
-        guard owner.remoteProjects.contains(id), let host = app.repo(id).flatMap({ RemoteHost.of($0.path)?.host }) else { return }
+        guard owner.projectHosts[id] != nil, let host = app.repo(id).flatMap({ RemoteHost.of($0.path)?.host }) else { return }
         let mark = ServerMark()
         mark.host = host
         mark.opened = { [app] in app.openServer($0) }

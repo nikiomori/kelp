@@ -46,8 +46,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private var shape: [String] = []
     /// Hosts of the remote projects listed, watched for the mark on their icons (`WatchTopic.host`).
     var watchedHosts: Set<String> = []
-    /// The projects on a host: their rows and cards are hatched (`ProjectCard`).
-    var remoteProjects: Set<String> = []
+    /// Project id → the host it's on: a host's projects share one hatched card (`placeCards`).
+    var projectHosts: [String: String] = [:]
+    /// The first project of each host's run: its card starts there, after a gap, and its row names the host.
+    var serverStarts: Set<String> = []
+    /// Room between one server's card and what's over it.
+    static let serverGap: CGFloat = 8
     private var collapsed: Set<String> {
         get { Set(app.uiState.strings("sidebar.collapsed")) }
         set { app.uiState["sidebar.collapsed"] = try? .from(newValue.sorted()) }
@@ -164,13 +168,22 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         tree.pinned = m.repos.first(where: NoProject.holds)?.id
         tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in a }
         watchHosts(Set(tree.hosts.values))
-        remoteProjects = Set(tree.hosts.keys)
+        projectHosts = tree.hosts
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)
             n.children = i.children.map(node); n.workspace = i.workspace
             return n
         }
-        return tree.build().map(node)
+        let items = tree.build()
+        // Each host's projects come together: the first of them starts its server's card.
+        var last: String?
+        serverStarts = []
+        for case .project(let id) in items.map(\.kind) {
+            let host = tree.hosts[id]
+            if let host, host != last { serverStarts.insert(id) }
+            last = host
+        }
+        return items.map(node)
     }
 
     /// The ways in, as File shows them: a folder (new or existing), a clone, a project over SSH.
@@ -293,8 +306,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
     private func pads(_ n: Node) -> (top: CGFloat, bottom: CGFloat) {
-        guard let p = group(n) else { return (0, 0) }
-        return SidebarRowView.pads(p)
+        var p = group(n).map(SidebarRowView.pads) ?? (top: 0, bottom: 0)
+        p.top += serverGap(n)
+        return p
+    }
+    /// The gap over a server's first project, which starts that server's card.
+    func serverGap(_ n: Node) -> CGFloat {
+        if case .project(let id) = n.kind, serverStarts.contains(id) { Self.serverGap } else { 0 }
     }
     /// Where this row is in its project's card: nil for a project with nothing under it, which is a plain row.
     private func group(_ n: Node) -> (first: Bool, last: Bool)? {
@@ -323,7 +341,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     func outlineView(_ o: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) { place(rowView, row) }
 
     func place(_ v: NSTableRowView, _ row: Int) {
-        (v as? SidebarRowView)?.group = (outline.item(atRow: row) as? Node).flatMap(group)
+        let n = outline.item(atRow: row) as? Node
+        (v as? SidebarRowView)?.group = n.flatMap(group)
+        (v as? SidebarRowView)?.gap = n.map(serverGap) ?? 0
     }
     /// The cards follow rows that open, close or move; a project's last row changes height with them.
     /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).

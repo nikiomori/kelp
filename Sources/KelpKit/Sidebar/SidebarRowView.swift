@@ -46,6 +46,8 @@ final class SidebarOutline: NSOutlineView {
 final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
     var group: (first: Bool, last: Bool)? { didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } } }
+    /// Room over it that starts a server's card (`SidebarController.serverGap`): no pill there.
+    var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
     /// Under the pointer: the pill's shape in the hover grey, faded in and out, so a row answers before it's clicked.
     private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
@@ -87,7 +89,7 @@ final class SidebarRowView: NSTableRowView {
         // In a card the pill is 4 pt inside it, its corners following the card's (9 − 4); a row on its own gets a pill
         // where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
-        pill.origin.y += pad.top; pill.size.height -= pad.top + pad.bottom
+        pill.origin.y += pad.top + gap; pill.size.height -= pad.top + pad.bottom + gap
         let path = NSBezierPath(roundedRect: pill, xRadius: group == nil ? 9 : 5, yRadius: group == nil ? 9 : 5)
         CATransaction.begin()
         CATransaction.setDisableActions(true)

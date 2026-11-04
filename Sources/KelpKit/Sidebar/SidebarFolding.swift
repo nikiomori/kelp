@@ -98,34 +98,55 @@ extension SidebarController {
 
     /// A project's card from its row to the last row under it: one shape, so it grows and shrinks with the rows (each row
     /// drew a slice of it, which couldn't follow a project opening). A project with nothing under it has none unless its
-    /// colour is drawn on one, or it's on a host (hatched): then it's where the row's pill goes.
+    /// colour is drawn on one: then it's where the row's pill goes. Under them, one hatched card for each server's
+    /// projects ("s:<host>"), after a gap: where one machine's projects end and another's begin.
     func placeCards() {
-        var shown: Set<String> = []
+        var shown: Set<String> = [], made = false
         let look = app.projectLook
-        for p in roots {
-            guard case .project(let id) = p.kind, case let color = look.style == .card ? look.colors[id] : nil,
-                  case let remote = remoteProjects.contains(id), !p.children.isEmpty || color != nil || remote,
-                  case let first = outline.row(forItem: p), first >= 0, case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
-            var r = SidebarRowView.band(outline.rect(ofRow: first).union(outline.rect(ofRow: last)), 6)
-            // Flipped: 4 in from the first row's top and the last row's bottom.
-            if p.children.isEmpty { r = r.insetBy(dx: 0, dy: 1) } else { r.origin.y += 4; r.size.height -= 8 }
-            shown.insert(p.key)
-            let shows = ProjectCard.Look(color: color, plain: p.children.isEmpty, remote: remote)
-            if let card = cards[p.key] {
+        func put(_ key: String, _ r: NSRect, _ shows: ProjectCard.Look) {
+            shown.insert(key)
+            if let card = cards[key] {
                 card.animator().frame = r
                 card.look = shows
-                continue
+                return
             }
             let card = ProjectCard(frame: r)
             card.look = shows
             card.autoresizingMask = .width
             outline.addSubview(card, positioned: .below, relativeTo: nil)
-            cards[p.key] = card
+            cards[key] = card
+            made = true
         }
+        var server: (host: String, rows: NSRect)?
+        func endServer() {
+            guard let s = server else { return }
+            // 2 pt around the rows' pills, from under the gap.
+            var r = SidebarRowView.band(s.rows, 4).insetBy(dx: 0, dy: -1)
+            r.origin.y += Self.serverGap; r.size.height -= Self.serverGap
+            put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: true))
+            server = nil
+        }
+        for p in roots {
+            guard case .project(let id) = p.kind,
+                  case let first = outline.row(forItem: p), first >= 0, case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
+            let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last)), host = projectHosts[id]
+            if host != server?.host { endServer() }
+            if let host { server = (host, server.map { $0.rows.union(rows) } ?? rows) }
+            let color = look.style == .card ? look.colors[id] : nil
+            guard !p.children.isEmpty || color != nil else { continue }
+            var r = SidebarRowView.band(rows, 6)
+            // Flipped: 4 in from the first row's top and the last row's bottom, under a server's gap.
+            if p.children.isEmpty { r = r.insetBy(dx: 0, dy: 1) } else { r.origin.y += 4; r.size.height -= 8 }
+            r.origin.y += serverGap(p); r.size.height -= serverGap(p)
+            put(p.key, r, ProjectCard.Look(color: color, plain: p.children.isEmpty))
+        }
+        endServer()
         for (key, card) in cards where !shown.contains(key) {
             card.removeFromSuperview()
             cards[key] = nil
         }
+        // A project's card made after its server's went under it: the servers' go back to the bottom.
+        if made { for (key, card) in cards where key.hasPrefix("s:") { outline.addSubview(card, positioned: .below, relativeTo: nil) } }
     }
 
     /// The rows on show.
