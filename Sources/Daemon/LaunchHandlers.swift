@@ -49,6 +49,7 @@ extension SessionCreate: Handled {
 }
 
 extension SessionRestart: Handled {
+    var actsOn: String? { id }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.invalidParams("no session") }
         sessions.reports.restarting(id, true)   // it comes back: its children stay, and its parent hears nothing

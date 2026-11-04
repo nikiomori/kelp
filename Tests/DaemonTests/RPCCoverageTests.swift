@@ -351,7 +351,11 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"; "#
         + #"read -u $REPLY line; print -r -- "$1 $line"; exec {REPLY}>&-; }"#
     let send = #"r session.send "{\"id\":\"$1\",\"text\":\"hi\",\"enter\":false}""#
-    let script = "zmodload zsh/net/socket; \(call); s() { \(send); }; read kid; s \(other.id); s $kid; "
+    // `kelp attach`: the stream's line, then what it types.
+    let attach = #"a() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$1\"}}"; "#
+        + #"print -u $REPLY typed; read -t 3 -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
+    let script = "zmodload zsh/net/socket; \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
+        + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
         + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     let ls = try #require(r.d.sessions.existing(me.id))
@@ -364,8 +368,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("user's to answer") })
     let out = try await r.c.call(SessionRead(id: me.id))
     #expect(out.contains("acts only on its own session"))
+    #expect(out.contains(#/session\.restart [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/stream kelp: An agent acts only/#))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
-    #expect(try await !r.c.call(SessionRead(id: other.id)).contains("hi"))
+    let seen = try await r.c.call(SessionRead(id: other.id))
+    #expect(!seen.contains("hi") && !seen.contains("typed"))
+    #expect(try await sessions(r).first { $0.id == other.id }?.status != .exited)   // not restarted
 }
 
 /// An agent that ended unread is read at a glance too: its record, as it isn't live any more.

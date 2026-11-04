@@ -383,6 +383,10 @@ public final class Daemon: Sendable {
     private func stream(_ client: Connection, session: String, size: JSONValue?, leftover: Data) {
         // Before waking: its status events must not land in the byte stream. It stays raw until `hungUp` removes it.
         clients.setRaw(client.id, true)
+        // What it writes is typing, so it may type where session.write may: an agent's program only into its own sessions.
+        do { try allow(SessionWrite(id: session), conn: client.id) } catch {
+            client.send(Data("kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8)); return
+        }
         if sessions.existing(session) == nil, (try? store.session(session))?.status == .exited {
             client.send(TerminalReplies.withoutQueries((try? sessions.liveSessionOrLog(session, bytes: LiveSession.ringLimit)) ?? Data())); return
         }
