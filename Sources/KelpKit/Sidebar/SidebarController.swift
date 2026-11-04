@@ -45,6 +45,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var cards: [String: ProjectCard] = [:]
     var roots: [Node] = []
     private var shape: [String] = []
+    /// Room over a machine's heading that follows another's projects: a section starts, as in Finder's sidebar.
+    static let headingAir: CGFloat = 10
     /// Hosts whose headings watch how they're doing (`WatchTopic.host`).
     var watchedHosts: Set<String> = []
     var collapsed: Set<String> {
@@ -279,7 +281,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let n = item as? Node else { return TextSize.of(rowBase) }
-        if Self.isServer(n) { return TextSize.of(Metrics.rowSection) }
+        if Self.isServer(n) { return TextSize.of(Metrics.rowSection) + (n === roots.first ? 0 : Self.headingAir) }
         if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.

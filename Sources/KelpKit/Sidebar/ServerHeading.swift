@@ -2,13 +2,16 @@ import AppKit
 import Core
 import DesignKit
 
-/// A machine's heading over its projects, as Finder heads Locations: the name, quiet, and after it only what wants you
-/// ("Disk 92%", "Can't reach"). A click opens the server's tab ("This Mac" folds); the chevron under the pointer folds.
+/// A machine's heading over its projects, as Finder heads Locations: a laptop or a server, the name, quiet, and after it
+/// only what wants you ("Disk 92%", "Can't reach"). It sits low in its row, near the projects it heads, with air over it
+/// (`SidebarController.headingAir`): centred like a row, it read as a project that had lost its icon. A click opens the
+/// server's tab ("This Mac" folds); the chevron under the pointer folds.
 @MainActor
 final class ServerHeading: NSTableCellView {
     let host: String
     private weak var owner: SidebarController?
     private let title = NSTextField(labelWithString: "")
+    private let glyph = NSImageView()
     private let word = NSTextField(labelWithString: "")
     private lazy var fold = IconButton(.symbol("chevron.down"), tip: String(localized: "Collapse")) { [weak self] in
         guard let self else { return }
@@ -25,16 +28,20 @@ final class ServerHeading: NSTableCellView {
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.setContentHuggingPriority(.init(2), for: .horizontal)
         word.font = .uiDigits(11)
+        glyph.image = .symbol(host.isEmpty ? "laptopcomputer" : "server.rack")
+        glyph.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        glyph.contentTintColor = .secondaryLabelColor
+        glyph.setContentHuggingPriority(.required, for: .horizontal)
         fold.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
         fold.isHidden = true
-        let row = NSStackView(views: [title, word, fold])
+        let row = NSStackView(views: [glyph, title, word, fold])
         row.spacing = Metrics.gap
         row.detachesHiddenViews = true
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         NSLayoutConstraint.activate([row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
                                      row.trailingAnchor.constraint(equalTo: trailingAnchor),
-                                     row.centerYAnchor.constraint(equalTo: centerYAnchor),
+                                     row.bottomAnchor.constraint(equalTo: bottomAnchor),
                                      row.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
