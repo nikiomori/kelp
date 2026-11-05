@@ -15,14 +15,23 @@ extension SessionRecap: AsyncHandled {
     /// No tools: the fork only says what happened. Nobody watches it, so a conversation steered by a page it read
     /// mustn't get a turn that acts.
     static func arguments(_ claude: String, conversation: String) -> [String] {
-        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", "", "--strict-mcp-config"]   // no MCP tools either
+        // No MCP tools either, and the fork leaves no conversation of its own in ~/.claude.
+        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", "", "--strict-mcp-config", "--no-session-persistence"]
+    }
+
+    /// Which of `folders` the transcript at `path` belongs to: Claude Code names a project's folder by its path, every
+    /// character but letters and digits a "-".
+    static func folder(of path: String, among folders: [String]) -> String? {
+        let project = ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+        return folders.first { $0.replacingOccurrences(of: "[^A-Za-z0-9]", with: "-", options: .regularExpression) == project }
     }
 
     func handle(_ sessions: Sessions) async throws -> String? {
         guard let ls = sessions.existing(id), ls.snapshot.agent == "claude", let transcript = ls.transcriptPath else { return nil }
         guard Self.running.withLock({ $0.insert(id).inserted }) else { return nil }
         defer { _ = Self.running.withLock { $0.remove(id) } }
-        let rec = ls.snapshot, cwd = ls.turnDir ?? rec.cwd
+        // Claude Code finds a conversation by the folder it began in, which its transcript's folder names.
+        let rec = ls.snapshot, cwd = Self.folder(of: transcript, among: [rec.cwd, ls.turnDir].compactMap { $0 }) ?? rec.cwd
         guard sessions.remotes.of(cwd) == nil else { return nil }
         let conversation = ((transcript as NSString).lastPathComponent as NSString).deletingPathExtension
         // Not as a child of this session (KELP_*), nor of a Claude Code that started kelpd (its marker turns the transcript off).
@@ -37,7 +46,8 @@ extension SessionRecap: AsyncHandled {
         guard out.status == 0, !out.timedOut, !line.isEmpty else { return nil }
         let short = line.count > 160 ? String(line.prefix(159)) + "…" : line
         // A turn begun in the meantime keeps its own line: this one is about the turn before it.
-        guard ls.update({ if $0.status == .done { $0.summary = short } }).summary == short else { return nil }
+        // Nor does a later turn that ended meanwhile: its own line is newer.
+        guard ls.update({ if $0.status == .done && $0.statusAt == rec.statusAt { $0.summary = short } }).summary == short else { return nil }
         sessions.publish(ls)
         return short
     }

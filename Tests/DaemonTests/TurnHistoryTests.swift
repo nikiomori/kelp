@@ -188,7 +188,9 @@ import Agents
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
     #expect(SessionRecap.prompt.contains("what is left"))
-    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(3) == ["--tools", "", "--strict-mcp-config"])   // the fork can't act
+    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(4) == ["--tools", "", "--strict-mcp-config", "--no-session-persistence"])
+    let t = "/Users/me/.claude/projects/-Users-me-code-app-v2/abc.jsonl"   // began in the project, works in its worktree now
+    #expect(SessionRecap.folder(of: t, among: ["/Users/me/code/app.v2", "/Users/me/code/app.v2/.claude/worktrees/x"]) == "/Users/me/code/app.v2")
 }
 
 /// An undo that stops part way (the Trash refuses a file the turn made) puts back what it had changed: no folder is
