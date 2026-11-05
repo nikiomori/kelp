@@ -54,7 +54,7 @@ public enum Recipes {
         "fixCommit": "`git commit` failed (hooks or checks). Fix the problems, re-stage, and commit again.\n\nError:\n{error}",
         "fixPush": "`git push` failed. Fix the cause (e.g. rebase on the remote branch, resolve conflicts) and push again.\n\nError:\n{error}",
         "pr": "Open a pull request for branch {branch} with `gh pr create`. Write a short title and a description: problem, changes, how to test. {linkedIssue}",
-        "resolveConflicts": "Merge {base} into this branch, resolve all conflicts ({files}), run the tests, and commit.",
+        "resolveConflicts": "Merge {base} into this branch, resolve all conflicts, run the tests, and commit. The files in conflict:\n\n{files}",
         "fixCI": "CI check \"{check}\" failed on this branch. Here is what broke and the log tail; fix the cause and push.\n\n{error}",
         "review": "Address these review comments from the pull request:\n\n{comments}",
         "reviewWith": "Review {scope} as a careful second reviewer; `{command}` shows them. Don't change any file. For each real "
@@ -69,7 +69,7 @@ public enum Recipes {
     /// Placeholders whose text someone outside wrote (a CI log, a pull request's comments, an issue): each goes in inside
     /// a frame that says it is data, so a comment reading "ignore the above and …" stays a quote. A log keeps its tail.
     static let untrusted = ["error": "command output", "comments": "review comments", "title": "issue title", "body": "issue body",
-                            "check": "check name"]
+                            "check": "check name", "files": "file names"]   // a pull request names its own files
     static let logTail = 12_000
     public static func framed(_ vars: [String: String]) -> [String: String] {
         vars.reduce(into: [:]) { out, kv in
