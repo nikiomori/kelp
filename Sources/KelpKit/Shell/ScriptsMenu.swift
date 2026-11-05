@@ -82,7 +82,11 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     }
 
     /// A .kelp.yaml command, trusted first if the file isn't yet. Its run (or one picked in the list) becomes ⌘R's.
-    func runKelp(_ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false) async {
+    /// `pullRequest`: the folder holds that PR's code, which the file's trust doesn't cover; it's asked about every time.
+    func runKelp(_ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false, pullRequest: Int? = nil) async {
+        if let pullRequest {
+            guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askPullRequest(pullRequest, info) else { return }
+        }
         if !info.trusted {
             // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
             // Trust, so that window never trusts anything.
@@ -168,6 +172,16 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
             + String(localized: "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
         a.accessoryView = Self.trustText(info)
         a.addButton(withTitle: String(localized: "Trust and Run")); a.addButton(withTitle: String(localized: "Cancel"))
+        return await runSheet(a) == .alertFirstButtonReturn
+    }
+
+    private func askPullRequest(_ n: Int, _ info: ScriptsList.Result) async -> Bool {
+        let a = NSAlert()
+        a.messageText = String(localized: "Run setup on pull request #\(n)?")
+        a.informativeText = String(localized: "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. ")
+            + String(localized: "Skip it to read the code first.")
+        a.accessoryView = Self.trustText(info)
+        a.addButton(withTitle: String(localized: "Run Setup")); a.addButton(withTitle: String(localized: "Skip"))
         return await runSheet(a) == .alertFirstButtonReturn
     }
 

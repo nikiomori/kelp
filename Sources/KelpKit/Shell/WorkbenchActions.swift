@@ -243,7 +243,7 @@ extension Workbench {
             guard let made = await app.call(NewChatSheet.request(c, repo: rid)) else { return }
             await startChat(on: made.worktree.id, agent: c.agent)
             if made.setupNeedsTrust == true, let info = await app.scripts.load(made.worktree.id), info.setup != nil {
-                await app.scripts.runKelp(made.worktree.id, "setup", info)
+                await app.scripts.runKelp(made.worktree.id, "setup", info, pullRequest: c.pr)
             }
         }
     }

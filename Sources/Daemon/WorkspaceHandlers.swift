@@ -115,10 +115,7 @@ extension WorktreeCreate: Handled {
             branch = wanted
             while Git.branchExists(r.path, branch, remotes: workspaces.remotes) { branch = "\(wanted)-\(k)"; k += 1 }
         }
-        if let pr {
-            if self.branch == nil { branch = "pr-\(pr)" }
-            try Git.fetchPullRequest(repo: r.path, number: pr, into: branch, remotes: workspaces.remotes)
-        }
+        if let pr { branch = try Git.fetchPullRequest(repo: r.path, number: pr, wanted: self.branch == nil ? nil : branch, remotes: workspaces.remotes) }
         let base = try clientRef(base.flatMap { $0.isEmpty ? nil : $0 }) ?? r.baseBranch
         let into = Workspaces.worktreesDir(workspaces.root, r, chosen: workspaces.sessions.settings["worktrees.folder"]?.string)
         let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: into, copyFiles: r.copyFiles,
@@ -132,9 +129,10 @@ extension WorktreeCreate: Handled {
         var result = Result(worktree: w)
         // Everything .kelp.yaml does waits for the user's trust in this version of the file, not only `setup`: `tabs`
         // starts agents and `shared` links folders, and a freshly cloned repository wrote that file, not the user.
-        // Checked and used from one read.
-        let read = workspaces.configAndTrust(r.path), cfg = read.config
-        if read.trusted {
+        // Checked and used from one read. A pull request brings code the file's trust doesn't cover (an install script of
+        // its author's): nothing runs on it until the user says so.
+        let read = workspaces.configAndTrust(r.path), cfg = read.config, trusted = read.trusted && pr == nil
+        if trusted {
             Git.linkShared(cfg.shared, repo: r.path, worktree: path)
             Git.cloneShared(cfg.clone, repo: r.path, worktree: path)
             if tabs != false {
@@ -145,7 +143,7 @@ extension WorktreeCreate: Handled {
             }
         }
         let asks = cfg.setup != nil || !cfg.tabs.isEmpty || !cfg.shared.isEmpty || !cfg.clone.isEmpty
-        if asks, setup != false, !read.trusted {
+        if asks, setup != false, !trusted {
             result.setupNeedsTrust = true   // the app asks, then scripts.trust + scripts.run "setup"
         } else if let cmd = cfg.setup, setup != false {
             var o = Sessions.Launch(); o.title = "setup"

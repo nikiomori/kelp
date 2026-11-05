@@ -33,13 +33,24 @@ extension Git {
         return path
     }
 
-    /// A pull request's head as local branch `branch` (GitHub's pull/N/head, else GitLab's merge-requests/N/head), from
-    /// `origin`; one already there is left as it is.
-    public static func fetchPullRequest(repo: String, number: Int, into branch: String, remotes: Remotes = .none) throws {
-        guard !branchExists(repo, branch, remotes: remotes) else { return }
-        do { try run(["fetch", "-q", "origin", "pull/\(number)/head:" + rev(branch)], cwd: repo, remotes: remotes) } catch {
-            try run(["fetch", "-q", "origin", "merge-requests/\(number)/head:" + rev(branch)], cwd: repo, remotes: remotes)
+    /// A pull request's head (GitHub's pull/N/head, else GitLab's merge-requests/N/head, from `origin`) as a local branch,
+    /// and that branch's name: `wanted` (the PR's own branch name) only when it is free and already at the head, your own PR
+    /// up to date; else `pr-<N>`, moved to the head now. A local branch that only shares the PR's name is never taken for it.
+    @discardableResult
+    public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none) throws -> String {
+        do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch {
+            try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
         }
+        let head = try run(["rev-parse", "FETCH_HEAD"], cwd: repo, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
+        if let wanted, Git.isRevision(wanted), branchExists(repo, wanted, remotes: remotes),
+           let at = try? run(["rev-parse", "refs/heads/" + wanted], cwd: repo, remotes: remotes), at.trimmingCharacters(in: .whitespacesAndNewlines) == head,
+           (try run(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + wanted], cwd: repo, remotes: remotes))
+               .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return wanted
+        }
+        let mine = "pr-\(number)"   // git refuses to move it while a worktree has it out: that one is this PR already
+        try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
+        return mine
     }
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.

@@ -50,6 +50,25 @@ import TestSupport
     #expect(try Git.run(["branch", "--show-current"], cwd: a).trimmingCharacters(in: .whitespacesAndNewlines) == "feat/local")
     let b = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
     #expect(try Git.run(["branch", "--show-current"], cwd: b).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
-    try Git.fetchPullRequest(repo: repo, number: 7, into: "pr-7")
+    #expect(try Git.fetchPullRequest(repo: repo, number: 7) == "pr-7")
     #expect(Git.branchExists(repo, "pr-7"))
+}
+
+/// A pull request's worktree gets the PR's code: a local branch that only shares its name (another fork's `fix-typo`, a
+/// `main` checked out here) is never taken for it; your own branch is, when it is free and at the PR's head.
+@Test func aPullRequestIsItsOwnHead() throws {
+    let origin = tmp().path, repo = try tempRepo()
+    func head(_ ref: String) throws -> String { try Git.run(["rev-parse", ref], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines) }
+    try Git.run(["init", "-q", "--bare", origin], cwd: repo)
+    try Git.run(["remote", "add", "origin", origin], cwd: repo)
+    try Git.run(["branch", "fix-typo"], cwd: repo)   // mine, unrelated
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "theirs"], cwd: repo)
+    try Git.run(["push", "-q", "origin", "HEAD:refs/pull/8/head", "HEAD:refs/pull/9/head"], cwd: repo)
+    try Git.run(["reset", "-q", "--hard", "HEAD~1"], cwd: repo)
+    let theirs = try Git.run(["rev-parse", "refs/pull/8/head"], cwd: origin).trimmingCharacters(in: .whitespacesAndNewlines)
+    #expect(try Git.fetchPullRequest(repo: repo, number: 8, wanted: "fix-typo") == "pr-8")
+    #expect(try head("pr-8") == theirs && head("fix-typo") != theirs)
+    #expect(try Git.fetchPullRequest(repo: repo, number: 9, wanted: "main") == "pr-9")   // main: checked out here
+    try Git.run(["branch", "mine", theirs], cwd: repo)
+    #expect(try Git.fetchPullRequest(repo: repo, number: 9, wanted: "mine") == "mine")
 }

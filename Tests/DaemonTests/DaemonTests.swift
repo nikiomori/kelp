@@ -85,6 +85,22 @@ func desk(_ w: World, _ branch: String) async throws -> Worktree {
     try await w.c.call("worktree.create", .obj(["repoId": .string(w.repo.id), "branch": .string(branch), "setup": false]), as: Worktree.self)
 }
 
+/// A pull request brings code the trusted .kelp.yaml doesn't vouch for (an install script of its author's): its worktree
+/// runs nothing until the user is asked.
+@Test func aPullRequestRunsNothingUnasked() async throws {
+    let (d, c, _, repo) = try await world(); defer { d.stop() }
+    let first = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "branch": "feat/zero", "setup": false]))
+    _ = try await trustAsShown(c, first["id"] ?? .null)
+    let origin = tmp().path
+    try Git.run(["init", "-q", "--bare", origin], cwd: repo.path)
+    try Git.run(["remote", "add", "origin", origin], cwd: repo.path)
+    try Git.run(["push", "-q", "origin", "main:refs/pull/5/head"], cwd: repo.path)
+    let pr = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "pr": 5]))
+    #expect(pr["setupNeedsTrust"]?.bool == true && pr["setupSession"] == nil && pr["branch"]?.string == "pr-5")
+    try await Task.sleep(for: .seconds(1))
+    #expect(!FileManager.default.fileExists(atPath: (pr["path"]?.string ?? "") + "/SETUP_RAN"))
+}
+
 @Test func endToEnd() async throws {
     let (d, c, root, repo) = try await world(); defer { d.stop() }
     #expect(try await c.call("ping").string == "pong")
