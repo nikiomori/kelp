@@ -68,15 +68,13 @@ package enum Builtins {
         return c
     }
 
-    /// Appearance › Inspector. Where the icons sit is set on the icons, in their menu.
+    /// Appearance › Inspector: its panels and where their icons sit, here and in the icons' own right-click menu.
     private static let inspector = [
+        s("workbench.inspector.hiddenPanels", "Panels", "panels", nil, "Drag an icon in the inspector to move it.", group: "Inspector"),
+        s("workbench.inspectorIconsPosition", "Panel icons", "enum", "top", options: ["top", "bottom"], group: "Inspector"),
+        s("workbench.inspectorIcons", "Icon alignment", "enum", "center", options: ["left", "center", "right"], group: "Inspector"),
         s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge.",
-          group: "Inspector"),
-        s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
-          options: ["left", "center", "right"], group: "Inspector", hidden: true),
-        s("workbench.inspectorIconsPosition", "Inspector icons position", "enum", "top",
-          "Level with the tabs or under the panel. Drag an icon to move it; right-click the icons to hide them.",
-          options: ["top", "bottom"], group: "Inspector", hidden: true)
+          group: "Inspector")
     ]
 
     /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.

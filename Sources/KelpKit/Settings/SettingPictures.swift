@@ -1,5 +1,6 @@
 import SwiftUI
 import DesignKit
+import Core
 
 /// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
 /// instead of its name in a menu. The value written is the option, as from the menu.
@@ -186,5 +187,42 @@ private struct PictureArt: View {
         Group {
             if let img = app.catalog.icon(option, size: 30) { Image(nsImage: img).resizable().frame(width: 30, height: 30) }
         }
+    }
+}
+
+/// Settings › Appearance › Inspector › Panels: each panel's icon with a switch, in the inspector's order. The same list as
+/// the icons' right-click menu; settings.json keeps the hidden ones (`workbench.inspector.hiddenPanels`).
+struct InspectorPanelsRow: View {
+    let title: AnyView
+    let about: String?
+    @Environment(AppModel.self) private var app
+    private static let hiddenKey = "workbench.inspector.hiddenPanels", orderKey = "workbench.inspector.panelOrder"
+
+    var body: some View {
+        let s = app.settings
+        let hidden = Set(s.value(Self.hiddenKey)?.array?.compactMap(\.string) ?? [])
+        let order = s.value(Self.orderKey)?.array?.compactMap(\.string) ?? []
+        let panels = app.extensions.all.panels.enumerated()
+            .sorted { (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (order.firstIndex(of: $1.element.id) ?? .max, $1.offset) }
+            .map(\.element)
+        VStack(alignment: .leading, spacing: Metrics.gapWide) {
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                title
+                if let about { Text(about).font(.subheadline).foregroundStyle(.secondary) }
+            }
+            ForEach(panels, id: \.id) { p in
+                Toggle(isOn: Binding(get: { !hidden.contains(p.id) }, set: { on in
+                    var next = hidden
+                    if on { next.remove(p.id) } else { next.insert(p.id) }
+                    // At least one stays: an inspector without icons has no way back but here.
+                    guard next.count < panels.count else { return }
+                    let kept = panels.map(\.id).filter(next.contains)
+                    s.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
+                })) {
+                    Label(loc(p.title), systemImage: p.icon)
+                }
+            }
+        }
+        .padding(.vertical, Metrics.lineGap)
     }
 }

@@ -1,6 +1,72 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Panels": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панели"
+          }
+        }
+      }
+    },
+    "Panel icons": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значки панелей"
+          }
+        }
+      }
+    },
+    "Icon alignment": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выравнивание значков"
+          }
+        }
+      }
+    },
+    "Under the Panel": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Под панелью"
+          }
+        }
+      }
+    },
+    "Beside the Tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рядом с вкладками"
+          }
+        }
+      }
+    },
+    "Drag an icon in the inspector to move it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перетащите значок в инспекторе, чтобы переставить его."
+          }
+        }
+      }
+    },
     "Use language servers": {
       "extractionState": "manual",
       "localizations": {

@@ -273,6 +273,8 @@ struct SettingRow: View {
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
             } label: { label }
+        case "panels":
+            InspectorPanelsRow(title: AnyView(title), about: spec.description.map(loc))
         case "theme":
             ThemeGallery(selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
                          about: spec.description.map(loc), help: spec.help.map(loc))
@@ -292,7 +294,8 @@ struct SettingRow: View {
 
     /// Two or three short choices seen side by side, as macOS shows them, instead of behind a menu.
     static let segmented: Set<String> = ["agents.onWaiting", "agents.onFinish", "agents.onError", "power.keepAwake", "usage.limits",
-                                         "workbench.sidebar.order", "markdown.defaultMode"]
+                                         "workbench.sidebar.order", "markdown.defaultMode", "workbench.inspectorIcons",
+                                         "workbench.inspectorIconsPosition"]
 
     /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
     /// installed), which would otherwise leave the picker blank.
@@ -342,6 +345,8 @@ struct SettingRow: View {
         case "workbench.ci.branchChip":
             let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
             return said[v] ?? v
+        case "workbench.inspectorIconsPosition":
+            return v == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
         case "usage.limits": return v == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
         case "usage.alertAt": return v == "off" ? String(localized: "Off") : "\(v)%"
         case "workbench.sidebar.order":

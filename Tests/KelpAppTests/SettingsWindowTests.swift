@@ -40,7 +40,7 @@ import Testing
     #expect(sections.prefix(9).map(\.id) == ["appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
-    #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == false)
+    #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == true)   // and in Settings too
     #expect(sections.first { $0.id == "git" }?.groups.map(\.0) == [nil, "CI"])
     // One row per key: the Dock icon sat in two sections with two defaults.
     let keys = sections.flatMap(\.specs).map(\.key)
