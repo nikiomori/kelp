@@ -29,9 +29,10 @@ extension DiffViewController {
         let file = (path as NSString).lastPathComponent
         Task {
             // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
-            let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint)
+            let undo = UUID().uuidString
+            let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint, undo: undo)
             if let e = await app.tryCall(m).error { Banner.show(e, style: .error) } else {
-                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid) { await self.load() }
+                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) { await self.load() }
             }
             fadesNextLoad = true
             await load()
@@ -110,7 +111,10 @@ extension DiffViewController {
     func pickAgentSession(_ wid: String) async -> String? {
         // Not a reviewer: findings go to the agent that wrote the code.
         let reviewers = Set(app.catalog.all.map { Self.reviewTitle($0.name) })
-        let live = app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title) }
+        let live = app.sessions.filter {   // agents only: a terminal would run the message's lines
+            $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title)
+                && !["shell", "custom"].contains($0.agent ?? "shell")
+        }
         if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }
         guard !live.isEmpty else { status.stringValue = String(localized: "No running agent in this worktree"); return nil }
@@ -126,10 +130,10 @@ extension DiffViewController {
 
 extension AppModel {
     /// After a discard: a banner whose Undo puts it back while the daemon keeps it (a minute; the banner stays 10 s).
-    func offerUndoDiscard(_ text: String, worktree wid: String, then reload: @escaping @MainActor () async -> Void = {}) {
+    func offerUndoDiscard(_ text: String, worktree wid: String, undo: String, then reload: @escaping @MainActor () async -> Void = {}) {
         Banner.show(text, action: (String(localized: "Undo"), { [self] in
             Task {
-                if await call(GitUndoDiscard(id: wid)) != nil { await reload() }
+                if await call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
                 watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
             }
         }))

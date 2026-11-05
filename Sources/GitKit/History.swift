@@ -155,16 +155,20 @@ extension Git {
     }
 
     /// Undo working-tree changes: tracked files go back to the index, untracked files are deleted. Answers the patch that
-    /// puts them back (`putBack`), or nil when it was too big to keep: the discard goes ahead either way.
+    /// puts them back (`putBack`); a change too big to keep that way is refused, nothing discarded.
     @discardableResult
-    public static func discard(_ path: String, files: [String], remotes: Remotes = .none) throws -> Data? {
+    public static func discard(_ path: String, files: [String], remotes: Remotes = .none) throws -> Data {
         let untracked = Set(try status(path, remotes: remotes).filter(\.untracked).map(\.path))
         let (u, t) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
-        var back: Data? = t.isEmpty ? Data() : nil
+        // Fixed prefixes, no colour: a user's diff.noprefix or color.diff=always would give a patch `git apply` can't take.
+        let plain = ["--binary", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"]
+        var back = Data()
         do {
-            if !t.isEmpty { back = try runData(["diff", "--binary", "--"] + literal(t), cwd: path, remotes: remotes) }
-            for f in u { back? += try runData(["diff", "--binary", "--no-index", "--", "/dev/null", f], cwd: path, ok: [0, 1], remotes: remotes) }
-        } catch { back = nil }   // past what Kelp reads: no Undo, but the discard asked for still happens
+            if !t.isEmpty { back = try runData(["diff"] + plain + ["--"] + literal(t), cwd: path, remotes: remotes) }
+            for f in u { back += try runData(["diff"] + plain + ["--no-index", "--", "/dev/null", f], cwd: path, ok: [0, 1], remotes: remotes) }
+        } catch {
+            throw GitError(args: ["diff"], status: 1, stderr: "This change is too big to keep for Undo, so Kelp left it as it is.")
+        }
         if !u.isEmpty { try run(["clean", "-f", "-q", "--"] + literal(u), cwd: path, remotes: remotes) }
         if !t.isEmpty { try run(["restore", "--worktree", "--"] + literal(t), cwd: path, remotes: remotes) }
         return back

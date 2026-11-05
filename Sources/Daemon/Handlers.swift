@@ -356,7 +356,7 @@ extension GitDiscardHunk: Handled {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }
         try Git.discardHunk(w.path, diff: diff, hunk: hunk, remotes: workspaces.remotes)
-        workspaces.discarded.withLock { $0[w.path] = .init(patch: diff.patch(hunk: hunk), hunk: true) }
+        workspaces.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: w.path, name: undo)
         return Done()
     }
 }

@@ -42,7 +42,13 @@ extension DiffViewController {
 
     /// What the diff shows, in words and as the command that prints it, for the reviewer.
     func reviewScope(_ wid: String) -> (String, String) {
-        if let s = single { return (String(localized: "the changes to \(s.file)"), "git diff HEAD -- " + IDE.shellWord(s.file)) }
+        if let s = single {
+            let f = IDE.shellWord(s.file)
+            if let c = s.commit { return (String(localized: "the changes to \(s.file) in commit \(c)"), "git show " + IDE.shellWord(c) + " -- " + f) }
+            let base = IDE.shellWord((app.worktree(wid)?.base ?? "main") + "...HEAD")
+            let how = ["unstaged": "git diff", "staged": "git diff --cached", "branch": "git diff " + base]
+            return (String(localized: "the changes to \(s.file)"), (how[s.source] ?? "git diff HEAD") + " -- " + f)
+        }
         switch source.indexOfSelectedItem {
         case 1: return (String(localized: "the unstaged changes"), "git diff")
         case 2: return (String(localized: "the staged changes"), "git diff --cached")
@@ -52,10 +58,10 @@ extension DiffViewController {
         case 4:
             let hash = commitHash ?? "HEAD"
             return (String(localized: "commit \(hash)"), "git show " + IDE.shellWord(hash))
-        case 5:
-            let files = diffs.map(\.path)
-            return (String(localized: "the agent's last turn, in \(files.joined(separator: ", "))"),
-                    "git diff HEAD -- " + files.map(IDE.shellWord).joined(separator: " "))
+        case 5:   // since the turn began: its snapshot against the files now, new ones listed too
+            let tree = (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.tree ?? "HEAD"
+            return (String(localized: "the agent's turn: the files changed since it began"),
+                    "git diff " + IDE.shellWord(tree) + "; git status --short")
         default: return (String(localized: "the uncommitted changes, new files included"), "git diff HEAD; git status --short")
         }
     }

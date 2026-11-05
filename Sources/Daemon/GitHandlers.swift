@@ -37,7 +37,10 @@ extension GitDiff: Handled {
                 dir = marks[i].folder
                 src = i > 0 ? .between(marks[i].tree, marks[i - 1].tree) : .since(tree: marks[i].tree)
             } else {
-                guard let base = ls.turnBase else { throw RPCError.invalidParams("That agent hasn't started a turn since Kelp launched.") }
+                // The one in memory, else the last kept (gone after the daemon restarted).
+                guard let base = try ls.turnBase ?? workspaces.store.turns(session: s).first?.tree else {
+                    throw RPCError.invalidParams("That agent hasn't started a turn yet.")
+                }
                 src = .since(tree: base)
             }
         case "unstaged": src = .unstaged
@@ -153,14 +156,14 @@ extension GitDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
         let back = try Git.discard(path, files: files ?? [], remotes: workspaces.remotes)
-        workspaces.discarded.withLock { $0[path] = back.map { .init(patch: $0, hunk: false) } }
+        workspaces.keepDiscard(.init(patch: back, hunk: false), folder: path, name: undo)
         return Done()
     }
 }
 extension GitUndoDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
-        guard let d = workspaces.discarded.withLock({ $0.removeValue(forKey: path) }), d.at.timeIntervalSinceNow > -60 else {
+        guard let d = workspaces.discarded.withLock({ $0[path]?.removeValue(forKey: undo ?? "") }), d.at.timeIntervalSinceNow > -60 else {
             throw RPCError.invalidParams("There's no discard to undo here any more.")
         }
         do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
@@ -239,6 +242,10 @@ extension CommentSetState: Handled {
 extension CommentSend: Handled {
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
+        // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
+        guard let to = workspaces.sessions.existing(session)?.snapshot.agent, !["shell", "custom"].contains(to) else {
+            throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
+        }
         let wanted = only.map(Set.init)
         let open = try workspaces.store.comments(worktree: w.id).filter { $0.state == .open && wanted?.contains($0.id) != false }
         guard !open.isEmpty else { return 0 }
@@ -252,7 +259,7 @@ extension CommentSend: Handled {
         var s = "Review comments on branch \(branch). Please address each one:\n"
         for (i, c) in comments.enumerated() {
             let range = c.startLine == c.endLine ? "\(c.startLine)" : "\(c.startLine)-\(c.endLine)"
-            let removed = c.side == "old" ? " (removed lines, numbered as in \(c.commit ?? "HEAD"))" : ""
+            let removed = c.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
             s += "\n\(i + 1). \(c.file):\(range)\(removed)\n"
             for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
             s += "   " + (c.author.map { "(\($0)) " } ?? "") + "\(c.text)\n"

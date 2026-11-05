@@ -9,6 +9,8 @@ import WorkbenchKit
 struct CommentDraft {
     var file: String, start: Int, end: Int, quote: String, side: String?
     let field = NSTextField(wrappingLabelWithString: "")
+    /// Its card, made once: a new read of the diff moves this one, so what's typed and the caret stay.
+    var card: NSView?
 }
 
 /// A comment is written in a card right under its line, as on GitHub: the Comment button, or the "+" beside a line under
@@ -55,6 +57,7 @@ extension DiffViewController {
 
     func draftCard() -> NSView {
         guard let d = draft else { return NSView() }
+        if let c = d.card { return c }
         let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.closeDraft() }
         cancel.keyEquivalent = "\u{1b}"
         let save = ClosureButton(title: String(localized: "Comment")) { [weak self] in self?.saveDraft() }
@@ -70,7 +73,17 @@ extension DiffViewController {
         card.wantsLayer = true; card.layer?.backgroundColor = NSColor.fillRest.cgColor
         NSLayoutConstraint.activate([d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -88 - Metrics.gapWide),
                                      d.field.heightAnchor.constraint(equalToConstant: Self.draftField)])
+        draft?.card = card
         return card
+    }
+
+    /// The table read again, the comment being typed keeping the keys (Space there is a space, not a comment's box).
+    func reloadKeepingDraft() {
+        let typing = draft.map { d in view.window?.firstResponder === d.field.currentEditor() } ?? false
+        table.reloadData()
+        guard typing, let f = draft?.field else { return }
+        view.window?.makeFirstResponder(f)
+        f.currentEditor()?.selectedRange = NSRange(location: f.stringValue.utf16.count, length: 0)
     }
 
     func closeDraft() {

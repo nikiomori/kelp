@@ -5105,6 +5105,14 @@
           "schema" : {
             "type" : "string"
           }
+        },
+        {
+          "description" : "A name the caller picks, for `git.undoDiscard` to put back this discard and no other.",
+          "name" : "undo",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         }
       ],
       "result" : {
@@ -5151,6 +5159,14 @@
         {
           "name" : "id",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "A name the caller picks, for `git.undoDiscard` to put back this hunk and no other.",
+          "name" : "undo",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
@@ -5498,6 +5514,14 @@
         {
           "name" : "id",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The discard's own `undo` name: that one. nil: the last one without a name.",
+          "name" : "undo",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }

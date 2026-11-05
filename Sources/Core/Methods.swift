@@ -171,8 +171,10 @@ public struct GitDiscardHunk: RPCMethod {
     /// The hunk's full text as shown (GitKit's `Hunk.fingerprint`): with it, a hunk whose lines changed since is refused
     /// even when its header didn't. Optional, so older callers keep working.
     public var fingerprint: String?
-    public init(id: String, file: String, hunk: Int, header: String, fingerprint: String? = nil) {
-        self.id = id; self.file = file; self.hunk = hunk; self.header = header; self.fingerprint = fingerprint
+    /// A name the caller picks, for `git.undoDiscard` to put back this hunk and no other.
+    public var undo: String?
+    public init(id: String, file: String, hunk: Int, header: String, fingerprint: String? = nil, undo: String? = nil) {
+        self.id = id; self.file = file; self.hunk = hunk; self.header = header; self.fingerprint = fingerprint; self.undo = undo
     }
 }
 

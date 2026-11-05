@@ -379,7 +379,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         readViewed()
         (rows, words) = built
         placeDraft()
-        files.reloadData(); table.reloadData()
+        files.reloadData(); reloadKeepingDraft()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
         if let e = r.error { status.stringValue = e; return }   // why there's nothing, not "0 files"
@@ -405,7 +405,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
             (rows, words) = built
-            placeDraft(); table.reloadData()
+            placeDraft(); reloadKeepingDraft()
             if !find.needle.isEmpty { search(find.needle, step: false) }
         }
     }

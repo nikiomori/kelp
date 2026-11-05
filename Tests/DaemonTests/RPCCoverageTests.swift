@@ -400,6 +400,21 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 /// A discard of files, tracked and untracked, comes back with Undo; but never over an edit made after it, and only once.
+/// Two discards, two Undos: each puts back its own change, whichever goes first.
+@Test func eachDiscardHasItsOwnUndo() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let c = w.c, wt = try await desk(w, "two")
+    let read = { (f: String) in try? String(contentsOfFile: wt.path + "/" + f, encoding: .utf8) }
+    try "x\n".write(toFile: wt.path + "/x.txt", atomically: true, encoding: .utf8)
+    try "y\n".write(toFile: wt.path + "/y.txt", atomically: true, encoding: .utf8)
+    _ = try await c.call(GitDiscard(id: wt.id, files: ["x.txt"], undo: "first"))
+    _ = try await c.call(GitDiscard(id: wt.id, files: ["y.txt"], undo: "second"))
+    _ = try await c.call(GitUndoDiscard(id: wt.id, undo: "first"))
+    #expect(read("x.txt") == "x\n" && read("y.txt") == nil)
+    _ = try await c.call(GitUndoDiscard(id: wt.id, undo: "second"))
+    #expect(read("y.txt") == "y\n")
+}
+
 @Test func undoPutsBackDiscardedFilesUnlessTheyChangedSince() async throws {
     let w = try await world(); defer { w.d.stop() }
     let c = w.c, wt = try await desk(w, "u")
@@ -433,10 +448,15 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func reviewCommentsReachAgent() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
     let c = w.c, wt = try await desk(w, "r")
     let box = NoteBox(); c.onNotification = { m, p in box.add(m, p) }
-    let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "cat"]), as: Session.self)
+    // Never into a terminal: a shell would run the message's lines.
+    let shell: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "cat"]), as: Session.self)
+    _ = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "rm -rf ~"))
+    await #expect(throws: (any Error).self) { try await c.call(CommentSend(id: wt.id, session: shell.id)) }
+    for x in try await c.call(CommentList(id: wt.id)) { _ = try await c.call(CommentSetState(id: x.id, state: "resolved")) }
+    let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     _ = try await c.call("comment.add", .obj(["id": .string(wt.id), "file": "a.txt", "start": 1, "end": 2, "quote": "hello", "text": "rename this"]))
     let n = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
@@ -446,7 +466,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let gone: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))
     #expect(gone.side == "old" && gone.commit?.isEmpty == false)
     _ = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
-    #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in \(gone.commit ?? ""))") })
+    #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in the file before this change)") })
     // Only the findings picked go; the others stay open.
     let a: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "picked one"))
     let b: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 2, text: "left out"))
@@ -454,5 +474,5 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let after: [DiffComment] = try await c.call(CommentList(id: wt.id))
     #expect(after.first { $0.id == b.id }?.state == .open && after.first { $0.id == a.id }?.state == .sent)
     let comments: [DiffComment] = try await c.call("comment.list", .obj(["id": .string(wt.id)]), as: [DiffComment].self)
-    #expect(comments.first?.state == .sent)
+    #expect(comments.first { $0.text == "rename this" }?.state == .sent)
 }

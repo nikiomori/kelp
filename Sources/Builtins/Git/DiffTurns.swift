@@ -8,7 +8,7 @@ extension DiffViewController {
     /// The turn picked, nil for the last one.
     var chosenTurn: String? {
         guard turnPop.indexOfSelectedItem > 0 else { return nil }
-        return turnPop.selectedItem?.representedObject as? String
+        return (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.id
     }
 
     /// The picker's turns read again, the one picked kept; hidden with no history (a remote project, none yet).
@@ -21,7 +21,7 @@ extension DiffViewController {
             let when = m.at.formatted(date: .omitted, time: .shortened)
             let title = i == 0 ? String(localized: "Last Turn") : "“\(m.prompt.prefix(48))” · \(when)"
             turnPop.addItem(withTitle: title)
-            turnPop.lastItem?.representedObject = m.id
+            turnPop.lastItem?.representedObject = m
             turnPop.lastItem?.toolTip = m.prompt
         }
         if let picked, let i = marks.firstIndex(where: { $0.id == picked }) { turnPop.selectItem(at: i) }
@@ -38,7 +38,9 @@ extension DiffViewController {
 
     /// What goes back first, in a sheet; then only if the folder is still as it was shown (`SessionTurnUndo`).
     private func undoTurn() {
-        guard let sid = FileActions(app).targetAgent?.id, let turn = turnPop.selectedItem?.representedObject as? String else { NSSound.beep(); return }
+        guard let sid = FileActions(app).targetAgent?.id, let turn = (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.id else {
+            NSSound.beep(); return
+        }
         Task {
             guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }   // the banner says why not
             guard !plan.files.isEmpty else { status.stringValue = String(localized: "Nothing changed since that turn began"); return }

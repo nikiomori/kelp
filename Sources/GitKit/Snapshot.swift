@@ -45,13 +45,19 @@ extension Git {
         return (names.split(separator: "\0").map(String.init).filter { !(($0 as NSString).lastPathComponent).hasPrefix(".env") }, now)
     }
 
-    /// `files` as they were in `tree`, content and mode, the index left alone; a file the tree hasn't goes to the Trash.
-    /// Refused when the folder isn't the snapshot `now` any more; afterwards none of them may still differ.
+    /// `files` (paths from the repository's top, `cwd`) as they were in `tree`, content and mode; a file the tree hasn't
+    /// goes to the Trash. Whatever of them is staged is unstaged first (back to HEAD, which is the turn's), so the next
+    /// commit can't take the undone work. Refused when the folder isn't the snapshot `now` any more; afterwards none of
+    /// them may still differ.
     public static func restore(_ files: [String], from tree: String, now: String, cwd: String, remotes: Remotes = .none) throws {
         guard try snapshotTree(cwd, remotes: remotes) == now else {
             throw GitError(args: ["restore"], status: 1, stderr: "The files changed since you looked; nothing was put back.")
         }
-        let had = Set(try run(["ls-tree", "-r", "-z", "--name-only", rev(tree)], cwd: cwd, remotes: remotes).split(separator: "\0").map(String.init))
+        let staged = files.isEmpty ? [] : try run(["ls-files", "-z", "--"] + literal(files), cwd: cwd, remotes: remotes)
+            .split(separator: "\0").map(String.init)
+        if !staged.isEmpty { try run(["restore", "--staged", "--"] + literal(staged), cwd: cwd, remotes: remotes) }
+        let had = Set(try run(["ls-tree", "-r", "-z", "--full-tree", "--name-only", rev(tree)], cwd: cwd, remotes: remotes)
+            .split(separator: "\0").map(String.init))
         let back = files.filter(had.contains)
         if !back.isEmpty { try run(["restore", "--source=" + rev(tree), "--worktree", "--"] + literal(back), cwd: cwd, remotes: remotes) }
         for f in files where !had.contains(f) && FileManager.default.fileExists(atPath: cwd + "/" + f) {

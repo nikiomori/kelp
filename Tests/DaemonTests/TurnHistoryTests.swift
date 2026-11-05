@@ -45,6 +45,7 @@ import Agents
     try "agent's\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try "made\n".write(toFile: wt.path + "/new.txt", atomically: true, encoding: .utf8)
     try "KEY=1\n".write(toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
+    try Git.run(["add", "new.txt"], cwd: wt.path)   // the agent staged its new file
     live.noteTurn(.idle)
     let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     #expect(plan.files.sorted() == ["a.txt", "new.txt"])   // .env stays out
@@ -54,6 +55,7 @@ import Agents
     let fresh = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     _ = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: fresh.state))
     #expect(file("a.txt") == before && file("new.txt") == nil && file(".env") == "KEY=1\n")
+    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: wt.path).isEmpty)   // nothing of the turn left to commit
     // Another agent in the folder, or a commit since: no.
     let other: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
@@ -61,4 +63,27 @@ import Agents
     #expect(try await waitFor(5) { w.d.sessions.existing(other.id)?.snapshot.status ?? .exited == .exited })
     try Git.run(["commit", "-q", "--allow-empty", "-m", "moved on"], cwd: wt.path)
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
+}
+
+/// An agent that worked from a subfolder: its turn is undone across the checkout, paths counted from the top.
+@Test func aTurnFromASubfolderIsUndoneFromTheTop() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
+    let wt = try await desk(w, "sub")
+    try FileManager.default.createDirectory(atPath: wt.path + "/pkg", withIntermediateDirectories: true)
+    try "pkg\n".write(toFile: wt.path + "/pkg/p.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "pkg"], cwd: wt.path); try Git.run(["commit", "-qm", "pkg"], cwd: wt.path)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like",
+                                                                "cwd": .string(wt.path + "/pkg")]), as: Session.self)
+    let live = try #require(w.d.sessions.existing(s.id))
+    live.noteTurn(.working)
+    #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
+    let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
+    try "changed\n".write(toFile: wt.path + "/pkg/p.txt", atomically: true, encoding: .utf8)
+    try "top\n".write(toFile: wt.path + "/top.txt", atomically: true, encoding: .utf8)
+    live.noteTurn(.idle)
+    let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
+    #expect(plan.files.sorted() == ["pkg/p.txt", "top.txt"])
+    _ = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state))
+    #expect(try String(contentsOfFile: wt.path + "/pkg/p.txt", encoding: .utf8) == "pkg\n")
+    #expect(!FileManager.default.fileExists(atPath: wt.path + "/top.txt"))
 }
