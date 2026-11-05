@@ -40,8 +40,7 @@ final class SidebarOutline: NSOutlineView {
 }
 
 /// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
-/// grey pill, as Finder's and Xcode's sidebars pick a row and as Kelp picks a tab (no accent colour, so the text and the
-/// status marks keep theirs). A project with nothing under it is a
+/// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
 /// plain row, on a card only when its colour fills one.
 @MainActor
 final class SidebarRowView: NSTableRowView {
@@ -101,9 +100,18 @@ final class SidebarRowView: NSTableRowView {
         CATransaction.commit()
         guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua, key = window?.isKeyWindow ?? true
-        // Another window in front: the pill stays, quieter, as Finder's selection does.
-        (key ? NSColor.fillSelected : .fillHover).setFill()
+        NSGraphicsContext.saveGraphicsState()
+        if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
+            let shadow = NSShadow()
+            shadow.shadowColor = .black.withAlphaComponent(0.12)
+            shadow.shadowBlurRadius = 2
+            shadow.shadowOffset = .init(width: 0, height: -0.5)
+            shadow.set()
+        }
+        // Another window in front: the pill stays, quieter, as Finder's selection goes grey.
+        NSColor.white.withAlphaComponent(dark ? (key ? 0.12 : 0.055) : (key ? 1 : 0.6)).setFill()
         path.fill()
+        NSGraphicsContext.restoreGraphicsState()
         if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {   // the pill alone is 1.5:1 to its card
             (dark ? NSColor.white.withAlphaComponent(0.35) : NSColor.black.withAlphaComponent(0.25)).setStroke()
             let edge = NSBezierPath(roundedRect: pill.insetBy(dx: 0.5, dy: 0.5), xRadius: radius - 0.5, yRadius: radius - 0.5)

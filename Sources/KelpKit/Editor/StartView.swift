@@ -57,7 +57,7 @@ final class StartView: NSView {
         folder.isHidden = folder.stringValue.isEmpty
 
         // The default agent first, then those in use, then the others (two columns: people often have a dozen). Six at
-        // most, the rest and the catalog behind one row: however many there are, Terminal stays on screen.
+        // most, the rest behind one row: however many there are, Terminal stays on screen.
         let started = Set(app.sessions.map(\.agent))
         let first = def
         let rank = { (a: AgentManifest) in (a.id == first ? 0 : 1, started.contains(a.id) ? 0 : 1, a.name) }
@@ -71,7 +71,7 @@ final class StartView: NSView {
             agentRowsById[a.id] = row
             return row
         }
-        if !agents.isEmpty { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
+        if agents.count > Self.agentRows { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
         // In two columns the default agent still runs across the card, its ⌥⌘T at the right edge with ⌘T and the rest.
         let lead = agents.first?.id == def ? 1 : 0
         let rows = agentRows(agents, tiles: tiles, lead: lead)
@@ -133,8 +133,7 @@ final class StartView: NSView {
     /// Past five rows (the agents and More Agents…), all but the default agent go in two columns.
     static func paired(_ tiles: Int) -> Bool { tiles > 5 }
 
-    /// The agents past the first six, then the catalog (Settings: installing and setting up agents is rare), in a menu
-    /// under its row.
+    /// The agents past the first six, in a menu under its row.
     private func moreAgents(_ rest: [AgentManifest]) -> StartRow {
         weak var row: StartRow?
         let app = self.app
@@ -145,15 +144,13 @@ final class StartView: NSView {
                 let item = menu.add(a.name) { [weak self] in self?.onAgent?(a.id) }
                 item.show(app.catalog.icon(a.id, size: 16))
             }
-            if !rest.isEmpty { menu.addItem(.separator()) }
-            menu.add(String(localized: "Agent Catalog…")) { SettingsWindow.show(app, section: "catalog") }
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: row)
         }
         row = more
         return more
     }
 
-    /// The agents to start, in two columns after the first `lead` when there are many; with none, what to install and
+    /// The agents to start, in two columns after the first `lead` when there are many; with none, what to install; then
     /// the catalog.
     private func agentRows(_ agents: [AgentManifest], tiles: [StartRow], lead: Int) -> [NSView] {
         let app = self.app
@@ -167,10 +164,6 @@ final class StartView: NSView {
                     self?.onInstall?(m)
                 }
             }
-            // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
-            rows.append(StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
-                SettingsWindow.show(app, section: "catalog")
-            })
         } else if Self.paired(tiles.count) {
             rows += tiles.prefix(lead).map { $0 as NSView }
             // A pair per card row: the card draws the same line between them as between its other rows.
@@ -184,6 +177,10 @@ final class StartView: NSView {
         } else {
             rows += tiles
         }
+        // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
+        rows.append(StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
+            SettingsWindow.show(app, section: "catalog")
+        })
         return rows
     }
 

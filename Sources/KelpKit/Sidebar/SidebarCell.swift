@@ -67,9 +67,8 @@ final class SidebarCell: NSTableCellView {
     private var hovering = false
     /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
     var selected = false { didSet { if selected != oldValue { update() } } }
-    /// Grey text on the grey pill (fillSelected): 5.3:1 on dark's white 12%, about 6:1 on light's black 12% over its card,
-    /// where secondary label is 3.4:1.
-    static let onPill = NSColor.dynamic(light: NSColor.black.withAlphaComponent(0.7), dark: NSColor.white.withAlphaComponent(0.78))
+    /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
+    static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
     /// for rows that stand for a folder (RowBadges); the dot goes first when the row is short of room, the CI mark last.
     private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero), ci = PointerButton(frame: .zero)

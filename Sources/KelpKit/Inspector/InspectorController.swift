@@ -228,14 +228,13 @@ final class InspectorController: NSViewController {
     private func showCounts() {
         let onScreen = view.window != nil && !view.isHiddenOrHasHiddenAncestor
         var folds: [PanelBadge] = []
-        let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0
         for (i, p) in panels.enumerated() where counts.indices.contains(i) {
             var n = p.badge?()
             if let d = n, d.count == 0 {
                 if onScreen, p.id == app.workbench.inspectorPanel { seen[p.id] = d.key }
                 if seen[p.id] == d.key { n = nil }
             }
-            counts[i].badge = i == current ? nil : n   // the panel on screen shows its own count, as Xcode's do
+            counts[i].badge = n
             if let n, folded.contains(i) { folds.append(n) }
             buttons[i].toolTip = n.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) •" } ?? loc(p.title)
         }

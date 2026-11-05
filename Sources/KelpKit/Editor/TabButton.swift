@@ -20,7 +20,7 @@ final class TabButton: NSControl, NSDraggingSource {
     private let full = NSTextField(labelWithString: "")
     /// What runs beside its agent, whatever it's doing (a dev server): by name in the tooltip.
     private let chip = Chip()
-    private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5, hairline: false)
+    private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false {
         didSet {
             if hover != oldValue { slot.crossfade() }   // the close button takes the icon's place in a fade, as a row's "+" comes in
@@ -164,19 +164,19 @@ final class TabButton: NSControl, NSDraggingSource {
     }
 
     /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
-    /// unseen; light that calls for you, and nothing else of an agent's (finished unseen is the title's weight). A glow,
-    /// not a line or a fill: it reads as the pane's.
+    /// unseen, a faint glow in the text's colour when it finished unseen. A glow and its edge line: it reads as the pane's.
     private var glow: NSColor? {
         switch item?.status {
         case .waiting?: .systemOrange
         case .error? where item?.unread == true: .systemRed
+        case .done? where item?.unread == true: .labelColor
         default: item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the
     /// selected fill under it stays as it is.
     private func showGlow() {
-        edgeGlow.show(glow, breathing: item?.status == .waiting)
+        edgeGlow.show(glow, breathing: item?.status == .waiting, faint: item?.status == .done)
     }
 
     private var doneUnread: Bool { item?.status == .done && item?.unread == true }

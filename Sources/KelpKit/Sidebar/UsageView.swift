@@ -92,17 +92,19 @@ struct UsageView: View {
                         HStack(spacing: Metrics.gap) {
                             Text(r.name).lineLimit(1)
                             Spacer(minLength: Metrics.gapWide)
-                            // An old reading says how old in place of its reset, which it can no longer vouch for.
+                            // An old reading says how old in place of its reset, which it can no longer vouch for; the
+                            // row is dimmed and its share marked "~", so the age doesn't read as a reset time.
                             if r.stale, let read = r.readAt {
                                 Text(String(localized: "\(shortAgo(read)) ago")).fixedSize().monospacedDigit().foregroundStyle(.secondary)
                             } else if resets, let at = main.soon() { Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary) }
-                            Text(Self.percent(main.used)).fixedSize()
+                            Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
                                 .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
                         }
                         Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }
                 }
                 .font(.ui(11))
+                .opacity(r.stale ? 0.45 : 1)
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))

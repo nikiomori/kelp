@@ -71,14 +71,14 @@ struct AgentsSettings: View {
             if !have.isEmpty {
                 Section {
                     ForEach(have, id: \.id) { row($0) }
-                } header: { Text("Installed") } footer: {
+                } header: { Text("Installed \(have.count)") } footer: {
                     if !updates.isEmpty {
                         Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
                             .font(.ui(11)).foregroundStyle(Color.textOrange)
                     }
                 }
             }
-            if !rest.isEmpty { Section("Not Installed") { ForEach(rest, id: \.id) { row($0) } } }
+            if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
             if have.isEmpty && rest.isEmpty {
                 Text(show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed.").foregroundStyle(.secondary)
             }
