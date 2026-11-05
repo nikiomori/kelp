@@ -275,7 +275,8 @@ extension CommentSend: Handled {
             let past = c.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
             s += "\n\(i + 1). \(c.file):\(range)\(removed)\(past)\n"
             for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
-            s += "   " + (c.author.map { "(\($0)) " } ?? "") + "\(c.text)\n"
+            // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said.
+            s += "   " + (c.author.map { Untrusted.frame(c.text, what: "\($0)'s finding") } ?? c.text) + "\n"
         }
         return s
     }
