@@ -13,6 +13,7 @@ package final class EditorArea: NSViewController {
     package var layout: WorkspaceLayout
     var contents: [String: TabContent] = [:]       // by tab id
     var recent: [String] = []                      // tab ids by when last shown, newest last (EditorRelease)
+    var hiddenAt: [String: Date] = [:]             // since when each built tab is off screen (EditorRelease)
     var groupViews: [String: GroupView] = [:]
     /// The card under an agent's tab, one for all of this workspace's strips: moving along them goes from card to card.
     private lazy var tabCard = HoverCard(app: app, underTabs: true)

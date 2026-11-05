@@ -151,7 +151,8 @@ extension OneAtATime {
     #expect(actions.expand("echo 'Issue: ${title}'", item: item, quote: true).hasSuffix(#"echo 'Issue: '"${KELP_V1}"''"#))
 }
 
-/// A hidden terminal lets go of its surface once two others were shown after it; the one on screen and files stay built.
+/// A hidden terminal lets go of its surface once two others were shown after it and it was hidden a while; the one on
+/// screen and files stay built.
 @MainActor @Test func terminalsHiddenLongestAreReleased() {
     final class Fake: TabContent {
         let uri: String; let view = NSView(); var title: String { uri }; var icon: NSImage? { nil }
@@ -167,6 +168,8 @@ extension OneAtATime {
         if let g = area.layout.group(of: t.id) { area.layout.groups[g]?.selected = t.id }
         area.noteShown(t.id)
     }
+    #expect(area.contents[tabs[0].id] != nil)   // a quick look at the others: its scrollback stays whole
+    area.noteShown(nil, now: Date().addingTimeInterval(EditorArea.releaseAfter + 1))
     #expect(area.contents[tabs[0].id] == nil && area.contents[tabs[1].id] != nil && area.contents[tabs[3].id] != nil)
     #expect(area.contents[file.id] != nil)
 }
