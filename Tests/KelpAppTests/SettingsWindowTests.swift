@@ -45,4 +45,7 @@ import Testing
     // One row per key: the Dock icon sat in two sections with two defaults.
     let keys = sections.flatMap(\.specs).map(\.key)
     #expect(Set(keys).count == keys.count)
+    // A drawn choice is an enum row somewhere: a renamed key would leave its pictures drawing nothing.
+    let enums = Set(sections.flatMap(\.specs).filter { $0.type == "enum" }.map(\.key))
+    #expect(SettingPictures.keys.subtracting(enums).isEmpty)
 }

@@ -392,7 +392,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
         "KelpKit/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
         "KelpKit/Settings/IconTheme.swift": (2, "an icon theme an extension brings"),
-        "KelpKit/Settings/SettingsWindow.swift": (1, "an extension's own folder"),
+        "KelpKit/Settings/ExtensionsSettings.swift": (1, "an extension's own folder"),
         "KelpKit/Extensions/Registry.swift": (7, "extensions' folders, Kelp's own"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (4, "an extension's manifest"),
         "KelpKit/Extensions/ExtensionReview.swift": (1, "an extension's manifest, before it's installed"),
