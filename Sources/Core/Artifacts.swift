@@ -45,14 +45,15 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 }
 
 public enum Artifacts {
-    /// The kinds Kelp makes on this Mac, and the file each one is.
+    /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.
     public enum Kind: String, CaseIterable, Sendable {
-        case doc, review
-        public var file: String { "\(rawValue).md" }
+        case doc, review, slides, design, dashboard
+        public var file: String { "\(rawValue).\(isHTML ? "html" : "md")" }
+        public var isHTML: Bool { self == .design || self == .dashboard }
     }
 
-    /// Every kind a guide speaks of: the ones Kelp makes, and those only an agent's own service makes for now.
-    public static let guides = Kind.allCases.map(\.rawValue) + ["slides", "design", "dashboard"]
+    /// Every kind a guide speaks of.
+    public static let guides = Kind.allCases.map(\.rawValue)
 
     public static let folder = ".kelp/artifacts"
 
@@ -75,9 +76,31 @@ public enum Artifacts {
     public static func create(_ kind: Kind, title: String, root: String, session: String?, now: Date = Date()) throws -> URL {
         let folder = try newFolder(title, root: root)
         let page = folder.appendingPathComponent(kind.file)
-        try "# \(title)\n\n".write(to: page, atomically: true, encoding: .utf8)
+        try (kind.isHTML ? htmlStart(title) : "# \(title)\n\n").write(to: page, atomically: true, encoding: .utf8)
         try save(ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file), in: folder)
         return page
+    }
+
+    /// A page of HTML's first lines: its title, and the system's font in the app's light or dark.
+    static func htmlStart(_ title: String) -> String {
+        let t = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
+        return """
+            <!doctype html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <title>\(t)</title>
+            <style>
+            :root { color-scheme: light dark; }
+            body { margin: 0; padding: 32px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+            </style>
+            </head>
+            <body>
+            <h1>\(t)</h1>
+            </body>
+            </html>
+
+            """
     }
 
     /// Keeps the link to a page the agent published on its own service; nil when it's known already (a later version).
@@ -170,20 +193,17 @@ public enum Artifacts {
     /// What `kelp artifact guide <kind>` prints. `whereTo`: the `artifacts.where` setting ("agent" or "local").
     public static func guide(_ kind: String, whereTo: String) -> String? {
         guard let rules = rules[kind] else { return nil }
-        let local = Kind(rawValue: kind) != nil
         var out = "# Making \(article(kind)) in Kelp\n\n"
         if kind == Kind.review.rawValue {
             out += "Reviews stay in the project, even if you can publish artifacts elsewhere: the user's picks come back to you from the file.\n"
         } else if whereTo == "local" {
-            out += local ? "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
-                : "The user keeps artifacts on this Mac, and Kelp can't make \(kind) here yet: say so, and offer a doc instead.\n"
+            out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
             out += "If you can publish artifacts yourself (claude.ai's claude-artifacts or Claude Docs tools), make it there: "
                 + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
-                + (local ? "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
-                    : "If you can't, tell the user Kelp can't make \(kind) on this Mac yet, and offer a doc instead.\n")
+                + "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
         }
-        if local { out += "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n" }
+        out += "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n"
         return out + "\nRules for \(article(kind)):\n" + rules
     }
 
@@ -207,9 +227,27 @@ public enum Artifacts {
               picks may arrive as a line like `My answers in <file>: 1A 2B`, with `[x]` on the picked options in the file.
 
             """,
-        "slides": "- Slides split by `---`; one idea a slide, at most four bullets, numbers on a slide of their own.\n",
-        "design": "- Each variant its own page at its real size, in the project's design system, in light and dark; one marked recommended.\n",
-        "dashboard": "- Every number names where it came from: the command you ran and when.\n"
+        "slides": """
+            - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
+            - One idea a slide, at most four bullets; a number that matters on a slide of its own.
+            - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
+
+            """,
+        "design": """
+            - One HTML file with its CSS inline, no scripts or files from the web; icons as inline SVG.
+            - A `<section>` per variant, headed `<h2>A. What it is</h2>`, its screens at their real size, side by side.
+            - Each screen in light and dark, side by side, in the project's own colours, type and spacing when it has them.
+            - Set a background and its text colour together: the page opens in the app's light or dark.
+            - Mark one variant recommended in its heading.
+
+            """,
+        "dashboard": """
+            - One HTML file with its CSS inline, no scripts or files from the web; charts as inline SVG.
+            - Numbers first, as large figures with a label; then charts; then the table they came from.
+            - Set a background and its text colour together: the page opens in the app's light or dark.
+            - Every number names where it came from (the command you ran, the file you read) and when, beside it or under it.
+
+            """
     ]
 
     private static func article(_ kind: String) -> String { kind == "slides" ? "slides" : "a \(kind)" }

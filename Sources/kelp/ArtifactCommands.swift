@@ -29,7 +29,7 @@ extension Main {
             }
             print(file.path)
             print(opened ? "Opened beside you. Write the page into that file; the tab updates as you save." : "Write the page into that file.")
-            print("\nRules for a \(kind.rawValue):\n" + Artifacts.rules(kind), terminator: "")
+            print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
         case "list":
             for (slug, r) in Artifacts.list(root: root) { print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t")) }
         case "open":

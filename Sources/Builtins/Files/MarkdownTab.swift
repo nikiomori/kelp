@@ -6,7 +6,8 @@ import EditorKit
 import KelpKit
 import Core
 
-/// A Markdown file: editor, live preview, or both, with a formatting bar for specs and plans you write for agents.
+/// A Markdown file: editor, live preview, or both, with a formatting bar for specs and plans you write for agents. Also an
+/// agent's page of HTML (a design, a dashboard), shown as it is, and its slides, cut into 16:9 slides.
 @MainActor
 final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
@@ -38,6 +39,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var saveFile: (() async -> Bool)?
     /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
     private var isReview: Bool { Review.isReview(url.path) }
+    /// An agent's page of HTML: the preview is the file itself.
+    private var isHTML: Bool { ["html", "htm"].contains(url.pathExtension.lowercased()) }
+    private var isSlides: Bool { url.lastPathComponent == Artifacts.Kind.slides.file && ArtifactBar.isPage(url.path) }
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
@@ -164,7 +168,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
     private func placeSelectionBar() {
-        guard NSEvent.pressedMouseButtons == 0, !editor.view.isHidden, let r = editor.selectionRect else { return selectionBar.isHidden = true }
+        guard NSEvent.pressedMouseButtons == 0, !isHTML, !editor.view.isHidden, let r = editor.selectionRect else { return selectionBar.isHidden = true }
         selectionBar.show(over: view.convert(r, from: editor.view), in: view)
     }
 
@@ -229,21 +233,22 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let p = CodeEditor.page
                 page = (p.background.hexString, p.text.hexString)
             }
-            let review = isReview, sendTo = reviewAuthor?.title
+            let review = isReview, slides = isSlides, raw = isHTML, sendTo = reviewAuthor?.title
             let html = await Task.detached { [page] in
+                if raw { return text }
                 if review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
                     return MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.extras
                 }
                 return MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
-                    + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "") + MarkdownHTML.scrollSync
+                    + (slides ? MarkdownHTML.slides : "") + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "") + MarkdownHTML.scrollSync
             }.value
             guard !Task.isCancelled else { return }
             // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).
             let y = (try? await web.evaluateJavaScript("window.scrollY")) as? Double ?? 0
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
-            let place = currentMode == "split" && !review ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
+            let place = currentMode == "split" && !review && !raw ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
             web.loadHTMLString(html + "<script>\(place)</script>", baseURL: base)
         }
     }

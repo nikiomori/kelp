@@ -80,7 +80,7 @@ final class ArtifactBar: NSObject {
         item = app.artifacts[workspace ?? ""]?.first { (Paths.real($0.target) ?? $0.target) == real }
         let s = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
-        kind.stringValue = type == "review" ? String(localized: "Review") : String(localized: "Doc")
+        kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
         if let t = item?.title, !t.isEmpty { markdown.onPageTitle?(t) }
         // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
         let versions = item?.versions ?? []
@@ -109,6 +109,9 @@ final class ArtifactBar: NSObject {
             author.isEnabled = s.status != .exited
         }
     }
+
+    private static let kindNames = ["doc": String(localized: "Doc"), "review": String(localized: "Review"), "slides": String(localized: "Slides"),
+                                    "design": String(localized: "Design"), "dashboard": String(localized: "Dashboard")]
 
     private func step(_ by: Int) {
         let i = (shown ?? entries.count - 1) + by

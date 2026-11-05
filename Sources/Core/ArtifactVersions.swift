@@ -1,6 +1,6 @@
 import Foundation
 
-/// A page as one turn of its agent left it: `versions/<n>.md` beside it, named by the prompt that started the turn.
+/// A page as one turn of its agent left it: `versions/<n>.md` (or `.html`) beside it, named by the prompt that started the turn.
 public struct ArtifactVersion: Codable, Equatable, Sendable {
     public var n: Int
     /// Seconds since 1970.
@@ -26,10 +26,10 @@ extension Artifacts {
             let n = (versions.last?.n ?? 0) + 1, folder = URL(fileURLWithPath: target).deletingLastPathComponent()
             let dir = folder.appendingPathComponent("versions")
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try live.write(to: dir.appendingPathComponent("\(n).md"))
+            try live.write(to: URL(fileURLWithPath: versionPath(target: target, n)))
             versions.append(ArtifactVersion(n: n, at: now.timeIntervalSince1970, label: oneLine(label, n: n)))
             for old in versions.dropLast(keptVersions) {
-                try FileManager.default.removeItem(at: dir.appendingPathComponent("\(old.n).md"))
+                try FileManager.default.removeItem(atPath: versionPath(target: target, old.n))
             }
             var record = r
             record.versions = Array(versions.suffix(keptVersions))
@@ -41,7 +41,8 @@ extension Artifacts {
 
     /// The file of version `n` of the page at `target`.
     public static func versionPath(target: String, _ n: Int) -> String {
-        URL(fileURLWithPath: target).deletingLastPathComponent().appendingPathComponent("versions/\(n).md").path
+        let url = URL(fileURLWithPath: target)
+        return url.deletingLastPathComponent().appendingPathComponent("versions/\(n).\(url.pathExtension)").path
     }
 
     static func versionText(target: String, _ n: Int) -> String? {

@@ -33,6 +33,20 @@ private func tempRoot() throws -> URL {
     #expect(exclude == "/.kelp/artifacts/\n")
 }
 
+/// A design and a dashboard are pages of HTML, titled; slides are Markdown. Their versions keep their file's extension.
+@Test func artifactKinds() throws {
+    let root = try tempRoot()
+    let design = try Artifacts.create(.design, title: "Header <A & B>", root: root.path, session: "s1")
+    #expect(design.lastPathComponent == "design.html")
+    let html = try String(contentsOf: design, encoding: .utf8)
+    #expect(html.contains("<title>Header &lt;A &amp; B&gt;</title>") && html.contains("color-scheme: light dark"))
+    #expect(try Artifacts.create(.dashboard, title: "CI", root: root.path, session: nil).lastPathComponent == "dashboard.html")
+    #expect(try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
+    #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.html"))
+    #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
+}
+
 /// A worktree's `.git` is a file; its exclude is the main repository's.
 @Test func artifactExcludeInWorktree() throws {
     let repo = try tempRoot(), wt = repo.appendingPathComponent("wt")
@@ -77,7 +91,9 @@ private func tempRoot() throws -> URL {
     let review = try #require(Artifacts.guide("review", whereTo: "agent"))
     #expect(review.contains("Reviews stay in the project") && review.contains("## 1. The question"))
     let slides = try #require(Artifacts.guide("slides", whereTo: "agent"))
-    #expect(slides.contains("make it there") && !slides.contains("kelp artifact new"))
+    #expect(slides.contains("make it there") && slides.contains("kelp artifact new slides") && slides.contains("`---`"))
+    let design = try #require(Artifacts.guide("design", whereTo: "local"))
+    #expect(design.contains("don't publish it elsewhere") && design.contains("light and dark"))
     #expect(Artifacts.guide("poster", whereTo: "agent") == nil)
 }
 

@@ -93,7 +93,7 @@ enum AgentSkills {
         `kelp artifact guide <doc|review|slides|design|dashboard>` first and follow it: it says whether to make it with your
         own artifact tools or in the project, and the rules for that kind. A short answer stays in the chat.
 
-        - `kelp artifact new <doc|review> "<title>"` — a page in the project's `.kelp/artifacts`, opened beside you; prints
+        - `kelp artifact new <doc|review|slides|design|dashboard> "<title>"` — a page in the project's `.kelp/artifacts`, opened beside you; prints
           the file to write. Write it with your file tools; the tab follows.
         - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
         - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its link, which

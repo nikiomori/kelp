@@ -146,9 +146,9 @@ final class FileTab: SavableTab {
             e?.refreshAppearance()
             bar?.show(wrapping: wraps)
         }
-        if ["md", "markdown"].contains(url.pathExtension.lowercased()) {
+        if ["md", "markdown"].contains(url.pathExtension.lowercased()) || ArtifactBar.isPage(path) {   // an agent's page of HTML too
             let md = MarkdownTab(editor: e, url: url, app: app)
-            md.startInPreview = path == Help.location.path || Review.isReview(path)   // the help is for reading, a review for answering
+            md.startInPreview = path == Help.location.path || ArtifactBar.isPage(path)   // the help and agents' pages are for reading
             md.onEditing = { [weak bar] in bar?.editing = $0 }
             md.saveFile = { [weak self] in await self?.save() ?? false }; md.onPageTitle = { [weak self] in self?.pageTitle = $0 }
             markdown = md; box.pin(stacked(md.header(else: crumbs), md.view, bar))
