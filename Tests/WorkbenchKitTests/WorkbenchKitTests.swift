@@ -311,6 +311,10 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(l.replace("session:a", with: "session:b")?.id == a.id)
     #expect(l.focusedGroup?.tabs.map(\.uri) == ["session:b", "file:///x"] && l.focusedGroup?.tabs.last == b)
     #expect(l.replace("session:gone", with: "session:c") == nil)
+    // The new one already got a tab of its own (its event came first): one tab, in the old one's place.
+    l.add("session:d", select: false)
+    #expect(l.replace("session:b", with: "session:d")?.id == a.id)
+    #expect(l.allTabs.map(\.uri) == ["session:d", "file:///x"])
 }
 
 /// A child stands on its parent's row; on another screen it keeps a row of its own.

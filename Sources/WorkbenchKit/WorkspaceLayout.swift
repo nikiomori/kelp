@@ -36,10 +36,13 @@ public struct WorkspaceLayout: Codable, Equatable {
     public func tab(uri: String) -> TabRef? { allTabs.first { $0.uri == uri } }
 
     /// `new` in the tab that showed `old`, in its place (a restarted session, a file saved under a new name); nil when
-    /// no tab shows `old`.
+    /// no tab shows `old`. A tab `new` already has (the daemon's event for a restarted session can come before the
+    /// restart's answer) goes: one tab per URI.
     @discardableResult
     public mutating func replace(_ old: String, with new: String) -> TabRef? {
-        guard let t = tab(uri: old), let gid = group(of: t.id), let i = groups[gid]?.tabs.firstIndex(of: t) else { return nil }
+        guard let t = tab(uri: old) else { return nil }
+        if let dup = tab(uri: new) { remove(dup.id) }
+        guard let gid = group(of: t.id), let i = groups[gid]?.tabs.firstIndex(of: t) else { return nil }
         groups[gid]?.tabs[i].uri = new
         return t
     }

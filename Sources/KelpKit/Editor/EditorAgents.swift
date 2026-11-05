@@ -114,8 +114,10 @@ extension EditorArea {
     /// `new` in the tab that showed `old`, in its place (a restarted session, a new file saved under a name).
     /// `focus: false` for a workspace that isn't on screen.
     package func replace(_ old: String, with new: String, focus: Bool = true) {
+        let dup = layout.tab(uri: new)
         guard let t = layout.replace(old, with: new) else { open(new, focus: focus); return }
         contents[t.id] = nil
+        if let dup { contents[dup.id] = nil }
         render(); select(t.id, focus: focus)
     }
 
