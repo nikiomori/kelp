@@ -30,8 +30,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Files and links opened while Kelp starts (nil once it has).
     private var pendingOpens: [URL]? = []
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
-    lazy var updater: SPUStandardUpdaterController? = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") == nil ? nil
-        : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
+    lazy var updater: SPUStandardUpdaterController? = {
+        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return nil }
+        let u = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
+        app.updates.controller = u   // Settings › General reads and sets its schedule
+        return u
+    }()
 
     func applicationDidFinishLaunching(_ n: Notification) {
         let app = self.app

@@ -40,8 +40,8 @@ package enum Builtins {
     package static let appearance = Builtin("kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
                                             icon: "paintpalette", essential: true) { _ in
         var c = Contributions()
-        // Everything you see in one place: the theme and text first, then how the sidebar and the window look; what is set
-        // once (file icons, language) last.
+        // Everything you see in one place: the theme and text first, then how the sidebar, the inspector and the window
+        // look. General has what's about the app itself: its language, updates, the background service.
         c.settings = [SettingsSection(id: "appearance", title: "Appearance", icon: "paintpalette", specs: [
             s("workbench.theme", "Color theme", "theme", "auto",
               "The window, terminal and editor together.",
@@ -57,14 +57,15 @@ package enum Builtins {
         ] + sidebar + inspector + [
             s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
               "In the title bar; ⌃⌘T works either way.",
-              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "General"),
+              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
             s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
               "Icons in Files, Source Control and tabs.",
-              help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "General"),
-            s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
-              options: ["system", "en", "ru"], group: "General")
-        ], order: 10), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
-                                       custom: { AnyView(KeyboardSettings()) }, order: 95)]
+              help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window")
+        ], order: 10), SettingsSection(id: "general", title: "General", icon: "gearshape", specs: [
+            s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.", options: ["system", "en", "ru"])
+        ], custom: { AnyView(GeneralSettings()) }, keywords: ["Updates", "Background", "Login Items"], order: 5),
+                      SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
+                                      custom: { AnyView(KeyboardSettings()) }, order: 95)]
         return c
     }
 

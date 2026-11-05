@@ -10,7 +10,7 @@ enum BackgroundItem {
     /// labels that follow their ids (dev.kelp.app.beta → dev.kelp.kelpd.beta), as scripts/bundle.sh names them.
     static let label = "dev.kelp.kelpd" + (Bundle.main.bundleIdentifier ?? "").dropFirst("dev.kelp.app".count)
     private static var service: SMAppService { .agent(plistName: label + ".plist") }
-    private static var bundled: Bool { Bundle.main.bundleURL.pathExtension == "app" }
+    static var bundled: Bool { Bundle.main.bundleURL.pathExtension == "app" }
 
     /// Once: turned off in System Settings, it stays off, and the app says once per launch what that costs.
     /// Off the main thread: each `status` waits for the system, with the window still empty at launch.

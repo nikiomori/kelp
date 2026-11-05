@@ -9,6 +9,8 @@ final class Updates: NSObject {
     struct Ready: Equatable { var version: String, notes: URL? }
 
     private(set) var ready: Ready?
+    /// Sparkle's, made by the app delegate; nil in a build without a feed (a debug one, Kelp Dev).
+    @ObservationIgnored weak var controller: SPUStandardUpdaterController?
     @ObservationIgnored private var installNow: (() -> Void)?
     @ObservationIgnored private let defaults: UserDefaults
     private static let versionKey = "update.version", notesKey = "update.notes"

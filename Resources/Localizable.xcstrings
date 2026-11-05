@@ -1,6 +1,160 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Updates": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновления"
+          }
+        }
+      }
+    },
+    "Check for updates automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверять обновления автоматически"
+          }
+        }
+      }
+    },
+    "Download them in the background": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружать их в фоне"
+          }
+        }
+      }
+    },
+    "A pill over the sidebar says when one is ready; a quit installs it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда обновление готово, над боковой панелью появляется кнопка; выход из Kelp его устанавливает."
+          }
+        }
+      }
+    },
+    "Check Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить сейчас"
+          }
+        }
+      }
+    },
+    "This build doesn't update itself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта сборка не обновляется сама."
+          }
+        }
+      }
+    },
+    "Background": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фон"
+          }
+        }
+      }
+    },
+    "Agents keep running when Kelp quits": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты работают после выхода из Kelp"
+          }
+        }
+      }
+    },
+    "Off in Login Items: quitting or updating Kelp ends them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено в «Объектах входа»: выход или обновление Kelp завершает их."
+          }
+        }
+      }
+    },
+    "On: Kelp's background service is allowed in Login Items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено: фоновая служба Kelp разрешена в «Объектах входа»."
+          }
+        }
+      }
+    },
+    "Restart…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить…"
+          }
+        }
+      }
+    },
+    "Background service": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фоновая служба"
+          }
+        }
+      }
+    },
+    "Runs the agents and terminals. Restarting keeps them when it can.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держит агентов и терминалы. Перезапуск сохраняет их, когда может."
+          }
+        }
+      }
+    },
+    "Login Items": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объекты входа"
+          }
+        }
+      }
+    },
     "Panels": {
       "extractionState": "manual",
       "localizations": {

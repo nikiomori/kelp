@@ -37,7 +37,7 @@ import Testing
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
     let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
-    #expect(sections.prefix(9).map(\.id) == ["appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
+    #expect(sections.prefix(10).map(\.id) == ["general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
     #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == true)   // and in Settings too
