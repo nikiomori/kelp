@@ -97,8 +97,14 @@ extension BrowserTab {
         return .object(o)
     }
 
-    /// The arguments of an action the user sees done: the element's outline is drawn in the accent colour.
-    private func shown(_ args: [String: Any]) -> [String: Any] { args.merging(["accent": NSColor.themeAccent.hexString]) { $1 } }
+    /// The arguments of an action the user sees done: the element's glow, in the accent colour and Kelp's motion (ms).
+    /// The wait before the action isn't motion, so Reduce Motion keeps it.
+    private func shown(_ args: [String: Any]) -> [String: Any] {
+        let ms = { (d: TimeInterval) in Int(d * 1000) }
+        let motion = ["appear": ms(Motion.duration(Motion.appear)), "disappear": ms(Motion.duration(Motion.disappear)),
+                      "flash": ms(Motion.flash), "lead": ms(Motion.appear + Motion.fast)]
+        return args.merging(["accent": NSColor.themeAccent.hexString, "motion": motion]) { $1 }
+    }
 
     /// An async function body with `args` as its variables; a script's exception comes back as its message.
     private func run(_ body: String, _ args: [String: Any] = [:], page: Bool = false) async throws -> Any? {
@@ -194,17 +200,20 @@ extension BrowserTab {
     el.scrollIntoView({block: 'center', inline: 'center'});
     """#
 
-    /// An outline on `el` for a moment, so the user watching sees what the agent is about to click or type in; the
-    /// action waits a beat for it when the page is on screen.
+    /// A glow on `el` for a moment, closing in on it, so the user watching sees what the agent is about to click or type
+    /// in; the action waits for it when the page is on screen (a link's page would replace it at once).
     static let flashJS = #"""
     const fr = el.getBoundingClientRect(), fl = document.createElement('div');
     fl.setAttribute('data-kelp-flash', '');
-    fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483647;border-radius:6px;transition:opacity .4s;'
-      + 'left:' + (fr.left - 3) + 'px;top:' + (fr.top - 3) + 'px;width:' + (fr.width + 6) + 'px;height:' + (fr.height + 6) + 'px;'
-      + 'border:2px solid ' + accent + ';background:' + accent + '22';
+    fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483647;border-radius:8px;'
+      + 'left:' + (fr.left - 4) + 'px;top:' + (fr.top - 4) + 'px;width:' + (fr.width + 8) + 'px;height:' + (fr.height + 8) + 'px;'
+      + 'border:2px solid ' + accent + ';background:' + accent + '26;'
+      + 'box-shadow:0 0 0 4px ' + accent + '4d,0 0 18px 6px ' + accent + '99';
     document.documentElement.appendChild(fl);
-    setTimeout(() => { fl.style.opacity = '0'; setTimeout(() => fl.remove(), 450); }, 700);
-    if (document.visibilityState === 'visible') await new Promise(r => setTimeout(r, 250));
+    fl.animate([{opacity: 0, transform: 'scale(1.3)'}, {opacity: 1, transform: 'scale(1)'}], {duration: motion.appear, easing: 'ease-out'});
+    setTimeout(() => fl.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'}).finished.then(() => fl.remove()),
+      motion.flash);
+    if (document.visibilityState === 'visible') await new Promise(r => setTimeout(r, motion.lead));
     """#
 
     /// Before a screenshot: no outline of ours, finite animations done (a dialog closing), and a frame drawn.
