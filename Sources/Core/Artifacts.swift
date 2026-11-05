@@ -67,11 +67,19 @@ public enum Artifacts {
         let base = dir(root: root), fm = FileManager.default
         let names = fm.enumerator(at: base, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)?
             .compactMap { ($0 as? URL)?.lastPathComponent } ?? []
-        return names.compactMap { name in
-            guard let d = fm.contents(atPath: base.appendingPathComponent(name).appendingPathComponent("artifact.json").path),
-                  let r = try? decoder.decode(ArtifactRecord.self, from: d) else { return nil }   // not one of ours, or half-written
-            return (name, r)
-        }.sorted { $0.record.created > $1.record.created }
+        return names.compactMap { name in record(in: base.appendingPathComponent(name)).map { (name, $0) } }
+            .sorted { $0.record.created > $1.record.created }
+    }
+
+    /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written).
+    public static func record(in folder: URL) -> ArtifactRecord? {
+        guard let d = FileManager.default.contents(atPath: folder.appendingPathComponent("artifact.json").path) else { return nil }
+        return try? decoder.decode(ArtifactRecord.self, from: d)
+    }
+
+    /// The file as the project names it (`.kelp/artifacts/<name>/review.md`): what an agent in it reads.
+    public static func projectPath(_ path: String) -> String {
+        path.range(of: "/\(folder)/").map { String(path[path.index(after: $0.lowerBound)...]) } ?? path
     }
 
     /// What opens it: its file, or its page on the service.

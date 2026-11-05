@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Recommended": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рекомендую"
+          }
+        }
+      }
+    },
+    "Add a note…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить заметку…"
+          }
+        }
+      }
+    },
+    "Note on point %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка к пункту %@"
+          }
+        }
+      }
+    },
+    "Pick an option in each point": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите вариант в каждом пункте"
+          }
+        }
+      }
+    },
+    "Send to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить в «%@»"
+          }
+        }
+      }
+    },
+    "Send to the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить агенту"
+          }
+        }
+      }
+    },
     "Where agents make pages": {
       "localizations": {
         "ru": {

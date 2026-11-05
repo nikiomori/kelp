@@ -4,6 +4,7 @@ import WebKit
 import Markdown
 import EditorKit
 import KelpKit
+import Core
 
 /// A Markdown file: editor, live preview, or both, with a formatting bar for specs and plans you write for agents.
 @MainActor
@@ -33,6 +34,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private var followingPreview = Date.distantPast
     /// Told whether the source can be edited on screen: the status bar's cursor means nothing in the preview.
     var onEditing: ((Bool) -> Void)?
+    /// Writes the file: a review's picks are answers the agent reads from disk.
+    var saveFile: (() async -> Bool)?
+    /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
+    private var isReview: Bool { Review.isReview(url.path) }
 
     var currentMode: String {
         switch mode.selectedSegment {
@@ -128,6 +133,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        if isReview, let body = m.body as? [String: Any], let kind = body["kind"] as? String, ["pick", "note", "send"].contains(kind) {
+            return answer(kind, point: body["point"] as? String ?? "", value: body[kind == "pick" ? "key" : "text"] as? String ?? "")
+        }
         guard let body = m.body as? [String: Any], let line = (body["line"] as? NSNumber)?.intValue else { return }
         if body["kind"] as? String == "open" {
             if currentMode == "preview" { selectMode(1) }
@@ -176,8 +184,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let p = CodeEditor.page
                 page = (p.background.hexString, p.text.hexString)
             }
+            let review = isReview, sendTo = reviewAuthor?.title
             let html = await Task.detached { [page] in
-                MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
+                if review {
+                    let body = ReviewPage.body(Review(text), sendTo: sendTo)
+                    return MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.extras
+                }
+                return MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
                     + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "") + MarkdownHTML.scrollSync
             }.value
             guard !Task.isCancelled else { return }
@@ -185,12 +198,44 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let y = (try? await web.evaluateJavaScript("window.scrollY")) as? Double ?? 0
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
-            let place = currentMode == "split" ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
+            let place = currentMode == "split" && !review ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
             web.loadHTMLString(html + "<script>\(place)</script>", baseURL: base)
         }
     }
 
     @objc private func modeChanged() { applyMode() }
+
+    // MARK: a review's answers
+
+    /// The chat that wrote this review, while it's there to read the answers.
+    private var reviewAuthor: Session? {
+        Artifacts.record(in: url.deletingLastPathComponent())?.session.flatMap(app.session).flatMap { $0.status == .exited ? nil : $0 }
+    }
+
+    /// A pick or a note goes into the file (the agent reads its answers there); Send types the line saying them into
+    /// the chat that wrote it, or, once that has ended, into the agent on screen for the user to send.
+    private func answer(_ kind: String, point: String, value: String) {
+        switch kind {
+        case "pick": editor.apply(text: Review.pick(editor.text, point: point, option: value), selection: NSRange(location: 0, length: 0))
+        case "note": editor.apply(text: Review.note(editor.text, point: point, note: value), selection: NSRange(location: 0, length: 0))
+        default: break
+        }
+        Task {
+            guard await saveFile?() != false else { return }
+            guard kind == "send" else { return }
+            let line = Review(editor.text).answer(file: Artifacts.projectPath(url.path))
+            guard let author = reviewAuthor else { return FileActions(app).sendToAgent(text: line) }
+            guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
+            let sent = String(localized: "Sent to \(author.title)")
+            web.evaluateJavaScript("kelpReviewSent(\(Self.jsString(sent)))", completionHandler: nil)
+        }
+    }
+
+    /// A JavaScript string literal.
+    private static func jsString(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n") + "\""
+    }
 
     /// ⇧⌘V: source → split → preview → source (split is skipped while the pane is too narrow for it).
     func cycleMode() {
