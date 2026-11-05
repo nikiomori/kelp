@@ -48,7 +48,7 @@ struct TabLook: Equatable {
 
 /// What a session's tab shows besides its title, and the ring around its pane.
 package struct TabBadge: Equatable {
-    package init(status: AgentStatus? = nil,
+    init(status: AgentStatus? = nil,
                  unread: Bool = false,
                  meter: SessionContextWindow.Usage? = nil,
                  progress: Double? = nil,
@@ -63,6 +63,21 @@ package struct TabBadge: Equatable {
         backgroundTip = session?.backgroundTip
         waitsFor = session?.waitsForCommand ?? false
     }
+    /// A session's tab, built or not (a hidden terminal lets go of its surface, its tab keeps saying all this).
+    package static func of(_ s: Session?, meter: SessionContextWindow.Usage?) -> TabBadge {
+        // A terminal shows a state only while a program in it says how far it got (a build).
+        TabBadge(status: s.flatMap { $0.agent == "shell" ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus },
+                 unread: s?.unread ?? false, meter: meter, progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(attention),
+                 backgroundOf: s)
+    }
+    /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
+    /// unread dot and the bold name say it's new.
+    private static func attention(_ s: Session) -> NSColor? {
+        guard s.agent != "shell" else { return nil }
+        if s.status == .waiting { return .systemOrange }
+        return (s.status == .error || s.endedWithError) && s.unread ? .systemRed : nil
+    }
+
     /// Its state mark (nil: a terminal whose program doesn't say how far it got).
     var status: AgentStatus?
     /// Finished and not looked at yet (the filled ✓).

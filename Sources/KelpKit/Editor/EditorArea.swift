@@ -230,10 +230,10 @@ package final class EditorArea: NSViewController {
         g.strip.set(Self.disambiguated(model.tabs.map { t in
             var item = placeholder(t)
             if let c = contents[t.id] {
-                let b = c.badge
-                item = TabStrip.Item(id: t.id, title: c.title, icon: c.icon, status: b?.status, unread: b?.unread ?? false, toolTip: c.toolTip,
-                    edited: c.isEdited, meter: b?.meter, progress: b?.progress, background: b?.background ?? 0,
-                    backgroundTip: b?.backgroundTip, waitsFor: b?.waitsFor ?? false)
+                item = .badged(.init(id: t.id, title: c.title, icon: c.icon, status: nil, toolTip: c.toolTip), c.badge, edited: c.isEdited)
+            } else if TabURI.scheme(t.uri) == "session" {   // not built, or its terminal let go: its session still says all this
+                let sid = TabURI.body(t.uri)
+                item = .badged(item, .of(app.session(sid), meter: app.contextUsage[sid]))
             }
             return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)
@@ -424,5 +424,14 @@ extension EditorArea: NSSplitViewDelegate {
         if layout.sizes?[key].map({ zip($0, shares).allSatisfy { abs($0 - $1) < 0.002 } }) == true { return }
         layout.sizes = (layout.sizes ?? [:]).merging([key: shares]) { $1 }
         scheduleSave()
+    }
+}
+
+extension TabStrip.Item {
+    /// `p`'s name, icon and tip, with what a tab's badge says.
+    static func badged(_ p: TabStrip.Item, _ b: TabBadge?, edited: Bool = false) -> TabStrip.Item {
+        TabStrip.Item(id: p.id, title: p.title, icon: p.icon, status: b?.status, unread: b?.unread ?? false, toolTip: p.toolTip, edited: edited,
+                      meter: b?.meter, progress: b?.progress, background: b?.background ?? 0, backgroundTip: b?.backgroundTip,
+                      waitsFor: b?.waitsFor ?? false)
     }
 }
