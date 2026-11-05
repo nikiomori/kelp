@@ -133,3 +133,11 @@ import Core
     let sheet = NewChatSheet(local: ["main"], remote: [], base: "main", prs: [], agents: [(id: "codex", name: "Codex")], picked: "codex")
     #expect(sheet.choice.mode == .new && sheet.choice.agent == "codex" && sheet.choice.from == "main")
 }
+
+/// With Increase Contrast Kelp's grey fills are twice as strong, as the system's own get; without it they're as before.
+@Test @MainActor func fillsGetStrongerWithIncreaseContrast() {
+    #expect(NSColor.fillAlpha(0.05, highContrast: true) == 0.10 && NSColor.fillAlpha(0.05, highContrast: false) == 0.05)
+    var rest: CGFloat = 0
+    NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { rest = NSColor.fillRest.usingColorSpace(.sRGB)?.alphaComponent ?? 0 }
+    #expect(abs(rest - NSColor.fillAlpha(0.05, highContrast: NSColor.increaseContrast)) < 0.001)
+}

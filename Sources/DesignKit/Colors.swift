@@ -70,7 +70,16 @@ extension NSColor {
     /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on it.
     /// Ask for it while drawing, it's fixed to the current appearance as `labelColor.withAlphaComponent` is.
     public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
-    private static func grey(_ alpha: CGFloat) -> NSColor { dynamic(light: NSColor(white: 0, alpha: alpha), dark: NSColor(white: 1, alpha: alpha)) }
+    /// Twice as strong with Increase Contrast (System Settings › Accessibility › Display), as the system's own fills get.
+    private static func grey(_ alpha: CGFloat) -> NSColor {
+        NSColor(name: nil) { a in
+            let strong = fillAlpha(alpha, highContrast: increaseContrast)
+            return a.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(white: 1, alpha: strong) : NSColor(white: 0, alpha: strong)
+        }
+    }
+    public static func fillAlpha(_ alpha: CGFloat, highContrast: Bool) -> CGFloat { highContrast ? 2 * alpha : alpha }
+    /// Increase Contrast is on: what Kelp draws itself gets the edges and weight the system gives its own controls.
+    public static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
 }
 
 /// The text shades for SwiftUI.

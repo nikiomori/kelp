@@ -142,6 +142,9 @@ final class TabButton: NSControl, NSDraggingSource {
         // One plate in the window, on the tab you're in; a pane's chosen tab elsewhere is told by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
         fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them
+        // Increase Contrast: the capsule gets an edge, as the system's controls do; its state is in the mark's shape already.
+        layer?.borderWidth = NSColor.increaseContrast ? 1 : 0
+        effectiveAppearance.performAsCurrentDrawingAppearance { layer?.borderColor = NSColor.separatorColor.cgColor }
         fadeContent(to: stripDimmed && !hover && !news ? Metrics.tabDim : 1)
         showGlow()
     }
