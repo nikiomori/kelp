@@ -9,9 +9,6 @@ import Core
 extension SessionRecap: AsyncHandled {
     static let prompt = "In one line of at most 20 words: what did you just do, and what is left for me? No preamble, no markdown."
 
-    /// Sessions with a recap running: one at a time each, however many turns end meanwhile.
-    static let running = OSAllocatedUnfairLock<Set<String>>(initialState: [])
-
     /// No tools: the fork only says what happened. Nobody watches it, so a conversation steered by a page it read
     /// mustn't get a turn that acts.
     static func arguments(_ claude: String, conversation: String) -> [String] {
@@ -30,8 +27,8 @@ extension SessionRecap: AsyncHandled {
 
     func handle(_ sessions: Sessions) async throws -> String? {
         guard let ls = sessions.existing(id), ls.snapshot.agent == "claude", let transcript = ls.transcriptPath else { return nil }
-        guard Self.running.withLock({ $0.insert(id).inserted }) else { return nil }
-        defer { _ = Self.running.withLock { $0.remove(id) } }
+        guard sessions.recaps.withLock({ $0.insert(id).inserted }) else { return nil }
+        defer { _ = sessions.recaps.withLock { $0.remove(id) } }
         // Claude Code finds a conversation by the folder it began in, which its transcript's folder names.
         let rec = ls.snapshot, cwd = Self.folder(of: transcript, among: [rec.cwd, ls.turnDir].compactMap { $0 }) ?? rec.cwd
         guard sessions.remotes.of(cwd) == nil else { return nil }

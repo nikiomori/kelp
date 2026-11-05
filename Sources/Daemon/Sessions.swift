@@ -36,6 +36,7 @@ final class Sessions: Sendable {
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
+    let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 

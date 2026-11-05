@@ -292,7 +292,7 @@ private func codeOnly(_ s: String) -> String {
     let stored = try NSRegularExpression(pattern: #"^    (?:public |private )?let "#, options: [.anchorsMatchLines])
         .numberOfMatches(in: daemon.text, range: NSRange(daemon.text.startIndex..., in: daemon.text))
     let extensions = try matches(#"^extension Daemon\b"#, in: ["Sources/Daemon"])
-    let shared = try matches(#"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^>]*>)?\("#,
+    let shared = try matches(#"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^\n]*>)?\("#,
                              in: ["Sources/Daemon"])
     #expect(stored <= 14, "Daemon's stored properties: \(stored)")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
