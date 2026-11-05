@@ -109,7 +109,8 @@ extension WorktreeCreate: Handled {
         let auto = try workspaces.nextWorkspace(in: r)
         let branch = try clientRef(branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch
         let base = try clientRef(base.flatMap { $0.isEmpty ? nil : $0 }) ?? r.baseBranch
-        let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: Workspaces.worktreesDir(workspaces.root, r),
+        let into = Workspaces.worktreesDir(workspaces.root, r, chosen: workspaces.sessions.settings["worktrees.folder"]?.string)
+        let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: into,
                                        copyFiles: r.copyFiles, remotes: workspaces.remotes)
         let w = Worktree(repoId: r.id, branch: branch, path: path, note: note ?? (self.branch == nil ? auto.name : ""), base: base)
         try workspaces.store.save(w)

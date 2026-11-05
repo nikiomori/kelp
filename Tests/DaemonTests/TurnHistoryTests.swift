@@ -96,3 +96,14 @@ import Agents
     let want = PortBlocks.port(for: wt.path, among: try w.d.store.worktrees().map(\.path))
     #expect(try await waitFor(5) { try await w.c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("port=\(want)") == true })
 }
+
+/// With a folder for worktrees set, a branch's worktree goes there, in a subfolder named after the project.
+@Test func worktreesGoToTheChosenFolder() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let chosen = tmp().path
+    _ = try w.d.settings.set("worktrees.folder", .string(chosen))
+    let wt: Worktree = try await w.c.call("worktree.create", .obj(["repoId": .string(w.repo.id), "branch": "feat/here", "setup": false]),
+                                          as: Worktree.self)
+    let name = Git.slug(w.repo.name).replacingOccurrences(of: ".", with: "-")
+    #expect(URL(fileURLWithPath: wt.path).resolvingSymlinksInPath().path.hasPrefix(URL(fileURLWithPath: chosen + "/" + name).resolvingSymlinksInPath().path))
+}

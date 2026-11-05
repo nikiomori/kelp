@@ -53,8 +53,14 @@ final class Workspaces: Sendable {
 
     /// Where a project's worktrees go: its name made safe for a folder ("../x" can't leave `worktrees/`) and its id, so two
     /// projects with one name don't share a folder.
-    static func worktreesDir(_ root: URL, _ r: Repo) -> URL {
-        root.appendingPathComponent("worktrees").appendingPathComponent(Git.slug(r.name).replacingOccurrences(of: ".", with: "-") + "-" + r.id.prefix(8))
+    /// `chosen`: the folder set in Settings › Git (`worktrees.folder`, `~` for home): the project's go in a subfolder named
+    /// after it there, where an editor or Finder finds them.
+    static func worktreesDir(_ root: URL, _ r: Repo, chosen: String? = nil) -> URL {
+        let name = Git.slug(r.name).replacingOccurrences(of: ".", with: "-")
+        if let chosen = chosen?.trimmingCharacters(in: .whitespaces), !chosen.isEmpty {
+            return URL(fileURLWithPath: (chosen as NSString).expandingTildeInPath).appendingPathComponent(name)
+        }
+        return root.appendingPathComponent("worktrees").appendingPathComponent(name + "-" + r.id.prefix(8))
     }
 
     static let placeholderName = #"^Workspace \d+$"#

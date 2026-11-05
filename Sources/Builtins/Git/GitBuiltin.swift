@@ -24,6 +24,8 @@ extension Builtins {
                                 uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })]
         c.settings = [SettingsSection(id: "git", title: "Git", icon: "arrow.triangle.branch", specs: [
             s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names, e.g. “you/”."),
+            s("worktrees.folder", "Folder for worktrees", "string", "",
+              "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder."),
             // Where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
             s("workbench.ci.branchChip", "CI on the branch chip", "enum", "icon",
               "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
