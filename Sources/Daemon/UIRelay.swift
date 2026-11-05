@@ -30,13 +30,25 @@ extension UIOpen: Handled {
 }
 
 extension UICommand: Handled {
-    /// What the app does for the user that an agent mustn't: close another agent's tab (which ends it without a question
-    /// once it's done), type into the agent on screen, or start a terminal of nobody's. Limit: a list of the app's command
-    /// ids; a new one that ends or runs something goes here too.
-    static let closesOrRuns: Set<String> = ["editor.closeTab", "workspace.close", "scripts.run", "scripts.test", "scripts.stop",
-                                            "editor.runFile", "editor.testAtCursor", "editor.sendToAgent", "workbench.restartService"]
+    /// What an agent may run of the app's commands: those that show something or move around (panes, tabs, panels,
+    /// pages). The rest acts for the user: closes a tab (which ends a done agent without a question), types into the agent
+    /// on screen, starts a terminal or an agent of nobody's, runs a script or an extension's command.
+    static let shows: Set<String> = [
+        "agents.history", "agents.nextNeedingYou", "agents.sideBySide", "agents.usage",
+        "editor.findReferences", "editor.fold", "editor.foldAll", "editor.goToLine", "editor.jumpToDefinition",
+        "editor.nextProblem", "editor.nextTab", "editor.previousProblem", "editor.previousTab", "editor.showHover",
+        "editor.unfold", "editor.unfoldAll",
+        "files.findByName", "files.findInWorkspace", "files.quickOpen", "files.showProblems",
+        "forge.openCI", "forge.openIssues", "forge.openPulls", "forge.openRepo",
+        "help.extensionGuide", "help.guide", "markdown.cycleView", "routines.show", "scripts.openPage",
+        "workbench.commandPalette", "workbench.openExtensions", "workbench.openSettings", "workbench.showPanel",
+        "workbench.toggleFocusMode", "workbench.toggleInspector", "workbench.toggleSidebar",
+        "workspace.back", "workspace.forward", "workspace.next", "workspace.previous", "workspace.revealInFinder",
+        "workspace.switch"
+    ]
     var notForAgents: String? {
-        Self.closesOrRuns.contains(id) ? "“\(id)” is the user's to run: an agent ends and starts sessions with `kelp session`." : nil
+        id.hasPrefix("view.") || Self.shows.contains(id) ? nil
+            : "“\(id)” is the user's to run: an agent runs only commands that show something, and starts sessions with `kelp session`."
     }
     func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) }
 }

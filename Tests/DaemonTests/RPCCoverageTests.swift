@@ -403,6 +403,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r outlive session.create "{\"worktreeId\":\"\#(wt)\",\"command\":\"cat\"}"; "#
         + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
         + #"r close ui.command "{\"id\":\"editor.closeTab\"}"; r term ui.open "{\"uri\":\"terminal:?cmd=true\"}"; "#
+        + #"r new ui.command "{\"id\":\"agents.new\",\"args\":{\"agent\":\"shell\"}}"; r pane ui.command "{\"id\":\"view.nextPane\"}"; "#
         + #"r routine routine.delete "{\"id\":\"x\"}"; "#
         + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
@@ -417,6 +418,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let out = try await r.c.call(SessionRead(id: me.id))
     for refused in ["parent", "read", "markRead"] { #expect(out.contains(try Regex("<\(refused)> [^\n]*acts only on its own session")), "\(refused)") }
     #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
+    #expect(out.contains(#/<new> [^\n]*is the user's to run/#) && !out.contains(#/<pane> [^\n]*is the user's to run/#))
     #expect(out.contains(#/<routine> [^\n]*routine is the user's/#) && out.contains(#/<drop> [^\n]*Only the user removes/#))
     #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
     let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
