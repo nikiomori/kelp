@@ -65,6 +65,23 @@ package final class SettingsStore {
         return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(n) ?? n
     }
 
+    /// A row's `requires`: "key" is on (true, or a value that isn't empty, off, never or 0), "key=value", "key!=value".
+    func meets(_ rule: String?) -> Bool {
+        guard let rule else { return true }
+        func text(_ key: String) -> String {
+            switch value(key) {
+            case .bool(let b)?: return b ? "true" : "false"
+            case .int(let i)?: return String(i)
+            case .double(let d)?: return String(d)
+            case .string(let s)?: return s
+            default: return ""
+            }
+        }
+        if let r = rule.range(of: "!=") { return text(String(rule[..<r.lowerBound])) != rule[r.upperBound...] }
+        if let r = rule.range(of: "=") { return text(String(rule[..<r.lowerBound])) == rule[r.upperBound...] }
+        return !["", "false", "off", "never", "0"].contains(text(rule))
+    }
+
     /// `language`'s own block, whether it had the key or not (Settings' language picker); nil `v` takes it out.
     func setOwn(_ key: String, _ v: JSONValue?, language: String) {
         var block: [String: JSONValue] = [:]

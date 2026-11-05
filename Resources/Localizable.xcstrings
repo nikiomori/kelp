@@ -1,6 +1,39 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Added to branches Kelp names.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавляется к веткам, которые называет Kelp."
+          }
+        }
+      }
+    },
+    "Thin lines at these columns.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкие линии на этих колонках."
+          }
+        }
+      }
+    },
+    "A row you muted stays quiet here too.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приглушённая строка молчит и здесь."
+          }
+        }
+      }
+    },
     "Banner": {
       "extractionState": "manual",
       "localizations": {

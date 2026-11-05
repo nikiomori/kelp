@@ -57,3 +57,20 @@ import Testing
     #expect(WelcomeSetup.firstAgents(installed, current: "pi") == ["pi", "claude", "codex", "cursor"])
     #expect(WelcomeSetup.firstAgents(["crush"], current: "claude") == ["crush"])
 }
+
+/// A row's `requires`: on, equal, not equal, read through the defaults.
+@MainActor @Test func aRowWaitsForItsParent() {
+    _ = testHome
+    let m = AppModel(builtins: Builtins.all)
+    m.extensions.reload()
+    let s = m.settings
+    #expect(s.meets(nil))
+    #expect(s.meets("usage.readPlans"))                 // true by default
+    #expect(!s.meets("phone.url"))                      // empty
+    #expect(s.meets("agents.dockStrip"))                // "always"
+    #expect(!s.meets("agents.dockStrip=needed"))
+    #expect(s.meets("agents.dockStrip!=off"))
+    let keys = Set(m.extensions.all.settings.flatMap(\.specs).map(\.key))
+    let parents = m.extensions.all.settings.flatMap(\.specs).compactMap(\.requires).map { String($0.split(whereSeparator: { "=!".contains($0) })[0]) }
+    #expect(Set(parents).subtracting(keys).isEmpty)   // each names a real setting
+}

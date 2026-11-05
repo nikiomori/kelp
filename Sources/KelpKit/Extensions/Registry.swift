@@ -122,6 +122,11 @@ package struct SettingSpec: Codable, Identifiable {
     var group: String?
     /// Left out of the window: it's set on the thing itself (a menu), and stays in settings.json and Quick Open.
     var hidden: Bool?
+    /// Shown only while another setting allows it: "key" (on), "key=value" or "key!=value". A row that does nothing until
+    /// its parent is on stays out of the way; search still finds it.
+    var requires: String?
+    /// What an empty text field shows: an example of what goes in it.
+    var placeholder: String?
     package var id: String { key }
 
     var bounds: ClosedRange<Double>? {

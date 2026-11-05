@@ -31,9 +31,10 @@ package enum Builtins {
     }
 
     package static func s(_ key: String, _ title: String, _ type: String, _ def: JSONValue?, _ desc: String? = nil, help: String? = nil,
-                          options: [String]? = nil, range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil) -> SettingSpec {
+                          options: [String]? = nil, range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil,
+                          requires: String? = nil, placeholder: String? = nil) -> SettingSpec {
         SettingSpec(key: key, title: title, type: type, default: def, description: desc, help: help, options: options, range: range, group: group,
-                    hidden: hidden)
+                    hidden: hidden, requires: requires, placeholder: placeholder)
     }
 
     package static let appearance = Builtin("kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",

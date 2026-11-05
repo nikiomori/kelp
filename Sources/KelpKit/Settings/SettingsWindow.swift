@@ -109,6 +109,8 @@ private struct SectionForm: View {
     @AppStorage("settings.group") private var target = ""
     /// The Editor's rows for one language's files ("" all of them): settings.json's `"[markdown]": { … }`.
     @State private var language = ""
+    @Environment(AppModel.self) private var app
+    private var store: SettingsStore { app.settings }
 
     var body: some View {
         let groups = section.groups
@@ -116,7 +118,7 @@ private struct SectionForm: View {
             Form {
                 if section.id == "editor" { LanguagePicker(language: $language) }
                 ForEach(groups.indices, id: \.self) { i in
-                    let rows = groups[i].1.filter { language.isEmpty || SettingRow.perLanguage.contains($0.key) }
+                    let rows = groups[i].1.filter { (language.isEmpty || SettingRow.perLanguage.contains($0.key)) && store.meets($0.requires) }
                     if rows.isEmpty {
                         EmptyView()
                     } else if let title = groups[i].0 {
@@ -284,7 +286,7 @@ struct SettingRow: View {
                 ForEach(Self.shown(Self.monospaced, string() ?? ""), id: \.self) { Text($0).tag($0) }
             } label: { label }
         default:
-            LabeledContent { SettingTextField(key: spec.key, language: language).frame(width: 220) } label: { label }
+            LabeledContent { SettingTextField(key: spec.key, language: language, placeholder: spec.placeholder.map(loc)).frame(width: 220) } label: { label }
         }
     }
 
@@ -398,13 +400,18 @@ private struct SettingTextField: View {
     var language: String?
     @Environment(AppModel.self) private var app
     private var store: SettingsStore { app.settings }
+    var placeholder: String?
     @State private var draft = ""
     @FocusState private var editing: Bool
-    init(key: String, language: String? = nil) { self.key = key; self.language = language }
+    init(key: String, language: String? = nil, placeholder: String? = nil) {
+        self.key = key
+        self.language = language
+        self.placeholder = placeholder
+    }
 
     var body: some View {
         // Bordered, as the number fields: borderless in a grouped form an empty one (Branch prefix) didn't show at all.
-        TextField("", text: $draft)
+        TextField("", text: $draft, prompt: placeholder.map { Text($0) })
             .textFieldStyle(.roundedBorder)
             .focused($editing)
             .onSubmit(commit)
