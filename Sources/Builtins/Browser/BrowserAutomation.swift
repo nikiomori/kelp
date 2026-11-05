@@ -28,6 +28,7 @@ extension BrowserTab {
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case "reload": web.reloadFromOrigin(); return try await settled()
+        case "viewport": return try await resize(try need("size"))
         case "snapshot":
             let find = args["find"]?.string ?? ""
             let text = try await run(Self.snapshotJS, ["ref": args["ref"]?.string ?? "", "max": find.isEmpty ? 1500 : 20000]) as? String ?? ""
@@ -94,10 +95,27 @@ extension BrowserTab {
     }
 
     /// A page no pane shows (a tab behind another, a workspace not on screen) has no size, and one with none lays nothing
-    /// out: no text to read, nothing to click. It gets a laptop window's size until a pane shows it and sizes it.
+    /// out: no text to read, nothing to click. It gets the agent's viewport, else a laptop window's size, until a pane shows it.
     private func sized() {
-        guard web.window == nil, web.frame.width < 200 || web.frame.height < 200 else { return }
+        guard web.window == nil else { return }
+        if let v = viewport { web.frame = CGRect(origin: .zero, size: v); return }
+        guard web.frame.width < 200 || web.frame.height < 200 else { return }
         web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
+    }
+
+    /// `viewport 390x844`: the page at that size (`reset`: the pane's), and the size the page now says it has.
+    private func resize(_ size: String) async throws -> JSONValue {
+        if size == "reset" { viewport = nil; if web.window == nil { web.frame = .zero } } else {
+            let wh = size.lowercased().split(whereSeparator: { $0 == "x" || $0 == "×" }).compactMap { Int($0) }
+            guard wh.count == 2, (200...4000).contains(wh[0]), (200...4000).contains(wh[1]) else {
+                throw RPCError.invalidParams("viewport takes WIDTHxHEIGHT, 200 to 4000 each (390x844), or reset")
+            }
+            viewport = CGSize(width: wh[0], height: wh[1])
+        }
+        if web.window == nil { sized() } else { view.layoutSubtreeIfNeeded() }   // off screen, layout would size it to nothing
+        // A timer, not a frame: a page off screen draws none.
+        let now = try await run("await new Promise(r => setTimeout(r, 100)); return innerWidth + 'x' + innerHeight")
+        return try await settled(["viewport": .string(now as? String ?? "")])
     }
 
     /// What an agent may still do on a page the user took over: look.

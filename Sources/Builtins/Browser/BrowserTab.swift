@@ -52,6 +52,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentButton = PointerButton()
+    /// The page's size an agent set (`kelp browser viewport`): the page sits at the pane's top, in the middle, at that
+    /// size; nil fills the pane.
+    @ObservationIgnored var viewport: CGSize? { didSet { placeWeb() } }
+    @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
+    @ObservationIgnored private var webFixed: [NSLayoutConstraint] = []
     var title: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page.url?.host
             ?? String(localized: "New Page")
@@ -89,10 +94,19 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         designButton.toolTip = String(localized: "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)")
         let bar = Bar.content([back, fwd, reload, address], [designButton, ext, more], stretching: address)
         let body = NSView()
-        for x in [web, ports] as [NSView] { body.pin(x) }
+        web.translatesAutoresizingMaskIntoConstraints = false
+        body.addSubview(web)
+        body.pin(ports)
         view = stacked(bar, agentSlot, body)
         super.init()
         agentSlotHeight.isActive = true
+        webFill = [web.topAnchor.constraint(equalTo: body.topAnchor), web.bottomAnchor.constraint(equalTo: body.bottomAnchor),
+                   web.leadingAnchor.constraint(equalTo: body.leadingAnchor), web.trailingAnchor.constraint(equalTo: body.trailingAnchor)]
+        // Wider than the pane: from its left edge, cut on the right; taller: cut at the bottom.
+        let middle = web.centerXAnchor.constraint(equalTo: body.centerXAnchor)
+        middle.priority = .defaultLow
+        webFixed = [web.topAnchor.constraint(equalTo: body.topAnchor), web.leadingAnchor.constraint(greaterThanOrEqualTo: body.leadingAnchor), middle]
+        NSLayoutConstraint.activate(webFill)
         ports.onOpen = { [weak self] u in self?.load(u) }
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -125,14 +139,28 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
             agentSlotHeight.isActive = false
         }
-        agentLabel.stringValue = takenOver ? String(localized: "You took this page over: the agent can only look at it")
-            : String(localized: "An agent is using this page")
+        agentLabel.stringValue = (takenOver ? String(localized: "You took this page over: the agent can only look at it")
+            : String(localized: "An agent is using this page"))
+            + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
         agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
         agentButton.toolTip = takenOver ? String(localized: "Let the agent click and type here again")
             : String(localized: "Stop the agent's clicks and typing here; the page's questions come to you")
     }
 
     private func toggleTakeOver() { takenOver.toggle(); showAgentBar() }
+
+    /// The page at `viewport`'s size, or filling the pane.
+    private func placeWeb() {
+        NSLayoutConstraint.deactivate(webFill + webFixed)
+        webFixed.removeSubrange(3...)
+        if let v = viewport {
+            webFixed += [web.widthAnchor.constraint(equalToConstant: v.width), web.heightAnchor.constraint(equalToConstant: v.height)]
+            NSLayoutConstraint.activate(webFixed)
+        } else {
+            NSLayoutConstraint.activate(webFill)
+        }
+        if !agentSlot.subviews.isEmpty { showAgentBar() }
+    }
 
     func focus() { if web.url == nil { view.window?.makeFirstResponder(address) } else { view.window?.makeFirstResponder(web) } }
 
@@ -170,6 +198,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @objc private func showMore(_ sender: NSButton) {
         let m = NSMenu()
         m.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
+        if let v = viewport {
+            m.add(String(localized: "Fill the Pane (the agent set \(Int(v.width))×\(Int(v.height)))")) { [weak self] in self?.viewport = nil }
+        }
         m.addItem(.separator())
         m.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.web.reloadFromOrigin() }
         m.add(String(localized: "Copy Screenshot")) { [weak self] in

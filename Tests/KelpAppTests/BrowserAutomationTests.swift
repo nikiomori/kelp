@@ -245,3 +245,16 @@ import WorkbenchKit
     #expect(BrowserTab.free("notes", in: dir) { taken.contains($0.path) }.path == "/d/notes-2")
     #expect(BrowserTab.free("new.zip", in: dir) { taken.contains($0.path) }.path == "/d/new.zip")
 }
+
+/// `viewport`: the page lays out at the size the agent asked for (a phone's media queries match), and `reset` gives the
+/// pane's size back (off screen: a laptop's).
+@MainActor @Test(.timeLimit(.minutes(1))) func anAgentSetsThePagesSize() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString("<p>hi</p>", baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    func act(_ size: String) async throws -> JSONValue { try await tab.browse("viewport", .object(["size": .string(size)])) }
+    #expect(try await act("390x844")["viewport"] == .string("390x844"))
+    #expect(try await tab.browse("eval", .object(["js": .string("matchMedia('(max-width: 400px)').matches")])) == .bool(true))
+    #expect(try await act("reset")["viewport"] == .string("1280x800"))
+    await #expect(throws: RPCError.self) { try await act("tiny") }
+}

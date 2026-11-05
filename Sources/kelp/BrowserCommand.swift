@@ -6,7 +6,7 @@ extension Main {
     static let browserUsage = """
     browser open <url> [--shared] | snapshot [ref] [--find text] | click <ref> | hover <ref> | type <ref> <text> [--submit]
             | press <key> [ref] | upload <ref> <file>… | dialog accept [text]|dismiss
-            | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js>
+            | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js> | viewport <WxH>|reset
             | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
     """
 
@@ -52,6 +52,9 @@ extension Main {
             guard let answer = args.first, ["accept", "dismiss"].contains(answer) else { fail("browser dialog accept [text] | dismiss") }
             a["answer"] = .string(answer)
             if args.count > 1 { a["text"] = .string(args.dropFirst().joined(separator: " ")) }
+        case "viewport":
+            guard let size = args.first else { fail("browser viewport <width>x<height> | reset  (390x844, 768x1024, 1440x900)") }
+            a["size"] = .string(size)
         case "info", "back", "reload": break
         default: fail("usage: kelp " + browserUsage)
         }

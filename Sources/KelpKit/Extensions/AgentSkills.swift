@@ -159,6 +159,9 @@ enum AgentSkills {
         - `kelp browser eval "document.querySelectorAll('li').length"` — an expression in the page, its value as JSON; for
           statements, `(() => { … })()`.
         - `kelp browser screenshot [file.png]` — prints where it went; look at it with your image reading.
+        - `kelp browser viewport 390x844` — the page at that size (CSS pixels), for a layout at a phone's or tablet's
+          width; prints the size the page now has. `viewport reset` fills the pane again. Only the size: the user agent,
+          touch and pixel ratio stay a Mac's.
         - `kelp browser console [--clear]` — what the page logged: `console.*`, uncaught errors, resources that failed to
           load, and `[page] url` at each load. `--clear` empties it once printed, so the next call shows only what's new.
         - `kelp browser network [--clear]` — the page's loads and its `fetch` / XHR calls: `200 GET url (fetch, 34 ms)`,
