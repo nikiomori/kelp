@@ -23,20 +23,20 @@ extension DiffViewController {
     /// The lines selected (or `row` alone) get a card under the last of them.
     func openDraft(at row: Int? = nil) {
         if let row { table.selectRowIndexes([row], byExtendingSelection: false) }
-        var lines: [(Int, String)] = []; var file: String?, removed = true
-        for r in table.selectedRowIndexes {
-            guard let (path, x) = shownLine(r), let n = x.newLine ?? x.oldLine else { continue }
-            file = path; removed = removed && x.newLine == nil
-            lines.append((n, x.text))
-        }
-        guard let file, let first = lines.first, let last = lines.last else { NSSound.beep(); return }
+        // One file, and one side's numbers: a range across two files, or from an old line to a new one, names lines that
+        // aren't the ones quoted.
+        let shown = table.selectedRowIndexes.compactMap { shownLine($0) }
+        guard let file = shown.first?.0 else { NSSound.beep(); return }
+        let lines = shown.filter { $0.0 == file }.map(\.1), removed = lines.allSatisfy { $0.newLine == nil }
+        let numbers = lines.compactMap { removed ? $0.oldLine : $0.newLine }
+        guard let first = numbers.min(), let last = numbers.max() else { NSSound.beep(); return }
         closeDraft()
-        let d = CommentDraft(file: file, start: first.0, end: last.0, quote: lines.map(\.1).joined(separator: "\n"), side: removed ? "old" : nil)
+        let d = CommentDraft(file: file, start: first, end: last, quote: lines.map(\.text).joined(separator: "\n"), side: removed ? "old" : nil)
         d.field.isEditable = true
         d.field.isBordered = true
         d.field.drawsBackground = true
         d.field.font = .ui(12)
-        d.field.placeholderString = String(localized: "Comment for the agent on \(file):\(first.0)\(first.0 == last.0 ? "" : "-\(last.0)")")
+        d.field.placeholderString = String(localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
         draft = d
         placeDraft()
         view.window?.makeFirstResponder(d.field)

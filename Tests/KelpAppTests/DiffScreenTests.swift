@@ -108,6 +108,20 @@ extension AppOfItsOwn {
         #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
 
+    /// A selection across two files comments on the first file's lines only: its range never takes another file's numbers.
+    @Test func aCommentStaysInOneFile() async throws {
+        let rig = try await AppRig(files: ["a.txt": "1\n2\n3\n4\nfive\n", "b.txt": "one\n"]); defer { rig.done() }
+        try rig.write("a.txt", "1\n2\n3\n4\nFIVE\n"); try rig.write("b.txt", "ONE\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        let a = try #require(vc.rows.firstIndex { shown($0)?.text == "FIVE" }), b = try #require(vc.rows.firstIndex { shown($0)?.text == "ONE" })
+        vc.table.selectRowIndexes([a, b], byExtendingSelection: false)
+        vc.openDraft()
+        #expect(vc.draft?.file == "a.txt" && vc.draft?.start == 5 && vc.draft?.end == 5 && vc.draft?.quote == "FIVE")
+    }
+
     /// A comment is written in a card under its line, which a new read of the diff keeps, and ⌘↩'s button saves.
     @Test func aCommentIsWrittenInACardUnderItsLine() async throws {
         let rig = try await AppRig(files: ["f.txt": "one\ntwo\n"]); defer { rig.done() }
