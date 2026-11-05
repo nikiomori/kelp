@@ -122,6 +122,8 @@ enum AgentSkills {
           element and it glows a moment, so the user sees it. `type` replaces the text a key at a time.
         - `kelp browser upload e9 photo.png [more…]` — files into a file field: its ref, its label's, or the button over a
           hidden one. A file chooser the page opens by itself is cancelled.
+        - Downloads (a `download` link, an attachment, a file the page can't show) land in `$TMPDIR/kelp-downloads`: the
+          action's answer lists them under `downloads` with their path and size once done, and so does `console`.
         - A page's `alert` / `confirm` / `prompt` doesn't stop you: the action's answer lists it under `dialogs`
           (`confirm "Delete?" → dismissed`) and so does `console`. They get OK / Cancel / Cancel unless you said before the
           click: `kelp browser dialog accept ["text for a prompt"]` or `dialog dismiss`, for the next one only.
