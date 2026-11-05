@@ -191,9 +191,10 @@ final class FileTab: SavableTab {
         }
     }
     isolated deinit {
-        // Dropped without close() (its workspace went away): autosave writes what's safe to write, never over a conflict
-        // (the daemon writes only over the version last read or written here). Sent now: nothing may hold the tab once
-        // it's gone (a save on its way holds it, so none is).
+        // Dropped without close() (its workspace went away and its save failed): autosave writes what's safe to write, never
+        // over a conflict (the daemon writes only over the version last read or written here). Sent now: nothing may hold
+        // the tab once it's gone (a save on its way holds it, so none is). Either way the backup keeps the text
+        // (`UnsavedBackup`'s deinit) until a workspace holding the file takes it back.
         if autosave, !discarded, let e = editor, FileSync.save(buffer: e.text, saved: lastSaved, disk: disk) == .write {
             let write = FilesWrite(path: path, text: e.text, base: known?.stamp)
             Task { [app] in await app.call(write) }

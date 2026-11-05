@@ -95,6 +95,26 @@ extension AppOfItsOwn {
         #expect(rig.app.uiState["backup.gone.untitled:8"] == nil)
     }
 
+    /// A tab dropped without its question (its workspace went and the save failed) keeps what was typed even before the
+    /// pause in typing; a workspace gone hands a file's text to the workspace that holds the file, instead of dropping it.
+    @Test func aDroppedTabsTextIsKeptForAWorkspaceHoldingIt() async throws {
+        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let p = try file("one\n")
+        var tab: FileTab? = await opened(p, in: rig)
+        let kept = UnsavedBackup(app: rig.app, uri: TabURI.file(p))
+        tab?.editor?.setText("mine\n")
+        tab?.editor?.onChange?("mine\n")
+        tab = nil
+        try await until { kept.text != nil }
+        #expect(kept.text == "mine\n")
+        let inRepo = rig.workspace.path + "/kept.txt", uri = TabURI.file(inRepo)
+        rig.app.uiState["backup.gone.\(uri)"] = .array([.string(uri), "gone", "typed"])
+        await UnsavedBackups.reopen(rig.app, in: EditorHost(app: rig.app))
+        #expect(rig.app.uiState["backup.gone.\(uri)"] == nil)
+        #expect(rig.app.uiState.strings("backup.\(rig.workspace.id).\(uri)") == [uri, rig.workspace.id, "typed"])
+        #expect(WorkspaceLayout.load(rig.workspace.id, from: rig.app.uiState).tab(uri: uri) != nil)
+    }
+
     @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let p = try file("one\n")

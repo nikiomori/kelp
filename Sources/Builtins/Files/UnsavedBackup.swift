@@ -13,6 +13,9 @@ final class UnsavedBackup {
     private let waiting = Debounce()
     /// Something of this tab's is in the store: a save, which comes often, asks it to forget nothing otherwise.
     private var stored: Bool
+    /// Typed and not kept yet (the pause hasn't come): kept at once when the tab goes, dropped without a question (its
+    /// save failed while its workspace went): what isn't in the store would be lost.
+    private var pending: String?
 
     init(app: AppModel, uri: String) {
         self.app = app
@@ -29,16 +32,23 @@ final class UnsavedBackup {
 
     /// After a pause in typing: it runs on the main thread.
     func keep(_ text: String) {
-        waiting.after(1) { [weak self] in
-            guard let self else { return }
-            guard text.utf8.count <= Self.limit else { return drop() }
-            stored = true
-            write(.array([.string(uri), .string(workspace), .string(text)]))
-        }
+        pending = text
+        waiting.after(1) { [weak self] in self?.flush() }
     }
+
+    private func flush() {
+        guard let text = pending else { return }
+        pending = nil
+        guard text.utf8.count <= Self.limit else { return drop() }
+        stored = true
+        write(.array([.string(uri), .string(workspace), .string(text)]))
+    }
+
+    isolated deinit { flush() }
 
     func drop() {
         waiting.cancel()
+        pending = nil
         guard stored else { return }
         stored = false
         write(nil)
