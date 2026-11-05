@@ -298,7 +298,7 @@ private func codeOnly(_ s: String) -> String {
 @Test func chromeTakesItsSizesFromDesignKit() throws {
     let chrome = ["Sources/KelpKit", "Sources/Builtins"]
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 2)
-    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 4)
+    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 2)
 }
 
@@ -318,7 +318,7 @@ private func codeOnly(_ s: String) -> String {
 /// the backdrop's drift, and a duration of 0.
 @Test func looksComeFromTheDesignSystem() throws {
     let typed = try matches(#"(cornerRadius|[dD]uration) = \d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
-    #expect(typed.count <= 6, "\(typed)")
+    #expect(typed.count <= 3, "\(typed)")
     let delays = try matches(#"\.now\(\) \+ 0\.\d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
     #expect(delays.count <= 2, "\(delays)")   // a dev aid's, and key bindings read back: neither is motion
 }

@@ -20,7 +20,7 @@ final class TabButton: NSControl, NSDraggingSource {
     private let full = NSTextField(labelWithString: "")
     /// What runs beside its agent, whatever it's doing (a dev server): by name in the tooltip.
     private let chip = Chip()
-    private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
+    private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5, hairline: false)
     private var hover = false {
         didSet {
             if hover != oldValue { slot.crossfade() }   // the close button takes the icon's place in a fade, as a row's "+" comes in
@@ -28,6 +28,10 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
     private let slot = NSView()
+    /// An agent's icon without its colour, at rest (made once per icon): orange Claude read as orange "asks you".
+    private var grey: (of: NSImage, image: NSImage)?
+    /// The title keeps about twelve letters however many tabs there are; the rest scroll and are in the ▾ menu.
+    private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
@@ -72,6 +76,8 @@ final class TabButton: NSControl, NSDraggingSource {
         let comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
         comfortable.priority = .init(239)
         comfortable.isActive = true
+        titleMin.priority = .init(999)   // over the strip's `fit`: a tab at it widens the strip, which scrolls
+        titleMin.isActive = true
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         // VoiceOver: a tab like NSTabView's (radio button, tab subrole); the close button only exists on hover, so it's an action.
         setAccessibilityElement(true)
@@ -89,7 +95,7 @@ final class TabButton: NSControl, NSDraggingSource {
         self.selected = selected
         self.groupFocused = groupFocused
         title.stringValue = it.title
-        icon.image = it.icon
+        if let i = it.icon, it.card != nil, it.run == nil, !i.isTemplate, grey?.of !== i { grey = (i, i.grayscale) }
         mark.status = it.status
         mark.unread = it.unread
         mark.progress = it.progress
@@ -134,10 +140,13 @@ final class TabButton: NSControl, NSDraggingSource {
         let edited = item?.edited == true
         close.isHidden = !hover; editedDot.isHidden = hover || !edited
         icon.isHidden = hover || edited || showsState
+        showIcon()
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
-        title.font = .ui(12, weight: active || call != nil ? .medium : .regular)
+        // Finished and not looked at: told by its title's weight alone, as unread mail is.
+        title.font = .ui(12, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
+        titleMin.constant = Self.minTitle(title.stringValue, font: title.font ?? .ui(12))
         icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
         // One plate in the window, on the tab you're in; a pane's chosen tab elsewhere is told by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
@@ -158,20 +167,33 @@ final class TabButton: NSControl, NSDraggingSource {
     }
 
     /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
-    /// unseen, faint in the text's colour when it finished unseen; light that calls for you, and nothing else of an
-    /// agent's. A glow, not a line or a fill: it reads as the pane's.
+    /// unseen; light that calls for you, and nothing else of an agent's (finished unseen is the title's weight). A glow,
+    /// not a line or a fill: it reads as the pane's.
     private var glow: NSColor? {
         switch item?.status {
         case .waiting?: .systemOrange
         case .error? where item?.unread == true: .systemRed
-        case .done? where item?.unread == true: .labelColor
         default: item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the
     /// selected fill under it stays as it is.
     private func showGlow() {
-        edgeGlow.show(glow, breathing: item?.status == .waiting, faint: item?.status == .done)
+        edgeGlow.show(glow, breathing: item?.status == .waiting)
+    }
+
+    private var doneUnread: Bool { item?.status == .done && item?.unread == true }
+
+    /// An agent's icon is grey at rest and takes its colour under the pointer (a colour at rest is a state's).
+    private func showIcon() {
+        let i = item?.icon, shown = hover || grey?.of !== i ? i : grey?.image
+        if icon.image !== shown { icon.image = shown }
+    }
+
+    /// Up to twelve letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
+    static func minTitle(_ text: String, font: NSFont) -> CGFloat {
+        let twelve = NSAttributedString(string: String(repeating: "n", count: 12), attributes: [.font: font]).size().width
+        return ceil(min(twelve, NSAttributedString(string: text, attributes: [.font: font]).size().width))
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateLook() }
     /// The whole tab takes the click, label and icon included: in the title bar they would move the window instead.

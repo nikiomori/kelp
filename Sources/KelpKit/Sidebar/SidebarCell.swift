@@ -67,10 +67,11 @@ final class SidebarCell: NSTableCellView {
     private var hovering = false
     /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
     var selected = false { didSet { if selected != oldValue { update() } } }
-    /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
-    static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
-    /// Lines not committed, the PR and its CI, for rows that stand for a folder (RowBadges); the counts go first when the row
-    /// is short of room, the CI mark last.
+    /// Grey text on the grey pill (fillSelected): 5.3:1 on dark's white 12%, about 6:1 on light's black 12% over its card,
+    /// where secondary label is 3.4:1.
+    static let onPill = NSColor.dynamic(light: NSColor.black.withAlphaComponent(0.7), dark: NSColor.white.withAlphaComponent(0.78))
+    /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
+    /// for rows that stand for a folder (RowBadges); the dot goes first when the row is short of room, the CI mark last.
     private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero), ci = PointerButton(frame: .zero)
     private let ciMark = CIMark()
 
@@ -142,9 +143,9 @@ final class SidebarCell: NSTableCellView {
         // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
         // (Source Control's sections): bare, they read as part of the name.
         for b in [changes, pr, ci] {
-            b.radius = b === ci ? Metrics.radiusXS : nil
-            b.padding = b === ci ? 3 : Metrics.gap
-            b.restFill = b === ci ? nil : .fillRest
+            b.radius = b === pr ? nil : Metrics.radiusXS
+            b.padding = b === pr ? Metrics.gap : 3
+            b.restFill = b === pr ? .fillRest : nil
             b.target = self
         }
         changes.action = #selector(openChanges); pr.action = #selector(openPR)
@@ -163,6 +164,7 @@ final class SidebarCell: NSTableCellView {
     /// The slot follows a moment later, and goes back at once. Reduce Motion: at once.
     private func showHoverControls(_ on: Bool) {
         hovering = on
+        if case .agent(let sid) = node.kind, let s = app.session(sid) { showIcon(s) }   // its colour under the pointer
         if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
         guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
@@ -260,11 +262,12 @@ final class SidebarCell: NSTableCellView {
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
         let w = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder, stats = w.flatMap { app.rowBadges.stats[$0.id] }
-        let c = RowBadges.changes(stats, compact: true)
+        let c = RowBadges.changes(stats)
         let p = w.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
-        if let c, let stats {
-            changes.attributedTitle = c
+        if c != nil, let stats {
+            changes.attributedTitle = Self.dot
             changes.toolTip = String(localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
+            changes.setAccessibilityLabel(changes.toolTip)
         }
         if let p { pr.attributedTitle = p.0; pr.toolTip = p.1 }
         let state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
@@ -275,6 +278,9 @@ final class SidebarCell: NSTableCellView {
         fitBadges()
     }
     private var hasBadge = (changes: false, pr: false, ci: false)
+    private static var dot: NSAttributedString {
+        NSAttributedString(string: "•", attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
+    }
 
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack
     /// squeezes the name instead: "kdrde…  +2 −1").
@@ -372,17 +378,16 @@ final class SidebarCell: NSTableCellView {
         }
     }
 
-    /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the
-    /// default one (Other Agents Only), none for Never.
+    /// The agent's icon: before its name when Agent icons is Always, a glyph after it for an agent other than the default
+    /// one (Other Agents Only), none for Never. Grey at rest, its colour under the pointer: a brand's orange beside the
+    /// orange of "asks you" read as one. Paused says so by its moon, not by the grey.
     private func showIcon(_ s: Session) {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
         icon.isHidden = mode != "always"
-        // Paused: the same icon without its colour, not see-through (a faded tile read wider than the others).
-        let shown = s.status == .hibernated ? image.map(app.agentIcons.grey) : image
+        let shown = hovering ? image : image.map(app.agentIcons.grey)
         if icon.image !== shown { icon.image = shown }   // setting it draws it again, for every row on every pass
-        icon.alphaValue = s.status == .hibernated ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
-        let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
+        let mark = glyph.isHidden ? nil : shown
         if glyph.image !== mark { glyph.image = mark }
         glyph.toolTip = app.catalog.name(s.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)

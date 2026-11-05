@@ -40,7 +40,8 @@ final class SidebarOutline: NSOutlineView {
 }
 
 /// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
-/// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
+/// grey pill, as Finder's and Xcode's sidebars pick a row and as Kelp picks a tab (no accent colour, so the text and the
+/// status marks keep theirs). A project with nothing under it is a
 /// plain row, on a card only when its colour fills one.
 @MainActor
 final class SidebarRowView: NSTableRowView {
@@ -86,11 +87,12 @@ final class SidebarRowView: NSTableRowView {
 
     override func drawBackground(in r: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        // In a card the pill is 4 pt inside it, its corners following the card's (9 − 4); a row on its own gets a pill
+        // In a card the pill is 4 pt inside it, its corners following the card's (radiusLG − 4); a row on its own gets a pill
         // where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top + gap; pill.size.height -= pad.top + pad.bottom + gap
-        let path = NSBezierPath(roundedRect: pill, xRadius: group == nil ? 9 : 5, yRadius: group == nil ? 9 : 5)
+        let radius = Self.pillRadius(inCard: group != nil)
+        let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         hoverLayer.frame = bounds
@@ -99,25 +101,18 @@ final class SidebarRowView: NSTableRowView {
         CATransaction.commit()
         guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua, key = window?.isKeyWindow ?? true
-        NSGraphicsContext.saveGraphicsState()
-        if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
-            let shadow = NSShadow()
-            shadow.shadowColor = .black.withAlphaComponent(0.12)
-            shadow.shadowBlurRadius = 2
-            shadow.shadowOffset = .init(width: 0, height: -0.5)
-            shadow.set()
-        }
-        // Another window in front: the pill stays, quieter, as Finder's selection goes grey.
-        NSColor.white.withAlphaComponent(dark ? (key ? 0.12 : 0.055) : (key ? 1 : 0.6)).setFill()
+        // Another window in front: the pill stays, quieter, as Finder's selection does.
+        (key ? NSColor.fillSelected : .fillHover).setFill()
         path.fill()
-        NSGraphicsContext.restoreGraphicsState()
         if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {   // the pill alone is 1.5:1 to its card
             (dark ? NSColor.white.withAlphaComponent(0.35) : NSColor.black.withAlphaComponent(0.25)).setStroke()
-            let edge = NSBezierPath(roundedRect: pill.insetBy(dx: 0.5, dy: 0.5), xRadius: group == nil ? 8.5 : 4.5, yRadius: group == nil ? 8.5 : 4.5)
+            let edge = NSBezierPath(roundedRect: pill.insetBy(dx: 0.5, dy: 0.5), xRadius: radius - 0.5, yRadius: radius - 0.5)
             edge.lineWidth = 1
             edge.stroke()
         }
     }
+    /// A lone row's pill has a card's corners; one in a card follows the card's, 4 pt in.
+    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
@@ -189,8 +184,8 @@ final class SidebarRowView: NSTableRowView {
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;
-    /// `remote`, a project on a host: hatched over that, so it reads as elsewhere whatever its colour.
+    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it.
+    /// `remote`, a server's: no hatching any more (it was one more ground among the cards); its header says where.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
@@ -203,10 +198,7 @@ final class ProjectCard: NSView {
             needsDisplay = true
         }
     }
-    private var fill: NSColor? {
-        let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
-        return look.remote ? Self.stripes(over: base) : base
-    }
+    private var fill: NSColor? { look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest) }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -216,33 +208,10 @@ final class ProjectCard: NSView {
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
-        layer?.cornerRadius = 9
+        layer?.cornerRadius = Metrics.radiusLG
         layer?.backgroundColor = fill?.cgColor
     }
 
-    /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
-    /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
-    /// height of a row that was still arriving).
-    private static let stripe = NSColor.dynamic(light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
-    private static func stripes(over base: NSColor?) -> NSColor {
-        let side: CGFloat = 6
-        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
-            if let base {
-                base.setFill()
-                r.fill()
-            }
-            stripe.setStroke()
-            for dx in [-side, 0, side] {
-                let p = NSBezierPath()
-                p.move(to: NSPoint(x: dx, y: 0))
-                p.line(to: NSPoint(x: dx + side, y: side))
-                p.lineWidth = 1.5
-                p.stroke()
-            }
-            return true
-        }
-        return NSColor(patternImage: tile)
-    }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
     override var allowsVibrancy: Bool { false }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // the rows over it take the clicks

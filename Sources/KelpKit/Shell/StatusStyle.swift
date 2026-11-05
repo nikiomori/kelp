@@ -4,15 +4,15 @@ import SwiftUI
 import Core
 
 /// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, a slow ring of dots once
-/// it only waits for its command, an orange ◎ when it
-/// needs you, a filled ✓ in the text's colour when it finished and you haven't looked, nothing after (as an agent that did nothing),
-/// a moon when paused.
+/// it only waits for its command, an orange ◎ when it needs you, an outlined ✓ in the text's colour when it finished and
+/// you haven't looked (filled and coloured marks are for what needs you: asking, failed), nothing after (as an agent that
+/// did nothing), a moon when paused.
 extension AgentStatus {
     package var symbol: String {
         switch self {
         case .working: "circle.dotted"           // drawn as a spinning ring where there's room
         case .waiting: "record.circle"
-        case .done: "checkmark.circle.fill"
+        case .done: "checkmark.circle"
         case .idle: "circle"
         case .hibernated: "moon.fill"
         case .exited: "xmark.circle"

@@ -188,7 +188,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         let effect = NSView()
         if #available(macOS 26, *) {
             let glass = NSGlassEffectView()
-            glass.cornerRadius = 16
+            glass.cornerRadius = Metrics.radiusXL
             glass.contentView = effect
             panel.isOpaque = false
             panel.backgroundColor = .clear

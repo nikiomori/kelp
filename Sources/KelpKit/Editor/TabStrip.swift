@@ -42,18 +42,33 @@ final class TabStrip: NSView {
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
     var zoomed = false { didSet { unzoom.isHidden = !zoomed; measured = nil } }
     private let unzoom = PointerButton(frame: .zero)
-    var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
+    var focused = false {
+        didSet {
+            guard focused != oldValue else { return }
+            buttons.forEach { $0.groupFocused = focused }
+            showAdds()
+        }
+    }
     /// A pane without focus among several: its tabs fade with its content, all but those with news (`TabButton.news`).
     var dimmed = false {
         didSet {
             guard dimmed != oldValue else { return }
             buttons.forEach { $0.stripDimmed = dimmed }
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Motion.duration(Motion.fast)
-                adds.animator().alphaValue = dimmed ? Metrics.tabDim : 1
-            }
+            showAdds()
         }
     }
+    private var pointed = false { didSet { if pointed != oldValue { showAdds() } } }
+    /// New agent and "+" show on the focused pane's strip and under the pointer: side by side, each pane's pair made ten
+    /// buttons for two actions. Faded out, not taken away, so the tabs don't move when they come.
+    private func showAdds() {
+        let alpha = focused || pointed ? (dimmed && !pointed ? Metrics.tabDim : 1) : 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.fast)
+            adds.animator().alphaValue = alpha
+        }
+    }
+    override func mouseEntered(with e: NSEvent) { pointed = true }
+    override func mouseExited(with e: NSEvent) { pointed = false }
     private let stack = NSStackView()
     private let scroll = NSScrollView()
     private lazy var edgeMask: CAGradientLayer = {
@@ -161,6 +176,8 @@ final class TabStrip: NSView {
         // tabs at their minimum widen the stack (the strip scrolls) instead of running past its end, clipped.
         stack.setHuggingPriority(.init(200), for: .horizontal); stack.setClippingResistancePriority(.init(246), for: .horizontal)
         registerForDraggedTypes([.kelpTab])
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        adds.alphaValue = 0   // until it's the focused strip or the pointer comes
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -279,13 +296,24 @@ final class TabStrip: NSView {
 
     @objc private func unzoomTapped() { onUnzoom?() }
     @objc private func stripScrolled() { fadeEdges() }
-    /// The agent "+" would start first (nil: no agent CLI found, the button hides). Grey at rest, as a mark that isn't a
-    /// state must be here; its colour comes under the pointer.
+    /// The agent "+" would start first (nil: no agent CLI found, the button hides). Grey and faint at rest, no heavier than
+    /// the "+" beside it, as a mark that isn't a state must be here; its colour comes under the pointer.
     func setNewAgent(icon: NSImage?, grey: NSImage?, name: String) {
         if newAgent.isHidden != (icon == nil) { measured = nil }
         newAgent.isHidden = icon == nil
-        newAgent.show(icon, atRest: grey)
+        if let grey, faint?.of !== grey { faint = (grey, Self.faint(grey)) }
+        newAgent.show(icon, atRest: grey == nil ? nil : faint?.image)
         newAgent.toolTip = String(localized: "New \(name) (⌥⌘T)"); newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
+    }
+    private var faint: (of: NSImage, image: NSImage)?
+    /// `image` at the opacity of a secondary label.
+    private static func faint(_ image: NSImage) -> NSImage {
+        let img = NSImage(size: image.size, flipped: false) { r in
+            image.draw(in: r, from: .zero, operation: .sourceOver, fraction: 0.55)
+            return true
+        }
+        img.accessibilityDescription = image.accessibilityDescription
+        return img
     }
     @objc private func newAgentTapped() { onNewAgent?() }
     @objc private func addTapped() { addMenu?().popUp(positioning: nil, at: NSPoint(x: 0, y: add.bounds.height + 4), in: add) }

@@ -1,27 +1,31 @@
 import AppKit
 
-/// State as light along the inside of an edge (an agent asks, failed, waits for its command): a hairline and a soft glow
-/// inward, the shadow of a frame drawn just outside and clipped to the rounded bounds. The pane's ring and a tab's are
-/// this one view, at their own corner and spread; nothing outside the edge is tinted, and clicks go through.
+/// State as light along the inside of an edge (an agent asks, failed, waits for its command): a soft glow inward (and a
+/// hairline, where there's room for one), the shadow of a frame drawn just outside and clipped to the rounded bounds. The
+/// pane's ring and a tab's are this one view, at their own corner and spread; nothing outside the edge is tinted, and
+/// clicks go through.
 @MainActor
 public final class EdgeGlow: NSView {
     private let frameLayer = CAShapeLayer()
     private var color: NSColor?
     private var breathing = false
     private var faint = false
+    private let hairline: Bool
     /// The corner it follows (a tab's capsule changes it as it lays out).
     public var radius: CGFloat { didSet { layer?.cornerRadius = radius; needsLayout = true } }
 
     /// `spread`: how far the light reaches in, `strength` its opacity at the edge (a pane 14 and 0.6; a tab, 28 pt tall,
-    /// 3 and 0.5, so its middle stays the tab's own colour).
-    public init(radius: CGFloat, spread: CGFloat, strength: Float = 0.6) {
+    /// 3 and 0.5, so its middle stays the tab's own colour). `hairline` off: light only, no line along the edge (a tab: a
+    /// lined tab read as more chosen than the chosen one).
+    public init(radius: CGFloat, spread: CGFloat, strength: Float = 0.6, hairline: Bool = true) {
         self.radius = radius
+        self.hairline = hairline
         super.init(frame: .zero)
         wantsLayer = true; isHidden = true
         layer?.masksToBounds = true
         layer?.cornerRadius = radius
         layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
+        layer?.borderWidth = hairline ? 1 : 0
         frameLayer.fillRule = .evenOdd
         frameLayer.shadowOffset = .zero
         frameLayer.shadowRadius = spread
