@@ -42,7 +42,13 @@ extension Git {
     public static func changed(since tree: String, cwd: String, remotes: Remotes = .none) throws -> (files: [String], now: String) {
         let now = try snapshotTree(cwd, remotes: remotes)
         let names = try run(["diff", "--name-only", "--no-renames", "-z", rev(tree), now], cwd: cwd, remotes: remotes)
-        return (names.split(separator: "\0").map(String.init).filter { !(($0 as NSString).lastPathComponent).hasPrefix(".env") }, now)
+        return (names.split(separator: "\0").map(String.init).filter { !holdsSecrets(($0 as NSString).lastPathComponent) }, now)
+    }
+
+    /// `.env`, `.env.local`, `.env.production`: the user's secrets, never put back. A template committed for others
+    /// (`.env.example`) and direnv's `.envrc` are code like any other.
+    static func holdsSecrets(_ name: String) -> Bool {
+        name == ".env" || name.hasPrefix(".env.") && !["example", "sample", "template", "dist", "defaults"].contains(name.dropFirst(5))
     }
 
     /// `files` (paths from the repository's top, `cwd`) as they were in `tree`, content and mode; a file the tree hasn't

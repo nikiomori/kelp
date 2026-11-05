@@ -575,3 +575,9 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     #expect(throws: GitError.self) { _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: []) }
     #expect(try String(contentsOfFile: victim, encoding: .utf8) == "keep\n")
 }
+
+/// An undone turn leaves the user's secrets alone, and puts back a committed template and direnv's file like any code.
+@Test func onlySecretEnvFilesStayOutOfAnUndo() {
+    for n in [".env", ".env.local", ".env.production"] { #expect(Git.holdsSecrets(n), "\(n)") }
+    for n in [".env.example", ".env.sample", ".envrc", "env.ts", ".environment"] { #expect(!Git.holdsSecrets(n), "\(n)") }
+}
