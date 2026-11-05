@@ -19561,6 +19561,138 @@
           }
         }
       }
+    },
+    "Run setup on pull request #%lld?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить setup на пул-реквесте #%lld?"
+          }
+        }
+      }
+    },
+    "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его код написал автор пул-реквеста: то, что setup устанавливает или собирает, может запустить его скрипты от вашего имени. "
+          }
+        }
+      }
+    },
+    "Skip it to read the code first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустите, чтобы сначала прочитать код."
+          }
+        }
+      }
+    },
+    "Run Setup": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить setup"
+          }
+        }
+      }
+    },
+    "Skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить"
+          }
+        }
+      }
+    },
+    "You took this page over: the agent waits until you hand it back": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы взяли страницу: агент ждёт, пока вы её не вернёте"
+          }
+        }
+      }
+    },
+    "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git не отслеживает этот файл: «Отменить» вернёт его в течение минуты, а в проекте на этом Mac он останется в Корзине."
+          }
+        }
+      }
+    },
+    "You can undo it for a minute.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить можно в течение минуты."
+          }
+        }
+      }
+    },
+    " Untracked files go to the Trash.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Неотслеживаемые файлы уйдут в Корзину."
+          }
+        }
+      }
+    },
+    "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes and your own edits in these files go too; Redo brings them back.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы, созданные ходом, уйдут в Корзину; файлы .env останутся как есть. Изменения следующих ходов и ваши правки в этих файлах тоже откатятся; «Повторить» вернёт их."
+          }
+        }
+      }
+    },
+    "Put %lld files back as they were before the turn": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернул %lld файлов к состоянию до хода"
+          }
+        }
+      }
+    },
+    "Update…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
