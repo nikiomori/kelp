@@ -139,7 +139,7 @@ struct UsageView: View {
     private struct Bar: View {
         let used: Double
         var pace: Double?
-        var height: CGFloat = 4
+        var height: CGFloat = 3
         var body: some View {
             GeometryReader { g in
                 let w = g.size.width
