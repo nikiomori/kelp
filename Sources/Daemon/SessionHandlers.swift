@@ -151,6 +151,7 @@ extension PortsList: Handled { func handle(_ sessions: Sessions) throws -> [Port
 extension SessionUsage: Handled { func handle(_ sessions: Sessions) throws -> [Usage] { sessions.usage() } }
 
 extension PortsStop: Handled {
+    var inWorkspace: String? { worktreeId }   // it stops a process: another workspace's may be another agent's server
     func handle(_ sessions: Sessions) throws -> Done {
         let pid = Int32(clamping: pid ?? 0)
         guard pid > 0, sessions.ports(worktree: worktreeId).contains(where: { $0.pid == pid }) else {

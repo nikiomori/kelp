@@ -3,14 +3,31 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// The row over the projects, beside Add Project, counting who needs you, who works and who finished unread, each count a
-/// mark and its words drawn alike. Who needs you is a button too: it greys in under the pointer and goes to the next one,
-/// as ⇧⌘U does. The rows say what each one wants (SidebarCell's second line), so the count doesn't list them again. With
+/// The row over the projects, beside Add Project, counting who needs you, who works and who finished unread. Who needs
+/// you is a glass capsule, which goes to the next one, as ⇧⌘U does; the others are grey words beside it, not buttons. The rows say what each one wants (SidebarCell's second line), so the count doesn't list them again. With
 /// nobody asking and nobody working (no project yet too) the row names the list under it. It keeps its place whatever it
 /// says: nothing in the list moves when an agent starts asking or stops. A new question lights its count up for a moment.
 @MainActor
 final class AgentSummary: NSView {
     private let capsule = Pressable()
+    /// Liquid Glass where there is (macOS 26): the one custom glass in the sidebar, over the list it floats above.
+    private let glass: NSView = {
+        if #available(macOS 26, *) {
+            let g = NSGlassEffectView()
+            g.cornerRadius = Metrics.radiusXL
+            return g
+        }
+        let v = NSVisualEffectView()
+        v.material = .popover
+        v.blendingMode = .withinWindow
+        v.state = .active
+        v.wantsLayer = true
+        v.layer?.cornerRadius = Metrics.radiusXL
+        v.layer?.masksToBounds = true
+        return v
+    }()
+    /// Over the glass, under the words: the grey the pointer brings (a fill behind the glass wouldn't show).
+    private let sheen = NSView()
     private let mark = StatusMark(size: 12)
     private let title = NSTextField(labelWithString: "")
     /// What's said beside the capsule, or alone in its place: how many work, or the list's name.
@@ -38,12 +55,17 @@ final class AgentSummary: NSView {
         self.app = app
         super.init(frame: .zero)
         title.maximumNumberOfLines = 1
-        title.font = .ui(11)
+        title.font = .ui(12, weight: .semibold)
         title.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, title])
         content.spacing = Metrics.gap
-        content.translatesAutoresizingMaskIntoConstraints = false
-        capsule.addSubview(content)
+        sheen.wantsLayer = true
+        sheen.layer?.cornerRadius = Metrics.radiusXL
+        sheen.layer?.cornerCurve = .continuous
+        for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
+        capsule.look = { [weak self] hovering, pressed in
+            self?.sheen.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
+        }
         capsule.contextMenu = { [weak self] in self.map { Self.viewMenu($0.app) } }
         capsule.press = { [weak self] in self?.app.workbench.showNextNeedingAttention() }
         capsule.setAccessibilityElement(true)
@@ -68,11 +90,14 @@ final class AgentSummary: NSView {
             heightAnchor.constraint(equalToConstant: TextSize.of(24)),
             row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),   // a gap short of Add Project
-            capsule.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.iconButton)),
-            // Its mark where the words' first mark stands alone (the row's left inset then): nothing shifts as it comes and goes.
+            capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
+            glass.topAnchor.constraint(equalTo: capsule.topAnchor), glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor), glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
+            sheen.topAnchor.constraint(equalTo: glass.topAnchor), sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+            sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor), sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
-            content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: Metrics.gapWide),
-            content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -Metrics.gapWide)
+            content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
+            content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.update() }
@@ -89,7 +114,7 @@ final class AgentSummary: NSView {
     /// what works; the tooltip still says them. Who needs you stays. All a gap short of Add Project.
     override func layout() {
         super.layout()
-        let capsuleWidth = title.intrinsicContentSize.width + 12 + Metrics.gap + 2 * Metrics.gapWide
+        let capsuleWidth = title.intrinsicContentSize.width + 12 + Metrics.gap + 22
         let room = bounds.width - Metrics.gap - row.edgeInsets.left - (asking ? capsuleWidth + row.spacing : 0)
         let working = [asideMark, asideText].filter { !$0.isHidden } as [NSView]
         let finished: [NSView] = doneText.stringValue.isEmpty ? [] : [doneMark, doneText]
@@ -167,13 +192,14 @@ extension Inbox {
     }
 }
 
-/// Who needs you, as a click or VoiceOver presses it: no fill at rest, grey under the pointer, darker held, and a click
-/// springs it (`PointerControl`), as a row's selection is shaped.
+/// The capsule a click or VoiceOver presses: under the pointer its glass greys a step (`look`), held a step more, and a
+/// click springs it (`PointerControl`).
 @MainActor
 private final class Pressable: PointerControl {
     var press: () -> Void = {}
+    var look: (_ hovering: Bool, _ pressed: Bool) -> Void = { _, _ in }
     var contextMenu: (() -> NSMenu?)?
     override func clicked() { press() }
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
-    override func layout() { super.layout(); layer?.cornerRadius = Metrics.radiusSM }
+    override func showPointer(hovering: Bool, pressed: Bool) { look(hovering, pressed) }
 }

@@ -75,8 +75,8 @@ final class WindowBar: NSView {
         forward.target = self
         forward.action = #selector(goForward)
         let nav = NSStackView(views: [back, forward]); nav.spacing = 0
-        // Right of the search: what runs here (gone while the project offers nothing), the page it serves, then the cup and
-        // side by side, each only while it has something to say.
+        // Right of the search: what runs here (gone while the project offers nothing), the page it serves, the cup, and side
+        // by side (with two agents or more).
         let tools = NSStackView(views: [run, page, awake, sideBySide]); tools.spacing = 2
         tools.detachesHiddenViews = true
         tools.setCustomSpacing(6, after: run)
@@ -224,15 +224,19 @@ final class WindowBar: NSView {
         return app.settings.bool("workbench.awakeButton") == false ? "hidden" : mode == "agents" && working ? "working" : mode
     }
 
-    /// The cup right of the search, only while the Mac is kept awake: steaming while agents keep it so, filled while it's on
-    /// for good. The switch is Tools › Keep Mac Awake; a click here is the same, a right-click picks the mode or hides it.
+    /// The cup right of the search, always there so the switch can be found: empty while the Mac may sleep, steaming while
+    /// agents keep it awake, orange while it's on for good. A click is Keep Mac Awake (also in the Tools menu); a right-click
+    /// picks the mode or hides it.
     private func showAwake(_ mode: String) {
         let app = self.app
-        awake.isHidden = mode != "always" && mode != "working"
-        let (symbol, tip) = mode == "always"
-            ? ("cup.and.heat.waves.fill", String(localized: "The Mac stays awake until you click here"))
-            : ("cup.and.heat.waves", String(localized: "The Mac stays awake while agents work. Click to keep it awake always"))
-        awake.image = .symbol(symbol, String(localized: "Keep Mac Awake"))
+        awake.isHidden = mode == "hidden"
+        let (symbol, tip) = switch mode {
+        case "always": ("cup.and.heat.waves.fill", String(localized: "The Mac stays awake until you click here"))
+        case "working": ("cup.and.heat.waves", String(localized: "The Mac stays awake while agents work. Click to keep it awake always"))
+        default: ("cup.and.saucer", String(localized: "The Mac can sleep. Click to keep it awake"))
+        }
+        let cup = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))   // a recessed button ignores contentTintColor
+        awake.image = mode == "always" ? cup.withSymbolConfiguration(.init(paletteColors: [.systemOrange])) : cup
         awake.toolTip = tip
         let m = NSMenu()
         for (v, title) in [("agents", String(localized: "While agents work")), ("always", String(localized: "Always")), ("off", String(localized: "Never"))] {

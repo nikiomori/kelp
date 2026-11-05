@@ -3,10 +3,9 @@ import Core
 import DesignKit
 
 @MainActor
-/// How full an agent's conversation is, on its tab: nothing while there's room, then a pie that fills, orange where it's
-/// time to compact or hand off, red just before the agent compacts by itself. A pie, not an arc: an arc in the same place
-/// as the working ring read as a second spinner. The yellow step before (answers may start to slip) is on the hover card
-/// only. Past half a 200k window, or 200k tokens of a bigger one: long-context benchmarks slip by absolute tokens, so a 1M
+/// How full an agent's conversation is, on its tab: nothing while there's room, then a pie that fills, yellow where answers
+/// may start to slip, orange where it's time to compact or hand off, red just before the agent compacts by itself. A pie,
+/// not an arc: an arc in the same place as the working ring read as a second spinner. Past half a 200k window, or 200k tokens of a bigger one: long-context benchmarks slip by absolute tokens, so a 1M
 /// window turns yellow at 200k, orange at 400k and red at 600k (a 200k one at 100k, 130k and 150k, under Claude Code's
 /// own compaction).
 final class ContextMeter: NSView {
@@ -18,8 +17,8 @@ final class ContextMeter: NSView {
         let w = Double(u.window), used = Double(u.used)
         return used >= min(0.75 * w, 600_000) ? 3 : used >= min(0.65 * w, 400_000) ? 2 : used >= min(0.5 * w, 200_000) ? 1 : 0
     }
-    /// On a tab from orange on.
-    static func shows(_ u: SessionContextWindow.Usage?) -> Bool { level(u) >= 2 }
+    /// On a tab from yellow on.
+    static func shows(_ u: SessionContextWindow.Usage?) -> Bool { level(u) >= 1 }
     init() {
         super.init(frame: .zero)
         wantsLayer = true; isHidden = true
@@ -42,7 +41,7 @@ final class ContextMeter: NSView {
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
     private func update() {
         guard let usage, usage.window > 0 else { return }
-        let share = Double(usage.used) / Double(usage.window), color: NSColor = Self.level(usage) >= 3 ? .systemRed : .systemOrange
+        let share = Double(usage.used) / Double(usage.window), color = [NSColor.systemYellow, .systemYellow, .systemOrange, .systemRed][Self.level(usage)]
         toolTip = String(localized: "Context \(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
         effectiveAppearance.performAsCurrentDrawingAppearance {
             track.strokeColor = color.cgColor

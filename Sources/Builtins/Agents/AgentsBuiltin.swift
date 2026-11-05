@@ -40,7 +40,7 @@ extension Builtins {
                 s("usage.readPlans", "Show plan limits", "boolean", true,
                   "At the bottom of the sidebar, read without spending tokens.",
                   help: "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.", group: "Plan limits"),
-                s("usage.limits", "Limits to show", "enum", "fullest", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
+                s("usage.limits", "Limits to show", "enum", "all", "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
                   options: ["fullest", "all"], group: "Plan limits", requires: "usage.readPlans"),
                 s("usage.resets", "Reset time beside a limit", "boolean", true, "Only when it resets within 12 hours.",
                   group: "Plan limits", requires: "usage.readPlans"),

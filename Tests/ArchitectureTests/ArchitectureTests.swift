@@ -218,6 +218,25 @@ private func codeOnly(_ s: String) -> String {
                         "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/WindowParts.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"])
 }
 
+/// A handler that types into a session, stops one or a process, ends a workspace's agents or answers a question says on
+/// what (`actsOn`, `answersQuestion`, `reportsFor`, `inWorkspace`, `ends`, `onlyFromKelp`), so `Daemon.allow` checks it
+/// before an agent's call gets that far. One that doesn't is a way around the check.
+@Test func whatActsOnASessionSaysOnWhich() throws {
+    let acts = #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(|pauseSessions\(|sessions\.discard\(|\.archive\(|removeDesk\(/#
+    let says = #/var (actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp)\b/#
+    var unsaid: [String] = []
+    for f in sources(["Sources/Daemon"]) {
+        for piece in f.text.components(separatedBy: "\nextension ").dropFirst() {
+            let head = String(piece.prefix { $0 != "\n" })
+            guard head.contains(#/: [^{]*\b(Handled|AsyncHandled|SessionInput)\b/#) else { continue }
+            let oneLine = head.hasSuffix("}") && head.filter { $0 == "{" }.count == head.filter { $0 == "}" }.count
+            let body = oneLine ? head : piece.components(separatedBy: "\n}").first ?? piece
+            if body.contains(acts), !body.contains(says) { unsaid.append("\(f.path): \(head.prefix { $0 != ":" })") }
+        }
+    }
+    #expect(unsaid == [])
+}
+
 /// A URL goes to another app through `PreviewLinks.openOutside` only, which lets web pages, mail and System Settings
 /// through: links come from pages, forges and agents, and a file or another app's scheme would run something.
 /// (TerminalKit's fallback is unused: Kelp's terminals hand their links to `PaneView.openLink`.)

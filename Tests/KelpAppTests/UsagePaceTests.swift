@@ -67,12 +67,11 @@ import Core
     #expect(old.readings(now: now)[0].resetAt == now.addingTimeInterval(2 * 86400 - 3 * 3600))
 }
 
-/// A reading past half an hour says how old it is; past a day the sidebar's foot leaves it out.
-@Test func anOldReadingIsAgedThenGone() {
+/// A reading past half an hour says how old it is, however old.
+@Test func anOldReadingSaysItsAge() {
     func row(_ ago: TimeInterval?) -> UsageView.Row {
         UsageView.Row(id: "codex", name: "Codex", fullName: "Codex", readAt: ago.map { Date() - $0 })
     }
     #expect(!row(60).stale && !row(nil).stale)
-    #expect(row(3600).stale && !row(3600).gone)
-    #expect(row(2 * 86400).gone)
+    #expect(row(3600).stale && row(2 * 86400).stale)
 }

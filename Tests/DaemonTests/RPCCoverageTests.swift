@@ -359,6 +359,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r comment.send "{\"id\":\"\#(r.wt.id)\",\"session\":\"\#(other.id)\"}"; "#
         + #"r ui.browser "{\"action\":\"info\",\"worktreeId\":\"elsewhere\"}"; "#
         + #"r comment.add "{\"id\":\"\#(r.wt.id)\",\"file\":\"a.txt\",\"text\":\"x\",\"session\":\"\#(other.id)\"}"; "#
+        + #"r session.continueAt "{\"id\":\"\#(other.id)\"}"; r ports.stop "{\"worktreeId\":\"elsewhere\",\"pid\":1}"; "#
+        + #"r worktree.remove "{\"id\":\"\#(r.wt.id)\"}"; r repo.remove "{\"id\":\"\#(r.wt.repoId)\"}"; "#
         + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     let ls = try #require(r.d.sessions.existing(me.id))
@@ -374,7 +376,11 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/session\.restart [^\n]*acts only on its own session/#))
     #expect(out.contains(#/comment\.send [^\n]*acts only on its own session/#))
     #expect(out.contains(#/comment\.add [^\n]*speaks only for itself/#))   // a comment signed as another agent
-    #expect(out.contains(#/ui\.browser [^\n]*pages only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
+    #expect(out.contains(#/session\.continueAt [^\n]*acts only on its own session/#))   // "continue" typed later
+    #expect(out.contains(#/ports\.stop [^\n]*only in its own workspace/#))
+    // Removing the workspace or the project would end `other`, which this agent didn't start.
+    #expect(out.contains(#/worktree\.remove [^\n]*ends only its own sessions/#) && out.contains(#/repo\.remove [^\n]*ends only its own sessions/#))
+    #expect(out.contains(#/ui\.browser [^\n]*only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
     #expect(out.contains(#/stream kelp: An agent acts only/#))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
     let seen = try await r.c.call(SessionRead(id: other.id))

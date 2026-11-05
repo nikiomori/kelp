@@ -42,33 +42,18 @@ final class TabStrip: NSView {
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
     var zoomed = false { didSet { unzoom.isHidden = !zoomed; measured = nil } }
     private let unzoom = PointerButton(frame: .zero)
-    var focused = false {
-        didSet {
-            guard focused != oldValue else { return }
-            buttons.forEach { $0.groupFocused = focused }
-            showAdds()
-        }
-    }
+    var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     /// A pane without focus among several: its tabs fade with its content, all but those with news (`TabButton.news`).
     var dimmed = false {
         didSet {
             guard dimmed != oldValue else { return }
             buttons.forEach { $0.stripDimmed = dimmed }
-            showAdds()
+            NSAnimationContext.runAnimationGroup { ctx in   // new agent and "+" fade with the pane's tabs
+                ctx.duration = Motion.duration(Motion.fast)
+                adds.animator().alphaValue = dimmed ? Metrics.tabDim : 1
+            }
         }
     }
-    private var pointed = false { didSet { if pointed != oldValue { showAdds() } } }
-    /// New agent and "+" show on the focused pane's strip and under the pointer: side by side, each pane's pair made ten
-    /// buttons for two actions. Faded out, not taken away, so the tabs don't move when they come.
-    private func showAdds() {
-        let alpha = focused || pointed ? (dimmed && !pointed ? Metrics.tabDim : 1) : 0
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.duration(Motion.fast)
-            adds.animator().alphaValue = alpha
-        }
-    }
-    override func mouseEntered(with e: NSEvent) { pointed = true }
-    override func mouseExited(with e: NSEvent) { pointed = false }
     private let stack = NSStackView()
     private let scroll = NSScrollView()
     private lazy var edgeMask: CAGradientLayer = {
@@ -176,8 +161,6 @@ final class TabStrip: NSView {
         // tabs at their minimum widen the stack (the strip scrolls) instead of running past its end, clipped.
         stack.setHuggingPriority(.init(200), for: .horizontal); stack.setClippingResistancePriority(.init(246), for: .horizontal)
         registerForDraggedTypes([.kelpTab])
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
-        adds.alphaValue = 0   // until it's the focused strip or the pointer comes
     }
     required init?(coder: NSCoder) { fatalError() }
 

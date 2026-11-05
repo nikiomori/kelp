@@ -5,8 +5,8 @@ import DesignKit
 import WorkbenchKit
 
 /// An empty workspace: where it is, a field for the default agent's first task, and what can be opened here, one
-/// click each (like Xcode's welcome window) — the installed agents, a terminal and what to run. The rest (a tmux
-/// session, a new file, the browser, what extensions open) is in the "+" menu and ⌘P.
+/// click each (like Xcode's welcome window) — the installed agents, a terminal, what to run, and whatever extensions add
+/// (the browser…).
 @MainActor
 final class StartView: NSView {
     var onAgent: ((String) -> Void)?
@@ -32,8 +32,6 @@ final class StartView: NSView {
     }
     /// The rows of the agents on show, whose plan limits follow the daemon: the view isn't made again, what's typed stays.
     private var agentRowsById: [String: StartRow] = [:]
-    /// Those in the two columns: a half row has room for the percentage, the reset time goes in its tip.
-    private var halfRows: Set<String> = []
     private let planLine = NSTextField(wrappingLabelWithString: "")
     private let planSwitch = PointerButton()
     private lazy var planBar = NSStackView(views: [planLine, planSwitch])
@@ -66,7 +64,8 @@ final class StartView: NSView {
         let agents = app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
         let shown = agents.prefix(Self.agentRows)
         var tiles = shown.map { a in
-            let row = StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in
+            let row = StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, detail: a.id == def ? String(localized: "Default") : nil,
+                               shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in
                 self?.onAgent?(a.id)
             }
             agentRowsById[a.id] = row
@@ -75,7 +74,6 @@ final class StartView: NSView {
         if !agents.isEmpty { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
         // In two columns the default agent still runs across the card, its ⌥⌘T at the right edge with ⌘T and the rest.
         let lead = agents.first?.id == def ? 1 : 0
-        if Self.paired(tiles.count) { halfRows = Set(shown.dropFirst(lead).map(\.id)) }
         let rows = agentRows(agents, tiles: tiles, lead: lead)
         let others = otherRows(w)
         let card = StartCard(rows: rows, others: others)
@@ -189,10 +187,22 @@ final class StartView: NSView {
         return rows
     }
 
-    /// What else opens here: a terminal and what to run. What extensions open waits in "+" and ⌘P: each would add a row.
+    /// What else opens here: a terminal, what to run, a tmux session, what extensions open.
     private func otherRows(_ w: Worktree) -> [NSView] {
-        [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in self?.onOpen?("terminal:") },
-         RunSlot(app: app, workspace: w.id)]
+        let app = self.app
+        var others: [NSView] = [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in
+            self?.onOpen?("terminal:")
+        }]
+        others.append(RunSlot(app: app, workspace: w.id))
+        if app.catalog.hasTmux(w) {
+            others.append(StartRow(image: .symbol("rectangle.split.3x1"), title: String(localized: "tmux Session"), shortcut: nil) { app.quickOpen.showTmux() })
+        }
+        // Changes live in Source Control; the rest of what extensions open is offered here.
+        for e in app.extensions.all.editors where e.id != "git.review" {
+            let key = app.extensions.command(e.id)?.key.flatMap(KeySpec.init).map(KeyBindings.display)
+            others.append(StartRow(image: .symbol(e.icon), title: e.label, shortcut: key) { e.open(IDEContext.of(app), in: app) })
+        }
+        return others
     }
 
     /// `under`: what the warning sits under (Make, under the field); nil when the default agent isn't installed.
@@ -213,7 +223,7 @@ final class StartView: NSView {
     /// Each agent's plan beside its name; under the field, what to know when the default agent is nearly out.
     private func showPlans(in stack: NSStackView, after under: NSView?) {
         let notes = app.planNotes
-        for (id, row) in agentRowsById { row.show(note: notes[id], half: halfRows.contains(id)) }
+        for (id, row) in agentRowsById { row.show(lead: id == def ? String(localized: "Default") : nil, note: notes[id]) }
         let name = app.catalog.all.first { $0.id == def }?.name ?? def
         let warning = notes[def]?.warning(for: name)
         planLine.stringValue = warning ?? ""
@@ -361,12 +371,14 @@ private final class StartRow: NSView {
     /// The edge of the row's highlight to its icon.
     static let inset: CGFloat = 10
 
-    /// The plan in its colour; in a `half` row only how full, when it resets in the tip.
-    func show(note: PlanNote?, half: Bool) {
-        more.stringValue = (half ? note?.amount : note?.text) ?? ""
-        more.textColor = note?.color ?? .secondaryLabelColor
-        more.isHidden = note == nil
-        toolTip = half ? note?.resetsTip : nil
+    /// `lead` in grey; the plan in its colour after it (its reset in the tip too, for a half row that cuts it short).
+    func show(lead: String?, note: PlanNote?) {
+        let text = NSMutableAttributedString(string: [lead, note == nil ? nil : ""].compactMap { $0 }.joined(separator: " · "),
+                                             attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
+        if let note { text.append(NSAttributedString(string: note.text, attributes: [.font: NSFont.ui(12), .foregroundColor: note.color])) }
+        more.attributedStringValue = text
+        more.isHidden = text.length == 0
+        toolTip = note?.resetsTip
     }
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {

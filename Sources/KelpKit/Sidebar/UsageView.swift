@@ -36,12 +36,10 @@ struct UsageView: View {
     struct Row: Identifiable, Equatable {
         var id: String, name: String, fullName: String
         var lines: [Line] = []
-        /// When the numbers were read (nil: unknown); past half an hour they say how old they are, past a day the foot
-        /// leaves them out (an agent not used since: Codex reads its limits only then).
+        /// When the numbers were read (nil: unknown); past half an hour they say how old they are (Codex reads its limits
+        /// only when it's used).
         var readAt: Date?
-        var stale: Bool { age > 1800 }
-        var gone: Bool { age > 86400 }
-        private var age: TimeInterval { readAt.map { Date().timeIntervalSince($0) } ?? 0 }
+        var stale: Bool { readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false }
         var main: Line? { lines.max { $0.used < $1.used } }
     }
     let app: AppModel
@@ -51,10 +49,10 @@ struct UsageView: View {
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
-    /// The agents that have used anything of their plans, read within a day: a row at 0% says nothing, nor a day-old one.
-    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 && !$0.gone } }
+    /// The agents that have used anything of their plans: a row at 0% says nothing.
+    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
-    private var all: Bool { app.settings.string("usage.limits") == "all" }
+    private var all: Bool { app.settings.string("usage.limits") != "fullest" }
     /// The rows on show (Settings › Agents, or the footer's right-click): nothing once plan limits are turned off.
     private var shown: [Row] {
         guard app.settings.bool("usage.readPlans") != false else { return [] }

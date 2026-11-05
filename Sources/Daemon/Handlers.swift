@@ -34,10 +34,15 @@ protocol Answered: RPCMethod {
     /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
     /// started, which would approve its own question or another agent's.
     var answersQuestion: Bool { get }
-    /// The workspace whose tabs it drives (`kelp browser`): an agent drives only its own workspace's pages, which
-    /// may carry the user's login it was let into.
+    /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
+    /// pages may carry the user's login it was let into.
     var inWorkspace: String? { get }
+    /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
+    /// started, never the user's other agents.
+    var ends: Ending? { get }
 }
+
+enum Ending { case workspace(String), project(String) }
 
 extension Answered {
     var onlyFromKelp: String? { nil }
@@ -45,6 +50,7 @@ extension Answered {
     var actsOn: String? { nil }
     var answersQuestion: Bool { false }
     var inWorkspace: String? { nil }
+    var ends: Ending? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -145,7 +151,7 @@ extension Daemon {
     /// process's environment (its KELP_SESSION) to tell, and any program of the user's may call anyway (the socket is theirs).
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion || m.inWorkspace != nil,
+        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion || m.inWorkspace != nil || m.ends != nil,
               let pid = clients.peerPID(conn), let own = sessions.session(running: pid) else { return }
         if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
         guard try sessions.lineage(own).contains(where: \.isAgent) else { return }
@@ -156,7 +162,10 @@ extension Daemon {
             throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
         }
         if let w = m.inWorkspace, try sessions.lineage(own).allSatisfy({ $0.worktreeId != w }) {
-            throw RPCError.invalidParams("An agent drives pages only in its own workspace.")
+            throw RPCError.invalidParams("An agent works only in its own workspace.")
+        }
+        if let e = m.ends, try sessions.ending(e).contains(where: { s in try !sessions.lineage(s).contains { $0.id == own } }) {
+            throw RPCError.invalidParams("An agent ends only its own sessions and the ones it started.")
         }
     }
 
@@ -512,5 +521,16 @@ extension Data {
         let size = (try? h.seekToEnd()) ?? 0
         try? h.seek(toOffset: size > UInt64(bytes) ? size - UInt64(bytes) : 0)
         self = (try? h.readToEnd()) ?? Data()
+    }
+}
+
+extension Sessions {
+    /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
+    func ending(_ e: Ending) throws -> [String] {
+        let desks: Set<String> = switch e {
+        case .workspace(let w): [w]
+        case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
+        }
+        return try store.sessions().filter { desks.contains($0.worktreeId ?? "") }.map(\.id)
     }
 }

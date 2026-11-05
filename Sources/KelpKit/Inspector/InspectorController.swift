@@ -4,10 +4,9 @@ import Core
 import DesignKit
 
 /// Right side: a row of panel icons (from extensions) over the selected panel — a scope bar like Mail's and Finder's:
-/// plain icons, the selected one on the grey of a chosen row, in a glass capsule on macOS 26. The row sits in the
-/// inspector's top band beside the window's inspector toggle, as Xcode's do, or in a bar under the panel. Icons are
-/// dragged into order; a right-click on the row hides them and moves the row. Icons that don't fit go into a » menu, as
-/// a toolbar's do.
+/// plain icons, the selected one on the grey of a chosen row, in a glass capsule on macOS 26. The row is the inspector's
+/// part of the window's second row, under the panel's name, or a bar under the panel. Icons are dragged into order; a
+/// right-click on the row hides them and moves the row. Icons that don't fit go into a » menu, as a toolbar's do.
 @MainActor
 final class InspectorController: NSViewController {
     let app: AppModel
@@ -33,10 +32,10 @@ final class InspectorController: NSViewController {
     /// Settings › Appearance › Inspector icons position: the row level with the tabs, or a bar under the panel.
     private var top: [NSLayoutConstraint] = [], bottom: [NSLayoutConstraint] = []
     private let rowSep = NSBox()   // over the bar at the bottom
+    /// The panel's name in the inspector's top band, level with the traffic lights: the icons alone don't say where you are.
+    private let panelTitle = NSTextField(labelWithString: "")
     private let empty = EmptyStateView()
     private static let orderKey = "workbench.inspector.panelOrder", hiddenKey = "workbench.inspector.hiddenPanels"
-    /// What the top band keeps clear at its right end: the window's inspector toggle (MainWindow), and a gap before it.
-    private static let toggleRoom: CGFloat = 44
 
     override func loadView() {
         let v = InspectorView()
@@ -49,23 +48,23 @@ final class InspectorController: NSViewController {
         more.setButtonType(.momentaryChange)
         Self.size(more)
         pin(moreBadge, on: more)
+        panelTitle.lineBreakMode = .byTruncatingTail
+        panelTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         host.clipsToBounds = true
         let sep = NSBox()
         sep.boxType = .separator
         rowSep.boxType = .separator
-        for x in [bar, sep, rowSep, host] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [bar, sep, rowSep, panelTitle, host] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         // Like the sidebar, the inspector runs the window's full height: the top band (as tall as the title bar) holds the
-        // icons and, in the corner, the window's inspector toggle; the panel starts under it. The shown icon says where
-        // you are, so the band carries no title of its own.
+        // panel's name and, in the corner, the window's inspector toggle; its rows start under it.
         let under = NSLayoutGuide(); v.addLayoutGuide(under)
         under.topAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height).isActive = true
         align = ["left": bar.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: Metrics.insetTrailing),
                  "center": bar.centerXAnchor.constraint(equalTo: v.centerXAnchor),
                  "right": bar.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -Metrics.insetTrailing)]
         align.values.forEach { $0.priority = .defaultHigh }
-        // In the top band, clear of the toggle in its corner; or in a bar as tall as the tabs' strip, under the panel.
-        top = [bar.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height / 2), host.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-               bar.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -Self.toggleRoom),
+        // Level with the tabs, the full height of their strip; or as tall, under the panel.
+        top = [bar.centerYAnchor.constraint(equalTo: under.topAnchor, constant: TabStrip.height / 2), host.bottomAnchor.constraint(equalTo: v.bottomAnchor),
                host.topAnchor.constraint(equalTo: sep.bottomAnchor)]
         bottom = [bar.centerYAnchor.constraint(equalTo: v.bottomAnchor, constant: -TabStrip.height / 2),
                   rowSep.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -TabStrip.height),
@@ -74,7 +73,10 @@ final class InspectorController: NSViewController {
             bar.leadingAnchor.constraint(greaterThanOrEqualTo: v.leadingAnchor, constant: Metrics.insetTrailing),
             bar.heightAnchor.constraint(equalToConstant: Metrics.segmentCapsule),
             bar.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -Metrics.insetTrailing),
-            sep.bottomAnchor.constraint(equalTo: under.topAnchor),
+            panelTitle.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: Metrics.inset),
+            panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -48),   // clear of the toggle
+            panelTitle.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height / 2),
+            sep.bottomAnchor.constraint(equalTo: under.topAnchor, constant: TabStrip.height),
             sep.leadingAnchor.constraint(equalTo: v.leadingAnchor), sep.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             rowSep.leadingAnchor.constraint(equalTo: v.leadingAnchor), rowSep.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             host.leadingAnchor.constraint(equalTo: v.leadingAnchor), host.trailingAnchor.constraint(equalTo: v.trailingAnchor),
@@ -87,6 +89,7 @@ final class InspectorController: NSViewController {
         // Panels are built with the text size of the moment: rebuilt when it changes (first, while none are built).
         track(owner: self) { [app] in app.themes.chromeText } changed: { [weak self] _ in
             guard let self else { return }
+            panelTitle.font = .ui(13, weight: .semibold)
             for (_, vc) in made { vc.view.removeFromSuperview(); vc.removeFromParent() }
             made = [:]; showSelected()
         }
@@ -96,7 +99,6 @@ final class InspectorController: NSViewController {
             guard let self else { return }
             NSLayoutConstraint.deactivate($0 ? self.top : self.bottom); NSLayoutConstraint.activate($0 ? self.bottom : self.top)
             self.rowSep.isHidden = !$0; sep.isHidden = $0
-            self.fold()   // the toggle's corner is the top band's only
         }
         track(owner: self) { [app] in app.workbench.inspectorPanel } changed: { [weak self] _ in self?.showSelected() }
         track(owner: self) { [app] in app.workbench.workspaceId == nil } changed: { [weak self] _ in self?.showEmpty() }
@@ -179,8 +181,7 @@ final class InspectorController: NSViewController {
         let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
         let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v } }
             .filter { !hidden.contains(panels[$0].id) }
-        let atTop = top.first?.isActive == true
-        let room = view.bounds.width - Metrics.insetTrailing - (atTop ? Self.toggleRoom : Metrics.insetTrailing) - Metrics.iconGap
+        let room = view.bounds.width - 2 * Metrics.insetTrailing - Metrics.iconGap
         let fits = max(1, Int(room / (Metrics.segment.width + Metrics.iconGap)))
         var shown = order
         if order.count > fits {
@@ -272,7 +273,7 @@ final class InspectorController: NSViewController {
     private func rowMenu(_ e: NSEvent) -> NSMenu? {
         let p = view.convert(e.locationInWindow, from: nil)
         let band = view.bounds.height - WindowBar.height
-        guard (band...view.bounds.height).contains(p.y) || (selector.frame.minY...selector.frame.maxY).contains(p.y) else { return nil }
+        guard (band - TabStrip.height...band).contains(p.y) || (selector.frame.minY...selector.frame.maxY).contains(p.y) else { return nil }
         let s = app.settings, hidden = Set(ids(Self.hiddenKey)), m = NSMenu()
         m.addItem(.sectionHeader(title: String(localized: "Icons")))
         for panel in panels {
@@ -327,6 +328,7 @@ final class InspectorController: NSViewController {
         let i = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0
         for (j, b) in buttons.enumerated() { b.state = j == i ? .on : .off }
         let p = panels[i]
+        panelTitle.stringValue = loc(p.title)
         fold(); showCounts()   // the shown panel's icon into the row, its dot seen
         // A collapsed inspector builds nothing: the panel is made when it shows (a hidden Source Control runs no git).
         guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return }
