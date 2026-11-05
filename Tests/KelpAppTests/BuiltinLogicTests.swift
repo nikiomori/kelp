@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import JavaScriptCore
+import os
 import Testing
 import Core
 @testable import KelpKit
@@ -192,6 +193,7 @@ import Core
     let server = try Unix.listen(path)
     defer { close(server); unlink(path) }
     // A daemon whose "open" list answers late, the rest at once (an error for what isn't a list).
+    let lateSent = OSAllocatedUnfairLock(initialState: false)
     Thread.detachNewThread {
         let fd = accept(server, nil, nil)
         var lines = LineBuffer(), buf = [UInt8](repeating: 0, count: 65536)
@@ -202,7 +204,10 @@ import Core
                 let pr = #"{"number":\#(late ? 1 : 2),"title":"t","url":"","author":"a","headRefName":"b","isDraft":false,"state":"OPEN","checks":{"passed":0,"failed":0,"pending":0}}"#
                 let reply = m["method"] as? String == "github.prs" ? #"{"jsonrpc":"2.0","id":\#(id),"result":[\#(pr)]}"#
                     : #"{"jsonrpc":"2.0","id":\#(id),"error":{"code":-32601,"message":"no"}}"#
-                DispatchQueue.global().asyncAfter(deadline: .now() + (late ? 0.3 : 0)) { _ = Unix.writeAll(fd, Data((reply + "\n").utf8)) }
+                DispatchQueue.global().asyncAfter(deadline: .now() + (late ? 0.3 : 0)) {
+                    _ = Unix.writeAll(fd, Data((reply + "\n").utf8))
+                    if late { lateSent.withLock { $0 = true } }
+                }
             }
         }
     }
@@ -214,7 +219,10 @@ import Core
     _ = panel.view   // asks for All open
     panel.filter.selectItem(at: 1)
     panel.reload()   // then Mine
-    try await Task.sleep(for: .milliseconds(600))
+    // Both replies in (the late one too, which the old guard let land last), however slow the machine is.
+    let deadline = Date().addingTimeInterval(20)
+    while Date() < deadline, !lateSent.withLock({ $0 }) || panel.rows.isEmpty { try await Task.sleep(for: .milliseconds(50)) }
+    try await Task.sleep(for: .milliseconds(300))
     guard case .pr(let shown)? = panel.rows.first else { Issue.record("no rows"); return }
     #expect(panel.rows.count == 1 && shown.number == 2)
 }
