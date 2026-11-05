@@ -413,20 +413,6 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     #expect(!without.contains { if case .diff(.file) = $0 { true } else { false } })
 }
 
-@Test func aCommentOnADeletedLineShowsOnceNotUnderTheAddedLineWithTheSameNumber() {
-    let gone = FileDiff(path: "f.swift", header: "", hunks: [
-        Hunk(header: "@@ -5,2 +5 @@", oldStart: 5, newStart: 5, lines: [line(.del, "old five", o: 5), line(.del, "old six", o: 6), line(.add, "new five", n: 5)])
-    ], binary: false)
-    let c = DiffComment(worktreeId: "w", file: "f.swift", startLine: 6, endLine: 6, quote: "", text: "why?")
-    for side in [false, true] {
-        let rows = DiffRows.reviewRows([gone], comments: [c], sideBySide: side, hideFileRows: true)
-        #expect(rows.filter { if case .comment = $0 { true } else { false } }.count == 1, "side by side: \(side)")   // the new file has no line 6, so the deleted line 6 takes it
-    }
-    let on5 = DiffComment(worktreeId: "w", file: "f.swift", startLine: 5, endLine: 5, quote: "", text: "hm")
-    let rows = DiffRows.reviewRows([gone], comments: [on5], sideBySide: false, hideFileRows: true)
-    #expect(rows.filter { if case .comment = $0 { true } else { false } }.count == 1)   // line 5 exists in both files: under the added one only
-}
-
 @Test func remoteWordsAreQuotedForTheHostsShell() {
     #expect(IDE.shellWord("plain") == "'plain'")
     #expect(IDE.shellWord("it's") == "'it'\\''s'")

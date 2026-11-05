@@ -262,10 +262,14 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public var quote: String
     public var text: String
     public var state: State
+    /// "old": the lines are removed ones, numbered in the old file; nil: the new file's (or a comment from before sides).
+    public var side: String?
+    /// HEAD when it was written: what the old file's line numbers are counted in.
+    public var commit: String?
     public init(id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String, text: String,
-                state: State = .open) {
+                state: State = .open, side: String? = nil, commit: String? = nil) {
         self.id = id; self.worktreeId = worktreeId; self.file = file; self.startLine = startLine
-        self.endLine = endLine; self.quote = quote; self.text = text; self.state = state
+        self.endLine = endLine; self.quote = quote; self.text = text; self.state = state; self.side = side; self.commit = commit
     }
 }
 

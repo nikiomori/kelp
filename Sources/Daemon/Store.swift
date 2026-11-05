@@ -163,6 +163,9 @@ public final class Store: Sendable {
         m.registerMigration("v23") { db in try db.alter(table: "session") { t in t.add(column: "subagentRuns", .text) } }
         m.registerMigration("session.startedBy") { db in try db.alter(table: "session") { t in t.add(column: "startedBy", .text) } }
         m.registerMigration("session.browser") { db in try db.alter(table: "session") { t in t.add(column: "browser", .text) } }
+        m.registerMigration("diffComment.side") { db in
+            try db.alter(table: "diffComment") { t in t.add(column: "side", .text); t.add(column: "commit", .text) }
+        }
         return m
     }
 

@@ -79,16 +79,19 @@ extension DiffRows {
         return out
     }
 
-    /// The table's rows: comments that aren't resolved go under their last line, once. A comment keeps one line number,
-    /// so a line of the new file wins; a deleted line takes it only when the new file has no such line in that file.
+    /// The table's rows: comments that aren't resolved go under their last line, once: a removed line's (`side` "old")
+    /// under that removed line, the others under the new file's. One from before sides keeps a number only: a line of the
+    /// new file wins, and a deleted line takes it only when the new file has no such line.
     /// `hideFileRows`: one-file mode, where the bar already names the file.
     public static func reviewRows(_ diffs: [FileDiff], comments: [DiffComment], sideBySide: Bool, hideFileRows: Bool) -> [ReviewRow] {
         var newLines = Set<String>()
         for (fi, f) in diffs.enumerated() { for h in f.hunks { for l in h.lines { if let n = l.newLine { newLines.insert("\(fi):\(n)") } } } }
         func under(_ fi: Int, _ l: DiffLine) -> [ReviewRow] {
-            let ln: Int
-            if let n = l.newLine { ln = n } else if let o = l.oldLine, !newLines.contains("\(fi):\(o)") { ln = o } else { return [] }
-            return comments.filter { $0.file == diffs[fi].path && $0.endLine == ln && $0.state != .resolved }.map { .comment($0) }
+            let here = comments.filter { $0.file == diffs[fi].path && $0.state != .resolved }
+            if let n = l.newLine { return here.filter { $0.side != "old" && $0.endLine == n }.map { .comment($0) } }
+            guard let o = l.oldLine else { return [] }
+            let unsided = !newLines.contains("\(fi):\(o)")
+            return here.filter { $0.endLine == o && ($0.side == "old" || ($0.side == nil && unsided)) }.map { .comment($0) }
         }
         var out: [ReviewRow] = []
         for r in build(diffs, sideBySide: sideBySide) {
@@ -96,7 +99,9 @@ extension DiffRows {
             out.append(.diff(r))
             switch r {
             case .line(let f, let l): out += under(f, l)
-            case .pair(let f, let l, let right): if let x = right ?? l { out += under(f, x) }
+            case .pair(let f, let l, let right):
+                if let x = right ?? l { out += under(f, x) }
+                if let l, right != nil, l.kind == .del { out += under(f, l) }   // the removed line beside an added one
             default: break
             }
         }

@@ -143,6 +143,11 @@ func desk(_ w: World, _ branch: String) async throws -> Worktree {
     let n = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
     #expect(n.int == 1)
     #expect(try await waitFor { box.output(s.id).contains("rename this") })
+    // On a removed line: it says so, and in which commit its numbers count.
+    let gone: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))
+    #expect(gone.side == "old" && gone.commit?.isEmpty == false)
+    _ = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
+    #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in \(gone.commit ?? ""))") })
     let comments: [DiffComment] = try await c.call("comment.list", .obj(["id": .string(wt.id)]), as: [DiffComment].self)
     #expect(comments.first?.state == .sent)
 }

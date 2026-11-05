@@ -203,8 +203,10 @@ public struct FilesSearch: RPCMethod {
 public struct CommentAdd: RPCMethod {
     public static let name = "comment.add"; public typealias Result = DiffComment
     public var id: String, file: String, start: Int?, end: Int?, quote: String?, text: String
-    public init(id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String) {
-        self.id = id; self.file = file; self.start = start; self.end = end; self.quote = quote; self.text = text
+    /// "old": on removed lines, numbered in the old file.
+    public var side: String?
+    public init(id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String, side: String? = nil) {
+        self.id = id; self.file = file; self.start = start; self.end = end; self.quote = quote; self.text = text; self.side = side
     }
 }
 /// The workspace's review comments.

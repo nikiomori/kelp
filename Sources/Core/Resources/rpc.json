@@ -844,6 +844,10 @@
       },
       "DiffComment" : {
         "properties" : {
+          "commit" : {
+            "description" : "HEAD when it was written: what the old file's line numbers are counted in.",
+            "type" : "string"
+          },
           "endLine" : {
             "type" : "integer"
           },
@@ -854,6 +858,10 @@
             "type" : "string"
           },
           "quote" : {
+            "type" : "string"
+          },
+          "side" : {
+            "description" : "\"old\": the lines are removed ones, numbered in the old file; nil: the new file's (or a comment from before sides).",
             "type" : "string"
           },
           "startLine" : {
@@ -4201,6 +4209,14 @@
         },
         {
           "name" : "quote",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "\"old\": on removed lines, numbered in the old file.",
+          "name" : "side",
           "required" : false,
           "schema" : {
             "type" : "string"

@@ -207,7 +207,11 @@ extension FilesSearch: Handled {
 
 extension CommentAdd: Handled {
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
-        let c = DiffComment(worktreeId: id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "", text: text)
+        let w = try workspaces.store.worktree(named: id)
+        let head = try Git.run(["rev-parse", "--short", "--verify", "-q", "HEAD"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
+            .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
+        let c = DiffComment(worktreeId: w.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "", text: text,
+                            side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head)
         try workspaces.store.save(c)
         return c
     }
@@ -237,7 +241,8 @@ extension CommentSend: Handled {
         var s = "Review comments on branch \(branch). Please address each one:\n"
         for (i, c) in comments.enumerated() {
             let range = c.startLine == c.endLine ? "\(c.startLine)" : "\(c.startLine)-\(c.endLine)"
-            s += "\n\(i + 1). \(c.file):\(range)\n"
+            let removed = c.side == "old" ? " (removed lines, numbered as in \(c.commit ?? "HEAD"))" : ""
+            s += "\n\(i + 1). \(c.file):\(range)\(removed)\n"
             for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
             s += "   \(c.text)\n"
         }
