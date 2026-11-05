@@ -53,7 +53,8 @@ extension Builtins {
             s("editor.wrappingIndent", "Wrapped lines continue", "enum", "same", "At the left edge, at their line's indentation, or one level past it.",
               options: ["none", "same", "indent"]),
             s("editor.autoSave", "Save automatically", "boolean", false,
-              "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),
+              "Files save a moment after you stop typing.",
+              help: "Off: edited files show a dot and you save with ⌘S. On: they save a moment after you stop typing."),
             s("editor.lsp", "Language servers", "boolean", true, "Completion and jump to definition."),
             s("editor.formatOnSave", "Format on save", "boolean", false, "⌘S runs Format Document first, for languages that have a formatter."),
             s("markdown.defaultMode", "Default Markdown mode", "enum", "preview", options: ["preview", "edit", "split"])

@@ -9,6 +9,7 @@ struct ThemeGallery: View {
     @Binding var selection: String
     /// What a theme covers, under the heading: below the gallery it was half a screen from anything it could be about.
     var about: String?
+    var help: String?
     @Environment(AppModel.self) private var app
     @State private var classics = false
 
@@ -16,7 +17,7 @@ struct ThemeGallery: View {
         let all = app.themes.themes, kelp = ThemeManager.builtin.map(\.id), looks = Theme.looks.map(\.id), popular = Theme.popular.map(\.id)
         let classic = all.filter { popular.contains($0.id) }
         VStack(alignment: .leading, spacing: 12) {
-            heading("Theme")
+            HStack(spacing: Metrics.gap) { heading("Theme"); if let help { HelpMark(text: help) } }
             if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             grid(following(all) + all.filter { kelp.contains($0.id) }.map(card))
             heading("Looks")

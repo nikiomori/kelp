@@ -111,7 +111,10 @@ package struct SettingSpec: Codable, Identifiable {
     var title: String
     var type: String            // boolean · number · string · enum · color · font
     var `default`: JSONValue?
+    /// One line under the title: what the name doesn't say.
     var description: String?
+    /// The rest, behind a ⓘ beside the title (and found by search): the description stays a line, not a paragraph.
+    var help: String?
     var options: [String]?
     /// `[lowest, highest]` a number can be: the stepper stops there, and a value out of it in settings.json counts as the nearest end.
     var range: [Double]?

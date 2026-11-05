@@ -30,9 +30,10 @@ package enum Builtins {
         return app.workbench.editor
     }
 
-    package static func s(_ key: String, _ title: String, _ type: String, _ def: JSONValue?, _ desc: String? = nil, options: [String]? = nil,
-                          range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil) -> SettingSpec {
-        SettingSpec(key: key, title: title, type: type, default: def, description: desc, options: options, range: range, group: group, hidden: hidden)
+    package static func s(_ key: String, _ title: String, _ type: String, _ def: JSONValue?, _ desc: String? = nil, help: String? = nil,
+                          options: [String]? = nil, range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil) -> SettingSpec {
+        SettingSpec(key: key, title: title, type: type, default: def, description: desc, help: help, options: options, range: range, group: group,
+                    hidden: hidden)
     }
 
     package static let appearance = Builtin("kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
@@ -42,18 +43,23 @@ package enum Builtins {
         // once (file icons, language) last.
         c.settings = [SettingsSection(id: "appearance", title: "Appearance", icon: "paintpalette", specs: [
             s("workbench.theme", "Color theme", "theme", "auto",
-              "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
+              "The window, terminal and editor together.",
+              help: "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
             s("workbench.textSize", "Text size", "enum", "normal",
-              "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
+              "Everything but code.",
+              help: "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
               options: ["normal", "large", "larger"]),
             s("terminal.opacity", "Terminal opacity", "enum", "theme",
-              "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
+              "The desktop shows through the terminals, in any theme.",
+              help: "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
               options: ["theme", "100", "90", "80", "70", "60", "50", "40"])
         ] + sidebar + inspector + [
             s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
-              "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
+              "In the title bar; ⌃⌘T works either way.",
+              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
             s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
-              "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window"),
+              "Icons in Files, Source Control and tabs.",
+              help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window"),
             s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
               options: ["system", "en", "ru"], group: "Window")
         ], order: 10), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
@@ -77,15 +83,18 @@ package enum Builtins {
         s("workbench.sidebar.autoHide", "Auto-hide sidebar", "boolean", false, "Comes in while the pointer is at the window's left edge, like the Dock.",
           group: "Sidebar"),
         s("workbench.sidebar.rowHeight", "Row height", "enum", "system",
-          "Match System follows Sidebar icon size in System Settings › Appearance.", options: ["system", "compact", "regular", "large"], group: "Sidebar"),
+          nil,
+          help: "Match System follows Sidebar icon size in System Settings › Appearance.",
+          options: ["system", "compact", "regular", "large"], group: "Sidebar"),
         s("workbench.sidebar.agentDetail", "Show what an agent asks", "enum", "needsYou",
           "A second line under an agent: its question, or what went wrong.", options: ["needsYou", "always", "never"], group: "Sidebar"),
         s("workbench.sidebar.agentIcons", "Agent icons", "enum", "others", "Other Agents Only hides the default agent's icon.",
           options: ["others", "always", "never"], group: "Sidebar"),
         s("workbench.sidebar.gitBadges", "Changes and pull requests", "boolean", true,
-          "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),
+          "“+6 −2” and “#128” beside folders.",
+          help: "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),
         s("workbench.sidebar.projectColor", "Project color", "enum", "icon",
-          "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
+          nil, help: "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
           options: ["icon", "card"], group: "Sidebar"),
         s("workbench.sidebar.order", "Project order", "enum", "manual", "Agents First moves rows as agents start and stop.",
           options: ["manual", "active"], group: "Sidebar")

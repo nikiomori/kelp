@@ -212,6 +212,7 @@ struct SettingRow: View {
     private var title: some View {
         HStack(spacing: Metrics.gap) {
             Text(loc(spec.title))
+            if let h = spec.help { HelpMark(text: loc(h)) }
             if changed { Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel("Changed") }
         }
     }
@@ -255,7 +256,7 @@ struct SettingRow: View {
             } label: { label }
         case "theme":
             ThemeGallery(selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
-                         about: spec.description.map(loc))
+                         about: spec.description.map(loc), help: spec.help.map(loc))
         case "color":
             ColorPicker(selection: Binding(get: { Color(hex: string() ?? "") ?? .accentColor },
                                            set: { put(.string($0.hex)) })) { label }
@@ -337,6 +338,21 @@ struct SettingRow: View {
 
     static let monospaced: [String] = NSFontManager.shared.availableFontFamilies.filter { fam in
         NSFont(name: fam, size: 12)?.isFixedPitch == true || fam.contains("Mono") || fam.contains("Code")
+    }
+}
+
+/// ⓘ beside a row's title: its whole help on hover, or in a popover on a click, so the line under the title stays one line.
+struct HelpMark: View {
+    let text: String
+    @State private var shown = false
+    var body: some View {
+        Button { shown.toggle() } label: { Image(systemName: "info.circle").foregroundStyle(.secondary) }
+            .buttonStyle(.borderless)
+            .help(text)
+            .accessibilityLabel(text)
+            .popover(isPresented: $shown, arrowEdge: .bottom) {
+                Text(text).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading).padding(Metrics.inset)
+            }
     }
 }
 

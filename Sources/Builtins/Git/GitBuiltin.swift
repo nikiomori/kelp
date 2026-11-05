@@ -25,13 +25,16 @@ extension Builtins {
         c.settings = [SettingsSection(id: "git", title: "Git", icon: "arrow.triangle.branch", specs: [
             s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names, e.g. “you/”."),
             s("worktrees.folder", "Folder for worktrees", "string", "",
-              "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder."),
+              "Empty: inside Kelp's own folder.",
+              help: "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder."),
             // Where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
             s("workbench.ci.branchChip", "CI on the branch chip", "enum", "icon",
-              "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
+              "A ring while it runs, ✕ when it fails.",
+              help: "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
               options: ["icon", "end", "off"], group: "CI"),
             s("workbench.ci.sidebar", "CI beside folders", "boolean", true,
-              "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.", group: "CI"),
+              "In the sidebar and the ⌃Tab switcher.",
+              help: "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.", group: "CI"),
             s("workbench.ci.popover", "CI in the branch popover", "boolean", true, "The newest run of each workflow; a click opens CI Runs.", group: "CI")
         ], order: 80)]
         c.commands = [

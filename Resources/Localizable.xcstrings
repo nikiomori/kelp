@@ -1,6 +1,248 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "The window, terminal and editor together.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окно, терминал и редактор вместе."
+          }
+        }
+      }
+    },
+    "Everything but code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, кроме кода."
+          }
+        }
+      }
+    },
+    "The desktop shows through the terminals, in any theme.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сквозь терминалы виден рабочий стол, в любой теме."
+          }
+        }
+      }
+    },
+    "“+6 −2” and “#128” beside folders.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«+6 −2» и «#128» рядом с папками."
+          }
+        }
+      }
+    },
+    "In the title bar; ⌃⌘T works either way.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В заголовке окна; ⌃⌘T работает в любом случае."
+          }
+        }
+      }
+    },
+    "Icons in Files, Source Control and tabs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значки в Файлах, Контроле версий и на вкладках."
+          }
+        }
+      }
+    },
+    "A line under its terminal with the commands it ran.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строка под терминалом с командами, которые он запускал."
+          }
+        }
+      }
+    },
+    "Ctrl+G opens an agent's prompt in a tab here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ctrl+G открывает промпт агента во вкладке."
+          }
+        }
+      }
+    },
+    "Restarts into an update after its turn, in the same conversation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапускается на новой версии после хода, в том же разговоре."
+          }
+        }
+      }
+    },
+    "What it did and what's left, if it finishes while you're away.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что сделано и что осталось, если агент закончил без вас."
+          }
+        }
+      }
+    },
+    "The other agent's result or question comes back as input.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результат или вопрос второго агента приходит первому во ввод."
+          }
+        }
+      }
+    },
+    "At the bottom of the sidebar, read without spending tokens.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внизу боковой панели, читается без токенов."
+          }
+        }
+      }
+    },
+    "A tick where an even pace would be by now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Черточка там, где был бы ровный расход к этому времени."
+          }
+        }
+      }
+    },
+    "Docs, slides and designs; reviews stay in the project.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документы, слайды и дизайн; разборы остаются в проекте."
+          }
+        }
+      }
+    },
+    "Your app in a tab beside it; a project can have its own.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше приложение во вкладке рядом; у проекта может быть своё."
+          }
+        }
+      }
+    },
+    "They come as one when you stop; questions come at once.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приходят одним баннером, когда вы перестали печатать; вопросы — сразу."
+          }
+        }
+      }
+    },
+    "When you've been away 5 minutes or Kelp is closed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда вас нет 5 минут или Kelp закрыт."
+          }
+        }
+      }
+    },
+    "They keep running when Kelp quits or updates.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они работают дальше, когда Kelp закрывается или обновляется."
+          }
+        }
+      }
+    },
+    "Files save a moment after you stop typing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы сохраняются через мгновение после того, как вы перестали печатать."
+          }
+        }
+      }
+    },
+    "Empty: inside Kelp's own folder.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто: в папке самого Kelp."
+          }
+        }
+      }
+    },
+    "A ring while it runs, ✕ when it fails.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольцо, пока идёт, ✕ — если упал."
+          }
+        }
+      }
+    },
+    "In the sidebar and the ⌃Tab switcher.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В боковой панели и переключателе ⌃Tab."
+          }
+        }
+      }
+    },
     "Older Version": {
       "localizations": {
         "ru": {
