@@ -331,8 +331,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func tell(_ s: Session, turn: TimeInterval?) {
+        if tells(s, turn: turn) { post(s) }
+    }
+
+    /// A banner comes for this change: the rule for its status and length, and the row isn't muted.
+    private func tells(_ s: Session, turn: TimeInterval?) -> Bool {
         // A limit stops the turn with a question in it, what next: it comes as one, however short the turn.
-        if rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off, !app.isMuted(s) { post(s) }
+        rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off && !app.isMuted(s)
     }
 
     /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.
@@ -348,7 +353,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // The Stop hook can come a moment before the transcript has the final message.
         try? await Task.sleep(for: .milliseconds(1200))
         // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
-        if s.status == .done, s.agent == "claude", app.settings.bool("agents.recap") != false, !Presence.here(),
+        // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
+        if s.status == .done, s.agent == "claude", app.settings.bool("agents.recap") != false, !Presence.here(), tells(s, turn: turn),
            let line = await app.quiet(SessionRecap(id: s.id)) ?? nil {
             s.summary = line
         } else if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {

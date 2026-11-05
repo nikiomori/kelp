@@ -173,4 +173,5 @@ import Agents
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
     #expect(SessionRecap.prompt.contains("what is left"))
+    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(2) == ["--tools", ""])   // the fork can't act
 }
