@@ -136,4 +136,28 @@ private func tempRoot() throws -> URL {
     #expect(versions.count == 20 && versions.first?.n == 4 && versions.last?.n == 23)
     #expect(!FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 3)))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 4)))
+    // An old version already gone (deleted by hand) doesn't stop the next one being kept.
+    try FileManager.default.removeItem(atPath: Artifacts.versionPath(target: page.path, 4))
+    try "# Plan\n\n24\n".write(to: page, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn 24") == 1)
+    #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.n == 24)
+}
+
+/// A cloned repository can commit `.kelp/artifacts/x/artifact.json`: it lists only a web page's link or a file in its
+/// own folder, and a page that is a link to a device (`/dev/zero` never ends) is never read.
+@Test(.timeLimit(.minutes(1))) func aCommittedArtifactIsReadWithCare() throws {
+    let root = try tempRoot(), base = Artifacts.dir(root: root.path)
+    func add(_ name: String, _ json: String) throws {
+        let f = base.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        try json.write(to: f.appendingPathComponent("artifact.json"), atomically: true, encoding: .utf8)
+    }
+    let made = #""created":"2026-11-05T00:00:00Z","type":"doc","title":"x""#
+    try add("smb", "{\(made),\"url\":\"smb://evil/share\"}")
+    try add("up", "{\(made),\"file\":\"../../../etc/passwd\"}")
+    try add("web", "{\(made),\"url\":\"https://claude.ai/artifact/abc\"}")
+    try add("zero", "{\(made),\"file\":\"doc.md\"}")
+    try FileManager.default.createSymbolicLink(atPath: base.appendingPathComponent("zero/doc.md").path, withDestinationPath: "/dev/zero")
+    #expect(Artifacts.list(root: root.path).map(\.slug).sorted() == ["web", "zero"])
+    #expect(Artifacts.items(root: root.path).contains { $0.slug == "zero" })   // listed, its endless file not read
 }

@@ -116,7 +116,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     @objc private func open() {
         guard rows.indices.contains(table.clickedRow) else { return }
         let r = rows[table.clickedRow]
-        if r.url != nil { URL(string: r.target).map { _ = NSWorkspace.shared.open($0) } } else { app.workbench.open(r.target) }
+        // Only a web page: the record may be a cloned repository's (`Artifacts.record` refuses any other scheme too).
+        if r.url != nil {
+            if let u = URL(string: r.target), u.scheme == "https" { NSWorkspace.shared.open(u) }
+        } else { app.workbench.open(r.target) }
     }
 
     func menuNeedsUpdate(_ m: NSMenu) {

@@ -129,7 +129,7 @@ public enum Artifacts {
             guard r.url == nil else { return item }
             var st = stat()
             if stat(target, &st) == 0 { item.modified = Double(st.st_mtimespec.tv_sec) }
-            let text = FileManager.default.contents(atPath: target).map { String(decoding: $0, as: UTF8.self) }
+            let text = small(target).map { String(decoding: $0, as: UTF8.self) }
             if r.type == Kind.review.rawValue, let text {
                 let points = Review(text).points
                 item.points = points.count; item.answered = points.filter { $0.pick != nil }.count
@@ -140,10 +140,21 @@ public enum Artifacts {
         }
     }
 
-    /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written).
+    /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written). A repository can
+    /// commit one, so it holds only what Kelp writes: a link to a web page, a file in its own folder.
     public static func record(in folder: URL) -> ArtifactRecord? {
-        guard let d = FileManager.default.contents(atPath: folder.appendingPathComponent("artifact.json").path) else { return nil }
-        return try? decoder.decode(ArtifactRecord.self, from: d)
+        guard let d = small(folder.appendingPathComponent("artifact.json").path, limit: 1 << 20),
+              let r = try? decoder.decode(ArtifactRecord.self, from: d) else { return nil }
+        if let url = r.url, !url.hasPrefix("https://") { return nil }
+        if let f = r.file, f.isEmpty || f.contains("/") || f.hasPrefix(".") { return nil }
+        return r
+    }
+
+    /// A regular file's bytes, up to `limit`: nil for a link, a device (`/dev/zero` never ends), a folder, or more.
+    static func small(_ path: String, limit: Int = 32 << 20) -> Data? {
+        var st = stat()
+        guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG, st.st_size <= limit else { return nil }
+        return FileManager.default.contents(atPath: path)
     }
 
     /// The file as the project names it (`.kelp/artifacts/<name>/review.md`): what an agent in it reads.
@@ -258,7 +269,7 @@ public enum Artifacts {
 
     static func save(_ r: ArtifactRecord, in folder: URL) throws {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try e.encode(r).write(to: folder.appendingPathComponent("artifact.json"))
+        try e.encode(r).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 
     /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git.

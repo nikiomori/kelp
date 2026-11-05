@@ -29,8 +29,10 @@ final class ArtifactBar: NSObject {
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in self?.showMore() }
     private var item: ArtifactItem?
     private var entries: [Entry] = []
-    /// What's on screen: an index in `entries`; nil for the file as it is.
-    private var shown: Int?
+    /// What's on screen: a version's number, which a new version or one dropped doesn't move; nil for the file as it is.
+    private var shownN: Int?
+    /// Where that version is in `entries` now.
+    private var shown: Int? { shownN.flatMap { n in entries.firstIndex { $0.version?.n == n } } }
 
     private(set) lazy var view: NSView = {
         kind.font = .ui(12, weight: .medium)
@@ -87,7 +89,7 @@ final class ArtifactBar: NSObject {
         let live = item?.changed != false || versions.isEmpty
         entries = versions.dropLast(live ? 0 : 1).map { Entry(version: $0, label: $0.label, at: $0.at) }
             + [Entry(version: nil, label: live ? String(localized: "As it is now") : versions.last?.label ?? "", at: item?.modified)]
-        if let i = shown, i >= entries.count - 1 { show(nil) }
+        if shownN != nil, shown.map({ $0 >= entries.count - 1 }) ?? true { shownN = nil; markdown.showVersion(nil) }   // gone, or now the latest
         let writing = s?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
@@ -124,12 +126,12 @@ final class ArtifactBar: NSObject {
     /// Entry `i` in the preview (nil: the file as it is).
     private func show(_ i: Int?) {
         guard let i, let v = entries[i].version else {
-            shown = nil; markdown.showVersion(nil)
+            shownN = nil; markdown.showVersion(nil)
             return update()
         }
         Task {
             guard let r = await app.call(FilesRead(path: Artifacts.versionPath(target: path, v.n))) else { return }
-            shown = i; markdown.showVersion(r.text)
+            shownN = v.n; markdown.showVersion(r.text)
             update()
         }
     }

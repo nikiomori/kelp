@@ -287,7 +287,8 @@ final class LiveSession: Sendable {
             // would copy the index and hash the tree again.
             let shell = s.record.agent == "shell" || s.record.agent == "custom"
             let (starting, ending) = s.turnMoved(to: status)
-            return (shell, starting, ending, s.turnStart, s.turnFolder ?? s.record.cwd, s.lastSent, s.record.id)
+            if starting { s.turnPrompt = s.lastSent }
+            return (shell, starting, ending, s.turnStart, s.turnFolder ?? s.record.cwd, s.turnPrompt, s.record.id)
         }
         guard !shell, starting || ending else { return }
         // One after another, per session: a short turn's end waits for its own start snapshot instead of diffing against

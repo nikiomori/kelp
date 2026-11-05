@@ -101,6 +101,8 @@ extension LiveSession {
 
         // Turns: written by turnWork, read by requests.
         var turnTree: String?, turnFolder: String?, turnResult: Turn?, turnStart: Date?, inTurn = false
+        /// What the user sent to start this turn: a message queued during it doesn't name it.
+        var turnPrompt = ""
         /// The last line sent (a prompt): what a turn that starts is named after in its history.
         var lastSent = ""
 

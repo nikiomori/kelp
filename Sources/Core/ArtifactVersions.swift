@@ -17,26 +17,31 @@ extension Artifacts {
     /// `label` (the turn's prompt, on one line). Returns how many were kept.
     @discardableResult
     public static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
-        var kept = 0
+        var kept = 0, failed: (any Error)?
         for (slug, r) in list(root: root) where r.session == session && r.file != nil {
-            let target = target(slug, r, root: root)
-            guard let live = FileManager.default.contents(atPath: target) else { continue }
-            var versions = r.versions ?? []
-            if let last = versions.last, versionText(target: target, last.n).map { Data($0.utf8) } == live { continue }
-            let n = (versions.last?.n ?? 0) + 1, folder = URL(fileURLWithPath: target).deletingLastPathComponent()
-            let dir = folder.appendingPathComponent("versions")
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try live.write(to: URL(fileURLWithPath: versionPath(target: target, n)))
-            versions.append(ArtifactVersion(n: n, at: now.timeIntervalSince1970, label: oneLine(label, n: n)))
-            for old in versions.dropLast(keptVersions) {
-                try FileManager.default.removeItem(atPath: versionPath(target: target, old.n))
-            }
-            var record = r
-            record.versions = Array(versions.suffix(keptVersions))
-            try save(record, in: folder)
-            kept += 1
+            do { kept += try keepVersion(slug, r, root: root, label: label, now: now) ? 1 : 0 } catch { failed = failed ?? error }   // the others still
         }
+        if let failed { throw failed }
         return kept
+    }
+
+    private static func keepVersion(_ slug: String, _ r: ArtifactRecord, root: String, label: String, now: Date) throws -> Bool {
+        let target = target(slug, r, root: root)
+        guard let live = small(target) else { return false }
+        var versions = r.versions ?? []
+        if let last = versions.last, versionText(target: target, last.n).map { Data($0.utf8) } == live { return false }
+        let n = (versions.last?.n ?? 0) + 1, folder = URL(fileURLWithPath: target).deletingLastPathComponent()
+        let dir = folder.appendingPathComponent("versions")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try live.write(to: URL(fileURLWithPath: versionPath(target: target, n)))
+        versions.append(ArtifactVersion(n: n, at: now.timeIntervalSince1970, label: oneLine(label, n: n)))
+        for old in versions.dropLast(keptVersions) {   // one gone already (by hand) is no reason to stop keeping
+            try? FileManager.default.removeItem(atPath: versionPath(target: target, old.n))
+        }
+        var record = r
+        record.versions = Array(versions.suffix(keptVersions))
+        try save(record, in: folder)
+        return true
     }
 
     /// The file of version `n` of the page at `target`.
@@ -46,7 +51,7 @@ extension Artifacts {
     }
 
     static func versionText(target: String, _ n: Int) -> String? {
-        FileManager.default.contents(atPath: versionPath(target: target, n)).map { String(decoding: $0, as: UTF8.self) }
+        small(versionPath(target: target, n)).map { String(decoding: $0, as: UTF8.self) }
     }
 
     /// The prompt's first line, at most 80 characters; "Turn n" for none.
