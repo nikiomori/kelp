@@ -114,7 +114,10 @@ final class LSPManager {
         let name = server.command
         var install: (String, @MainActor @Sendable () -> Void)?
         if let cmd = server.install {
-            install = (String(localized: "Install"), { app.workbench.editor?.run(command: cmd, title: String(localized: "Install \(name)")) })
+            install = (String(localized: "Install"), {
+                if let w = app.workbench.workspaceId { app.workbench.show(workspace: w) }   // a page on screen gives way to it
+                app.workbench.editor?.run(command: cmd, title: String(localized: "Install \(name)"))
+            })
         }
         Banner.show(String(localized: "Language server \(name) isn't installed."), action: install)
     }

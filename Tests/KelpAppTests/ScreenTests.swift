@@ -558,3 +558,14 @@ extension OneAtATime {
     #expect(page("gitlab").commitURL("abc") == "https://x/r/-/commit/abc")
     #expect(page("bitbucket").commitURL("abc") == "https://x/r/commits/abc")
 }
+
+/// A page on screen (a server's) has no tabs to act on, but what adds one (an extension's terminal, a machine's
+/// shell) brings its workspace back rather than doing nothing.
+@MainActor @Test func whatAddsATabBringsTheWorkspaceBackFromAPage() {
+    _ = testHome
+    let wb = AppModel(builtins: Builtins.all).workbench
+    wb.workspaceId = "w"; wb.page = TabURI.server("host")
+    #expect(wb.editor == nil)
+    _ = wb.editorForNewTab
+    #expect(wb.page == nil && wb.workspaceId == "w")
+}

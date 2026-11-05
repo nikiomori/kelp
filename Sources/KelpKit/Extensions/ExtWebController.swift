@@ -104,13 +104,13 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
                 let r = await Shell.run(app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
                 reply(id, .obj(["code": .int(Int(r.code)), "stdout": .string(r.stdout), "stderr": .string(r.stderr)]))
             }
-        case "terminal": app.workbench.editor?.run(command: arg, title: d["title"] as? String); reply(id, .null)
+        case "terminal": app.workbench.editorForNewTab?.run(command: arg, title: d["title"] as? String); reply(id, .null)
         // What a page opens or hands an agent is often data it shows (an issue's link, its body): `open` doesn't run
         // commands or agents (kelp.terminal / kelp.agent do, by name), and an agent's prompt is typed for the user to send.
         case "open":
             if let u = ExtActions.openableURI(TabURI.normalize(arg, cwd: ctx.workspace?.path)) { app.workbench.open(u) }
             reply(id, .null)
-        case "agent": app.workbench.editor?.newAgent(nil, prompt: arg, draft: true); reply(id, .null)
+        case "agent": app.workbench.editorForNewTab?.newAgent(nil, prompt: arg, draft: true); reply(id, .null)
         case "badge": badge?.value = PanelBadge(arg); reply(id, .null)
         // A Kelp command by its id (the menus', the palette's, an extension's), as `kelp run` does.
         case "run":

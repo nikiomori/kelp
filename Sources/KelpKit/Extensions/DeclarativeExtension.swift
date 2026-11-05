@@ -287,11 +287,11 @@ struct ExtActions {
     }
 
     private func act(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
-        if let t = a.terminal { app.workbench.editor?.run(command: expand(t, item: item, quote: true), title: a.title) }
+        if let t = a.terminal { app.workbench.editorForNewTab?.run(command: expand(t, item: item, quote: true), title: a.title) }
         else if let o = a.open, let run = runAction(o, item: item) {
             switch run {
-            case .agent(let agent, let prompt): app.workbench.editor?.newAgent(agent, prompt: prompt, draft: true)
-            case .terminal(let command, let title): app.workbench.editor?.run(command: command, title: title ?? a.title)
+            case .agent(let agent, let prompt): app.workbench.editorForNewTab?.newAgent(agent, prompt: prompt, draft: true)
+            case .terminal(let command, let title): app.workbench.editorForNewTab?.run(command: command, title: title ?? a.title)
             case .tmux(let name): app.workbench.runURI("terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
             }
         }
@@ -300,7 +300,7 @@ struct ExtActions {
             else { Banner.show(String(localized: "“\(a.title)” would run a command or an agent from its data; it opens links and files only.")) }
         }
         // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), someone else's words.
-        else if let p = a.agent { app.workbench.editor?.newAgent(nil, prompt: expand(p, item: item, quote: false), draft: true) }
+        else if let p = a.agent { app.workbench.editorForNewTab?.newAgent(nil, prompt: expand(p, item: item, quote: false), draft: true) }
         else if let r = a.run {
             let cmd = expand(r, item: item, quote: true)
             Task {
