@@ -17,7 +17,8 @@ extension Main {
             guard args.count >= 3 else { fail("comment add <file> <line[-line]> <text>") }
             let range = args[1].split(separator: "-").compactMap { Int($0) }
             let id = try await currentWorktreeID(c), text = args.dropFirst(2).joined(separator: " ")
-            show(try await c.call(CommentAdd(id: id, file: args[0], start: range.first ?? 1, end: range.last ?? 1, text: text)))
+            show(try await c.call(CommentAdd(id: id, file: args[0], start: range.first ?? 1, end: range.last ?? 1, text: text,
+                                             session: ProcessInfo.processInfo.environment["KELP_SESSION"])))
         case ("comment", "send"):
             show(try await c.call(CommentSend(id: try await currentWorktreeID(c), session: try await resolve(c, args.first ?? "", "session.list"))))
         default: print(usage)

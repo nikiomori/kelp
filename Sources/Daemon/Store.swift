@@ -169,6 +169,7 @@ public final class Store: Sendable {
         m.registerMigration("diffComment.side") { db in
             try db.alter(table: "diffComment") { t in t.add(column: "side", .text); t.add(column: "commit", .text) }
         }
+        m.registerMigration("diffComment.author") { db in try db.alter(table: "diffComment") { t in t.add(column: "author", .text) } }
         return m
     }
 

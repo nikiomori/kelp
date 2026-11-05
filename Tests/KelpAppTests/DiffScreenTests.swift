@@ -121,6 +121,26 @@ extension AppOfItsOwn {
         #expect(vc.rows[at + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
     }
 
+    /// Findings are picked: Space on a selected comment leaves it out of Send to Agent, and its box says so.
+    @Test func findingsArePickedBeforeTheyGo() async throws {
+        let rig = try await AppRig(files: ["f.txt": "one\ntwo\n"]); defer { rig.done() }
+        try rig.write("f.txt", "one\nTWO\n")
+        _ = try await rig.client.call(CommentAdd(id: rig.workspace.id, file: "f.txt", start: 2, text: "first"))
+        _ = try await rig.client.call(CommentAdd(id: rig.workspace.id, file: "f.txt", start: 2, text: "second"))
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        #expect(vc.picked.count == 2)
+        let at = try #require(vc.rows.firstIndex { if case .comment = $0 { true } else { false } })
+        vc.table.selectRowIndexes([at], byExtendingSelection: false)
+        #expect(vc.flipSelectedComment())
+        #expect(vc.picked.count == 1)
+        guard case .comment(let c) = vc.rows[at] else { return }
+        let box = try #require(buttons(in: vc.commentRow(c)).first { $0.title.isEmpty })
+        #expect(box.state == .off)
+    }
+
     @Test func aHunksStageButtonStagesThatHunk() async throws {
         let lines = (1...40).map { "line \($0)" }
         let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }

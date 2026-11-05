@@ -844,6 +844,10 @@
       },
       "DiffComment" : {
         "properties" : {
+          "author" : {
+            "description" : "The agent that wrote it (a reviewer's finding); nil: the user.",
+            "type" : "string"
+          },
           "commit" : {
             "description" : "HEAD when it was written: what the old file's line numbers are counted in.",
             "type" : "string"
@@ -4215,6 +4219,14 @@
           }
         },
         {
+          "description" : "The session it comes from (`kelp comment add` in an agent's terminal): its agent is named as the comment's author.",
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "description" : "\"old\": on removed lines, numbered in the old file.",
           "name" : "side",
           "required" : false,
@@ -4268,7 +4280,7 @@
       }
     },
     {
-      "description" : "The workspace's open comments as one message into `session` → how many went.",
+      "description" : "The workspace's open comments (`only` those, when given) as one message into `session` → how many went.",
       "name" : "comment.send",
       "paramStructure" : "by-name",
       "params" : [
@@ -4277,6 +4289,16 @@
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "only",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {

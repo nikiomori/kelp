@@ -34,6 +34,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var opened: [String: [DiffLine]] = [:]
     /// The comment being written, if any (`DiffDraft`).
     var draft: CommentDraft?
+    /// Open comments left out of Send to Agent (`DiffFindings`).
+    var skipped: Set<String> = []
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -409,11 +411,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
         switch rows[row] {
         case .draft: return draftCard()
-        case .comment(let c):
-            guard first else { return label("", font: font) }
-            let v = label("💬 \(c.text)  [\(c.state.rawValue)]", font: .ui(11, weight: .medium))
-            v.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.2); v.drawsBackground = true
-            return v
+        case .comment(let c): return commentRow(c)
         case .diff(let r):
             switch r {
             case .file(let p, let a, let d): return fileBand(p, added: a, removed: d)
@@ -450,7 +448,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool {
         guard t === table, rows.indices.contains(row) else { return false }
         switch rows[row] {
-        case .diff(.hunk), .diff(.file), .draft: return true
+        case .diff(.hunk), .diff(.file), .draft, .comment: return true
         default: return false
         }
     }

@@ -105,18 +105,8 @@ extension DiffViewController {
         Task { await app.call(set); await load() }
     }
 
-    @objc func sendComments() {
-        guard let wid = worktreeId else { return }
-        guard comments.contains(where: { $0.state == .open }) else { status.stringValue = String(localized: "No open comments"); return }
-        Task {
-            guard let sid = await pickAgentSession(wid) else { return }
-            let n = await app.call(CommentSend(id: wid, session: sid)) ?? 0
-            status.stringValue = String(localized: "Sent \(n) comments to agent"); await load()
-        }
-    }
-
     /// The focused session if it is in this worktree, else ask.
-    private func pickAgentSession(_ wid: String) async -> String? {
+    func pickAgentSession(_ wid: String) async -> String? {
         let live = app.sessions.filter { $0.worktreeId == wid && $0.status != .exited }
         if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }

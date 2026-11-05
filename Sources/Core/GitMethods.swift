@@ -207,8 +207,12 @@ public struct CommentAdd: RPCMethod {
     public var id: String, file: String, start: Int?, end: Int?, quote: String?, text: String
     /// "old": on removed lines, numbered in the old file.
     public var side: String?
-    public init(id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String, side: String? = nil) {
+    /// The session it comes from (`kelp comment add` in an agent's terminal): its agent is named as the comment's author.
+    public var session: String?
+    public init(id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String, side: String? = nil,
+                session: String? = nil) {
         self.id = id; self.file = file; self.start = start; self.end = end; self.quote = quote; self.text = text; self.side = side
+        self.session = session
     }
 }
 /// The workspace's review comments.
@@ -223,9 +227,9 @@ public struct CommentSetState: RPCMethod {
     public var id: String, state: String
     public init(id: String, state: String) { self.id = id; self.state = state }
 }
-/// The workspace's open comments as one message into `session` → how many went.
+/// The workspace's open comments (`only` those, when given) as one message into `session` → how many went.
 public struct CommentSend: RPCMethod {
     public static let name = "comment.send"; public typealias Result = Int
-    public var id: String, session: String
-    public init(id: String, session: String) { self.id = id; self.session = session }
+    public var id: String, session: String, only: [String]?
+    public init(id: String, session: String, only: [String]? = nil) { self.id = id; self.session = session; self.only = only }
 }

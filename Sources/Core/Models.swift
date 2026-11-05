@@ -266,10 +266,13 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public var side: String?
     /// HEAD when it was written: what the old file's line numbers are counted in.
     public var commit: String?
+    /// The agent that wrote it (a reviewer's finding); nil: the user.
+    public var author: String?
     public init(id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String, text: String,
-                state: State = .open, side: String? = nil, commit: String? = nil) {
+                state: State = .open, side: String? = nil, commit: String? = nil, author: String? = nil) {
         self.id = id; self.worktreeId = worktreeId; self.file = file; self.startLine = startLine
         self.endLine = endLine; self.quote = quote; self.text = text; self.state = state; self.side = side; self.commit = commit
+        self.author = author
     }
 }
 

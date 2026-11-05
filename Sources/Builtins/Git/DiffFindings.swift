@@ -1,0 +1,72 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+import WorkbenchKit
+
+/// Review comments as findings to pick from (a reviewer agent's or the user's): each open one has a box saying whether
+/// it goes to the agent with Send to Agent (Space flips it on the selected comment), "Fix This One" sends it alone, and
+/// "Dismiss" resolves it.
+extension DiffViewController {
+    func commentRow(_ c: DiffComment) -> NSView {
+        let who = c.author.map { "\($0): " } ?? ""
+        let text = label("💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"), font: .ui(11, weight: .medium))
+        text.lineBreakMode = .byTruncatingTail
+        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        var views: [NSView] = [text]
+        if c.state == .open {
+            let box = ClosureButton(title: "") { [weak self] in self?.flip(c.id) }
+            box.setButtonType(.switch)
+            box.state = skipped.contains(c.id) ? .off : .on
+            box.toolTip = String(localized: "Send to Agent with the others")
+            views.insert(box, at: 0)
+            for (title, run) in [(String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
+                                 (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })] as [(String, () -> Void)] {
+                let b = ClosureButton(title: title, action: run)
+                b.bezelStyle = .inline
+                b.controlSize = .small
+                views.append(b)
+            }
+            views.insert(NSView(), at: 2)   // the room goes between the text and its buttons
+            views[2].setContentHuggingPriority(.init(1), for: .horizontal)
+        }
+        let row = NSStackView(views: views)
+        row.spacing = Metrics.gap
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
+        row.wantsLayer = true; row.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.2).cgColor
+        return row
+    }
+
+    /// Space on a selected comment: in or out of what Send to Agent sends.
+    func flipSelectedComment() -> Bool {
+        guard rows.indices.contains(table.selectedRow), case .comment(let c) = rows[table.selectedRow], c.state == .open else { return false }
+        flip(c.id)
+        return true
+    }
+
+    private func flip(_ id: String) {
+        if skipped.contains(id) { skipped.remove(id) } else { skipped.insert(id) }
+        if let i = rows.firstIndex(where: { if case .comment(let c) = $0 { c.id == id } else { false } }) {
+            table.reloadData(forRowIndexes: [i], columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
+        }
+    }
+
+    /// The open comments still ticked.
+    var picked: [String] { comments.filter { $0.state == .open && !skipped.contains($0.id) }.map(\.id) }
+
+    @objc func sendComments() { send(picked) }
+
+    func send(_ ids: [String]) {
+        guard let wid = worktreeId else { return }
+        guard !ids.isEmpty else { status.stringValue = String(localized: "No open comments ticked"); return }
+        Task {
+            guard let sid = await pickAgentSession(wid) else { return }
+            let n = await app.call(CommentSend(id: wid, session: sid, only: ids)) ?? 0
+            status.stringValue = String(localized: "Sent \(n) comments to agent"); await load()
+        }
+    }
+
+    private func dismiss(_ id: String) {
+        Task { await app.call(CommentSetState(id: id, state: "resolved")); await load() }
+    }
+}

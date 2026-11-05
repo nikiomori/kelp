@@ -211,8 +211,10 @@ extension CommentAdd: Handled {
         let w = try workspaces.store.worktree(named: id)
         let head = try Git.run(["rev-parse", "--short", "--verify", "-q", "HEAD"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
+        let agent = session.flatMap { workspaces.sessions.existing($0)?.snapshot.agent }.flatMap { $0 == "shell" || $0 == "custom" ? nil : $0 }
+        let author = try agent.map { try workspaces.sessions.manifest($0, command: nil).name }
         let c = DiffComment(worktreeId: w.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "", text: text,
-                            side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head)
+                            side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head, author: author)
         try workspaces.store.save(c)
         return c
     }
@@ -230,7 +232,8 @@ extension CommentSetState: Handled {
 extension CommentSend: Handled {
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
-        let open = try workspaces.store.comments(worktree: w.id).filter { $0.state == .open }
+        let wanted = only.map(Set.init)
+        let open = try workspaces.store.comments(worktree: w.id).filter { $0.state == .open && wanted?.contains($0.id) != false }
         guard !open.isEmpty else { return 0 }
         _ = try SessionSend(id: session, text: Self.message(branch: w.branch, comments: open)).handle(workspaces.sessions)
         for var c in open { c.state = .sent; try workspaces.store.save(c) }
@@ -245,7 +248,7 @@ extension CommentSend: Handled {
             let removed = c.side == "old" ? " (removed lines, numbered as in \(c.commit ?? "HEAD"))" : ""
             s += "\n\(i + 1). \(c.file):\(range)\(removed)\n"
             for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
-            s += "   \(c.text)\n"
+            s += "   " + (c.author.map { "(\($0)) " } ?? "") + "\(c.text)\n"
         }
         return s
     }

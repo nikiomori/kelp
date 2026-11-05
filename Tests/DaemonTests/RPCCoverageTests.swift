@@ -431,3 +431,28 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     _ = try await c.call(GitUndoDiscard(id: wt.id))   // the banner's Undo: the hunk is back
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nagain\n")
 }
+
+@Test func reviewCommentsReachAgent() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let c = w.c, wt = try await desk(w, "r")
+    let box = NoteBox(); c.onNotification = { m, p in box.add(m, p) }
+    let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "cat"]), as: Session.self)
+    _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
+    _ = try await c.call("comment.add", .obj(["id": .string(wt.id), "file": "a.txt", "start": 1, "end": 2, "quote": "hello", "text": "rename this"]))
+    let n = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
+    #expect(n.int == 1)
+    #expect(try await waitFor { box.output(s.id).contains("rename this") })
+    // On a removed line: it says so, and in which commit its numbers count.
+    let gone: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))
+    #expect(gone.side == "old" && gone.commit?.isEmpty == false)
+    _ = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
+    #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in \(gone.commit ?? ""))") })
+    // Only the findings picked go; the others stay open.
+    let a: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "picked one"))
+    let b: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 2, text: "left out"))
+    #expect(try await c.call(CommentSend(id: wt.id, session: s.id, only: [a.id])) == 1)
+    let after: [DiffComment] = try await c.call(CommentList(id: wt.id))
+    #expect(after.first { $0.id == b.id }?.state == .open && after.first { $0.id == a.id }?.state == .sent)
+    let comments: [DiffComment] = try await c.call("comment.list", .obj(["id": .string(wt.id)]), as: [DiffComment].self)
+    #expect(comments.first?.state == .sent)
+}

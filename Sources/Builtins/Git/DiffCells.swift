@@ -74,6 +74,7 @@ extension DiffViewController {
 
     // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
     func key(_ e: NSEvent) -> Bool {
+        if e.keyCode == 49, e.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) { return flipSelectedComment() }
         guard e.modifierFlags.contains(.option) else { return false }
         let comments = e.modifierFlags.contains(.shift)
         switch e.keyCode {

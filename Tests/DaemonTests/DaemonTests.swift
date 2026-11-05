@@ -133,25 +133,6 @@ func desk(_ w: World, _ branch: String) async throws -> Worktree {
     #expect(try await waitFor { try await c2.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .exited })
 }
 
-@Test func reviewCommentsReachAgent() async throws {
-    let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "r")
-    let box = NoteBox(); c.onNotification = { m, p in box.add(m, p) }
-    let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "cat"]), as: Session.self)
-    _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
-    _ = try await c.call("comment.add", .obj(["id": .string(wt.id), "file": "a.txt", "start": 1, "end": 2, "quote": "hello", "text": "rename this"]))
-    let n = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
-    #expect(n.int == 1)
-    #expect(try await waitFor { box.output(s.id).contains("rename this") })
-    // On a removed line: it says so, and in which commit its numbers count.
-    let gone: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))
-    #expect(gone.side == "old" && gone.commit?.isEmpty == false)
-    _ = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
-    #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in \(gone.commit ?? ""))") })
-    let comments: [DiffComment] = try await c.call("comment.list", .obj(["id": .string(wt.id)]), as: [DiffComment].self)
-    #expect(comments.first?.state == .sent)
-}
-
 @Test func stageHunkByItsHeader() async throws {
     let w = try await world(); defer { w.d.stop() }
     let c = w.c, wt = try await desk(w, "s")
