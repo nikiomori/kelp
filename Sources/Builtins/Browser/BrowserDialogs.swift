@@ -58,6 +58,7 @@ extension BrowserTab: WKUIDelegate {
     func noteDialog(_ s: String) {
         noteLog("[dialog] " + s)
         dialogs.append(s)
+        if dialogs.count > Self.keep { dialogs.removeFirst(dialogs.count - Self.keep) }   // `while (true) alert()` stays bounded
     }
 
     /// The page's question as a sheet: who asks (the frame's host, as Safari says it), what, and the buttons.

@@ -29,7 +29,9 @@ extension BrowserTab: WKDownloadDelegate {
             failed(name, error); return nil
         }
         let safe = (name as NSString).lastPathComponent.isEmpty ? "download" : (name as NSString).lastPathComponent
-        let to = Self.free(safe, in: dir) { FileManager.default.fileExists(atPath: $0.path) }
+        // Taken: on disk, or the path of a download still coming (two "report.pdf" at once).
+        let coming = Set(downloading.values.map(\.0))
+        let to = Self.free(safe, in: dir) { coming.contains($0) || FileManager.default.fileExists(atPath: $0.path) }
         downloading[ObjectIdentifier(d)] = (to, r.url, web.url)
         if agentAnswers { noteDownload("\(safe) → \(to.path) (started)") }
         return to
