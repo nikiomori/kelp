@@ -26,6 +26,8 @@ final class AgentUsage: Sendable {
     let plans = OSAllocatedUnfairLock<[String: PlanState]>(initialState: [:])
     /// Codex's limits as its app server last gave them, and when it was last asked (UsageProbe).
     let codexLive = OSAllocatedUnfairLock<(limits: CodexLimits?, at: Date, running: Bool)>(initialState: (nil, .distantPast, false))
+    /// The usage probes running now, so the daemon's end ends them too.
+    let openProbes = OpenProbes()
     /// The transcripts history.list read last, by the folders read. Its search field asks on every keystroke, and each read
     /// parses the head and tail of every conversation on disk: a search reuses the list read when the window opened (or a
     /// minute ago). Keyed by folders.

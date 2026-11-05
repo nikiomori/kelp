@@ -176,7 +176,9 @@ public final class Daemon: Sendable {
         // Every program ends with the daemon, whole trees (a job in a process group of its own, an agent that ignores the
         // hangup), each recorded as pausing records it: a resumable agent comes back paused, not as a second copy.
         workspaces.routines.stop()
+        let probes = agentUsage.openProbes.endAll()   // a usage probe half done: its agent would outlive us
         sessions.pauseAll()
+        Sessions.waitGone(probes)
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()
@@ -198,6 +200,7 @@ public final class Daemon: Sendable {
         r.prune?.cancel()
         workspaces.routines.stop()
         let h = Handover(socket: socket, lock: dup(r.instanceLock), sessions: sessions.handOver())
+        Sessions.waitGone(agentUsage.openProbes.endAll())   // a probe's terminal doesn't go over: its agent would be left
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()

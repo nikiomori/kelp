@@ -53,3 +53,17 @@ import Agents
     s.read(usage("Dec 23"))
     #expect(s.readings.map(\.percent) == [0, 0] && s.hits.isEmpty)
 }
+
+/// A probe still running when the daemon stops ends with it, even an agent that ignores the hangup: after `exit` its own
+/// `defer` never runs, and a probe's Grok left on the dead terminal spun a core for a day.
+@Test func aRunningUsageProbeEndsWithTheDaemon() async throws {
+    let open = OpenProbes(), pidFile = tmp().path + "-pid"
+    let probe = AgentUsage.PlanProbe(agent: "grok", command: "grok", every: 1800, ready: { $0.contains("never") }, parse: { _ in [] })
+    let argv = ["/bin/bash", "-c", "trap '' HUP TERM; echo $$ > \(pidFile); while :; do sleep 0.1; done"]
+    Thread.detachNewThread { _ = AgentUsage.probe(probe, argv: argv, cwd: NSTemporaryDirectory(), open: open) }
+    let readPid = { (try? String(contentsOfFile: pidFile, encoding: .utf8)).flatMap { Int32($0.trimmingCharacters(in: .whitespacesAndNewlines)) } }
+    #expect(try await waitFor(5) { readPid() != nil })
+    let pid = try #require(readPid())
+    Sessions.waitGone(open.endAll())
+    #expect(kill(pid, 0) != 0)
+}

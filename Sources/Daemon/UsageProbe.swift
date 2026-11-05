@@ -97,7 +97,7 @@ extension AgentUsage {
                         readings = probe.parse(screen)
                     } else if let cwd = probeDir {
                         for argv in probeArgv(probe.agent, path) {
-                            (readings, screen) = Self.probe(probe, argv: argv, cwd: cwd)
+                            (readings, screen) = Self.probe(probe, argv: argv, cwd: cwd, open: openProbes)
                             if !readings.isEmpty { break }
                         }
                     }
@@ -149,7 +149,7 @@ extension AgentUsage {
         }
         guard start else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let l = (try? LoginPath.resolve("codex")).flatMap(Self.codexLimits)
+            let l = (try? LoginPath.resolve("codex")).flatMap { Self.codexLimits(path: $0, open: self?.openProbes) }
             self?.codexLive.withLock { s in
                 if let l { s.limits = l }
                 s.at = Date(); s.running = false
@@ -159,14 +159,15 @@ extension AgentUsage {
 
     /// One `account/rateLimits/read`. The app server quits as soon as its input closes, before answering, so it gets a
     /// terminal like the /usage probes and is stopped once it has answered.
-    static func codexLimits(path: String) -> CodexLimits? {
+    static func codexLimits(path: String, open: OpenProbes? = nil) -> CodexLimits? {
         let out = ScreenBuffer()
         let pty: PTY
         do { pty = try PTY(argv: [path, "app-server"], cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value]) }
         catch { Log.session.error("codex app-server didn't start: \(error)"); return nil }
         pty.onOutput = { out.append($0) }
         pty.start()
-        defer { pty.terminate() }
+        open?.add(pty)
+        defer { open?.remove(pty); pty.terminate() }
         let ask = [#"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"kelp","version":"1"}}}"#, #"{"method":"initialized"}"#,
                    #"{"id":2,"method":"account/rateLimits/read"}"#]
         pty.write(Data((ask.joined(separator: "\n") + "\n").utf8))
@@ -204,7 +205,7 @@ extension AgentUsage {
         }
     }
 
-    static func probe(_ p: PlanProbe, argv: [String], cwd: String) -> ([ClaudeLimits.Reading], String) {
+    static func probe(_ p: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> ([ClaudeLimits.Reading], String) {
         let screen = ScreenBuffer()
         let pty: PTY
         let env = ["PATH": LoginPath.value].merging(p.env) { _, n in n }
@@ -212,7 +213,8 @@ extension AgentUsage {
         catch { Log.session.error("the usage probe for \(argv.first ?? "", privacy: .public) didn't start: \(error)"); return ([], "") }
         pty.onOutput = { screen.append($0) }
         pty.start()
-        defer { pty.terminate() }
+        open?.add(pty)
+        defer { open?.remove(pty); pty.terminate() }
         var trusted = false
         if p.answersTrust {
             _ = screen.wait(15) { p.ready($0) || StartupQuestion.trustAsked($0) }
@@ -245,6 +247,16 @@ extension AgentUsage {
         pty.write(Data("\u{1B}".utf8))
         return (readings, text)
     }
+}
+
+/// The probes' terminals still open, ended with the daemon (`Daemon.stop`, `handOver`): their own `defer` never runs after
+/// `exit`, and an agent left on a hung-up terminal lives on with launchd (Grok there spun a whole core for a day).
+final class OpenProbes: Sendable {
+    private let ptys = OSAllocatedUnfairLock<[ObjectIdentifier: PTY]>(initialState: [:])
+    func add(_ p: PTY) { ptys.withLock { $0[ObjectIdentifier(p)] = p } }
+    func remove(_ p: PTY) { _ = ptys.withLock { $0.removeValue(forKey: ObjectIdentifier(p)) } }
+    /// Ends them all (SIGKILL after 2 s): the pids, for `Sessions.waitGone`.
+    func endAll() -> [pid_t] { ptys.withLock { d in defer { d = [:] }; return Array(d.values) }.flatMap { $0.terminate() } }
 }
 
 /// Output collected from a probe's PTY.
