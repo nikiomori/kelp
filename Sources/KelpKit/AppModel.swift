@@ -101,7 +101,7 @@ package final class AppModel {
     /// Rows told to keep quiet: id → until when (`Mutes`).
     var mutes: [String: Date] = [:] { didSet { uiState[Mutes.key] = Mutes.value(mutes) } }
     /// Agents parked: id → until when (`Parking`).
-    var parked: [String: Date] = [:] { didSet { uiState[Parking.key] = Mutes.value(parked) } }
+    var parked: [String: Date] = [:] { didSet { uiState[Parking.key] = Mutes.value(parked); endParksOnTime() } }
     /// Why a parked agent came back, on its row until it's opened.
     var parkedBack: [String: String] = [:]
     /// Each project's colour, by id.

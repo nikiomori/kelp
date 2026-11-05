@@ -227,6 +227,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/AppModel.swift": "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that",
         "KelpKit/Notifier.swift": "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later",
         "KelpKit/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
+        "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
         "KelpKit/AgentStripViews.swift": "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift": "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",

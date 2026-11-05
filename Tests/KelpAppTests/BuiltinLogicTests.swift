@@ -175,3 +175,12 @@ import Core
     let (reviewed, found) = LibrarySection.split([e("a"), e("slow", reviewed: false, weekly: 2), e("b", reviewed: true), e("fast", reviewed: false, weekly: 40)])
     #expect(reviewed.map(\.id) == ["a", "b"] && found.map(\.id) == ["fast", "slow"])
 }
+
+/// A park for a while ends on screen when its time is up: the sidebar follows `parked`, which changes then by itself.
+@Test @MainActor func aTimedParkEndsOnTime() async throws {
+    let m = AppModel()
+    m.park("s1", until: Date().addingTimeInterval(0.3))
+    #expect(m.parked["s1"] != nil)
+    for _ in 0..<40 where m.parked["s1"] != nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(m.parked["s1"] == nil)
+}
