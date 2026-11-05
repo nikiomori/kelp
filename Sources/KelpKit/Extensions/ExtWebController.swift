@@ -45,14 +45,19 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     }
 
     /// The agents, as `kelp.sessions` and to `kelp.on("sessions")`: id, title, agent, status, workspace, unread.
-    private func pushSessions() {
+    private func pushSessions(again: Bool = false) {
         guard let u = web.url, Self.isOwn(u, folder) else { return }
-        let list = JSONValue.array(app.sessions.filter(\.isChat).map { s in
+        let list = ExtBridge.json(JSONValue.array(app.sessions.filter(\.isChat).map { s in
             .obj(["id": .string(s.id), "title": .string(app.catalog.displayName(s)), "agent": .string(s.agent ?? "shell"),
                   "status": .string(s.status.rawValue), "workspace": .string(s.worktreeId ?? ""), "unread": .bool(s.unread)])
-        })
-        web.evaluateJavaScript("window.kelp && window.kelp.__sessions(\(ExtBridge.json(list)))")
+        }))
+        // A session's other fields change all the time (output, meters); the page hears only of these.
+        guard again || list != sentSessions else { return }
+        sentSessions = list
+        web.evaluateJavaScript("window.kelp && window.kelp.__sessions(\(list))")
     }
+    /// What the page last got: the same list isn't sent again.
+    private var sentSessions = ""
 
     /// The window stays on the extension's own pages: the bridge is in every page it shows, and `push` hands it the
     /// settings and the workspace's path. A link elsewhere opens as a preview's do (`PreviewLinks`); its frames load anything.
@@ -115,7 +120,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             app.settings.set(arg, v); reply(id, .null)
         default: reply(id, .null)
         }
-        if op == "ready" { push(); pushSessions() }
+        if op == "ready" { push(); pushSessions(again: true) }
     }
 
     private func reply(_ id: Int, _ v: JSONValue) {
