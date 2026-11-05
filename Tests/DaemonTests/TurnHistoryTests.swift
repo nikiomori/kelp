@@ -153,6 +153,15 @@ import Agents
     #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
     w.d.sessions.answerPermission(id, nil)   // as when it's answered in the terminal and stops waiting
     #expect(try await again.value == nil)
+    // A banner left from an earlier question doesn't answer the one whose hook waits now.
+    let third = Task { try await c.call(SessionPermissionWait(id: id)) }
+    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    let ls = try #require(w.d.sessions.existing(id))
+    ls.hook("waiting", message: "Allow git push --force?", asker: "")
+    #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow ls?")) == false)
+    #expect(w.d.sessions.permissionWaits.withLock { $0[id] != nil })
+    #expect(try await c.call(SessionChoose(id: id, answer: "deny", question: "Allow git push --force?")))
+    #expect(try await third.value == "deny")
     #expect(Hooks.settingsJSON().contains(#""PermissionRequest":[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#))
 }
 

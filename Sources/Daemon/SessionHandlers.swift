@@ -95,8 +95,9 @@ extension SessionChoose: Handled {
     var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
-        // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu.
-        if sessions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
+        // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
+        // goes only to the question it showed: the hook waiting now may be a newer one's.
+        if ls.asks(question), sessions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
             _ = ls.answeredThroughHook()
             sessions.publish(ls)
             return true

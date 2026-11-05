@@ -123,6 +123,12 @@ extension LiveSession {
     }
 
     /// Allow or Deny went to the question's hook: it works again (the agent goes on either way, told what was decided).
+    /// Asks `question` now and nothing else; nil (an answer not tied to a question shown) asks whatever is up.
+    func asks(_ question: String?) -> Bool {
+        guard let question else { return true }
+        return state.withLock { $0.asksOnly(question) }
+    }
+
     func answeredThroughHook() -> Session {
         state.withLock { s in
             s.detector.input(); s.record.unread = false
