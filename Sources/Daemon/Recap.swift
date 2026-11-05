@@ -15,7 +15,7 @@ extension SessionRecap: AsyncHandled {
     /// No tools: the fork only says what happened. Nobody watches it, so a conversation steered by a page it read
     /// mustn't get a turn that acts.
     static func arguments(_ claude: String, conversation: String) -> [String] {
-        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", ""]
+        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", "", "--strict-mcp-config"]   // no MCP tools either
     }
 
     func handle(_ sessions: Sessions) async throws -> String? {

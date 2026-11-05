@@ -244,6 +244,7 @@ extension CommentSetState: Handled {
 }
 /// All open comments → one message into the agent's terminal.
 extension CommentSend: Handled {
+    var actsOn: String? { session }   // it types, with Enter: an agent sends only to itself and the sessions it started
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
