@@ -260,12 +260,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             edge.isHidden = !hide
             if hide, panel.superview !== f.box {
                 if !item.isCollapsed, column.frame.width >= item.minimumThickness { f.width = column.frame.width }
-                // The sidebar's cards run to its column's edge, the gap before the editor card being their margin there;
-                // in the floater that edge is its border, so a margin goes inside it, as wide as the cards stand from the left (8).
-                f.box.pin(panel, inset: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: item === sidebarItem ? Metrics.gapWide : 0))
+                f.box.pin(panel)
             } else if !hide, panel.superview !== column {
                 column.pin(panel)
             }
+            // The sidebar's cards run to its column's edge, the gap before the editor card being their margin there; in the
+            // floater that edge is its border, so a margin goes inside it, as wide as the cards stand from the left (8),
+            // and the scroller's knob runs in it.
+            if item === sidebarItem { sidebar.gutter = hide ? Metrics.gapWide : 0 }
         }
     }
 

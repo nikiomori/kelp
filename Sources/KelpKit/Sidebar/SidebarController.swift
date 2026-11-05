@@ -36,6 +36,20 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 
     let outline = SidebarOutline()
+    private let scroll = SidebarScrollView()
+    private var addTrailing = NSLayoutConstraint(), footerTrailing = NSLayoutConstraint()
+    /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
+    /// before the editor card is past the column's edge). The cards, Add Project and the limits stop short of it; the
+    /// scroller's knob runs in it, off the cards.
+    var gutter: CGFloat = 0 {
+        didSet {
+            guard gutter != oldValue else { return }
+            scroll.contentInsets.right = gutter
+            scroll.scrollerInsets.right = -gutter
+            addTrailing.constant = -6 - gutter
+            footerTrailing.constant = -gutter
+        }
+    }
     /// Rows on their way to folded (SidebarFolding): the rows under them have no height and the card ends at them, while
     /// the outline still shows them. The number tells this fold from a later one of the same row.
     var folding: [String: Int] = [:]
@@ -83,9 +97,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         let menu = NSMenu()
         menu.delegate = self
         outline.menu = menu
-        let scroll = NSScrollView()
         scroll.documentView = outline
-        scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         scroll.automaticallyAdjustsContentInsets = false   // it starts under the line over the projects, not under the title bar
         // When the list gets shorter (the limits below load), the selected workspace stays in view.
@@ -101,14 +113,16 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
                                     tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
         add.target = self; add.action = #selector(addMenu(_:))
         for x in [add, scroll, footer] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        addTrailing = add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6)
+        footerTrailing = footer.trailingAnchor.constraint(equalTo: v.trailingAnchor)
         NSLayoutConstraint.activate([
             // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
             add.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
-            add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
+            addTrailing,
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
             scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: v.leadingAnchor), footer.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            footer.leadingAnchor.constraint(equalTo: v.leadingAnchor), footerTrailing,
             footer.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
         view = v
