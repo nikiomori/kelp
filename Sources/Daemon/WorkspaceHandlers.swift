@@ -134,7 +134,9 @@ extension WorktreeCreate: Handled {
         let read = workspaces.configAndTrust(r.path), cfg = read.config, trusted = read.trusted && pr == nil
         if trusted {
             Git.linkShared(cfg.shared, repo: r.path, worktree: path)
-            Git.cloneShared(cfg.clone, repo: r.path, worktree: path)
+            for why in Git.cloneShared(cfg.clone, repo: r.path, worktree: path) {
+                Log.session.error(".kelp.yaml clone left out \(why, privacy: .public): the worktree is on another volume, or the path is busy")
+            }
             if tabs != false {
                 for t in cfg.tabs {
                     do { _ = try workspaces.sessions.spawn(cwd: path, manifest: workspaces.sessions.manifest(t, command: nil), worktreeId: w.id) }

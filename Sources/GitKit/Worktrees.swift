@@ -78,9 +78,14 @@ extension Git {
 
     /// `.kelp.yaml`'s `clone:` paths copied into a new worktree as APFS clones: seconds and next to no disk, and each
     /// branch has its own (`npm install` there changes only its copy). Off APFS (another volume) a path is left out:
-    /// a real copy of a node_modules would hold the new worktree up for minutes.
-    public static func cloneShared(_ dirs: [String], repo: String, worktree: String) {
-        place(dirs, repo: repo, worktree: worktree) { src, dst in _ = clonefile(src, dst, 0) }
+    /// a real copy of a node_modules would hold the new worktree up for minutes. Returns the paths left out, and why.
+    @discardableResult
+    public static func cloneShared(_ dirs: [String], repo: String, worktree: String) -> [String] {
+        var left: [String] = []
+        place(dirs, repo: repo, worktree: worktree) { src, dst in
+            if clonefile(src, dst, 0) != 0 { left.append("\((src as NSString).lastPathComponent): \(String(cString: strerror(errno)))") }
+        }
+        return left
     }
 
     private static func place(_ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void) {
