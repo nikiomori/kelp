@@ -168,13 +168,13 @@ extension GitDiscard: Handled {
 extension GitUndoDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
-        guard let d = workspaces.takeDiscard(folder: path, name: undo) else {
-            throw RPCError.invalidParams("There's no discard to undo here any more.")
+        let undone = try workspaces.undoDiscard(folder: path, name: undo) { d in
+            do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
+                let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
+                throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
+            }
         }
-        do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
-            let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
-            throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
-        }
+        guard undone else { throw RPCError.invalidParams("There's no discard to undo here any more.") }
         return Done()
     }
 }

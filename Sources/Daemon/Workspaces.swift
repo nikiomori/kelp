@@ -36,14 +36,20 @@ final class Workspaces: Sendable {
         // Gone after its minute even when nothing else is discarded: a patch can be large.
         DispatchQueue.global().asyncAfter(deadline: .now() + 61) { [weak self] in self?.sweepDiscards() }
     }
-    /// The discard kept under `name`, taken (an Undo is once: moved aside first, so two Undos can't both have it), if its
-    /// minute isn't over.
-    func takeDiscard(folder: String, name: String?) -> Discarded? {
+    /// The discard kept under `name`, if its minute isn't over, handed to `putBack`: taken (an Undo is once: moved aside
+    /// first, so two Undos can't both have it), and kept again if `putBack` throws, for another try within its minute.
+    /// False: there's none.
+    func undoDiscard(folder: String, name: String?, _ putBack: (Discarded) throws -> Void) throws -> Bool {
         let file = discardFile(folder: folder, name: name), taken = file.appendingPathExtension(UUID().uuidString)
-        guard rename(file.path, taken.path) == 0 else { return nil }
-        defer { unlink(taken.path) }
+        guard rename(file.path, taken.path) == 0 else { return false }
         let d = Log.store.attempt("reading a discard") { try JSONDecoder().decode(Discarded.self, from: Data(contentsOf: taken)) }
-        return d.flatMap { $0.at.timeIntervalSinceNow > -60 ? $0 : nil }
+        guard let d, d.at.timeIntervalSinceNow > -60 else { unlink(taken.path); return false }
+        do { try putBack(d) } catch {
+            if renamex_np(taken.path, file.path, UInt32(RENAME_EXCL)) != 0 { unlink(taken.path) }   // a newer one has its name
+            throw error
+        }
+        unlink(taken.path)
+        return true
     }
     /// Drops what's past its minute; at start too, for what an earlier daemon kept.
     func sweepDiscards() {

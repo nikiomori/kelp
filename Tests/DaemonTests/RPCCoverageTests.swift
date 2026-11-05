@@ -545,6 +545,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try "hello\nagent's\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)   // an agent writes after it
     await #expect(throws: (any Error).self) { try await c.call(GitUndoDiscard(id: wt.id)) }
     #expect(read("a.txt") == "hello\nagent's\n")
+    // Still there for another try: once the agent's edit is gone, it goes back.
+    try "hello\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    _ = try await c.call(GitUndoDiscard(id: wt.id))
+    #expect(read("a.txt") == "hello\nmine\n")
 }
 
 /// A discard's Undo outlives the daemon (an in-place upgrade, a restart): what it threw away is kept on disk for its
