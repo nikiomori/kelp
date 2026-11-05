@@ -222,7 +222,8 @@ private func codeOnly(_ s: String) -> String {
 /// what (`actsOn`, `answersQuestion`, `reportsFor`, `inWorkspace`, `ends`, `onlyFromKelp`), so `Daemon.allow` checks it
 /// before an agent's call gets that far. One that doesn't is a way around the check.
 @Test func whatActsOnASessionSaysOnWhich() throws {
-    let acts = #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(|pauseSessions\(|sessions\.discard\(|\.archive\(|removeDesk\(/#
+    let acts = #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(/#
+    let ends = #/pauseSessions\(|sessions\.discard\(|\.archive\(|removeDesk\(/#
     let says = #/var (actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp)\b/#
     var unsaid: [String] = []
     for f in sources(["Sources/Daemon"]) {
@@ -231,7 +232,7 @@ private func codeOnly(_ s: String) -> String {
             guard head.contains(#/: [^{]*\b(Handled|AsyncHandled|SessionInput)\b/#) else { continue }
             let oneLine = head.hasSuffix("}") && head.filter { $0 == "{" }.count == head.filter { $0 == "}" }.count
             let body = oneLine ? head : piece.components(separatedBy: "\n}").first ?? piece
-            if body.contains(acts), !body.contains(says) { unsaid.append("\(f.path): \(head.prefix { $0 != ":" })") }
+            if body.contains(acts) || body.contains(ends), !body.contains(says) { unsaid.append("\(f.path): \(head.prefix { $0 != ":" })") }
         }
     }
     #expect(unsaid == [])

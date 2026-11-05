@@ -227,6 +227,7 @@ extension SessionMarkUnread: Handled {
 }
 
 extension SessionContinueAt: Handled {
+    var actsOn: String? { id }   // it types "continue" into the session later
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else { throw RPCError.invalidParams("no session") }
         ls.continueAt(at)

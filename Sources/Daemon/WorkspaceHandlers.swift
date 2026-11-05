@@ -173,6 +173,7 @@ extension WorktreeArchive: Handled {
 }
 
 extension WorktreeRemove: Handled {
+    var ends: Ending? { .workspace(id) }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
         if workspaces.isMain(w, r) { try workspaces.removeDesk(w, r); return Done() }
