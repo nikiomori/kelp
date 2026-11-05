@@ -150,6 +150,19 @@ import PDFKit
     #expect(actions.runAction("https://example.com/${title}", item: item) == nil)
 }
 
+/// Any web page can send `kelp://open?path=…`: a project's file (or one in Kelp's home) opens, any other asks first,
+/// however the path dresses up (`..`, a link out of the project, a folder whose name starts like the project's).
+@MainActor @Test func aKelpLinkOpensProjectFilesWithoutAsking() async throws {
+    let rig = try await AppRig(); defer { rig.done() }
+    let links = KelpLinks(rig.app)
+    try FileManager.default.createSymbolicLink(atPath: rig.repo + "/out", withDestinationPath: "/etc")
+    #expect(links.isKnown(rig.repo + "/f.txt"))
+    #expect(links.isKnown(Paths.root.path + "/scratch/a.md"))
+    for elsewhere in ["/etc/hosts", rig.repo + "/../../../etc/hosts", rig.repo + "/out/hosts", rig.repo + "x/f.txt"] {
+        #expect(!links.isKnown(elsewhere), "\(elsewhere)")
+    }
+}
+
 /// Design Mode takes one element per click the user made: a page posting on its own, or again, gets nothing through.
 @Test func designModeTakesOneMessagePerClick() {
     var c = DesignClicks()

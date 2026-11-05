@@ -270,7 +270,8 @@ extension Workbench {
     }
 }
 
-/// `kelp://` links (from a browser, a script, another app). Looking things up is free; adding a project asks first.
+/// `kelp://` links (from a browser, a script, another app). Looking things up is free; adding a project, or opening a file
+/// outside them, asks first.
 @MainActor
 struct KelpLinks {
     let app: AppModel
@@ -291,9 +292,7 @@ struct KelpLinks {
             var dir: ObjCBool = false
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
-                let line = q.first { $0.name == "line" }?.value.flatMap(Int.init)
-                let w = app.worktrees.filter { path.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }
-                app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: w?.id)
+                openFile(path, line: q.first { $0.name == "line" }?.value.flatMap(Int.init))
             } else if app.repos.contains(where: { path == $0.path || path.hasPrefix($0.path + "/") }) {
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
@@ -305,6 +304,24 @@ struct KelpLinks {
         default: Banner.show(String(localized: "Kelp doesn't know the link \(url.absoluteString)."), style: .error)
         }
         NSApp.activate()
+    }
+
+    /// A project's file opens as a tab; one elsewhere (any web page can send this link) asks first, as a folder does.
+    private func openFile(_ path: String, line: Int?) {
+        let w = app.worktrees.filter { path.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }
+        let open = { app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: w?.id) }
+        guard !isKnown(path) else { return open() }
+        let a = NSAlert(); a.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
+        a.informativeText = String(localized: "A link asked to open \(path), which is outside your projects.")
+        a.addButton(withTitle: String(localized: "Open")); a.addButton(withTitle: String(localized: "Cancel"))
+        Task { if await runSheet(a) == .alertFirstButtonReturn { open() } }
+    }
+
+    /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
+    func isKnown(_ path: String) -> Bool {
+        let real = { (p: String) in URL(fileURLWithPath: p).standardizedFileURL.resolvingSymlinksInPath().path }
+        let file = real(path)
+        return (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { file.hasPrefix(real($0) + "/") }
     }
 }
 
