@@ -168,6 +168,7 @@ import WorkbenchKit
         <button onclick="out.textContent = 'p ' + prompt('Name?')">Rename</button>
         <input id="name" maxlength="4" oninput="keys.textContent = +keys.textContent + 1"><span id="keys">0</span>
         <button onclick="f.click()">Choose</button><input id="f" type="file" hidden><p id="out"></p>
+        <input type="password" value="hunter2">
         """, baseURL: URL(string: "http://localhost/"))
     _ = try await tab.browse("info", .object([:]))
     func eval(_ js: String) async throws -> JSONValue { try await tab.browse("eval", .object(["js": .string(js)])) }
@@ -175,6 +176,7 @@ import WorkbenchKit
 
     let page = try #require(try await act("snapshot", [:]).string)
     #expect(page.contains(#"- button "Delete" [ref=e1]"#) && page.contains(#"- button "Choose" [ref=e4]"#))
+    #expect(!page.contains("hunter2") && page.contains("••••••"))   // a password's value stays in the page
     #expect(try await act("snapshot", ["find": .string("renam")]).string?.contains(#"- button "Rename" [ref=e2]"#) == true)
 
     let asked = try await act("click", ["ref": .string("e1")])
@@ -197,7 +199,10 @@ import WorkbenchKit
 
     tab.takenOver = true
     await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
-    #expect(try await act("snapshot", [:]).string?.contains("Delete") == true)
+    // The user may be signing in: what the page holds is theirs until they hand it back.
+    await #expect(throws: RPCError.self) { try await act("snapshot", [:]) }
+    await #expect(throws: RPCError.self) { try await act("screenshot", [:]) }
+    _ = try await act("info", [:])
 }
 
 @Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() {

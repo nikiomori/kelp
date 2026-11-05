@@ -15,8 +15,9 @@ extension BrowserTab {
             return v
         }
         watch(); sized()
-        if takenOver, !Self.reads.contains(action) {
-            throw RPCError.internalError("The user took this page over: only snapshot, screenshot, wait, console, network and info until they hand it back")
+        // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs.
+        if takenOver, !Self.whileTakenOver.contains(action) {
+            throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
         }
         switch action {
         case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
@@ -119,7 +120,7 @@ extension BrowserTab {
     }
 
     /// What an agent may still do on a page the user took over: look.
-    static let reads: Set = ["snapshot", "screenshot", "wait", "console", "network", "info"]
+    static let whileTakenOver: Set = ["wait", "info"]
 
     /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place.
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
@@ -247,7 +248,9 @@ extension BrowserTab {
         if (ACT.has(role)) { const ref = 'e' + (++n); refs.set(ref, el); line += ' [ref=' + ref + ']'; }
         if (role === 'link' && el.getAttribute('href')) line += ' -> ' + cut(el.getAttribute('href'));
         if (FIELD.has(role)) {
-          const v = clean(el.isContentEditable ? el.innerText : el.localName === 'select' ? (el.selectedOptions[0] || {}).text : el.value);
+          // A password's value never leaves the page: that one is typed says enough.
+          const v = el.type === 'password' ? (el.value ? '••••••' : '')
+            : clean(el.isContentEditable ? el.innerText : el.localName === 'select' ? (el.selectedOptions[0] || {}).text : el.value);
           if (v) line += ': ' + JSON.stringify(cut(v));
         }
         out.push(line);

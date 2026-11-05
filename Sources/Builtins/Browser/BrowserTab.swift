@@ -139,7 +139,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
             agentSlotHeight.isActive = false
         }
-        agentLabel.stringValue = (takenOver ? String(localized: "You took this page over: the agent can only look at it")
+        agentLabel.stringValue = (takenOver ? String(localized: "You took this page over: the agent waits until you hand it back")
             : String(localized: "An agent is using this page"))
             + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
         agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
