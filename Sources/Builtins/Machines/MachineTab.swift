@@ -53,6 +53,10 @@ struct MachineView: View {
                 Text(summary(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             }
             Spacer(minLength: 8)
+            if info?.machine.os == "macos" {
+                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
+                    .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
+            }
             Button(String(localized: "Terminal")) { app.runInMachine(name) }
                 .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             Menu {
@@ -130,6 +134,7 @@ struct MachineView: View {
     private func running(_ v: VMInfo) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
+                if let g = detail?.guest { screen(g) }
                 heading("Running")
                 if let runs = detail?.runs, !runs.isEmpty {
                     ForEach(runs, id: \.pid) { runRow($0) }
@@ -153,6 +158,31 @@ struct MachineView: View {
             }
             .padding(.horizontal, Metrics.inset).padding(.bottom, Metrics.inset)
             .frame(maxWidth: 560, alignment: .leading)
+        }
+    }
+
+    /// A macOS machine's screen: Kelp Guest's permissions until both are on, then whose turn it is.
+    @ViewBuilder private func screen(_ g: VMDetail.Guest) -> some View {
+        heading("Screen")
+        if !g.running || !(g.screenRecording && g.accessibility) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(g.running ? "Turn Kelp Guest on in the machine's System Settings › Privacy & Security: Screen Recording and Accessibility."
+                     : "Kelp Guest isn't running in it: sign in on its screen.")
+                    .font(.ui(12)).foregroundStyle(Color(nsColor: .textPurple)).fixedSize(horizontal: false, vertical: true)
+                if g.running {
+                    HStack(spacing: 12) {
+                        Label(String(localized: "Screen Recording"), systemImage: g.screenRecording ? "checkmark.circle.fill" : "circle")
+                        Label(String(localized: "Accessibility"), systemImage: g.accessibility ? "checkmark.circle.fill" : "circle")
+                    }
+                    .font(.ui(12)).foregroundStyle(.secondary)
+                }
+                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }.controlSize(.small)
+            }
+            .padding(.horizontal, 6).padding(.bottom, 10)
+        } else {
+            let holder = g.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? g.screen
+            Text(holder.map { String(localized: "In use by \($0)") } ?? String(localized: "Free: agents take turns on it"))
+                .font(.ui(12)).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.bottom, 10)
         }
     }
 

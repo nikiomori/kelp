@@ -14,6 +14,7 @@ let package = Package(
         .executable(name: "kelpd", targets: ["kelpd"]),
         .executable(name: "KelpApp", targets: ["KelpApp"]),
         .executable(name: "kelp-vm", targets: ["KelpVM"]),
+        .executable(name: "KelpGuest", targets: ["KelpGuest"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
@@ -32,6 +33,8 @@ let package = Package(
         .executableTarget(name: "kelp", dependencies: ["Core"]),
         // A virtual machine for agents (Core/VMs.swift): the only program signed with the virtualization entitlement.
         .executableTarget(name: "KelpVM", dependencies: ["Core"], linkerSettings: [.linkedFramework("Virtualization")]),
+        // Inside a macOS machine: its screen, clicks and keys for agents, over SSH (Sources/KelpGuest). Copied in as an app.
+        .executableTarget(name: "KelpGuest", linkerSettings: [.linkedFramework("ScreenCaptureKit")]),
         .target(name: "LSPKit", dependencies: ["Core"]),
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),

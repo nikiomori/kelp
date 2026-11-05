@@ -64,19 +64,33 @@ import Testing
     }
 }
 
-/// A run carries the session it came from; a shell has no command.
+/// A run carries the session it came from in its name; a shell has no command.
 @Test func aRunIsMarkedWithItsSession() throws {
-    #expect(VMs.command("npm test && ls", session: "abc") == "exec env KELP_VM_RUN='abc' bash -l -c 'npm test && ls'")
-    #expect(VMs.command("", session: nil) == "exec env KELP_VM_RUN='-' bash -l")
+    #expect(VMs.command("npm test && ls", session: "AB-12") == "exec -a kelp-vm-run:AB-12 bash -l -c 'trap : EXIT; npm test && ls'")
+    #expect(VMs.command("", session: nil) == "exec -a kelp-vm-run:- bash -l")
+    #expect(VMs.command("x", session: "a;rm -rf ~") == "exec -a kelp-vm-run:arm-rf bash -l -c 'trap : EXIT; x'")   // only what an id holds
     let check = try Subprocess.run(["/bin/sh", "-n", "-c", VMs.command("echo 'it''s'", session: "x")], cwd: "/", env: [:], timeLimit: 10)
     #expect(check.status == 0)
 }
 
 @Test func whatRunsInsideIsReadBack() {
-    let text = "192.168.64.7\n@\n22\n3000\n5432\n@\n812\t41\tabc\tbash -l -c npm test \n901\t7\t-\tbash -l \n"
+    let text = "192.168.64.7\n@\n3000\n5432\n@\n  812       00:41 kelp-vm-run:abc -l -c trap : EXIT; npm test --watch\n  901 1-02:00:07 kelp-vm-run:- -l\n"
     let d = VMs.parseDetail(text)
     #expect(d.address == "192.168.64.7")
-    #expect(d.ports == [22, 3000, 5432])
-    #expect(d.runs == [.init(pid: 812, seconds: 41, session: "abc", command: "npm test"), .init(pid: 901, seconds: 7, session: nil, command: "")])
+    #expect(d.ports == [3000, 5432])
+    #expect(d.runs == [.init(pid: 812, seconds: 41, session: "abc", command: "npm test --watch"),
+                       .init(pid: 901, seconds: 93607, session: nil, command: "")])
     #expect(VMs.parseDetail("\n@\n@\n") == VMDetail())
+    #expect(VMs.parseDetail("10.0.0.2\n@\n@\n  5 00:03 kelp-vm-run:x -l\n").runs.count == 1)   // no ports: two "@" in a row
+    let mac = VMs.parseDetail("192.168.64.8\n@\n@\n@\nscreen recording: on\naccessibility: off\nscreen: abc\n")
+    #expect(mac.guest == .init(running: true, screenRecording: true, accessibility: false, screen: "abc"))
+    #expect(VMs.parseDetail("x\n@\n@\n@\nKelp Guest isn't running: open the machine's window and sign in.\nnot running\n").guest?.running == false)
+}
+
+/// On macOS the folder mounts with mount_virtiofs, and the line is still valid shell.
+@Test func aMacOSPrefixUsesItsOwnMount() throws {
+    let p = VMs.prefix(slot: 1, folder: "/Users/n/app", cwd: "/Users/n/app", os: "macos")
+    #expect(p.contains("sudo mount_virtiofs kelp1 '/Users/n/app'") && p.contains("grep -qF 'kelp1 on /Users/n/app ('"))
+    let check = try Subprocess.run(["/bin/sh", "-n", "-c", p + "true"], cwd: "/", env: [:], timeLimit: 10)
+    #expect(check.status == 0)
 }

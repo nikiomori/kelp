@@ -3848,10 +3848,13 @@
         "type" : "object"
       },
       "VMControl.Action" : {
+        "description" : "`show`: its screen in a window of its own (a macOS machine's), woken first.",
         "enum" : [
           "start",
           "sleep",
-          "stop"
+          "stop",
+          "show",
+          "delete"
         ],
         "type" : "string"
       },
@@ -3867,6 +3870,10 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "guest" : {
+            "$ref" : "#/components/schemas/VMDetail.Guest",
+            "description" : "A macOS machine's Kelp Guest: whether it may record the screen and act on it, and whose turn the screen is. Nil: not a macOS machine, or Kelp Guest isn't in it."
           },
           "ports" : {
             "items" : {
@@ -3885,6 +3892,30 @@
           "folders",
           "ports",
           "runs"
+        ],
+        "type" : "object"
+      },
+      "VMDetail.Guest" : {
+        "properties" : {
+          "accessibility" : {
+            "type" : "boolean"
+          },
+          "running" : {
+            "description" : "False too while Kelp Guest isn't running (its permissions can't be told then).",
+            "type" : "boolean"
+          },
+          "screen" : {
+            "description" : "The session whose turn the screen is, while it lasts.",
+            "type" : "string"
+          },
+          "screenRecording" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "accessibility",
+          "running",
+          "screenRecording"
         ],
         "type" : "object"
       },
@@ -10083,7 +10114,7 @@
       }
     },
     {
-      "description" : "`start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop` shuts it down (what ran inside ends).",
+      "description" : "`start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop` shuts it down (what ran inside ends); `delete` stops it and removes it, its disk and all. Stop and delete are the user's.",
       "name" : "vm.control",
       "paramStructure" : "by-name",
       "params" : [

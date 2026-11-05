@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Virtualization
 import Core
 
@@ -8,7 +8,7 @@ func log(_ s: String) { print("\(Date().formatted(.iso8601)) \(s)") }
 /// The machine and its connections. Everything here runs on the main queue: the VM's (VZVirtualMachine's default) and
 /// the sockets' handlers alike.
 @MainActor
-final class Runtime: NSObject, VZVirtualMachineDelegate {
+final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     let folder: URL, machine: VMMachine
     private var vm: VZVirtualMachine?
     private(set) var state: VMState
@@ -23,7 +23,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
     private var sockets: [Int: VZVirtioSocketConnection] = [:]
     private var nextSocket = 0
     private var ticks = 0
+    /// Starts tried in a row: a macOS machine's storage can stay locked a moment after its installer (or a stop) ends.
+    private var tries = 0
     private var listeners: [DispatchSourceRead] = [], signals: [DispatchSourceSignal] = []
+    /// Its screen, when someone asked to see it (`show`): while it's open the machine counts as in use.
+    private var window: NSWindow?
 
     static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { folder.appendingPathComponent("state.vzsave") }
@@ -41,6 +45,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
     // MARK: sockets
 
     func listen() {
+        // One kelp-vm per machine: two starts at once would both launch one, and the second would take the sockets over.
+        let lock = open(file("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { log("another kelp-vm runs \(machine.name)"); exit(0) }
         listen("ssh.sock") { [weak self] fd in self?.connect(fd, counted: true) }
         listen("own.sock") { [weak self] fd in self?.connect(fd, counted: false) }
         listen("ctl.sock") { [weak self] fd in self?.control(fd) }
@@ -71,28 +78,51 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
         listeners.append(src)
     }
 
-    /// An SSH connection: wakes the machine, then joins the client to the guest's sshd on vsock port 22.
+    /// An SSH connection: wakes the machine, then joins the client to the guest's sshd (vsock port 22 on Linux; on macOS,
+    /// whose sshd listens on TCP only, /usr/bin/nc to its NAT address: `MacGuest.bridge`).
     private func connect(_ client: Int32, counted: Bool) {
         if counted { connections += 1; lastUse = Date() }
         let join: (String?) -> Void = { [self] error in
-            guard error == nil, let dev = vm?.socketDevices.first as? VZVirtioSocketDevice else { return finish(client, counted) }
-            dev.connect(toPort: 22) { result in
-                MainActor.assumeIsolated {   // VZ answers on the VM's queue, the main one
-                    switch result {
-                    case .success(let conn): self.pump(client, conn, counted)
-                    case .failure(let e): log("vsock: \(e.localizedDescription)"); self.finish(client, counted)
-                    }
+            guard error == nil else { return finish(client, counted) }
+            if machine.os == "macos" {
+                guard let ip = guestAddress(), MacGuest.bridge(client, to: ip, ended: { self.finish(client, counted) }) else {
+                    log("can't reach sshd"); return finish(client, counted)
                 }
+                return
+            }
+            sshd { fd, id in
+                guard let fd else { log("can't reach sshd"); return self.finish(client, counted) }
+                self.pump(client, fd, id, counted)
             }
         }
         // Kelp's own reads come while it starts (the clock, before it counts as ready): they don't wait for it, nor wake it.
         if counted { wake(join) } else { join(vm == nil ? "asleep" : nil) }
     }
 
-    private func pump(_ client: Int32, _ conn: VZVirtioSocketConnection, _ counted: Bool) {
-        nextSocket += 1
-        let id = nextSocket, guest = conn.fileDescriptor
-        sockets[id] = conn
+    /// A Linux guest's sshd, on vsock port 22: the connection kept under `id` until it's let go (`release`).
+    private func sshd(_ done: @escaping @MainActor @Sendable (Int32?, Int?) -> Void) {
+        guard let dev = vm?.socketDevices.first as? VZVirtioSocketDevice else { return done(nil, nil) }
+        dev.connect(toPort: 22) { result in
+            MainActor.assumeIsolated {   // VZ answers on the VM's queue, the main one
+                guard case .success(let conn) = result else { return done(nil, nil) }
+                self.nextSocket += 1
+                self.sockets[self.nextSocket] = conn
+                done(conn.fileDescriptor, self.nextSocket)
+            }
+        }
+    }
+
+    private func release(_ fd: Int32, _ id: Int?) {
+        if let id { sockets.removeValue(forKey: id)?.close() } else { close(fd) }
+    }
+
+    /// A macOS guest's address, from the leases of the Mac's NAT network.
+    private func guestAddress() -> String? {
+        guard let mac = try? String(contentsOf: file("mac"), encoding: .utf8) else { return nil }
+        return MacGuest.address(mac: mac.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func pump(_ client: Int32, _ guest: Int32, _ id: Int?, _ counted: Bool) {
         let both = DispatchGroup()
         for (from, to) in [(client, guest), (guest, client)] {
             both.enter()
@@ -109,7 +139,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
         }
         both.notify(queue: .main) {
             MainActor.assumeIsolated {   // notify on the main queue
-                self.sockets.removeValue(forKey: id)?.close()
+                self.release(guest, id)
                 self.finish(client, counted)
             }
         }
@@ -141,11 +171,19 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
         case .start: lastUse = Date(); wake { done($0, nil) }
         case .sleep: sleep { done($0, nil) }
         case .stop: stop { done(nil, nil) }
+        case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
+        case .quit:
+            done(nil, nil)
+            guard let vm else { exit(0) }
+            vm.stop { _ in exit(0) }
         case .share:
             guard let path = r.path else { return done("share: a path", nil) }
-            let slot = shares.first { $0.value == path }?.key
-                ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
-                ?? (0..<VMs.shareSlots).min { shareUse[$0] ?? .distantPast < shareUse[$1] ?? .distantPast } ?? 0
+            let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
+            // A folder taken from its slot goes stale under whatever runs in it: only an idle machine gives one up.
+            guard free != nil || connections == 0 else {
+                return done("\(VMs.shareSlots) folders are shared with \(machine.name) and commands run in it: try again when they end.", nil)
+            }
+            let slot = free ?? (0..<VMs.shareSlots).min { shareUse[$0] ?? .distantPast < shareUse[$1] ?? .distantPast } ?? 0
             shareUse[slot] = Date()
             guard shares[slot] != path else { return done(nil, slot) }
             shares[slot] = path
@@ -186,7 +224,16 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
         do { vm = VZVirtualMachine(configuration: try configuration()) } catch { return started(error) }
         vm.delegate = self
         self.vm = vm
+        (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
         guard FileManager.default.fileExists(atPath: saved.path) else {
+            if machine.os == "macos", !FileManager.default.fileExists(atPath: file("booted").path) {
+                // The first boot: macOS sets the account up, signs in and turns Remote Login on by itself.
+                do {
+                    let password = try String(contentsOf: file("password"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let options = try MacGuest.firstStart(machine, password: password)
+                    return vm.start(options: options) { e in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: e) } }
+                } catch { return started(error) }
+            }
             return vm.start { r in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) } }
         }
         vm.restoreMachineStateFrom(url: saved) { error in
@@ -205,44 +252,74 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
         }
     }
 
-    /// Ready once sshd answers on vsock 22 with its banner (systemd's sshd-vsock socket listens before sshd can answer).
+    /// Ready once sshd answers with its banner (on Linux systemd's sshd-vsock socket listens before sshd can answer; a
+    /// macOS guest's first boot sets itself up for minutes before Remote Login is on).
     private func awaitSSH(restored: Bool, error: Error?, since: Date = Date()) {
+        if let error, error.localizedDescription.contains("lock"), tries < 20 {
+            tries += 1
+            vm = nil
+            return DispatchQueue.main.asyncAfter(deadline: .now() + 1) { MainActor.assumeIsolated { self.boot() } }
+        }
+        tries = 0
         if let error { return started(error) }
+        guard vm != nil else {   // shut down while it started: not a failure
+            let waiting = ready; ready = []
+            return waiting.forEach { $0("\(machine.name) was shut down while it started.") }
+        }
         let firstBoot = !FileManager.default.fileExists(atPath: file("booted").path)
-        guard Date().timeIntervalSince(since) < (firstBoot ? 600 : 120) else { return started(VMError("sshd didn't answer")) }
-        guard let dev = vm?.socketDevices.first as? VZVirtioSocketDevice else { return started(VMError("no vsock device")) }
-        dev.connect(toPort: 22) { result in
-            MainActor.assumeIsolated {
-                guard case .success(let conn) = result else { return self.retry(restored, since) }
-                let fd = conn.fileDescriptor
-                self.nextSocket += 1
-                let id = self.nextSocket
-                self.sockets[id] = conn
-                Thread.detachNewThread {
-                    var pfd = pollfd(fd: fd, events: Int16(POLLIN), revents: 0), buf = [UInt8](repeating: 0, count: 4)
-                    let ok = poll(&pfd, 1, 3000) > 0 && read(fd, &buf, 4) == 4 && buf == Array("SSH-".utf8)
-                    DispatchQueue.main.async {
-                        MainActor.assumeIsolated {
-                            self.sockets.removeValue(forKey: id)?.close()
-                            guard ok else { return self.retry(restored, since) }
-                            FileManager.default.createFile(atPath: self.file("booted").path, contents: nil)
-                            guard restored else { return self.started(nil) }
-                            // A restored guest's clock says when it was saved: right before the first command runs (make
-                            // and friends compare times).
-                            Task { _ = try? await self.own("sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null"); self.started(nil) }
-                        }
+        guard Date().timeIntervalSince(since) < (firstBoot ? 1800 : 180) else { return started(VMError("sshd didn't answer")) }
+        if machine.os == "macos" {
+            let ip = guestAddress()
+            return Thread.detachNewThread {
+                let ok = ip.map(MacGuest.banner) ?? false
+                DispatchQueue.main.async { MainActor.assumeIsolated { self.answered(ok, restored, since) } }
+            }
+        }
+        sshd { fd, id in
+            guard let fd else { return self.retry(restored, since) }
+            Thread.detachNewThread {
+                var pfd = pollfd(fd: fd, events: Int16(POLLIN), revents: 0), buf = [UInt8](repeating: 0, count: 4)
+                let ok = poll(&pfd, 1, 3000) > 0 && read(fd, &buf, 4) == 4 && buf == Array("SSH-".utf8)
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        self.release(fd, id)
+                        self.answered(ok, restored, since)
                     }
                 }
             }
         }
     }
 
+    /// sshd answered (or not yet): ready, once a restored guest's clock is set (make and friends compare times).
+    private func answered(_ ok: Bool, _ restored: Bool, _ since: Date) {
+        guard ok else { return retry(restored, since) }
+        FileManager.default.createFile(atPath: file("booted").path, contents: nil)
+        guard restored else { return started(nil) }
+        Task { _ = try? await own(setClock()); started(nil) }
+    }
+
+    /// The command that sets the guest's clock to now.
+    private func setClock() -> String {
+        guard machine.os == "macos" else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
+        let f = DateFormatter()
+        f.dateFormat = "MMddHHmmyyyy.ss"
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return "sudo date -u \(f.string(from: Date())) >/dev/null"
+    }
+
     private func retry(_ restored: Bool, _ since: Date) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { MainActor.assumeIsolated { self.awaitSSH(restored: restored, error: nil, since: since) } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (machine.os == "macos" ? 1 : 0.2)) {
+            MainActor.assumeIsolated { self.awaitSSH(restored: restored, error: nil, since: since) }
+        }
     }
 
     private func started(_ error: Error?) {
-        if let error { log("start failed: \(error.localizedDescription)") }
+        if let error {
+            log("start failed: \(error.localizedDescription)")
+            vm?.stop { _ in }   // half started holds its memory and disk for nothing
+            vm = nil
+        }
         state = error == nil ? .running : .error
         lastUse = Date()
         let waiting = ready; ready = []
@@ -257,7 +334,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
             vm.saveMachineStateTo(url: tmp) { error in
                 MainActor.assumeIsolated {
                     if let error { log("save failed: \(error.localizedDescription)"); self.state = .paused; return done(error.localizedDescription) }
-                    guard rename(tmp.path, self.saved.path) == 0 else { return done(String(cString: strerror(errno))) }
+                    guard rename(tmp.path, self.saved.path) == 0 else { self.state = .paused; return done(String(cString: strerror(errno))) }
                     vm.stop { _ in MainActor.assumeIsolated { self.vm = nil; self.state = .sleeping; log("asleep"); done(nil) } }
                 }
             }
@@ -297,6 +374,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
     /// memory follows what the guest uses every 15 s.
     private func tick() {
         ticks += 1
+        if window?.isVisible == true { lastUse = Date() }   // someone watches its screen
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, connections == 0, idle > Self.pauseAfter {
             vm?.pause { r in MainActor.assumeIsolated { if r.failure == nil, self.state == .running { self.state = .paused; log("paused") } } }
@@ -312,6 +390,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
     /// The balloon gives the Mac back what the guest doesn't use (`VMs.memoryTarget`). A restore maps all of `memoryMiB`;
     /// this takes it back.
     private func adjustMemory() {
+        guard machine.os == "linux" else { return }   // a macOS guest has no /proc/meminfo, and keeps all it was given
         Task {
             guard let text = try? await own("cat /proc/meminfo") else { return }
             func kb(_ key: String) -> Int? {
@@ -336,50 +415,34 @@ final class Runtime: NSObject, VZVirtualMachineDelegate {
 
     // MARK: configuration
 
-    private func configuration() throws -> VZVirtualMachineConfiguration {
-        let c = VZVirtualMachineConfiguration()
-        let boot = VZEFIBootLoader()
-        let vars = file("efi.vars")
-        boot.variableStore = FileManager.default.fileExists(atPath: vars.path)
-            ? VZEFIVariableStore(url: vars) : try VZEFIVariableStore(creatingVariableStoreAt: vars)
-        c.bootLoader = boot
-        let platform = VZGenericPlatformConfiguration()
-        if let d = try? Data(contentsOf: file("machine.id")), let id = VZGenericMachineIdentifier(dataRepresentation: d) { platform.machineIdentifier = id }
-        else { try platform.machineIdentifier.dataRepresentation.write(to: file("machine.id")) }
-        c.platform = platform
-        c.cpuCount = machine.cpus
-        c.memorySize = UInt64(machine.memoryMiB) << 20
-        c.storageDevices = [
-            VZVirtioBlockDeviceConfiguration(attachment: try VZDiskImageStorageDeviceAttachment(url: file("disk.img"), readOnly: false,
-                                                                                                 cachingMode: .automatic, synchronizationMode: .fsync)),
-            VZVirtioBlockDeviceConfiguration(attachment: try VZDiskImageStorageDeviceAttachment(url: file("seed.iso"), readOnly: true))
-        ]
-        if machine.network {
-            let net = VZVirtioNetworkDeviceConfiguration()
-            net.attachment = VZNATNetworkDeviceAttachment()
-            if let s = try? String(contentsOf: file("mac"), encoding: .utf8), let mac = VZMACAddress(string: s) { net.macAddress = mac }
-            else { try net.macAddress.string.write(to: file("mac"), atomically: true, encoding: .utf8) }
-            c.networkDevices = [net]
+    private func configuration() throws -> VZVirtualMachineConfiguration { try Self.configuration(machine, folder: folder, shares: shares) }
+
+    // MARK: its screen
+
+    /// Its screen in a window of its own: full speed, the pointer and keys go to it. Closing it only hides it.
+    private func show() {
+        if window == nil {
+            let view = VZVirtualMachineView()
+            view.capturesSystemKeys = true
+            view.automaticallyReconfiguresDisplay = false
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: MacGuest.display.width / 2, height: MacGuest.display.height / 2),
+                             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            w.title = machine.name
+            w.contentView = view
+            w.contentAspectRatio = NSSize(width: MacGuest.display.width, height: MacGuest.display.height)
+            w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
+            window = w
         }
-        c.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
-        c.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
-        c.socketDevices = [VZVirtioSocketDeviceConfiguration()]
-        let console = VZVirtioConsoleDeviceSerialPortConfiguration()
-        console.attachment = try VZFileSerialPortAttachment(url: file("console.log"), append: false)
-        c.serialPorts = [console]
-        c.directorySharingDevices = (0..<VMs.shareSlots).map { slot in
-            let fs = VZVirtioFileSystemDeviceConfiguration(tag: "kelp\(slot)")
-            fs.share = shares[slot].flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
-                .map { VZSingleDirectoryShare(directory: VZSharedDirectory(url: URL(fileURLWithPath: $0), readOnly: false)) }
-            return fs
-        }
-        if machine.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
-            let r = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
-            r.share = try VZLinuxRosettaDirectoryShare()
-            c.directorySharingDevices.append(r)
-        }
-        try c.validate()
-        return c
+        (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+    }
+
+    nonisolated func windowShouldClose(_ sender: NSWindow) -> Bool {
+        MainActor.assumeIsolated { sender.orderOut(nil) }   // AppKit asks on the main thread
+        return false
     }
 }
 

@@ -16,10 +16,10 @@ struct MachinesView: View {
             if !app.machines.isEmpty {
                 Divider()
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Machines").sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom).padding(.leading, 6)
+                    Text("Machines").sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom).padding(.leading, Metrics.gap)
                     ForEach(app.machines) { row($0) }
                 }
-                .padding(.horizontal, 8).padding(.bottom, 6)
+                .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gap)
             }
         }
         .fontDesign(app.themes.chromeDesign)
@@ -33,8 +33,11 @@ struct MachinesView: View {
         let mark = VMImage.named(v.machine.image)?.mark ?? ("?", .systemGray)
         let asleep = [.sleeping, .off, .error].contains(v.state)
         return HStack(spacing: Metrics.gapWide) {
-            Text(mark.letter).font(.ui(11, weight: .bold)).foregroundStyle(.white)
-                .frame(width: 22, height: 22)
+            Group {
+                if v.machine.os == "macos" { Image(systemName: "apple.logo").font(.ui(12, weight: .semibold)) }
+                else { Text(mark.letter).font(.ui(11, weight: .bold)) }
+            }
+                .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
                 .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
                 .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
@@ -48,7 +51,7 @@ struct MachinesView: View {
                 Text(app.machineLine(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             }
         }
-        .padding(.horizontal, 6).frame(height: Metrics.rowTwoLine)
+        .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)
         .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovered == v.id ? Color(nsColor: .fillHover) : .clear))
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
         .contentShape(Rectangle())
@@ -64,9 +67,9 @@ struct MachinesView: View {
     /// The agents with a command running in it: their icons, overlapping.
     @ViewBuilder private func faces(_ v: VMInfo) -> some View {
         let agents = (v.sessions ?? []).compactMap { app.session($0)?.agent }
-        HStack(spacing: -5) {
+        HStack(spacing: -Metrics.appIcon / 3) {   // overlapping, as a stack of faces
             ForEach(Array(Set(agents)).sorted().prefix(3), id: \.self) { a in
-                if let icon = app.catalog.icon(a, size: 14) { Image(nsImage: icon).frame(width: 14, height: 14) }
+                if let icon = app.catalog.icon(a, size: Metrics.iconLarge) { Image(nsImage: icon).frame(width: Metrics.iconLarge, height: Metrics.iconLarge) }
             }
         }
     }

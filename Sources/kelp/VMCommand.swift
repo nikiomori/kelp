@@ -4,7 +4,9 @@ import Core
 extension Main {
     static let vmUsage = """
     vm list [--json] | create <name> [--image debian-13] [--cpus 2] [--memory 2] [--disk 32]
-          | run <name> [--cwd dir | --home] [-- command…] | start|sleep|stop <name>
+          | run <name> [--cwd dir | --home] [-- command…] | start|sleep|stop|show|delete <name>
+          | screenshot <name> [file] | click <name> X Y [--right] [--double] | move|drag|scroll <name> … | type <name> TEXT
+          | key <name> COMBO | ui <name> [--app NAME] | press <name> REF|TITLE   (macOS machines: their screen)
     """
 
     /// `vm <action>`: Kelp's virtual machines (Core/VMs.swift).
@@ -28,7 +30,9 @@ extension Main {
                 if v.state != .creating { return print(line(v)) }
                 if v.detail != last, let d = v.detail { print(d); last = d }
             }
-        case "start", "sleep", "stop":
+        case "screenshot", "click", "move", "drag", "scroll", "type", "key", "ui", "press":
+            try await screen(sub ?? "", c)
+        case "start", "sleep", "stop", "show", "delete":
             guard let name = args.first, let action = VMControl.Action(rawValue: sub ?? "") else { fail("vm \(sub ?? "") <name>") }
             print(line(try await c.call(VMControl(name: name, action: action))))
         case "run":
@@ -47,13 +51,36 @@ extension Main {
         }
     }
 
+    /// A macOS machine's screen, through Kelp Guest inside it: a screenshot to a file (its path printed), the rest as it says.
+    private static func screen(_ action: String, _ c: RPCClient) async throws {
+        guard let name = args.first else { fail("vm \(action) <name> …") }
+        args.removeFirst()
+        guard let v = try await c.call(VMList()).first(where: { $0.machine.name == name }) else { fail("No machine called \(name).") }
+        guard v.machine.os == "macos" else { fail("\(name) is Linux: it has no screen. kelp vm run \(name) -- <command> runs commands in it.") }
+        let to = try await c.call(VMConnect(name: name, cwd: nil))
+        let session = ProcessInfo.processInfo.environment["KELP_SESSION"] ?? "-"
+        let file = action == "screenshot" ? args.popLast() : nil
+        let remote = VMs.guestProgram + " " + ([action] + args + ["--session", session]).map(VMs.shellQuoted).joined(separator: " ")
+        guard action == "screenshot" else { exec(to.ssh + ["-T", "--", to.prefix + remote]) }
+        let out = URL(fileURLWithPath: file ?? NSTemporaryDirectory() + "kelp-\(name)-\(Int(Date().timeIntervalSince1970)).png").standardizedFileURL
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: to.ssh[0])
+        p.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + remote]
+        guard FileManager.default.createFile(atPath: out.path, contents: nil) else { fail("can't write \(out.path)") }
+        p.standardOutput = try FileHandle(forWritingTo: out)
+        try p.run()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else { exit(p.terminationStatus) }
+        print(out.path)
+    }
+
     private static func line(_ v: VMInfo) -> String {
         let image = VMImage.named(v.machine.image)?.title ?? v.machine.image
         var parts = [v.machine.name.padding(toLength: 10, withPad: " ", startingAt: 0), image.padding(toLength: 12, withPad: " ", startingAt: 0),
                      v.state.rawValue]
         if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
         if let n = v.connections, n > 0 { parts.append("\(n) open") }
-        if v.state == .sleeping { parts.append("wakes in under a second") }
+        if v.state == .sleeping { parts.append(v.machine.os == "macos" ? "wakes in a few seconds" : "wakes in under a second") }
         if let d = v.detail { parts.append(d) }
         return parts.joined(separator: "  ")
     }

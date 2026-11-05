@@ -33,8 +33,8 @@ enum AgentSkills {
             body: artifactsGuide)
         // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
         put("kelp-vm", on: s.bool("agents.skills.vm") != false,
-            description: "Use when a command should run in a Linux machine instead of on this Mac, in Kelp, the IDE this session runs in: "
-                + "builds and tests for Linux, a server or a script you'd rather keep off the Mac, an x86-64 Linux binary. "
+            description: "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and click a Mac app, "
+                + "in Kelp, the IDE this session runs in: Linux builds and tests, servers and scripts kept off the Mac, a Mac app's UI. "
                 + "kelp vm run <name> -- <command> runs it there, in this project's folder at the same path.",
             body: vmGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
@@ -133,8 +133,8 @@ enum AgentSkills {
     private static let vmGuide = """
         # Running commands in a Kelp machine
 
-        This session runs inside Kelp and the `kelp` CLI is on PATH. Kelp keeps Linux machines (Apple Virtualization) for
-        commands that should not run on this Mac. One machine serves every chat at once.
+        This session runs inside Kelp and the `kelp` CLI is on PATH. Kelp keeps Linux and macOS machines (Apple
+        Virtualization) for commands that should not run on this Mac. One machine serves every chat at once.
 
         - `kelp vm list` — the machines and their state. Use one that's `running` before one that sleeps; a sleeping one
           wakes in under a second, an `off` one boots in a few.
@@ -149,8 +149,24 @@ enum AgentSkills {
         - A machine pauses after 2 minutes without a connection and sleeps after 10: a server keeps running only while a
           run holds it. Start one that should stay up as a Kelp session, so the user sees it:
           `kelp session new --cmd "kelp vm run <name> -- npm run dev"`.
-        - There's no machine yet: tell the user `kelp vm create <name>` makes one (Debian 13, about 0.2 GB to download).
-          Don't create one yourself.
+        - There's no machine yet: tell the user `kelp vm create <name>` makes one (Debian 13, about 0.2 GB to download;
+          `--image macos` for macOS, over 20 GB). Don't create one yourself.
+
+        ## A macOS machine's screen
+
+        Pick it for a Mac app's UI, Safari, Xcode's simulator, anything macOS-only; Linux for the rest. Commands first:
+        `kelp vm run` works there too, and costs nothing. Then the app's controls as text, then pixels last:
+
+        - `kelp vm ui <name> [--app Safari]` — the front app's controls, a line each: `- button "Sign in" [ref=e12] (640,412 80×24)`.
+        - `kelp vm press <name> e12` (or the title) — presses it without the pointer: it doesn't wait for the screen.
+        - `kelp vm screenshot <name> [file]` — a PNG of its screen (prints the file); look at it with your image tool.
+          Coordinates are its screen points (1280 × 800), the same `click` takes.
+        - `kelp vm click <name> X Y [--right] [--double]`, `type <name> TEXT`, `key <name> cmd+space`, `scroll <name> -300 [X Y]`,
+          `drag <name> X Y X2 Y2` — the pointer and keys. The screen is one: chats take turns (your turn lasts 20 s after
+          your last action); another chat's turn makes yours wait, up to a minute.
+        - Look again after each step that changes the screen. The user sees it live with `kelp vm show <name>`.
+        - "Kelp Guest isn't running" or a permission error: tell the user to open the machine's window (`kelp vm show <name>`)
+          and turn Kelp Guest on in Privacy & Security (Screen Recording and Accessibility). Don't work around it.
 
         """
 

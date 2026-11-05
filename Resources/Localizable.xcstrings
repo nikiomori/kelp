@@ -1457,6 +1457,106 @@
         }
       }
     },
+    "Needs permissions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужны разрешения"
+          }
+        }
+      }
+    },
+    "Show Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать экран"
+          }
+        }
+      }
+    },
+    "Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран"
+          }
+        }
+      }
+    },
+    "Screen Recording": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись экрана"
+          }
+        }
+      }
+    },
+    "Accessibility": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Универсальный доступ"
+          }
+        }
+      }
+    },
+    "In use by %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Занят: %@"
+          }
+        }
+      }
+    },
+    "Free: agents take turns on it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свободен: агенты пользуются им по очереди"
+          }
+        }
+      }
+    },
+    "Turn Kelp Guest on in the machine's System Settings › Privacy & Security: Screen Recording and Accessibility.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включите Kelp Guest в Системных настройках машины › Конфиденциальность и безопасность: «Запись экрана» и «Универсальный доступ»."
+          }
+        }
+      }
+    },
+    "Kelp Guest isn't running in it: sign in on its screen.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp Guest в ней не запущен: войдите в систему на её экране."
+          }
+        }
+      }
+    },
+    "Wakes in a few seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проснётся за несколько секунд"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

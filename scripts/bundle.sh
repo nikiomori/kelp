@@ -41,7 +41,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Framewor
 cp "$BIN/KelpApp" "$APP/Contents/MacOS/KelpApp"
 # -p: kelpd keeps its build time, which the app compares with the running daemon's; an update that didn't rebuild
 # the daemon then doesn't offer to restart it (that ends the running agents). Signing below puts the time back.
-cp -p "$BIN/kelpd" "$BIN/kelp" "$BIN/kelp-vm" "$APP/Contents/MacOS/"
+cp -p "$BIN/kelpd" "$BIN/kelp" "$BIN/kelp-vm" "$BIN/KelpGuest" "$APP/Contents/MacOS/"   # KelpGuest: copied into macOS machines
 cp Resources/Info.plist "$APP/Contents/Info.plist"; P=(/usr/libexec/PlistBuddy "$APP/Contents/Info.plist")
 LA="$APP/Contents/Library/LaunchAgents"; mkdir -p "$LA"; cp Resources/dev.kelp.kelpd.plist "$LA/"   # BackgroundItem
 if [ -n "$CH" ]; then
@@ -85,12 +85,13 @@ if [ -n "${SIGN_ID:-}" ]; then
   "${SIGN[@]}" --entitlements Resources/Kelpd.entitlements "$APP/Contents/MacOS/kelpd"; touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
   "${SIGN[@]}" "$APP/Contents/MacOS/kelp"
   "${SIGN[@]}" --entitlements Resources/KelpVM.entitlements "$APP/Contents/MacOS/kelp-vm"
+  "${SIGN[@]}" "$APP/Contents/MacOS/KelpGuest"
   codesign --force --options runtime --timestamp --entitlements Resources/Kelp.entitlements --sign "$SIGN_ID" "$APP"
 fi
 if [ "$CH" = dev ]; then
   # Ad hoc, inside out; no entitlements, as a debug build runs from Xcode, but for kelp-vm's: without it no machine starts.
   codesign --force --sign - --entitlements Resources/KelpVM.entitlements "$APP/Contents/MacOS/kelp-vm"
-  for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP"; do codesign --force --sign - "$f"; done
+  for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP/Contents/MacOS/KelpGuest" "$APP"; do codesign --force --sign - "$f"; done
   touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
   open "$APP"; echo "built $APP"; exit 0
 fi

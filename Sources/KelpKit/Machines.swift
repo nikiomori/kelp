@@ -31,9 +31,12 @@ extension AppModel {
     /// The machine the session runs a command in now, if any (`kelp vm run`).
     func machine(runningFor session: String) -> String? { machines.first { $0.sessions?.contains(session) == true }?.machine.name }
 
-    /// What a machine's state reads as, and in what colour.
+    /// What a machine's state reads as, and in what colour; a macOS one whose Kelp Guest lacks a permission wants you.
     package func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
-        switch v.state {
+        if v.state == .running, let g = machineDetail[v.id]?.guest, !(g.screenRecording && g.accessibility) {
+            return (String(localized: "Needs permissions"), .textPurple)
+        }
+        return switch v.state {
         case .running: (String(localized: "Running"), .textGreen)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
         case .paused: (String(localized: "Paused"), .secondaryLabelColor)
@@ -48,7 +51,7 @@ extension AppModel {
     func machineLine(_ v: VMInfo) -> String {
         switch v.state {
         case .creating, .error: return v.detail ?? ""
-        case .sleeping: return String(localized: "Wakes in under a second")
+        case .sleeping: return v.machine.os == "macos" ? String(localized: "Wakes in a few seconds") : String(localized: "Wakes in under a second")
         case .off: return String(localized: "Boots in a few seconds")
         default:
             var parts: [String] = []
@@ -67,6 +70,7 @@ extension VMImage {
         case let i where i.hasPrefix("debian"): ("D", NSColor(hex: 0xA80030))
         case let i where i.hasPrefix("ubuntu"): ("U", NSColor(hex: 0xE95420))
         case let i where i.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
+        case "macos": ("", NSColor(hex: 0x5A6B8C))
         default: (String(title.prefix(1)), .systemGray)
         }
     }

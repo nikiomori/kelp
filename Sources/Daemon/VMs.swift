@@ -14,9 +14,9 @@ struct VMService: Sendable {
 
     init(home: URL, helper: String) { root = home.appendingPathComponent("vms"); self.helper = helper }
 
-    private func folder(_ name: String) -> URL { root.appendingPathComponent(name) }
-    private func file(_ name: String, _ file: String) -> URL { folder(name).appendingPathComponent(file) }
-    private var images: URL { root.appendingPathComponent(".images") }
+    func folder(_ name: String) -> URL { root.appendingPathComponent(name) }
+    func file(_ name: String, _ file: String) -> URL { folder(name).appendingPathComponent(file) }
+    var images: URL { root.appendingPathComponent(".images") }
 
     func machine(_ name: String) throws -> VMMachine {
         guard VMs.isName(name), let d = FileManager.default.contents(atPath: file(name, "machine.json").path) else {
@@ -56,7 +56,7 @@ struct VMService: Sendable {
     }
 
     private func info(_ m: VMMachine) -> VMInfo {
-        if let failed = text(m.name, "failed") { return VMInfo(machine: m, state: .error, detail: failed) }
+        if let failed = failure(m.name) { return VMInfo(machine: m, state: .error, detail: failed) }
         if let step = making(m.name) { return VMInfo(machine: m, state: .creating, detail: step) }
         var st = stat()
         let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
@@ -67,26 +67,46 @@ struct VMService: Sendable {
         return VMInfo(machine: m, state: r.state, detail: r.error, connections: r.connections, memoryMiB: r.memoryMiB, diskMiB: disk)
     }
 
-    private func text(_ name: String, _ f: String) -> String? {
+    func text(_ name: String, _ f: String) -> String? {
         FileManager.default.contents(atPath: file(name, f).path).map { String(decoding: $0, as: UTF8.self) }
     }
 
-    /// What making it is at, unless that stopped (kelpd ended midway: nothing updated it for 15 minutes).
-    private func making(_ name: String) -> String? {
+    /// Why it wasn't made: what failed, or that making it stopped midway (kelpd ended: its `creating` went stale).
+    func failure(_ name: String) -> String? {
+        if let failed = text(name, "failed") { return failed }
+        guard text(name, "creating") != nil, making(name) == nil else { return nil }
+        return String(localized: "Making it stopped midway (Kelp restarted). Delete it and make it again.")
+    }
+
+    /// What making it is at, unless that stopped (kelpd ended midway: nothing updated it for 45 minutes, longer than a
+    /// macOS first boot, its longest quiet step).
+    func making(_ name: String) -> String? {
         var st = stat()
         guard let step = text(name, "creating"), stat(file(name, "creating").path, &st) == 0 else { return nil }
-        return Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 900 ? step : nil
+        return Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700 ? step : nil
     }
 
     // MARK: running
 
     func control(_ name: String, _ action: VMControl.Action) throws -> VMInfo {
-        let m = try ready(name)
+        let m = [.stop, .delete].contains(action) ? try machine(name) : try ready(name)
         switch action {
+        case .delete:
+            quit(name)
+            try FileManager.default.removeItem(at: folder(name))
+            Keychain.delete("vm." + name)
+            var gone = VMInfo(machine: m, state: .off)
+            gone.detail = String(localized: "Deleted")
+            return gone
         case .start:
             try admit(m)
             try startHelper(m)
             try check(ask(name, .init(op: .start), wait: 620))
+        case .show:
+            guard m.os == "macos" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
+            try admit(m)
+            try startHelper(m)
+            try check(ask(name, .init(op: .show), wait: 180))
         case .sleep, .stop:
             if status(name) != nil { try check(ask(name, .init(op: action == .sleep ? .sleep : .stop), wait: 60)) }
             else if action == .stop { remove(file(name, "state.vzsave")) }
@@ -114,12 +134,12 @@ struct VMService: Sendable {
         let shared = try ask(name, .init(op: .share, path: project), wait: 5)
         try check(shared)
         guard let slot = shared.slot else { throw RPCError.internalError("\(name) didn't share \(project)") }
-        return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd))
+        return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd, os: m.os))
     }
 
     private func ready(_ name: String) throws -> VMMachine {
         let m = try machine(name)
-        if let failed = text(name, "failed") { throw RPCError.invalidParams("\(name) wasn't made: \(failed)") }
+        if let failed = failure(name) { throw RPCError.invalidParams("\(name) wasn't made: \(failed)") }
         if making(name) != nil { throw RPCError.invalidParams("\(name) is still being made: `kelp vm list` shows how far.") }
         return m
     }
@@ -153,7 +173,7 @@ struct VMService: Sendable {
     }
 
     /// Starts the machine's `kelp-vm` unless it runs.
-    private func startHelper(_ m: VMMachine) throws {
+    func startHelper(_ m: VMMachine) throws {
         if status(m.name) != nil { return }
         let log = file(m.name, "helper.log").path
         guard FileManager.default.isExecutableFile(atPath: helper) else {
@@ -170,12 +190,12 @@ struct VMService: Sendable {
     }
 
     /// How it is, from its kelp-vm; nil when that isn't running.
-    private func status(_ name: String) -> VMHelper.Reply? {
+    func status(_ name: String) -> VMHelper.Reply? {
         do { return try ask(name, .init(op: .status), wait: 2) } catch { return nil }
     }
 
     /// One request to the machine's kelp-vm; `wait` seconds for its answer.
-    private func ask(_ name: String, _ r: VMHelper.Request, wait: TimeInterval) throws -> VMHelper.Reply {
+    func ask(_ name: String, _ r: VMHelper.Request, wait: TimeInterval) throws -> VMHelper.Reply {
         let fd = try Unix.connect(file(name, "ctl.sock").path)
         defer { close(fd) }
         guard Unix.writeAll(fd, try Wire.line(r)) else { throw RPCError.internalError("\(name)'s kelp-vm hung up") }
@@ -193,7 +213,14 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMHelper.Reply.self, from: line)
     }
 
-    private func check(_ r: VMHelper.Reply) throws {
+    /// Its kelp-vm gone, the machine off at once: before its folder is (deleted, or made again).
+    func quit(_ name: String) {
+        guard status(name) != nil else { return }
+        do { _ = try ask(name, .init(op: .quit), wait: 10) } catch { Log.vm.info("\(name) quit: \(error)") }   // it hangs up as it goes
+        for _ in 0..<50 where status(name) != nil { usleep(100_000) }
+    }
+
+    func check(_ r: VMHelper.Reply) throws {
         guard let e = r.error else { return }
         guard e.contains("entitlement") else { throw RPCError.internalError(e) }
         // A debug build: `swift build` links kelp-vm anew, without the entitlement scripts/bundle.sh signs it with.
@@ -201,7 +228,7 @@ struct VMService: Sendable {
             + "codesign --force --sign - --entitlements Resources/KelpVM.entitlements \(helper)")
     }
 
-    private func remove(_ u: URL) {
+    func remove(_ u: URL) {
         guard FileManager.default.fileExists(atPath: u.path) else { return }
         Log.vm.attempt("removing \(u.path)") { try FileManager.default.removeItem(at: u) }
     }
@@ -220,13 +247,15 @@ struct VMService: Sendable {
             throw RPCError.invalidParams("No image \(id). There are: \(VMImage.all.map(\.id).joined(separator: ", ")).")
         }
         let cores = ProcessInfo.processInfo.activeProcessorCount, gib = Int(ProcessInfo.processInfo.physicalMemory >> 30)
-        let cpus = r.cpus ?? 2, memory = r.memory ?? 2, disk = r.disk ?? 32
+        let mac = image.os == "macos"
+        let cpus = r.cpus ?? (mac ? 4 : 2), memory = r.memory ?? (mac ? 6 : 2), disk = r.disk ?? (mac ? 64 : 32)
         guard (1...cores).contains(cpus), (1...max(1, gib / 2)).contains(memory), (8...2048).contains(disk) else {
             throw RPCError.invalidParams("--cpus 1–\(cores), --memory 1–\(max(1, gib / 2)) GB, --disk 8–2048 GB.")
         }
-        let m = VMMachine(name: r.name, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk, user: VMs.user(NSUserName()))
+        let m = VMMachine(name: r.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
+                          user: VMs.user(NSUserName()), rosetta: !mac)
         let f = folder(m.name)
-        if text(m.name, "failed") != nil { try FileManager.default.removeItem(at: f) }   // an earlier try's remains
+        if failure(m.name) != nil { quit(m.name); try FileManager.default.removeItem(at: f) }   // an earlier try's remains
         try Paths.ensure(root)
         do { try FileManager.default.createDirectory(at: f, withIntermediateDirectories: false) } catch CocoaError.fileWriteFileExists {
             throw RPCError.invalidParams("There's already a machine called \(m.name).")
@@ -234,29 +263,38 @@ struct VMService: Sendable {
         chmod(f.path, 0o700)
         step(m, "Getting \(image.title)")
         try JSONEncoder().encode(m).write(to: file(m.name, "machine.json"))
-        Task.detached { await self.make(m, image) }
+        Task.detached { if mac { await self.makeMac(m) } else { await self.make(m, image) } }
         return info(m)
     }
 
-    private func step(_ m: VMMachine, _ text: String) {
-        Log.vm.attempt("noting \(m.name)'s progress") { try Data(text.utf8).write(to: file(m.name, "creating")) }
+    func step(_ m: VMMachine, _ text: String) {
+        Log.vm.attempt("noting \(m.name)'s progress") { try Data(text.utf8).write(to: file(m.name, "creating"), options: .atomic) }
     }
 
     private func make(_ m: VMMachine, _ image: VMImage) async {
-        do {
+        await making(m) {
             let raw = try await self.image(image) { step(m, $0) }
             step(m, "Making its disk")
-            try makeFolder(m, from: raw)
+            try await blocking { try makeFolder(m, from: raw) }
             step(m, "Starting for the first time")
-            try startHelper(m)
-            try check(ask(m.name, .init(op: .start), wait: 620))
-            remove(file(m.name, "creating"))
-        } catch {
+            try await blocking { try startHelper(m); try check(ask(m.name, .init(op: .start), wait: 620)) }
+        }
+    }
+
+    /// Slow work that waits on a program or a socket: on a thread of its own, never one of Swift's few pool threads.
+    func blocking<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { c in Thread.detachNewThread { c.resume(with: Result { try work() }) } }
+    }
+
+    /// Runs the steps of making `m`; its `creating` file goes when they end, and why they failed stays in `failed`.
+    func making(_ m: VMMachine, _ steps: () async throws -> Void) async {
+        do { try await steps() } catch {
             Log.vm.error("making \(m.name): \(error)")
+            quit(m.name)   // a machine half made holds memory and a disk for nothing
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             Log.vm.attempt("noting why \(m.name) failed") { try Data(why.utf8).write(to: file(m.name, "failed")) }
-            remove(file(m.name, "creating"))
         }
+        remove(file(m.name, "creating"))
     }
 
     /// The image's raw disk, downloaded and checked the first time.
@@ -273,15 +311,18 @@ struct VMService: Sendable {
         let (tmp, _) = try await URLSession.shared.download(from: url, delegate: watcher)
         defer { remove(tmp) }
         progress("Checking \(image.title)")
-        guard try Self.sha512(tmp) == want else { throw RPCError.internalError("\(name) doesn't match its published checksum: not used") }
+        guard try await blocking({ try Self.sha512(tmp) }) == want else {
+            throw RPCError.internalError("\(name) doesn't match its published checksum: not used")
+        }
         progress("Unpacking \(image.title)")
-        let dir = images.appendingPathComponent(".unpack-" + image.id)
-        remove(dir)
+        let dir = images.appendingPathComponent(".unpack-\(image.id)-\(UUID().uuidString.prefix(8))")   // another make may unpack too
         try Paths.ensure(dir)
         defer { remove(dir) }
         let out = try await Subprocess.run(["/usr/bin/tar", "-xf", tmp.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
         guard out.status == 0 else { throw RPCError.internalError("tar: " + String(decoding: out.stderr, as: UTF8.self)) }
-        try FileManager.default.moveItem(at: dir.appendingPathComponent(image.member), to: raw)
+        if !FileManager.default.fileExists(atPath: raw.path) {   // else another make unpacked it first
+            try FileManager.default.moveItem(at: dir.appendingPathComponent(image.member), to: raw)
+        }
         return raw
     }
 
@@ -315,22 +356,29 @@ struct VMService: Sendable {
         try VMs.sshConfig(m, folder: folder(m.name)).write(to: file(m.name, "ssh_config"), atomically: true, encoding: .utf8)
     }
 
-    private func run(_ argv: [String]) throws {
-        let out = try Subprocess.run(argv, cwd: "/", env: [:], timeLimit: 60)
+    /// A program's output; its error when it fails.
+    @discardableResult
+    func run(_ argv: [String], limit: TimeInterval = 60) throws -> String {
+        let out = try Subprocess.run(argv, cwd: "/", env: [:], timeLimit: limit)
         guard out.status == 0 else {
             throw RPCError.internalError((argv[0] as NSString).lastPathComponent + ": " + String(decoding: out.stderr, as: UTF8.self))
         }
+        return String(decoding: out.stdout, as: UTF8.self)
     }
 }
 
 /// A download's progress, as it goes (URLSession's async download reports only the end).
 private final class DownloadProgress: NSObject, URLSessionTaskDelegate, Sendable {
     let report: @Sendable (Double) -> Void
-    private let watching = OSAllocatedUnfairLock<NSKeyValueObservation?>(initialState: nil)
+    private let watching = OSAllocatedUnfairLock<(NSKeyValueObservation?, percent: Int)>(initialState: (nil, -1))
     init(_ report: @escaping @Sendable (Double) -> Void) { self.report = report }
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        let o = task.progress.observe(\.fractionCompleted) { [report] p, _ in report(p.fractionCompleted) }
-        watching.withLock { $0 = o }
+        let o = task.progress.observe(\.fractionCompleted) { [weak self, report] p, _ in
+            let percent = Int(p.fractionCompleted * 100)   // a percent at a time, not every few kilobytes
+            guard self?.watching.withLock({ w in defer { w.percent = percent }; return w.percent != percent }) == true else { return }
+            report(p.fractionCompleted)
+        }
+        watching.withLock { $0.0 = o }
     }
 }
 
@@ -343,10 +391,16 @@ extension VMDetailRead: Handled {
 }
 
 extension VMCreate: Handled {
+    /// It downloads gigabytes and takes memory from every chat's budget: the user's to decide.
+    var notForAgents: String? { "Making a machine is the user's: they run kelp vm create in a terminal of theirs." }
     func handle(_ vms: VMService) throws -> VMInfo { try vms.create(self) }
 }
 
 extension VMControl: Handled {
+    /// Other chats run commands in it: shutting it down or deleting it is the user's (sleeping is fine: the next command wakes it).
+    var notForAgents: String? {
+        [.stop, .delete].contains(action) ? "Shutting a machine down or deleting it is the user's: other chats may be running in it." : nil
+    }
     func handle(_ vms: VMService) throws -> VMInfo { try vms.control(name, action) }
 }
 

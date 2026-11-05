@@ -65,9 +65,22 @@ public struct VMDetail: Codable, Sendable, Equatable {
     public var ports: [Int]
     public var runs: [Run]
     public var folders: [String]
+    /// A macOS machine's Kelp Guest: whether it may record the screen and act on it, and whose turn the screen is. Nil:
+    /// not a macOS machine, or Kelp Guest isn't in it.
+    public var guest: Guest?
 
-    public init(address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = []) {
-        self.address = address; self.ports = ports; self.runs = runs; self.folders = folders
+    public init(address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = [], guest: Guest? = nil) {
+        self.address = address; self.ports = ports; self.runs = runs; self.folders = folders; self.guest = guest
+    }
+
+    public struct Guest: Codable, Sendable, Equatable {
+        /// False too while Kelp Guest isn't running (its permissions can't be told then).
+        public var running: Bool, screenRecording: Bool, accessibility: Bool
+        /// The session whose turn the screen is, while it lasts.
+        public var screen: String?
+        public init(running: Bool, screenRecording: Bool = false, accessibility: Bool = false, screen: String? = nil) {
+            self.running = running; self.screenRecording = screenRecording; self.accessibility = accessibility; self.screen = screen
+        }
     }
 
     /// A `kelp vm run`: its command ("" for a shell), how long it has run, and the Kelp session that ran it.
@@ -116,10 +129,13 @@ public struct VMCreate: RPCMethod {
 }
 
 /// `start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop`
-/// shuts it down (what ran inside ends).
+/// shuts it down (what ran inside ends); `delete` stops it and removes it, its disk and all. Stop and delete are the user's.
 public struct VMControl: RPCMethod {
     public static let name = "vm.control"; public typealias Result = VMInfo
-    public enum Action: String, Codable, Sendable, CaseIterable { case start, sleep, stop }
+    /// A start can boot: up to a few minutes, more than a call's usual deadline.
+    public static var timeout: TimeInterval? { 900 }
+    /// `show`: its screen in a window of its own (a macOS machine's), woken first.
+    public enum Action: String, Codable, Sendable, CaseIterable { case start, sleep, stop, show, delete }
     public var name: String, action: Action
     public init(name: String, action: Action) { self.name = name; self.action = action }
 }
@@ -135,15 +151,18 @@ public struct VMConnect: RPCMethod {
 /// An image a machine can start from: a distribution's own cloud image, checked against its published checksums.
 public struct VMImage: Sendable, Equatable {
     public var id: String, title: String
-    /// The archive and the checksum file that lists it (SHA-512).
+    /// The archive and the checksum file that lists it (SHA-512). macOS has neither: Apple's latest restore image for this
+    /// Mac is asked for when it's made (`kelp-vm --latest`), and the installer checks Apple's signature on it.
     public var url: String, sums: String
     /// The raw disk inside the archive.
     public var member: String
+    public var os = "linux"
 
     public static let all = [
         VMImage(id: "debian-13", title: "Debian 13",
                 url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
-                sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw")
+                sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
+        VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos")
     ]
     public static func named(_ id: String) -> VMImage? { all.first { $0.id == id } }
 }
@@ -151,7 +170,8 @@ public struct VMImage: Sendable, Equatable {
 /// Between the daemon and a machine's `kelp-vm`: one JSON line each way on its ctl.sock.
 public enum VMHelper {
     public struct Request: Codable, Sendable {
-        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share }
+        /// `quit`: the machine off at once, and its kelp-vm gone (its folder is about to be).
+        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share, show, quit }
         public var op: Operation
         /// `share`: the folder here; the answer's `slot` says which of the machine's shares holds it.
         public var path: String?
@@ -234,7 +254,14 @@ public enum VMs {
 
             """
         }
-        return host(m.name, "ssh.sock") + host(m.name + "-own", "own.sock")
+        // Kelp's own reads come every few seconds while it's watched: over one connection kept a minute, not a handshake each.
+        let reuse = """
+              ControlMaster auto
+              ControlPath "\(folder.appendingPathComponent("own.cm").path)"
+              ControlPersist 60
+
+            """
+        return host(m.name, "ssh.sock") + host(m.name + "-own", "own.sock") + reuse
     }
 
     /// Folders shared at once: a virtio-fs device each (tag `kelp<n>`), since giving one device a new set of folders
@@ -243,10 +270,15 @@ public enum VMs {
 
     /// The command line run inside: `folder` mounted at its own path from its slot (again when that path holds another
     /// slot, or went stale), then `cwd`, then the command.
-    public static func prefix(slot: Int, folder: String, cwd: String) -> String {
-        let f = shellQuoted(folder), tag = "kelp\(slot)"
-        return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(f))\" = \(tag) ] && ls \(f) >/dev/null 2>&1; } "
-            + "|| { sudo umount -l \(f) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(f); } || exit 1; cd \(shellQuoted(cwd)) || exit 1; "
+    public static func prefix(slot: Int, folder: String, cwd: String, os: String = "linux") -> String {
+        let f = shellQuoted(folder), tag = "kelp\(slot)", cd = "cd \(shellQuoted(cwd)) || exit 1; "
+        guard os == "macos" else {
+            return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(f))\" = \(tag) ] && ls \(f) >/dev/null 2>&1; } "
+                + "|| { sudo umount -l \(f) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(f); } || exit 1; " + cd
+        }
+        // macOS: mount(8) lists it as "kelp3 on /path (virtiofs, …)"; mount_virtiofs needs the folder there first.
+        return "{ mount | grep -qF \(shellQuoted("\(tag) on \(folder) (")) && ls \(f) >/dev/null 2>&1; } "
+            + "|| { sudo umount -f \(f) 2>/dev/null; sudo mkdir -p \(f) && sudo mount_virtiofs \(tag) \(f); } || exit 1; " + cd
     }
 
     /// What the guest keeps beyond what it uses, so a build that starts doesn't wait for memory.
@@ -262,49 +294,80 @@ public enum VMs {
         return abs(want - targetMiB) < 256 ? targetMiB : want
     }
 
-    /// What runs after `prefix`: the command (a login shell for none) under bash's login profile, marked with the Kelp
-    /// session it comes from ("-" for none), which `detailScript` reads back.
+    /// What runs after `prefix`: the command (a login shell for none) under bash's login profile, its name (argv[0])
+    /// `kelp-vm-run:<session>` ("-" for none), which `detailScript` finds with ps on Linux and macOS alike. The EXIT trap
+    /// keeps that bash: without one it would exec a lone command in its place, name and all.
     public static func command(_ command: String, session: String?) -> String {
-        let run = "exec env KELP_VM_RUN=\(shellQuoted(session ?? "-")) bash -l"
-        return command.isEmpty ? run : run + " -c " + shellQuoted(command)
+        let id = (session ?? "-").filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        let run = "exec -a kelp-vm-run:\(id.isEmpty ? "-" : id) bash -l"
+        return command.isEmpty ? run : run + " -c " + shellQuoted(trapped + command)
     }
+    static let trapped = "trap : EXIT; "
 
-    /// Run inside over `<name>-own`: its address, the TCP ports the account's own programs listen on (ss names only those;
-    /// the system's DNS isn't news), then each `kelp vm run` still
-    /// going (the top process marked KELP_VM_RUN: pid, seconds, session, command line), sections split by "@".
+    /// Run inside over `<name>-own`: its address, the TCP ports the account's own programs listen on (the system's DNS
+    /// isn't news), then each `kelp vm run` still going (pid, elapsed, its argv), sections split by "@". Linux and macOS.
     public static let detailScript = #"""
-        hostname -I 2>/dev/null | cut -d' ' -f1
+        { hostname -I 2>/dev/null || ipconfig getifaddr en0; } | cut -d' ' -f1
         echo @
-        ss -ltnpH 2>/dev/null | grep 'users:' | awk '{n=split($4,a,":"); print a[n]}' | sort -un
+        if command -v ss >/dev/null; then ss -ltnpH 2>/dev/null | grep 'users:' | awk '{n=split($4,a,":"); print a[n]}'
+        else lsof -nP -iTCP -sTCP:LISTEN -a -u "$(id -u)" 2>/dev/null | awk 'NR>1 {n=split($9,a,":"); print a[n]}'; fi | sort -un
         echo @
-        ps -u "$(id -u)" -o pid=,ppid=,etimes= | while read pid ppid secs; do
-          r=$(tr '\0' '\n' < /proc/$pid/environ 2>/dev/null | sed -n 's/^KELP_VM_RUN=//p'); [ -n "$r" ] || continue
-          tr '\0' '\n' < /proc/$ppid/environ 2>/dev/null | grep -q '^KELP_VM_RUN=' && continue
-          printf '%s\t%s\t%s\t%s\n' "$pid" "$secs" "$r" "$(tr '\0' ' ' < /proc/$pid/cmdline)"
-        done
+        ps -U "$(id -u)" -o pid=,etime=,args= | awk '$3 ~ /^kelp-vm-run:/'
+        g="$HOME/Applications/KelpGuest.app/Contents/MacOS/KelpGuest"
+        [ -x "$g" ] && { echo @; "$g" status 2>&1 || echo "not running"; }
         """#
 
     public static func parseDetail(_ text: String) -> VMDetail {
-        let parts = text.components(separatedBy: "\n@\n")
-        let lines = { (i: Int) in parts.count > i ? parts[i].split(separator: "\n").map(String.init) : [] }
+        // Sections a line "@" apart; an empty one is two such lines in a row.
+        var parts: [[String]] = [[]]
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line == "@" { parts.append([]) } else if !line.isEmpty { parts[parts.count - 1].append(String(line)) }
+        }
+        let lines = { (i: Int) in parts.count > i ? parts[i] : [] }
         var d = VMDetail(address: lines(0).first.flatMap { $0.isEmpty ? nil : $0 })
         d.ports = lines(1).compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-        d.runs = lines(2).compactMap { line in
-            let f = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
-            guard f.count == 4, let pid = Int(f[0]), let secs = Int(f[1]) else { return nil }
-            var cmd = f[3].trimmingCharacters(in: .whitespaces)
-            for shell in ["bash -l -c ", "bash -l"] where cmd.hasPrefix(shell) { cmd = String(cmd.dropFirst(shell.count)); break }
-            return VMDetail.Run(pid: pid, seconds: secs, session: f[2] == "-" ? nil : f[2], command: cmd.trimmingCharacters(in: .whitespaces))
+        d.runs = lines(2).compactMap(run)
+        if parts.count > 3 {
+            let g = lines(3)
+            func on(_ key: String) -> Bool { g.contains("\(key): on") }
+            let screen = g.first { $0.hasPrefix("screen: ") }.map { String($0.dropFirst("screen: ".count)) }
+            d.guest = .init(running: !g.contains("not running") && !g.isEmpty, screenRecording: on("screen recording"),
+                            accessibility: on("accessibility"), screen: screen == "free" ? nil : screen)
         }
         return d
     }
+
+    /// "  812     01:02:41 kelp-vm-run:abc -l -c npm test" → pid, seconds, session, command.
+    static func run(_ line: String) -> VMDetail.Run? {
+        let f = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true).map(String.init)
+        guard f.count == 3, let pid = Int(f[0]), f[2].hasPrefix("kelp-vm-run:") else { return nil }
+        let argv = f[2].dropFirst("kelp-vm-run:".count)
+        let session = String(argv.prefix { $0 != " " })
+        var command = argv.dropFirst(session.count).trimmingCharacters(in: .whitespaces)
+        for flags in ["-l -c " + trapped, "-l -c ", "-l"] where command.hasPrefix(flags) { command = String(command.dropFirst(flags.count)); break }
+        return VMDetail.Run(pid: pid, seconds: seconds(f[1]), session: session == "-" ? nil : session, command: command)
+    }
+
+    /// ps's elapsed time, "[[dd-]hh:]mm:ss", in seconds.
+    static func seconds(_ etime: String) -> Int {
+        let dayParts = etime.split(separator: "-")
+        let days = dayParts.count == 2 ? Int(dayParts[0]) ?? 0 : 0
+        let clock = (dayParts.last ?? "").split(separator: ":").compactMap { Int($0) }
+        return days * 86400 + clock.reduce(0) { $0 * 60 + $1 }
+    }
+
+    /// Kelp Guest's program inside a macOS machine (`kelp vm screenshot`, `click`…), run over SSH.
+    public static let guestProgram = "\"$HOME/Applications/KelpGuest.app/Contents/MacOS/KelpGuest\""
 
     public static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'" }
 
     /// Whether `path` may be shared with a machine: a folder below the home folder, not the home folder itself or above.
     public static func mayShare(_ path: String) -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
-        let p = URL(fileURLWithPath: path).standardizedFileURL.path
-        return p.hasPrefix(home + "/") && ![".ssh", ".kelp", "Library"].contains(p.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
+        func inside(_ p: String) -> Bool {
+            p.hasPrefix(home + "/") && ![".ssh", ".kelp", "Library"].contains(p.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
+        }
+        // Where it really is too: a link in a project to ~/.ssh shares ~/.ssh.
+        return inside(URL(fileURLWithPath: path).standardizedFileURL.path) && Paths.real(path).map(inside) != false
     }
 }
