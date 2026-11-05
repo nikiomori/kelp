@@ -19693,6 +19693,39 @@
           }
         }
       }
+    },
+    "Allow downloads from %@?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить загрузки с %@?"
+          }
+        }
+      }
+    },
+    "Its files go to your Downloads folder.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы попадут в папку «Загрузки»."
+          }
+        }
+      }
+    },
+    "Don't Allow": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не разрешать"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
