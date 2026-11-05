@@ -167,7 +167,8 @@ extension GitUndoDiscard: Handled {
             throw RPCError.invalidParams("There's no discard to undo here any more.")
         }
         do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
-            throw RPCError.invalidParams("The files changed since the discard, so nothing was put back.")
+            let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
+            throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
         }
         return Done()
     }

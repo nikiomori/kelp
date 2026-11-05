@@ -169,7 +169,12 @@ extension Git {
         } catch {
             throw GitError(args: ["diff"], status: 1, stderr: "This change is too big to keep for Undo, so Kelp left it as it is.")
         }
-        if !u.isEmpty { try run(["clean", "-f", "-q", "--"] + literal(u), cwd: path, remotes: remotes) }
+        // New files go to the Trash on this Mac: should Undo fail, they are still there to put back.
+        if remotes.of(path) == nil {
+            for f in u { try Trash.move(URL(fileURLWithPath: path).appendingPathComponent(f)) }
+        } else if !u.isEmpty {
+            try run(["clean", "-f", "-q", "--"] + literal(u), cwd: path, remotes: remotes)
+        }
         if !t.isEmpty { try run(["restore", "--worktree", "--"] + literal(t), cwd: path, remotes: remotes) }
         return back
     }

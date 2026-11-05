@@ -16,8 +16,9 @@ package enum Banner {
 
     /// `action`: one button beside the text (e.g. "Open Settings"); the banner stays a little longer. `title`, `subtitle`
     /// and `icon`: what an agent's banner leads with (its name and what it did, where, its icon), the text under them.
+    /// `lasts`: seconds on screen, when its action holds for a known time (an Undo the daemon keeps a minute).
     package static func show(_ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil,
-                             title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil) {
+                             title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil) {
         guard let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }), let stack = stack(in: window) else { return }
         // A known error carries its fix: the command, and a button that copies it.
         let fix = style == .error ? FixRecipes.fix(for: text) : nil
@@ -42,7 +43,7 @@ package enum Banner {
         NSAccessibility.post(element: window, notification: .announcementRequested,
                              userInfo: [.announcement: [title, text].compactMap { $0 }.joined(separator: ". "),
                                         .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue])
-        if !card.stays { card.leave(after: action != nil ? 10 : style == .error ? 6 : 4) }
+        if !card.stays { card.leave(after: lasts ?? (action != nil ? 10 : style == .error ? 6 : 4)) }
     }
 
     /// The column banners stack in, made once per window in the corner of the editor area (or of the window, without one).

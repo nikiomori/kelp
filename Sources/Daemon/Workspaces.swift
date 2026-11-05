@@ -25,8 +25,8 @@ final class Workspaces: Sendable {
     /// Keeps `d` under `name` in `folder`, dropping what's past its minute.
     func keepDiscard(_ d: Discarded, folder: String, name: String?) {
         discarded.withLock { all in
-            all[folder] = (all[folder] ?? [:]).filter { $0.value.at.timeIntervalSinceNow > -60 }
-            all[folder]?[name ?? ""] = d
+            all = all.mapValues { $0.filter { $0.value.at.timeIntervalSinceNow > -60 } }.filter { !$0.value.isEmpty }   // every folder's
+            all[folder, default: [:]][name ?? ""] = d
         }
     }
     struct Discarded: Sendable {

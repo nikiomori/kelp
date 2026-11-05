@@ -288,6 +288,25 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     #expect(FileManager.default.fileExists(atPath: repo + "/p/d.tsx"))   // "[id]" isn't "i" or "d"
 }
 
+/// Discard's Undo puts back what went, whatever diff tool the user set up for reading (difftastic as diff.external, a
+/// textconv driver); a new file waits in the Trash besides, should the Undo be refused.
+@Test func aDiscardComesBackWithAnExternalDiffSetUp() throws {
+    let repo = try tempRepo()
+    try Git.run(["config", "diff.external", "/usr/bin/true"], cwd: repo)
+    try "*.txt diff=upper\n".write(toFile: repo + "/.git/info/attributes", atomically: true, encoding: .utf8)
+    try Git.run(["config", "diff.upper.textconv", "tr a-z A-Z <"], cwd: repo)
+    let before = try String(contentsOfFile: repo + "/f.txt", encoding: .utf8)
+    try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+    try "new\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
+    let back = try Git.discard(repo, files: ["f.txt", "n.txt"])
+    #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == before && !FileManager.default.fileExists(atPath: repo + "/n.txt"))
+    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+    #expect(try FileManager.default.subpathsOfDirectory(atPath: trash).contains { $0.hasSuffix("/n.txt") })
+    try Git.putBack(repo, patch: back, hunk: false)
+    #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == "mine\n")
+    #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "new\n")
+}
+
 @Test func commitAllTakesNewFilesButNotConflicts() throws {
     let repo = try tempRepo()
     try "changed\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)

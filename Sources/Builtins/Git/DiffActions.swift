@@ -129,13 +129,13 @@ extension DiffViewController {
 }
 
 extension AppModel {
-    /// After a discard: a banner whose Undo puts it back while the daemon keeps it (a minute; the banner stays 10 s).
+    /// After a discard: a banner whose Undo puts it back, on screen as long as the daemon keeps it (a minute).
     func offerUndoDiscard(_ text: String, worktree wid: String, undo: String, then reload: @escaping @MainActor () async -> Void = {}) {
         Banner.show(text, action: (String(localized: "Undo"), { [self] in
             Task {
                 if await call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
                 watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
             }
-        }))
+        }), lasts: 60)
     }
 }

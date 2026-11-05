@@ -47,12 +47,12 @@ extension SourceControlController {
         let name = (files[0].path as NSString).lastPathComponent
         if files.count == 1, files[0].untracked {
             a.messageText = String(localized: "Delete “\(name)”?")
-            a.informativeText = String(localized: "Git doesn't track this file: Undo right after is the only way back.")
+            a.informativeText = String(localized: "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash.")
             a.addButton(withTitle: String(localized: "Delete File")).hasDestructiveAction = true
         } else {
             a.messageText = files.count == 1 ? String(localized: "Discard changes in “\(name)”?") : String(localized: "Discard all \(files.count) changes?")
-            a.informativeText = String(localized: "You can undo it for a few seconds.")
-                + (files.contains(where: \.untracked) ? String(localized: " Untracked files are deleted.") : "")
+            a.informativeText = String(localized: "You can undo it for a minute.")
+                + (files.contains(where: \.untracked) ? String(localized: " Untracked files go to the Trash.") : "")
             a.addButton(withTitle: files.count == 1 ? String(localized: "Discard Changes") : String(localized: "Discard \(files.count) Changes"))
                 .hasDestructiveAction = true
         }
