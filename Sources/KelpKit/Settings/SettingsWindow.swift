@@ -99,7 +99,7 @@ private struct SettingsIcon: View {
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
-    static let tint: [String: Color] = ["appearance": .blue, "window": .indigo, "agents": .purple, "catalog": .mint, "notifications": .pink,
+    static let tint: [String: Color] = ["appearance": .blue, "agents": .purple, "catalog": .mint, "notifications": .pink,
                                         "terminal": Color(nsColor: .darkGray), "editor": .teal, "git": .orange, "integrations": .green,
                                         "keyboard": .gray, "extensions": .gray]
 }

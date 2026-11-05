@@ -77,7 +77,7 @@ extension Builtins {
                   options: ["questions", "failures", "all"], group: "Dock"),
                 s("agents.dockStrip.fullScreen", "Over full-screen apps", "boolean", true, "Off: a film or a talk stays clear of it; a banner still tells you.",
                   group: "Dock"),
-                s("agents.dockIcon", "Dock icon", "enum", "icon", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
+                s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
                   options: ["icon", "agents", "usage"], group: "Dock"),
                 s("phone.url", "Phone notifications (ntfy address)", "string", "",
                   "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.", group: "Phone"),

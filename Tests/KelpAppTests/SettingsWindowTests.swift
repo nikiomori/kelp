@@ -37,9 +37,12 @@ import Testing
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
     let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
-    #expect(sections.prefix(10).map(\.id) == ["appearance", "window", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
-    let window = sections.first { $0.id == "window" }
+    #expect(sections.prefix(9).map(\.id) == ["appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
+    let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
     #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == false)
     #expect(sections.first { $0.id == "git" }?.groups.map(\.0) == [nil, "CI"])
+    // One row per key: the Dock icon sat in two sections with two defaults.
+    let keys = sections.flatMap(\.specs).map(\.key)
+    #expect(Set(keys).count == keys.count)
 }

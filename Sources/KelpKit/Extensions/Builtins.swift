@@ -38,9 +38,9 @@ package enum Builtins {
     package static let appearance = Builtin("kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
                                             icon: "paintpalette", essential: true) { _ in
         var c = Contributions()
+        // Everything you see in one place: the theme and text first, then how the sidebar and the window look; what is set
+        // once (file icons, language) last.
         c.settings = [SettingsSection(id: "appearance", title: "Appearance", icon: "paintpalette", specs: [
-            s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
-              options: ["system", "en", "ru"]),
             s("workbench.theme", "Color theme", "theme", "auto",
               "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."),
             s("workbench.textSize", "Text size", "enum", "normal",
@@ -48,31 +48,31 @@ package enum Builtins {
               options: ["normal", "large", "larger"]),
             s("terminal.opacity", "Terminal opacity", "enum", "theme",
               "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
-              options: ["theme", "100", "90", "80", "70", "60", "50", "40"]),
-            s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
-              "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…")
-        ], order: 10), SettingsSection(id: "window", title: "Window", icon: "macwindow", specs: [
+              options: ["theme", "100", "90", "80", "70", "60", "50", "40"])
+        ] + sidebar + inspector + [
             s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
-              "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way."),
-            s("agents.dockIcon", "Dock icon", "enum", "agents", "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
-              options: ["agents", "usage", "icon"])
-        ] + sidebar + inspector, order: 20), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
-                                                             custom: { AnyView(KeyboardSettings()) }, order: 95)]
+              "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
+            s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
+              "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window"),
+            s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
+              options: ["system", "en", "ru"], group: "Window")
+        ], order: 10), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
+                                       custom: { AnyView(KeyboardSettings()) }, order: 95)]
         return c
     }
 
-    /// Window › Inspector. Where the icons sit is set on the icons, in their menu.
+    /// Appearance › Window: the inspector. Where the icons sit is set on the icons, in their menu.
     private static let inspector = [
         s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge.",
-          group: "Inspector"),
+          group: "Window"),
         s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
-          options: ["left", "center", "right"], group: "Inspector", hidden: true),
+          options: ["left", "center", "right"], group: "Window", hidden: true),
         s("workbench.inspectorIconsPosition", "Inspector icons position", "enum", "top",
           "Level with the tabs or under the panel. Drag an icon to move it; right-click the icons to hide them.",
-          options: ["top", "bottom"], group: "Inspector", hidden: true)
+          options: ["top", "bottom"], group: "Window", hidden: true)
     ]
 
-    /// Window › Sidebar: what people see differently in the list, each read where the sidebar draws it.
+    /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.
     private static let sidebar = [
         s("workbench.sidebar.autoHide", "Auto-hide sidebar", "boolean", false, "Comes in while the pointer is at the window's left edge, like the Dock.",
           group: "Sidebar"),
