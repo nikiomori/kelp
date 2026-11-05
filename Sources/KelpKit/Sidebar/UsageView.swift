@@ -183,8 +183,11 @@ struct UsageView: View {
                             }
                             .font(.caption).foregroundStyle(.secondary)
                         }
-                        if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resets.flatMap { ResetTime.parse($0) }) {
+                        if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resetAt, window: l.window) {
                             Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(Color.textOrange)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else if !row.stale, LimitForecast.unusedNearReset(percent: l.used * 100, resetAt: l.resetAt, window: l.window) {
+                            Text("Over half left; what isn't used by the reset is lost.").font(.caption).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

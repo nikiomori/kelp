@@ -28,3 +28,26 @@ import Core
     #expect(UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now - 60, window: 7 * day).pace(now: now) == nil)
     #expect(UsageView.window("week · Fable") == 7 * day && UsageView.window("Gemini week") == 7 * day && UsageView.window("daily") == nil)
 }
+
+@Test func limitForecastTellsFromOneReadingByTheWindowsAverage() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000), week = 7 * 86400.0
+    let key = LimitForecast.key("claude", "week")
+    var f = LimitForecast()
+    f.record(.init(claude: [], codex: [], plans: ["claude": [.init(kind: "week", percent: 60, resets: nil)]]), now: now)
+    // 3 of 7 days gone at 60 %: 20 points a day, full in 2 days, before the reset in 4.
+    let reset = now.addingTimeInterval(4 * 86400)
+    #expect(abs((f.untilFull(key, resetAt: reset, window: week, now: now) ?? 0) - 2 * 86400) < 1)
+    #expect(abs((f.atReset(key, resetAt: reset, window: week, now: now) ?? 0) - 140) < 0.001)
+    #expect(f.warning(key, resetAt: reset, window: week, now: now) == nil)   // more than a day away
+    #expect(f.untilFull(key, resetAt: now.addingTimeInterval(week - 600), window: week, now: now) == nil)   // the window just began
+    #expect(f.untilFull(key, resetAt: reset, now: now) == nil)              // no window, no average
+}
+
+@Test func onlyLongWindowsWithMostLeftCountAsUnusedAtTheReset() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000), week = 7 * 86400.0
+    #expect(LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))
+    #expect(!LimitForecast.unusedNearReset(percent: 60, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))   // most used
+    #expect(!LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(30 * 3600), window: week, now: now))   // not yet
+    #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: now.addingTimeInterval(3600), window: 5 * 3600, now: now))     // a session
+    #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: nil, window: week, now: now))
+}

@@ -183,11 +183,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private func forecastChanged(_ u: UsageGet.Result) {
         guard Int(app.settings.string("usage.alertAt") ?? "80") != nil else { return }
-        var now = Set<String>()
+        var read = Set<String>()
         for (agent, l, resetAt) in LimitAlerts.readings(u) {
-            let key = LimitForecast.key(agent, l.kind)
-            guard let eta = app.forecast.warning(key, resetAt: resetAt) else { continue }
-            now.insert(key)
+            let key = LimitForecast.key(agent, l.kind), window = UsageView.window(l.kind)
+            read.insert(key)
+            // Told again only once its pace eases to 90 % at the reset: a pace that wobbles around full isn't news each read.
+            if app.forecast.atReset(key, resetAt: resetAt, window: window).map({ $0 <= 90 }) ?? true { forecastTold.remove(key) }
+            unusedNearReset(agent, l, resetAt: resetAt, window: window)
+            guard let eta = app.forecast.warning(key, resetAt: resetAt, window: window) else { continue }
             guard forecastTold.insert(key).inserted else { continue }
             let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
             let c = UNMutableNotificationContent()
@@ -198,7 +201,27 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
             }
         }
-        forecastTold.formIntersection(now)
+        forecastTold.formIntersection(read)
+    }
+
+    /// A week (or month) that resets within a day with over half left, once per window: kept across launches, since the
+    /// day it holds is long enough to see Kelp quit and open again.
+    private func unusedNearReset(_ agent: String, _ l: UsageGet.Limit, resetAt: Date?, window: TimeInterval?) {
+        guard LimitForecast.unusedNearReset(percent: l.percent, resetAt: resetAt, window: window), let resetAt else { return }
+        let d = UserDefaults.standard, saved = "notifications.unusedTold", key = LimitForecast.key(agent, l.kind)
+        var told = d.dictionary(forKey: saved) as? [String: Double] ?? [:]
+        let now = Date().timeIntervalSince1970
+        guard (told[key].map { now - $0 > 86400 }) ?? true else { return }
+        told[key] = now
+        d.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
+        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
+        let c = UNMutableNotificationContent()
+        c.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
+        c.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
+        alert { [self] in
+            center?.add(UNNotificationRequest(identifier: "unused-\(key)", content: c, trigger: nil))
+            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+        }
     }
 
     /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.

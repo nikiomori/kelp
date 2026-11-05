@@ -18915,6 +18915,36 @@
           }
         }
       }
+    },
+    "%@: %lld %% of the %@ limit left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: осталось %2$lld %% лимита «%3$@»"
+          }
+        }
+      }
+    },
+    "Resets %@. What isn't used by then is lost.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сброс %@. Что не использовано к этому времени, сгорит."
+          }
+        }
+      }
+    },
+    "Over half left; what isn't used by the reset is lost.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Осталось больше половины; что не использовано к сбросу, сгорит."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
