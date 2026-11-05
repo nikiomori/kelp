@@ -309,6 +309,15 @@ public struct SessionTurnUndo: RPCMethod {
     }
 }
 
+/// What a finished Claude Code agent did and what's left, in a line, from a fork of its conversation that leaves the
+/// conversation as it was; kept as its summary. nil: not Claude Code, or it couldn't be asked.
+public struct SessionRecap: InternalMethod {
+    public static let name = "session.recap"; public typealias Result = String?
+    public static var timeout: TimeInterval? { 100 }
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
 /// The agent's last message, from its transcript.
 public struct SessionLastReply: RPCMethod {
     public static let name = "session.lastReply"; public typealias Result = String?

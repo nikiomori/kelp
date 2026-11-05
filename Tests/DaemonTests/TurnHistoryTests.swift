@@ -155,3 +155,13 @@ import Agents
     #expect(try await again.value == nil)
     #expect(Hooks.settingsJSON().contains(#""PermissionRequest":[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#))
 }
+
+/// A recap is asked only of Claude Code with a conversation to fork; any other session gets none and keeps its summary.
+@Test func aRecapIsOnlyForClaudeCode() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
+    let wt = try await desk(w, "recap")
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
+    #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
+    #expect(SessionRecap.prompt.contains("what is left"))
+}

@@ -27,6 +27,8 @@ extension Builtins {
                   options: ["0", "15", "30", "60", "240"]),
                 s("agents.updateIdle", "Update idle agents", "boolean", true,
                   "When Claude Code installs an update, an agent restarts into it once its turn is over, in the same conversation. Not while it asks you something, runs anything in the background, or has text in its prompt."),
+                s("agents.recap", "Recap when you're away", "boolean", true,
+                  "A Claude Code agent that finishes while nobody's at the Mac says what it did and what's left, from a fork of its conversation that leaves the conversation as it was. Uses a little of its plan."),
                 s("agents.childReports", "Report back to the parent agent", "boolean", true,
                   "When an agent starts another with kelp, the other's result or question comes to it as input."),
                 s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),

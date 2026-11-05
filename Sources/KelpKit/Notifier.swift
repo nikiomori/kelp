@@ -324,7 +324,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // Claude Code: its own last reply (the terminal around it — spinners, mode lines — reads as nonsense when summarized).
         // The Stop hook can come a moment before the transcript has the final message.
         try? await Task.sleep(for: .milliseconds(1200))
-        if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {
+        // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
+        if s.status == .done, s.agent == "claude", app.settings.bool("agents.recap") != false, !Presence.here(),
+           let line = await app.quiet(SessionRecap(id: s.id)) ?? nil {
+            s.summary = line
+        } else if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {
             let line = Self.firstSentence(reply)
             s.summary = line
             _ = await app.quiet(SessionAnnotate(id: s.id, summary: line, ifStatus: s.status.rawValue))
