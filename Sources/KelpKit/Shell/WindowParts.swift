@@ -364,10 +364,13 @@ final class WelcomeView: NSView {
         let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
         for case let b as NSButton in buttons.arrangedSubviews { b.bezelStyle = .push; b.controlSize = .large }
         chat.keyEquivalent = "\r"
-        let stack = NSStackView(views: [icon, title, body, buttons])
+        // First run: how it looks and who answers, picked here before anything else (the same tiles as in Settings).
+        let setup = hasRepos ? nil : NSHostingView(rootView: WelcomeSetup().environment(app))
+        let stack = NSStackView(views: [icon, title, body] + (setup.map { [$0] } ?? []) + [buttons])
         stack.orientation = .vertical
         stack.spacing = 10
-        stack.setCustomSpacing(18, after: body)
+        stack.setCustomSpacing(18, after: setup ?? body)
+        if setup != nil { stack.setCustomSpacing(24, after: body) }
         stack.translatesAutoresizingMaskIntoConstraints = false; addSubview(stack)
         NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: centerXAnchor),
                                      stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -30),

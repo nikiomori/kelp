@@ -10,16 +10,26 @@ struct ThemeGallery: View {
     /// What a theme covers, under the heading: below the gallery it was half a screen from anything it could be about.
     var about: String?
     var help: String?
+    /// The first row only (Match System, Ghostty, Kelp's own), as the welcome shows it; Settings has the rest.
+    var kelpOnly = false
     @Environment(AppModel.self) private var app
     @State private var classics = false
 
+    private var all: [Theme] { app.themes.themes }
+    private var kelp: [String] { ThemeManager.builtin.map(\.id) }
+    private var first: some View { grid(following(all) + all.filter { kelp.contains($0.id) }.map(card)) }
+
     var body: some View {
-        let all = app.themes.themes, kelp = ThemeManager.builtin.map(\.id), looks = Theme.looks.map(\.id), popular = Theme.popular.map(\.id)
+        if kelpOnly { first } else { gallery }
+    }
+
+    private var gallery: some View {
+        let looks = Theme.looks.map(\.id), popular = Theme.popular.map(\.id)
         let classic = all.filter { popular.contains($0.id) }
-        VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: Metrics.gap) { heading("Theme"); if let help { HelpMark(text: help) } }
             if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
-            grid(following(all) + all.filter { kelp.contains($0.id) }.map(card))
+            first
             heading("Looks")
             grid(all.filter { looks.contains($0.id) }.map(card))
             DisclosureGroup(isExpanded: Binding(get: { classics || classic.contains { $0.id == selection } }, set: { classics = $0 })) {

@@ -49,3 +49,11 @@ import Testing
     let enums = Set(sections.flatMap(\.specs).filter { $0.type == "enum" }.map(\.key))
     #expect(SettingPictures.keys.subtracting(enums).isEmpty)
 }
+
+/// The welcome's agents: the chosen one first, the best-known after, four at most.
+@MainActor @Test func theWelcomeOffersFourAgents() {
+    let installed = ["antigravity", "claude", "codex", "crush", "cursor", "pi"]
+    #expect(WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity"])
+    #expect(WelcomeSetup.firstAgents(installed, current: "pi") == ["pi", "claude", "codex", "cursor"])
+    #expect(WelcomeSetup.firstAgents(["crush"], current: "claude") == ["crush"])
+}
