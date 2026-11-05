@@ -23,10 +23,10 @@ let package = Package(
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
     ],
     targets: [
-        .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),
+        .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),   // docs link to both
                                           // iOS machines' runner, an Xcode project of its own (IOSRunner)
                                           .copy("Resources/runner-pbxproj.txt"), .copy("Resources/runner-scheme.txt"),
-                                          .copy("Resources/runner-app.txt"), .copy("Resources/runner-runner.txt")]),   // docs link to both
+                                          .copy("Resources/runner-app.txt"), .copy("Resources/runner-runner.txt")]),
         .target(name: "GitKit", dependencies: ["Core"]),
         .target(name: "Agents", dependencies: ["Core"]),
         .target(name: "AgentData", dependencies: ["Core"]),
