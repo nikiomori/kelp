@@ -184,8 +184,8 @@ final class SidebarRowView: NSTableRowView {
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it.
-    /// `remote`, a server's: no hatching any more (it was one more ground among the cards); its header says where.
+    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;
+    /// `remote`, a project on a host: hatched over that, so it reads as elsewhere whatever its colour.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
@@ -198,7 +198,10 @@ final class ProjectCard: NSView {
             needsDisplay = true
         }
     }
-    private var fill: NSColor? { look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest) }
+    private var fill: NSColor? {
+        let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
+        return look.remote ? Self.stripes(over: base) : base
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -210,6 +213,30 @@ final class ProjectCard: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = Metrics.radiusLG
         layer?.backgroundColor = fill?.cgColor
+    }
+
+    /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
+    /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
+    /// height of a row that was still arriving).
+    private static let stripe = NSColor.dynamic(light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
+    private static func stripes(over base: NSColor?) -> NSColor {
+        let side: CGFloat = 6
+        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+            if let base {
+                base.setFill()
+                r.fill()
+            }
+            stripe.setStroke()
+            for dx in [-side, 0, side] {
+                let p = NSBezierPath()
+                p.move(to: NSPoint(x: dx, y: 0))
+                p.line(to: NSPoint(x: dx + side, y: side))
+                p.lineWidth = 1.5
+                p.stroke()
+            }
+            return true
+        }
+        return NSColor(patternImage: tile)
     }
 
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.

@@ -65,6 +65,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// The list being shown, its open runs read again.
     private var applying: Task<Void, Never>?
     private let clock = CIClock()
+    private let history = CIHistoryStrip()
 
     override func loadView() {
         let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in self?.showMore() }
@@ -80,6 +81,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         workflowsButton.action = #selector(runWorkflow)
         webButton.action = #selector(showPages)
         webButton.isHidden = true
+        history.onPick = { [weak self] in self?.reveal($0) }
         let header = Bar.panel([branch], [workflowsButton, webButton, more])
 
         let col = NSTableColumn(identifier: .init("ci")); col.resizingMask = .autoresizingMask
@@ -111,7 +113,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.dividerStyle = .thin
         split.addArrangedSubview(scroll); split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
-        let v = stacked(header, split)
+        let v = stacked(header, history, split)
         empty.place(in: v, under: header)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
         bottom.isHidden = true
@@ -200,6 +202,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             clock.clear()
             outline.reloadData()
+            history.show(CIRuns.history(allRuns))
             for run in runs where open.contains(run.key ?? "") {
                 await expand(run, openFailed: false)
                 guard !Task.isCancelled else { return }
@@ -216,6 +219,15 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 await expand(item, openFailed: true)
             }
         }
+    }
+
+    /// A mark in the strip: its run, in the list.
+    private func reveal(_ run: CIRuns.Run) {
+        guard let item = runs.first(where: { $0.id == run.id }) else { return }
+        let row = outline.row(forItem: item)
+        guard row >= 0 else { return }
+        outline.selectRowIndexes([row], byExtendingSelection: false)
+        outline.scrollRowToVisible(row)
     }
 
     /// A run's jobs and the folds of their steps, top down, as they have to be opened.
@@ -412,11 +424,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         text.spacing = Metrics.lineGap
         for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
-        // Only each workflow's newest run says what its CI is now; older ones keep their shape in grey. History isn't
-        // state: a week of old red crosses round one failure read as a dozen.
-        let mark = CIRunLook.mark(r.status, r.conclusion)
-        if !CIRuns.latest(allRuns).contains(where: { $0.id == r.id }) { (mark as? NSImageView)?.contentTintColor = .tertiaryLabelColor }
-        let cell = CIRow.row([mark, text])
+        let cell = CIRow.row([CIRunLook.mark(r.status, r.conclusion), text])
         cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(separator: "\n")
         return cell
     }

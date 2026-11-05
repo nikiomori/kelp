@@ -2,10 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// The first row of a server's card: the machine and how it's doing. Its name, and a word only when something's wrong;
-/// under it CPU, memory and disk (each a symbol and a share) only once one of them passes 90 %, else the name alone,
-/// centred: shares that ask nothing of you were one more kind of row. The numbers are in the tooltip. A click opens the
-/// server's tab; the chevron under the pointer folds its projects away.
+/// The first row of a server's hatched card: the machine and how it's doing. Its name, and a word only when something's
+/// wrong; under it CPU, memory and disk, each a symbol and a share (orange from 90 %), the rest in the tooltip. A click
+/// opens the server's tab; the chevron under the pointer folds its projects away.
 @MainActor
 final class ServerHeader: NSTableCellView {
     let host: String
@@ -17,8 +16,6 @@ final class ServerHeader: NSTableCellView {
     private let note = NSTextField(labelWithString: "")
     private let cpu = Meter("cpu", String(localized: "CPU")), ram = Meter("memorychip", String(localized: "Memory"))
     private let disk = Meter("internaldrive", String(localized: "Disk"))
-    /// The name's line at the top over a second line, or centred alone.
-    private var topPinned: NSLayoutConstraint?, centred: NSLayoutConstraint?
     private lazy var fold = IconButton(.symbol("chevron.down"), tip: String(localized: "Collapse")) { [weak self] in
         guard let self else { return }
         self.owner?.foldHost(self.host)
@@ -50,14 +47,12 @@ final class ServerHeader: NSTableCellView {
         for v in [top, meters] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         NSLayoutConstraint.activate([
             top.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2), top.trailingAnchor.constraint(equalTo: trailingAnchor),
-            top.heightAnchor.constraint(equalToConstant: 18),
+            top.topAnchor.constraint(equalTo: topAnchor, constant: 1), top.heightAnchor.constraint(equalToConstant: 18),
             // Under the name, past the server's symbol.
             meters.leadingAnchor.constraint(equalTo: title.leadingAnchor),
             meters.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
             meters.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 1)
         ])
-        topPinned = top.topAnchor.constraint(equalTo: topAnchor, constant: 1)
-        centred = top.centerYAnchor.constraint(equalTo: centerYAnchor)
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
@@ -80,23 +75,15 @@ final class ServerHeader: NSTableCellView {
         note.stringValue = s == nil ? "" : up ? "" : said?.text ?? ""
         note.textColor = said?.color ?? .secondaryLabelColor
         note.isHidden = note.stringValue.isEmpty
-        let shares = [up ? s?.cpu.map { Int($0.rounded()) } : nil, up ? HostStats.percent(s?.memory, s?.memoryTotal) : nil,
-                      up ? HostStats.percent(s?.disk, s?.diskTotal) : nil]
-        let full = Self.full(shares)
-        for (m, p) in zip([cpu, ram, disk], shares) { m.show(full ? p : nil) }
-        let second = full || !note.isHidden
-        let (on, off) = second ? (topPinned, centred) : (centred, topPinned)
-        off?.isActive = false   // first: both at once can't hold
-        on?.isActive = true
+        cpu.show(up ? s?.cpu.map { Int($0.rounded()) } : nil)
+        ram.show(up ? HostStats.percent(s?.memory, s?.memoryTotal) : nil)
+        disk.show(up ? HostStats.percent(s?.disk, s?.diskTotal) : nil)
         let folded = owner?.hostFolded(host) == true
         fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
         fold.toolTip = fold.image?.accessibilityDescription
         toolTip = Self.details(s)
         setAccessibilityLabel([String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
     }
-
-    /// One share is past 90 %: the meters show, all three, so the full one reads beside the others.
-    static func full(_ shares: [Int?]) -> Bool { shares.contains { ($0 ?? 0) >= 90 } }
 
     /// Everything read, a line each: the tooltip.
     static func details(_ s: HostStats?) -> String? {

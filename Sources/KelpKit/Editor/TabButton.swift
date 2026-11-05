@@ -28,8 +28,6 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
     private let slot = NSView()
-    /// An agent's icon without its colour, at rest (made once per icon): orange Claude read as orange "asks you".
-    private var grey: (of: NSImage, image: NSImage)?
     /// The title keeps about twelve letters however many tabs there are; the rest scroll and are in the ▾ menu.
     private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
 
@@ -95,7 +93,7 @@ final class TabButton: NSControl, NSDraggingSource {
         self.selected = selected
         self.groupFocused = groupFocused
         title.stringValue = it.title
-        if let i = it.icon, it.card != nil, it.run == nil, !i.isTemplate, grey?.of !== i { grey = (i, i.grayscale) }
+        if icon.image !== it.icon { icon.image = it.icon }
         mark.status = it.status
         mark.unread = it.unread
         mark.progress = it.progress
@@ -140,7 +138,6 @@ final class TabButton: NSControl, NSDraggingSource {
         let edited = item?.edited == true
         close.isHidden = !hover; editedDot.isHidden = hover || !edited
         icon.isHidden = hover || edited || showsState
-        showIcon()
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
@@ -183,12 +180,6 @@ final class TabButton: NSControl, NSDraggingSource {
     }
 
     private var doneUnread: Bool { item?.status == .done && item?.unread == true }
-
-    /// An agent's icon is grey at rest and takes its colour under the pointer (a colour at rest is a state's).
-    private func showIcon() {
-        let i = item?.icon, shown = hover || grey?.of !== i ? i : grey?.image
-        if icon.image !== shown { icon.image = shown }
-    }
 
     /// Up to twelve letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
     static func minTitle(_ text: String, font: NSFont) -> CGFloat {

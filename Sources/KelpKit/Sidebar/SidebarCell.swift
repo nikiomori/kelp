@@ -164,7 +164,6 @@ final class SidebarCell: NSTableCellView {
     /// The slot follows a moment later, and goes back at once. Reduce Motion: at once.
     private func showHoverControls(_ on: Bool) {
         hovering = on
-        if case .agent(let sid) = node.kind, let s = app.session(sid) { showIcon(s) }   // its colour under the pointer
         if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
         guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
@@ -378,16 +377,17 @@ final class SidebarCell: NSTableCellView {
         }
     }
 
-    /// The agent's icon: before its name when Agent icons is Always, a glyph after it for an agent other than the default
-    /// one (Other Agents Only), none for Never. Grey at rest, its colour under the pointer: a brand's orange beside the
-    /// orange of "asks you" read as one. Paused says so by its moon, not by the grey.
+    /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the
+    /// default one (Other Agents Only), none for Never. In colour while the agent is loaded; paused, the same icon without
+    /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
     private func showIcon(_ s: Session) {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
         icon.isHidden = mode != "always"
-        let shown = hovering ? image : image.map(app.agentIcons.grey)
+        let shown = s.status == .hibernated ? image.map(app.agentIcons.grey) : image
         if icon.image !== shown { icon.image = shown }   // setting it draws it again, for every row on every pass
+        icon.alphaValue = s.status == .hibernated ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
-        let mark = glyph.isHidden ? nil : shown
+        let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
         if glyph.image !== mark { glyph.image = mark }
         glyph.toolTip = app.catalog.name(s.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)
