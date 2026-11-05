@@ -127,14 +127,20 @@ public enum Artifacts {
             var item = ArtifactItem(slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
                                     url: r.url, target: target)
             guard r.url == nil else { return item }
-            var st = stat()
-            if stat(target, &st) == 0 { item.modified = Double(st.st_mtimespec.tv_sec) }
+            let page = fileStat(target)
+            item.modified = page.map { Double($0.mtime.tv_sec) }
+            item.versions = r.versions
+            // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
+            let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
+            if r.type != Kind.review.rawValue, let page, let last, page.size != last.size || !page.newer(than: last) {
+                item.changed = page.size != last.size
+                return item
+            }
             let text = small(target).map { String(decoding: $0, as: UTF8.self) }
             if r.type == Kind.review.rawValue, let text {
                 let points = Review(text).points
                 item.points = points.count; item.answered = points.filter { $0.pick != nil }.count
             }
-            item.versions = r.versions
             item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
             return item
         }
@@ -148,6 +154,17 @@ public enum Artifacts {
         if let url = r.url, !url.hasPrefix("https://") { return nil }
         if let f = r.file, f.isEmpty || f.contains("/") || f.hasPrefix(".") { return nil }
         return r
+    }
+
+    struct FileStat {
+        var size: off_t, mtime: timespec
+        func newer(than o: FileStat) -> Bool { (mtime.tv_sec, mtime.tv_nsec) > (o.mtime.tv_sec, o.mtime.tv_nsec) }
+    }
+    /// A regular file's size and time of its last write; nil for anything else.
+    static func fileStat(_ path: String) -> FileStat? {
+        var st = stat()
+        guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG else { return nil }
+        return FileStat(size: st.st_size, mtime: st.st_mtimespec)
     }
 
     /// A regular file's bytes, up to `limit`: nil for a link, a device (`/dev/zero` never ends), a folder, or more.

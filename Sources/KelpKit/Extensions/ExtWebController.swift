@@ -41,7 +41,10 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         if let u = pages.url(of: page) { web.load(URLRequest(url: u)) }
         track(owner: self) { app.workbench.workspaceId } changed: { [weak self] _ in self?.push() }
         track(owner: self) { app.settings.values } changed: { [weak self] _ in self?.push() }
-        track(owner: self) { app.sessions } changed: { [weak self] _ in self?.pushSessions() }
+        // Only what the page is told: output and meters change sessions all the time.
+        track(owner: self) {
+            app.sessions.filter(\.isChat).map { "\($0.id) \($0.title) \($0.agent ?? "") \($0.status.rawValue) \($0.worktreeId ?? "") \($0.unread)" }
+        } changed: { [weak self] _ in self?.pushSessions() }
     }
 
     /// The agents, as `kelp.sessions` and to `kelp.on("sessions")`: id, title, agent, status, workspace, unread.
