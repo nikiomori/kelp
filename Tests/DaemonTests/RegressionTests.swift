@@ -373,6 +373,14 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(AgentConfig.changed(repo, base: "main", remotes: .none))   // committed on the branch
 }
 
+/// What the program read first as one line (`GOT[…]`), the screen's wrapping undone.
+private func submitted(_ screen: String) -> String {
+    let flat = screen.replacingOccurrences(of: "\n", with: "")
+    guard let r = flat.range(of: "GOT[") else { return "" }
+    let rest = flat[r.upperBound...]
+    return String(rest[..<(rest.firstIndex(of: "]") ?? rest.endIndex)])
+}
+
 /// A draft (an issue's brief) to a program that takes no pastes isn't submitted line by line: it arrives as one line,
 /// still waiting for Return.
 @Test func aDraftToAPlainProgramIsNotSubmittedLineByLine() async throws {
@@ -385,7 +393,9 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("\r".utf8).base64EncodedString())]))   // the user's Return
     #expect(try await waitFor(10) { try await screen().contains("GOT[") })
     let shown = try await screen()
-    #expect(shown.contains("GOT[Two lines  first second  (Issue: )]"), "\(shown)")   // one line: submitted early it'd read GOT[Two lines]
+    // One line, the framed title and body in it: submitted early it'd end at the title.
+    let got = submitted(shown)
+    #expect(got.contains("Two lines") && got.contains("first second") && got.hasSuffix("(Issue: )"), "\(shown)")
 }
 
 /// Text sent while an unread draft sits in the input box waits behind it: its Enter would submit the draft (an issue's
@@ -404,7 +414,8 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(!(try await screen()).contains("GOT["))   // nothing submitted
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("\r".utf8).base64EncodedString())]))   // the user sends it
     #expect(try await waitFor(10) { try await screen().contains("GOT[and also this]") })
-    #expect(try await screen().contains("GOT[Brief  rm -rf  (Issue: )]"))
+    let got = submitted(try await screen())   // the draft first, then what waited behind it
+    #expect(got.contains("Brief") && got.contains("rm -rf") && got.hasSuffix("(Issue: )"))   // the draft, as one line, after the user's Return
 }
 
 /// Opening a paused session doesn't wait for another session that takes its time to stop (an agent ignoring the

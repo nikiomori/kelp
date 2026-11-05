@@ -21,7 +21,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let letGo: Set = ["attached", "lastOutputAt", "lastInputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended", "oscCarry", "titleCarry",
                       "lastTopic", "utf8Carry", "pasteCarry", "sawURL", "sawBusy", "lastLimits", "limitSeen", "lastHookAt", "compactManual", "compactSummary",
                       "lastLifeUp", "newestHook", "lineSentUp", "commands", "commandChanges", "interruptArmed", "goalAsked", "stopKeyAt",
-                      "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent"]
+                      "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent", "turnPrompt"]
     #expect(Set(Mirror(reflecting: s).children.compactMap(\.label)) == carried.union(fromLaunch).union(settled).union(letGo))
 }
 
