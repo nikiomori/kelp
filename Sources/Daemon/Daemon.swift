@@ -287,9 +287,10 @@ public final class Daemon: Sendable {
             var spoke = false
             // Requests of this client still being answered: past `pendingLimit` more are refused, not queued for good.
             let pending = OSAllocatedUnfairLock(initialState: 0)
+            var ended = false   // the client said all it had (`printf … | nc -U`): what it asked is still answered
             reading: while true {
                 let n = read(fd, &buf, buf.count)
-                if n <= 0 { break }
+                if n <= 0 { ended = n == 0; break }
                 let lines = received.append(Data(buf[0..<n]))
                 // A line past any request's size (a 50 MB file saved, escaped) isn't one: hang up rather than keep it all.
                 guard received.pending <= Self.lineLimit else {
@@ -324,6 +325,8 @@ public final class Daemon: Sendable {
                     }
                 }
             }
+            // Limit: polls every 10 ms, at most a minute (past any method's deadline); this thread has nothing else to do.
+            for _ in 0..<6000 where ended && pending.withLock({ $0 }) > 0 { usleep(10_000) }
             hungUp(client)
         }
     }

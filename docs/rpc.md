@@ -8,9 +8,12 @@ on every new issue.
 
 - The socket: `~/.kelp/kelp.sock` (`$KELP_SOCKET` inside a Kelp terminal). Only your user can open it.
 - One JSON message a line, each way. Replies carry the request's `id` and may come back in any order.
-- Events come as notifications (no `id`): `event.session` whenever an agent's record changes (status, title, unread),
-  `event.repo`, `event.worktree`, `event.removed`. Others (`event.git`, `event.ci`, …) come after `watch.start`, which is
-  Kelp's own and may change.
+- Events come as notifications (no `id`) on every connection, with nothing to subscribe to: `event.session` whenever an
+  agent's record changes (status, title, unread), `event.repo`, `event.worktree`, `event.removed`. Others (`event.git`,
+  `event.ci`, …) come after `watch.start`, which is Kelp's own and may change.
+- A client may close its sending side once it has asked (as `nc` does): what it asked is still answered.
+- Errors are JSON-RPC's: `{"code": -32602, "message": "no live session <id>"}` for a session that ended or never was,
+  `-32601` for a method there isn't.
 
 ```sh
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"session.list"}' | nc -U ~/.kelp/kelp.sock
@@ -32,11 +35,11 @@ print(s.makefile().readline())
 | --- | --- |
 | `repo.list`, `worktree.list` | projects and their workspaces |
 | `session.list` | agents and terminals, with status (`working`, `waiting`, `done`, …), title, unread |
-| `session.create` | starts an agent (`agent`, `worktreeId`, `prompt`, `model`) |
-| `session.send` | types text into a session, Return after it with `enter` |
-| `session.read` | what its screen shows now, as text |
+| `session.create` | starts an agent (`worktreeId`; `agent` is a preset id such as `claude`, `codex` or `shell`, a shell when left out; `prompt`, `model`) |
+| `session.send` | types text into a session, Return after it with `enter`; a paused (`hibernated`) agent wakes for it |
+| `session.read` | the last bytes it printed, as text without escape codes (not a rendered screen) |
 | `session.choose` | answers its question: `allow` or `deny` |
-| `session.kill` | stops it |
+| `session.kill` | stops it; one already gone counts as stopped |
 
 ## The promise
 

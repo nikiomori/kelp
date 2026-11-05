@@ -233,3 +233,17 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     #expect(seen.most <= Daemon.offloadLimit && seen.most > 1, "\(seen)")
     #expect(seen.done == Daemon.offloadLimit * 3)
 }
+
+/// `printf '…' | nc -U kelp.sock`: the client closes its side once it has asked; the answer still comes.
+@Test func aClientThatStopsSendingIsStillAnswered() throws {
+    let (d, _, root) = try daemon(); defer { d.stop() }
+    let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
+    defer { close(fd) }
+    var t = timeval(tv_sec: 10, tv_usec: 0)
+    _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+    Unix.writeAll(fd, try Wire.line(RPCRequest(id: 1, method: "session.list", params: nil)))
+    shutdown(fd, SHUT_WR)
+    var got = Data(), buf = [UInt8](repeating: 0, count: 65536)
+    while true { let n = read(fd, &buf, buf.count); guard n > 0 else { break }; got += Data(buf[0..<n]) }
+    #expect(String(decoding: got, as: UTF8.self).contains(#""id":1"#))
+}
