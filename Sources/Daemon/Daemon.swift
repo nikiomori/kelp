@@ -326,8 +326,9 @@ public final class Daemon: Sendable {
                 }
             }
             // Limit: polls every 10 ms, at most a minute; this thread has nothing else to do. A half-close and a client that
-            // died look alike here (both read 0, both poll as POLLHUP on macOS), so one gone with a long wait pending
-            // (`session.permissionWait`) holds its watches that minute, and its wait ends on its own time.
+            // died look alike here (both read 0, both poll as POLLHUP on macOS); either way it asks for nothing more, so its
+            // watches go now (no git polling or host stats for it that minute), and a long wait pending ends on its own time.
+            if ended { watches.drop(client.id) }
             for _ in 0..<6000 where ended && pending.withLock({ $0 }) > 0 { usleep(10_000) }
             hungUp(client)
         }
