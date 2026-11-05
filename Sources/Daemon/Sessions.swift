@@ -226,7 +226,9 @@ final class Sessions: Sendable {
             // The record as it is now, not the snapshot from when this change was queued: a title set meanwhile stays.
             // The turn bookkeeping gets each change, in order.
             publishHere(ls); ls.noteTurn(s.status, remotes: remotes)
-            if s.status != .waiting { answerPermission(sid, nil) }   // answered in the terminal: its hook goes with no answer
+            // Answered in the terminal: its hook goes with no answer. The status now, not the queued one: a change queued
+            // before a new question's hook registered its wait mustn't end that wait.
+            if ls.snapshot.status != .waiting { answerPermission(sid, nil) }
             if s.status == .exited { _ = live.remove(ls) }
         }
         if rec.agent == "claude" { c.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }
