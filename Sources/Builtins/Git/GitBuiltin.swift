@@ -29,8 +29,8 @@ extension Builtins {
               help: "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.", placeholder: "~/worktrees"),
             // Where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
             s("workbench.ci.branchChip", "CI on the branch chip", "enum", "icon",
-              "A ring while it runs, ✕ when it fails.",
-              help: "A ring while it runs, ✕ when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
+              "A ring while it runs, a red dot when it fails.",
+              help: "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
               options: ["icon", "end", "off"], group: "CI"),
             s("workbench.ci.sidebar", "CI beside folders", "boolean", true,
               "In the sidebar and the ⌃Tab switcher.",

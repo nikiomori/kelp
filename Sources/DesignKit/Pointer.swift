@@ -18,6 +18,8 @@ open class PointerButton: NSButton {
     public var restFill: NSColor? { didSet { showFill() } }
     /// A link (a port, "Open Source Control"): no fill; under the pointer its words are underlined, as links are.
     public var underlinesOnHover = false { didSet { showFill() } }
+    /// A quiet glyph that brightens under the pointer (the sidebar row's "+"): its tint at rest and there; nil keeps `contentTintColor`.
+    public var tints: (rest: NSColor, hover: NSColor)? { didSet { showFill() } }
 
     override public init(frame: NSRect) {
         super.init(frame: frame)
@@ -81,6 +83,7 @@ open class PointerButton: NSButton {
             attributedTitle = words
             return
         }
+        if let tints { contentTintColor = hovering || pressed ? tints.hover : tints.rest }
         // A step past what it rests on: a pill on the hover grey darkens under the pointer instead of staying as it was.
         let hover: NSColor = restFill == nil || restFill === NSColor.fillRest ? .fillHover : .fillSelected
         fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? hover : restFill, held: pressed)

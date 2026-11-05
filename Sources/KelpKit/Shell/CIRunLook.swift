@@ -58,21 +58,23 @@ package enum CIRunLook {
 }
 
 /// A branch's CI in one mark, drawn as agents' states are: the spinning ring while it runs, the orange ◎ while a deploy waits
-/// for someone's approval, the quiet filled ✓ when it passed and you haven't looked, and CI Runs' red ✕ when it failed.
+/// for someone's approval, the quiet filled ✓ when it passed and you haven't looked, and a red dot when it failed (CI Runs'
+/// filled ✕ was the loudest thing in the sidebar and read as a window's close button); `spelled`, it says "CI" instead.
 /// It sits over a chip's or badge's image slot and lets the click through to it.
 @MainActor
 final class CIMark: NSView {
-    private let agentLike = StatusMark(size: 12), failed = NSImageView()
+    private let agentLike = StatusMark(size: 12), word = NSTextField(labelWithString: "CI")
     var state: CIRuns.State? { didSet { if state != oldValue { update() } } }
+    /// Under the pointer (a sidebar row): a failure says "CI" where its dot was, as the changes dot shows its counts.
+    var spelled = false { didSet { if spelled != oldValue { update() } } }
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         agentLike.announces = false   // its words are an agent's; the chip or badge says the CI's
-        failed.image = .symbol("xmark.circle.fill", "")
-        failed.symbolConfiguration = .chrome(Metrics.iconSmall)
-        failed.contentTintColor = .systemRed
-        for v in [agentLike, failed] as [NSView] {
+        word.font = .ui(11, weight: .semibold)
+        word.textColor = .textRed
+        for v in [agentLike, word] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v)
             NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: centerXAnchor), v.centerYAnchor.constraint(equalTo: centerYAnchor)])
         }
@@ -85,13 +87,21 @@ final class CIMark: NSView {
 
     private func update() {
         isHidden = state == nil
-        failed.isHidden = state != .failed
+        word.isHidden = state != .failed || !spelled
+        needsDisplay = true
         agentLike.status = switch state {
         case .running: .working
         case .waiting: .waiting
         case .passed: .done
         case .failed, nil: nil
         }
+    }
+
+    /// The failure's dot, 6 pt in the mark's 12: drawn here, so it follows the appearance as text colours do.
+    override func draw(_ dirtyRect: NSRect) {
+        guard state == .failed, !spelled else { return }
+        NSColor.textRed.setFill()
+        NSBezierPath(ovalIn: bounds.insetBy(dx: bounds.width / 4, dy: bounds.height / 4)).fill()
     }
 
     /// An empty image: holds the mark's place in a button's title or image slot.

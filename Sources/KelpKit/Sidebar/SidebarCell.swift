@@ -90,11 +90,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
-            let b = IconButton(.symbol("plus"), tip: String(localized: "New Chat")) { [weak owner] in owner?.newChat(id) }
-            b.isHidden = true
-            // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
-            NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
-                                         b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
+            let b = Self.newChatButton { [weak owner] in owner?.newChat(id) }
             add = b   // on hover, like Finder's sidebar
             icon.imageScaling = .scaleProportionallyUpOrDown
             icon.widthAnchor.constraint(equalToConstant: 16).isActive = true; icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
@@ -164,6 +160,7 @@ final class SidebarCell: NSTableCellView {
     private func showHoverControls(_ on: Bool) {
         hovering = on
         showChanges()
+        ciMark.spelled = on
         if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
         guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
@@ -536,6 +533,19 @@ final class Chip: NSView {
 }
 
 extension SidebarCell {
+    /// A project's "+", hidden until the pointer is on the row. Small and faint there, brighter on the button itself: at
+    /// 13 pt secondary it was the biggest mark in the row.
+    fileprivate static func newChatButton(_ action: @escaping () -> Void) -> IconButton {
+        let b = IconButton(.symbol("plus"), tip: String(localized: "New Chat"), action: action)
+        b.isHidden = true
+        b.symbolConfiguration = .chrome(Metrics.iconSmall)
+        b.tints = (.tertiaryLabelColor, .secondaryLabelColor)
+        // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
+        NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+                                     b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
+        return b
+    }
+
     /// A group's row: its branch quieter than its name, and what gives way first.
     fileprivate func styleBranch() {
         icon.contentTintColor = .secondaryLabelColor
