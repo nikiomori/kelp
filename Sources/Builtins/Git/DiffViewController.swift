@@ -21,6 +21,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private let layoutToggle = NSSegmentedControl(images: [.symbol("rectangle.split.2x1", String(localized: "Side by Side")),
                                                            .symbol("rectangle", String(localized: "Inline"))],
                                                   trackingMode: .selectOne, target: nil, action: nil)
+    private let spaceToggle = NSSegmentedControl(images: [.symbol("text.word.spacing", String(localized: "Hide Whitespace Changes"))],
+                                                 trackingMode: .selectAny, target: nil, action: nil)
+    /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
+    var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
     let files = NSTableView()
     let table = DiffTable()
     let status = NSTextField(labelWithString: "")
@@ -64,6 +68,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         layoutToggle.selectedSegment = UserDefaults.standard.bool(forKey: "diff.inline") ? 1 : 0
         layoutToggle.target = self; layoutToggle.action = #selector(layoutChanged)
         layoutToggle.setToolTip(String(localized: "Side by Side"), forSegment: 0); layoutToggle.setToolTip(String(localized: "Inline"), forSegment: 1)
+        spaceToggle.setSelected(UserDefaults.standard.bool(forKey: "diff.ignoreSpace"), forSegment: 0)
+        spaceToggle.setToolTip(String(localized: "Hide Whitespace Changes"), forSegment: 0)
+        spaceToggle.target = self; spaceToggle.action = #selector(spaceChanged)
         source.addItems(withTitles: [String(localized: "Uncommitted"), String(localized: "Unstaged"), String(localized: "Staged"),
                                      String(localized: "Branch vs base"), String(localized: "Commit…"), String(localized: "Agent's Last Turn")])
         source.lastItem?.toolTip = String(localized: "What changed since the agent's last prompt, even with other agents in the same folder")
@@ -145,7 +152,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single != nil {
             let steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
                                                  target: self, action: #selector(stepped(_:)))
-            bar.set([pathLabel, status], [steps, layoutToggle])
+            bar.set([pathLabel, status], [steps, spaceToggle, layoutToggle])
         } else {
             func btn(_ t: String, _ a: Selector) -> NSButton {
                 let b = NSButton(title: t, target: self, action: a)
@@ -153,7 +160,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 b.controlSize = .small
                 return b
             }
-            bar.set([source, layoutToggle, btn(String(localized: "Comment"), #selector(addComment)),
+            bar.set([source, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)),
                      btn(String(localized: "Send to Agent"), #selector(sendComments))], [status])
         }
     }
@@ -226,7 +233,18 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         setColumns(); rebuildRows()
     }
 
+    @objc private func spaceChanged() {
+        UserDefaults.standard.set(hidesSpace, forKey: "diff.ignoreSpace")
+        asking += 1
+        reload()
+    }
+
     private func diffRequest() -> GitDiff {
+        var r = request()
+        r.ignoreSpace = hidesSpace ? true : nil
+        return r
+    }
+    private func request() -> GitDiff {
         let id = worktreeId ?? ""
         if let s = single {
             return s.commit.map { GitDiff(id: id, source: "commit", file: s.file, commit: $0) } ?? GitDiff(id: id, source: s.source, file: s.file)
@@ -418,6 +436,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
     func hunksStaged(_ f: Int) -> Bool? {
+        if hidesSpace { return nil }
         if let s = single { return s.commit == nil && (s.source == "unstaged" || s.source == "staged") ? s.source == "staged" : nil }
         switch source.indexOfSelectedItem {
         case 1: return false

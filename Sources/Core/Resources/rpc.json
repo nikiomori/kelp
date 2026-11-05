@@ -4940,6 +4940,14 @@
           }
         },
         {
+          "description" : "Changes of whitespace alone left out (`git diff -w`).",
+          "name" : "ignoreSpace",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
           "name" : "session",
           "required" : false,
           "schema" : {

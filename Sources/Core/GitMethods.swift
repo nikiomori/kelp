@@ -32,8 +32,12 @@ public struct GitPush: RPCMethod {
 public struct GitDiff: RPCMethod {
     public static let name = "git.diff"; public typealias Result = [FileDiff]
     public var id: String, source: String?, file: String?, base: String?, commit: String?, session: String?
-    public init(id: String, source: String? = nil, file: String? = nil, base: String? = nil, commit: String? = nil, session: String? = nil) {
+    /// Changes of whitespace alone left out (`git diff -w`).
+    public var ignoreSpace: Bool?
+    public init(id: String, source: String? = nil, file: String? = nil, base: String? = nil, commit: String? = nil, session: String? = nil,
+                ignoreSpace: Bool? = nil) {
         self.id = id; self.source = source; self.file = file; self.base = base; self.commit = commit; self.session = session
+        self.ignoreSpace = ignoreSpace
     }
 }
 /// Commits on the branch since its base; `all`: the whole history.

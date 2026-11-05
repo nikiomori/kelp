@@ -41,7 +41,7 @@ extension GitDiff: Handled {
             src = .commit(try clientRef(commit) ?? "")
         default: src = .allUncommitted
         }
-        return try Git.diff(dir, source: src, file: file, remotes: workspaces.remotes)
+        return try Git.diff(dir, source: src, file: file, ignoreSpace: ignoreSpace == true, remotes: workspaces.remotes)
     }
 }
 

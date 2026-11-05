@@ -126,10 +126,12 @@ extension Git {
         return String(bytes: out, encoding: .utf8) ?? s
     }
 
-    public static func diff(_ path: String, source: DiffSource, file: String? = nil, remotes: Remotes = .none) throws -> [FileDiff] {
+    /// `ignoreSpace`: changes of whitespace alone left out (`git diff -w`), and the files with nothing else changed.
+    public static func diff(_ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false,
+                            remotes: Remotes = .none) throws -> [FileDiff] {
         // Fixed prefixes and no external tool or textconv: a user's diff.noprefix / diff.mnemonicPrefix / diff.external don't
         // change the output, and a repo's own config can't run a program on every diff shown (nor give a patch that won't apply).
-        let common = ["--no-color", "--no-ext-diff", "--no-textconv", "-U3", "--src-prefix=a/", "--dst-prefix=b/"]
+        let common = ["--no-color", "--no-ext-diff", "--no-textconv", "-U3", "--src-prefix=a/", "--dst-prefix=b/"] + (ignoreSpace ? ["-w"] : [])
         var a = ["diff"] + common
         switch source {
         case .unstaged: break
@@ -155,7 +157,8 @@ extension Git {
         // Untracked files are invisible to `git diff`; show them as all-added for working-tree sources.
         if case .unstaged = source { diffs += try untrackedDiffs(path, only: file, budget: &budget, remotes: remotes) }
         if case .allUncommitted = source { diffs += try untrackedDiffs(path, only: file, budget: &budget, remotes: remotes) }
-        return diffs
+        // With -w git still names a file whose only change was whitespace, with no hunks. Limit: a pure rename goes too.
+        return ignoreSpace ? diffs.filter { !$0.hunks.isEmpty || $0.binary || $0.tooLarge == true } : diffs
     }
 
     /// The files of diff output cut off somewhere: up to where the last one begins.

@@ -203,7 +203,7 @@ extension DiffViewController {
             stack.addArrangedSubview(NSView())
             // Only where the hunks shown are the unstaged diff's, the one Discard works on.
             let unstaged = single.map { $0.source == "unstaged" && $0.commit == nil } ?? (source.indexOfSelectedItem == 1)
-            if unstaged { stack.addArrangedSubview(button(String(localized: "Discard…"), #selector(discardHunk(_:)))) }
+            if unstaged { stack.addArrangedSubview(button(String(localized: "Discard"), #selector(discardHunk(_:)))) }
             stack.addArrangedSubview(button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
         }
         return stack
