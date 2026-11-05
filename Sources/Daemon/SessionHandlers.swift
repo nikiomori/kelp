@@ -2,6 +2,7 @@ import Foundation
 import Core
 import Agents
 import AgentData
+import GitKit
 
 // Sessions: listing, attaching, typing into, stopping, reading.
 
@@ -236,9 +237,19 @@ extension SessionTurnUndo: Handled {
         let (t, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes
         let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
         guard apply == true else { return Plan(files: plan.files, state: plan.now) }
-        // What it was before stays reachable (git gc keeps it) for Redo.
-        try Git.run(["update-ref", Workspaces.undoneRef(id), state ?? ""], cwd: dir, remotes: r)
-        try Git.restore(plan.files, from: t.tree, now: state ?? "", cwd: dir, remotes: r)
+        let before = state ?? ""
+        guard plan.now == before else { throw RPCError.invalidParams("The files changed since you looked; nothing was put back.") }
+        // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
+        try Git.run(["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir, remotes: r)
+        do { try Git.restore(plan.files, from: t.tree, now: before, cwd: dir, remotes: r) } catch {
+            // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
+            let back = Log.session.attempt("putting a stopped undo back") {
+                let p = try Git.changed(since: before, cwd: dir, remotes: r)
+                try Git.restore(p.files.filter(plan.files.contains), from: before, now: p.now, cwd: dir, remotes: r)
+            }
+            let why = (error as? GitError)?.stderr ?? "\(error)"
+            throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + (back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."))
+        }
         return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: r))
     }
 }

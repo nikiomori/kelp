@@ -190,3 +190,24 @@ import Agents
     #expect(SessionRecap.prompt.contains("what is left"))
     #expect(SessionRecap.arguments("claude", conversation: "c").suffix(3) == ["--tools", "", "--strict-mcp-config"])   // the fork can't act
 }
+
+/// An undo that stops part way (the Trash refuses a file the turn made) puts back what it had changed: no folder is
+/// left half undone.
+@Test func anUndoThatStopsPartWayPutsItsFilesBack() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
+    let wt = try await desk(w, "stuck")
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let live = try #require(w.d.sessions.existing(s.id))
+    live.noteTurn(.working)
+    let turn = try #require(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty } ? try await w.c.call(SessionTurns(id: s.id)).first : nil)
+    try "agent's\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    try FileManager.default.createDirectory(atPath: wt.path + "/ro", withIntermediateDirectories: true)
+    try "made\n".write(toFile: wt.path + "/ro/new.txt", atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: wt.path + "/ro")   // nothing leaves it
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wt.path + "/ro") }
+    live.noteTurn(.idle)
+    let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
+    await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state)) }
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "agent's\n")
+    #expect(FileManager.default.fileExists(atPath: wt.path + "/ro/new.txt"))
+}
