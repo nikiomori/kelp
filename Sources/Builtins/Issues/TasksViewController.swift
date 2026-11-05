@@ -310,7 +310,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             color: text.isEmpty ? .secondaryLabelColor : .labelColor))
     }
 
-    private func worktreeFor(branch: String) -> Worktree? { app.worktrees.first { $0.branch == branch && !$0.archived } }
+    /// The PR's folder: on its own branch, or on `pr-<n>` when that name was taken by another branch (`Git.fetchPullRequest`).
+    private func worktreeFor(branch: String, pr n: Int) -> Worktree? {
+        app.worktrees.first { ($0.branch == branch || $0.branch == "pr-\(n)") && !$0.archived }
+    }
 
     private func prDetail(_ r: GitHub.PullRequest) {
         let app = self.app
@@ -319,7 +322,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let draft = r.isDraft ? String(localized: " · draft") : ""
         let decision = r.reviewDecision.map { " · " + $0.lowercased().replacingOccurrences(of: "_", with: " ") } ?? ""
         detail.addArrangedSubview(label(String(localized: "\(r.author) wants to merge \(branch)\(draft)\(decision)"), color: .secondaryLabelColor))
-        let wt = worktreeFor(branch: branch)
+        let wt = worktreeFor(branch: branch, pr: n)
         let actions = NSStackView(); actions.spacing = 8
         if wt == nil, let repoId {   // a folder of its own on the PR's head, as New Chat on Branch… › Pull Request makes
             actions.addArrangedSubview(button(String(localized: "Open in Worktree"), "arrow.triangle.branch") {
