@@ -2,9 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// A short message in the top right corner of the editor area, under its tabs — errors, confirmations and (when
-/// macOS's are off) what an agent did — that blocks nothing: not over the sidebar, the inspector or the line being
-/// typed at the bottom of a terminal. On Liquid Glass (macOS 26; the popover material before). Up to three, the newest
+/// A short message in the top right corner of the editor area, under its tabs and the tab's own bar — errors, confirmations
+/// and (when macOS's are off) what an agent did — that blocks nothing: not over the sidebar, the inspector, a tab's
+/// buttons or the line being typed at the bottom of a terminal. On Liquid Glass (macOS 26; the popover material before). Up to three, the newest
 /// on top; one under the pointer stays (and shows its ✕) until the pointer leaves.
 @MainActor
 package enum Banner {
@@ -58,10 +58,12 @@ package enum Banner {
         content.addSubview(s)
         let card = find(anchor, in: content) ?? content
         NSLayoutConstraint.activate([
-            // Under the tab strip, clear of the card's edge; never wider than the area leaves room for.
-            s.topAnchor.constraint(equalTo: card.topAnchor, constant: card === content ? WindowBar.height + 8 : TabStrip.height + 8),
-            s.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-            s.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -24)
+            // Under the tab strip and the tab's bar (its Stage, Send to Agent…), clear of the card's edge; never wider than
+            // the area leaves room for.
+            s.topAnchor.constraint(equalTo: card.topAnchor, constant: (card === content ? WindowBar.height
+                                                                       : TabStrip.height + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
+            s.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -Metrics.inset),
+            s.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -2 * Metrics.inset)
         ])
         stack = s
         return s
@@ -113,6 +115,7 @@ private final class BannerCard: NSView {
         body.isSelectable = true
         body.maximumNumberOfLines = title == nil ? 0 : 3
         body.preferredMaxLayoutWidth = 252   // the card's 340 less its insets, the icon, the ✕ and the gaps between them
+        body.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)   // its words, not a sliver of them
         lines.append(body)
         let words = NSStackView(views: lines)
         words.orientation = .vertical
@@ -141,7 +144,10 @@ private final class BannerCard: NSView {
         // button to the card's very edges.
         let padded = NSView()
         padded.pin(column, inset: NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 10))
-        padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340).isActive = true
+        // One width for every banner, given up only to a narrower editor area: else a stack could squeeze one to its icon.
+        let width = padded.widthAnchor.constraint(equalToConstant: 340)
+        width.priority = .init(NSLayoutConstraint.Priority.required.rawValue - 1)
+        NSLayoutConstraint.activate([width, padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340)])
         buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // the button at the right edge
         Self.ground(padded, in: self)
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))

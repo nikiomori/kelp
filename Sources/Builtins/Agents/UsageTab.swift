@@ -38,8 +38,6 @@ struct UsageReportView: View {
     @State private var hovered: String?
     @State private var usage: UsageAgents.Result?
     @State private var loading = true
-    @State private var waited = false
-    @State private var slow = false
     @State private var failed: String?
     /// The last year of weeks, for the board of days (read once, after the span's).
     @State private var year: [UsageAgents.Day] = []
@@ -57,7 +55,7 @@ struct UsageReportView: View {
         // As wide as the pane up to 1000, and the table's own width at least: a narrower pane scrolls sideways, from the left.
         GeometryReader { pane in
             ScrollView([.vertical, .horizontal]) {
-                page(lines).padding(24).frame(width: min(max(pane.size.width, 700), 1000), alignment: .leading)
+                page(lines).padding([.horizontal, .bottom], 24).frame(width: min(max(pane.size.width, 700), 1000), alignment: .leading)
             }
             .defaultScrollAnchor(.topLeading)
         }
@@ -69,11 +67,9 @@ struct UsageReportView: View {
         VStack(alignment: .leading, spacing: 22) {
             header
             if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
-            if usage == nil, failed == nil { firstReading }
-            if usage != nil, !lines.isEmpty {   // not "nothing used" while the first reading is under way
-                kpis(lines)
-                table(lines)
-            }
+            // The plans at once (the sidebar has them already); the figures fill in as the logs are read.
+            if usage != nil, !lines.isEmpty { kpis(lines) }
+            if !lines.isEmpty { table(lines) }
             if let usage, !usage.days.isEmpty {
                 detail(usage)
                 HStack(alignment: .top, spacing: 28) {
@@ -87,19 +83,21 @@ struct UsageReportView: View {
         }
     }
 
+    /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text("Agents").font(.title3.weight(.semibold))
+        HStack(spacing: Metrics.gapWide) {
             Text("Last \(range) days · from each agent's own logs on this Mac").font(.caption).foregroundStyle(.secondary)
-            if loading, usage != nil { ProgressView().controlSize(.small) }
+            if loading { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
                 Text("7 Days").tag(7)
                 Text("30 Days").tag(30)
                 Text("90 Days").tag(90)
             }
-                .pickerStyle(.segmented).fixedSize()
+                .pickerStyle(.segmented).controlSize(.small).fixedSize()
         }
+        // The band other tabs give their bar: banners start under it, so they never cover the range.
+        .frame(height: TextSize.of(Metrics.contentBar))
     }
 
     /// Where the figures come from, under them.
@@ -112,15 +110,6 @@ struct UsageReportView: View {
                 differently, and "—" is a model without one.
             """)
             .font(.caption).foregroundStyle(.secondary)
-    }
-
-    /// Nothing to show yet: a spinner in the middle after a second, and why it takes long after three.
-    private var firstReading: some View {
-        VStack(spacing: Metrics.gap) {
-            if waited { ProgressView().controlSize(.small) }
-            if slow { Text("Reading the agents' logs — the first time takes a minute.").font(.caption).foregroundStyle(.secondary) }
-        }
-        .frame(maxWidth: .infinity, minHeight: 320)
     }
 
     // MARK: The agents
@@ -175,7 +164,7 @@ struct UsageReportView: View {
     /// A row narrows what's under the table to its agent (again: back to all); one with nothing counted isn't a button.
     @ViewBuilder private func row(_ l: Line) -> some View {
         let on = sel == l.id
-        let content = columns(agentCell(l), planCell(l.plan), spanCell(l), tokensCell(l.usage), costCell(l.usage))
+        let content = cells(l)
             .padding(.horizontal, 10).padding(.vertical, 7).contentShape(Rectangle())
         if l.usage == nil { content }
         else {
@@ -188,6 +177,17 @@ struct UsageReportView: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
         }
     }
+
+    @ViewBuilder private func cells(_ l: Line) -> some View {
+        if usage == nil {   // its logs still being read: grey where the figures will be
+            columns(agentCell(l), planCell(l.plan), Self.reading, Self.reading, Self.reading)
+        } else {
+            columns(agentCell(l), planCell(l.plan), spanCell(l), tokensCell(l.usage), costCell(l.usage))
+        }
+    }
+
+    /// A figure not read yet.
+    private static var reading: some View { Text(verbatim: "0000").font(.caption).redacted(reason: .placeholder) }
 
     private func agentCell(_ l: Line) -> some View {
         HStack(spacing: 8) {
@@ -346,11 +346,6 @@ struct UsageReportView: View {
 
     private func load() async {
         loading = true
-        waited = false
-        slow = false
-        let spinner = whileSlow { waited = true }
-        let hint = Task { try? await Task.sleep(for: .seconds(3)); if loading { slow = true } }
-        defer { spinner.cancel(); hint.cancel() }
         let read = await app.tryCall(UsageAgents(days: range))
         failed = read.error
         if let r = read.value { usage = r }

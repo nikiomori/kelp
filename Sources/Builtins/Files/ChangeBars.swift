@@ -18,14 +18,13 @@ final class ChangeBars {
     private var card: NSPopover?
     private struct Seen: Equatable { let changes: [FileChange], branches: BranchInfo? }
 
-    /// Nil for a file outside the workspaces.
-    init?(app: AppModel, path: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
-        guard let w = app.worktrees.filter({ path.hasPrefix($0.path + "/") }).max(by: { $0.path.count < $1.path.count }) else { return nil }
+    /// `file`: its path inside `worktree` (`project`).
+    init(app: AppModel, worktree w: Worktree, file: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
         self.app = app
         self.editor = editor
         self.isEdited = isEdited
         worktree = w
-        file = String(path.dropFirst(w.path.count + 1))
+        self.file = file
         git = Watched(.git, in: app)
         git.key = w.id
         editor.onChangeMark = { [weak self] m, at, view in self?.show(m, at: at, in: view) }
@@ -35,6 +34,21 @@ final class ChangeBars {
         track(owner: self) { [app] in Seen(changes: app.git[id]?.changes?.filter { $0.path == mine } ?? [], branches: app.git[id]?.branches) }
             changed: { [weak self] _ in self?.refresh() }
         refresh()
+    }
+
+    /// The innermost workspace holding `path`, and the path inside it. By real paths too: a file opened through a symlink
+    /// (/tmp is /private/tmp) is still its project's. The file's folder is resolved, not the file: a link to a file
+    /// elsewhere stays where it was opened.
+    static func project(of path: String, in worktrees: [Worktree]) -> (worktree: Worktree, file: String)? {
+        let url = URL(fileURLWithPath: path), folder = url.deletingLastPathComponent().path
+        let real = (Paths.real(folder) ?? folder) + "/" + url.lastPathComponent
+        let found = worktrees.compactMap { w -> (Worktree, String)? in
+            for (p, base) in [(path, w.path), (real, Paths.real(w.path) ?? w.path)] where p.hasPrefix(base + "/") {
+                return (w, String(p.dropFirst(base.count + 1)))
+            }
+            return nil
+        }
+        return found.max { $0.0.path.count < $1.0.path.count }.map { (worktree: $0.0, file: $0.1) }
     }
 
     /// Not while the buffer has edits: the file on disk says nothing about them, and typing moves the bars along meanwhile.

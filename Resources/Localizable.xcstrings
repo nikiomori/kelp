@@ -19726,6 +19726,39 @@
           }
         }
       }
+    },
+    "Restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ограничено"
+          }
+        }
+      }
+    },
+    "Language servers and formatters don't run in this project until you trust it": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Языковые серверы и форматировщики не запускаются в этом проекте, пока вы ему не доверитесь"
+          }
+        }
+      }
+    },
+    "Trust This Project": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доверять этому проекту"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

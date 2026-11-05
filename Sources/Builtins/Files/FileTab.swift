@@ -40,7 +40,8 @@ final class FileTab: SavableTab {
     private var lspOpenedOn: Int?
     /// Its version as the daemon pushes it (`AppModel.fileVersions`), while the tab is open.
     private let version: Watched
-    let root: String
+    /// Its project's folder (the file's own folder outside every project); followed as the workspaces change.
+    private(set) var root: String
     /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
     private let remote: Bool
     /// A remote image's or PDF's preview, once its copy is here.
@@ -77,12 +78,12 @@ final class FileTab: SavableTab {
         path = p
         url = URL(fileURLWithPath: p)
         pendingLine = line
-        root = app.worktrees.filter { p.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }?.path ?? url.deletingLastPathComponent().path
+        root = ChangeBars.project(of: p, in: app.worktrees)?.worktree.path ?? url.deletingLastPathComponent().path
         let host = RemoteHost.containing(p)?.remote.host
         remote = host != nil
         if !remote, Preview.canPreview(url) { view = Preview.view(for: url, app: app); return }
         if !remote, url.pathExtension.lowercased() == "ipynb" {
-            let nb = NotebookTab(app: app, url: url, path: p, worktreeId: app.worktrees.first { p.hasPrefix($0.path + "/") }?.id)
+            let nb = NotebookTab(app: app, url: url, path: p, worktreeId: ChangeBars.project(of: p, in: app.worktrees)?.worktree.id)
             notebook = nb
             view = nb.view
             return
@@ -124,6 +125,9 @@ final class FileTab: SavableTab {
     /// version followed from then on.
     private func loaded(_ f: FilesRead.Result, in box: NSView) {
         let app = self.app
+        let found = ChangeBars.project(of: path, in: app.worktrees)
+        root = found?.worktree.path ?? root   // the workspaces may have come in since
+        let inside = found.map { $0.worktree.path + "/" + $0.file } ?? path   // as its project names it, not through a symlink
         let text = f.text
         let editable = CodeEditor.canEdit(text)
         if !editable { Banner.show(String(localized: "\(title) opens read only: it's too large, or its lines too long, to edit here.")) }
@@ -138,7 +142,7 @@ final class FileTab: SavableTab {
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
         bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
         statusBar = bar
-        let crumbs = Breadcrumbs(app: app, path: path, root: root, editor: e)
+        let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: e)
         let language = e.languageId
         // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
         track(owner: self) { app.settings.bool("editor.wordWrap", language: language) ?? false } changed: { [weak e, weak bar] wraps in
@@ -171,9 +175,12 @@ final class FileTab: SavableTab {
             self?.markdown?.themeChanged()
         }
         if focusWhenLoaded { focus() }
-        changeBars = ChangeBars(app: app, path: path, editor: e) { [weak self] in self?.isEdited == true }
-        rules = FileRules(app: app, path: path, root: root, editor: e, bar: bar)
+        rules = FileRules(app: app, path: inside, root: root, editor: e, bar: bar)
+        track(owner: self) { [app] in app.worktrees.map(\.path) } changed: { [weak self] _ in self?.followProject() }
         guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
+        bar.onTrust = { [weak self] in Task { [weak self] in guard let self else { return }; await app.lsp.trust(app, root) } }
+        track(owner: self) { [weak self] in self.map { app.lsp.restricts(app, $0.root, $0.language) } ?? false }
+            changed: { [weak bar] in bar?.show(restricted: $0) }
         let p = path
         version.key = p
         track(owner: self) { [app] in app.fileVersions[p] } changed: { [weak self] _ in self?.diskChanged() }
@@ -415,29 +422,6 @@ final class FileTab: SavableTab {
         }
     }
 
-    private func startLSP() {
-        let p = path, r = root, app = app
-        guard app.lsp.language(app, p)?.server != nil,
-              app.lsp.whenTrusted(app, r, { [weak self] in self?.startLSP() }) else { return }   // asked once per project
-        Task { [weak self] in
-            guard let text = self?.editor?.text, await app.lsp.open(app, root: r, path: p, text: text, retry: { [weak self] in self?.startLSP() }),
-                  let self, let e = editor else { return }
-            lspOpenedOn = app.connections
-            connectServer(to: e, root: r, path: p)
-        }
-    }
-
-    /// LSP: definition of the symbol at the cursor, opened as a tab.
-    func jumpToDefinition() {
-        guard let e = editor, let (l, c) = e.cursor else { return }
-        let p = path, r = root, app = app
-        Task {
-            await lspCaughtUp()
-            guard let loc = await app.lsp.definition(app, root: r, path: p, line: l, column: c) else { NSSound.beep(); return }
-            app.workbench.open(TabURI.file(loc.path, line: loc.line))
-        }
-    }
-
     // MARK: language commands
 
     var language: LanguageSpec? { app.lsp.language(app, path) }
@@ -505,6 +489,43 @@ final class FileTab: SavableTab {
         e.place(in: v)
         if failed { e.showError(s, text: nil) } else { e.show(s, symbol: "icloud.and.arrow.down") }
         return v
+    }
+}
+
+// MARK: its project and language server
+extension FileTab {
+    /// The workspaces changed (or weren't known yet when the tab opened): the change bars and the language server follow
+    /// the file's project.
+    private func followProject() {
+        guard let e = editor, let found = ChangeBars.project(of: path, in: app.worktrees), changeBars == nil || found.worktree.path != root
+        else { return }
+        changeBars = ChangeBars(app: app, worktree: found.worktree, file: found.file, editor: e) { [weak self] in self?.isEdited == true }
+        guard found.worktree.path != root else { return }   // its first bars: the project is the one it had
+        if lspOpenedOn != nil { app.lsp.close(app, root: root, path: path); lspOpenedOn = nil }
+        root = found.worktree.path; if !remote { startLSP() }
+    }
+
+    private func startLSP() {
+        let p = path, r = root, app = app
+        guard app.lsp.language(app, p)?.server != nil,
+              app.lsp.whenTrusted(app, r, { [weak self] in self?.startLSP() }) else { return }   // asked once per project
+        Task { [weak self] in
+            guard let text = self?.editor?.text, await app.lsp.open(app, root: r, path: p, text: text, retry: { [weak self] in self?.startLSP() }),
+                  let self, let e = editor else { return }
+            lspOpenedOn = app.connections
+            connectServer(to: e, root: r, path: p)
+        }
+    }
+
+    /// LSP: definition of the symbol at the cursor, opened as a tab.
+    func jumpToDefinition() {
+        guard let e = editor, let (l, c) = e.cursor else { return }
+        let p = path, r = root, app = app
+        Task {
+            await lspCaughtUp()
+            guard let loc = await app.lsp.definition(app, root: r, path: p, line: l, column: c) else { NSSound.beep(); return }
+            app.workbench.open(TabURI.file(loc.path, line: loc.line))
+        }
     }
 }
 

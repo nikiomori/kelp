@@ -91,7 +91,7 @@ public enum MarkdownHTML {
     html{background:var(--bg);color:var(--fg);-webkit-text-size-adjust:100%}
     body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
     .markdown-body{max-width:860px;margin:0 auto;padding:32px 16px 64px;overflow-wrap:break-word}
-    .markdown-body>:first-child{margin-top:0}
+    .markdown-body>:first-child,.markdown-body>[data-line]:first-child+*{margin-top:0}
     h1,h2,h3,h4,h5,h6{margin:1.5em 0 .6em;font-weight:600;line-height:1.25}
     h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid var(--border)}
     h2{font-size:1.5em;padding-bottom:.3em;border-bottom:1px solid var(--border)}

@@ -232,7 +232,6 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/AgentStripViews.swift": "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift": "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
         "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
-        "Builtins/Agents/UsageTab.swift": "a \"still reading\" hint after 3 s",
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
         "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
         "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
@@ -305,7 +304,7 @@ private func codeOnly(_ s: String) -> String {
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
-    let ceilings = ["Daemon": 102, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 13,
+    let ceilings = ["Daemon": 102, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 12,
                     "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3]
     for (module, ceiling) in ceilings {
         let n = try matches(#"\btry\?"#, in: ["Sources/" + module]).count

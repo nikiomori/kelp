@@ -66,3 +66,17 @@ extension OneAtATime {
     e.goToProblem(forward: false)
     #expect(e.textView.selectedRange().location == 14)
 }
+
+/// /var is /private/var: a file opened through the link is still its project's, the innermost one, with its path inside it.
+@MainActor @Test func aFileThroughASymlinkFindsItsProject() throws {
+    let real = try #require(Paths.real(NSTemporaryDirectory())) + "/kelp-project-\(UUID().uuidString)"
+    try FileManager.default.createDirectory(atPath: real + "/sub/src", withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: real) }
+    let link = real.replacingOccurrences(of: "/private/var/", with: "/var/")
+    let outer = Worktree(id: "a", repoId: "r", branch: "main", path: real)
+    let inner = Worktree(id: "b", repoId: "r", branch: "x", path: real + "/sub")
+    #expect(link != real)
+    #expect(ChangeBars.project(of: link + "/sub/src/a.swift", in: [outer, inner]).map { [$0.worktree.id, $0.file] } == ["b", "src/a.swift"])
+    #expect(ChangeBars.project(of: link + "/top.swift", in: [inner, outer]).map { [$0.worktree.id, $0.file] } == ["a", "top.swift"])
+    #expect(ChangeBars.project(of: "/elsewhere/a.swift", in: [outer, inner]) == nil)
+}

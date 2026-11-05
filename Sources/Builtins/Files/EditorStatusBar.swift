@@ -4,14 +4,18 @@ import UniformTypeIdentifiers
 import WorkbenchKit
 import KelpKit
 
-/// Under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, the encoding and the
-/// indentation the file uses.
+/// Under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, and the indentation the
+/// file uses (no encoding: Kelp opens UTF-8 only, so naming it would say nothing).
 @MainActor
 final class EditorStatusBar: NSView {
     private let place = NSTextField(labelWithString: "")
-    private let format = NSTextField(labelWithString: "")
     /// "Wrap" while long lines wrap: a click turns it off.
     private let wrap = PointerButton()
+    private var wrapping = false
+    /// "Restricted" while the project isn't trusted to run its language server or formatter, as VS Code's Restricted Mode
+    /// says: the banner that asked is long gone, this stays. A click offers Trust.
+    private let restricted = PointerButton()
+    var onTrust: (() -> Void)?
     /// How many problems the file has: a click lists those of every open file.
     private let problems = PointerButton()
     /// What the one under the cursor says.
@@ -24,11 +28,12 @@ final class EditorStatusBar: NSView {
     /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
     var contextMenu: (() -> NSMenu)?
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
-    /// Off in a Markdown preview: there's no cursor to place, and how the source is indented says nothing.
+    /// Off in a Markdown preview: there's no cursor to place, and how the source is indented or wrapped says nothing.
     var editing = true {
         didSet {
             place.isHidden = !editing
             indentButton.isHidden = !editing
+            wrap.isHidden = !(editing && wrapping)
         }
     }
 
@@ -40,9 +45,8 @@ final class EditorStatusBar: NSView {
             guard let self, let b = Optional(indentButton), let m = indentMenu?() else { return }
             m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
         }
-        layoutFormat()
         let kind = NSTextField(labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription ?? url.pathExtension.uppercased())
-        for l in [kind, place, format] {
+        for l in [kind, place] {
             l.font = .ui(11)
             l.textColor = .secondaryLabelColor
             l.lineBreakMode = .byTruncatingTail
@@ -53,6 +57,13 @@ final class EditorStatusBar: NSView {
         wrap.padding = Metrics.gap
         wrap.isHidden = true
         wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
+        restricted.title = String(localized: "Restricted")
+        restricted.font = .ui(11)
+        restricted.padding = Metrics.gap
+        restricted.contentTintColor = .textOrange
+        restricted.isHidden = true
+        restricted.toolTip = String(localized: "Language servers and formatters don't run in this project until you trust it")
+        restricted.onClick = { [weak self] in self?.offerTrust() }
         problems.font = .ui(11)
         problems.padding = Metrics.gap
         problems.isHidden = true
@@ -61,7 +72,7 @@ final class EditorStatusBar: NSView {
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        let row = NSStackView(views: [kind, place, problems, problem, NSView(), wrap, indentButton, format]); row.spacing = 16
+        let row = NSStackView(views: [kind, place, problems, problem, NSView(), restricted, wrap, indentButton]); row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
@@ -75,11 +86,18 @@ final class EditorStatusBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    private func layoutFormat() {
-        format.stringValue = "UTF-8"
+    func show(wrapping: Bool) {
+        self.wrapping = wrapping
+        wrap.isHidden = !(editing && wrapping)
     }
 
-    func show(wrapping: Bool) { wrap.isHidden = !wrapping }
+    func show(restricted on: Bool) { restricted.isHidden = !on }
+
+    private func offerTrust() {
+        let m = NSMenu()
+        m.add(String(localized: "Trust This Project")) { [weak self] in self?.onTrust?() }
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: restricted.bounds.height + 2), in: restricted)
+    }
 
     func show(indent: Indentation) {
         indentButton.title = switch indent {

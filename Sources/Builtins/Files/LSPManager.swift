@@ -24,6 +24,11 @@ final class LSPManager {
     static let trustKey = LSPOpen.trustKey
     /// The scratch desk too is asked about once: something cloned into it is someone else's code like any other.
     func trusted(_ app: AppModel, _ root: String) -> Bool { app.uiState.strings(Self.trustKey).contains(root) }
+    /// The project isn't trusted to run code, and a file of `language` has a language server or a formatter that would.
+    func restricts(_ app: AppModel, _ root: String, _ language: LanguageSpec?) -> Bool {
+        guard let lang = language else { return false }
+        return (lang.server != nil && enabled(app) || lang.format != nil) && !trusted(app, root)
+    }
     /// Roots asked about this run, and what starts once the user trusts them (the tabs that wanted a server).
     private var waiting: [String: [@MainActor () -> Void]] = [:]
 
