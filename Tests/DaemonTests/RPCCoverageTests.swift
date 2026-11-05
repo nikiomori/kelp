@@ -398,3 +398,36 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(Unix.writeAll(fd, Data(start.utf8)))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: s.id)).contains("first-line") })
 }
+
+/// A discard of files, tracked and untracked, comes back with Undo; but never over an edit made after it, and only once.
+@Test func undoPutsBackDiscardedFilesUnlessTheyChangedSince() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let c = w.c, wt = try await desk(w, "u")
+    let read = { (f: String) in try? String(contentsOfFile: wt.path + "/" + f, encoding: .utf8) }
+    try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    try "new\n".write(toFile: wt.path + "/n.txt", atomically: true, encoding: .utf8)
+    _ = try await c.call(GitDiscard(id: wt.id, files: ["a.txt", "n.txt"]))
+    #expect(read("a.txt") == "hello\n" && read("n.txt") == nil)
+    _ = try await c.call(GitUndoDiscard(id: wt.id))
+    #expect(read("a.txt") == "hello\nmine\n" && read("n.txt") == "new\n")
+    await #expect(throws: (any Error).self) { try await c.call(GitUndoDiscard(id: wt.id)) }   // once
+    _ = try await c.call(GitDiscard(id: wt.id, files: ["a.txt"]))
+    try "hello\nagent's\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)   // an agent writes after it
+    await #expect(throws: (any Error).self) { try await c.call(GitUndoDiscard(id: wt.id)) }
+    #expect(read("a.txt") == "hello\nagent's\n")
+}
+
+@Test func discardHunkOnlyWhatWasShown() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let c = w.c, wt = try await desk(w, "h")
+    try "hello\nagain\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    let diff: [FileDiff] = try await c.call("git.diff", .obj(["id": .string(wt.id), "source": "unstaged"]), as: [FileDiff].self)
+    let header = try #require(diff.first?.hunks.first?.header)
+    // A header that isn't the file's now (it changed since it was shown): nothing goes.
+    await #expect(throws: (any Error).self) { try await c.call(GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: "@@ -9 +9 @@")) }
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nagain\n")
+    _ = try await c.call(GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: header))
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\n")
+    _ = try await c.call(GitUndoDiscard(id: wt.id))   // the banner's Undo: the hunk is back
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nagain\n")
+}

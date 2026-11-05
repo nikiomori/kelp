@@ -143,7 +143,21 @@ extension GitCommitDetails: Handled {
 }
 extension GitDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
-        try Git.discard(workspaces.folder(id), files: files ?? [], remotes: workspaces.remotes)
+        let path = try workspaces.folder(id)
+        let back = try Git.discard(path, files: files ?? [], remotes: workspaces.remotes)
+        workspaces.discarded.withLock { $0[path] = back.map { .init(patch: $0, hunk: false) } }
+        return Done()
+    }
+}
+extension GitUndoDiscard: Handled {
+    func handle(_ workspaces: Workspaces) throws -> Done {
+        let path = try workspaces.folder(id)
+        guard let d = workspaces.discarded.withLock({ $0.removeValue(forKey: path) }), d.at.timeIntervalSinceNow > -60 else {
+            throw RPCError.invalidParams("There's no discard to undo here any more.")
+        }
+        do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
+            throw RPCError.invalidParams("The files changed since the discard, so nothing was put back.")
+        }
         return Done()
     }
 }
@@ -234,6 +248,6 @@ extension CommentSend: Handled {
 extension Methods {
     static let gitMethods: [any Handled.Type] = [GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self,
         GitUnsynced.self, GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self, GitGraph.self,
-        GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self,
+        GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitUndoDiscard.self, GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self,
         FilesList.self, FilesIgnored.self, FilesSearch.self, CommentAdd.self, CommentList.self, CommentSetState.self, CommentSend.self]
 }

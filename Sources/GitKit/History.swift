@@ -154,12 +154,26 @@ extension Git {
         try run(["switch", local], cwd: path, remotes: remotes)
     }
 
-    /// Undo working-tree changes: tracked files go back to the index, untracked files are deleted.
-    public static func discard(_ path: String, files: [String], remotes: Remotes = .none) throws {
+    /// Undo working-tree changes: tracked files go back to the index, untracked files are deleted. Answers the patch that
+    /// puts them back (`putBack`), or nil when it was too big to keep: the discard goes ahead either way.
+    @discardableResult
+    public static func discard(_ path: String, files: [String], remotes: Remotes = .none) throws -> Data? {
         let untracked = Set(try status(path, remotes: remotes).filter(\.untracked).map(\.path))
         let (u, t) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
+        var back: Data? = t.isEmpty ? Data() : nil
+        do {
+            if !t.isEmpty { back = try runData(["diff", "--binary", "--"] + literal(t), cwd: path, remotes: remotes) }
+            for f in u { back? += try runData(["diff", "--binary", "--no-index", "--", "/dev/null", f], cwd: path, ok: [0, 1], remotes: remotes) }
+        } catch { back = nil }   // past what Kelp reads: no Undo, but the discard asked for still happens
         if !u.isEmpty { try run(["clean", "-f", "-q", "--"] + literal(u), cwd: path, remotes: remotes) }
         if !t.isEmpty { try run(["restore", "--worktree", "--"] + literal(t), cwd: path, remotes: remotes) }
+        return back
+    }
+
+    /// Applies what a discard threw away again: `discard`'s patch, or with `hunk` a hunk's own (`FileDiff.patch(hunk:)`).
+    /// git changes nothing when the files have moved on since, so a newer edit is never written over.
+    public static func putBack(_ path: String, patch: Data, hunk: Bool, remotes: Remotes = .none) throws {
+        try runData(["apply"] + (hunk ? ["--recount", "--unidiff-zero"] : ["--binary"]) + ["-"], cwd: path, stdin: patch, remotes: remotes)
     }
 
     public enum Remote: String, Sendable { case pull, push, fetch }

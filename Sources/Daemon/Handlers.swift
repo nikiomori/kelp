@@ -355,7 +355,9 @@ extension GitDiscardHunk: Handled {
               diff.hunks[hunk].header == header, fingerprint.map({ $0 == diff.hunks[hunk].fingerprint }) ?? true else {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }
-        try Git.discardHunk(w.path, diff: diff, hunk: hunk, remotes: workspaces.remotes); return Done()
+        try Git.discardHunk(w.path, diff: diff, hunk: hunk, remotes: workspaces.remotes)
+        workspaces.discarded.withLock { $0[w.path] = .init(patch: diff.patch(hunk: hunk), hunk: true) }
+        return Done()
     }
 }
 

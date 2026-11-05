@@ -47,21 +47,25 @@ extension SourceControlController {
         let name = (files[0].path as NSString).lastPathComponent
         if files.count == 1, files[0].untracked {
             a.messageText = String(localized: "Delete “\(name)”?")
-            a.informativeText = String(localized: "Git doesn't track this file, so it can't be restored.")
+            a.informativeText = String(localized: "Git doesn't track this file: Undo right after is the only way back.")
             a.addButton(withTitle: String(localized: "Delete File")).hasDestructiveAction = true
         } else {
             a.messageText = files.count == 1 ? String(localized: "Discard changes in “\(name)”?") : String(localized: "Discard all \(files.count) changes?")
-            a.informativeText = String(localized: "This can't be undone.")
+            a.informativeText = String(localized: "You can undo it for a few seconds.")
                 + (files.contains(where: \.untracked) ? String(localized: " Untracked files are deleted.") : "")
             a.addButton(withTitle: files.count == 1 ? String(localized: "Discard Changes") : String(localized: "Discard \(files.count) Changes"))
                 .hasDestructiveAction = true
         }
         a.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            guard await runSheet(a) == .alertFirstButtonReturn, let wid = worktreeId else { return }
             noteChanges()
             fadeRows(Set(files.map(\.path)))
-            run { GitDiscard(id: $0, files: files.map(\.path)) }
+            if await app.call(GitDiscard(id: wid, files: files.map(\.path))) != nil {
+                let done = files.count == 1 ? String(localized: "Discarded changes in \(name)") : String(localized: "Discarded \(files.count) changes")
+                app.offerUndoDiscard(done, worktree: wid)
+            }
+            reloadAll()
         }
     }
 

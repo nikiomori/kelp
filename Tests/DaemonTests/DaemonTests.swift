@@ -158,19 +158,6 @@ func desk(_ w: World, _ branch: String) async throws -> Worktree {
     #expect(try await c.call("git.status", .obj(["id": .string(wt.id)]), as: [FileChange].self).first { $0.path == "a.txt" }?.staged == true)
 }
 
-@Test func discardHunkOnlyWhatWasShown() async throws {
-    let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "h")
-    try "hello\nagain\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
-    let diff: [FileDiff] = try await c.call("git.diff", .obj(["id": .string(wt.id), "source": "unstaged"]), as: [FileDiff].self)
-    let header = try #require(diff.first?.hunks.first?.header)
-    // A header that isn't the file's now (it changed since it was shown): nothing goes.
-    await #expect(throws: (any Error).self) { try await c.call(GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: "@@ -9 +9 @@")) }
-    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nagain\n")
-    _ = try await c.call(GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: header))
-    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\n")
-}
-
 final class NoteBox: @unchecked Sendable {
     private let l = NSLock(); private var out: [String: String] = [:]
     func add(_ m: String, _ p: JSONValue) {

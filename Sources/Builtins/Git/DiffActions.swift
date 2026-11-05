@@ -23,26 +23,19 @@ extension DiffViewController {
             app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
         }
     }
-    /// Throwing a hunk away can't be taken back, so a sheet says what goes (an alert of the window, not of the app).
+    /// A hunk goes at once: the banner's Undo brings it back.
     @objc func discardHunk(_ b: NSButton) {
-        guard let wid = worktreeId, let window = view.window, let (path, h, shown) = hunk(b) else { return }
-        let lines = shown.lines, file = (path as NSString).lastPathComponent, header = shown.header, print = shown.fingerprint
-        let added = lines.filter { $0.kind == .add }.count, removed = lines.filter { $0.kind == .del }.count
-        let a = NSAlert()
-        a.messageText = String(localized: "Discard this change?")
-        a.informativeText = String(localized: "\(file) goes back to the committed lines here: \(added) added lines go, \(removed) removed lines come back. This can't be undone.")
-        a.addButton(withTitle: String(localized: "Discard")).hasDestructiveAction = true
-        a.addButton(withTitle: String(localized: "Cancel"))
-        a.beginSheetModal(for: window) { [weak self] r in
-            guard r == .alertFirstButtonReturn, let self else { return }
-            Task {
-                // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
-                let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: header, fingerprint: print)
-                if let e = await app.tryCall(m).error { Banner.show(e, style: .error) }
-                self.fadesNextLoad = true
-                await self.load()
-                app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+        guard let wid = worktreeId, let (path, h, shown) = hunk(b) else { return }
+        let file = (path as NSString).lastPathComponent
+        Task {
+            // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
+            let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint)
+            if let e = await app.tryCall(m).error { Banner.show(e, style: .error) } else {
+                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid) { [weak self] in await self?.load() }
             }
+            fadesNextLoad = true
+            await load()
+            app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
         }
     }
     // MARK: menus
@@ -149,5 +142,17 @@ extension DiffViewController {
         a.accessoryView = pop
         a.addButton(withTitle: String(localized: "Send")); a.addButton(withTitle: String(localized: "Cancel"))
         return await runSheet(a) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
+    }
+}
+
+extension AppModel {
+    /// After a discard: a banner whose Undo puts it back while the daemon keeps it (a minute; the banner stays 10 s).
+    func offerUndoDiscard(_ text: String, worktree wid: String, then reload: @escaping @MainActor () async -> Void = {}) {
+        Banner.show(text, action: (String(localized: "Undo"), { [self] in
+            Task {
+                if await call(GitUndoDiscard(id: wid)) != nil { await reload() }
+                watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+            }
+        }))
     }
 }

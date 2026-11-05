@@ -113,19 +113,16 @@ final class ChangeBars {
         Task { [app] in if await app.call(m) != nil { app.watchAgain(.git, id) } }
     }
 
-    /// Throwing a change away can't be taken back: a sheet says what goes, as the diff's own button does.
+    /// The change goes at once: the banner's Undo brings it back.
     private func revert(_ h: Hunk) {
-        let added = h.lines.filter { $0.kind == .add }.count, removed = h.lines.filter { $0.kind == .del }.count
-        let a = NSAlert()
-        a.messageText = String(localized: "Discard this change?")
         let name = (file as NSString).lastPathComponent
-        a.informativeText = String(localized: "\(name) goes back to the committed lines here: \(added) added lines go, \(removed) removed lines come back. This can't be undone.")
-        a.addButton(withTitle: String(localized: "Discard")).hasDestructiveAction = true
-        a.addButton(withTitle: String(localized: "Cancel"))
         let m = GitDiscardHunk(id: worktree.id, file: file, hunk: 0, header: h.header, fingerprint: h.fingerprint), id = worktree.id
         Task { [app] in
-            guard await runSheet(a) == .alertFirstButtonReturn, await app.call(m) != nil else { return }
+            guard await app.call(m) != nil else { return }
             app.watchAgain(.git, id)
+            Banner.show(String(localized: "Discarded a change in \(name)"), action: (String(localized: "Undo"), {
+                Task { await app.call(GitUndoDiscard(id: id)); app.watchAgain(.git, id) }   // the daemon keeps it a minute
+            }))
         }
     }
 }

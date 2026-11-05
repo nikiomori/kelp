@@ -5371,6 +5371,27 @@
       }
     },
     {
+      "description" : "Puts back what the last discard in workspace `id`'s folder threw away (a hunk or files), within a minute of it and only while the files are as the discard left them.",
+      "name" : "git.undoDiscard",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Unstages `files`.",
       "name" : "git.unstage",
       "paramStructure" : "by-name",

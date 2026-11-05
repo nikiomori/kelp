@@ -20,6 +20,12 @@ final class Workspaces: Sendable {
     let headQueue = DispatchQueue(label: "kelp.heads")   // syncs one at a time, off every reader and the pool
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
     let routines: Routines   // agents on a schedule, each in a desk of its own
+    /// By folder: what its last discard threw away, for a minute (`git.undoDiscard`).
+    let discarded = OSAllocatedUnfairLock<[String: Discarded]>(initialState: [:])
+    struct Discarded: Sendable {
+        var at = Date()
+        var patch: Data, hunk: Bool
+    }
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root

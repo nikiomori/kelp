@@ -132,6 +132,13 @@ public struct GitDiscard: RPCMethod {
     public var id: String, files: [String]?
     public init(id: String, files: [String]? = nil) { self.id = id; self.files = files }
 }
+/// Puts back what the last discard in workspace `id`'s folder threw away (a hunk or files), within a minute of it and
+/// only while the files are as the discard left them.
+public struct GitUndoDiscard: InternalMethod {
+    public static let name = "git.undoDiscard"; public typealias Result = Done
+    public var id: String
+    public init(id: String) { self.id = id }
+}
 /// `op`: pull | push | fetch.
 public struct GitRemoteOp: RPCMethod {
     public static let name = "git.remote"; public typealias Result = Done
