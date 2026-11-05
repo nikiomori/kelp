@@ -180,16 +180,38 @@ extension Git {
             throw GitError(args: ["worktree", "remove"], status: 1, stderr: "worktree has uncommitted changes")
         }
         // `force` is about uncommitted changes; commits are lost only when asked for by name (dropCommits).
-        if let branch, !dropCommits, case let n = try onlyOnBranch(repo: repo, branch, remotes: remotes), n > 0 {
-            throw GitError(args: ["branch", "-D", branch], status: 1,
-                           stderr: "\(branch) has \(n) commit\(n == 1 ? "" : "s") that aren't on any other branch or remote")
-        }
+        if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Commits made on a detached HEAD belong to no branch at all: removing the folder would leave them to `git gc`.
         if !dropCommits, remotes.of(path) != nil || FileManager.default.fileExists(atPath: path),
            case let n = commitsOnNoBranch(path, remotes: remotes), n > 0 {
             throw GitError(args: ["worktree", "remove"], status: 1,
                            stderr: "This workspace has \(n) commit\(n == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first.")
         }
+    }
+
+    private static func checkBranchDeletable(repo: String, _ branch: String, remotes: Remotes) throws {
+        if case let n = try onlyOnBranch(repo: repo, branch, remotes: remotes), n > 0 {
+            throw GitError(args: ["branch", "-D", branch], status: 1,
+                           stderr: "\(branch) has \(n) commit\(n == 1 ? "" : "s") that aren't on any other branch or remote")
+        }
+    }
+
+    /// A worktree whose folder is gone (a removal that stopped after the Trash, a folder deleted by hand): git's record of
+    /// it goes, and its branch by `removeWorktree`'s rule: refused while it has commits no other branch or remote has,
+    /// unless `dropCommits`.
+    public static func forgetWorktree(repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes = .none) throws {
+        let branch = branch.flatMap { branchExists(repo, $0, remotes: remotes) ? $0 : nil }
+        if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
+        // Only the folder it was in is there to follow links in to where git lists it (/tmp is /private/tmp).
+        let local = remotes.of(repo) == nil
+        let real = { (p: String) in
+            let u = URL(fileURLWithPath: p)
+            return local ? u.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent(u.lastPathComponent).path : p
+        }
+        if let entry = try linkedWorktrees(repo, remotes: remotes).first(where: { real($0.path) == real(path) }) {
+            try run(["worktree", "remove", "--force", entry.path], cwd: repo, remotes: remotes)
+        }
+        if let branch { try run(["branch", "-D", rev(branch)], cwd: repo, remotes: remotes) }
     }
 
     /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (no commits yet: 0).
