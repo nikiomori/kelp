@@ -86,8 +86,8 @@ struct UsageView: View {
             ForEach(shown) { r in
                 let main = r.main ?? Line(label: "", used: 0)
                 HStack(spacing: Metrics.gapWide) {
-                    // The agent's icon over both lines, as in the sidebar's rows above, in grey: the bars carry the colour.
-                    if let icon = app.catalog.icon(r.id) { Image(nsImage: icon).frame(width: 16, height: 16).saturation(0) }
+                    // The agent's icon over both lines, in colour as in the sidebar's rows above.
+                    if let icon = app.catalog.icon(r.id) { Image(nsImage: icon).frame(width: 16, height: 16) }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: Metrics.gap) {
                             Text(r.name).lineLimit(1)
