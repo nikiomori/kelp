@@ -149,6 +149,18 @@ import Agents
     #expect(changed && s.record.quietSince == nil)
 }
 
+/// A session deleted while its turn's snapshot was being taken: the turn that comes after isn't kept, nor its ref.
+@Test func aTurnOfADeletedSessionLeavesNoRef() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "gone-mid-turn")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
+    let tree = try Git.snapshotTree(wt.path)
+    w.d.sessions.discard(try #require(try w.d.store.session(s.id)))
+    w.d.sessions.keepTurn(SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"))
+    #expect(try w.d.store.turns(session: s.id).isEmpty)
+    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+}
+
 /// A new branch given a name is named after it, "-2" when that's taken.
 @Test func aNewBranchIsNamedAfterTheNameGiven() async throws {
     let w = try await world(); defer { w.d.stop() }

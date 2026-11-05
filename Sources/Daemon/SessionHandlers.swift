@@ -306,22 +306,24 @@ extension Workspaces {
 extension Sessions {
     /// A turn that began, kept with its snapshot under refs/kelp/turns/ so `git gc` doesn't take it while the turn is listed;
     /// the turns that drop off the list let theirs go.
+    /// Its session deleted while the snapshot was taken: no turn, and no ref. Deleted between the two, the delete's own
+    /// `dropTurnRefs` may have run before the ref was made: it's dropped here.
     func keepTurn(_ t: SessionTurns.Mark) {
         Log.store.attempt("keeping a turn") {
-            let dropped = try store.addTurn(t)
-            guard remotes.of(t.folder) == nil else { return }   // no snapshots there
-            try Git.run(["update-ref", "refs/kelp/turns/" + t.id, t.tree], cwd: t.folder, remotes: remotes)
-            dropRefs(dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) })
+            guard let dropped = try store.addTurn(t), remotes.of(t.folder) == nil else { return }   // no snapshots on a host
+            let ref = "refs/kelp/turns/" + t.id
+            try Git.run(["update-ref", ref, t.tree], cwd: t.folder, remotes: remotes)
+            dropRefs(dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) } + (try store.session(t.session) == nil ? [(ref, t.folder)] : []))
         }
     }
 
     /// A session going: its turns' snapshots and its last undone state needn't be kept any more. `repo`: where to drop
     /// them when their folder, a removed worktree, is gone; the refs are in the project's repository, which it shared.
     func dropTurnRefs(of session: String, in repo: String? = nil) {
-        Log.store.attempt("dropping \(session)'s turn refs") {
-            let marks = try store.turns(session: session)
-            dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
-        }
+        Log.store.attempt("dropping \(session)'s turn refs") { dropTurnRefs(try store.turns(session: session), of: session, in: repo) }
+    }
+    func dropTurnRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
+        dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
     }
 
     /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,

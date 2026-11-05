@@ -255,10 +255,24 @@ public final class Store: Sendable {
         return x as? R ?? r
     }
     public func delete<R: PersistableRecord>(_ r: R) throws { try ordered.withLock { try db.write { _ = try r.delete($0) }; report(r, removed: true) } }
-    /// A turn that began; past `keep` of the session's, the oldest go, and are returned.
+    /// A session deleted, with the turns that go with it, read in the same write: none added meanwhile is missed.
+    public func deleteSession(_ s: Session) throws -> [SessionTurns.Mark] {
+        try ordered.withLock {
+            let marks = try db.write { d in
+                let marks = try SessionTurns.Mark.filter(Column("session") == s.id).order(Column("at").desc).fetchAll(d)
+                _ = try s.delete(d)
+                return marks
+            }
+            report(s, removed: true)
+            return marks
+        }
+    }
+    /// A turn that began; past `keep` of the session's, the oldest go, and are returned. nil, and nothing added, when its
+    /// session is gone (deleted while the turn's snapshot was taken).
     @discardableResult
-    public func addTurn(_ t: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark] {
+    public func addTurn(_ t: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark]? {
         try db.write { d in
+            guard try Session.exists(d, key: t.session) else { return nil }
             try t.insert(d)
             let old = try SessionTurns.Mark.filter(Column("session") == t.session).order(Column("at").desc).fetchAll(d).dropFirst(keep)
             for m in old { _ = try m.delete(d) }
