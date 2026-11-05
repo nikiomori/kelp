@@ -3032,6 +3032,24 @@
         ],
         "type" : "object"
       },
+      "SessionTurnUndo.Plan" : {
+        "properties" : {
+          "files" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "files",
+          "state"
+        ],
+        "type" : "object"
+      },
       "SessionTurns.Mark" : {
         "description" : "A turn's start: `tree` is the folder then (a snapshot in the project's git, which git's cleanup may take after two weeks), `head` its HEAD then.",
         "properties" : {
@@ -8914,6 +8932,47 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/SessionTurn.Info"
+        }
+      }
+    },
+    {
+      "description" : "A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back and the folder's state now; with it, done only while the folder is still that `state`. Refused while the agent works, after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.",
+      "name" : "session.turnUndo",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "apply",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "turn",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SessionTurnUndo.Plan"
         }
       }
     },

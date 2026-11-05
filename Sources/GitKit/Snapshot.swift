@@ -34,3 +34,32 @@ extension Git {
         }
     }
 }
+
+/// Putting a folder back as it was at a snapshot (an agent's turn undone).
+extension Git {
+    /// The files that differ now from snapshot `tree`, `.env` files left out (secrets the user put there stay), and the
+    /// snapshot of now, which `restore` is given back so nothing that changes meanwhile is written over.
+    public static func changed(since tree: String, cwd: String, remotes: Remotes = .none) throws -> (files: [String], now: String) {
+        let now = try snapshotTree(cwd, remotes: remotes)
+        let names = try run(["diff", "--name-only", "--no-renames", "-z", rev(tree), now], cwd: cwd, remotes: remotes)
+        return (names.split(separator: "\0").map(String.init).filter { !(($0 as NSString).lastPathComponent).hasPrefix(".env") }, now)
+    }
+
+    /// `files` as they were in `tree`, content and mode, the index left alone; a file the tree hasn't goes to the Trash.
+    /// Refused when the folder isn't the snapshot `now` any more; afterwards none of them may still differ.
+    public static func restore(_ files: [String], from tree: String, now: String, cwd: String, remotes: Remotes = .none) throws {
+        guard try snapshotTree(cwd, remotes: remotes) == now else {
+            throw GitError(args: ["restore"], status: 1, stderr: "The files changed since you looked; nothing was put back.")
+        }
+        let had = Set(try run(["ls-tree", "-r", "-z", "--name-only", rev(tree)], cwd: cwd, remotes: remotes).split(separator: "\0").map(String.init))
+        let back = files.filter(had.contains)
+        if !back.isEmpty { try run(["restore", "--source=" + rev(tree), "--worktree", "--"] + literal(back), cwd: cwd, remotes: remotes) }
+        for f in files where !had.contains(f) && FileManager.default.fileExists(atPath: cwd + "/" + f) {
+            try Trash.move(URL(fileURLWithPath: cwd + "/" + f))
+        }
+        let left = Set(try changed(since: tree, cwd: cwd, remotes: remotes).files).intersection(files)
+        guard left.isEmpty else {
+            throw GitError(args: ["restore"], status: 1, stderr: "These didn't go back: \(left.sorted().joined(separator: ", ")).")
+        }
+    }
+}

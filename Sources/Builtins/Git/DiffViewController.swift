@@ -41,6 +41,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
     /// The agent's turns, with "Agent's Last Turn" (`DiffTurns`).
     let turnPop = NSPopUpButton()
+    /// The turn picker and Undo Turn…, shown with "Agent's Last Turn" when the agent has turns kept.
+    lazy var turnBar = NSStackView(views: [turnPop, undoTurnButton()])
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -145,7 +147,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         buildBar()
         view = stacked(bar, split)
         track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
-        turnPop.controlSize = .small; turnPop.isHidden = true
+        turnPop.controlSize = .small; turnBar.isHidden = true
         turnPop.target = self; turnPop.action = #selector(sourceChanged)
         reviewPop.addItem(withTitle: String(localized: "Review with"))
         reviewPop.controlSize = .small
@@ -186,7 +188,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 b.controlSize = .small
                 return b
             }
-            bar.set([source, turnPop, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
+            bar.set([source, turnBar, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
                      btn(String(localized: "Send to Agent"), #selector(sendComments))], [status, position, steps])
         }
     }

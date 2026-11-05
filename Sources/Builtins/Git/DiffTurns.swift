@@ -25,6 +25,34 @@ extension DiffViewController {
             turnPop.lastItem?.toolTip = m.prompt
         }
         if let picked, let i = marks.firstIndex(where: { $0.id == picked }) { turnPop.selectItem(at: i) }
-        turnPop.isHidden = marks.count < 2
+        turnBar.isHidden = marks.isEmpty
+    }
+
+    func undoTurnButton() -> NSButton {
+        let b = ClosureButton(title: String(localized: "Undo Turn…")) { [weak self] in self?.undoTurn() }
+        b.bezelStyle = .push
+        b.controlSize = .small
+        b.toolTip = String(localized: "Put the files back as they were before this turn")
+        return b
+    }
+
+    /// What goes back first, in a sheet; then only if the folder is still as it was shown (`SessionTurnUndo`).
+    private func undoTurn() {
+        guard let sid = FileActions(app).targetAgent?.id, let turn = turnPop.selectedItem?.representedObject as? String else { NSSound.beep(); return }
+        Task {
+            guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }   // the banner says why not
+            guard !plan.files.isEmpty else { status.stringValue = String(localized: "Nothing changed since that turn began"); return }
+            let a = NSAlert()
+            a.messageText = String(localized: "Put \(plan.files.count) files back as they were before this turn?")
+            let shown = plan.files.prefix(12).joined(separator: "\n"), more = plan.files.count - 12
+            a.informativeText = shown + (more > 0 ? "\n" + String(localized: "and \(more) more") : "") + "\n\n"
+                + String(localized: "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes go too.")
+            a.addButton(withTitle: String(localized: "Put Back")).hasDestructiveAction = true
+            a.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(a) == .alertFirstButtonReturn,
+                  await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state)) != nil else { return }
+            status.stringValue = String(localized: "Put \(plan.files.count) files back")
+            await load()
+        }
     }
 }

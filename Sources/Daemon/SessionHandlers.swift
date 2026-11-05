@@ -194,6 +194,28 @@ extension SessionContinueAt: Handled {
     }
 }
 
+extension SessionTurnUndo: Handled {
+    var actsOn: String? { id }   // an agent undoes only its own turns and its children's
+    func handle(_ workspaces: Workspaces) throws -> Result {
+        guard let ls = workspaces.sessions.existing(id) else { throw RPCError.invalidParams("That agent isn't running.") }
+        guard let t = try workspaces.store.turns(session: id).first(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn.") }
+        let r = workspaces.remotes, dir = t.folder
+        guard ls.snapshot.status != .working else { throw RPCError.invalidParams("The agent is still working: stop it first.") }
+        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: r).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (head.isEmpty ? nil : head) == t.head else {
+            throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
+        }
+        let others = workspaces.sessions.live.all.filter { o in
+            let s = o.snapshot
+            return s.id != id && s.status != .exited && !["shell", "custom"].contains(s.agent ?? "custom") && (o.turnDir ?? s.cwd) == dir
+        }
+        guard others.isEmpty else { throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.") }
+        let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
+        if apply == true { try Git.restore(plan.files, from: t.tree, now: state ?? "", cwd: dir, remotes: r) }
+        return Plan(files: plan.files, state: plan.now)
+    }
+}
+
 extension SessionTurns: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result { try workspaces.store.turns(session: id) }
 }

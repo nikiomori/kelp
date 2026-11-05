@@ -279,6 +279,21 @@ public struct SessionTurns: RPCMethod {
     }
 }
 
+/// A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back
+/// and the folder's state now; with it, done only while the folder is still that `state`. Refused while the agent works,
+/// after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.
+public struct SessionTurnUndo: RPCMethod {
+    public static let name = "session.turnUndo"; public typealias Result = Plan
+    public var id: String, turn: String, apply: Bool?, state: String?
+    public init(id: String, turn: String, apply: Bool? = nil, state: String? = nil) {
+        self.id = id; self.turn = turn; self.apply = apply; self.state = state
+    }
+    public struct Plan: Codable, Sendable, Equatable {
+        public var files: [String], state: String
+        public init(files: [String], state: String) { self.files = files; self.state = state }
+    }
+}
+
 /// The agent's last message, from its transcript.
 public struct SessionLastReply: RPCMethod {
     public static let name = "session.lastReply"; public typealias Result = String?
