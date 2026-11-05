@@ -503,3 +503,18 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     files["gone.js"] = nil; files["extension.json"] = nil
     #expect(IDE.differing(dir, from: files) == "extension.json")   // in the folder, not in the list
 }
+
+/// The library adds what community.json beside its index lists, as not reviewed, without what it reviewed itself.
+@Test func theLibraryAddsTheCommunityAsUnreviewed() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    try #"[{"id":"docker","name":"Docker","version":"1.0.0","source":"https://github.com/o/r/tree/t/extensions/docker"}]"#
+        .write(to: dir.appendingPathComponent("index.json"), atomically: true, encoding: .utf8)
+    try #"[{"id":"docker","name":"Fake","version":"9","source":"https://github.com/x/docker"},{"id":"memo","name":"Memo","version":"0.1.0","source":"https://github.com/a/memo/tree/abc","stars":12,"weekly":3}]"#
+        .write(to: dir.appendingPathComponent("community.json"), atomically: true, encoding: .utf8)
+    let all = try IDE.library(index: dir.appendingPathComponent("index.json").absoluteString)
+    #expect(all.map(\.id) == ["docker", "memo"] && all[0].name == "Docker" && all[0].reviewed == nil)
+    #expect(all[1].reviewed == false && all[1].weekly == 3)
+    try FileManager.default.removeItem(at: dir.appendingPathComponent("community.json"))
+    #expect(try IDE.library(index: dir.appendingPathComponent("index.json").absoluteString).count == 1)
+}

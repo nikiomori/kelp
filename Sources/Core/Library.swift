@@ -35,9 +35,21 @@ extension IDE {
         guard index.hasPrefix("https://") || index.hasPrefix("file://") else {
             throw RPCError.invalidParams("The library's index must be an https URL: \(index)")
         }
-        do { return try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) }
+        let reviewed: [ExtensionLibrary.Entry]
+        do { reviewed = try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) }
         catch let e as RPCError { throw e }
         catch { throw RPCError.internalError("The extension library's index isn't readable: \(error.localizedDescription)") }
+        return reviewed + community(beside: index).filter { c in !reviewed.contains { $0.id == c.id } }
+    }
+
+    /// community.json beside the index: repositories under the topic kelp-extension, not reviewed (`Entry.reviewed`
+    /// false). A library without one, or one that can't be read, just has none.
+    static func community(beside index: String) -> [ExtensionLibrary.Entry] {
+        guard index.hasSuffix("/index.json") else { return [] }
+        let url = String(index.dropLast("index.json".count)) + "community.json"
+        do {
+            return try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(url)).map { var e = $0; e.reviewed = false; return e }
+        } catch { return [] }
     }
 
     /// A GitHub folder (`librarySource`) downloaded into a new temporary folder named by the extension's id, with
