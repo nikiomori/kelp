@@ -19858,6 +19858,72 @@
           }
         }
       }
+    },
+    "The button is hidden. Settings › Window brings it back.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка скрыта. Вернуть можно в Настройки › Окно."
+          }
+        }
+      }
+    },
+    "In the title bar, right of the search, with two agents or more; right-click it to hide it. ⌃⌘T works either way.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В заголовке окна, справа от поиска, когда агентов два или больше; правый клик по ней скрывает её. ⌃⌘T работает в любом случае."
+          }
+        }
+      }
+    },
+    "Keep Mac awake button": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка «Не давать Mac засыпать»"
+          }
+        }
+      }
+    },
+    "A cup in the title bar while the Mac is kept awake; right-click it to hide it. Tools › Keep Mac Awake works either way.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чашка в заголовке окна, пока Kelp не даёт Mac уснуть; правый клик по ней скрывает её. Инструменты › Не давать Mac засыпать работает в любом случае."
+          }
+        }
+      }
+    },
+    "In the title bar, with two agents or more; ⌃⌘T works either way.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В заголовке окна, когда агентов два или больше; ⌃⌘T работает в любом случае."
+          }
+        }
+      }
+    },
+    "A cup in the title bar while the Mac is kept awake.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чашка в заголовке окна, пока Kelp не даёт Mac уснуть."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

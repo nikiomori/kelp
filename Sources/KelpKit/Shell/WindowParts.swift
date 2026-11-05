@@ -155,7 +155,7 @@ final class Card: NSView {
 
 extension NSButton {
     /// An icon button for the title bar: 14 pt, greyed in under the pointer like every Kelp control.
-    static func titlebar(_ symbol: String, _ label: String, tip: String) -> NSButton {
+    static func titlebar(_ symbol: String, _ label: String, tip: String) -> PointerButton {
         let b = PointerButton(frame: .zero)   // greys in under the pointer, springs when clicked, as every Kelp control
         b.image = .symbol(symbol, label)
         b.imagePosition = .imageOnly
@@ -343,7 +343,7 @@ final class EditorHost: NSViewController {
     }
 }
 
-/// No workspace selected: first-run guidance.
+/// No workspace selected: the first run's welcome (the only one: no sheet over it), else where to pick one.
 @MainActor
 final class WelcomeView: NSView {
     let hasRepos: Bool
@@ -351,7 +351,7 @@ final class WelcomeView: NSView {
         self.hasRepos = hasRepos
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "bubble.left"))
-        icon.symbolConfiguration = .init(pointSize: 40, weight: .light); icon.contentTintColor = .tertiaryLabelColor
+        icon.symbolConfiguration = .init(pointSize: 40, weight: Metrics.iconWeight); icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos
@@ -368,13 +368,13 @@ final class WelcomeView: NSView {
         let setup = hasRepos ? nil : NSHostingView(rootView: WelcomeSetup().environment(app))
         let stack = NSStackView(views: [icon, title, body] + (setup.map { [$0] } ?? []) + [buttons])
         stack.orientation = .vertical
-        stack.spacing = 10
-        stack.setCustomSpacing(18, after: setup ?? body)
-        if setup != nil { stack.setCustomSpacing(24, after: body) }
+        stack.spacing = Metrics.gapWide
+        stack.setCustomSpacing(Metrics.sheetInset, after: setup ?? body)
+        if setup != nil { stack.setCustomSpacing(2 * Metrics.inset, after: body) }
         stack.translatesAutoresizingMaskIntoConstraints = false; addSubview(stack)
         NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-                                     stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -30),
-                                     body.widthAnchor.constraint(equalToConstant: 420)])
+                                     stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift),
+                                     body.widthAnchor.constraint(equalToConstant: Metrics.sheetWidth - 2 * Metrics.sheetInset)])
     }
     required init?(coder: NSCoder) { fatalError() }
 }

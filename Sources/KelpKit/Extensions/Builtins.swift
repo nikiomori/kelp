@@ -56,8 +56,11 @@ package enum Builtins {
               options: ["theme", "100", "90", "80", "70", "60", "50", "40"])
         ] + sidebar + inspector + [
             s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
-              "In the title bar; ⌃⌘T works either way.",
-              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
+              "In the title bar, with two agents or more; ⌃⌘T works either way.",
+              help: "In the title bar, right of the search, with two agents or more; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
+            s("workbench.awakeButton", "Keep Mac awake button", "boolean", true,
+              "A cup in the title bar while the Mac is kept awake.",
+              help: "A cup in the title bar while the Mac is kept awake; right-click it to hide it. Tools › Keep Mac Awake works either way.", group: "Window"),
             s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
               "Icons in Files, Source Control and tabs.",
               help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window")

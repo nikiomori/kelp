@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import Foundation
 import Testing
@@ -171,4 +172,18 @@ import WorkbenchKit
     unsaved = []
     (recent, gone) = EditorHost.evicting(["g"] + recent, keep: 4) { unsaved.contains($0) }
     #expect(recent == ["g", "a", "b", "c"] && gone == ["d", "e"])
+}
+
+/// Agents Side by Side is in the title bar only with two agents or more that would tile: not a terminal, a run, an ended
+/// or paused one, nor another workspace's.
+@MainActor @Test func sideBySideCountsTheAgentsThatWouldTile() {
+    _ = testHome
+    let m = AppModel(builtins: Builtins.all)
+    func s(_ w: String, _ agent: String, _ status: AgentStatus = .working) -> Session {
+        Session(worktreeId: w, cwd: "/", command: agent, agent: agent, status: status, title: agent)
+    }
+    m.sessions = [s("w1", "claude"), s("w1", "shell"), s("w1", "custom"), s("w1", "codex", .exited), s("w1", "codex", .hibernated), s("w2", "codex")]
+    #expect(WindowBar.liveAgents(m, in: "w1") == 1)
+    m.sessions.append(s("w1", "codex", .idle))
+    #expect(WindowBar.liveAgents(m, in: "w1") == 2)
 }

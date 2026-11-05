@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Testing
 import Core
+import DesignKit
 import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
@@ -223,12 +224,34 @@ extension OneAtATime {
     }
 }
 
-/// The middle of the window says what to do first (WelcomeView): the sidebar doesn't say it a second time.
-@Test func withNoProjectsTheSidebarKeepsQuiet() throws {
+/// The first run: the line over the list still names it, so Add Project beside it isn't an icon alone in a corner.
+@Test func withNoProjectsTheLineStillNamesTheList() throws {
     try withSidebar(repos: [], worktrees: [], sessions: []) { vc, o in
         #expect(o.numberOfRows == 0)
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-        #expect(line.isHidden)
+        #expect(!line.isHidden && texts(vc.view).contains("Projects"))
+    }
+}
+
+/// Who needs you, works and finished, too many for a narrow sidebar: the words that don't fit go (into the tooltip), and
+/// what stays ends a gap short of Add Project.
+@Test func theLineOverTheListStaysClearOfAddProject() throws {
+    func agent(_ w: String, _ status: AgentStatus) -> Session {
+        var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: "A", summary: "")
+        s.statusAt = Date() - 60
+        s.unread = true
+        return s
+    }
+    let sessions = [agent("w1", .waiting), agent("w2", .working), agent("w3", .done)]
+    try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, _ in
+        let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+        vc.view.frame.size.width = 200
+        vc.view.layoutSubtreeIfNeeded()
+        line.layoutSubtreeIfNeeded()
+        let shown = textFields(line).filter { !$0.isHiddenOrHasHiddenAncestor && !$0.stringValue.isEmpty }
+        let end = shown.map { $0.convert($0.bounds, to: line).maxX }.max() ?? 0
+        #expect(end <= line.bounds.width - Metrics.gap)
+        #expect(line.toolTip == "1 need you · 1 working · 1 done")
     }
 }
 

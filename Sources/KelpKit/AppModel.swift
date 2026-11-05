@@ -494,7 +494,7 @@ package final class AppModel {
 
     func projectName(_ id: String?) -> String? {
         guard let r = repo(id) else { return nil }
-        if NoProject.holds(r) { return String(localized: "No Project") }
+        if NoProject.holds(r) { return String(localized: "Chats") }   // what the row holds: chats outside any project
         guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host else { return r.name }
         return "\(r.name) · \(host)"
     }

@@ -52,7 +52,7 @@ extension AppDelegate {
             // KELP_SNAPSHOT_SHEET=clone|remote[=text]: the clone and SSH sheets (the open panel itself is another process),
             // with text: filled in and started. extension=<GitHub folder>: downloaded, and what it runs asked about.
             // project=<folder>: added as Add Project does (one without git asks first).
-            if env["KELP_SNAPSHOT_SHEET"] == "onboarding" { OnboardingSheet.show(app) } else if let s = env["KELP_SNAPSHOT_SHEET"] {
+            if let s = env["KELP_SNAPSHOT_SHEET"] {
                 let p = s.split(separator: "=", maxSplits: 1).map(String.init)
                 if p[0] == "remote" { RemoteSheet.show(app, start: p.count > 1 ? p[1] : nil) }
                 else if p[0] == "extension", p.count > 1 { Task { await app.extensions.install(source: p[1]) } }   // the look before installing

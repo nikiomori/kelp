@@ -247,7 +247,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// First launch's "Send Test Notification": a banner now, or `false` when macOS has them turned off for Kelp.
+    /// Settings › Notifications' "Send Test Notification": a banner now, or `false` when macOS has them turned off for Kelp.
     func sendTest(_ done: @escaping @MainActor (Bool) -> Void) {
         guard let center else { done(false); return }
         Task {

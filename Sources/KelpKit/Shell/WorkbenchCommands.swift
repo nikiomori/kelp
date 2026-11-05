@@ -24,6 +24,12 @@ extension Builtins {
             },
             cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") { app.quickOpen.show(commandsOnly: true) },
             cmd("workbench.scratch", "New Chat Without Project", "ctrl+opt+cmd+k") { app.noProject.newChat() },
+            // Settings › Notifications' button: macOS shows the banner, or Kelp says where they're turned off.
+            cmd("notifications.test", "Send Test Notification") {
+                app.notifier?.sendTest { ok in
+                    if !ok { Banner.show(String(localized: "Turned off for Kelp in System Settings › Notifications."), style: .error) }
+                }
+            },
             cmd("view.biggerText", "Bigger Text", "cmd+plus") { zoomText(app, 1) },
             cmd("view.smallerText", "Smaller Text", "cmd+-") { zoomText(app, -1) },
             cmd("view.defaultTextSize", "Default Text Size") { zoomText(app, nil) },

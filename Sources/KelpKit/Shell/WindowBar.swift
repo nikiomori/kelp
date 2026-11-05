@@ -68,17 +68,14 @@ final class WindowBar: NSView {
         awake.target = self; awake.action = #selector(toggleAwake)
         sideBySide.target = self; sideBySide.action = #selector(toggleSideBySide)
         let hide = NSMenu()
-        hide.add(String(localized: "Hide Button")) {
-            app.settings.set("workbench.sideBySideButton", .bool(false))
-            Banner.show(String(localized: "The button is hidden. Settings › Appearance brings it back."))
-        }
+        Self.addHide(to: hide, "workbench.sideBySideButton", app)
         sideBySide.menu = hide
         back.target = self
         back.action = #selector(goBack)
         forward.target = self
         forward.action = #selector(goForward)
         let nav = NSStackView(views: [back, forward]); nav.spacing = 0
-        // Right of the search: what runs here (gone while the project offers nothing), the page it serves, the cup, side by side.
+        // Right of the search: what runs here, the page it serves, the cup, side by side; each only while it has something to say.
         let tools = NSStackView(views: [run, page, awake, sideBySide]); tools.spacing = 2
         tools.detachesHiddenViews = true
         tools.setCustomSpacing(6, after: run)
@@ -110,7 +107,9 @@ final class WindowBar: NSView {
         }
         track(owner: self) { [app] in WindowBar.awakeMode(app) } changed: { [weak self] in self?.showAwake($0) }
         track(owner: self) { app.workbench.sideBySide } changed: { [weak self] in self?.showSideBySide($0) }
-        track(owner: self) { app.settings.bool("workbench.sideBySideButton") ?? true } changed: { [weak self] in self?.sideBySide.isHidden = !$0 }
+        track(owner: self) { [app] in
+            app.settings.bool("workbench.sideBySideButton") != false && WindowBar.liveAgents(app, in: app.workbench.workspaceId) >= 2
+        } changed: { [weak self] in self?.sideBySide.isHidden = !$0 }
         track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in
             self?.name.font = .ui(13, weight: .semibold)
             for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(12) }
@@ -217,30 +216,43 @@ final class WindowBar: NSView {
     }
 
     /// The setting ("always", "agents", "off"), or "working": agents keep the Mac awake right now (as the daemon counts them).
+    /// "hidden" once the button's right-click hid it, whatever the mode.
     private static func awakeMode(_ app: AppModel) -> String {
         let mode = app.settings.string("power.keepAwake") ?? "agents"
         let working = app.sessions.contains { $0.isChat && $0.status == .working }
-        return mode == "agents" && working ? "working" : mode
+        return app.settings.bool("workbench.awakeButton") == false ? "hidden" : mode == "agents" && working ? "working" : mode
     }
 
-    /// The cup right of the search, always there so the switch can be found: empty while the Mac may sleep, steaming while
-    /// agents keep it awake, orange while it's on for good. A click is Keep Mac Awake (also in the Tools menu); a right-click
-    /// picks the mode.
+    /// The cup right of the search, only while the Mac is kept awake: steaming while agents keep it so, filled while it's on
+    /// for good. The switch is Tools › Keep Mac Awake; a click here is the same, a right-click picks the mode or hides it.
     private func showAwake(_ mode: String) {
         let app = self.app
-        let (symbol, tip) = switch mode {
-        case "always": ("cup.and.heat.waves.fill", String(localized: "The Mac stays awake until you click here"))
-        case "working": ("cup.and.heat.waves", String(localized: "The Mac stays awake while agents work. Click to keep it awake always"))
-        default: ("cup.and.saucer", String(localized: "The Mac can sleep. Click to keep it awake"))
-        }
-        let cup = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))   // a recessed button ignores contentTintColor
-        awake.image = mode == "always" ? cup.withSymbolConfiguration(.init(paletteColors: [.systemOrange])) : cup
+        awake.isHidden = mode != "always" && mode != "working"
+        let (symbol, tip) = mode == "always"
+            ? ("cup.and.heat.waves.fill", String(localized: "The Mac stays awake until you click here"))
+            : ("cup.and.heat.waves", String(localized: "The Mac stays awake while agents work. Click to keep it awake always"))
+        awake.image = .symbol(symbol, String(localized: "Keep Mac Awake"))
         awake.toolTip = tip
         let m = NSMenu()
         for (v, title) in [("agents", String(localized: "While agents work")), ("always", String(localized: "Always")), ("off", String(localized: "Never"))] {
             m.add(title) { app.settings.set("power.keepAwake", .string(v)) }.state = (mode == "working" ? "agents" : mode) == v ? .on : .off
         }
+        m.addItem(.separator())
+        Self.addHide(to: m, "workbench.awakeButton", app)
         awake.menu = m
+    }
+
+    /// A title-bar button's right-click: off by its setting, which Settings › Window turns back on.
+    private static func addHide(to m: NSMenu, _ key: String, _ app: AppModel) {
+        m.add(String(localized: "Hide Button")) {
+            app.settings.set(key, .bool(false))
+            Banner.show(String(localized: "The button is hidden. Settings › Window brings it back."))
+        }
+    }
+
+    /// Agents that tile side by side in a workspace, as `EditorArea.arrange` picks them: below two the button does nothing.
+    static func liveAgents(_ app: AppModel, in wid: String?) -> Int {
+        app.sessions.filter { $0.worktreeId == wid && !["shell", "custom"].contains($0.agent) && ![.exited, .hibernated].contains($0.status) }.count
     }
 
     /// The arrows say where they go; with nothing that way they grey out.
@@ -255,10 +267,10 @@ final class WindowBar: NSView {
 
     @objc private func toggleAwake() { app.extensions.command("power.keepAwake")?.run([:]) }
 
-    /// Filled while the workspace puts its agents side by side; a click shows them as tabs in one pane, and back.
-    /// A right-click hides it (Settings › Appearance brings it back).
+    /// Pressed in (the selected fill) while the workspace puts its agents side by side; a click shows them as tabs in one
+    /// pane, and back. Only with two agents or more; a right-click hides it (Settings › Window brings it back).
     private func showSideBySide(_ on: Bool) {
-        sideBySide.image = .symbol(on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
+        sideBySide.restFill = on ? .fillSelected : nil
         sideBySide.toolTip = on ? String(localized: "Agents side by side. Click to show them as tabs (⌃⌘T)")
                                 : String(localized: "Agents as tabs. Click to put them side by side (⌃⌘T)")
     }

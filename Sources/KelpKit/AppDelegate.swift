@@ -79,7 +79,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             app.updates.sayInstalled()
             let early = pendingOpens ?? []; pendingOpens = nil
             if !early.isEmpty { application(NSApp, open: early) }
-            if ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil { OnboardingSheet.showIfFirstLaunch(app) }
         }
         NSApp.activate()
         // Snapshots and the input they drive (KELP_CLICK, KELP_TYPE…) are a debug build's: in a release, any program the

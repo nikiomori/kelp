@@ -1,7 +1,7 @@
 import AppKit
 
 /// What a panel or a tab shows instead of a list that has nothing, or couldn't load: one block in the middle of the
-/// room under its bar, lifted 40 pt — an icon (28 pt light, tertiary), a title, a line of what to do, a command that
+/// room under its bar, lifted 40 pt — an icon (28 pt at the chrome's weight, tertiary), a title, a line of what to do, a command that
 /// fixes it (selectable, monospaced) and at most a button or two. An error is the same block with a warning triangle.
 @MainActor
 public final class EmptyStateView: NSView {
@@ -14,7 +14,7 @@ public final class EmptyStateView: NSView {
 
     public init() {
         super.init(frame: .zero)
-        icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
+        icon.symbolConfiguration = .init(pointSize: 28, weight: Metrics.iconWeight)
         icon.contentTintColor = .tertiaryLabelColor
         title.font = .ui(13, weight: .semibold)
         text.font = .ui(13)

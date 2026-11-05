@@ -3,7 +3,7 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// How much of the agents' plans is used: for each agent's fullest limit (or only the fullest of all, by setting) the agent's
+/// How much of the agents' plans is used: the fullest limit of all (or each agent's fullest, by setting) with the agent's
 /// icon and name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick
 /// where an even pace would have the bar by now. On hover, that agent's limits each with its bar and reset; with one row
 /// shown, every agent's.
@@ -36,9 +36,12 @@ struct UsageView: View {
     struct Row: Identifiable, Equatable {
         var id: String, name: String, fullName: String
         var lines: [Line] = []
-        /// When the numbers were read (nil: unknown); past half an hour they're dimmed and say how old they are.
+        /// When the numbers were read (nil: unknown); past half an hour they say how old they are, past a day the foot
+        /// leaves them out (an agent not used since: Codex reads its limits only then).
         var readAt: Date?
-        var stale: Bool { readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false }
+        var stale: Bool { age > 1800 }
+        var gone: Bool { age > 86400 }
+        private var age: TimeInterval { readAt.map { Date().timeIntervalSince($0) } ?? 0 }
         var main: Line? { lines.max { $0.used < $1.used } }
     }
     let app: AppModel
@@ -48,10 +51,10 @@ struct UsageView: View {
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
-    /// The agents that have used anything of their plans: a row at 0% says nothing.
-    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
+    /// The agents that have used anything of their plans, read within a day: a row at 0% says nothing, nor a day-old one.
+    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 && !$0.gone } }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
-    private var all: Bool { app.settings.string("usage.limits") != "fullest" }
+    private var all: Bool { app.settings.string("usage.limits") == "all" }
     /// The rows on show (Settings › Agents, or the footer's right-click): nothing once plan limits are turned off.
     private var shown: [Row] {
         guard app.settings.bool("usage.readPlans") != false else { return [] }
@@ -91,15 +94,17 @@ struct UsageView: View {
                         HStack(spacing: Metrics.gap) {
                             Text(r.name).lineLimit(1)
                             Spacer(minLength: Metrics.gapWide)
-                            if resets, let at = main.soon() { Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary) }
-                            Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
+                            // An old reading says how old in place of its reset, which it can no longer vouch for.
+                            if r.stale, let read = r.readAt {
+                                Text(String(localized: "\(shortAgo(read)) ago")).fixedSize().monospacedDigit().foregroundStyle(.secondary)
+                            } else if resets, let at = main.soon() { Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary) }
+                            Text(Self.percent(main.used)).fixedSize()
                                 .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
                         }
                         Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }
                 }
                 .font(.caption)
-                .opacity(r.stale ? 0.45 : 1)
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))
@@ -218,7 +223,7 @@ struct UsageView: View {
             case "claude":
                 r.lines = Self.claude(u)
                 if r.readAt == nil { r.readAt = u.claudeLimits?.compactMap(\.observedAt).max().map { Date(timeIntervalSince1970: $0) } }
-            // Codex logs its limits only when it's used: an old reading is dimmed and says how old it is.
+            // Codex logs its limits only when it's used: an old reading says how old it is.
             case "codex": r.lines = Self.codex(u); r.readAt = u.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
             default: r.lines = Self.lines(u.plans?[a.id] ?? [])
             }
