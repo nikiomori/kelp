@@ -87,3 +87,12 @@ import Agents
     #expect(try String(contentsOfFile: wt.path + "/pkg/p.txt", encoding: .utf8) == "pkg\n")
     #expect(!FileManager.default.fileExists(atPath: wt.path + "/top.txt"))
 }
+
+/// A session sees its folder's ports in KELP_PORT.
+@Test func aSessionKnowsItsFoldersPorts() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await desk(w, "ports")
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "echo port=$KELP_PORT; sleep 5"]), as: Session.self)
+    let want = PortBlocks.port(for: wt.path, among: try w.d.store.worktrees().map(\.path))
+    #expect(try await waitFor(5) { try await w.c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("port=\(want)") == true })
+}

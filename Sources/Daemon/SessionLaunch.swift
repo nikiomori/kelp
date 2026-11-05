@@ -28,9 +28,17 @@ extension Sessions {
         if Tmux.session(rec.argv) == nil { env["KELP_SESSION"] = rec.id }
         if let v = promptEditor(m, rec, given: env["VISUAL"]) { env["VISUAL"] = v }
         env["KELP_SOCKET"] = socketPath; env["KELP_HOME"] = root.path
+        if env["KELP_PORT"] == nil, let port = Log.store.attempt("a folder's ports", { try portBlock(rec) }) { env["KELP_PORT"] = String(port) }
         // Written at each start and wake, so a session woken after an update gets this kelpd's hooks.
         if remotes.of(rec.cwd) == nil, let t = m.hooks { wire(t, m, rec, &env) }
         return env
+    }
+
+    /// The first of the session's folder's ten ports (`PortBlocks`).
+    private func portBlock(_ rec: Session) throws -> Int {
+        let all = try store.worktrees()
+        let folder = rec.worktreeId.flatMap { id in all.first { $0.id == id }?.path } ?? rec.cwd
+        return PortBlocks.port(for: folder, among: all.map(\.path))
     }
 
     /// A long prompt, handed to the agent's external editor (Ctrl+G), opens in a Kelp tab: only the name, since agents split

@@ -172,13 +172,15 @@ Claude Code sessions get Kelp's skills for this (Settings › Agents): ask the a
 setup: npm install              # runs in every new worktree
 shared: node_modules            # symlinked from the main checkout instead of reinstalling
 tabs: claude, shell             # sessions opened in each new worktree
-run: npm run dev                # Run menu (⌘R). Also test (⌘U), lint, build, script.<name>
+run: PORT=$KELP_PORT npm run dev   # Run menu (⌘R). Also test (⌘U), lint, build, script.<name>
 test: npm test
 issueCommand: "Fix {title}: {body}"
 recipe.commit: "Write a conventional commit for: {stagedPatch}"
 ```
 
 Its commands run only after you trust the project in Kelp, and ask again when the file changes.
+Every folder gets ten ports of its own: `$KELP_PORT` and the nine after it (`$((KELP_PORT+1))`), the same each time, so
+two copies of an app run side by side.
 `.worktreeinclude` lists gitignored files (globs) copied into new worktrees, e.g. `.env*`.
 
 ## Extensions
