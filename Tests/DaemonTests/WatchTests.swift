@@ -15,7 +15,7 @@ private final class Heard: Sendable {
 /// Before, every panel had a watcher of its own and asked git again itself.
 @Test func aWatchedWorkspacesGitIsPushedWhenItsFilesChangeAndOnlyThen() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let heard = Heard(); heard.listen(w.c)
     w.c.notify(WatchStart(.git, wt.id))
     #expect(try await waitFor(10) { heard.events(GitEvent.self).first?.changes == [] })
@@ -29,7 +29,7 @@ private final class Heard: Sendable {
 /// A build writing into a folder git ignores (dist/) doesn't read git again; once .gitignore stops ignoring it, it does.
 @Test func whatGitIgnoresDoesntReadGitAgain() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let key = Watches.Key(topic: .git, key: wt.id)
     func reads() -> Int { w.d.watches.reads.withLock { $0?[key] ?? 0 } }
     let heard = Heard(); heard.listen(w.c)
@@ -50,7 +50,7 @@ private final class Heard: Sendable {
 /// gets the reply after an event keeps what the event said.
 @Test func aSessionsRecordsComeWithRisingRevisions() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let heard = Heard(); heard.listen(w.c)
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "echo hi; exec sleep 30"))
     _ = try await w.c.call(SessionRename(id: s.id, title: "named"))
@@ -68,7 +68,7 @@ private final class Heard: Sendable {
 /// Two clients watching one topic share one reader; it stops after the last one stops watching or goes away.
 @Test func watchersShareOneReaderThatStopsWithTheLast() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let a = try client(w.root), b = try client(w.root)
     let ha = Heard(), hb = Heard(); ha.listen(a); hb.listen(b)
     a.notify(WatchStart(.ports, wt.id)); b.notify(WatchStart(.ports, wt.id))
@@ -85,20 +85,20 @@ private final class Heard: Sendable {
     #expect(w.d.watches.reads.withLock { $0?[key] ?? 0 } == reads)
 }
 
-/// Projects and workspaces come as records when they change, including a desk the list itself added, and removals say
+/// Projects and workspaces come as records when they change, including a workspace the list itself added, and removals say
 /// so: the app keeps its lists from these instead of reading them again on "something changed".
 @Test func recordsArePushedAsTheyChange() async throws {
     let w = try await world(); defer { w.d.stop() }
     let heard = Heard(); heard.listen(w.c)
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     _ = try await w.c.call(WorktreeNote(id: wt.id, note: "Renamed"))
     #expect(try await waitFor(5) { heard.events(Worktree.self).contains { $0.id == wt.id && $0.note == "Renamed" } })
-    let other = try await w.c.call(RepoAdd(path: try makeRepo()))   // its first desk is made by the desk sync
+    let other = try await w.c.call(RepoAdd(path: try makeRepo()))   // its first workspace is made by the workspace sync
     #expect(try await waitFor(5) { heard.events(Repo.self).contains { $0.id == other.id } })
     #expect(try await waitFor(5) { heard.events(Worktree.self).contains { $0.repoId == other.id } })
-    let desk = try await w.c.call(WorkspaceCreate(repoId: w.repo.id))
-    _ = try await w.c.call(WorktreeRemove(id: desk.id))
-    #expect(try await waitFor(5) { heard.events(RemovedEvent.self).contains { $0.worktree == desk.id } })
+    let workspace = try await w.c.call(WorkspaceCreate(repoId: w.repo.id))
+    _ = try await w.c.call(WorktreeRemove(id: workspace.id))
+    #expect(try await waitFor(5) { heard.events(RemovedEvent.self).contains { $0.worktree == workspace.id } })
     _ = try await w.c.call(RepoRemove(id: other.id))
     #expect(try await waitFor(5) { heard.events(RemovedEvent.self).contains { $0.repo == other.id } })
 }
@@ -107,9 +107,9 @@ private final class Heard: Sendable {
 @Test func aDeletedSessionIsPushedAsRemoved() async throws {
     let w = try await world(); defer { w.d.stop() }
     let heard = Heard(); heard.listen(w.c)
-    let desk = try await w.c.call(WorkspaceCreate(repoId: w.repo.id))
-    let s = try await w.c.call(SessionCreate(worktreeId: desk.id, command: "exec cat"))
-    _ = try await w.c.call(WorktreeRemove(id: desk.id))
+    let workspace = try await w.c.call(WorkspaceCreate(repoId: w.repo.id))
+    let s = try await w.c.call(SessionCreate(worktreeId: workspace.id, command: "exec cat"))
+    _ = try await w.c.call(WorktreeRemove(id: workspace.id))
     #expect(try await waitFor(5) { heard.events(RemovedEvent.self).contains { $0.session == s.id } })
 }
 
@@ -165,7 +165,7 @@ private final class Heard: Sendable {
 /// A workspace's files are pushed when the list changes, once; a file's text changing leaves the list as it was.
 @Test func aWorkspacesFilesArePushedWhenTheListChanges() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let heard = Heard(); heard.listen(w.c)
     w.c.notify(WatchStart(.files, wt.id))
     let listed = try await w.c.call(FilesList(id: wt.id))
@@ -199,7 +199,7 @@ private final class Heard: Sendable {
 /// row; one whose end never came, stopped when its turn ends.
 @Test func anAgentsCommandsAreListedAndTheRunningOneIsOnItsRow() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
     let heard = Heard(); heard.listen(w.c)
     w.c.notify(WatchStart(.commands, s.id))
@@ -236,7 +236,7 @@ private final class Heard: Sendable {
 /// Whoever looks at a subagent hears of its next step; a transcript says nothing of itself, so the topic reads it.
 @Test func aSubagentsStepsArePushedToWhoWatches() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -255,7 +255,7 @@ private final class Heard: Sendable {
 /// A workspace's artifacts are pushed as its `.kelp/artifacts` changes; its other files don't read them again.
 @Test func aWorkspacesArtifactsArePushedAsTheyChange() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let heard = Heard(); heard.listen(w.c)
     w.c.notify(WatchStart(.artifacts, wt.id))
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).map(\.items) == [[]] })

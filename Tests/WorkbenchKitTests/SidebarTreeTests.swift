@@ -47,7 +47,7 @@ private func kinds(_ items: [SidebarItem]) -> [SidebarItem.Kind] { items.map(\.k
     #expect(kinds(t.build()) == [.project("r3"), .project("r2"), .project("r1")])
 }
 
-private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
+private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     Worktree(id: id, repoId: r.id, branch: "main", path: r.path, createdAt: Date(timeIntervalSince1970: t))
 }
 
@@ -55,18 +55,18 @@ private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
 /// when a group comes: it goes under them, under a heading of its own, however many agents it holds.
 @Test func aProjectsChatsHaveNoHeadingAndGroupsAlwaysDo() {
     let chats = [agent("a1", in: "d", .working), agent("a2", in: "d", .idle)]
-    let alone = tree([desk("d", r1)], chats).build()
+    let alone = tree([workspace("d", r1)], chats).build()
     #expect(alone[0].workspace == "d" && kinds(alone[0].children) == [.agent("a1"), .agent("a2")])
     #expect(alone[1].workspace == nil && alone[1].children.isEmpty)   // no workspace at all
-    let grouped = tree([desk("d", r1), desk("g", r1, at: 1), desk("e", r1, at: 2)], chats + [agent("a3", in: "g", .working)]).build()
+    let grouped = tree([workspace("d", r1), workspace("g", r1, at: 1), workspace("e", r1, at: 2)], chats + [agent("a3", in: "g", .working)]).build()
     #expect(grouped[0].workspace == "d")
     #expect(kinds(grouped[0].children) == [.agent("a1"), .agent("a2"), .workspace("g"), .workspace("e")])
     #expect(kinds(grouped[0].children[2].children) == [.agent("a3")])   // one agent keeps its heading, and none does too
 }
 
-/// Which desk is the project's own doesn't follow a dragged order, and a checkout elsewhere is never it.
-@Test func aProjectsOwnScreenIsItsOldestDesk() {
-    let older = desk("old", r1, at: 1), newer = desk("new", r1, at: 2), branch = wt("b", "r1", "feat")
+/// Which workspace is the project's own doesn't follow a dragged order, and a checkout elsewhere is never it.
+@Test func aProjectsOwnScreenIsItsOldestWorkspace() {
+    let older = workspace("old", r1, at: 1), newer = workspace("new", r1, at: 2), branch = wt("b", "r1", "feat")
     #expect(mainWorkspace(of: r1, among: [branch, newer, older]) == older)
     #expect(mainWorkspace(of: r1, among: [branch]) == nil)
 }

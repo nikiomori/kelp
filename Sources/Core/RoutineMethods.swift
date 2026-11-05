@@ -1,7 +1,7 @@
 import Foundation
 
-/// An agent on a schedule: at its time the daemon starts `agent` with `prompt` in the routine's own workspace (a desk in
-/// the project's folder, made at its first run), and keeps how each run went.
+/// An agent on a schedule: at its time the daemon starts `agent` with `prompt` in the routine's own workspace (in the
+/// project's folder, made at its first run), and keeps how each run went.
 public struct Routine: Codable, Sendable, Equatable, Identifiable {
     public enum Every: String, Codable, Sendable, CaseIterable { case hourly, daily, weekdays, weekly }
     /// Empty: a new one (routine.set gives it an id).

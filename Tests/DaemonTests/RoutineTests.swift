@@ -23,11 +23,11 @@ private final class Heard: @unchecked Sendable {
     await #expect(throws: RPCError.self) { try await w.c.call(RoutineSet(routine: Routine(name: " ", repoId: w.repo.id, agent: "bot", prompt: "x"))) }
     var r = try await w.c.call(RoutineSet(routine: Routine(name: "Morning triage", repoId: w.repo.id, agent: "bot", prompt: "triage", every: .daily, time: farOff)))
     #expect(!r.id.isEmpty)
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: r.checked.addingTimeInterval(1))
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: r.checked.addingTimeInterval(1))
     #expect(try await w.c.call(RoutineList()).runs.isEmpty)   // nothing due yet
 
     let due = try #require(r.next(after: r.checked))
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(5))
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(5))
     let run = try #require(try await w.c.call(RoutineList()).runs.first)
     #expect(run.outcome == .running && run.due == due && !run.late)
     let sid = try #require(run.sessionId)
@@ -42,7 +42,7 @@ private final class Heard: @unchecked Sendable {
     /// The run once a tick has seen the session at `outcome`.
     func reached(_ outcome: Routine.Run.Outcome) async throws -> Routine.Run? {
         _ = try await waitFor {
-            w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(20))
+            w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(20))
             return try await w.c.call(RoutineList()).runs.first?.outcome == outcome
         }
         return try await w.c.call(RoutineList()).runs.first
@@ -68,7 +68,7 @@ private final class Heard: @unchecked Sendable {
     let bad = try await w.c.call(RoutineSet(routine: Routine(name: "Gone", repoId: w.repo.id, agent: "uninstalled", prompt: "x", every: .daily, time: farOff)))
     let good = try await w.c.call(RoutineSet(routine: Routine(name: "Here", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff)))
     let due = try #require(bad.next(after: bad.checked))
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(5))
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(5))
     let runs = try await w.c.call(RoutineList()).runs
     let failed = try #require(runs.first { $0.routineId == bad.id })
     #expect(failed.outcome == .failed && failed.summary.contains("uninstalled") && failed.ended != nil)
@@ -80,11 +80,11 @@ private final class Heard: @unchecked Sendable {
     let w = try await world(agents: [bot]); defer { w.d.stop() }
     let r = try await w.c.call(RoutineSet(routine: Routine(name: "Stuck", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff)))
     let due = try #require(r.next(after: r.checked))
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(5))
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(5))
     let run = try #require(try await w.c.call(RoutineList()).runs.first)
     try w.d.store.update(Routine.Run.self, run.id) { $0.started = Date().addingTimeInterval(-Routines.neverStartedAfter - 1) }
     _ = try await w.c.call(SessionAnnotate(id: try #require(run.sessionId), summary: "", status: "idle"))
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: due.addingTimeInterval(6))
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(6))
     #expect(try await w.c.call(RoutineList()).runs.first?.outcome == .failed)
 }
 
@@ -96,7 +96,7 @@ private final class Heard: @unchecked Sendable {
     let skip = try await w.c.call(RoutineSet(routine: Routine(name: "Skip", repoId: w.repo.id, agent: "bot", prompt: "x", every: .daily, time: farOff,
                                                               onWake: false)))
     let later = wake.checked.addingTimeInterval(3 * 86400)
-    w.d.workspaces.routines.tick(desks: w.d.workspaces, now: later)
+    w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: later)
     let runs = try await w.c.call(RoutineList()).runs
     let woke = try #require(runs.first { $0.routineId == wake.id }), missed = try #require(runs.first { $0.routineId == skip.id })
     #expect(runs.count == 2)

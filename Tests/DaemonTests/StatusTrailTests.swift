@@ -8,7 +8,7 @@ import Agents
 /// has, and a list read after a reconnect never brought back a change it had missed.
 @Test func aRunningSessionIsListedWithItsRevision() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "listed")
+    let wt = try await workspace(w, "listed")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     _ = try await w.c.call(SessionHook(id: s.id, event: "waiting"))
     #expect(try await waitFor(10) {
@@ -22,7 +22,7 @@ import Agents
 /// program, hears the hook that comes too late, and goes with the session.
 @Test func theTrailSaysWhatASessionWentThrough() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "trail")
+    let wt = try await workspace(w, "trail")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     func hook(_ event: String, _ type: String? = nil) async throws {
         _ = try await w.c.call(SessionHook(id: s.id, event: event, notification: type.map { .obj(["notification_type": .string($0)]) }))
@@ -55,7 +55,7 @@ import Agents
 /// The trail keeps what the program really said. After Esc it isn't one: a row that says done would tell them what they did.
 @Test func aProgramsIdleAfterWorkFinishesItsTurn() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "idle")
+    let wt = try await workspace(w, "idle")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "idle"))

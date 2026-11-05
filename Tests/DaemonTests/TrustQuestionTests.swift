@@ -13,7 +13,7 @@ import Agents
         + #"echo $r; sleep 30"#
     let asker = AgentManifest(id: "asker", name: "Asker", command: "/bin/bash", args: ["-c", script, "x"])
     let w = try await world(agents: [asker]); defer { w.d.stop() }
-    let wt = try await desk(w, "arrows")
+    let wt = try await workspace(w, "arrows")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "asker"]), as: Session.self)
     func screen() async throws -> String { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? "" }
     #expect(try await waitFor(15) { try await screen().contains("one you trust") })

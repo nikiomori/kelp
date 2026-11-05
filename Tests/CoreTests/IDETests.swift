@@ -52,9 +52,9 @@ import Testing
 }
 
 /// The daemon's placeholder is a new chat to people; a name someone gave it, or a first prompt did, stays.
-@Test func aDeskNobodyNamedIsANewChat() {
-    func desk(_ note: String) -> Worktree { Worktree(repoId: "r", branch: "main", path: "/p", note: note) }
-    #expect(desk("Workspace 3").isUnnamed && desk("Workspace 3").displayName != "Workspace 3")
-    #expect(!desk("Workspace plans").isUnnamed && desk("Workspace plans").displayName == "Workspace plans")
-    #expect(!desk("").isUnnamed && desk("").displayName == "main")
+@Test func aWorkspaceNobodyNamedIsANewChat() {
+    func workspace(_ note: String) -> Worktree { Worktree(repoId: "r", branch: "main", path: "/p", note: note) }
+    #expect(workspace("Workspace 3").isUnnamed && workspace("Workspace 3").displayName != "Workspace 3")
+    #expect(!workspace("Workspace plans").isUnnamed && workspace("Workspace plans").displayName == "Workspace plans")
+    #expect(!workspace("").isUnnamed && workspace("").displayName == "main")
 }

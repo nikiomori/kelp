@@ -30,7 +30,7 @@ final class RunState {
 extension ScriptsMenu {
     // MARK: the choices
 
-    /// What ran last in the workspace's project (its desks share it).
+    /// What ran last in the workspace's project (its workspaces share it).
     func remembered(_ wid: String) -> String? { project(wid).flatMap { app.uiState["run.last.\($0)"]?.string } }
     func remember(_ choice: String, in wid: String) { project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) } }
 

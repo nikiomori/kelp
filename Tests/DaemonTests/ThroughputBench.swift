@@ -16,7 +16,7 @@ import Agents
     for _ in 0..<100 { try h.write(contentsOf: chunk) }
     try h.close()
     let w = try await world(agents: [AgentManifest(id: "bench", name: "Bench", command: "/bin/cat", args: [file.path])]); defer { w.d.stop() }
-    let wt = try await desk(w, "bench")
+    let wt = try await workspace(w, "bench")
     func cpu() -> Double {   // this process's (the daemon's) user + system time: less noisy than the clock on a busy Mac
         var u = rusage(); getrusage(RUSAGE_SELF, &u)
         return Double(u.ru_utime.tv_sec + u.ru_stime.tv_sec) + Double(u.ru_utime.tv_usec + u.ru_stime.tv_usec) / 1e6

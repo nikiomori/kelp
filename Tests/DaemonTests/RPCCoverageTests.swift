@@ -5,7 +5,7 @@ import GitKit
 import Agents
 @testable import Daemon
 
-/// A daemon with one repo and one desk (workspace) cut from it, set up the way the app does.
+/// A daemon with one repo and one workspace cut from it, set up the way the app does.
 private struct Rig {
     let d: Daemon, c: RPCClient, repo: Repo, wt: Worktree
     func call(_ m: String, _ p: [String: JSONValue] = [:]) async throws -> JSONValue {
@@ -14,7 +14,7 @@ private struct Rig {
 }
 private func rig() async throws -> Rig {
     let w = try await world()
-    return Rig(d: w.d, c: w.c, repo: w.repo, wt: try await desk(w, "feat/x"))
+    return Rig(d: w.d, c: w.c, repo: w.repo, wt: try await workspace(w, "feat/x"))
 }
 private func write(_ r: Rig, _ name: String, _ text: String) throws { try text.write(toFile: r.wt.path + "/" + name, atomically: true, encoding: .utf8) }
 
@@ -24,7 +24,7 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws { try text.w
     #expect(repos.contains { $0.id == r.repo.id })
 }
 
-@Test func branchesSwitchAndLogFollowTheDesk() async throws {
+@Test func branchesSwitchAndLogFollowTheWorkspace() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let b = try await r.c.call("git.branches", .obj(["id": .string(r.wt.id)]), as: BranchInfo.self)
     #expect(b.current == "feat/x" && b.local.contains("main"))
@@ -75,7 +75,7 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws { try text.w
     #expect(s.added[.code] == 1 && s.added[.tests] == 3)
 }
 
-@Test func archivingHidesADeskAndUnarchivingBringsItBack() async throws {
+@Test func archivingHidesAWorkspaceAndUnarchivingBringsItBack() async throws {
     let r = try await rig(); defer { r.d.stop() }
     _ = try await r.call("worktree.archive")
     #expect(FileManager.default.fileExists(atPath: r.wt.path))   // the folder stays: unarchiving finds it as it was
@@ -98,7 +98,7 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws { try text.w
     await #expect(throws: (any Error).self) { _ = try await r.c.call("comment.setState", .obj(["id": "missing", "state": "open"])) }
 }
 
-@Test func projectSearchFindsTextInTheDesk() async throws {
+@Test func projectSearchFindsTextInTheWorkspace() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let hits = try await r.call("files.search", ["query": "hello"]).array ?? []
     #expect(hits.first?["path"]?.string == "a.txt")
@@ -161,7 +161,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let fx = AgentManifest(id: "fx", name: "fx", command: "/bin/zsh", hooks: .herdr, resumeArgs: ["--continue"])
     var m = fx; m.args = ["-c", "zmodload zsh/net/socket; \(report); r 1 idle; echo ready; read; r 2 working; read; r 3 blocked; read; r 4 idle; cat"]
     let w = try await world(agents: [m]); defer { w.d.stop() }
-    let s = try await w.c.call(SessionCreate(worktreeId: try await desk(w, "herdr").id, agent: "fx"))
+    let s = try await w.c.call(SessionCreate(worktreeId: try await workspace(w, "herdr").id, agent: "fx"))
     func status() async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == s.id }?.status }
     func enter() async throws { _ = try await w.c.call(SessionWrite(id: s.id, base64: Data("\r".utf8).base64EncodedString())) }
     #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: s.id)).contains("ready") })
@@ -268,7 +268,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(fm.fileExists(atPath: old.folder.path + "/.git"))
 }
 
-@Test func relocatingAProjectPointsItsDeskAtTheNewFolder() async throws {
+@Test func relocatingAProjectPointsItsWorkspaceAtTheNewFolder() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let moved = try makeRepo()
     let repo = try await r.c.call("repo.relocate", .obj(["id": .string(r.repo.id), "path": .string(moved)]), as: Repo.self)
@@ -451,7 +451,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 /// Two discards, two Undos: each puts back its own change, whichever goes first.
 @Test func eachDiscardHasItsOwnUndo() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "two")
+    let c = w.c, wt = try await workspace(w, "two")
     let read = { (f: String) in try? String(contentsOfFile: wt.path + "/" + f, encoding: .utf8) }
     try "x\n".write(toFile: wt.path + "/x.txt", atomically: true, encoding: .utf8)
     try "y\n".write(toFile: wt.path + "/y.txt", atomically: true, encoding: .utf8)
@@ -465,7 +465,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 
 @Test func undoPutsBackDiscardedFilesUnlessTheyChangedSince() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "u")
+    let c = w.c, wt = try await workspace(w, "u")
     let read = { (f: String) in try? String(contentsOfFile: wt.path + "/" + f, encoding: .utf8) }
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try "new\n".write(toFile: wt.path + "/n.txt", atomically: true, encoding: .utf8)
@@ -484,7 +484,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 /// minute, and gone once used.
 @Test func undoDiscardWorksAfterTheDaemonRestarts() async throws {
     let w = try await world()
-    let wt = try await desk(w, "restart")
+    let wt = try await workspace(w, "restart")
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     _ = try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"], undo: "u"))
     w.d.stop()
@@ -496,7 +496,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 
 @Test func discardHunkOnlyWhatWasShown() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "h")
+    let c = w.c, wt = try await workspace(w, "h")
     try "hello\nagain\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     let diff: [FileDiff] = try await c.call("git.diff", .obj(["id": .string(wt.id), "source": "unstaged"]), as: [FileDiff].self)
     let header = try #require(diff.first?.hunks.first?.header)
@@ -511,7 +511,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 
 @Test func reviewCommentsReachAgent() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "r")
+    let c = w.c, wt = try await workspace(w, "r")
     let box = NoteBox(); c.onNotification = { m, p in box.add(m, p) }
     // Never into a terminal: a shell would run the message's lines.
     let shell: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "cat"]), as: Session.self)

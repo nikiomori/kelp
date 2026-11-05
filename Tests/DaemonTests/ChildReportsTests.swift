@@ -16,9 +16,9 @@ private struct Family {
 
 private func family(parentAgent: String? = "fake", manifest: AgentManifest = fake) async throws -> Family {
     let w = try await world(agents: [manifest])
-    let desk = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
-    let parent = try await w.c.call(parentAgent == nil ? SessionCreate(worktreeId: desk.id, command: "cat") : SessionCreate(worktreeId: desk.id, agent: "fake"))
-    let child = try await w.c.call(SessionCreate(worktreeId: desk.id, agent: "fake", title: "reviewer", parent: parent.id))
+    let workspace = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
+    let parent = try await w.c.call(parentAgent == nil ? SessionCreate(worktreeId: workspace.id, command: "cat") : SessionCreate(worktreeId: workspace.id, agent: "fake"))
+    let child = try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "fake", title: "reviewer", parent: parent.id))
     return Family(w: w, parent: parent, child: child)
 }
 
@@ -47,7 +47,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id)?.state.withLock { $0.reports.count } == 1 })
     let running = try #require(f.w.d.sessions.live.remove(f.parent.id))
     _ = f.w.d.sessions.pause(running, AgentManifest.load(dir: f.w.root.appendingPathComponent("agents")))
-    #expect(try await f.status(f.parent.id) == .hibernated)
+    #expect(try await f.status(f.parent.id) == .paused)
     _ = try await f.w.c.call(SessionReport(id: second.id, state: "done"))
     #expect(try await waitFor(10) { try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 2 })
     _ = try f.w.d.sessions.liveSession(f.parent.id)
@@ -84,9 +84,9 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test func aShellIsNoParentAndACommandNoChild() async throws {
     let f = try await family(parentAgent: nil); defer { f.w.d.stop() }
     #expect(f.child.parent == nil)
-    let w = f.w, desk = try #require(f.parent.worktreeId)
-    let agent = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake"))
-    #expect(try await w.c.call(SessionCreate(worktreeId: desk, command: "cat", parent: agent.id)).parent == nil)
+    let w = f.w, workspace = try #require(f.parent.worktreeId)
+    let agent = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake"))
+    #expect(try await w.c.call(SessionCreate(worktreeId: workspace, command: "cat", parent: agent.id)).parent == nil)
 }
 
 /// Its children end with an agent, and a restart isn't its end.
@@ -213,7 +213,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let script = report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "sleep 2; " + report("state=clear:id=a1") + "cat"
     let agent = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script], hooks: hooked ? .settingsFlag("--settings") : nil)
     let w = try await world(agents: [agent]); defer { w.d.stop() }
-    let s = try await w.c.call(SessionCreate(worktreeId: try await firstDesk(w).id, agent: "fake"))
+    let s = try await w.c.call(SessionCreate(worktreeId: try await firstWorkspace(w).id, agent: "fake"))
     func now() async throws -> Session? { try await w.c.call(SessionList()).first { $0.id == s.id } }
     #expect(try await waitFor(5) { try await now()?.runningSubagents.first?.task == "Counts files" })
     var start = SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1")
@@ -251,11 +251,11 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 /// when the agent ends. A terminal starts commands of its own.
 @Test func aCommandBelongsToTheAgentThatStartedItAndOutlivesIt() async throws {
     let f = try await family(); defer { f.w.d.stop() }
-    let desk = try #require(f.parent.worktreeId)
-    let run = try await f.w.c.call(SessionCreate(worktreeId: desk, command: "swift build; exec cat", parent: f.parent.id))
+    let workspace = try #require(f.parent.worktreeId)
+    let run = try await f.w.c.call(SessionCreate(worktreeId: workspace, command: "swift build; exec cat", parent: f.parent.id))
     #expect(run.startedBy == f.parent.id && run.parent == nil && run.title == "swift build")
-    let shell = try await f.w.c.call(SessionCreate(worktreeId: desk, agent: "shell"))
-    #expect(try await f.w.c.call(SessionCreate(worktreeId: desk, command: "cat", parent: shell.id)).startedBy == nil)
+    let shell = try await f.w.c.call(SessionCreate(worktreeId: workspace, agent: "shell"))
+    #expect(try await f.w.c.call(SessionCreate(worktreeId: workspace, command: "cat", parent: shell.id)).startedBy == nil)
     _ = try await f.w.c.call(SessionKill(id: f.parent.id))
     #expect(try await waitFor(10) { [.exited, nil].contains(try await f.status(f.parent.id)) })
     #expect(try await f.status(run.id) != .exited)

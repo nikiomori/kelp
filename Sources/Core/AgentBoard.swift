@@ -26,7 +26,7 @@ public enum AgentBoard {
     }
 
     /// Agents stopped to save memory: nothing happens in them, so they're counted, not listed.
-    public static func paused(_ sessions: [Session]) -> Int { sessions.filter { isAgent($0) && $0.status == .hibernated }.count }
+    public static func paused(_ sessions: [Session]) -> Int { sessions.filter { isAgent($0) && $0.status == .paused }.count }
 
     private static func isAgent(_ s: Session) -> Bool { s.agent != nil && s.agent != "shell" && s.agent != "custom" }
 

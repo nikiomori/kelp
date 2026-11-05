@@ -280,10 +280,10 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(newChatScreen(in: a, current: other, rows: rows) == own)
     #expect(newChatScreen(in: a, current: nil, rows: rows) == own)
     let branch = Worktree(repoId: a.id, branch: "feat", path: "/wt", createdAt: t)
-    #expect(newChatScreen(in: a, current: nil, rows: [branch]) == branch)   // no desk: still somewhere
+    #expect(newChatScreen(in: a, current: nil, rows: [branch]) == branch)   // no workspace: still somewhere
 }
 
-/// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; desks (in the project's
+/// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; workspaces (in the project's
 /// folder) are removed, workspaces on a branch of their own archived; a project with others open loses only the picked.
 @Test func closingSeveralWorkspacesKeepsOnePerProject() {
     let a = Repo(name: "a", path: "/a"), b = Repo(name: "b", path: "/b")
@@ -293,7 +293,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let a3 = Worktree(repoId: a.id, branch: "feat", path: "/wt/a3", createdAt: t + 2)
     let b1 = Worktree(repoId: b.id, branch: "main", path: "/b", createdAt: t), b2 = Worktree(repoId: b.id, branch: "x", path: "/wt/b2", createdAt: t + 1)
     let plan = WorkspaceClosing(picked: [a3, a2, a1, b2], open: [a1, a2, a3, b1, b2], repos: [a, b])
-    #expect(plan.remove == [a2.id])          // a desk
+    #expect(plan.remove == [a2.id])          // a workspace
     #expect(plan.archive == [a3.id, b2.id])  // their own branches
     #expect(plan.keptSome)                   // a1, the oldest of a, stays
     let one = WorkspaceClosing(picked: [b2], open: [a1, b1, b2], repos: [a, b])

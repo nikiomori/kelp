@@ -69,7 +69,7 @@ final class Box: @unchecked Sendable {
                               args: ["-c", "trap 'echo SIZE=$(stty size)' WINCH; echo SIZE=$(stty size); while :; do sleep 0.1; done", "x"],
                               resumeArgs: ["--resume"])
     let w = try await world(agents: [sizer]); defer { w.d.stop() }
-    let wt = try await desk(w, "sizes")
+    let wt = try await workspace(w, "sizes")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sizer"]), as: Session.self)
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(wt.id)]))

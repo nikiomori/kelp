@@ -9,7 +9,7 @@ import Agents
 /// next one began.
 @Test func everyTurnIsKeptAndReadsAsItsOwnDiff() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "history")
+    let wt = try await workspace(w, "history")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let live = try #require(w.d.sessions.existing(s.id))
     func turn(_ prompt: String, writes file: String) async throws {
@@ -41,7 +41,7 @@ import Agents
 /// the look, with .env files left alone, and never past a commit or beside another agent in the folder.
 @Test func aTurnIsUndoneOnlyAsPreviewed() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "undo")
+    let wt = try await workspace(w, "undo")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let live = try #require(w.d.sessions.existing(s.id))
     let file = { (name: String) in try? String(contentsOfFile: wt.path + "/" + name, encoding: .utf8) }
@@ -89,7 +89,7 @@ import Agents
 /// An agent that worked from a subfolder: its turn is undone across the checkout, paths counted from the top.
 @Test func aTurnFromASubfolderIsUndoneFromTheTop() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "sub")
+    let wt = try await workspace(w, "sub")
     try FileManager.default.createDirectory(atPath: wt.path + "/pkg", withIntermediateDirectories: true)
     try "pkg\n".write(toFile: wt.path + "/pkg/p.txt", atomically: true, encoding: .utf8)
     try Git.run(["add", "pkg"], cwd: wt.path); try Git.run(["commit", "-qm", "pkg"], cwd: wt.path)
@@ -112,7 +112,7 @@ import Agents
 /// A session sees its folder's ports in KELP_PORT.
 @Test func aSessionKnowsItsFoldersPorts() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "ports")
+    let wt = try await workspace(w, "ports")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "echo port=$KELP_PORT; sleep 5"]), as: Session.self)
     let want = PortBlocks.port(for: wt.path, among: try w.d.store.worktrees().map(\.path))
     #expect(try await waitFor(5) { try await w.c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("port=\(want)") == true })
@@ -152,7 +152,7 @@ import Agents
 /// A session deleted while its turn's snapshot was being taken: the turn that comes after isn't kept, nor its ref.
 @Test func aTurnOfADeletedSessionLeavesNoRef() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "gone-mid-turn")
+    let wt = try await workspace(w, "gone-mid-turn")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let tree = try Git.snapshotTree(wt.path)
     w.d.sessions.discard(try #require(try w.d.store.session(s.id)))
@@ -174,7 +174,7 @@ import Agents
 /// goes with no answer.
 @Test func allowGoesToTheWaitingHook() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "perm")
+    let wt = try await workspace(w, "perm")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let c = w.c, id = s.id
     let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
@@ -202,7 +202,7 @@ import Agents
 /// A question that doesn't show all it would allow (a command of more lines) isn't answered from a banner, even its own.
 @Test func aQuestionCutShortIsntAnsweredFromABanner() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "cut")
+    let wt = try await workspace(w, "cut")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let c = w.c, id = s.id
     let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
@@ -217,7 +217,7 @@ import Agents
 /// A recap is asked only of Claude Code with a conversation to fork; any other session gets none and keeps its summary.
 @Test func aRecapIsOnlyForClaudeCode() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "recap")
+    let wt = try await workspace(w, "recap")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
@@ -232,7 +232,7 @@ import Agents
 /// left half undone.
 @Test func anUndoThatStopsPartWayPutsItsFilesBack() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "stuck")
+    let wt = try await workspace(w, "stuck")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let live = try #require(w.d.sessions.existing(s.id))
     live.noteTurn(.working)

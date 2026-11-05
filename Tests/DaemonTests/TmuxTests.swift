@@ -17,7 +17,7 @@ private func end(_ session: String) {
 /// still on screen), and closing the tab leaves the session running in tmux.
 @Test(.enabled(if: tmux != nil, "tmux isn't installed")) func tmuxTerminalComesBackToItsSession() async throws {
     let w = try await world(); defer { end("kelp_test") }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "tmux": "kelp.test"]), as: Session.self)
     #expect(s.agent == "shell" && Tmux.session(s.argv) == "kelp_test" && s.title == "tmux kelp_test")
     func screen(_ c: RPCClient) async throws -> String { try await c.call("session.read", .obj(["id": .string(s.id)])).string ?? "" }
@@ -28,7 +28,7 @@ private func end(_ session: String) {
     w.d.stop()
     let d = try Daemon(root: w.root); try d.start(); defer { d.stop() }
     let c = try client(w.root)
-    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated)
+    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
     #expect(try await tmuxSessions(c, wt).contains("kelp_test"))   // detached, not ended
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     #expect(try await waitFor(10) { try await screen(c).contains("marker-42") })   // tmux redraws its screen for the new client
@@ -73,7 +73,7 @@ private func end(_ session: String) {
 /// and closing the tab ends the session. A restart keeps it. Commands and agents aren't wrapped.
 @Test(.enabled(if: tmux != nil, "tmux isn't installed")) func terminalsRunInTheirOwnTmuxSession() async throws {
     let w = try await world()
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     _ = try await w.c.call("settings.set", .obj(["key": "terminal.tmux", "value": true]))
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "shell"]), as: Session.self)
     let name = try #require(Tmux.session(s.argv)); defer { end(name) }
@@ -123,7 +123,7 @@ private func end(_ session: String) {
     d0.stop()
     let d = try Daemon(root: root); try d.start(); defer { d.stop() }
     let c = try client(root)
-    #expect(try await status(c, s.id) == .hibernated)
+    #expect(try await status(c, s.id) == .paused)
     #expect(try await tmuxSessions(c, wt).contains(name))   // still working on the host
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     #expect(try await waitFor(15) { try await screen(c, s.id).contains("did the work") })

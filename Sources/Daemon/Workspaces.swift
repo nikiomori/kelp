@@ -3,23 +3,23 @@ import os
 import Core
 import GitKit
 
-/// Workspaces are worktree records. A workspace is a desk in the project's folder (its path is the repo path): a set of
-/// tabs and agents, nothing on disk. Several desks can share the folder. Workspaces from older versions may still be
-/// git worktrees on their own branches. This keeps the desks, the branches they follow, and which projects' `.kelp.yaml`
+/// Workspaces are worktree records. Most are in the project's folder (their path is the repo path): a set of
+/// tabs and agents, nothing on disk. Several workspaces can share the folder. Workspaces from older versions may still be
+/// git worktrees on their own branches. This keeps the workspaces, the branches they follow, and which projects' `.kelp.yaml`
 /// the user trusts (Scripts.swift).
 final class Workspaces: Sendable {
     let root: URL
     let store: Store
     let remotes: Remotes
-    let sessions: Sessions   // a desk's agents pause, start and go with it
+    let sessions: Sessions   // a workspace's agents pause, start and go with it
     let clients: Clients
-    /// Reading the projects' desks and adding the missing first one is one step: two syncs at once added two "Workspace 1".
-    let deskLock = NSLock()   // held across git calls (a blocking run), so not the unfair lock
-    /// By project: its .git, for desks to follow the branch. nil once stopped: nothing starts watching again.
+    /// Reading the projects' workspaces and adding the missing first one is one step: two syncs at once added two "Workspace 1".
+    let workspaceLock = NSLock()   // held across git calls (a blocking run), so not the unfair lock
+    /// By project: its .git, for workspaces to follow the branch. nil once stopped: nothing starts watching again.
     let heads = OSAllocatedUnfairLock<[String: HeadWatch]?>(initialState: [:])
     let headQueue = DispatchQueue(label: "kelp.heads")   // syncs one at a time, off every reader and the pool
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
-    let routines: Routines   // agents on a schedule, each in a desk of its own
+    let routines: Routines   // agents on a schedule, each in a workspace of its own
     /// What discards threw away, for a minute (`git.undoDiscard`): a file each, named by its folder and the name the
     /// caller gave it, so the Undo still works after the daemon was upgraded in place, restarted or crashed.
     var discards: URL { root.appendingPathComponent("discarded") }
@@ -109,20 +109,20 @@ final class Workspaces: Sendable {
         seed.map { path.hasPrefix($0.appendingPathComponent("worktrees").path + "/") } == true
     }
 
-    /// Every project keeps at least one desk; desks follow the folder's checked-out branch.
-    func syncMainWorkspaces() throws { try deskLock.withLock { try syncDesks() } }
+    /// Every project keeps at least one workspace; workspaces follow the folder's checked-out branch.
+    func syncMainWorkspaces() throws { try workspaceLock.withLock { try syncWorkspaces() } }
 
-    /// The caller holds `deskLock`.
-    private func syncDesks() throws {
+    /// The caller holds `workspaceLock`.
+    private func syncWorkspaces() throws {
         let all = try store.worktrees(repo: nil)
         for r in try store.repos() {
-            let desks = all.filter { isMain($0, r) }
+            let workspaces = all.filter { isMain($0, r) }
             // A remote project's branch is read over ssh: not on every sync (an unreachable host would stall each one for
-            // its connect timeout). Its desks keep the branch they have; git.status and the like read it when asked.
-            if remotes.of(r.path) != nil, !desks.isEmpty { continue }
+            // its connect timeout). Its workspaces keep the branch they have; git.status and the like read it when asked.
+            if remotes.of(r.path) != nil, !workspaces.isEmpty { continue }
             let branch = remotes.of(r.path) != nil ? r.baseBranch : (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
-            if desks.isEmpty { try store.save(Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace 1", base: branch)) }
-            for w in desks where w.branch != branch || w.note.isEmpty {
+            if workspaces.isEmpty { try store.save(Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace 1", base: branch)) }
+            for w in workspaces where w.branch != branch || w.note.isEmpty {
                 try store.update(Worktree.self, w.id) {
                     $0.branch = branch
                     if $0.note.isEmpty { $0.note = "Workspace 1" }   // was the project's "main" workspace
@@ -134,17 +134,17 @@ final class Workspaces: Sendable {
     /// One local project's .git, watched for its HEAD.
     struct HeadWatch: Sendable { let dir: String, watcher: FileWatcher }
 
-    /// At start: desks catch up with branches switched while no daemon ran, and from then on follow them.
+    /// At start: workspaces catch up with branches switched while no daemon ran, and from then on follow them.
     func followHeads() {
         watchHeads()
-        do { try syncMainWorkspaces() } catch { Log.store.error("desks didn't follow their folders' branches: \(error)") }
+        do { try syncMainWorkspaces() } catch { Log.store.error("workspaces didn't follow their folders' branches: \(error)") }
     }
 
-    /// Desks follow their folder's branch as it moves, also when it's switched outside Kelp: a watcher on each local
-    /// project's .git sees HEAD change, and the sync pushes the desks it updated (event.worktree), so listing only reads.
+    /// Workspaces follow their folder's branch as it moves, also when it's switched outside Kelp: a watcher on each local
+    /// project's .git sees HEAD change, and the sync pushes the workspaces it updated (event.worktree), so listing only reads.
     /// Runs at start and whenever a project is written or removed (the store's change hook), always on `headQueue`: two
     /// runs side by side could each drop the other's new watcher, and a store write doesn't wait on FSEvents setup.
-    /// Limit: a project that is itself a linked worktree (its .git a file) follows at the next start or new desk.
+    /// Limit: a project that is itself a linked worktree (its .git a file) follows at the next start or new workspace.
     func watchHeads() {
         dispatchPrecondition(condition: .onQueue(headQueue))
         let local = ((try? store.repos()) ?? []).filter { remotes.of($0.path) == nil }
@@ -156,7 +156,7 @@ final class Workspaces: Sendable {
             guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
             let fw = FileWatcher(root: dir, deliver: headQueue) { [weak self] paths in
                 guard paths.contains(where: { $0.hasSuffix("/HEAD") && !$0.contains("/logs/") }) else { return }
-                do { try self?.syncMainWorkspaces() } catch { Log.store.error("desks didn't follow their branch: \(error)") }
+                do { try self?.syncMainWorkspaces() } catch { Log.store.error("workspaces didn't follow their branch: \(error)") }
             }
             if let fw { made[id] = HeadWatch(dir: dir, watcher: fw) }
         }
@@ -175,13 +175,13 @@ final class Workspaces: Sendable {
         _ = h   // the streams stop here, out of the lock
     }
 
-    /// A new desk in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
-    func createDesk(in r: Repo) throws -> Worktree {
+    /// A new workspace in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
+    func createWorkspace(in r: Repo) throws -> Worktree {
         // Read before the lock: a remote project's is read over ssh, and a host that doesn't answer would hold every
         // project's sync for its timeout.
         let branch = (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
-        let w = try deskLock.withLock {   // its "Workspace N" counts the desks there now
-            try syncDesks()   // names the project's first desk, so the new one doesn't take "Workspace 1"
+        let w = try workspaceLock.withLock {   // its "Workspace N" counts the workspaces there now
+            try syncWorkspaces()   // names the project's first workspace, so the new one doesn't take "Workspace 1"
             let taken = Set(try store.worktrees(repo: r.id).map(\.note))
             var n = 1
             while taken.contains("Workspace \(n)") { n += 1 }

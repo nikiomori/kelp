@@ -161,7 +161,7 @@ extension EditorArea {
         guard layout.manual != true else { return false }
         let agents = layout.allTabs.filter { t in
             guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)) else { return false }
-            return s.isAgent && s.status != .exited && s.status != .hibernated
+            return s.isAgent && s.status != .exited && s.status != .paused
         }
         let old = layout
         layout.tile(agents.map(\.id))

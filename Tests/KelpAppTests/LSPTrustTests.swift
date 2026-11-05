@@ -27,7 +27,7 @@ extension OneAtATime {
         await lsp.trust(app, root)                                    // the banner's "Trust and Start"
         #expect(started == 2 && lsp.trusted(app, root))
         #expect(lsp.whenTrusted(app, root) { started += 1 } && started == 2)   // trusted from now on: no waiting
-        #expect(!lsp.trusted(app, Paths.scratch.path))   // the scratch desk is asked about like any project: a clone may land there
+        #expect(!lsp.trusted(app, Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }
 
     /// Only Kelp's own window may record trust (the daemon checks who's asking): refused, the project stays untrusted and

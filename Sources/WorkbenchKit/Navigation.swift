@@ -72,7 +72,7 @@ public struct WorkspaceHistory: Equatable, Sendable {
     public mutating func go(to i: Int) -> String { at = i; return visits[i] }
 }
 
-/// A project's own screen: its oldest desk, the one its chats are on. It has no heading and doesn't close; every other
+/// A project's own screen: its oldest workspace, the one its chats are on. It has no heading and doesn't close; every other
 /// workspace is a group.
 public func mainWorkspace(of r: Repo, among ws: [Worktree]) -> Worktree? {
     ws.filter { $0.repoId == r.id && $0.path == r.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
@@ -85,7 +85,7 @@ public func newChatScreen(in r: Repo, current: Worktree?, rows: [Worktree]) -> W
 }
 
 /// Several workspaces closed at once (the sidebar's multi-selection): a project's own screen stays (without one, the oldest
-/// picked, when every open one was), a desk in the project's folder is removed, a workspace on its own branch is archived.
+/// picked, when every open one was), a workspace in the project's folder is removed, a workspace on its own branch is archived.
 public struct WorkspaceClosing: Equatable, Sendable {
     public private(set) var remove: [String] = [], archive: [String] = []
     /// Some picked workspaces stay, so their project keeps one.

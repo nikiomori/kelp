@@ -83,7 +83,7 @@ private func rig() async throws -> World { _ = fakeGh; return try await world() 
 
 @Test func theBranchsPullRequestIsCachedForTwoMinutes() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/x")
+    let wt = try await workspace(r, "feat/x")
     let n0 = calls().filter { $0.contains("--head feat/x") }.count
     let first = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(wt.id)]))
     #expect(first["number"]?.int == 7)
@@ -98,7 +98,7 @@ private func rig() async throws -> World { _ = fakeGh; return try await world() 
 
 @Test func ciRunsJobsLogsAndRerunsGoThroughGh() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/x")
+    let wt = try await workspace(r, "feat/x")
     let runs = try await r.c.call("ci.runs", .obj(["worktreeId": .string(wt.id)]))
     #expect(runs["branch"]?.string == "feat/x" && runs["runs"]?.array?.first?["id"]?.int == 99 && runs["runs"]?.array?.first?["conclusion"]?.string == "failure")
     let jobs = try await r.c.call("ci.jobs", .obj(["worktreeId": .string(wt.id), "run": 99])).array ?? []
@@ -165,7 +165,7 @@ private let fakeGlab: String = {
 @Test func onGitLabAPullRequestIsAMergeRequestNotAGhCall() async throws {
     let log = fakeGlab
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/mr")
+    let wt = try await workspace(r, "feat/mr")
     // origin looks like GitLab; pushes go to a bare repository here.
     let bare = tmp().path
     try Git.run(["init", "-q", "--bare", bare], cwd: bare)
@@ -185,7 +185,7 @@ private let fakeGlab: String = {
 
 @Test func aWorkspaceLinksToItsProjectsPagesFromOrigin() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/pages")
+    let wt = try await workspace(r, "feat/pages")
     #expect(try await r.c.call("git.webPages", .obj(["worktreeId": .string(wt.id)])) == .null)   // no origin: nothing to open
     try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: wt.path)
     let pages = try await r.c.call("git.webPages", .obj(["worktreeId": .string(wt.id)]))
@@ -197,7 +197,7 @@ private let fakeGlab: String = {
 @Test func onGitLabListsComeFromItsAPI() async throws {
     let log = fakeGlab
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/gl")
+    let wt = try await workspace(r, "feat/gl")
     try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: r.repo.path)
     let prs = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "mine"])).array ?? []
     #expect(prs.count == 1 && prs[0]["number"]?.int == 4 && prs[0]["isDraft"]?.bool == true && prs[0]["state"]?.string == "OPEN")
@@ -214,7 +214,7 @@ private let fakeGlab: String = {
 /// its URL the last line gh prints; merged by number in the method asked for.
 @Test func onGitHubAPullRequestIsOpenedAndMergedThroughGh() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    let wt = try await desk(r, "feat/gh")
+    let wt = try await workspace(r, "feat/gh")
     let bare = tmp().path
     try Git.run(["init", "-q", "--bare", bare], cwd: bare)
     try Git.run(["remote", "add", "origin", bare], cwd: wt.path)

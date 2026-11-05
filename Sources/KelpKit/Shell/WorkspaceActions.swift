@@ -139,7 +139,7 @@ package struct WorkspaceActions {
     func close(_ w: Worktree) {
         guard let r = app.repo(w.repoId), w.id != mainWorkspace(of: r, among: app.workspaces(of: r))?.id else { NSSound.beep(); return }
         let open = app.sessions.filter { $0.worktreeId == w.id && $0.status != .exited }
-        let running = open.filter { $0.status != .hibernated }, paused = open.count - running.count
+        let running = open.filter { $0.status != .paused }, paused = open.count - running.count
         Task {
             if w.path != r.path, let work = await work(on: w.id), work.isAny { await closeKeeping(w, work); return }
             if !open.isEmpty {
@@ -240,13 +240,13 @@ package struct WorkspaceActions {
     }
 
     /// Several at once (sidebar multi-selection): one question; each project keeps at least one workspace.
-    /// Desks close; one on its own branch goes if nothing is only there, else it's archived (nothing is lost).
+    /// Workspaces close; one on its own branch goes if nothing is only there, else it's archived (nothing is lost).
     func close(_ ws: [Worktree]) {
         let m = app
         let plan = WorkspaceClosing(picked: ws, open: m.worktrees.filter { !$0.archived }, repos: m.repos), closing = plan.ids
         guard !closing.isEmpty else { NSSound.beep(); return }
         let open = m.sessions.filter { s in s.worktreeId.map(closing.contains) == true && s.status != .exited }
-        let running = open.filter { $0.status != .hibernated }
+        let running = open.filter { $0.status != .paused }
         let a = NSAlert()
         let name = ws.first { $0.id == closing[0] }?.displayName ?? ""
         a.messageText = closing.count == 1 ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) groups?")

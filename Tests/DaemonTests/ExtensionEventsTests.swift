@@ -27,7 +27,7 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
     let w = try await world(agents: [fake]), out = temporary(), pwned = temporary(); defer { w.d.stop() }
     try install(w, out: out)
     let title = "$(touch \(pwned.path))"
-    let s = try await w.c.call(SessionCreate(worktreeId: try await firstDesk(w).id, agent: "fake", title: title))
+    let s = try await w.c.call(SessionCreate(worktreeId: try await firstWorkspace(w).id, agent: "fake", title: title))
     _ = try await w.c.call(SessionReport(id: s.id, state: "blocked", message: "Allow rm?"))
     #expect(try await waitFor(10) { !lines(out).isEmpty })
     #expect(lines(out) == ["agent.waiting|\(title)|Allow rm?"] && !FileManager.default.fileExists(atPath: pwned.path))
@@ -37,9 +37,9 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
 @Test func aResultIsHeardThoughItsAgentEnded() async throws {
     let w = try await world(agents: [fake]), out = temporary(); defer { w.d.stop() }
     try install(w, out: out)
-    let desk = try await firstDesk(w).id
-    let done = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "done"))
-    let asks = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "asks"))
+    let workspace = try await firstWorkspace(w).id
+    let done = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "done"))
+    let asks = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "asks"))
     _ = try await w.c.call(SessionReport(id: done.id, state: "done"))
     _ = try await w.c.call(SessionReport(id: asks.id, state: "blocked"))
     _ = try await w.c.call(SessionKill(id: done.id))
@@ -55,9 +55,9 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
     try install(w, out: out)
     try install(w, id: "off", out: off)
     _ = try await w.c.call("settings.set", .obj(["key": "extensions.disabled", "value": .array([.string("off")])]))
-    let desk = try await firstDesk(w).id
-    let s = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "parent"))
-    let kid = try await w.c.call(SessionCreate(worktreeId: desk, agent: "fake", title: "child", parent: s.id))
+    let workspace = try await firstWorkspace(w).id
+    let s = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "parent"))
+    let kid = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "child", parent: s.id))
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     _ = try await w.c.call(SessionReport(id: kid.id, state: "done"))

@@ -73,7 +73,7 @@ extension Main {
         let end = timeout.map { Date().addingTimeInterval($0) }
         while true {
             guard let s = try await c.call(SessionList()).first(where: { $0.id == id }) else { fail("no session \(id)") }
-            if done(s) || s.status == .exited || s.status == .hibernated { return s }
+            if done(s) || s.status == .exited || s.status == .paused { return s }
             if let end, Date() > end { return nil }
             try await Task.sleep(for: .milliseconds(500))
         }

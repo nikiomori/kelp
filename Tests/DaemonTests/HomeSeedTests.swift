@@ -32,7 +32,7 @@ private func write(_ text: String, _ url: URL) throws {
         return try kept.save(s)
     }
     let live = try session("/work/app", "claude", claude + ["--session-id", "abc"])
-    let paused = try session("/work/app", "claude", ["claude", "--resume", "def"], .hibernated)
+    let paused = try session("/work/app", "claude", ["claude", "--resume", "def"], .paused)
     let inScratch = try session(kelp("scratch"), "claude", ["claude", "--session-id", "ghi"], .idle)
     let codex = try session("/work/app", "codex", ["codex"])
     let onHost = try session(kelp("remote/host/app"), "claude", ["claude"], tmux: "kelp-1")

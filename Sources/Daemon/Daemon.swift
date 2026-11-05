@@ -28,7 +28,7 @@ public final class Daemon: Sendable {
     let watches: Watches   // what clients watch (watch.start), read while anyone does and pushed when it changed
     let sessions: Sessions   // which run, starting, waking, pausing and deleting them
     let settingsEvents: SettingsEvents   // event.settings in order: the last one is the settings now
-    let workspaces: Workspaces   // desks, the branches they follow, the .kelp.yaml files the user trusts
+    let workspaces: Workspaces   // workspaces, the branches they follow, the .kelp.yaml files the user trusts
     var files: FileService { FileService(remotes: remotes) }   // files.*: read, written, moved here or on a remote project's host
     let remotes: Remotes   // which project folders stand for one on a host (only those in this home's remote/), and how to reach it
 
@@ -100,7 +100,7 @@ public final class Daemon: Sendable {
         let adopted = Set(handover?.sessions.map(\.id) ?? [])
         do {
             for var s in try store.sessions() where s.status != .exited && !adopted.contains(s.id) {
-                s.status = Sessions.resumable(s, manifests) ? .hibernated : .exited
+                s.status = Sessions.resumable(s, manifests) ? .paused : .exited
                 s.progress = nil   // what ran there isn't getting any further
                 try store.save(s)
             }
@@ -152,7 +152,7 @@ public final class Daemon: Sendable {
         src.resume()
         t.resume()
         prune.resume()
-        workspaces.routines.start(desks: workspaces)
+        workspaces.routines.start(workspaces: workspaces)
         // not once stopped
         workspaces.headQueue.async { [weak self] in
             if self?.running.withLock({ $0.accept != nil }) == true { self?.workspaces.followHeads() }

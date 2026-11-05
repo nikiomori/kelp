@@ -73,7 +73,7 @@ func world(agents: [AgentManifest] = []) async throws -> World {
 }
 
 /// The project's first workspace: its own folder.
-func firstDesk(_ w: World) async throws -> Worktree {
+func firstWorkspace(_ w: World) async throws -> Worktree {
     try #require(try await w.c.call("worktree.list", as: [Worktree].self).first { $0.repoId == w.repo.id })
 }
 
@@ -83,7 +83,7 @@ func hibernate(after minutes: Double, _ c: RPCClient) async throws {
 }
 
 /// A new workspace on `branch`, its setup not run.
-func desk(_ w: World, _ branch: String) async throws -> Worktree {
+func workspace(_ w: World, _ branch: String) async throws -> Worktree {
     try await w.c.call("worktree.create", .obj(["repoId": .string(w.repo.id), "branch": .string(branch), "setup": false]), as: Worktree.self)
 }
 
@@ -153,7 +153,7 @@ func desk(_ w: World, _ branch: String) async throws -> Worktree {
 
 @Test func stageHunkByItsHeader() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "s")
+    let c = w.c, wt = try await workspace(w, "s")
     try "hello\nagain\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     let header = try #require(try await c.call("git.diff", .obj(["id": .string(wt.id), "source": "unstaged"]), as: [FileDiff].self).first?.hunks.first?.header)
     // The header decides, not the index (which another view of the file may have counted differently); a stale one stages nothing.
@@ -221,19 +221,19 @@ final class NoteBox: @unchecked Sendable {
     // A resumable fake agent: prints whether it was resumed.
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", #"echo "STARTED $*"; sleep 30"#, "x"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let c = w.c, wt = try await desk(w, "h")
+    let c = w.c, wt = try await workspace(w, "h")
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self)
     try await hibernate(after: 0.03, c)   // ~2 s
-    #expect(try await waitFor(15) { try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated })
+    #expect(try await waitFor(15) { try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused })
     // A hook that comes after the pause (the agent was on its way out) doesn't wake it.
     _ = try await c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))
-    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated)
+    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
     // Opening it again resumes the same session id with the resume flag.
     let box = NoteBox(); c.onNotification = { m, p in box.add(m, p) }
     try await hibernate(after: 0, c)
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     #expect(try await waitFor(30) { box.output(s.id).contains("STARTED") && box.output(s.id).contains("--resume") })
-    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status != .hibernated)
+    #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status != .paused)
     // Its log goes on from before the pause: both runs are there.
     let log = try String(contentsOf: w.root.appendingPathComponent("history/\(s.id).log"), encoding: .utf8)
     #expect(log.components(separatedBy: "STARTED").count == 3)
@@ -250,15 +250,15 @@ final class NoteBox: @unchecked Sendable {
     await #expect(throws: RPCError.self) { _ = try await c.call("worktree.remove", .obj(["id": .string(main?.id ?? "")])) }
 }
 
-/// A workspace is a desk in the project folder: no branch, no checkout; closing one leaves the files, the last stays.
-@Test func desksShareTheProjectFolder() async throws {
+/// A workspace in the project folder has no branch or checkout of its own; closing one leaves the files, the last stays.
+@Test func workspacesShareTheProjectFolder() async throws {
     let (d, c, _, repo) = try await world(); defer { d.stop() }
-    let desk: Worktree = try await c.call("workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)   // before any list
-    let first = try #require(try await c.call("worktree.list", .obj(["repoId": .string(repo.id)]), as: [Worktree].self).first { $0.id != desk.id })
+    let workspace: Worktree = try await c.call("workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)   // before any list
+    let first = try #require(try await c.call("worktree.list", .obj(["repoId": .string(repo.id)]), as: [Worktree].self).first { $0.id != workspace.id })
     #expect(first.note == "Workspace 1" && first.path == repo.path)
-    #expect(desk.note == "Workspace 2" && desk.path == repo.path && desk.branch == first.branch)
+    #expect(workspace.note == "Workspace 2" && workspace.path == repo.path && workspace.branch == first.branch)
     #expect(!Git.branchExists(repo.path, "ws-2"))
-    _ = try await c.call("worktree.remove", .obj(["id": .string(desk.id)]))
+    _ = try await c.call("worktree.remove", .obj(["id": .string(workspace.id)]))
     #expect(FileManager.default.fileExists(atPath: repo.path))
     await #expect(throws: RPCError.self) { _ = try await c.call("worktree.remove", .obj(["id": .string(first.id)])) }
 }
@@ -320,7 +320,7 @@ final class NoteBox: @unchecked Sendable {
     let script = #"stty -icanon -echo; printf '\033]7501;?\033\\'; IFS= read -r -t 5 -d '\' reply; "#
         + #"[[ $reply == *states=idle* ]] && printf '\033]7501;state=blocked:kind=permission:msg=QWxsb3cgcm0/\033\\'; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "agent": "osc"]), as: Session.self)
     #expect(try await waitFor(10) { try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .waiting })
     #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.summary == "Allow rm?")
@@ -332,7 +332,7 @@ final class NoteBox: @unchecked Sendable {
     let script = #"stty -icanon -echo; printf '\033]7501;?\033\\\033[c'; IFS= read -r -t 3 -d '\' first; IFS= read -r -t 3 -d c da; "#
         + #"[[ $first == *states=* && $da == *'[?62;22' ]] && echo BOTH-IN-ORDER || echo NO; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "agent": "osc"]), as: Session.self)
     #expect(try await waitFor(10) {
         let screen = try await c.call("session.read", .obj(["id": .string(s.id)])).string ?? ""
@@ -348,7 +348,7 @@ final class NoteBox: @unchecked Sendable {
     let script = #"stty -icanon -echo; IFS= read -rn1 first; printf '\033]7501;?\033\\'; IFS= read -r -t 5 -d '\' rest; "#
         + #"[[ $rest == i$'\n'* ]] && echo IN-ORDER || echo MIXED; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "agent": "osc"]), as: Session.self)
     _ = try await c.call("session.send", .obj(["id": .string(s.id), "text": "hi"]))
     #expect(try await waitFor(10) {
@@ -362,7 +362,7 @@ final class NoteBox: @unchecked Sendable {
 @Test func answerAMenuFromOutside() async throws {
     let script = #"stty -icanon -echo; printf 'Do you want to proceed?\n\xe2\x9d\xaf 1. Yes\n  2. Yes, and do not ask again\n  3. No\n'; IFS= read -rsn1 k; [[ -z "$k" ]] && echo ALLOWED; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "agent": "menu"]), as: Session.self)
     #expect(try await waitFor(5) { try await c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("3. No") == true })
     #expect(try await c.call("session.choose", .obj(["id": .string(s.id), "answer": "allow"])).bool == true)
@@ -387,7 +387,7 @@ final class NoteBox: @unchecked Sendable {
 /// A server a workspace's terminal started shows up as that workspace's port, and only there.
 @Test func workspacePorts() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let server = #"python3 -c "import socket,time;s=socket.socket();s.bind(('127.0.0.1',0));s.listen();print('PORT',s.getsockname()[1],flush=True);time.sleep(30)""#
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "command": .string(server)]), as: Session.self)
     var port = 0
@@ -426,7 +426,7 @@ final class NoteBox: @unchecked Sendable {
 /// A busy session's CPU and memory come back as its own, summed over what runs under it.
 @Test func sessionUsage() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "yes > /dev/null"]), as: Session.self)
     #expect(try await waitFor(10) {
         let all = try await c.call("session.usage", as: [SessionUsage.Usage].self)

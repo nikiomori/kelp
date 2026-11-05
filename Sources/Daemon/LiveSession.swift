@@ -249,7 +249,7 @@ final class LiveSession: Sendable {
     private func handleExit(_ code: Int32) {
         state.withLock { s in
             s.ended = true
-            if s.record.status == .hibernated { return }
+            if s.record.status == .paused { return }
             s.detector.exited()
             let exitCode = (code & 0x7f) == 0 ? (code >> 8) & 0xff : 0   // killed by a signal (closed, stopped) isn't a failure
             if exitCode != 0, s.record.agent != "shell" { s.record.summary = "Ended with an error (exit code \(exitCode))" }
@@ -407,7 +407,7 @@ final class LiveSession: Sendable {
     func markHibernated() {
         state.withLock { s in
             s.trail.add("\(s.record.status.rawValue) → hibernated")
-            s.detector.override(.hibernated); s.record.status = .hibernated
+            s.detector.override(.paused); s.record.status = .paused
         }
     }
 

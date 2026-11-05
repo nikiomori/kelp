@@ -122,7 +122,7 @@ extension GitMerge: Handled {
         if try Git.isDirty(r.path, remotes: workspaces.remotes) {
             throw RPCError.invalidParams("The main checkout has uncommitted changes. Commit or stash them first.")
         }
-        // The branch checked out in the desk now (a switch makes the record stale), into the base and only the base.
+        // The branch checked out in the workspace now (a switch makes the record stale), into the base and only the base.
         let branch = (try? Git.currentBranch(w.path, remotes: workspaces.remotes)) ?? w.branch
         // Detached: "HEAD" would merge the main checkout into itself ("Already up to date") and report success.
         guard branch != "HEAD" else {

@@ -33,7 +33,7 @@ private func folder(_ files: [String: String]) throws -> URL {
 /// it; Settings' Always / Never and a project's own choice come first.
 @Test func theBrowserSkillFollowsSettingsTheProjectAndItsUse() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     func skill() async throws -> BrowserSkill { try await w.c.call(SkillsBrowser(worktreeId: wt.id)) }
     func state(_ k: String, _ v: JSONValue?) async throws { _ = try await w.c.call(StateSet(key: k, value: v)) }
 
@@ -64,7 +64,7 @@ private func folder(_ files: [String: String]) throws -> URL {
 /// (the record's) has its skills chosen again, the old folder flag and Kelp's sentence taken out.
 @Test func skillsAreChosenPerChatAndAgainAtARestart() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w), skills = w.root.appendingPathComponent("agent-skills")
+    let wt = try await firstWorkspace(w), skills = w.root.appendingPathComponent("agent-skills")
     for name in ["kelp-browser", "kelp-settings", "kelp-terminals"] {
         try FileManager.default.createDirectory(at: skills.appendingPathComponent(name), withIntermediateDirectories: true)
     }

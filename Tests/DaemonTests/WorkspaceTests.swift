@@ -9,7 +9,7 @@ import Agents
 /// project's repository, its folder gone.
 @Test func aFailedWorkspaceRemovalKeepsItsTurnRefs() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
-    let wt = try await desk(w, "locked-turns")
+    let wt = try await workspace(w, "locked-turns")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     try #require(w.d.sessions.existing(s.id)).noteTurn(.working)
     #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
@@ -27,12 +27,12 @@ import Agents
 /// too, the branch only by the same rule (its commits elsewhere, or dropped on purpose).
 @Test func removingAWorkspaceWhoseFolderIsGoneForgetsItInGit() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "half-gone")
+    let wt = try await workspace(w, "half-gone")
     try FileManager.default.moveItem(atPath: wt.path, toPath: tmp().path + "/trashed")
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
     #expect(try Git.linkedWorktrees(w.repo.path).isEmpty && !Git.branchExists(w.repo.path, "half-gone"))
     // Its own commit: refused, the record stays, until told to drop it.
-    let own = try await desk(w, "own-commit")
+    let own = try await workspace(w, "own-commit")
     try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path)
     try FileManager.default.moveItem(atPath: own.path, toPath: tmp().path + "/trashed")
     await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: own.id)) }
@@ -52,7 +52,7 @@ import Agents
     let flag = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("slow-host").path
     FileManager.default.createFile(atPath: flag, contents: nil); defer { try? FileManager.default.removeItem(atPath: flag) }
     let workspaces = d.workspaces
-    let creating = Task.detached { try workspaces.createDesk(in: repo) }
+    let creating = Task.detached { try workspaces.createWorkspace(in: repo) }
     try await Task.sleep(for: .milliseconds(500))   // its branch is being read on the host
     let start = Date()
     try workspaces.syncMainWorkspaces()
@@ -69,7 +69,7 @@ import Agents
     let clean = w.root.appendingPathComponent("clean").path, paused = w.root.appendingPathComponent("paused").path
     for (p, b) in [(clean, "clean"), (paused, "paused")] { try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo) }
     try "SECRET=1\n".write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
-    var s = Session(cwd: paused, command: "agent"); s.status = .hibernated
+    var s = Session(cwd: paused, command: "agent"); s.status = .paused
     try w.d.store.save(s)
     let listed = try Git.linkedWorktrees(repo).map(\.path)
     let res = try await w.c.call(RepoRemoveWorktrees(id: w.repo.id, paths: listed))

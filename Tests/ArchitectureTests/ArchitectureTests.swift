@@ -223,7 +223,7 @@ private func codeOnly(_ s: String) -> String {
 /// before an agent's call gets that far. One that doesn't is a way around the check.
 @Test func whatActsOnASessionSaysOnWhich() throws {
     let acts = #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(/#
-    let ends = #/pauseSessions\(|sessions\.discard\(|\.archive\(|removeDesk\(/#
+    let ends = #/pauseSessions\(|sessions\.discard\(|\.archive\(|removeWorkspace\(/#
     let says = #/var (actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp)\b/#
     var unsaid: [String] = []
     for f in sources(["Sources/Daemon"]) {

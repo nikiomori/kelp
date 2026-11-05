@@ -220,8 +220,8 @@ private func onHost() -> LiveSession.State {
 /// Notifications that ask nothing leave the row alone (a finished background agent turned an idle row into "needs you").
 @Test func aNotificationThatAsksNothingIsNoQuestion() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let desk = try await firstDesk(w)
-    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    let workspace = try await firstWorkspace(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(workspace.id), "command": "sleep 30"]), as: Session.self)
     func status() async throws -> AgentStatus? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status }
     func notify(_ type: String) async throws {
         _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "waiting",
@@ -242,8 +242,8 @@ private func onHost() -> LiveSession.State {
 /// follows six seconds later leaves that text.
 @Test func aPermissionRequestAsksAtOnceAndKeepsItsText() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let desk = try await firstDesk(w)
-    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    let workspace = try await firstWorkspace(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(workspace.id), "command": "sleep 30"]), as: Session.self)
     func row() async throws -> Session? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
     _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "waiting", "notification": .obj([
@@ -328,14 +328,14 @@ private func onHost() -> LiveSession.State {
 @Test func anAgentThatAsksIsntPaused() async throws {
     let sleepy = AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [sleepy]); defer { w.d.stop() }
-    let wt = try await desk(w, "h")
+    let wt = try await workspace(w, "h")
     func started() async throws -> Session { try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self) }
     func status(_ s: Session) async throws -> AgentStatus? { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status }
     let asks = try await started(), done = try await started()
     _ = try await w.c.call(SessionHook(id: asks.id, event: "waiting"))
     _ = try await w.c.call(SessionHook(id: done.id, event: "done"))
     try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await status(done) == .hibernated })
+    #expect(try await waitFor(15) { try await status(done) == .paused })
     #expect(try await status(asks) == .waiting)
     try await hibernate(after: 0, w.c)
 }
@@ -345,12 +345,12 @@ private func onHost() -> LiveSession.State {
     let ticks = AgentManifest(id: "ticks", name: "Ticks", command: "/bin/zsh", args: ["-c", "while :; do echo tick; sleep 0.2; done", "x"],
                               hooks: .settingsFlag("--settings"), resumeArgs: ["--resume"])
     let w = try await world(agents: [ticks]); defer { w.d.stop() }
-    let wt = try await desk(w, "ticks")
+    let wt = try await workspace(w, "ticks")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "ticks"))
     #expect(try await waitFor { try await w.c.call(SessionRead(id: s.id)).contains("tick") })
     _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
     try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .hibernated })
+    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
     try await hibernate(after: 0, w.c)
 }
 
@@ -385,8 +385,8 @@ private func onHost() -> LiveSession.State {
 /// for its subagents isn't that.
 @Test func anAgentAtItsPromptIsDone() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let desk = try await firstDesk(w)
-    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    let workspace = try await firstWorkspace(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(workspace.id), "command": "sleep 30"]), as: Session.self)
     let idle: JSONValue = .obj(["notification_type": "idle_prompt", "message": "Claude is waiting for your input"])
     func status() -> AgentStatus? { w.d.sessions.existing(s.id)?.snapshot.status }
     _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
@@ -412,8 +412,8 @@ private func onHost() -> LiveSession.State {
 /// A turn's summary, written a moment after it ended, isn't laid over the question the agent has gone on to ask.
 @Test func aSummaryOfATurnLeavesAQuestionAlone() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let desk = try await firstDesk(w)
-    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(desk.id), "command": "sleep 30"]), as: Session.self)
+    let workspace = try await firstWorkspace(w)
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(workspace.id), "command": "sleep 30"]), as: Session.self)
     func summary() -> String? { w.d.sessions.existing(s.id)?.snapshot.summary }
     _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
     _ = try await w.c.call(SessionAnnotate(id: s.id, summary: "Added the test", ifStatus: "done"))

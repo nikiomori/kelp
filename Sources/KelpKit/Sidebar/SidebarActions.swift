@@ -237,7 +237,7 @@ extension SidebarController {
         WorkspaceActions.addLocate(to: menu, path: w.path)
         menu.addItem(.separator())
         if w.path == m.repo(w.repoId)?.path {
-            // A desk: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);
+            // A workspace: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);
             // with ⌥ the item closes it instead, ending its agents. The project's folder is untouched either way.
             menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
             let close = menu.add(String(localized: "Close Group")) { WorkspaceActions(app).close(w) }

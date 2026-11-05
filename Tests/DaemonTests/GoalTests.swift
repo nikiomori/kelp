@@ -8,7 +8,7 @@ import TestSupport
 /// goal) until the transcript has that answer, then done.
 @Test func aStopWithAGoalOpenIsDoneOnlyOnceTheGoalIsMet() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     let transcript = p.root.appendingPathComponent("\(UUID().uuidString).jsonl")
     func line(_ id: String, met: Bool) -> String {
@@ -30,7 +30,7 @@ import TestSupport
 /// the row goes by the prompt until the check says, and doesn't flash Done, with its notification, on the way.
 @Test func aGoalsFirstStopIsntDone() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     let transcript = p.root.appendingPathComponent("\(UUID().uuidString).jsonl")
     func line(_ id: String, met: Bool) -> String {
@@ -55,7 +55,7 @@ import TestSupport
 /// A Stop while a command it started in the background runs: working, the command on the record, until it's woken.
 @Test func aStopWhileItsCommandRunsIsNotDone() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     let tests: JSONValue = .obj(["id": "b1", "type": "shell", "status": "running", "command": "npm test"])
@@ -76,7 +76,7 @@ import TestSupport
 /// the record at once, while it asks too. It waits for them only once a Stop says so, and they go when told they ended.
 @Test func aServerIsNotAwaitedAndTestsAreOnceItsTurnStops() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     func hook(_ event: String, _ tasks: [JSONValue]? = nil) async throws {

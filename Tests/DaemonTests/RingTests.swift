@@ -7,7 +7,7 @@ import Core
 /// bytes. (The ring's storage used to keep all of it: see LiveSession.handleOutput. That part shows in RSS, not here.)
 @Test func theRingHoldsTheNewestMegabyte() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let c = p.c, w = try await firstDesk(p)
+    let c = p.c, w = try await firstWorkspace(p)
     let flood = "head -c 5000000 /dev/zero | tr '\\0' x; echo; echo tail-mark; sleep 30"
     let s: Session = try await c.call("session.create", .obj(["worktreeId": .string(w.id), "command": .string(flood)]), as: Session.self)
     #expect(try await waitFor(30) { try await c.call("session.read", .obj(["id": .string(s.id), "bytes": 200])).string?.contains("tail-mark") == true })

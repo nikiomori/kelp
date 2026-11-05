@@ -22,7 +22,7 @@ final class LSPManager {
 
     /// Projects whose language servers may run (the daemon's UI state: one list per KELP_HOME).
     static let trustKey = LSPOpen.trustKey
-    /// The scratch desk too is asked about once: something cloned into it is someone else's code like any other.
+    /// The scratch workspace too is asked about once: something cloned into it is someone else's code like any other.
     func trusted(_ app: AppModel, _ root: String) -> Bool { app.uiState.strings(Self.trustKey).contains(root) }
     /// The project isn't trusted to run code, and a file of `language` has a language server or a formatter that would.
     func restricts(_ app: AppModel, _ root: String, _ language: LanguageSpec?) -> Bool {

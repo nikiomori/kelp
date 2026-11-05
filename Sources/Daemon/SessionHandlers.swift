@@ -82,7 +82,7 @@ extension SessionKill: Handled {
         let before = try sessions.store.session(id)
         try sessions.wakeLocks.withLock(id) {
             if let ls = sessions.existing(id) { _ = ls.update { $0.tmux = nil }; ls.pty.terminate() }
-            else if try sessions.store.session(id)?.status == .hibernated { try sessions.change(id) { $0.status = .exited } }   // don't wake just to kill
+            else if try sessions.store.session(id)?.status == .paused { try sessions.change(id) { $0.status = .exited } }   // don't wake just to kill
         }
         guard let before else { return Done() }
         sessions.endOwnTmux(before)

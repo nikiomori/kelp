@@ -49,7 +49,7 @@ import WorkbenchKit
 }
 
 private let project = Repo(id: "r1", name: "Atlas", path: "/tmp/kelp-screen-atlas")
-private func desk(_ id: String, _ branch: String, note: String = "") -> Worktree {
+private func workspace(_ id: String, _ branch: String, note: String = "") -> Worktree {
     Worktree(id: id, repoId: "r1", branch: branch, path: "/tmp/kelp-screen-atlas/\(id)", note: note)
 }
 
@@ -60,7 +60,7 @@ private func own(_ id: String) -> Worktree { Worktree(id: id, repoId: "r1", bran
 extension OneAtATime {
 @Test func theSidebarListsTheProjectItsWorkspacesAndTheirAgents() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Fix login bug")
-    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing", note: "Billing rewrite")], sessions: [agent]) { _, o in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "feat/login"), workspace("w2", "feat/billing", note: "Billing rewrite")], sessions: [agent]) { _, o in
         let r = rows(of: o)
         #expect(r.count == 4)                                   // project, two workspaces, one agent under the first
         #expect(r[0].contains("Atlas"))
@@ -129,7 +129,7 @@ extension OneAtATime {
 
 @Test func aProjectFoldsFromItsChevronAndSaysWhatItsAgentsDo() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Fix login bug")
-    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent]) { vc, o in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "feat/login"), workspace("w2", "feat/billing")], sessions: [agent]) { vc, o in
         #expect(o.numberOfRows == 4)
         @MainActor func fold() throws -> NSButton {
             let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
@@ -180,7 +180,7 @@ extension OneAtATime {
 
 @Test func aProjectsRowFindsItsWorkspaceWhenThatArrivesAfterIt() throws {
     try withSidebar(repos: [project], worktrees: [], sessions: []) { vc, _ in
-        vc.app.worktrees = [desk("w1", "main")]   // the daemon's projects came first, their workspaces a moment later
+        vc.app.worktrees = [workspace("w1", "main")]   // the daemon's projects came first, their workspaces a moment later
         vc.refresh()
         #expect(vc.workspaceNode("w1") != nil)   // else the workspace on screen is never picked in the list
     }
@@ -243,7 +243,7 @@ extension OneAtATime {
         return s
     }
     let sessions = [agent("w1", .waiting), agent("w2", .working), agent("w3", .done)]
-    try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, _ in
+    try withSidebar(repos: [project], worktrees: (1...3).map { workspace("w\($0)", "b\($0)") }, sessions: sessions) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
         vc.view.frame.size.width = 200
         vc.view.layoutSubtreeIfNeeded()
@@ -258,7 +258,7 @@ extension OneAtATime {
 @Test func theAgentWaitingForYouSaysWhatItAsksAndTheLineOverTheListCountsIt() throws {
     var ask = Session(worktreeId: "w3", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Allow rm?", summary: "Needs permission")
     ask.statusAt = Date() - 60   // it has needed you a while (Inbox.settle)
-    try withSidebar(repos: [project], worktrees: [desk("w1", "a"), desk("w2", "b"), desk("w3", "c")], sessions: [ask]) { vc, o in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "a"), workspace("w2", "b"), workspace("w3", "c")], sessions: [ask]) { vc, o in
         let all: [String] = rows(of: o).flatMap { $0 }   // typed: CI's type check gave up on it
         #expect(all.filter { $0 == "Allow rm?" }.count == 1)                   // listed once, under its workspace
         #expect(all.contains { $0.contains("Needs permission") })              // what it asks, under its name
@@ -277,7 +277,7 @@ extension OneAtATime {
             return s
         }
     }
-    try withSidebar(repos: [project], worktrees: (1...4).map { desk("w\($0)", "b\($0)") }, sessions: asking(1)) { vc, o in
+    try withSidebar(repos: [project], worktrees: (1...4).map { workspace("w\($0)", "b\($0)") }, sessions: asking(1)) { vc, o in
         let top = { o.convert(o.rect(ofRow: 0), to: nil).minY }   // the project's row, in the window
         let before = top()
         vc.app.sessions = asking(4)
@@ -295,7 +295,7 @@ extension OneAtATime {
         s.statusAt = Date() - 60
         return s
     }
-    try withSidebar(repos: [project], worktrees: (1...6).map { desk("w\($0)", "b\($0)") }, sessions: asks) { vc, _ in
+    try withSidebar(repos: [project], worktrees: (1...6).map { workspace("w\($0)", "b\($0)") }, sessions: asks) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
         let title = try #require(textFields(line).first { $0.stringValue == "6 need you" })
         let capsule = try #require(title.superview?.superview)
@@ -315,7 +315,7 @@ extension OneAtATime {
         s.unread = status == .done
         return s
     }
-    try withSidebar(repos: [project], worktrees: [desk("w1", "a"), desk("w2", "b")], sessions: [agent("w1", .working), agent("w2", .done)]) { vc, _ in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "a"), workspace("w2", "b")], sessions: [agent("w1", .working), agent("w2", .done)]) { vc, _ in
         vc.view.layoutSubtreeIfNeeded()
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
         for words in ["1 working", "1 done"] {
@@ -330,7 +330,7 @@ extension OneAtATime {
     var ask = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Ask")
     ask.statusAt = Date() - 60
     let work = Session(worktreeId: "w2", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Work")
-    try withSidebar(repos: [project], worktrees: [desk("w1", "b1"), desk("w2", "b2")], sessions: [ask, work]) { vc, _ in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "b1"), workspace("w2", "b2")], sessions: [ask, work]) { vc, _ in
         let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
         vc.view.layoutSubtreeIfNeeded()
         #expect(textFields(line).contains { $0.stringValue.hasSuffix("1 working") })
@@ -355,7 +355,7 @@ extension OneAtATime {
     }
     let sessions = [agent("w1", .waiting, "Ask"), agent("w2", .done, "Report A"), agent("w3", .done, "Report B"), agent("w4", .done, "Put away")]
     // w4 is archived: the daemon doesn't list it, its agent stays in the session list.
-    try withSidebar(repos: [project], worktrees: (1...3).map { desk("w\($0)", "b\($0)") }, sessions: sessions) { vc, o in
+    try withSidebar(repos: [project], worktrees: (1...3).map { workspace("w\($0)", "b\($0)") }, sessions: sessions) { vc, o in
         #expect(texts(vc.view).contains("1 need you"))   // the question: finished reports nobody has read ask for nothing; nor the archived one's
         #expect(texts(vc.view).contains("2 done"))       // beside it in grey, those two and not the archived one
         let listed: [String] = rows(of: o).flatMap { $0 }
@@ -421,7 +421,7 @@ extension OneAtATime {
 
 @Test func theSidebarActuallyDrawsItsRows() throws {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Allow rm?")
-    try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login")], sessions: [agent]) { vc, o in
+    try withSidebar(repos: [project], worktrees: [workspace("w1", "feat/login")], sessions: [agent]) { vc, o in
         let v = vc.view
         // A window on screen makes its table's rows as it draws; this one is never shown, and cacheDisplay doesn't.
         for r in 0..<o.numberOfRows { _ = o.rowView(atRow: r, makeIfNecessary: true) }

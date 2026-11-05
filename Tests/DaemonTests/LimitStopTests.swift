@@ -14,7 +14,7 @@ private func stopped(_ p: World, _ s: Session) async throws {
 /// A StopFailure that names a plan limit: the record says so, kept in the store, until the agent works again.
 @Test func aLimitStaysOnTheRecordUntilTheAgentWorksAgain() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     try await stopped(p, s)
@@ -35,7 +35,7 @@ private func stopped(_ p: World, _ s: Session) async throws {
 /// itself, nothing is typed.
 @Test func continueIsTypedOnceAtItsTime() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "cat"]), as: Session.self)
     func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     func printed() async throws -> String { try await p.c.call("session.read", .obj(["id": .string(s.id)])).string ?? "" }
@@ -99,7 +99,7 @@ private func stopped(_ p: World, _ s: Session) async throws {
 /// A turn an API error ended didn't finish: the row says Failed and what went wrong, and the next prompt takes that back.
 @Test func aTurnThatFailedSaysSo() async throws {
     let p = try await world(); defer { p.d.stop() }
-    let w = try await firstDesk(p)
+    let w = try await firstWorkspace(p)
     let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
     func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
     let said: JSONValue = .obj(["notification_type": "stop_failure", "message": "API Error: 529 overloaded"])

@@ -54,7 +54,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 /// has been quiet a moment: a few sends take a while.)
 @Test func sendsReachTheSessionInTheOrderSent() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "order")
+    let wt = try await workspace(w, "order")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: s.id)).contains("ready") })
     let n = 6
@@ -117,7 +117,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 /// A paused agent that can't wake shows why in its terminal: it used to say "no such session" whatever went wrong.
 @Test func aTerminalSaysWhyItsAgentDidntWake() async throws {
     let (d, _, root) = try daemon(); defer { d.stop() }
-    let s = Session(cwd: "/tmp", command: "gone", agent: "gone", status: .hibernated)
+    let s = Session(cwd: "/tmp", command: "gone", agent: "gone", status: .paused)
     try d.store.save(s)
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
@@ -137,11 +137,11 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 @Test func aSendToAPausedAgentDoesntHoldUpItsConnection() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "stty -echo; echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "lane")
+    let wt = try await workspace(w, "lane")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     try await hibernate(after: 0.03, w.c)   // ~2 s
     func status() async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == s.id }?.status }
-    #expect(try await waitFor(15) { try await status() == .hibernated })
+    #expect(try await waitFor(15) { try await status() == .paused })
     try await hibernate(after: 0, w.c)
     // A wake held up (its lock held elsewhere, as an idle pause holds it) until the ping is answered, not for a time a
     // slow machine (the Thread Sanitizer's) could outlast.
@@ -186,7 +186,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 /// start a program (git, gh, ssh) fails at once instead of holding the connection up. Off that thread the same one runs.
 @Test func anInOrderCallStartsNoProgram() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let p = JSONValue.obj(["id": .string(try await firstDesk(w).id)])
+    let p = JSONValue.obj(["id": .string(try await firstWorkspace(w).id)])
     #expect(throws: RPCError.self) { _ = try w.d.answerNow(GitStatus.self, p, conn: -1) }
     _ = try await w.d.answer(GitStatus.name, p, conn: -1)
 }
@@ -196,11 +196,11 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 /// in order as well: those are the reader thread's already.
 @Test func quickMethodsStartNoProgram() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let desk = try await firstDesk(w)
-    let s = try await w.c.call(SessionCreate(worktreeId: desk.id, command: "exec cat"))
+    let workspace = try await firstWorkspace(w)
+    let s = try await w.c.call(SessionCreate(worktreeId: workspace.id, command: "exec cat"))
     let quick = Daemon.methods.values.compactMap { $0 as? any Handled.Type }.filter { $0.quick }
     #expect(quick.count >= 10)
-    let p = JSONValue.obj(["id": .string(s.id), "pane_id": .string(s.id), "event": "working", "state": "working", "summary": "x", "key": "k", "cwd": .string(desk.path),
+    let p = JSONValue.obj(["id": .string(s.id), "pane_id": .string(s.id), "event": "working", "state": "working", "summary": "x", "key": "k", "cwd": .string(workspace.path),
                            "transcript": .string("/tmp/\(UUID().uuidString.lowercased()).jsonl")])
     for t in quick {
         let ordered = t.inOrder; #expect(!ordered, "\(t.name)")
@@ -208,7 +208,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
             continue   // refused before anything ran: only the window may call it
         } catch { Issue.record("\(t.name): \(error)") }
     }
-    let status = JSONValue.obj(["id": .string(desk.id)])   // and one that runs git can't go that way
+    let status = JSONValue.obj(["id": .string(workspace.id)])   // and one that runs git can't go that way
     await #expect(throws: RPCError.self) { _ = try await w.d.offload(quick: true) { try GitStatus.answerNow(status, w.d, conn: -1) } }
 }
 

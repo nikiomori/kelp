@@ -10,7 +10,7 @@ import TestSupport
 /// A daemon on a fresh home, a client, and the first workspace of one project.
 private func project() async throws -> (Daemon, RPCClient, Worktree, URL) {
     let p = try await world()
-    return (p.d, p.c, try await firstDesk(p), p.root)
+    return (p.d, p.c, try await firstWorkspace(p), p.root)
 }
 
 private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
@@ -250,7 +250,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     var pinned = AgentManifest(id: "pinned", name: "Pinned", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
     pinned.sessionIdFlag = "--session-id"; pinned.resumeIdFlag = "--resume"
     let w = try await world(agents: [pinned]); defer { w.d.stop() }
-    let wt = try await desk(w, "resumed")
+    let wt = try await workspace(w, "resumed")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "pinned"]), as: Session.self)
     let other = UUID().uuidString.lowercased()
     func argv() async throws -> [String] { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.argv ?? [] }

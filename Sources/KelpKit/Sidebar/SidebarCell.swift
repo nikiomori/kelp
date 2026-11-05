@@ -394,9 +394,9 @@ final class SidebarCell: NSTableCellView {
     private func showIcon(_ s: Session) {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
         icon.isHidden = mode != "always"
-        let shown = s.status == .hibernated ? image.map(app.agentIcons.grey) : image
+        let shown = s.status == .paused ? image.map(app.agentIcons.grey) : image
         if icon.image !== shown { icon.image = shown }   // setting it draws it again, for every row on every pass
-        icon.alphaValue = s.status == .hibernated ? 0.7 : 1
+        icon.alphaValue = s.status == .paused ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
         let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
         if glyph.image !== mark { glyph.image = mark }
@@ -457,7 +457,7 @@ final class SidebarCell: NSTableCellView {
     /// One line, as Mail lists mailboxes: an agent asking for you or done unseen is bold (isNews) and its mark says which;
     /// the colour stays on the mark (orange text on a light sidebar is 2:1). What it asks or did is on the hover card.
     private func showState(_ s: Session) {
-        title.textColor = s.status == .hibernated ? .secondaryLabelColor : .labelColor
+        title.textColor = s.status == .paused ? .secondaryLabelColor : .labelColor
         trailing.textColor = selected ? Self.onPill : .secondaryLabelColor
         toolTip = nil
     }
@@ -485,7 +485,7 @@ final class SidebarCell: NSTableCellView {
     }
 
     /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
-    static func shownStatus(_ s: Session) -> AgentStatus { s.status == .hibernated && s.unread ? .done : s.markStatus }
+    static func shownStatus(_ s: Session) -> AgentStatus { s.status == .paused && s.unread ? .done : s.markStatus }
 
     /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
     static func isNews(_ s: Session) -> Bool { s.unread && [.done, .waiting, .error].contains(shownStatus(s)) }

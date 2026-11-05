@@ -31,7 +31,7 @@ final class WindowBar: NSView {
     private var closedAt = Date.distantPast
 
     private var worktree: Worktree? { app.worktree(app.workbench.workspaceId) }
-    /// The folder the sidebar keeps the pull request and CI for: a desk shares its project's.
+    /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
     private var badgeFolder: Worktree? { app.rowBadges.folder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
     private let ciMark = CIMark()
@@ -257,7 +257,7 @@ final class WindowBar: NSView {
 
     /// Agents that tile side by side in a workspace, as `EditorArea.arrange` picks them: below two the button does nothing.
     static func liveAgents(_ app: AppModel, in wid: String?) -> Int {
-        app.sessions.filter { $0.worktreeId == wid && !["shell", "custom"].contains($0.agent) && ![.exited, .hibernated].contains($0.status) }.count
+        app.sessions.filter { $0.worktreeId == wid && !["shell", "custom"].contains($0.agent) && ![.exited, .paused].contains($0.status) }.count
     }
 
     /// The arrows say where they go; with nothing that way they grey out.

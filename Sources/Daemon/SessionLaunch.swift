@@ -188,7 +188,7 @@ extension Sessions {
     }
 
     /// Paused, by its record or, when that couldn't be saved (a full disk), by what's known here.
-    func isPaused(_ s: Session) -> Bool { s.status == .hibernated || pausedUnsaved.withLock { $0.contains(s.id) } }
+    func isPaused(_ s: Session) -> Bool { s.status == .paused || pausedUnsaved.withLock { $0.contains(s.id) } }
 
     /// Bring a paused session back under the same id (layout and links stay), resuming its conversation.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
@@ -314,11 +314,11 @@ extension Sessions {
             guard !(error is RecordError) else { return }
             Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)")
             let unsaved = ls.snapshot
-            pausedUnsaved.withLock { if unsaved.status == .hibernated { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) } }
+            pausedUnsaved.withLock { if unsaved.status == .paused { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) } }
             said(unsaved)
             return
         }
-        if s.status != .hibernated { pausedUnsaved.withLock { _ = $0.remove(s.id) } }
+        if s.status != .paused { pausedUnsaved.withLock { _ = $0.remove(s.id) } }
         let revision = s.revision
         _ = ls.update { $0.revision = revision }
         said(s)
@@ -406,7 +406,7 @@ extension Sessions {
         return m
     }
 
-    /// Closing a desk ends its agents and forgets its layout; the folder is untouched. The last one stays.
+    /// Closing a workspace ends its agents and forgets its layout; the folder is untouched. The last one stays.
     /// Out of sight, nothing lost: its agents pause (they resume their conversations when it comes back), its tabs stay.
     /// A workspace going out of sight: agents that can resume their conversation pause (they come back with it), the
     /// rest stop. Returns once their programs are gone, so nothing writes into the folder after this.

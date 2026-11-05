@@ -64,7 +64,7 @@ extension SessionRestart: Handled {
                 owed = ls.takeOwed()   // from here on it may be gone from `live` at any moment
                 Sessions.waitGone(ls.pty.terminate())
             } else {
-                try sessions.store.update(Session.self, id) { if $0.status == .hibernated { $0.status = .exited } }
+                try sessions.store.update(Session.self, id) { if $0.status == .paused { $0.status = .exited } }
             }
             guard let s = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
             return s

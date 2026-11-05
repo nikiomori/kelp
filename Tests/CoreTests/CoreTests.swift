@@ -396,7 +396,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     var child = agent("child", .waiting, at: 3)
     child.parent = "first"; child.summary = "Allow rm?\u{1B}]52;c;x\u{7}"
     let all = [agent("first", .working, at: 1), agent("second", .working, at: 2), child, agent("gone", .exited, at: 4),
-               agent("paused", .hibernated, at: 5), agent("term", .working, at: 6, kind: "shell"), agent("done", .done, at: 7)]
+               agent("paused", .paused, at: 5), agent("term", .working, at: 6, kind: "shell"), agent("done", .done, at: 7)]
     let rows = AgentBoard.rows(all, worktrees: [w], repos: [repo])
     #expect(rows.map(\.id) == ["child", "first", "second", "done"])
     #expect(rows[0].title == "first › child")

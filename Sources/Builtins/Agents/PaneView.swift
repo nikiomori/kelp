@@ -111,10 +111,10 @@ final class PaneView: NSView {
     /// nothing lost. Ended: "Session ended".
     private func settle(shown: Bool = false) {
         let s = app.session(sessionId), m = app
-        if s?.status == .hibernated, let was = lastStatus, was != .hibernated { attached = false }
+        if s?.status == .paused, let was = lastStatus, was != .paused { attached = false }
         lastStatus = s?.status
         if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached { reattach(s) }
-        let paused = !attached && s?.status == .hibernated
+        let paused = !attached && s?.status == .paused
         let stopped = !embedded && (!attached || s?.status == .exited)
         if stopped != (endedHeight.constant > 0) {
             endedHeight.constant = stopped ? endedBar.fittingSize.height : 0
@@ -287,7 +287,7 @@ final class PaneView: NSView {
     @objc private func closeTapped() { onClose?(self) }
     /// Resume on a paused pane attaches again (and so wakes the agent); otherwise the session starts over.
     @objc private func restartTapped() {
-        if !attached, let s = app.session(sessionId), s.status == .hibernated { reattach(s); settle() } else { onRestart?(self) }
+        if !attached, let s = app.session(sessionId), s.status == .paused { reattach(s); settle() } else { onRestart?(self) }
     }
 
     // MARK: drops: files/images/text into the agent's prompt

@@ -291,10 +291,10 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(SidebarCell.wantsYou(session(.done, unread: true)))
     #expect(!SidebarCell.wantsYou(session(.done, unread: false)))   // seen
     #expect(!SidebarCell.wantsYou(session(.waiting, agent: "shell")))   // a plain terminal never asks
-    #expect(SidebarCell.wantsYou(session(.hibernated, unread: true)))   // paused, but it finished and you haven't looked
-    #expect(!SidebarCell.wantsYou(session(.hibernated)))
+    #expect(SidebarCell.wantsYou(session(.paused, unread: true)))   // paused, but it finished and you haven't looked
+    #expect(!SidebarCell.wantsYou(session(.paused)))
     #expect(SidebarCell.isNews(session(.done, unread: true)) && !SidebarCell.isNews(session(.idle, unread: true)) && !SidebarCell.isNews(session(.done)))
-    #expect(SidebarCell.isNews(session(.hibernated, unread: true)))   // bold as long as it's counted
+    #expect(SidebarCell.isNews(session(.paused, unread: true)))   // bold as long as it's counted
 }
 
 @MainActor @Test func aProjectTileShowsTheInitialsOfItsFirstTwoWords() {

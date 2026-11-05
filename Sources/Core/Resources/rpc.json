@@ -2431,7 +2431,7 @@
         "type" : "object"
       },
       "Routine" : {
-        "description" : "An agent on a schedule: at its time the daemon starts `agent` with `prompt` in the routine's own workspace (a desk in the project's folder, made at its first run), and keeps how each run went.",
+        "description" : "An agent on a schedule: at its time the daemon starts `agent` with `prompt` in the routine's own workspace (in the project's folder, made at its first run), and keeps how each run went.",
         "properties" : {
           "agent" : {
             "type" : "string"
@@ -7677,7 +7677,7 @@
       }
     },
     {
-      "description" : "The project's folder moved: the project and its desks point at `path`.",
+      "description" : "The project's folder moved: the project and its workspaces point at `path`.",
       "name" : "repo.relocate",
       "paramStructure" : "by-name",
       "params" : [

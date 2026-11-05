@@ -39,7 +39,7 @@ public struct StatusDetector: Sendable {
 
     /// Paused or ended: nothing the program still prints (or reports) as it's stopped changes that. A pause that read as
     /// "working" again would be saved as ended, and the session couldn't resume.
-    private var settled: Bool { status == .hibernated || status == .exited }
+    private var settled: Bool { status == .paused || status == .exited }
 
     public mutating func output(_ chunk: String, at now: Date = clock) {
         // The agent reports itself: nothing here is read (tick checks the same). Plain shells don't track status.
@@ -189,7 +189,7 @@ public struct StatusDetector: Sendable {
 
     /// A better guess from elsewhere (local model) that does not switch heuristics off like a hook does.
     public mutating func override(_ s: AgentStatus, because why: String = "set by Kelp") {
-        guard (status != .exited && status != .hibernated) || s == .hibernated else { return }
+        guard (status != .exited && status != .paused) || s == .paused else { return }
         status = s; source = why
     }
 

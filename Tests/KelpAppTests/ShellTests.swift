@@ -182,7 +182,7 @@ import WorkbenchKit
     func s(_ w: String, _ agent: String, _ status: AgentStatus = .working) -> Session {
         Session(worktreeId: w, cwd: "/", command: agent, agent: agent, status: status, title: agent)
     }
-    m.sessions = [s("w1", "claude"), s("w1", "shell"), s("w1", "custom"), s("w1", "codex", .exited), s("w1", "codex", .hibernated), s("w2", "codex")]
+    m.sessions = [s("w1", "claude"), s("w1", "shell"), s("w1", "custom"), s("w1", "codex", .exited), s("w1", "codex", .paused), s("w2", "codex")]
     #expect(WindowBar.liveAgents(m, in: "w1") == 1)
     m.sessions.append(s("w1", "codex", .idle))
     #expect(WindowBar.liveAgents(m, in: "w1") == 2)

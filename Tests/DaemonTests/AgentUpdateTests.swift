@@ -6,7 +6,7 @@ import Agents
 
 /// A session whose /restart would land in `cat`, which prints it; its turn just ended with this payload.
 private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil, crons: [JSONValue]? = nil) async throws -> (Session, LiveSession) {
-    let wt = try await desk(w, name)
+    let wt = try await workspace(w, name)
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     let ls = try #require(w.d.sessions.live[s.id])
     #expect(try await waitFor(30) { ls.startedUp })
@@ -56,7 +56,7 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 /// Before its first turn, while it works and while it asks, there's no moment to take.
 @Test func onlyAFinishedTurnCounts() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "fresh")
+    let wt = try await workspace(w, "fresh")
     let fresh = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let ls = try #require(w.d.sessions.live[fresh.id])
     #expect(try await waitFor(30) { ls.startedUp })

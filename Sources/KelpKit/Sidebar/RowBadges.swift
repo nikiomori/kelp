@@ -2,7 +2,7 @@ import AppKit
 import Core
 import DesignKit
 
-/// What the sidebar shows beside a folder: lines not committed yet, the branch's PR and its CI. Desks share their project's
+/// What the sidebar shows beside a folder: lines not committed yet, the branch's PR and its CI. Workspaces share their project's
 /// folder, so the project row carries it; a workspace on its own branch (a worktree) carries its own. Every folder the
 /// sidebar lists is watched: the daemon pushes its git when its files change, its PR (gh, once a minute) and its CI (while a
 /// run goes, else every 2 minutes). The branch chip and its popover read the same CI for the folder on screen.
@@ -58,7 +58,7 @@ package final class RowBadges {
         following = now
     }
 
-    /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a desk) its project's.
+    /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace) its project's.
     func folder(of workspace: String?) -> Worktree? {
         app.worktree(workspace).flatMap { folder(workspace: $0.id) ?? folder(project: $0.repoId) }
     }

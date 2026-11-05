@@ -11,10 +11,10 @@ import GitKit
 @Test func aSendWhoseWakeFailsSaysSo() async throws {
     let w = try await world(agents: [AgentManifest(id: "gone", name: "Gone", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "wake-fails")
+    let wt = try await workspace(w, "wake-fails")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "gone"))
     try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .hibernated })
+    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
     try await hibernate(after: 0, w.c)
     try FileManager.default.removeItem(at: w.root.appendingPathComponent("agents/gone.json"))   // nothing to wake it with
     await #expect(throws: RPCError.self) { _ = try await w.c.call(SessionSend(id: s.id, text: "hello")) }
@@ -24,7 +24,7 @@ import GitKit
 /// It's refused until they send or clear it; text that isn't sent (a reference) still goes in beside theirs.
 @Test func aSendDoesntSendTheUsersHalfWrittenLine() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "half")
+    let wt = try await workspace(w, "half")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
     func keys(_ k: String) async throws { _ = try await w.c.call(SessionWrite(id: s.id, base64: Data(k.utf8).base64EncodedString())) }
@@ -43,7 +43,7 @@ import GitKit
 /// that Return: they used to go in between, and the Return sent them with the prompt ("hellox").
 @Test func keysPressedDuringASendComeAfterItsReturn() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "keys-after")
+    let wt = try await workspace(w, "keys-after")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
     #expect(try await waitFor(10) { try await screen().contains("ready") })
@@ -70,7 +70,7 @@ import GitKit
     done
     """#.write(to: script, atomically: true, encoding: .utf8)
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "dialog")
+    let wt = try await workspace(w, "dialog")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "/bin/bash \(script.path)"))
     func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
     #expect(try await waitFor(10) { try await screen().contains("ready") })
@@ -85,7 +85,7 @@ import GitKit
 /// A numbered line the send itself put beside the input box's cursor looks like a menu, and it still gets its Return.
 @Test func aSendThatLooksLikeAMenuIsStillSent() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "numbered")
+    let wt = try await workspace(w, "numbered")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "printf '\\342\\235\\257 '; exec cat"))
     func screen() async throws -> String { try await w.c.call(SessionRead(id: s.id)) }
     #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
@@ -104,7 +104,7 @@ import GitKit
 @Test func aBannerAnswersOnlyTheQuestionItShowed() async throws {
     let script = #"stty -icanon -echo; printf 'Do you want to proceed?\n\xe2\x9d\xaf 1. Yes\n  2. No\n'; IFS= read -rsn1 k; [[ -z "$k" ]] && echo ALLOWED; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/bash", args: ["-c", script])]); defer { p.d.stop() }
-    let w = try await firstDesk(p), s = try await p.c.call(SessionCreate(worktreeId: w.id, agent: "menu"))
+    let w = try await firstWorkspace(p), s = try await p.c.call(SessionCreate(worktreeId: w.id, agent: "menu"))
     func screen() async throws -> String { try await p.c.call(SessionRead(id: s.id)) }
     #expect(try await waitFor(5) { try await screen().contains("2. No") })
     let ls = try #require(p.d.sessions.existing(s.id))
@@ -122,7 +122,7 @@ import GitKit
 /// An idle pause ends the program: a half-typed line or an unread draft in its box would go with it.
 @Test func anIdlePauseLeavesUnsentText() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "unsent")
+    let wt = try await workspace(w, "unsent")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let ls = try #require(w.d.sessions.existing(s.id))
     ls.state.withLock { $0.typing = "half" }
@@ -139,7 +139,7 @@ import GitKit
 /// A worktree an agent just made has nothing in it yet, so it looks clean: Remove Clean Worktrees keeps it.
 @Test func removingCleanWorktreesLeavesOneAnAgentRunsIn() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await firstDesk(w), repo = try #require(try await w.c.call(RepoList()).first { $0.id == wt.repoId })
+    let wt = try await firstWorkspace(w), repo = try #require(try await w.c.call(RepoList()).first { $0.id == wt.repoId })
     let path = w.root.appendingPathComponent("linked").path
     _ = try Git.run(["worktree", "add", "-q", "-b", "linked", path], cwd: repo.path)
     let s = try await w.c.call(SessionCreate(cwd: path, worktreeId: wt.id, command: "exec cat"))
@@ -180,7 +180,7 @@ import GitKit
     try fm.createDirectory(at: history, withIntermediateDirectories: true)
     let old = Session(cwd: "/tmp", command: "x", status: .exited, createdAt: Date() - week - 3600)
     var recent = Session(cwd: "/tmp", command: "x", status: .exited, createdAt: Date() - week - 3600); recent.statusAt = Date() - 3600
-    let paused = Session(cwd: "/tmp", command: "x", status: .hibernated, createdAt: Date() - week * 4)
+    let paused = Session(cwd: "/tmp", command: "x", status: .paused, createdAt: Date() - week * 4)
     for s in [old, recent, paused] { try d.store.save(s); try Data("out".utf8).write(to: history.appendingPathComponent("\(s.id).log")) }
     let trail = history.appendingPathComponent("\(old.id).trail")
     let orphan = history.appendingPathComponent("orphan.log"), orphanTrail = history.appendingPathComponent("orphan.trail")
@@ -199,7 +199,7 @@ import GitKit
 /// with nobody to pause it, and a wake later would start a second copy.
 @Test func nothingStartsWhileTheDaemonStops() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "stopping")
+    let wt = try await workspace(w, "stopping")
     w.d.sessions.pauseAll()
     await #expect(throws: RPCError.self) { _ = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec sleep 30")) }
     #expect(try w.d.store.sessions().isEmpty)
@@ -211,7 +211,7 @@ import GitKit
 @Test func aPauseIsntWrittenOverByAnOlderStatus() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "pausing")
+    let wt = try await workspace(w, "pausing")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     let ls = try #require(w.d.sessions.live[s.id])
     let gate = DispatchSemaphore(value: 0)
@@ -222,7 +222,7 @@ import GitKit
     gate.signal()
     #expect(try await waitFor(10) { paused.withLock { $0 } })
     await withCheckedContinuation { c in ls.inOrder { c.resume() } }   // whatever was queued is saved by now
-    #expect(try w.d.store.session(s.id)?.status == .hibernated)
+    #expect(try w.d.store.session(s.id)?.status == .paused)
 }
 
 /// A paused agent woken at once says it's running: a status change of its old program that was queued before the pause
@@ -230,7 +230,7 @@ import GitKit
 @Test func aWakeIsntWrittenOverByThePausedProgram() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "rewake")
+    let wt = try await workspace(w, "rewake")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     let old = try #require(w.d.sessions.live[s.id])
     let first = DispatchSemaphore(value: 0), second = DispatchSemaphore(value: 0)
@@ -246,7 +246,7 @@ import GitKit
     await withCheckedContinuation { c in woken.inOrder { c.resume() } }
     second.signal()
     await withCheckedContinuation { c in old.inOrder { c.resume() } }
-    #expect(try w.d.store.session(s.id)?.status != .hibernated)
+    #expect(try w.d.store.session(s.id)?.status != .paused)
 }
 
 /// Input that came after an idle pause looked keeps the agent running: the pause would stop the program it was just
@@ -254,7 +254,7 @@ import GitKit
 @Test func anIdlePauseLeavesAnAgentThatJustGotInput() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "late-input")
+    let wt = try await workspace(w, "late-input")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     let ls = try #require(w.d.sessions.live[s.id])
     let seen = ls.inputs
@@ -268,7 +268,7 @@ import GitKit
 @Test func inputDuringAnIdlePauseWakesTheAgent() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "mid-pause")
+    let wt = try await workspace(w, "mid-pause")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     let ls = try #require(w.d.sessions.live[s.id])
     let gate = DispatchSemaphore(value: 0)
@@ -287,10 +287,10 @@ import GitKit
 @Test func anAttachWhoseWakeFailsTriesOnce() async throws {
     let w = try await world(agents: [AgentManifest(id: "gone2", name: "Gone", command: "/bin/zsh", args: ["-c", "echo ready; exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "attach-fails")
+    let wt = try await workspace(w, "attach-fails")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "gone2"))
     try await hibernate(after: 0.03, w.c)
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .hibernated })
+    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
     try await hibernate(after: 0, w.c)
     try FileManager.default.removeItem(at: w.root.appendingPathComponent("agents/gone2.json"))
     let before = w.d.sessions.wakeTries.withLock { $0 }
@@ -302,7 +302,7 @@ import GitKit
 @Test func aSessionKnowsFromItsStartWhetherAPauseCanBringItBack() async throws {
     let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "exec cat"],
                                                    resumeArgs: ["--resume"])]); defer { w.d.stop() }
-    let wt = try await desk(w, "resumable")
+    let wt = try await workspace(w, "resumable")
     let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
     let command = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     #expect(w.d.sessions.live[agent.id]?.resumable == true && w.d.sessions.live[command.id]?.resumable == false)

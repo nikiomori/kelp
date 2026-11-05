@@ -100,11 +100,11 @@ final class EventBox: @unchecked Sendable {
     #expect(try await c.call("state.get", .obj(["prefix": ""])) == .obj(["layout/w1": .obj(["groups": .object([:])])]))
 
     let repo: Repo = try await c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
-    let desk: Worktree = try await c.call("workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)
-    let first = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.id != desk.id })
-    try await set("layout/\(desk.id)", 1); try await set("layout/\(first.id)", 2)
-    _ = try await c.call("worktree.remove", .obj(["id": .string(desk.id)]))
-    #expect(try await get("layout/\(desk.id)") == .null)
+    let workspace: Worktree = try await c.call("workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)
+    let first = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.id != workspace.id })
+    try await set("layout/\(workspace.id)", 1); try await set("layout/\(first.id)", 2)
+    _ = try await c.call("worktree.remove", .obj(["id": .string(workspace.id)]))
+    #expect(try await get("layout/\(workspace.id)") == .null)
     #expect(try await get("layout/\(first.id)") == 2)
     _ = try await c.call("repo.remove", .obj(["id": .string(repo.id)]))   // its workspaces go with it
     #expect(try await get("layout/\(first.id)") == .null)

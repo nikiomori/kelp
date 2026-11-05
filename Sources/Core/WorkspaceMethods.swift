@@ -1,6 +1,6 @@
 import Foundation
 
-// Projects (repos), their workspaces (worktrees: desks in the project's folder, or git worktrees of their own) and the
+// Projects (repos), their workspaces (worktrees: workspaces in the project's folder, or git worktrees of their own) and the
 // sessions in them. Results are the records (Repo, Worktree, Session) or what's noted.
 
 /// A folder in a repository adds the repository. One outside any: `init` true runs `git init` there, false adds the
@@ -15,7 +15,7 @@ public struct RepoAdd: RPCMethod {
 public struct RepoList: RPCMethod { public static let name = "repo.list"; public typealias Result = [Repo]; public init() {} }
 /// The workspace of the chats outside any project (No Project), a plain folder made the first time; each agent started on it works in a folder of its own inside.
 public struct ScratchEnsure: InternalMethod { public static let name = "scratch.ensure"; public typealias Result = Worktree; public init() {} }
-/// The project's folder moved: the project and its desks point at `path`.
+/// The project's folder moved: the project and its workspaces point at `path`.
 public struct RepoRelocate: RPCMethod {
     public static let name = "repo.relocate"; public typealias Result = Repo; public var id: String, path: String
     public init(id: String, path: String) { self.id = id; self.path = path }

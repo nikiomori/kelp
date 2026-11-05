@@ -80,8 +80,8 @@ extension RepoRemove: Handled {
     var ends: Ending? { .project(id) }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let r = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
-        let desks = Set(try workspaces.store.worktrees(repo: r.id).map(\.id))
-        workspaces.sessions.discard(try workspaces.store.sessions().filter { desks.contains($0.worktreeId ?? "") })
+        let ids = Set(try workspaces.store.worktrees(repo: r.id).map(\.id))
+        workspaces.sessions.discard(try workspaces.store.sessions().filter { ids.contains($0.worktreeId ?? "") })
         try workspaces.store.delete(r); workspaces.notify(ChangedEvent.repo)
         return Done()
     }
@@ -90,7 +90,7 @@ extension RepoRemove: Handled {
 extension WorkspaceCreate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
-        let w = try workspaces.createDesk(in: r)
+        let w = try workspaces.createWorkspace(in: r)
         workspaces.sessions.workspaceAdded(w)
         return w
     }
@@ -99,7 +99,7 @@ extension WorkspaceCreate: Handled {
 extension WorktreeCreate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
-        // Its git would run on this Mac, not the host: a remote project's workspaces are desks in its folder.
+        // Its git would run on this Mac, not the host: a remote project's workspaces all share its folder.
         guard workspaces.remotes.of(r.path) == nil else {
             throw RPCError.invalidParams("Remote projects work in their folder: branches in worktrees aren't available there yet.")
         }
@@ -159,7 +159,7 @@ extension WorktreeCreate: Handled {
     }
 }
 
-/// Only reads: desks follow their folders' branches as they change (`watchHeads`), not when someone lists them.
+/// Only reads: workspaces follow their folders' branches as they change (`watchHeads`), not when someone lists them.
 extension WorktreeList: Handled {
     func handle(_ workspaces: Workspaces) throws -> [Worktree] { try workspaces.store.worktrees(repo: repoId).filter { archived == true || !$0.archived } }
 }
@@ -178,7 +178,7 @@ extension WorktreeRemove: Handled {
     var notForAgents: String? { force == true || dropCommits == true ? "Only the user removes a workspace with its changes or commits." : nil }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
-        if workspaces.isMain(w, r) { try workspaces.removeDesk(w, r); return Done() }
+        if workspaces.isMain(w, r) { try workspaces.removeWorkspace(w, r); return Done() }
         if Workspaces.borrowed(w.path, seed: Paths.seed) {
             try workspaces.sessions.pauseSessions(of: w.id)
             workspaces.sessions.discard(try workspaces.store.sessions().filter { $0.worktreeId == w.id })
@@ -237,7 +237,7 @@ extension WorktreeDirty: Handled {
 
 extension Workspaces {
     /// Archiving keeps the folder, ignored files (.env, node_modules, builds) and all: its agents pause, and unarchiving
-    /// finds everything where it was. A project keeps at least one desk.
+    /// finds everything where it was. A project keeps at least one workspace.
     func archive(_ w: Worktree, _ r: Repo) throws {
         if isMain(w, r), try store.worktrees(repo: r.id).filter({ isMain($0, r) && !$0.archived }).count < 2 {
             throw RPCError.invalidParams("A project keeps at least one workspace.")
@@ -247,7 +247,7 @@ extension Workspaces {
         notify(ChangedEvent.worktree)
     }
 
-    func removeDesk(_ w: Worktree, _ r: Repo) throws {
+    func removeWorkspace(_ w: Worktree, _ r: Repo) throws {
         guard try store.worktrees(repo: r.id).filter({ isMain($0, r) }).count > 1 else {
             throw RPCError.invalidParams("A project keeps at least one workspace; remove the project instead.")
         }

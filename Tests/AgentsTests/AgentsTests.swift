@@ -420,18 +420,18 @@ import TestSupport
 @Test func agentTrustIsReadFromEachAgentsOwnConfig() throws {
     let home = tmp().path
     let fm = FileManager.default
-    for d in ["/p/known/desk", "/p/other", "/.codex", "/.gemini", "/.kimi-code/workspace-trust", "/profile"] {
+    for d in ["/p/known/workspace", "/p/other", "/.codex", "/.gemini", "/.kimi-code/workspace-trust", "/profile"] {
         try fm.createDirectory(atPath: home + d, withIntermediateDirectories: true)
     }
     try #"{"projects":{"\#(home)/p/known":{"hasTrustDialogAccepted":true},"\#(home)/p/other":{"hasTrustDialogAccepted":false}}}"#
         .write(toFile: home + "/.claude.json", atomically: true, encoding: .utf8)
     try "model = \"x\"\n[projects.\"\(home)/p/known\"]\ntrust_level = \"trusted\"\n[projects.\"\(home)/p/other\"]\ntrust_level = \"untrusted\"\n"
         .write(toFile: home + "/.codex/config.toml", atomically: true, encoding: .utf8)
-    try #"{"\#(home)/p/known/desk":"TRUST_PARENT","\#(home)/p/other":"DO_NOT_TRUST"}"#.write(toFile: home + "/.gemini/trustedFolders.json", atomically: true, encoding: .utf8)
+    try #"{"\#(home)/p/known/workspace":"TRUST_PARENT","\#(home)/p/other":"DO_NOT_TRUST"}"#.write(toFile: home + "/.gemini/trustedFolders.json", atomically: true, encoding: .utf8)
     try #"{"root":"\#(home)/p/known","trustedAt":1}"#.write(toFile: home + "/.kimi-code/workspace-trust/wd_known", atomically: true, encoding: .utf8)
     for agent in ["claude", "codex", "gemini", "kimi"] {
         #expect(AgentTrust.trusts(agent: agent, folders: [home + "/p/known"], home: home), "\(agent)")
-        #expect(AgentTrust.trusts(agent: agent, folders: [home + "/p/known/desk"], home: home), "\(agent): a folder inside a trusted one")
+        #expect(AgentTrust.trusts(agent: agent, folders: [home + "/p/known/workspace"], home: home), "\(agent): a folder inside a trusted one")
         #expect(!AgentTrust.trusts(agent: agent, folders: [home + "/p/other"], home: home), "\(agent): explicitly not trusted")
         #expect(!AgentTrust.trusts(agent: agent, folders: [home + "/p/knownother"], home: home), "\(agent): a name that only starts the same")
     }
@@ -457,11 +457,11 @@ import TestSupport
     let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
     var d = StatusDetector(manifest: codex)
     d.input(at: Date(timeIntervalSince1970: 0))   // typed into: the heuristics are on
-    d.override(.hibernated)
+    d.override(.paused)
     d.output("Saving the conversation before quitting", at: Date(timeIntervalSince1970: 100))
-    #expect(d.status == .hibernated)
+    #expect(d.status == .paused)
     d.program("working"); d.hook("done")
-    #expect(d.status == .hibernated)
+    #expect(d.status == .paused)
 }
 
 /// Attached again to an agent that kept running (tmux on a host): its redraw is no turn however late it comes (a slow

@@ -20,7 +20,7 @@ final class SyncPopover: NSViewController {
     private lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     private let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     private let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView()
-    /// The folder whose CI the section shows (a desk shares its project's): the one the branch chip's mark reads.
+    /// The folder whose CI the section shows (a workspace shares its project's): the one the branch chip's mark reads.
     private var folder: String { app.rowBadges.folder(of: wid)?.id ?? wid }
     private let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""), message = NSTextField()
     private let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))

@@ -15,10 +15,10 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
 }
 
 @MainActor @Test func theDockIconLeavesOutWhatNeedsNothing() {
-    #expect(DockIcon.cells([session(.idle), session(.exited), session(.done), session(.hibernated)]).isEmpty)   // done and read
+    #expect(DockIcon.cells([session(.idle), session(.exited), session(.done), session(.paused)]).isEmpty)   // done and read
     #expect(DockIcon.cells([session(.done, unread: true, parent: "p")]).isEmpty)   // its result goes to its parent
     #expect(DockIcon.cells([session(.working, agent: "shell")]).isEmpty)   // a terminal, not a chat
-    #expect(DockIcon.cells([session(.hibernated, unread: true)]) == [.done])   // paused with a result you haven't read
+    #expect(DockIcon.cells([session(.paused, unread: true)]) == [.done])   // paused with a result you haven't read
 }
 
 @MainActor @Test func thePlanOnTheDockIconTurnsAtTheWarningLevel() {

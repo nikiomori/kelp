@@ -501,7 +501,7 @@ extension RoutineDelete: Handled {
         return Done()
     }
 }
-extension RoutineRun: Handled { func handle(_ w: Workspaces) throws -> Routine.Run { try w.routines.runNow(id, desks: w) } }
+extension RoutineRun: Handled { func handle(_ w: Workspaces) throws -> Routine.Run { try w.routines.runNow(id, workspaces: w) } }
 
 extension SessionContextParts: Handled {
     func handle(_ sessions: Sessions) throws -> Parts? {
@@ -566,10 +566,10 @@ extension Sessions {
     }
 
     func ending(_ e: Ending) throws -> [String] {
-        let desks: Set<String> = switch e {
+        let ids: Set<String> = switch e {
         case .workspace(let w): [w]
         case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
         }
-        return try store.sessions().filter { desks.contains($0.worktreeId ?? "") }.map(\.id)
+        return try store.sessions().filter { ids.contains($0.worktreeId ?? "") }.map(\.id)
     }
 }

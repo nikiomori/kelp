@@ -53,8 +53,8 @@ public struct Worktree: Codable, Sendable, Equatable, Revised {
 
 public enum AgentStatus: String, Codable, Sendable, CaseIterable {
     case idle, working, waiting, done, exited
-    /// Process stopped to save memory; resumes its conversation when opened again.
-    case hibernated
+    /// Paused: its process stopped to save memory; resumes its conversation when opened again. "hibernated" on the wire.
+    case paused = "hibernated"
     /// The agent says its turn failed (OSC 7501 "error"); it stays so until the next turn.
     case error
     public var label: String {
@@ -64,7 +64,7 @@ public enum AgentStatus: String, Codable, Sendable, CaseIterable {
         case .waiting: "Needs you"
         case .done: "Done"
         case .exited: "Exited"
-        case .hibernated: "Paused"
+        case .paused: "Paused"
         case .error: "Failed"
         }
     }
@@ -190,7 +190,7 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// What runs in the background beside it, each in a line: not the command it waits for, which is what it's doing. Empty
     /// once its program is gone.
     public var aside: [String] {
-        guard status != .exited, status != .hibernated else { return [] }
+        guard status != .exited, status != .paused else { return [] }
         return (background ?? []).filter { !waitsForCommand || $0 != awaiting }.map(AgentCommand.short)
     }
     /// The tooltip of its tab and of the mark for what runs beside it: the commands by name, which no row or tab has room for.
@@ -303,7 +303,7 @@ extension Worktree {
         return isUnnamed ? String(localized: "New Group") : note
     }
 
-    /// "Workspace 3", the name a new desk keeps until its first prompt names it: a new group to people. The stored name
+    /// "Workspace 3", the name a new workspace keeps until its first prompt names it: a new group to people. The stored name
     /// stays as the daemon wrote it (Workspaces.placeholderName knows it by that).
     public var isUnnamed: Bool { note.hasPrefix("Workspace ") && Int(note.dropFirst("Workspace ".count)) != nil }
 }

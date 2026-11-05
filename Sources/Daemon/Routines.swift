@@ -22,11 +22,11 @@ final class Routines: Sendable {
         self.clients = clients
     }
 
-    /// The clock; `desks` makes a routine's workspace at its first run.
-    func start(desks: Workspaces) {
+    /// The clock; `workspaces` makes a routine's workspace at its first run.
+    func start(workspaces: Workspaces) {
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now() + 2, repeating: 10)
-        t.setEventHandler { [weak self, weak desks] in if let desks { self?.step(Date(), desks: desks) } }
+        t.setEventHandler { [weak self, weak workspaces] in if let workspaces { self?.step(Date(), workspaces: workspaces) } }
         clock.withLock { $0?.cancel(); $0 = t }
         t.resume()
     }
@@ -46,9 +46,9 @@ final class Routines: Sendable {
     }
 
     /// A tick of the clock now (tests).
-    func tick(desks: Workspaces, now: Date = Date()) { queue.sync { step(now, desks: desks) } }
+    func tick(workspaces: Workspaces, now: Date = Date()) { queue.sync { step(now, workspaces: workspaces) } }
 
-    private func step(_ now: Date, desks: Workspaces) {
+    private func step(_ now: Date, workspaces: Workspaces) {
         var told = false
         Log.store.attempt("running routines") {
             for r in try store.db.read({ try Routine.filter(Column("enabled") == true).fetchAll($0) }) {
@@ -59,7 +59,7 @@ final class Routines: Sendable {
                     try store.save(Routine.Run(routineId: r.id, due: last, started: now, ended: now, outcome: .missed))
                 } else if try open(r.id) == nil {   // still at the last one: this one is skipped
                     // One that can't start leaves a run that says why: its time has passed, and the others are still due.
-                    do { try begin(r, due: last, now: now, desks: desks) } catch {
+                    do { try begin(r, due: last, now: now, workspaces: workspaces) } catch {
                         try store.save(Routine.Run(routineId: r.id, due: last, started: now, ended: now, outcome: .failed, summary: Self.why(error)))
                     }
                 }
@@ -100,11 +100,11 @@ final class Routines: Sendable {
         }
     }
 
-    func runNow(_ id: String, desks: Workspaces) throws -> Routine.Run {
+    func runNow(_ id: String, workspaces: Workspaces) throws -> Routine.Run {
         try queue.sync {
             guard let r = try store.db.read({ try Routine.fetchOne($0, key: id) }) else { throw RPCError.invalidParams("no routine \(id)") }
             guard try open(id) == nil else { throw RPCError.invalidParams("\(r.name) is running now.") }
-            let run = try begin(r, due: Date(), now: Date(), desks: desks)
+            let run = try begin(r, due: Date(), now: Date(), workspaces: workspaces)
             changed()
             return run
         }
@@ -118,8 +118,8 @@ final class Routines: Sendable {
 
     /// The agent, with the prompt, in the routine's workspace: "Morning triage · Oct 29".
     @discardableResult
-    private func begin(_ r: Routine, due: Date, now: Date, desks: Workspaces) throws -> Routine.Run {
-        let w = try workspace(r, desks: desks)
+    private func begin(_ r: Routine, due: Date, now: Date, workspaces: Workspaces) throws -> Routine.Run {
+        let w = try workspace(r, workspaces: workspaces)
         let s = try SessionCreate(worktreeId: w.id, agent: r.agent, model: r.model, prompt: r.prompt,
                                   title: "\(r.name) · \(due.formatted(.dateTime.month(.abbreviated).day()))").handle(sessions)
         let run = try store.save(Routine.Run(routineId: r.id, sessionId: s.id, due: due, started: now))
@@ -127,12 +127,12 @@ final class Routines: Sendable {
         return run
     }
 
-    /// Its own desk in the project's folder, named after it: made at its first run, again if it was removed.
-    private func workspace(_ r: Routine, desks: Workspaces) throws -> Worktree {
+    /// Its own workspace in the project's folder, named after it: made at its first run, again if it was removed.
+    private func workspace(_ r: Routine, workspaces: Workspaces) throws -> Worktree {
         if let id = r.worktreeId, let w = try store.worktree(id), !w.archived { return w }
         guard let repo = try store.repo(r.repoId) else { throw RPCError.invalidParams("no project \(r.repoId)") }
-        let desk = try desks.createDesk(in: repo)
-        let w = try store.update(Worktree.self, desk.id) { $0.note = r.name } ?? desk
+        let workspace = try workspaces.createWorkspace(in: repo)
+        let w = try store.update(Worktree.self, workspace.id) { $0.note = r.name } ?? workspace
         try store.update(Routine.self, r.id) { $0.worktreeId = w.id }
         return w
     }
@@ -166,7 +166,7 @@ final class Routines: Sendable {
         case .waiting?: (r.outcome, r.summary) = (.asked, s?.summary ?? "")
         case .done?: (r.outcome, r.ended, r.summary) = (.done, s?.statusAt ?? Date(), s.map(reply) ?? "")
         case .error?: (r.outcome, r.ended, r.summary) = (.failed, s?.statusAt ?? Date(), s?.summary ?? "")
-        case .exited?, .hibernated?, nil: (r.outcome, r.ended, r.summary) = (.failed, Date(), String(localized: "The agent ended before it finished"))
+        case .exited?, .paused?, nil: (r.outcome, r.ended, r.summary) = (.failed, Date(), String(localized: "The agent ended before it finished"))
         }
         guard r != run else { return false }
         try store.save(r)

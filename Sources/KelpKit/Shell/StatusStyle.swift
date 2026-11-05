@@ -14,7 +14,7 @@ extension AgentStatus {
         case .waiting: "record.circle"
         case .done: "checkmark.circle"
         case .idle: "circle"
-        case .hibernated: "moon.fill"
+        case .paused: "moon.fill"
         case .exited: "xmark.circle"
         case .error: "exclamationmark.circle.fill"
         }
@@ -25,7 +25,7 @@ extension AgentStatus {
         case .waiting: .systemOrange
         case .done: .labelColor   // no state colour, and brighter than a working ring: it's what's new among the greys
         case .idle: .tertiaryLabelColor   // nothing to look at: it stays quiet
-        case .hibernated: .secondaryLabelColor   // quiet, but a mark must still read (tertiary is about 2:1)
+        case .paused: .secondaryLabelColor   // quiet, but a mark must still read (tertiary is about 2:1)
         case .exited: .secondaryLabelColor
         case .error: .systemRed
         }
@@ -38,13 +38,13 @@ extension AgentStatus {
         case .waiting: String(localized: "Needs your input")
         case .done: String(localized: "Done")
         case .idle: String(localized: "Ready")
-        case .hibernated: String(localized: "Paused")
+        case .paused: String(localized: "Paused")
         case .exited: String(localized: "Ended")
         case .error: String(localized: "Failed")
         }
     }
     /// Most urgent first: what a workspace shows when it has several agents.
-    static let urgency: [AgentStatus] = [.waiting, .error, .working, .done, .idle, .hibernated, .exited]
+    static let urgency: [AgentStatus] = [.waiting, .error, .working, .done, .idle, .paused, .exited]
     static func mostUrgent(_ s: [AgentStatus]) -> AgentStatus? { s.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) } }
 }
 
@@ -207,7 +207,7 @@ package final class StatusMark: NSView {
         }
         image.image = .symbol(s.symbol, s.words)
         // The moon is wider than the circles: a size smaller, it takes the same room.
-        image.symbolConfiguration = .chrome(s == .hibernated ? size - 3 : size - 1)
+        image.symbolConfiguration = .chrome(s == .paused ? size - 3 : size - 1)
         image.contentTintColor = s.nsColor
     }
 }

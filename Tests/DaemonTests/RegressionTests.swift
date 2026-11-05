@@ -10,7 +10,7 @@ import Agents
 /// Two quick sends are two submits, each with its own Enter, in order.
 @Test func twoQuickSendsAreTwoSubmits() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "sends")
+    let wt = try await workspace(w, "sends")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "stty -echo; echo ready; exec cat"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
     async let a: JSONValue = w.c.call("session.send", .obj(["id": .string(s.id), "text": "first"]))
@@ -26,7 +26,7 @@ import Agents
 /// user has answered (typed anything), the prompt goes in.
 @Test func theLaunchPromptNeverAnswersATrustQuestion() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "untrusted")
+    let wt = try await workspace(w, "untrusted")
     let fake = #"printf 'Do you trust the files in this folder?\n> 1. Yes, proceed\n  2. No, exit\n'; "#
         + #"if IFS= read -rsn1 -t 6 k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; exec cat -v"#
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(fake)),
@@ -43,20 +43,20 @@ import Agents
     let stubborn = AgentManifest(id: "stubborn", name: "Stubborn", command: "/bin/bash",
                                  args: ["-c", "trap '' HUP TERM; echo up; while :; do sleep 0.1; done", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [stubborn]); defer { w.d.stop() }
-    let wt = try await desk(w, "stubborn")
+    let wt = try await workspace(w, "stubborn")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "stubborn"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("up") == true })
     _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))   // finished: it may be paused
     try await hibernate(after: 0.03, w.c)
     defer { Task { try? await hibernate(after: 0, w.c) } }
-    #expect(try await waitFor(15) { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated })
+    #expect(try await waitFor(15) { try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused })
     #expect(try await waitFor(5) { kill(s.pid, 0) != 0 })
 }
 
 /// A commit or branch from a client never reaches git as an option: "--output=<file>" would make git show write a file.
 @Test func aRefThatLooksLikeAnOptionIsRefused() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "refs")
+    let wt = try await workspace(w, "refs")
     let file = tmp().path + "-written"
     await #expect(throws: (any Error).self) { _ = try await w.c.call("git.diff", .obj(["id": .string(wt.id), "source": "commit", "commit": .string("--output=" + file)])) }
     await #expect(throws: (any Error).self) { _ = try await w.c.call("git.commitFiles", .obj(["id": .string(wt.id), "commit": .string("--output=" + file)])) }
@@ -81,7 +81,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 @Test func restartStartsTheNewCopyOnlyOnceTheOldIsGone() async throws {
     let stubborn = AgentManifest(id: "stubborn", name: "Stubborn", command: "/bin/bash", args: ["-c", stubbornScript, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [stubborn]); defer { w.d.stop() }
-    let wt = try await desk(w, "restart")
+    let wt = try await workspace(w, "restart")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "stubborn"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("up") == true })
     let r: Session = try await w.c.call("session.restart", .obj(["id": .string(s.id)]), as: Session.self)
@@ -93,7 +93,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// stubborn one takes the 2 s to SIGKILL, and one after another three would hold the user up for 6.
 @Test func removingAProjectEndsItsPrograms() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "gone")
+    let wt = try await workspace(w, "gone")
     var all: [Session] = []
     for _ in 0..<3 {
         let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": .string(stubbornScript)]), as: Session.self)
@@ -109,7 +109,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// A record published after its session was deleted stays deleted.
 @Test func aDeletedSessionIsNotBroughtBack() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "deleted")
+    let wt = try await workspace(w, "deleted")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
     let ls = try #require(w.d.sessions.existing(s.id))
     w.d.sessions.discard(s)
@@ -122,7 +122,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Any numbered menu at startup (an MCP server question, say) holds the launch prompt, as the trust question does.
 @Test func theLaunchPromptWaitsForAStartupMenu() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "menu")
+    let wt = try await workspace(w, "menu")
     let fake = #"printf 'New MCP server found in .mcp.json: tools\n\xe2\x9d\xaf 1. Use this and all future MCP servers\n  2. Continue without\n'; "#
         + #"if IFS= read -rsn1 -t 6 k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; printf '\xe2\x9d\xaf \n'; exec cat -v"#
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(fake)),
@@ -136,7 +136,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// Several lines to a program that never turned on bracketed paste arrive as plain lines, not wrapped in ESC[200~.
 @Test func multiLineTextToAPlainReaderIsPlain() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "plain-lines")
+    let wt = try await workspace(w, "plain-lines")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": "stty -echo; echo ready; exec cat -v"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "one\ntwo"]))
@@ -147,7 +147,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// A job a shell started in a process group of its own (a server that reloads on SIGHUP) ends with its workspace too.
 @Test func archivingEndsAJobInItsOwnProcessGroup() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "job")
+    let wt = try await workspace(w, "job")
     let pidFile = tmp().path + "-job.pid"
     let script = "set -m; (trap '' HUP TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); echo started; wait"
     _ = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(script))]))
@@ -164,7 +164,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     var pinned = AgentManifest(id: "pinned", name: "Pinned", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
     pinned.sessionIdFlag = "--session-id"
     let w = try await world(agents: [pinned]); defer { w.d.stop() }
-    let wt = try await desk(w, "fresh")
+    let wt = try await workspace(w, "fresh")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "pinned"]), as: Session.self)
     #expect(s.argv.contains(s.id.lowercased()))
     let r: Session = try await w.c.call("session.restart", .obj(["id": .string(s.id), "resume": false]), as: Session.self)
@@ -176,7 +176,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 /// A program that turns on bracketed paste in two reads (ESC[?20 … 04h) is still known to take pastes.
 @Test func pasteModeSplitAcrossReadsIsSeen() async throws {
     let w = try await world(); defer { w.d.stop() }
-    let wt = try await desk(w, "split")
+    let wt = try await workspace(w, "split")
     let script = #"stty -echo; printf '\033[?20'; sleep 0.5; printf '04hready\n'; exec cat -v"#
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(script))]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
@@ -225,12 +225,12 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let script = "(while :; do echo booting; sleep 0.3; done) & sleep 1; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; kill $!; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
-    let wt = try await desk(w, "paused")
+    let wt = try await workspace(w, "paused")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "slow"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(wt.id)]))
-    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated)
+    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "hello"]))
     // Up to 25 s: a program that never goes quiet counts as started then (the Thread Sanitizer's run is that slow).
     #expect(try await waitFor(40) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("GOT:hello") == true })
@@ -242,7 +242,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let script = "echo ready; read -r a; echo GOT1:$a; read -r b; echo GOT2:$b; sleep 30"
     let slow = AgentManifest(id: "slow2", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
-    let wt = try await desk(w, "two-sends")
+    let wt = try await workspace(w, "two-sends")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "slow2"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
@@ -263,12 +263,12 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 @Test func aResizeNeverWakesAPausedAgent() async throws {
     let sleepy = AgentManifest(id: "sleepy2", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo up; sleep 30", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [sleepy]); defer { w.d.stop() }
-    let wt = try await desk(w, "resize")
+    let wt = try await workspace(w, "resize")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy2"]), as: Session.self)
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     _ = try await w.c.call("session.resize", .obj(["id": .string(s.id), "cols": 100, "rows": 30]))   // as a request: answered after it ran
     #expect(w.d.sessions.existing(s.id) == nil)
-    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .hibernated)
+    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
 }
 
 /// A session id names its log file: one that isn't a session's can't read another .log.
@@ -316,23 +316,23 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(!(try await screen(typed)).contains("BRIEF:"))   // and by then the first, typed one, still not sent
 }
 
-/// A project without a desk yet, synced from many threads at once, gets exactly one "Workspace 1".
-@Test func syncingAtOnceMakesOneFirstDesk() async throws {
+/// A project without a workspace yet, synced from many threads at once, gets exactly one "Workspace 1".
+@Test func syncingAtOnceMakesOneFirstWorkspace() async throws {
     let w = try await world(); defer { w.d.stop() }
     let path = try makeRepo()
     let r = Repo(name: "fresh", path: path, baseBranch: "main")
-    try w.d.store.save(r)   // as an older daemon left it: a project, no desk
+    try w.d.store.save(r)   // as an older daemon left it: a project, no workspace
     DispatchQueue.concurrentPerform(iterations: 16) { _ in try? w.d.workspaces.syncMainWorkspaces() }
     #expect(try w.d.store.worktrees(repo: r.id).count == 1)
 }
 
-/// Listing only reads: a project an older daemon left without a desk gets its first one when the daemon starts, and a
-/// desk follows its folder's branch switched outside Kelp without anyone listing. worktree.list used to do both.
-@Test func desksFollowTheirFolderWithoutBeingListed() async throws {
+/// Listing only reads: a project an older daemon left without a workspace gets its first one when the daemon starts, and a
+/// workspace follows its folder's branch switched outside Kelp without anyone listing. worktree.list used to do both.
+@Test func workspacesFollowTheirFolderWithoutBeingListed() async throws {
     let root = tmp(), path = try makeRepo()
     let d = try Daemon(root: root); defer { d.stop() }
     let r = Repo(name: "older", path: path, baseBranch: "main")
-    try d.store.save(r)   // as an older daemon left it: a project, no desk
+    try d.store.save(r)   // as an older daemon left it: a project, no workspace
     #expect(try WorktreeList(repoId: r.id).handle(d.workspaces).isEmpty)
     #expect(try d.store.worktrees(repo: r.id).isEmpty)
     try d.start()
@@ -347,7 +347,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let script = "trap 'echo Saving the conversation before quitting; exit 0' HUP TERM; echo ready; while :; do echo working on the next step; sleep 0.2; done"
     let chatty = AgentManifest(id: "chatty", name: "Chatty", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [chatty]); defer { w.d.stop() }
-    let wt = try await desk(w, "busy")
+    let wt = try await workspace(w, "busy")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "chatty"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true })
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("go\r".utf8).base64EncodedString())]))   // its heuristics on
@@ -356,7 +356,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     #expect(try await waitFor(10) { ls.hasEnded })   // its last words and exit handled
     await withCheckedContinuation { done in ls.inOrder { done.resume() } }   // and any status change that queued
-    #expect(try w.d.store.session(s.id)?.status == .hibernated,
+    #expect(try w.d.store.session(s.id)?.status == .paused,
         "store \(String(describing: try? w.d.store.session(s.id)?.status)) live \(ls.snapshot.status) \(ls.tail(300).count)")
 }
 
@@ -423,7 +423,7 @@ private func submitted(_ screen: String) -> String {
                                  args: ["-c", "trap 'echo STOPPING' TERM; trap '' HUP; echo up; while :; do sleep 0.1; done", "x"], resumeArgs: ["--resume"])
     let sleepy = AgentManifest(id: "sleepy3", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo up; sleep 30", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [stubborn, sleepy]); defer { w.d.stop() }
-    let slow = try await desk(w, "slow"), other = try await desk(w, "other")
+    let slow = try await workspace(w, "slow"), other = try await workspace(w, "other")
     let a: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(slow.id), "agent": "stubborn2"]), as: Session.self)
     let b: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(other.id), "agent": "sleepy3"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(a.id)]))).string?.contains("up") == true })
@@ -450,7 +450,7 @@ private func submitted(_ screen: String) -> String {
     let script = #"echo up; sleep 1.5; printf '\033]0;* Fixing the login bug\007'; sleep 30"#
     let titled = AgentManifest(id: "titled", name: "Titled", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [titled]); defer { w.d.stop() }
-    let wt = try await desk(w, "topics")
+    let wt = try await workspace(w, "topics")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "titled"]), as: Session.self)
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))   // paused before it named its topic
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(wt.id)]))
@@ -479,7 +479,7 @@ private func submitted(_ screen: String) -> String {
     let stubborn = AgentManifest(id: "stubborn4", name: "Stubborn", command: "/bin/bash",
                                  args: ["-c", "trap '' HUP TERM; echo up; while :; do sleep 0.1; done", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [stubborn])
-    let wt = try await desk(w, "stop")
+    let wt = try await workspace(w, "stop")
     let a: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "stubborn4"]), as: Session.self)
     let pidFile = tmp().path + "-job.pid"
     let script = "set -m; (trap '' HUP TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); echo started; wait"
@@ -490,7 +490,7 @@ private func submitted(_ screen: String) -> String {
     defer { kill(job, SIGKILL); kill(a.pid, SIGKILL) }   // whatever happens, not left behind
     w.d.stop()
     #expect(kill(job, 0) != 0 && kill(a.pid, 0) != 0)
-    #expect(try w.d.store.session(a.id)?.status == .hibernated)
+    #expect(try w.d.store.session(a.id)?.status == .paused)
 }
 
 /// Text sent to a session that is still starting waits until it's ready, however it came to be starting (just created,
@@ -501,7 +501,7 @@ private func submitted(_ screen: String) -> String {
     let script = "(while :; do echo booting; sleep 0.3; done) & sleep 1; perl -MPOSIX -e 'tcflush(0, POSIX::TCIFLUSH)'; kill $!; echo ready; read -r line; echo GOT:$line; sleep 30"
     let slow = AgentManifest(id: "slow2", name: "Slow", command: "/bin/bash", args: ["-c", script, "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [slow]); defer { w.d.stop() }
-    let wt = try await desk(w, "starting")
+    let wt = try await workspace(w, "starting")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "slow2"]), as: Session.self)
     #expect(try await waitFor(10) { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("booting") == true })
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "hello"]))   // running, but still booting
@@ -519,7 +519,7 @@ private func submitted(_ screen: String) -> String {
         + #"echo $r; stty icanon echo; printf '❯ '; exec cat"#   // then its input box, as Claude Code draws it
     let asker = AgentManifest(id: "asker", name: "Asker", command: "/bin/bash", args: ["-c", script, "x"])
     let w = try await world(agents: [asker]); defer { w.d.stop() }
-    let wt = try await desk(w, "asks")
+    let wt = try await workspace(w, "asks")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "asker"]), as: Session.self)
     func screen() async throws -> String { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? "" }
     #expect(try await waitFor(15) { try await screen().contains("Do you trust") })
@@ -539,7 +539,7 @@ private func submitted(_ screen: String) -> String {
     let m = AgentManifest(id: "asks2", name: "Asks", command: "/bin/bash", args: ["-c", script, "x"],
                           autoAnswers: [AgentManifest.AutoAnswer(pattern: "Press Enter to continue", input: "\r", after: 5)])
     let w = try await world(agents: [m]); defer { w.d.stop() }
-    let wt = try await desk(w, "typed")
+    let wt = try await workspace(w, "typed")
     let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "asks2"]), as: Session.self)
     func screen() async throws -> String { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? "" }
     let end = Date().addingTimeInterval(10)   // the user comes well within the 5 s the answer waits (not a race with a busy machine)
@@ -606,7 +606,7 @@ private func submitted(_ screen: String) -> String {
     own.env = ["KELP_TEST_HOOKS_DIR": tmp().path]
     let wired = AgentManifest(id: "wired", name: "Wired", command: "/bin/bash", args: ["-c", script], hooks: .pluginDir(env: "KELP_TEST_HOOKS_DIR"))
     let w = try await world(agents: [own, wired]); defer { w.d.stop() }
-    let wt = try await firstDesk(w)
+    let wt = try await firstWorkspace(w)
     var ids: [String: String] = [:]
     for agent in ["own", "wired"] {
         let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": .string(agent)]), as: Session.self)
