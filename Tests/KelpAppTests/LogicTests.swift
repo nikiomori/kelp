@@ -383,7 +383,7 @@ extension OneAtATime {
     defer { close(fd) }
     var a = sockaddr_un()
     a.sun_family = sa_family_t(AF_UNIX)
-    _ = withUnsafeMutableBytes(of: &a.sun_path) { path.utf8CString.withUnsafeBytes($0.copyMemory) }
+    withUnsafeMutableBytes(of: &a.sun_path) { path.utf8CString.withUnsafeBytes($0.copyMemory) }
     _ = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
     listen(fd, 1)   // never accepted: it connects, and nothing ever answers
     #expect(await !AppModel.answers(try RPCClient(socket: path), within: 0.3))

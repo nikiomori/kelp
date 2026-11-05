@@ -176,7 +176,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 }
 
 /// A summary's Markdown link shows its words, not its brackets, and stays a link.
-@Test func cardSummaryShowsLinksByTheirWords() {
+@MainActor @Test func cardSummaryShowsLinksByTheirWords() {
     let s = CardView.linked("Plan ready: [Kelp plan](https://claude.ai/artifact/x) *as is*")
     #expect(String(s.characters) == "Plan ready: Kelp plan as is")
     #expect(s.runs.compactMap(\.link) == [URL(string: "https://claude.ai/artifact/x")])

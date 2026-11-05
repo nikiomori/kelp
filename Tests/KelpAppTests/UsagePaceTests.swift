@@ -11,7 +11,7 @@ import Core
     #expect(UsageGet.Codex.kind(minutes: nil, primary: false) == "week")
 }
 
-@Test func theTickIsTheShareOfTheWindowGoneAndTheTimeOnlyWithin12Hours() {
+@MainActor @Test func theTickIsTheShareOfTheWindowGoneAndTheTimeOnlyWithin12Hours() {
     let now = Date(timeIntervalSince1970: 1_000_000)
     let day = 86400.0
     // Codex's month with 19 days left: 11 of 30 gone.

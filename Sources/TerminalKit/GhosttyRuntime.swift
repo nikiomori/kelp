@@ -82,7 +82,7 @@ public final class GhosttyRuntime {
     /// Limit: one that ignores its hangup and keeps printing stays until the app quits, rather than stopping it.
     func retire(_ surface: ghostty_surface_t, _ link: SurfaceLink) {
         retiring += 1
-        Task {
+        _ = Task {
             var quiet = 0   // looks in a row with nothing from it
             while !(ghostty_surface_process_exited(surface) && quiet > 0), quiet < 40 {
                 Self.hangUp(surface)

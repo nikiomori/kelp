@@ -39,7 +39,7 @@ extension AppOfItsOwn {
         try await until { there(b) }
         #expect(there(b))
 
-        await panel.move({ [FileMove(from: rig.repo + "/none.txt", to: rig.repo + "/other.txt")] }, undo: "Nothing").value
+        _ = await panel.move({ [FileMove(from: rig.repo + "/none.txt", to: rig.repo + "/other.txt")] }, undo: "Nothing").value
         try await until { undo.undoActionName != "Nothing" }
         #expect(undo.undoActionName == "Move")   // it failed: ⌘Z undoes the step before it
     }
@@ -56,8 +56,8 @@ extension AppOfItsOwn {
         func there(_ name: String) -> Bool { FileManager.default.fileExists(atPath: rig.repo + "/" + name) }
         let renamed = panel.move({ [FileMove(from: rig.repo + "/a.txt", to: rig.repo + "/b.txt")] }, undo: "Rename")
         #expect(undo.groupingLevel == 0)   // its step closed (no event around it to close it): the next can't join it
-        await renamed.value
-        await panel.trash({ [rig.repo + "/c.txt"] }, undo: "Move to Trash").value
+        _ = await renamed.value
+        _ = await panel.trash({ [rig.repo + "/c.txt"] }, undo: "Move to Trash").value
         undo.undo()
         for _ in 0..<200 where !there("c.txt") { try await Task.sleep(for: .milliseconds(20)) }
         try await Task.sleep(for: .milliseconds(200))
@@ -147,7 +147,7 @@ extension AppOfItsOwn {
         #expect(onRow.items.map(\.title).contains("Move to Trash"))
         #expect(!onRow.items.map(\.title).contains("New File"))   // that's a folder's
         let folder = NSMenu()
-        panel.fill(folder, row: try #require(panel.outline.row(forItem: panel.outline.parent(forItem: panel.outline.item(atRow: try #require(file))))))
+        panel.fill(folder, row: panel.outline.row(forItem: panel.outline.parent(forItem: panel.outline.item(atRow: try #require(file)))))
         #expect(folder.items.map(\.title).first == "New File")
         #expect(folder.items.map(\.title).contains("Move to Trash"))
         #expect(!onNothing.items.map(\.title).contains("Move to Trash"))

@@ -63,7 +63,7 @@ extension Sessions {
 
     private static func name(of pid: Int32) -> String {
         var name = [CChar](repeating: 0, count: 256)
-        return proc_name(pid, &name, UInt32(name.count)) > 0 ? String(cString: name) : ""
+        return proc_name(pid, &name, UInt32(name.count)) > 0 ? String(cBuffer: name) : ""
     }
 
     /// CPU (ps's %, summed over the session's processes; 100 = one core) and resident memory per live session.

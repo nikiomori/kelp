@@ -100,7 +100,7 @@ public enum Unix {
     public static func executable(_ pid: pid_t) -> String? {
         var buf = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return nil }
-        return URL(fileURLWithPath: String(cString: buf)).resolvingSymlinksInPath().path
+        return URL(fileURLWithPath: String(cBuffer: buf)).resolvingSymlinksInPath().path
     }
 
     /// Write all bytes, retrying on partial writes. Returns false if the peer is gone.
@@ -122,5 +122,12 @@ public enum Unix {
             }
             return true
         }
+    }
+}
+
+extension String {
+    /// The text a C call wrote into `buffer`, up to its NUL (`String(cString:)` on an array is deprecated).
+    package init(cBuffer buffer: [CChar]) {
+        self.init(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 }

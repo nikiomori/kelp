@@ -271,7 +271,8 @@ private func onHost() -> LiveSession.State {
     s.hooksSilent(at: 1e9)   // nothing was sent yet: a resumed agent sits at its prompt, and hooks have nothing to say
     #expect(s.detector.hooked && s.sync() == nil)
     s.expectHook()
-    let sent = try? #require(s.lineSentUp)
+    let sent = s.lineSentUp
+    #expect(sent != nil)
     s.hooksSilent(at: (sent ?? 0) + 5)
     #expect(s.detector.hooked)
     s.hooksSilent(at: (sent ?? 0) + 16)

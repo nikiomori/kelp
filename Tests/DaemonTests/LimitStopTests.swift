@@ -42,24 +42,24 @@ private func stopped(_ p: World, _ s: Session) async throws {
     let soon = Date().addingTimeInterval(1)
 
     // Not without a limit: there's nothing to go on from.
-    try await p.c.call(SessionContinueAt(id: s.id, at: soon))
+    _ = try await p.c.call(SessionContinueAt(id: s.id, at: soon))
     #expect(try await record()?.continueAt == nil)
 
     try await stopped(p, s)
     #expect(try await waitFor { try await record()?.limitHit != nil })
-    try await p.c.call(SessionContinueAt(id: s.id, at: soon.addingTimeInterval(600)))
+    _ = try await p.c.call(SessionContinueAt(id: s.id, at: soon.addingTimeInterval(600)))
     #expect(try await record()?.continueAt != nil)
-    try await p.c.call(SessionContinueAt(id: s.id, at: nil))   // Cancel
+    _ = try await p.c.call(SessionContinueAt(id: s.id, at: nil))   // Cancel
     #expect(try await record()?.continueAt == nil)
 
     // It went on by itself: what was set goes with the limit.
-    try await p.c.call(SessionContinueAt(id: s.id, at: soon.addingTimeInterval(600)))
+    _ = try await p.c.call(SessionContinueAt(id: s.id, at: soon.addingTimeInterval(600)))
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
     #expect(try await waitFor { try await record()?.continueAt == nil })
 
     try await stopped(p, s)
     #expect(try await waitFor { try await record()?.limitHit != nil })
-    try await p.c.call(SessionContinueAt(id: s.id, at: Date()))
+    _ = try await p.c.call(SessionContinueAt(id: s.id, at: Date()))
     #expect(try await waitFor(10) { try await printed().contains("continue") })
     #expect(try await waitFor { try await record()?.continueAt == nil })
     try await Task.sleep(for: .seconds(1.2))   // a few ticks

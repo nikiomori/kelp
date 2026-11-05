@@ -41,7 +41,7 @@ extension DiffViewController {
         // The turn's own agent, not whichever has the focus now.
         guard let mark = turnPop.selectedItem?.representedObject as? SessionTurns.Mark else { NSSound.beep(); return }
         let sid = mark.session, turn = mark.id
-        Task {
+        Task { [self] in
             guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }   // the banner says why not
             guard !plan.files.isEmpty else { status.stringValue = String(localized: "Nothing changed since that turn began"); return }
             let a = NSAlert()

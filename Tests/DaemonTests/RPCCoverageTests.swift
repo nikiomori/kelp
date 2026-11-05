@@ -201,7 +201,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await r.c.call(WorktreeUnmerged(id: r.wt.id)) == 1)
     await #expect(throws: RPCError.self) { try await r.c.call(WorktreeRemove(id: r.wt.id)) }   // the commit is only there
     _ = try await r.c.call(WorktreeRemove(id: r.wt.id, force: true, dropCommits: true))
-    #expect(try !Git.branchExists(r.repo.path, "feat/renamed"))
+    #expect(!Git.branchExists(r.repo.path, "feat/renamed"))
 }
 
 /// A folder with new files is dirty though the repository doesn't list them.

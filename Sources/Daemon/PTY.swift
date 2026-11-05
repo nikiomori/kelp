@@ -105,7 +105,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         guard openpty(&m, &s, nil, nil, &ws) == 0 else { throw PTYError(step: "openpty", code: errno) }
         var nameBuf = [CChar](repeating: 0, count: 128)
         ptsname_r(m, &nameBuf, nameBuf.count)
-        let secondaryPath = String(cString: nameBuf)
+        let secondaryPath = String(cBuffer: nameBuf)
         // Keep our end of the slave open until the child has it: closing the last fd resets the tty (size becomes 0×0).
 
         var fa: posix_spawn_file_actions_t?
@@ -291,7 +291,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         let pg = phase.withLock { $0.open ? tcgetpgrp(primaryFD) : -1 }
         guard pg > 0, pg != pid else { return nil }
         var name = [CChar](repeating: 0, count: 256)
-        return proc_name(pg, &name, UInt32(name.count)) > 0 ? String(cString: name) : "a program"
+        return proc_name(pg, &name, UInt32(name.count)) > 0 ? String(cBuffer: name) : "a program"
     }
 
     public func resize(cols: UInt16, rows: UInt16) {

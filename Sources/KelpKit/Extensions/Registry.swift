@@ -345,7 +345,7 @@ package final class ExtensionRegistry {
         if fm.fileExists(atPath: folder.appendingPathComponent("extension.json").path) {
             guard await ExtensionReview.approve(folder) else { return }
         }
-        try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
+        _ = try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
         reload()
     }
 

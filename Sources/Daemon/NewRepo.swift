@@ -101,7 +101,7 @@ final class CloneLog: Sendable {
 
     /// "fatal: repository 'x' not found" → "Repository 'x' not found".
     var failure: String? {
-        let lines = state.withLock { $0 }.text.split(whereSeparator: { $0 == "\r" || $0 == "\n" }).map(String.init)
+        let lines = state.withLock { $0 }.text.split(whereSeparator: \.isNewline).map(String.init)
         guard let f = lines.last(where: { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") || $0.hasPrefix("ERROR:") }) ?? lines.last else { return nil }
         var m = f.replacingOccurrences(of: #"^(fatal|error|ERROR): ?"#, with: "", options: .regularExpression)
         m = m.prefix(1).uppercased() + m.dropFirst()

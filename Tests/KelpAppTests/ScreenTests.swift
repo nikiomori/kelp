@@ -34,7 +34,7 @@ import WorkbenchKit
 }
 
 @MainActor private func withSidebar(repos: [Repo], worktrees: [Worktree], sessions: [Session], settings: [String: JSONValue] = [:],
-                                    _ check: (SidebarController, NSOutlineView) throws -> Void) throws {
+                                    _ check: @MainActor (SidebarController, NSOutlineView) throws -> Void) throws {
     _ = testHome
     let m = AppModel(builtins: Builtins.all)
     if !settings.isEmpty { m.settings.apply(settings) }
@@ -131,9 +131,9 @@ extension OneAtATime {
     let agent = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "Fix login bug")
     try withSidebar(repos: [project], worktrees: [desk("w1", "feat/login"), desk("w2", "feat/billing")], sessions: [agent]) { vc, o in
         #expect(o.numberOfRows == 4)
-        func fold() throws -> NSButton {
+        @MainActor func fold() throws -> NSButton {
             let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
-            func find(_ v: NSView) -> NSButton? {
+            @MainActor func find(_ v: NSView) -> NSButton? {
                 if let b = v as? NSButton, ["Collapse", "Expand"].contains(b.image?.accessibilityDescription ?? "") { return b }
                 return v.subviews.lazy.compactMap(find).first
             }
@@ -156,7 +156,7 @@ extension OneAtATime {
     try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [agent]) { _, o in
         let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))
         cell.layoutSubtreeIfNeeded()
-        func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+        @MainActor func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
         let chip = try #require(all(cell).compactMap { $0 as? Chip }.first { !$0.isHidden })
         let name = try #require(all(cell).compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix("Структура") })
         #expect(chip.frame.width <= 16, "\(chip.frame.width) pt")      // a symbol, no words, and no number for one
@@ -380,7 +380,7 @@ extension OneAtATime {
         let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
         let enter = try #require(NSEvent.enterExitEvent(with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
                                                         eventNumber: 0, trackingNumber: 0, userData: nil))
-        func slot() -> NSPoint { cell.convert(NSPoint(x: 10, y: cell.bounds.midY), to: nil) }
+        @MainActor func slot() -> NSPoint { cell.convert(NSPoint(x: 10, y: cell.bounds.midY), to: nil) }
         #expect(!cell.overAction(slot()))
         cell.setFrameSize(NSSize(width: 200, height: 28))
         cell.layoutSubtreeIfNeeded()

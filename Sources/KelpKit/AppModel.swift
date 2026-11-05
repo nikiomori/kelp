@@ -476,6 +476,7 @@ package final class AppModel {
     /// that asks again in a few seconds. Its failure says nothing (nil), since an error there would be noise about
     /// something nobody asked for, and the next read tries again. `timeout`: a reply that never comes ends this read,
     /// not the loop that makes it.
+    @discardableResult
     package func quiet<M: RPCMethod>(_ m: M, timeout: TimeInterval = 30) async -> M.Result? {
         try? await client?.call(m, timeout: timeout)
     }

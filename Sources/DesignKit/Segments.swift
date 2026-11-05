@@ -34,7 +34,7 @@ public struct Segments: NSViewRepresentable {
     }
     public func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
 
-    public final class Coordinator: NSObject {
+    @MainActor public final class Coordinator: NSObject {
         var selection: Binding<Int>
         init(selection: Binding<Int>) { self.selection = selection }
         @objc func changed(_ s: NSSegmentedControl) { selection.wrappedValue = s.selectedSegment }

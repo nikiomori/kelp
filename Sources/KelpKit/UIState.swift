@@ -25,6 +25,7 @@ package final class UIState {
 
     /// Written with an answer, for what the daemon may refuse (trust: only Kelp's own window may record it). False, and a
     /// banner saying why, when it did; kept for this run only without a daemon, as the subscript does.
+    @discardableResult
     package func save(_ key: String, _ value: JSONValue?) async -> Bool {
         if app.client != nil, await app.call(StateSet(key: key, value: value)) == nil { return false }
         values[key] = value

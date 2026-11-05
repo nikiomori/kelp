@@ -65,7 +65,7 @@ extension OneAtATime {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let chat = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
         let s = try await rig.client.call(SessionCreate(worktreeId: chat.id, agent: "shell"))
-        try await rig.client.call(SessionKill(id: s.id))
+        _ = try await rig.client.call(SessionKill(id: s.id))
         let bench = rig.app.workbench
         bench.closedTabs.remember(ClosedTab(uri: TabURI.session(s.id), title: "Claude", workspace: chat.id, group: nil, index: nil))
         await bench.keepClosedTabs(of: chat, on: rig.workspace)

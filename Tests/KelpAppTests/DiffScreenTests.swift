@@ -354,6 +354,7 @@ extension AppOfItsOwn {
     let check = NSButton(checkboxWithTitle: "Viewed", target: nil, action: nil), own = PointerButton()
     let inner = NSPopUpButton()
     _ = Bar.content([pop, NSStackView(views: [inner]), push], [seg, check, own])
-    #expect([push, pop, seg, inner].allSatisfy { $0.controlSize == .small && $0.font == .ui(11) })
+    let barred: [NSControl] = [push, pop, seg, inner]
+    #expect(barred.allSatisfy { $0.controlSize == .small && $0.font == .ui(11) })
     #expect(check.controlSize == .regular && own.controlSize == .regular)
 }

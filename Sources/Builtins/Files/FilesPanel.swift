@@ -344,7 +344,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         // A name that's taken fails, and the daemon says so (Readme.md → README.md is the same file, renamed).
         let moving = !name.isEmpty && !name.contains("/") && name != r.url.lastPathComponent
             ? move({ [FileMove(from: r.url.path, to: dst.path)] }, undo: String(localized: "Rename")) : nil
-        Task {
+        Task { [self] in
             let moved = await moving?.value.count == 1
             let url = moved ? dst : r.url
             r.field.stringValue = url.lastPathComponent
@@ -388,7 +388,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     @objc func newFile() { addFile(in: selectedDir) }
     private func addFile(in dir: String) {
         let made = create(in: URL(fileURLWithPath: root).appendingPathComponent(dir).path, undo: String(localized: "New File")), root = root
-        Task {
+        Task { [self] in
             guard let path = await made.value else { return }
             let rel = String(path.dropFirst(root.count + 1))
             reloadTree { [weak self] in self?.beginRename(rel, open: true) }

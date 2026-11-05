@@ -1,7 +1,7 @@
 import Testing
 @testable import BuiltinAgents
 
-@Test func usageNamesClaudeModelsAsClaudeCodeDoes() {
+@MainActor @Test func usageNamesClaudeModelsAsClaudeCodeDoes() {
     #expect(UsageReportView.model("claude-opus-5-5") == "Opus 5.5")
     #expect(UsageReportView.model("claude-haiku-4-5-20251001") == "Haiku 4.5")
     #expect(UsageReportView.model("claude-opus-5") == "Opus 5")

@@ -147,8 +147,8 @@ private func lines(_ log: String) -> [String] {
 @Test func aServersProblemsAreKeptForTheFile() async throws {
     let (d, c, _) = try daemon(); defer { d.stop() }
     let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
-    try await c.call(StateSet(key: LSPOpen.trustKey, value: .array([.string(root)])))
-    try await c.call(LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "a problem\n  name\n"))
+    _ = try await c.call(StateSet(key: LSPOpen.trustKey, value: .array([.string(root)])))
+    _ = try await c.call(LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "a problem\n  name\n"))
     #expect(try await waitFor(10) { try await c.call(LSPProblems(path: file)).count == 2 })
     let found = try await c.call(LSPProblems(path: file))
     #expect(found.map(\.isError) == [true, false])
@@ -157,9 +157,9 @@ private func lines(_ log: String) -> [String] {
     // Open in another connection's tab too: closed in one, its problems stay for the other.
     let other = try client(d.root)
     _ = try await other.call(LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "a problem\n  name\n"))
-    try await c.call(LSPClose(root: root, path: file))
+    _ = try await c.call(LSPClose(root: root, path: file))
     #expect(try await c.call(LSPProblems(path: file)).count == 2)
-    try await other.call(LSPClose(root: root, path: file))
+    _ = try await other.call(LSPClose(root: root, path: file))
     #expect(try await c.call(LSPProblems(path: file)).isEmpty)
 }
 

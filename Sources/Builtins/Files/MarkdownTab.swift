@@ -172,10 +172,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         selectionBar.show(over: view.convert(r, from: editor.view), in: view)
     }
 
+    /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).
+    private func runJS(_ js: String) { web.evaluateJavaScript(js, completionHandler: nil) }
+
     @objc private func scrolled() {
         if !selectionBar.isHidden { placeSelectionBar() }
         guard currentMode == "split", !web.isHidden, Date() > followingPreview else { return }
-        web.evaluateJavaScript("kelpToLine(\(editor.topLine))", completionHandler: nil)
+        runJS("kelpToLine(\(editor.topLine))")
     }
 
     /// `html` with a policy, first in its head, that runs only scripts carrying `nonce` (Kelp's own, added after it).
@@ -294,7 +297,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
             guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
             let sent = String(localized: "Sent to \(author.title)")
-            web.evaluateJavaScript("kelpReviewSent(\(Self.jsString(sent)))", completionHandler: nil)
+            runJS("kelpReviewSent(\(Self.jsString(sent)))")
         }
     }
 

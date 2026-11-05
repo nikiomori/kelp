@@ -59,7 +59,7 @@ extension SidebarController {
 
     /// One movement: the rows under `n` fade to `alpha`, every row takes its height (none under a fold) and each card
     /// its size. `n`'s own row changes in place: its chevron turns, what its agents do fades in or out (SidebarCell).
-    private func move(_ n: Node, rows alpha: CGFloat, then done: (() -> Void)? = nil) {
+    private func move(_ n: Node, rows alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = Motion.duration(Motion.base)
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)   // it answers the click at once
@@ -70,7 +70,7 @@ extension SidebarController {
                 forRows(under: n) { $0.animator().alphaValue = alpha }
             }
             updateCard()
-        }, completionHandler: done)
+        }, completionHandler: { MainActor.assumeIsolated { done?() } })   // AppKit ends the group on the main thread
         refreshCell(n.key)
     }
 

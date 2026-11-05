@@ -229,18 +229,16 @@ struct SettingRow: View {
         case "number" where spec.options?.isEmpty == false:
             // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
             let current = number() ?? 0
-            let values = (spec.options ?? []).compactMap(Double.init)
-            Picker(selection: Binding(get: { current }, set: { put($0 == $0.rounded() ? .int(Int($0)) : .double($0)) })) {
-                ForEach(values.contains(current) ? values : values + [current], id: \.self) { v in
+            let values: [Double] = (spec.options ?? []).compactMap { Double($0) }
+            let shown: [Double] = values.contains(current) ? values : values + [current]
+            Picker(selection: Binding<Double>(get: { current }, set: { put(number: $0) })) {
+                ForEach(shown, id: \.self) { v in
                     Text(Self.label(spec.key, v == v.rounded() ? String(Int(v)) : String(v), app)).tag(v)
                 }
             } label: { label }
         case "number":
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
-            let value = Binding(get: { number() ?? 0 }, set: {
-                let v = spec.clamped($0)
-                put(v == v.rounded() ? .int(Int(v)) : .double(v))
-            })
+            let value = Binding<Double>(get: { number() ?? 0 }, set: { put(number: spec.clamped($0)) })
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
             LabeledContent {
                 // The stepper keeps it in bounds; what they are is the field's help, as macOS panels say it.

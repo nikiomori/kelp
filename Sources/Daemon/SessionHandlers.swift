@@ -247,7 +247,7 @@ extension SessionTurnUndo: Handled {
         try Git.run(["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir, remotes: r)
         do { try Git.restore(plan.files, from: t.tree, now: before, cwd: dir, remotes: r) } catch {
             // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
-            let back = Log.session.attempt("putting a stopped undo back") {
+            let back: Void? = Log.session.attempt("putting a stopped undo back") {
                 let p = try Git.changed(since: before, cwd: dir, remotes: r)
                 try Git.restore(p.files.filter(plan.files.contains), from: before, now: p.now, cwd: dir, remotes: r)
             }

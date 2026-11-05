@@ -96,7 +96,7 @@ extension OneAtATime {
     #expect(tc.widthTracksTextView)
 }
 
-@Test func spacesNobodyMeansToHaveAreKnown() {
+@MainActor @Test func spacesNobodyMeansToHaveAreKnown() {
     #expect(EditorTextView.isUnusualSpace(0xA0) && EditorTextView.isUnusualSpace(0x200B) && EditorTextView.isUnusualSpace(0xFEFF))
     #expect(!EditorTextView.isUnusualSpace(32) && !EditorTextView.isUnusualSpace(9) && !EditorTextView.isUnusualSpace(97))
 }

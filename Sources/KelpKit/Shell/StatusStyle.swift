@@ -247,11 +247,11 @@ struct AttentionQueue {
             .filter(SidebarCell.wantsYou)   // what the summary counts, a paused agent's unread result too
             .filter { $0.parent == nil || SidebarCell.shownStatus($0) != .done }   // a child's result goes to its parent, not you
             .filter { app.worktree($0.worktreeId).map { !$0.archived } == true }   // in a workspace on the sidebar (an archived one isn't loaded)
-            .sorted {
-                (SidebarCell.shownStatus($0) == .done ? 1 : 0, $0.statusAt ?? $0.createdAt)
-                    < (SidebarCell.shownStatus($1) == .done ? 1 : 0, $1.statusAt ?? $1.createdAt)
-            }
+            .sorted { Self.order($0) < Self.order($1) }
     }
+
+    /// Results last, then oldest first.
+    private static func order(_ s: Session) -> (Int, Date) { (SidebarCell.shownStatus(s) == .done ? 1 : 0, s.statusAt ?? s.createdAt) }
 
     /// The one after `current` (wrapping), so pressing again walks the whole queue.
     func next(after current: String?) -> Session? {

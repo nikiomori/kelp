@@ -41,7 +41,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test func aPausedParentHearsWhatItMissedWhenItWakes() async throws {
     let f = try await family(manifest: AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"], resumeArgs: ["--resume"]))
     defer { f.w.d.stop() }
-    let second = try await f.w.c.call(SessionCreate(worktreeId: try #require(f.parent.worktreeId), agent: "fake", title: "tester", parent: f.parent.id))
+    let second = try await f.w.c.call(SessionCreate(worktreeId: try #require(f.parent.worktreeId) as String, agent: "fake", title: "tester", parent: f.parent.id))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))   // the first waits for its turn to end
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id)?.state.withLock { $0.reports.count } == 1 })

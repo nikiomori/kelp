@@ -29,7 +29,7 @@ extension Artifacts {
         let target = target(slug, r, root: root)
         guard let live = small(target) else { return false }
         var versions = r.versions ?? []
-        if let last = versions.last, versionText(target: target, last.n).map { Data($0.utf8) } == live { return false }
+        if let last = versions.last, versionText(target: target, last.n).map({ Data($0.utf8) }) == live { return false }
         let n = (versions.last?.n ?? 0) + 1, folder = URL(fileURLWithPath: target).deletingLastPathComponent()
         let dir = folder.appendingPathComponent("versions")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

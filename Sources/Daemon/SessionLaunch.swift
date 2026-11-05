@@ -416,7 +416,7 @@ extension Sessions {
         // Under their wake locks, as idle pausing is: a wake that comes meanwhile waits until the programs are gone instead
         // of starting a second one (on the same log, in a folder about to be removed).
         let sessions = try store.sessions().filter { $0.worktreeId == wid }
-        try wakeLocks.withLocks(sessions.map(\.id)) {
+        wakeLocks.withLocks(sessions.map(\.id)) {
             for s in sessions { if let ls = live.remove(s.id) { pids += pause(ls, manifests) } }
             Self.waitGone(pids)
         }

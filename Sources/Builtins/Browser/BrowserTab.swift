@@ -129,7 +129,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// Shows the agent's strip (an agent drove the page) in its current state.
     func showAgentBar() {
         if agentSlot.subviews.isEmpty {
-            let icon = NSImageView(image: .symbol("cursorarrow.motionlines") ?? NSImage())
+            let icon = NSImageView(image: .symbol("cursorarrow.motionlines"))
             icon.contentTintColor = .themeAccent
             agentLabel.font = .ui(12)
             agentLabel.textColor = .secondaryLabelColor

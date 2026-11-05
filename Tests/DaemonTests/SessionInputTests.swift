@@ -279,7 +279,8 @@ import GitKit
     #expect(try await waitFor(5) { !w.d.sessions.lanes.isClear(s.id) })   // the write waits on the session's lane
     gate.signal()
     _ = try await sent.value
-    #expect(try #require(w.d.sessions.live[s.id]) !== ls)
+    let now = try #require(w.d.sessions.live[s.id])
+    #expect(now !== ls)
 }
 
 /// An attach to a paused agent that can't wake says why once: it isn't tried a second time on the slow path.

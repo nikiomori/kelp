@@ -51,7 +51,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(try await waitFor { d.sessions.existing(s.id)?.tail(4096).range(of: Data("before".utf8)) != nil })
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
     #expect(d.sessions.existing(s.id) == nil)
     let c2 = try client(root)
     #expect(try await c2.call(DaemonInfo()).liveSessions == 1)
@@ -79,7 +79,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(d.sessions.existing(s.id)?.snapshot.status != .waiting)
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
     try await sent.value
     #expect(next.sessions.existing(s.id)?.snapshot.status == .waiting)
 }
@@ -130,7 +130,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(try await waitFor { d.sessions.existing(reporting.id)?.snapshot.status == .waiting })
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
     func live(_ s: Session) throws -> LiveSession { try #require(next.sessions.existing(s.id)) }
     #expect(try live(held).snapshot.status == .working && live(held).state.withLock { $0.holding })
     #expect(try live(held).transcriptPath == "/p/\(held.id).jsonl")
@@ -166,7 +166,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     _ = try await c.call(SessionMarkRead(id: s.id))
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()))
+    try next.start(adopting: try #require(d.handOver()) as Handover)
     defer { next.stop() }
     let c2 = try client(root)
     #expect(try await waitFor { try await c2.call(SessionList()).first { $0.id == s.id }?.status == .done })
@@ -280,7 +280,7 @@ private func name(_ pid: pid_t) -> String {
     #expect(try await waitFor(30) { d.sessions.existing(s.id)?.startedUp == true })   // a send goes straight in
     _ = try await c.call(SessionSend(id: s.id, text: "whole"))
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
     let c2 = try client(root)
     #expect(try await waitFor { try await c2.call(SessionRead(id: s.id)).contains("got-whole") })
 }
@@ -291,7 +291,7 @@ private func name(_ pid: pid_t) -> String {
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     _ = try await c.call(SessionSend(id: s.id, text: "waited"))   // right away: it isn't started up yet, so it waits
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver())); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
     let c2 = try client(root)
     #expect(try await waitFor(10) { try await c2.call(SessionRead(id: s.id)).contains("got-waited") })
 }

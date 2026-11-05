@@ -192,7 +192,7 @@ public enum Subprocess {
                         if keep < n { kept.withLock { $0.truncated = true } }
                     } else if n < 0, errno == EINTR { continue } else { break }
                 }
-                withExtendedLifetime(pipe) { done.signal() }
+                withExtendedLifetime(pipe) { _ = done.signal() }
             }
         }
     }

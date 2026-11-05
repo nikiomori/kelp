@@ -40,7 +40,7 @@ final class WorkspaceSwitcher {
         // Ones not on screen since Kelp started keeping the order: by their agents' last stir, else when they were made.
         let stirred = live.map { w in (w.id, m.sessions.filter { $0.worktreeId == w.id }.map { $0.statusAt ?? $0.createdAt }.max() ?? w.createdAt) }
         var order: [String] = []
-        for id in wb.recentWorkspaces + stirred.sorted { $0.1 > $1.1 }.map(\.0)
+        for id in wb.recentWorkspaces + stirred.sorted(by: { $0.1 > $1.1 }).map(\.0)
         where id != wb.workspaceId && !order.contains(id) && live.contains(where: { $0.id == id }) {
             order.append(id)
         }
@@ -101,7 +101,7 @@ final class WorkspaceSwitcher {
         p.setFrame(frame, display: true)
         panel = p
         // On screen once ⌃ is held a moment, as ⌘Tab: a quick ⌃Tab flips without the panel flashing up.
-        Task { [weak self] in
+        _ = Task { [weak self] in
             try await Task.sleep(for: .milliseconds(120))
             if self?.panel === p { window.addChildWindow(p, ordered: .above) }
         }
