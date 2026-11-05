@@ -81,4 +81,6 @@ import TestSupport
     let mineAt = try head("pr-8")
     #expect(try Git.fetchPullRequest(repo: repo, number: 8) == "pr-8-2")
     #expect(try head("pr-8") == mineAt && head("pr-8-2") == theirs)
+    // No such PR: GitHub's way is what it says, not GitLab's fallback.
+    #expect { try Git.fetchPullRequest(repo: repo, number: 404) } throws: { "\($0)".contains("pull/404/head") }
 }

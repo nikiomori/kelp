@@ -39,9 +39,9 @@ extension Git {
     /// up to date; else `pr-<N>`, moved to the head now. A local branch that only shares the PR's name is never taken for it.
     @discardableResult
     public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none) throws -> String {
-        do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch {
+        do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch let github {
             // GitHub's error, if GitLab's way fails too: most projects are GitHub's.
-            do { try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes) } catch { throw error }
+            do { try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes) } catch { throw github }
         }
         func line(_ args: [String]) throws -> String {
             try run(args, cwd: repo, ok: [0, 1], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
