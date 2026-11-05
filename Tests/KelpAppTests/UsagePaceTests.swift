@@ -63,4 +63,6 @@ import Core
     #expect(r[1].limit.kind == "month" && r[1].window == 30 * 86400 && r[1].readAt == now.addingTimeInterval(-3600))
     #expect(r[0].window == 7 * 86400 && r[0].resetAt == now.addingTimeInterval(2 * 86400) && r[0].readAt == now)
     #expect(LimitAlerts.readings(u, now: now).count == 1)   // Codex's, an hour old, says nothing about now
+    var old = u; old.plansReadAt = ["grok": now.timeIntervalSince1970 - 3 * 3600]   // "in 2d", said three hours ago
+    #expect(old.readings(now: now)[0].resetAt == now.addingTimeInterval(2 * 86400 - 3 * 3600))
 }

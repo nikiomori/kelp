@@ -82,8 +82,10 @@ extension UsageGet.Result {
         let readAt = { (agent: String) in plansReadAt?[agent].map { Date(timeIntervalSince1970: $0) } }
         var out: [Reading] = []
         func add(_ agent: String, _ ls: [UsageGet.Limit]) {
-            out += ls.map { Reading(agent: agent, limit: $0, resetAt: $0.resets.flatMap { ResetTime.parse($0, now: now) },
-                                    window: UsageGet.window($0.kind), readAt: readAt(agent)) }
+            // "in 4h" counts from when the screen said it, not from now.
+            let at = readAt(agent)
+            out += ls.map { Reading(agent: agent, limit: $0, resetAt: $0.resets.flatMap { ResetTime.parse($0, now: at ?? now) },
+                                    window: UsageGet.window($0.kind), readAt: at) }
         }
         for (agent, ls) in plans ?? [:] where agent != "claude" { add(agent, ls) }
         add("claude", plans?["claude"] ?? claudeLimits ?? [])
