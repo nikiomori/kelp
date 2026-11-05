@@ -146,7 +146,9 @@ final class Routines: Sendable {
             let runs = try store.db.read { try Routine.Run.filter(Column("routineId") == routine).order(Column("started").desc).fetchAll($0) }
             let old = try runs.dropFirst(Self.keepRuns).compactMap { try $0.sessionId.flatMap(store.session) }
                 // Not one in an open tab: a hidden tab lets go of its terminal, so the layout says, not the attachment.
-                .filter { s in try ![.working, .waiting].contains(s.status) && sessions.existing(s.id)?.isAttached != true && !store.inALayout("session:" + s.id) }
+                .filter { s in
+                    try ![.working, .waiting].contains(s.status) && sessions.existing(s.id)?.isAttached != true && !store.inALayout("session:" + s.id)
+                }
             if !old.isEmpty { sessions.discard(old) }
         }
     }

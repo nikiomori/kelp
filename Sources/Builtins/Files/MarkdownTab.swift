@@ -180,7 +180,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// `html` with a policy, first in its head, that runs only scripts carrying `nonce` (Kelp's own, added after it).
     nonisolated static func scriptless(_ html: String, nonce: String) -> String {
-        let policy = #"<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-\#(nonce)'; script-src-attr 'none'; object-src 'none'">"#
+        let rules = ["script-src 'nonce-\(nonce)'", "script-src-attr 'none'", "object-src 'none'"].joined(separator: "; ")
+        let policy = #"<meta http-equiv="Content-Security-Policy" content=""# + rules + #"">"#
         let at = html.range(of: #"<head\b[^>]*>"#, options: [.regularExpression, .caseInsensitive])
             ?? html.range(of: #"<!doctype[^>]*>"#, options: [.regularExpression, .caseInsensitive])
         guard let at else { return policy + html }

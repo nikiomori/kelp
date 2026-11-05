@@ -248,7 +248,8 @@ extension SessionTurnUndo: Handled {
                 try Git.restore(p.files.filter(plan.files.contains), from: before, now: p.now, cwd: dir, remotes: r)
             }
             let why = (error as? GitError)?.stderr ?? "\(error)"
-            throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + (back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."))
+            let now = back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."
+            throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + now)
         }
         return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: r))
     }
