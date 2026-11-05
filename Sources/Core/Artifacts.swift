@@ -128,7 +128,7 @@ public enum Artifacts {
                 : "The user keeps artifacts on this Mac, and Kelp can't make \(kind) here yet: say so, and offer a doc instead.\n"
         } else {
             out += "If you can publish artifacts yourself (claude.ai's claude-artifacts or Claude Docs tools), make it there: "
-                + "Kelp opens it beside you and lists it. "
+                + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
                 + (local ? "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
                     : "If you can't, tell the user Kelp can't make \(kind) on this Mac yet, and offer a doc instead.\n")
         }

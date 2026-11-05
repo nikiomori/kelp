@@ -36,13 +36,12 @@ extension Main {
             guard let name = args.first, let a = Artifacts.list(root: root).first(where: { $0.slug == name }) else {
                 fail("artifact open <name> (names: kelp artifact list)")
             }
-            _ = try await IDE.open(Artifacts.target(a.slug, a.record, root: root), split: nil, cwd: cwd, client: c)
+            if let url = a.record.url { openInBrowser(url) }   // Kelp's tabs aren't signed in to the service
+            else { _ = try await IDE.open(Artifacts.target(a.slug, a.record, root: root), split: nil, cwd: cwd, client: c) }
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
             guard let url = args.first, url.hasPrefix("https://") else { fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]") }
-            if try Artifacts.addNative(url: url, title: title ?? url, type: type, root: root, session: session) != nil {
-                _ = try await IDE.open(url, split: nil, cwd: cwd, client: c)
-            }
+            _ = try Artifacts.addNative(url: url, title: title ?? url, type: type, root: root, session: session)
         default: print(usage)
         }
     }
@@ -52,19 +51,23 @@ extension Main {
         try await IDE.workspace(cwd: cwd, client: c)?.path ?? cwd
     }
 
-    /// From `kelp hook command`: a page the agent's own tool just published joins the project's list and opens beside
-    /// it, the first time only. Never fails the hook: the agent's tool already did its work.
+    /// From `kelp hook command`: a page the agent's own tool just published joins the project's list. It isn't opened:
+    /// Kelp's tabs can't sign in to claude.ai (Google refuses embedded views), and the user's browser, which is signed
+    /// in, would take the focus; the agent gives its link. Never fails the hook: the agent's tool already did its work.
     static func notePublished(_ p: (url: String, title: String, type: String), cwd: String, session: String) async {
-        var kept = false
         do {
-            let c = try connect()
-            let root = try await projectRoot(cwd, c)
-            guard try Artifacts.addNative(url: p.url, title: p.title, type: p.type, root: root, session: session) != nil else { return }
-            kept = true
-            _ = try await IDE.open(p.url, split: nil, cwd: cwd, client: c)
+            let root = try await projectRoot(cwd, try connect())
+            _ = try Artifacts.addNative(url: p.url, title: p.title, type: p.type, root: root, session: session)
         } catch {
             let why = (error as? RPCError)?.message ?? error.localizedDescription
-            FileHandle.standardError.write(Data("kelp: \(kept ? "kept \(p.url), didn't open it" : "couldn't keep \(p.url)"): \(why)\n".utf8))
+            FileHandle.standardError.write(Data("kelp: couldn't keep \(p.url): \(why)\n".utf8))
         }
+    }
+
+    /// The user's default browser, which is signed in to the service the page is on.
+    static func openInBrowser(_ url: String) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/open"); p.arguments = [url]
+        do { try p.run() } catch { fail("couldn't open \(url): \(error.localizedDescription)") }
     }
 }
