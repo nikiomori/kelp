@@ -2,12 +2,12 @@ import AppKit
 import Core
 import DesignKit
 
-/// The title bar's run control while something runs in the workspace, as Xcode's activity: ■ stops it, the name opens the
-/// Run list (what last ran is there, ticked for ⌘R). Gone while nothing runs: ⌘R and Run › Choose do the rest, and a
-/// release isn't a click away all day. The page it serves has a capsule of its own (`PageChip`).
+/// The title bar's run control, Xcode's Run and scheme in one capsule: ▶ runs what ⌘R would (■ stops what runs here),
+/// the name opens the Run list. A name nothing ran yet is a guess, dimmed. Hidden while the project offers nothing to
+/// run. The page it serves has a capsule of its own (`PageChip`).
 @MainActor
 final class RunChip: NSStackView {
-    struct Look: Equatable { var name: String }
+    struct Look: Equatable { var name: String, guess: Bool, running: Bool }
 
     private let app: AppModel
     private let go = PointerButton(frame: .zero), name = PointerButton(frame: .zero)
@@ -24,9 +24,7 @@ final class RunChip: NSStackView {
         go.contentTintColor = .labelColor
         go.symbolConfiguration = .chrome(Metrics.iconSmall)
         go.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        go.image = .symbol("stop.fill", String(localized: "Stop"))
-        go.toolTip = String(localized: "Stop (⌘.)")
-        go.onClick = { app.scripts.stop() }
+        go.onClick = { [weak self] in self?.goClicked() }
         name.padding = 6
         name.imagePosition = .imageTrailing
         name.imageHugsTitle = true
@@ -57,21 +55,28 @@ final class RunChip: NSStackView {
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); fadeBackground(to: .fillRest) }
 
-    /// What runs in the workspace on screen; nil while nothing does.
+    /// What the workspace on screen would run, and what runs there now.
     private var look: Look? {
         let s = app.scripts
         guard let wid = app.workbench.workspaceId, let current = s.current(wid) else { return nil }
         let live = s.running(in: wid)
-        guard !live.isEmpty else { return nil }
         let label = s.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
         let host = app.worktree(wid).flatMap { RemoteHost.of($0.path)?.host }
-        return Look(name: label + (host.map { " · \($0)" } ?? ""))
+        return Look(name: label + (host.map { " · \($0)" } ?? ""), guess: current.guess, running: !live.isEmpty)
     }
 
     private func show(_ l: Look?) {
         isHidden = l == nil
         guard let l else { return }
         crossfade()
-        name.attributedTitle = NSAttributedString(string: l.name, attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.labelColor])
+        go.image = .symbol(l.running ? "stop.fill" : "play.fill", l.running ? String(localized: "Stop") : String(localized: "Run"))
+        go.toolTip = l.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
+        name.attributedTitle = NSAttributedString(string: l.name, attributes: [.font: NSFont.ui(12),
+                                                                              .foregroundColor: l.guess ? NSColor.secondaryLabelColor : .labelColor])
+    }
+
+    private func goClicked() {
+        let s = app.scripts
+        if s.canStop { s.stop() } else { s.run("run") }
     }
 }

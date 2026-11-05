@@ -75,7 +75,8 @@ final class WindowBar: NSView {
         forward.target = self
         forward.action = #selector(goForward)
         let nav = NSStackView(views: [back, forward]); nav.spacing = 0
-        // Right of the search: what runs here, the page it serves, the cup, side by side; each only while it has something to say.
+        // Right of the search: what runs here (gone while the project offers nothing), the page it serves, then the cup and
+        // side by side, each only while it has something to say.
         let tools = NSStackView(views: [run, page, awake, sideBySide]); tools.spacing = 2
         tools.detachesHiddenViews = true
         tools.setCustomSpacing(6, after: run)
