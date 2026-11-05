@@ -120,9 +120,9 @@ private struct SectionForm: View {
                     if rows.isEmpty {
                         EmptyView()
                     } else if let title = groups[i].0 {
-                        Section(loc(title)) { ForEach(rows) { row($0) } }.id(title)
+                        Section(loc(title)) { SettingPreview(section: section.id, group: title); ForEach(rows) { row($0) } }.id(title)
                     } else {
-                        Section { ForEach(rows) { row($0) } }
+                        Section { SettingPreview(section: section.id, group: nil); ForEach(rows) { row($0) } }
                     }
                 }
                 section.custom?()

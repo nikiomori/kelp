@@ -107,6 +107,12 @@ package final class ThemeManager {
         return hex.flatMap { NSColor(hex: $0) } ?? .textBackgroundColor
     }
 
+    /// The theme painting the window now: Match System's light or dark one; nil for Ghostty's own colors.
+    var shown: Theme? {
+        let id = app.settings.string("workbench.theme") ?? "auto"
+        return id == "ghostty" ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
+    }
+
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 
     func apply() {
@@ -130,8 +136,7 @@ package final class ThemeManager {
 
     func applyColors() {
         let s = app.settings
-        let id = s.string("workbench.theme") ?? "auto"
-        let theme: Theme? = id == "ghostty" ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
+        let theme = shown
 
         var t = TerminalAppearance()
         t.useGhosttyConfig = theme == nil || s.bool("terminal.useGhosttyConfig") == true
