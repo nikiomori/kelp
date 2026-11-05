@@ -151,7 +151,7 @@ running; each number is the median of the three, or the range where they differe
 - Kelp ran with a home of its own (`KELP_HOME`) whose usage index was already built: the first launch reads every
   agent's logs once, about 25 s of CPU on a heavy user's Mac. Orca ran with its existing settings; its first run of the
   three used 50 % CPU while starting up.
-- Not measured yet: Paradev, and four agents working in each app.
+- Not measured yet: Paradev, and four agents working in each app. [How Kelp compares](docs/comparison.md) beyond weight.
 
 </details>
 
@@ -237,5 +237,5 @@ Signing, channels and releases: [docs/releasing.md](docs/releasing.md).
 
 ## More
 
-[Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
+[Architecture](docs/architecture.md) · [Kelp next to Orca, Herdr, cmux, Paradev and Zed](docs/comparison.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
 [Code of Conduct](CODE_OF_CONDUCT.md) · MIT [license](LICENSE)
