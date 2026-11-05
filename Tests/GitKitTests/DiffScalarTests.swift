@@ -50,6 +50,9 @@ import TestSupport
     #expect(try Git.run(["branch", "--show-current"], cwd: a).trimmingCharacters(in: .whitespacesAndNewlines) == "feat/local")
     let b = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
     #expect(try Git.run(["branch", "--show-current"], cwd: b).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
+    try Git.run(["worktree", "remove", "--force", b], cwd: repo)
+    let again = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(try Git.run(["branch", "--show-current"], cwd: again).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")   // the local one
     #expect(try Git.fetchPullRequest(repo: repo, number: 7) == "pr-7")
     #expect(Git.branchExists(repo, "pr-7"))
 }
@@ -71,4 +74,11 @@ import TestSupport
     #expect(try Git.fetchPullRequest(repo: repo, number: 9, wanted: "main") == "pr-9")   // main: checked out here
     try Git.run(["branch", "mine", theirs], cwd: repo)
     #expect(try Git.fetchPullRequest(repo: repo, number: 9, wanted: "mine") == "mine")
+    // A pr-8 with commits of its own keeps them: the PR goes to pr-8-2.
+    try Git.run(["checkout", "-q", "pr-8"], cwd: repo)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "my note"], cwd: repo)
+    try Git.run(["checkout", "-q", "main"], cwd: repo)
+    let mineAt = try head("pr-8")
+    #expect(try Git.fetchPullRequest(repo: repo, number: 8) == "pr-8-2")
+    #expect(try head("pr-8") == mineAt && head("pr-8-2") == theirs)
 }

@@ -19,9 +19,10 @@ extension Git {
             try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)
         } else if branchExists(repo, branch, remotes: remotes) {
             try run(["worktree", "add", path, rev(branch)], cwd: repo, remotes: remotes)
-        } else {   // "origin/x": a local "x" following it
+        } else {   // "origin/x": a local "x" following it, or the local "x" there is already
             let local = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
-            try run(["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes)
+            if branchExists(repo, local, remotes: remotes) { try run(["worktree", "add", path, rev(local)], cwd: repo, remotes: remotes) }
+            else { try run(["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes) }
         }
         let fm = FileManager.default
         for f in Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) {
@@ -39,19 +40,30 @@ extension Git {
     @discardableResult
     public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none) throws -> String {
         do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch {
-            try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
+            // GitHub's error, if GitLab's way fails too: most projects are GitHub's.
+            do { try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes) } catch { throw error }
         }
-        let head = try run(["rev-parse", "FETCH_HEAD"], cwd: repo, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
-        if let wanted, Git.isRevision(wanted),
-           try run(["rev-parse", "--verify", "-q", "refs/heads/" + wanted], cwd: repo, ok: [0, 1], remotes: remotes)
-               .trimmingCharacters(in: .whitespacesAndNewlines) == head,
-           (try run(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + wanted], cwd: repo, remotes: remotes))
-               .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return wanted
+        func line(_ args: [String]) throws -> String {
+            try run(args, cwd: repo, ok: [0, 1], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        let mine = "pr-\(number)"   // git refuses to move it while a worktree has it out: that one is this PR already
-        try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
-        return mine
+        let head = try line(["rev-parse", "FETCH_HEAD"])
+        func at(_ b: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + b]) }
+        func openIn(_ b: String) throws -> String { try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + b]) }
+        if let wanted, Git.isRevision(wanted), try at(wanted) == head, try openIn(wanted).isEmpty { return wanted }
+        // pr-<N>, moved on from an older fetch of this PR; pr-<N>-2… when it holds commits of its own, which stay.
+        var mine = "pr-\(number)", k = 2
+        while true {
+            let now = try at(mine), open = try openIn(mine)
+            if now.isEmpty { try run(["branch", mine, head], cwd: repo, remotes: remotes); return mine }
+            if !open.isEmpty {
+                throw GitError(args: ["worktree"], status: 1, stderr: "Pull request #\(number) is open already, in \(open).")
+            }
+            if try now == head || line(["merge-base", now, head]) == now {
+                try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
+                return mine
+            }
+            mine = "pr-\(number)-\(k)"; k += 1
+        }
     }
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.
