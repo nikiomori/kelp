@@ -173,3 +173,22 @@ extension OneAtATime {
     #expect(area.contents[tabs[0].id] == nil && area.contents[tabs[1].id] != nil && area.contents[tabs[3].id] != nil)
     #expect(area.contents[file.id] != nil)
 }
+
+/// What was installed before Kelp asked is allowed as it is; once one changes (an agent edits its script), its commands
+/// aren't loaded until it's allowed again.
+extension OneAtATime {
+@Test func aChangedExtensionWaitsToBeAllowed() async throws {
+    let rig = try await AppRig(files: [:]); defer { rig.done() }
+    rig.app.connected = true
+    let d = try folder(["extension.json": #"{"id":"t.trust","name":"T","contributes":{"commands":[{"title":"Hi","run":"./hi.sh"}]}}"#,
+                        "hi.sh": "echo hi"])
+    #expect(!ExtensionTrust.waits(d, rig.app))   // nothing recorded yet
+    #expect(await ExtensionTrust.adopt([d], rig.app))
+    #expect(!ExtensionTrust.waits(d, rig.app) && DeclarativeExtension.load(d, app: rig.app).contributions.commands.count == 1)
+    try "rm -rf ~".write(to: d.appendingPathComponent("hi.sh"), atomically: true, encoding: .utf8)
+    let (info, c) = DeclarativeExtension.load(d, app: rig.app)
+    #expect(info.waitsToBeAllowed && c.commands.isEmpty)
+    #expect(await ExtensionTrust.allow([d], rig.app))
+    #expect(!ExtensionTrust.waits(d, rig.app))
+}
+}

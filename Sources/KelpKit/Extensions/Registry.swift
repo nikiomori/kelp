@@ -228,6 +228,8 @@ struct ExtensionInfo: Identifiable {
     var error: String?
     /// A required tool is missing; shown, but contributes nothing.
     var unavailable: String?
+    /// It runs commands and is new or changed since the user allowed it (`ExtensionTrust`); shown, but contributes nothing.
+    var waitsToBeAllowed = false
     var enabled: Bool
     /// The tools it needs (its manifest's `requires`).
     var requires: [String] = []
@@ -253,6 +255,9 @@ package final class ExtensionRegistry {
     /// tool installed meanwhile counts, and an answer that changes anything reloads.
     static var tools: [String: Bool] = [:]
     @ObservationIgnored private var askingTools = false
+    /// The versions asked about this run (`extensionDigest`), and the wait before asking.
+    @ObservationIgnored private var asked: Set<String> = []
+    @ObservationIgnored private let trustAsk = Debounce()
 
     /// Built-ins a clean install starts with switched off; once settings.json has its own list, that list decides.
     static let offByDefault: Set<String> = ["kelp.activity"]
@@ -292,6 +297,33 @@ package final class ExtensionRegistry {
         AgentSkills.write(app)
         app.publishUIState()
         askTools(Set(infos.flatMap(\.requires)))
+        askTrust(infos)
+    }
+
+    /// Extensions that wait to be allowed are asked about once each version, after the folder has been still a moment (an
+    /// agent writing one saves it many times). "Not Now" leaves it in Settings › Extensions, with Allow there.
+    private func askTrust(_ infos: [ExtensionInfo]) {
+        let users = infos.compactMap { $0.builtin ? nil : $0.path }
+        Task {
+            if await ExtensionTrust.adopt(users, app) { reload(); return }
+            let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter { asked.insert(IDE.extensionDigest($0)).inserted }
+            guard !waiting.isEmpty else { return }
+            trustAsk.after(3) { [weak self] in self?.ask(waiting) }
+        }
+    }
+
+    private func ask(_ folders: [URL]) {
+        Task {
+            for f in folders where ExtensionTrust.waits(f, app) {
+                if await ExtensionTrust.review(f, app) { reload() }
+            }
+        }
+    }
+
+    /// Allowed in Settings › Extensions, after the same look.
+    func allow(_ e: ExtensionInfo) async {
+        guard let f = e.path, await ExtensionTrust.review(f, app) else { return }
+        reload()
     }
 
     /// Asks the daemon where `commands` are; reloads when that changes what's missing. Without a daemon, nothing: the
@@ -345,7 +377,8 @@ package final class ExtensionRegistry {
         if fm.fileExists(atPath: folder.appendingPathComponent("extension.json").path) {
             guard await ExtensionReview.approve(folder) else { return }
         }
-        _ = try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
+        let installed = try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
+        _ = await ExtensionTrust.allow([installed], app)   // what the user just looked at
         reload()
     }
 
@@ -356,8 +389,10 @@ package final class ExtensionRegistry {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
         let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir
         guard await ExtensionReview.approve(folder) else { try? FileManager.default.removeItem(at: folder); return false }
-        do { _ = try await Task.detached { try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true) }.value }
+        let installed: URL
+        do { installed = try await Task.detached { try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true) }.value }
         catch { Banner.show(String(localized: "Couldn't install \(folder.lastPathComponent): \(AppModel.message(error))"), style: .error); return false }
+        _ = await ExtensionTrust.allow([installed], app)
         reload()
         return true
     }

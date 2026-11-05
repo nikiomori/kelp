@@ -78,7 +78,12 @@ extension Sessions {
             guard FileManager.default.fileExists(atPath: file.path), let m = Log.session.attempt("reading \(file.path)", {
                 try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: file))
             }), !off.contains(m.id) else { return [] }
-            return (m.contributes?.events ?? []).filter { $0.on == event }.map { (m.id, $0.run) }
+            let mine = (m.contributes?.events ?? []).filter { $0.on == event }
+            guard mine.isEmpty || trustsExtension(folder.lastPathComponent) else {
+                Log.session.info("\(m.id, privacy: .public)'s \(event, privacy: .public) waits to be allowed in Settings › Extensions")
+                return []
+            }
+            return mine.map { (m.id, $0.run) }
         }
     }
 }

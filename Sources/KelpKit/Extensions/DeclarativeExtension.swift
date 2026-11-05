@@ -105,6 +105,10 @@ enum DeclarativeExtension {
                 info.unavailable = String(localized: "Needs `\(missing)` — not found on this Mac.")
                 return (info, Contributions())
             }
+            if ExtensionTrust.waits(folder, app) {
+                info.waitsToBeAllowed = true
+                return (info, Contributions())
+            }
             return (info, contributions(m, folder, app))
         } catch {
             let msg = (error as? DecodingError).map(describe) ?? error.localizedDescription

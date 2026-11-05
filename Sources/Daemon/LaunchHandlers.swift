@@ -444,5 +444,16 @@ extension Sessions {
         // Limit: unset means none of the user's extensions is off (the app's default-off list names built-ins only).
         let off = Set(settings["extensions.disabled"]?.array?.compactMap(\.string) ?? [])
         guard !off.contains(m.id) else { throw RPCError.invalidParams("The extension “\(m.name ?? m.id)” is turned off.") }
+        guard trustsExtension(id) else {
+            throw RPCError.invalidParams("The extension “\(m.name ?? m.id)” waits to be allowed as it is now: in Settings › Extensions.")
+        }
+    }
+
+    /// Whether the user allowed the extension in folder `name` to run commands as its files are now (`IDE.trustKey`,
+    /// which only Kelp's window writes). Before the window recorded any, each is: it was installed when none was asked.
+    func trustsExtension(_ name: String) -> Bool {
+        guard let state = Log.store.attempt("reading the allowed extensions", { try store.uiState(prefix: IDE.trustKey) }) else { return false }
+        guard let allowed = state[IDE.trustKey] else { return true }
+        return allowed[name]?.string == IDE.extensionDigest(root.appendingPathComponent("extensions").appendingPathComponent(name))
     }
 }

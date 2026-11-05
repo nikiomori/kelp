@@ -7,6 +7,10 @@ directory, so anything you can do in a terminal you can surface in the IDE.
 Quick start: `kelp ext new my-thing`.
 Useful while developing: `kelp ext list`, `kelp ext reload`, `kelp ext disable <id>`.
 
+One that runs anything (a command, an event, a web page) runs it only once the user has allowed it in Kelp's window, as
+its files are then: Kelp asks when it's new and again after any file in its folder changes, and Settings › Extensions
+has Allow for it meanwhile. An agent that wrote one tells the user to allow it; until then it lists as waiting.
+
 ## extension.json
 ```json
 {

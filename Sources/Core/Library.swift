@@ -151,6 +151,35 @@ extension IDE {
         !name.isEmpty && !name.contains("/") && !name.contains("\0") && !name.hasPrefix(".") && name.count <= 255
     }
 
+    /// The UI state key with the extensions the user allowed to run commands: folder name → `extensionDigest` of what
+    /// was allowed. Only Kelp's window writes it (`state.set`); unset, nothing was ever asked (an older Kelp installed them).
+    public static let trustKey = "extensions.trusted"
+
+    /// What allowing an extension covers: every file in its folder (its manifest, scripts, pages; not a `.git`), so a
+    /// change to any of them is asked about again. Limit: read whole at each check (an extension's folder is small), and
+    /// a linked folder counts by where it points, not by what's in it.
+    public static func extensionDigest(_ folder: URL) -> String {
+        let root = folder.resolvingSymlinksInPath(), all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+        var files: [(name: String, url: URL, link: Bool)] = []
+        while let u = all?.nextObject() as? URL {
+            if u.lastPathComponent == ".git" { all?.skipDescendants(); continue }
+            var st = stat()
+            guard lstat(u.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
+            files.append((String(u.path.dropFirst(root.path.count)), u, st.st_mode & S_IFMT == S_IFLNK))
+        }
+        var h = SHA256()
+        for f in files.sorted(by: { $0.name < $1.name }) {
+            // A link counts by where it points and what's there: its target can change without the folder changing.
+            let target = f.url.resolvingSymlinksInPath()
+            let body = FileManager.default.contents(atPath: target.path) ?? Data()
+            let size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
+            for part in [Data(f.name.utf8), Data((f.link ? target.path : "").utf8), size, body] {
+                h.update(data: part); h.update(data: Data([0]))
+            }
+        }
+        return h.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     /// What an extension's manifest can run, for a look before it's installed: the shell commands (every "command" with
     /// its "args", "terminal", "run", "test", "format" and "install" text, an "open" of a terminal: or agent: URI) and the
     /// web pages, which can run any.

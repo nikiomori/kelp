@@ -128,3 +128,19 @@ import Testing
     #expect(UTF8Chunks.split(bytes).rest.isEmpty && UTF8Chunks.split(bytes.prefix(bytes.count - 1)).rest.count == 3)
     #expect(UTF8Chunks.split(Data()).whole.isEmpty && UTF8Chunks.split(Data([0x80, 0x80, 0x80, 0x80])).rest.isEmpty)
 }
+
+/// Allowing an extension covers every file of its folder, not its `.git`: a script changed after it was allowed is
+/// asked about again, a commit isn't.
+@Test func anExtensionsDigestFollowsEveryFileButGit() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-digest-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent("bin"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)
+    try Data("{}".utf8).write(to: dir.appendingPathComponent("extension.json"))
+    try Data("echo hi".utf8).write(to: dir.appendingPathComponent("bin/run.sh"))
+    let first = IDE.extensionDigest(dir)
+    try Data("ref".utf8).write(to: dir.appendingPathComponent(".git/HEAD"))
+    #expect(IDE.extensionDigest(dir) == first)
+    try Data("rm -rf ~".utf8).write(to: dir.appendingPathComponent("bin/run.sh"))
+    #expect(IDE.extensionDigest(dir) != first)
+}

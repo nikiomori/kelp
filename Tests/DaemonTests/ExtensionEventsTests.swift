@@ -69,3 +69,25 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
     #expect(try await waitFor(10) { lines(out).count == 2 && lines(out)[1].hasPrefix("workspace.created|") })
     #expect(lines(off).isEmpty)
 }
+
+/// Once Kelp's window has recorded what the user allowed, an extension that's new or changed since runs no event and
+/// no command until it's allowed as it is.
+@Test func anExtensionRunsOnlyAsItWasAllowed() async throws {
+    let w = try await world(agents: [fake]), out = temporary(), other = temporary(); defer { w.d.stop() }
+    try install(w, out: out)
+    try install(w, id: "other", out: other)
+    let dir = w.root.appendingPathComponent("extensions"), workspace = try await firstWorkspace(w).id
+    let allowed = IDE.extensionDigest(dir.appendingPathComponent("other"))
+    try w.d.sessions.store.setUIState(IDE.trustKey, .obj(["hears": .string("what was there before"), "other": .string(allowed)]))
+    let before = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "before"))
+    _ = try await w.c.call(SessionReport(id: before.id, state: "blocked"))
+    await #expect(throws: RPCError.self) { try await w.c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "hears")) }
+    // The other heard it, after "hears" would have: they run one after the other, in folder order.
+    #expect(try await waitFor(10) { lines(other) == ["agent.waiting|before|"] })
+    #expect(lines(out) == [])
+    try w.d.sessions.store.setUIState(IDE.trustKey, .obj(["hears": .string(IDE.extensionDigest(dir.appendingPathComponent("hears")))]))
+    #expect(try await w.c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "hears")).stdout == "ran\n")
+    let after = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "after"))
+    _ = try await w.c.call(SessionReport(id: after.id, state: "blocked"))
+    #expect(try await waitFor(10) { lines(out) == ["agent.waiting|after|"] })
+}

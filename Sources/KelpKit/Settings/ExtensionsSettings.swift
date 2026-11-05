@@ -71,13 +71,17 @@ struct ExtensionsSettings: View {
     /// A row as every setting's: the name over its description, the form's own sizes and spacing; the symbol beside it.
     private func row(_ e: ExtensionInfo) -> some View {
         LabeledContent {
-            HStack(spacing: Metrics.gap) { more(e); enabled(e) }
+            HStack(spacing: Metrics.gap) {
+                if e.waitsToBeAllowed { Button("Allow…") { Task { await registry.allow(e) } } }
+                more(e); enabled(e)
+            }
         } label: {
             Label {
                 Text(e.builtin ? loc(e.name) : "\(loc(e.name)) \(e.version)")
                 if !e.description.isEmpty { Text(loc(e.description)) }
                 if let err = e.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
                 if let u = e.unavailable { Text(u) }
+                if e.waitsToBeAllowed { Text("New or changed since it was allowed: it runs no commands until you allow it.") }
             } icon: {
                 Image(systemName: e.icon).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(width: Metrics.iconMenu)
             }

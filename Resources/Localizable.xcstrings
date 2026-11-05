@@ -3504,6 +3504,56 @@
         }
       }
     },
+    "Allow “%@” to run commands?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить «%@» запускать команды?"
+          }
+        }
+      }
+    },
+    "It's new or changed since it was allowed. It can run these commands on this Mac:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оно новое или изменилось с тех пор, как его разрешили. Оно может запускать на этом Mac такие команды:"
+          }
+        }
+      }
+    },
+    "Not Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не сейчас"
+          }
+        }
+      }
+    },
+    "Allow…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить…"
+          }
+        }
+      }
+    },
+    "New or changed since it was allowed: it runs no commands until you allow it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое или изменилось с тех пор, как его разрешили: не запускает команд, пока вы его не разрешите."
+          }
+        }
+      }
+    },
     "Also read ~/.config/ghostty/config": {
       "extractionState": "manual",
       "localizations": {
