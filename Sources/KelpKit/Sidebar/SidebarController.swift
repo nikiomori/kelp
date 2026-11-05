@@ -90,7 +90,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.allowsMultipleSelection = true   // ⌘/⇧-click: the menu then acts on all of them
         outline.dataSource = self; outline.delegate = self
         outline.target = self; outline.doubleAction = #selector(doubleClicked)
-        outline.action = #selector(clicked)   // a server's header, which isn't picked
         outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a folder from Finder becomes a project; rows move
         outline.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
                                                owner: self, userInfo: nil))
@@ -138,6 +137,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.parked } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.parkedBack } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
+        track(owner: self) { [app] in app.workbench.page } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.hostStats } changed: { [weak self] _ in self?.updateHeaders() }
@@ -191,6 +191,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in a }
         watchHosts(Set(tree.hosts.values))
         projectHosts = tree.hosts
+        leavePage(unless: Set(tree.hosts.values))
         tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
         func node(_ i: SidebarItem) -> Node {
             let n = Node(i.kind)
@@ -241,6 +242,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     /// The row of what's on screen: the agent whose tab has focus, else its workspace. Several rows picked stay picked.
     private func syncSelection() {
+        if let page = app.workbench.page { return select(page: page) }
         guard let id = app.workbench.workspaceId, let w = workspaceNode(id), outline.selectedRowIndexes.count <= 1 else { return }
         // Gone to from elsewhere (⌃1, the line over the list) while its project is folded: open the project. Only on the
         // way in: a project folded while you're in it stays folded.
@@ -258,6 +260,23 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             syncing = false
         }
         keepOpenInView()
+    }
+
+    /// A server's page goes with its last project: back to the workspace behind it.
+    private func leavePage(unless hosts: Set<String>) {
+        guard let p = app.workbench.page, TabURI.scheme(p) == "host", !hosts.contains(TabURI.body(p)),
+              let id = app.workbench.workspaceId ?? app.worktrees.first?.id else { return }
+        app.workbench.show(workspace: id)
+    }
+
+    /// A server's page: its header's row.
+    private func select(page: String) {
+        guard TabURI.scheme(page) == "host", let n = node("h:" + TabURI.body(page)) else { return }
+        let row = outline.row(forItem: n)
+        guard row >= 0, outline.selectedRow != row else { return }
+        syncing = true
+        outline.selectRowIndexes([row], byExtendingSelection: false)
+        syncing = false
     }
 
     /// In the window's second row, beside Add Project: who needs you and who's working. The row is always there, so the
@@ -293,7 +312,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         if case .project? = (item as? Node)?.kind { true } else { false }
     }
     func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        if case .host? = (item as? Node)?.kind { return false }
         if case .parked? = (item as? Node)?.kind { return false }
         return !Self.isHeader(item) || (item as? Node)?.workspace != nil
     }
@@ -427,8 +445,9 @@ extension SidebarController {
         case .project:
             guard let id = node.workspace else { break }
             // Already there: the pill stays with the tab.
-            if id == app.workbench.workspaceId { syncSelection() } else { app.workbench.show(workspace: id) }
-        case .host, .parked: break
+            if id == app.workbench.workspaceId, app.workbench.page == nil { syncSelection() } else { app.workbench.show(workspace: id) }
+        case .host(let h): app.openServer(h)
+        case .parked: break
         }
     }
 }

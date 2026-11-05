@@ -13,13 +13,27 @@ struct ServerDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             meters
-            HStack(alignment: .top, spacing: 20) {
-                ServerProcesses(app: app, stats: stats).frame(minWidth: 380, maxWidth: .infinity)
-                ScrollView { ServerSide(app: app, host: host, stats: stats).frame(maxWidth: .infinity, alignment: .leading) }
-                    .frame(minWidth: 240, idealWidth: 300, maxWidth: 340)
+            // Too narrow for both side by side (a process row needs `ProcessRow.least`): the side column goes under the
+            // processes, which SwiftUI otherwise centres past the left edge.
+            GeometryReader { g in
+                if g.size.width >= ProcessRow.least + 20 + 240 {
+                    HStack(alignment: .top, spacing: 20) {
+                        ServerProcesses(app: app, stats: stats).frame(minWidth: ProcessRow.least, maxWidth: .infinity)
+                        side.frame(minWidth: 240, idealWidth: 300, maxWidth: 340)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ServerProcesses(app: app, stats: stats)
+                        side.frame(maxHeight: g.size.height * 0.4)
+                    }
+                }
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 16)
+    }
+
+    private var side: some View {
+        ScrollView { ServerSide(app: app, host: host, stats: stats).frame(maxWidth: .infinity, alignment: .leading) }
     }
 
     private var meters: some View {

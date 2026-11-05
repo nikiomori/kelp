@@ -146,6 +146,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         app.publishUIState()
     }
 
+    /// A page over the whole editor area (`Workbench.page`); false when no extension makes it.
+    func showPage(_ uri: String) -> Bool {
+        guard let page = editors.showPage(uri) else { return false }
+        window?.title = page.title
+        app.publishUIState()
+        return true
+    }
+
     private func updateTitle() {
         let w = app.worktree(app.workbench.workspaceId)
         window?.title = app.groupName(w) ?? app.projectName(w?.repoId) ?? String(localized: "Kelp")

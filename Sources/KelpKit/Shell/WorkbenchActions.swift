@@ -8,15 +8,23 @@ extension Workbench {
     /// Every unsaved file in the app: the main window's loaded workspaces'.
     package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
     /// The editor area with the keyboard: the workspace on screen's.
-    package var editor: EditorArea? { window?.editors.current }
+    /// Nil while a page is on screen: what acts on tabs waits until a workspace is back.
+    package var editor: EditorArea? { page == nil ? window?.editors.current : nil }
 
     package func show(workspace id: String) { show(workspace: id, remember: true) }
 
     private func show(workspace id: String, remember: Bool) {
-        guard workspaceId != id || window?.editors.current == nil else { return }
+        guard workspaceId != id || page != nil || window?.editors.current == nil else { return }
+        page = nil
         workspaceId = id
         if remember { history.visit(id) }
         window?.showWorkspace(id)
+    }
+
+    /// A page in place of the workspace (`page`).
+    func show(page uri: String) {
+        guard page != uri, window?.showPage(uri) == true else { return }
+        page = uri
     }
 
     /// ⌃⌘← / ⌃⌘→: the workspace shown before / after this one (closed ones are skipped).
@@ -55,7 +63,7 @@ extension Workbench {
     func showAside(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil) { area(workspace)?.showAside(uri, split: split) }
 
     private func area(_ workspace: String?) -> EditorArea? {
-        if let workspace, workspace != workspaceId { show(workspace: workspace) }
+        if let id = workspace ?? workspaceId, id != workspaceId || page != nil { show(workspace: id) }
         if workspaceId == nil, let first = app.worktrees.first { show(workspace: first.id) }
         return window?.editors.current
     }
@@ -70,7 +78,7 @@ extension Workbench {
 
     package func focus(session id: String) {
         guard let s = app.session(id) else { return }
-        if let w = s.worktreeId, w != workspaceId { show(workspace: w) }
+        if let w = s.worktreeId, w != workspaceId || page != nil { show(workspace: w) }
         window?.editors.current?.focus(session: id)
         // Opening a finished agent is reading it; a question stays marked until it's answered (typing clears it).
         if s.unread, s.status == .done { Task { await app.call(SessionMarkRead(id: id)) } }

@@ -30,7 +30,8 @@ final class WindowBar: NSView {
     private let popover = NSPopover()
     private var closedAt = Date.distantPast
 
-    private var worktree: Worktree? { app.worktree(app.workbench.workspaceId) }
+    /// None over a page: the project and branch beside it would be the workspace's behind it.
+    private var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil }
     /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
     private var badgeFolder: Worktree? { app.rowBadges.folder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
@@ -116,7 +117,7 @@ final class WindowBar: NSView {
             for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(12) }
             self?.update()
         }
-        track(owner: self) { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil } changed: { [weak self] _ in self?.update() }
         track(owner: self) { app.projectLook } changed: { [weak self] _ in self?.update() }
         // A branch switched anywhere (a terminal too) moves the workspace's refs: the daemon pushes it.
         track(owner: self) { [weak self] in self?.info } changed: { [weak self] _ in self?.update() }

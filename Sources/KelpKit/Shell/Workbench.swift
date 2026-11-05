@@ -32,6 +32,9 @@ package final class Workbench {
             }
         }
     }
+    /// A page that is a place of its own, a server's ("host:<name>"): it fills the editor area, with no tabs, until a
+    /// workspace is shown again. `workspaceId` stays the one it was shown over.
+    internal(set) var page: String?
     /// Workspaces by when they were last on screen, latest first, kept across launches: ⌃Tab's order.
     var recentWorkspaces: [String] { app.uiState.strings("workbench.recentWorkspaces") }
     init(app: AppModel) { self.app = app }

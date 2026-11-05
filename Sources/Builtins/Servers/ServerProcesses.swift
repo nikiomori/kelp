@@ -74,8 +74,10 @@ struct ServerProcesses: View {
 }
 
 /// One process: its name and pid, whose agent, who runs it, and what it takes. Double-click goes to its agent.
-private struct ProcessRow: View {
+struct ProcessRow: View {
     static let kelp: CGFloat = 110, user: CGFloat = 64, number: CGFloat = 64
+    /// The narrowest a row is whole: its fixed columns, the gaps and padding, and a little of the command.
+    static let least: CGFloat = kelp + user + 3 * number + 5 * 8 + 2 * 8 + 80
     let app: AppModel, p: HostStats.Process
     @State private var hovering = false
 

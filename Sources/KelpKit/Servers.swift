@@ -11,21 +11,19 @@ extension AppModel {
         return repos.compactMap { RemoteHost.of($0.path)?.host }.filter { seen.insert($0).inserted }
     }
 
-    /// The screen the server's tab, terminal and htop open on: its first project's own.
+    /// The screen the server's terminal and htop open on: its first project's own.
     package func serverWorkspace(_ host: String) -> String? {
         guard let r = repos.first(where: { RemoteHost.of($0.path)?.host == host }) else { return nil }
         return mainWorkspace(of: r, among: worktrees)?.id
     }
 
-    func openServer(_ host: String) {
-        guard let wid = serverWorkspace(host) else { return }
-        workbench.open(TabURI.server(host), workspace: wid)
-    }
+    /// The server's page, a place of its own like a project's screen (its header in the sidebar stands for it).
+    func openServer(_ host: String) { workbench.show(page: TabURI.server(host)) }
 
     /// A terminal on the host (nil `command`: its shell), in its project's folder, beside the server's tab.
     package func runOnServer(_ host: String, command: String? = nil, title: String? = nil) {
         guard let wid = serverWorkspace(host) else { return }
-        if workbench.workspaceId != wid { workbench.show(workspace: wid) }
+        workbench.show(workspace: wid)
         workbench.editor?.run(command: command, title: title)
     }
 

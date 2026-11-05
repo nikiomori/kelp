@@ -240,6 +240,14 @@ final class EditorHost: NSViewController {
     }
 
     func show(_ id: String?) {
+        if let p = page {   // back from a page: it goes (it reads its server only while it's there)
+            p.view.removeFromSuperview(); page = nil
+            if let c = current, c.workspaceId == id {
+                card.pin(c.view)
+                c.focusSelected()
+                return
+            }
+        }
         if let c = current, c.workspaceId == id { return }
         current?.view.removeFromSuperview()
         guard let id, app.worktree(id) != nil else {
@@ -259,6 +267,21 @@ final class EditorHost: NSViewController {
         card.pin(area.view)
         area.reconcile()
         area.focusSelected()
+    }
+
+    /// What `showPage` shows in place of the workspace's area, which stays loaded behind it.
+    private var page: TabContent?
+
+    /// A page made by its extension's tab provider, filling the card; nil when none makes it.
+    func showPage(_ uri: String) -> TabContent? {
+        guard let made = app.extensions.tabProvider(for: uri)?.make(uri) else { return nil }
+        page?.view.removeFromSuperview()
+        current?.view.removeFromSuperview()
+        welcome?.removeFromSuperview(); welcome = nil
+        page = made
+        card.pin(made.view)
+        made.focus()
+        return made
     }
 
     /// The areas past the newest `keep` go, except those with unsaved files: they stay listed, and go on a later switch
@@ -328,9 +351,9 @@ final class EditorHost: NSViewController {
                 a.removeFromParent()
             }
         }
-        if let c = current, areas[c.workspaceId] == nil { current = nil; showWelcome() }
+        if let c = current, areas[c.workspaceId] == nil { current = nil }
         current?.reconcile()   // the others reconcile when shown
-        if current == nil { showWelcome() }
+        if current == nil, page == nil { showWelcome() }
     }
 
     private func showWelcome() {

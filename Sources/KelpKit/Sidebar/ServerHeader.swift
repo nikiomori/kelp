@@ -134,12 +134,6 @@ extension SidebarController {
         refresh()
     }
 
-    /// A click on a server's header opens its tab (the header isn't picked, it isn't a place).
-    @objc func clicked() {
-        guard outline.clickedRow >= 0, case .host(let h)? = (outline.item(atRow: outline.clickedRow) as? Node)?.kind else { return }
-        app.openServer(h)
-    }
-
     /// Each listed server is watched while it's listed (every 10 s, never dialing).
     func watchHosts(_ hosts: Set<String>) {
         for h in hosts.subtracting(watchedHosts) { app.watch(.host, h) }
