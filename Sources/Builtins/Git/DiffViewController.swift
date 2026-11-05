@@ -28,6 +28,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var find = DiffFinding()
     /// Files marked as read, with their diff's print then (`DiffViewed`).
     var viewed: [String: String] = [:]
+    /// Unchanged lines the user opened between changes, by `DiffRows.gapKey` (`DiffGaps`).
+    var opened: [String: [DiffLine]] = [:]
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -246,7 +248,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         reload()
     }
 
-    private func diffRequest() -> GitDiff {
+    func diffRequest() -> GitDiff {
         var r = request()
         r.ignoreSpace = hidesSpace ? true : nil
         return r
@@ -342,6 +344,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             if let pushed = app.git[wid]?.changes { ch = pushed } else { ch = await app.quiet(GitStatus(id: wid)) ?? [] }
             cm = await app.quiet(CommentList(id: wid)) ?? []
         }
+        if d != diffs { opened = [:] }   // lines opened between changes may have moved
         let layout = sideBySide, built = await buildRows(d, cm, sideBySide: layout)
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
@@ -361,13 +364,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
     /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
     private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> ([ReviewRow], [String: NSRange]) {
-        let one = single != nil
-        return await Task.detached { (DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one), DiffRows.changedWords(d)) }.value
+        let one = single != nil, open = opened
+        return await Task.detached {
+            (DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open), DiffRows.changedWords(d))
+        }.value
     }
 
     /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
     private var builds = 0
-    private func rebuildRows() {
+    func rebuildRows() {
         builds += 1
         let n = builds, d = diffs, cm = comments, layout = sideBySide
         Task {
@@ -409,7 +414,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 open.bezelStyle = .push; open.controlSize = .small
                 let stack = NSStackView(views: [said, open]); stack.spacing = 8
                 return stack
-            case .gap(let n): return band(first ? String(localized: "⋯  \(n) unchanged lines") : "")
+            case .gap(let f, let from, let n, let context): return first ? gapRow(file: f, from: from, lines: n, context: context) : band("")
             case .hunk(let f, let h, let header): return first ? hunkRow(file: f, hunk: h, header: header) : band("")
             case .line(let f, let l):
                 switch id {

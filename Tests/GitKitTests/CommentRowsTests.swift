@@ -35,3 +35,16 @@ private func line(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil)
         } else if !side { Issue.record("the old side's comment isn't under the removed line") }
     }
 }
+
+/// A gap names the function git found above the next change, and an opened one shows its lines in its place.
+@Test func aGapNamesItsFunctionAndOpensInPlace() {
+    let h1 = Hunk(header: "@@ -1 +1 @@", oldStart: 1, newStart: 1, lines: [line(.add, "a", n: 1)])
+    let h2 = Hunk(header: "@@ -5 +5 @@ func load() {", oldStart: 5, newStart: 5, lines: [line(.add, "e", n: 5)])
+    let f = FileDiff(path: "f.swift", header: "", hunks: [h1, h2], binary: false)
+    #expect(DiffRows.build([f], sideBySide: false).contains(.gap(file: 0, from: 2, lines: 3, context: "func load() {")))
+    let shown = (2...4).map { DiffLine(kind: .context, text: "x\($0)", oldLine: $0, newLine: $0) }
+    let open = DiffRows.build([f], sideBySide: true, opened: [DiffRows.gapKey("f.swift", 2): shown])
+    #expect(!open.contains { if case .gap = $0 { true } else { false } })
+    #expect(open.contains(.pair(file: 0, left: shown[1], right: shown[1])))
+    #expect(DiffRows.context("@@ -1 +1 @@") == "")
+}

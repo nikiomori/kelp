@@ -34,6 +34,8 @@ public struct GitDiff: RPCMethod {
     public var id: String, source: String?, file: String?, base: String?, commit: String?, session: String?
     /// Changes of whitespace alone left out (`git diff -w`).
     public var ignoreSpace: Bool?
+    /// Unchanged lines around each change, 3 when nil (git's -U).
+    public var context: Int?
     public init(id: String, source: String? = nil, file: String? = nil, base: String? = nil, commit: String? = nil, session: String? = nil,
                 ignoreSpace: Bool? = nil) {
         self.id = id; self.source = source; self.file = file; self.base = base; self.commit = commit; self.session = session

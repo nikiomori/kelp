@@ -114,7 +114,7 @@ func tempRepo() throws -> String {
     #expect(p[2].0?.text == "c" && p[2].1 == nil)
     let h2 = Hunk(header: "@@ -20 +20 @@", oldStart: 20, newStart: 20, lines: [l(.add, "z", n: 20)])
     let rows = DiffRows.build([FileDiff(path: "f", header: "", hunks: [h1, h2], binary: false)], sideBySide: false)
-    #expect(rows.contains(.gap(lines: 17)))
+    #expect(rows.contains(.gap(file: 0, from: 3, lines: 17, context: "")))
 }
 
 @Test func projectFilesAndSearch() throws {

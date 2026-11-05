@@ -127,11 +127,13 @@ extension Git {
     }
 
     /// `ignoreSpace`: changes of whitespace alone left out (`git diff -w`), and the files with nothing else changed.
-    public static func diff(_ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false,
+    /// `context`: unchanged lines around each change (git's -U); a large one gives a file whole, as one hunk.
+    public static func diff(_ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false, context: Int = 3,
                             remotes: Remotes = .none) throws -> [FileDiff] {
         // Fixed prefixes and no external tool or textconv: a user's diff.noprefix / diff.mnemonicPrefix / diff.external don't
         // change the output, and a repo's own config can't run a program on every diff shown (nor give a patch that won't apply).
-        let common = ["--no-color", "--no-ext-diff", "--no-textconv", "-U3", "--src-prefix=a/", "--dst-prefix=b/"] + (ignoreSpace ? ["-w"] : [])
+        let common = ["--no-color", "--no-ext-diff", "--no-textconv", "-U\(max(0, context))", "--src-prefix=a/", "--dst-prefix=b/"]
+            + (ignoreSpace ? ["-w"] : [])
         var a = ["diff"] + common
         switch source {
         case .unstaged: break

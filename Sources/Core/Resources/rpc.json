@@ -4946,6 +4946,14 @@
           }
         },
         {
+          "description" : "Unchanged lines around each change, 3 when nil (git's -U).",
+          "name" : "context",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
           "name" : "file",
           "required" : false,
           "schema" : {

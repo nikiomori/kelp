@@ -80,6 +80,26 @@ extension AppOfItsOwn {
         #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
+    /// The unchanged lines between two changes open in place with a click on their capsule.
+    @Test func aGapBetweenChangesOpensInPlace() async throws {
+        let lines = (1...40).map { "line \($0)" }
+        let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }
+        var changed = lines; changed[2] = "top"; changed[35] = "bottom"
+        try rig.write("f.txt", changed.joined(separator: "\n") + "\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        guard case .diff(.gap(let f, let from, let n, _))? = vc.rows.first(where: { if case .diff(.gap) = $0 { true } else { false } }) else {
+            Issue.record("no gap"); return
+        }
+        let button = try #require(vc.gapRow(file: f, from: from, lines: n, context: "").subviews.first as? NSButton)
+        button.performClick(nil)
+        for _ in 0..<100 where vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
+        #expect(vc.rows.contains { if case .diff(.line(_, let l)) = $0 { l.text == "line 20" && l.kind == .context } else { false } })
+    }
+
     @Test func aHunksStageButtonStagesThatHunk() async throws {
         let lines = (1...40).map { "line \($0)" }
         let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }
