@@ -59,6 +59,7 @@ final class Clients: Sendable {
     func everyone() -> [Connection] { state.withLock { Array($0.all.values) } }
     func peer(_ id: Int) -> String? { state.withLock { $0.all[id]?.peer } }
     func peerPID(_ id: Int) -> pid_t? { state.withLock { $0.all[id]?.peerPID } }
+    func connection(_ id: Int) -> Connection? { state.withLock { $0.all[id] } }
     func setRaw(_ id: Int, _ on: Bool) { state.withLock { s in if on { s.raw.insert(id) } else { s.raw.remove(id) } } }
 
     /// Whether `id` is still connected (see the attach above).

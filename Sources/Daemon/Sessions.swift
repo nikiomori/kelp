@@ -117,6 +117,7 @@ final class Sessions: Sendable {
         var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
         var parent: String?   // the agent that started it
         var startedBy: String?   // the agent whose line shows this command
+        var origin: String?   // restart: the old one's; else the caller's (`Sessions.asker`)
 
         /// A terminal size: anything out of range is clamped, nothing (or 0) is 120 × 32.
         static func size(cols: Int?, rows: Int?) -> (cols: UInt16, rows: UInt16) {
@@ -136,6 +137,19 @@ final class Sessions: Sendable {
         }
         return nil
     }
+
+    /// The session the program on `conn` runs in: its process tree, looked up once per connection (`Connection.owner`).
+    func caller(_ conn: Int) -> String? {
+        guard let c = clients.connection(conn) else { return nil }
+        if let known = c.owner.withLock({ $0 }) { return known }
+        let found = c.peerPID.flatMap { session(running: $0) }   // not under the connection's lock: this takes the sessions'
+        c.owner.withLock { $0 = .some(found) }
+        return found
+    }
+
+    /// The session whose program the call being answered came from (`caller`), bound around each handler and carried
+    /// into `offload`: whatever it starts is that session's (`Session.origin`), on every path that starts one.
+    @TaskLocal static var asker: String?
 
     @discardableResult
     func spawn(cwd: String, manifest: AgentManifest, worktreeId: String?, _ o: Launch = Launch()) throws -> Session {
@@ -164,6 +178,7 @@ final class Sessions: Sendable {
         rec.profile = o.profile
         rec.parent = o.parent
         rec.startedBy = o.startedBy
+        rec.origin = o.origin ?? Self.asker
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
         if !local, o.onHostInTmux || !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
         let env = launchEnv(manifest, rec)

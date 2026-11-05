@@ -51,8 +51,9 @@ The API's version is `info.version` in the schema, now **1.0.0**.
    doesn't know.
 3. **`x-internal` is outside the promise.** Those methods are for Kelp's window and tools (layouts, watches, the UI relay)
    and may change in any release.
-4. **What a session may do is limited by where it runs.** A program inside an agent's session acts only on that agent and the
-   agents it started; an agent's question is answered only from outside every agent's session (your terminal, the window).
-   See `docs/architecture.md`.
+4. **What a session may do is limited by where it runs.** A program inside an agent's session reads, types into and stops only
+   that agent and the sessions it started (any session a call names counts); what it starts is its own, as the daemon sees
+   the caller's process, whatever `parent` says. An agent's question is answered only from outside every agent's session
+   (your terminal, the window). See `docs/architecture.md`.
 
 A change that has to break this would be version 2.0.0, said in the release notes, with the old shape kept for a release.

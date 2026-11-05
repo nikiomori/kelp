@@ -82,6 +82,7 @@ extension SessionRestart: Handled {
         var o = Sessions.Launch(self); o.title = old.titleManual ? old.title : nil
         o.parent = old.parent
         o.startedBy = old.startedBy
+        o.origin = old.origin
         if o.profile == nil { o.profile = old.profile }   // the same account unless told otherwise
         // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.

@@ -174,6 +174,8 @@ extension WorktreeArchive: Handled {
 
 extension WorktreeRemove: Handled {
     var ends: Ending? { .workspace(id) }
+    var inWorkspace: String? { id }   // one with no sessions ends none: still not another's to remove
+    var notForAgents: String? { force == true || dropCommits == true ? "Only the user removes a workspace with its changes or commits." : nil }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
         if workspaces.isMain(w, r) { try workspaces.removeDesk(w, r); return Done() }

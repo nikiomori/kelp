@@ -388,6 +388,42 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await sessions(r).first { $0.id == other.id }?.status != .exited)   // not restarted
 }
 
+/// What an agent starts is its own whatever it sends: the daemon takes the parent from the caller's process, so it can't
+/// name another agent as its child's parent (whose reports would reach that agent with Enter), and a session it starts
+/// with `--outlive` is still its own (`origin`), not a terminal free of every rule. Any session a call names counts, a read
+/// too; and what the app or a routine would start for nobody isn't an agent's to ask for.
+@Test func anAgentCantStartSessionsOutsideItsOwnLine() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let wt = r.wt.id, o = other.id
+    let script = "zmodload zsh/net/socket; \(call); read go; "
+        + #"r parent session.create "{\"worktreeId\":\"\#(wt)\",\"agent\":\"claude\",\"parent\":\"\#(o)\"}"; "#
+        + #"r outlive session.create "{\"worktreeId\":\"\#(wt)\",\"command\":\"cat\"}"; "#
+        + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
+        + #"r close ui.command "{\"id\":\"editor.closeTab\"}"; r term ui.open "{\"uri\":\"terminal:?cmd=true\"}"; "#
+        + #"r routine routine.delete "{\"id\":\"x\"}"; "#
+        + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
+    let me = try await session(r, "/bin/zsh -c '\(script)'")
+    for id in [me.id, other.id] {
+        let ls = try #require(r.d.sessions.existing(id))
+        _ = ls.update { $0.agent = "claude" }
+        r.d.sessions.publish(ls)
+        #expect(try await waitFor { try r.d.sessions.store.session(id)?.agent == "claude" })
+    }
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<drop>") })
+    let out = try await r.c.call(SessionRead(id: me.id))
+    for refused in ["parent", "read", "markRead"] { #expect(out.contains(try Regex("<\(refused)> [^\n]*acts only on its own session")), "\(refused)") }
+    #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
+    #expect(out.contains(#/<routine> [^\n]*routine is the user's/#) && out.contains(#/<drop> [^\n]*Only the user removes/#))
+    #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
+    let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
+    #expect(outlived.parent == nil && outlived.startedBy == nil)   // still not its child, nor on its line
+    #expect(try r.d.sessions.lineage(outlived.id).contains { $0.id == me.id })
+}
+
 /// An agent that ended unread is read at a glance too: its record, as it isn't live any more.
 @Test func anEndedSessionCanBeMarkedRead() async throws {
     let r = try await rig(); defer { r.d.stop() }

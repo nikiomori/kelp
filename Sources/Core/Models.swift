@@ -152,6 +152,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// The agent a command belongs to (`kelp session new --cmd` inside it): the line under that agent's terminal shows it,
     /// instead of a tab and a sidebar row of its own. Unlike a child, it goes on when the agent ends, and gets a tab then.
     public var startedBy: String?
+    /// The session whose program asked for it (`session.create` from inside one, `--outlive` too), as the daemon saw the
+    /// caller's process, never from what it sent: what an agent starts stays the agent's to act on, and no more than that.
+    public var origin: String?
     /// Whether Claude Code got Kelp's browser skill, and why ("on · Vite in package.json"); nil for agents without skills.
     public var browser: String?
     /// Working, but nothing heard from it since then (no hook, or for an agent without hooks no output) for minutes: the

@@ -40,6 +40,8 @@ protocol Answered: RPCMethod {
     /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
     /// started, never the user's other agents.
     var ends: Ending? { get }
+    /// Why an agent, or a program it runs, may not call it at all (a routine starts agents of the user's later): nil if it may.
+    var notForAgents: String? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -51,6 +53,7 @@ extension Answered {
     var answersQuestion: Bool { false }
     var inWorkspace: String? { nil }
     var ends: Ending? { nil }
+    var notForAgents: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -108,7 +111,9 @@ extension Handled {
 
     /// On the calling thread: an in-order method's, on the reader thread.
     static func answerNow(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Data {
-        try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+        try Sessions.$asker.withValue(d.sessions.caller(conn)) {
+            try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+        }
     }
     static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data { try await d.offload(quick: quick) { try answerNow(p, d, conn: conn) } }
 }
@@ -126,7 +131,9 @@ extension AsyncHandled {
     func handle(_ s: Service, conn: Int) async throws -> Result { try await handle(s) }
 
     static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
-        try JSONEncoder().encode(await checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+        try await Sessions.$asker.withValue(d.sessions.caller(conn)) {
+            try JSONEncoder().encode(await checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+        }
     }
 }
 
@@ -145,23 +152,29 @@ enum Methods {}
 extension Daemon {
     /// Whether the client on `conn` may make this call: the one place every path asks (`checked`, a session's input).
     /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
-    /// a terminal it started, types into, stops and answers for only the sessions that agent started; the user's own
-    /// terminals drive any. Limit: a program that left the tree (a double fork, `nohup … &`) is taken for one outside every
-    /// session, and an agent typed into a plain terminal by hand counts as that terminal; macOS doesn't show another
-    /// process's environment (its KELP_SESSION) to tell, and any program of the user's may call anyway (the socket is theirs).
+    /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types
+    /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
+    /// counts, so a method needn't remember to say so. The user's own terminals drive any. Limit: a program that left the
+    /// tree (a double fork, `nohup … &`, a tmux server) is taken for one outside every session, and an agent typed into a
+    /// plain terminal by hand counts as that terminal; macOS doesn't show another process's environment (its
+    /// KELP_SESSION) to tell, and an agent can still leave a program for the user to run (a file, an extension): the
+    /// socket, and the files, are the user's.
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion || m.inWorkspace != nil || m.ends != nil,
-              let pid = clients.peerPID(conn), let own = sessions.session(running: pid) else { return }
+        guard let own = sessions.caller(conn) else { return }
         if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
-        guard try sessions.lineage(own).contains(where: \.isAgent) else { return }
+        let line = try sessions.lineage(own)
+        guard line.contains(where: \.isAgent) else { return }
+        if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
         }
-        if let id = m.actsOn, id != own, try !sessions.lineage(id).contains(where: { $0.id == own }) {
-            throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
+        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where id != own {
+            guard try sessions.lineage(id).contains(where: { $0.id == own }) else {
+                throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
+            }
         }
-        if let w = m.inWorkspace, try sessions.lineage(own).allSatisfy({ $0.worktreeId != w }) {
+        if let w = m.inWorkspace, try !sessions.works(own, in: w) {
             throw RPCError.invalidParams("An agent works only in its own workspace.")
         }
         if let e = m.ends, try sessions.ending(e).contains(where: { s in try !sessions.lineage(s).contains { $0.id == own } }) {
@@ -322,11 +335,11 @@ final class Slots: Sendable {
 
     /// `work` on a thread of its own once it has a slot (`Daemon.offload`); `quick`, at once, with no slot and no program.
     func run<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {
-        let slots = quick ? quickSlots : self
+        let slots = quick ? quickSlots : self, asker = Sessions.asker   // a thread of its own doesn't inherit it
         if let slots, await !slots.acquire() { throw RPCError.updating }
         return try await Self.onThread {
             defer { slots?.release() }
-            return quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work)
+            return Sessions.$asker.withValue(asker) { quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work) }
         }
     }
 
@@ -471,8 +484,14 @@ extension SessionContextWindow: Handled {
 }
 
 extension RoutineList: Handled { func handle(_ w: Workspaces) throws -> RoutinesEvent { try w.routines.list() } }
-extension RoutineSet: Handled { func handle(_ w: Workspaces) throws -> Routine { try w.routines.set(routine) } }
+extension RoutineSet: Handled {
+    /// A routine starts agents later, from nobody's session: what an agent set up would run as the user's own.
+    static let theUsers = "A routine is the user's to set up: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
+    var notForAgents: String? { Self.theUsers }
+    func handle(_ w: Workspaces) throws -> Routine { try w.routines.set(routine) }
+}
 extension RoutineDelete: Handled {
+    var notForAgents: String? { RoutineSet.theUsers }
     func handle(_ w: Workspaces) throws -> Done {
         try w.routines.delete(id)
         return Done()
@@ -526,6 +545,22 @@ extension Data {
 
 extension Sessions {
     /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
+    /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them): what an agent's call
+    /// may reach is decided by what it names, not by each method remembering to say.
+    func named(by m: any Answered) throws -> [String] {
+        let ids = Mirror(reflecting: m).children.flatMap { c -> [String] in
+            if let s = c.value as? String { return [s] }
+            return c.value as? [String] ?? []
+        }
+        return try ids.filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }
+    }
+
+    /// Whether `w` is the workspace of `own`, of one that started it, or of one it started: an agent works there only.
+    func works(_ own: String, in w: String) throws -> Bool {
+        if try lineage(own).contains(where: { $0.worktreeId == w }) { return true }
+        return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
+    }
+
     func ending(_ e: Ending) throws -> [String] {
         let desks: Set<String> = switch e {
         case .workspace(let w): [w]

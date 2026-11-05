@@ -186,6 +186,7 @@ public final class Store: Sendable {
         }
         m.registerMigration("diffComment.author") { db in try db.alter(table: "diffComment") { t in t.add(column: "author", .text) } }
         m.registerMigration("diffComment.onCommit") { db in try db.alter(table: "diffComment") { t in t.add(column: "onCommit", .text) } }
+        m.registerMigration("session.origin") { db in try db.alter(table: "session") { t in t.add(column: "origin", .text) } }
         return m
     }
 

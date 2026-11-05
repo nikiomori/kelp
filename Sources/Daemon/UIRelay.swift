@@ -19,13 +19,27 @@ extension UIPublish: Handled {
 extension UIStateGet: Handled { func handle(_ clients: Clients) throws -> JSONValue { clients.uiState } }
 
 extension UIOpen: Handled {
+    /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.
+    var notForAgents: String? {
+        ["terminal:", "agent:"].contains { uri.hasPrefix($0) } ? "An agent starts terminals and agents with `kelp session new`, which keeps them its own." : nil
+    }
     func handle(_ clients: Clients) throws -> Delivered {
         if let split, split != "right", split != "down" { throw RPCError.invalidParams("split must be \"right\" or \"down\"") }
         return try clients.relay(UIEvent(self))
     }
 }
 
-extension UICommand: Handled { func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) } }
+extension UICommand: Handled {
+    /// What the app does for the user that an agent mustn't: close another agent's tab (which ends it without a question
+    /// once it's done), type into the agent on screen, or start a terminal of nobody's. Limit: a list of the app's command
+    /// ids; a new one that ends or runs something goes here too.
+    static let closesOrRuns: Set<String> = ["editor.closeTab", "workspace.close", "scripts.run", "scripts.test", "scripts.stop",
+                                            "editor.runFile", "editor.testAtCursor", "editor.sendToAgent", "workbench.restartService"]
+    var notForAgents: String? {
+        Self.closesOrRuns.contains(id) ? "“\(id)” is the user's to run: an agent ends and starts sessions with `kelp session`." : nil
+    }
+    func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) }
+}
 
 /// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
 extension UIBrowser: AsyncHandled {

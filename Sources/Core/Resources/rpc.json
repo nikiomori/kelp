@@ -2794,6 +2794,10 @@
             "$ref" : "#/components/schemas/LimitHit",
             "description" : "The plan limit that stopped it; nil again once it does anything else."
           },
+          "origin" : {
+            "description" : "The session whose program asked for it (`session.create` from inside one, `--outlive` too), as the daemon saw the caller's process, never from what it sent: what an agent starts stays the agent's to act on, and no more than that.",
+            "type" : "string"
+          },
           "parent" : {
             "description" : "The agent that started it (`kelp session new --agent`): it hears how this one is doing and takes it along when it ends.",
             "type" : "string"
