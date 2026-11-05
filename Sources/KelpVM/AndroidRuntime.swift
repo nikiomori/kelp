@@ -1,0 +1,227 @@
+import Foundation
+import Core
+
+/// An Android machine: the SDK's emulator (Hypervisor.framework, an arm64 image at full speed) on an AVD of its own in the
+/// machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's AVDs stay theirs. Without a window unless someone asks to see
+/// it (`show` starts it again with one, from its snapshot). As a Linux or macOS machine: kelpd's `start` (each command)
+/// counts as use; idle 2 minutes, its CPU stops (`adb emu avd stop`); 10, it saves its quickboot snapshot and quits.
+@MainActor
+final class AndroidRuntime {
+    let folder: URL, machine: VMMachine
+    private(set) var state: VMState
+    private var emulator: Process?
+    private var port = 0
+    private var windowed = false
+    private var lastUse = Date()
+    private var ready: [(String?) -> Void] = []
+    private var sources: [DispatchSourceProtocol] = []
+
+    private var serial: String { "emulator-\(port)" }
+    private var avd: URL { folder.appendingPathComponent("avd") }
+    private var snapshot: URL { avd.appendingPathComponent("\(machine.name).avd/snapshots/default_boot") }
+
+    init(folder: URL, machine: VMMachine) {
+        self.folder = folder
+        self.machine = machine
+        state = .off
+        state = FileManager.default.fileExists(atPath: snapshot.path) ? .sleeping : .off
+    }
+
+    func listen() {
+        let lock = open(folder.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { log("another kelp-vm runs \(machine.name)"); exit(0) }
+        let fd: Int32
+        do { fd = try Unix.listen(folder.appendingPathComponent("ctl.sock").path) } catch { log("can't listen: \(error)"); exit(1) }
+        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
+        src.setEventHandler { [weak self] in
+            let c = accept(fd, nil, nil)
+            guard c >= 0 else { return }
+            MainActor.assumeIsolated { self?.control(c) }   // a read source on the main queue
+        }
+        src.resume()
+        sources.append(src)
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.tick() } }   // main run loop
+        RunLoop.main.add(timer, forMode: .common)
+        for sig in [SIGTERM, SIGINT] {
+            signal(sig, SIG_IGN)
+            let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            s.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.sleep { _ in exit(0) } } }   // the main queue
+            s.resume()
+            sources.append(s)
+        }
+        log("ready: \(machine.name) (Android), \(state.rawValue)")
+    }
+
+    private func control(_ fd: Int32) {
+        Thread.detachNewThread {
+            var line = Data(), byte: UInt8 = 0
+            while line.count < 65536, read(fd, &byte, 1) == 1, byte != 0x0A { line.append(byte) }
+            let request = try? JSONDecoder().decode(VMHelper.Request.self, from: line)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let request else { return self.reply(fd, "can't read the request") }
+                    self.handle(request) { self.reply(fd, $0) }
+                }
+            }
+        }
+    }
+
+    private func reply(_ fd: Int32, _ error: String?) {
+        let up = [.running, .paused, .starting].contains(state)
+        let r = VMHelper.Reply(state: state, connections: 0, memoryMiB: up ? machine.memoryMiB : nil, error: error,
+                               serial: state == .running ? serial : nil)
+        if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
+        close(fd)
+    }
+
+    private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+        switch r.op {
+        case .status: done(nil)
+        case .start: lastUse = Date(); wake(done)
+        case .sleep: sleep(done)
+        case .stop: stop { done(nil) }
+        case .share: done("An Android machine shares no folders: adb push and pull copy files.")
+        case .show:
+            lastUse = Date()
+            guard !windowed || emulator == nil else { return done(nil) }
+            windowed = true
+            sleep { _ in self.wake(done) }   // from its snapshot, now with a window
+        case .quit:
+            done(nil)
+            stop { exit(0) }
+        }
+    }
+
+    // MARK: the emulator
+
+    private func wake(_ done: @escaping (String?) -> Void) {
+        switch state {
+        case .running: done(nil)
+        case .starting: ready.append(done)
+        case .paused:
+            Task {
+                _ = try? await adb(["emu", "avd", "start"])
+                state = .running
+                done(nil)
+            }
+        case .off, .sleeping, .error, .creating:
+            ready.append(done)
+            boot()
+        }
+    }
+
+    private func boot() {
+        guard let exe = AndroidSDK.emulator else { return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME.")) }
+        state = .starting
+        port = Self.freePort()
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: exe)
+        p.arguments = ["-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
+                       "-memory", "\(machine.memoryMiB)"] + (windowed ? [] : ["-no-window"])
+        var env = ProcessInfo.processInfo.environment
+        env["ANDROID_AVD_HOME"] = avd.path
+        if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
+        p.environment = env
+        let out = folder.appendingPathComponent("emulator.log")
+        FileManager.default.createFile(atPath: out.path, contents: nil)
+        if let h = try? FileHandle(forWritingTo: out) { p.standardOutput = h; p.standardError = h }
+        p.terminationHandler = { [weak self] ended in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {   // the main queue
+                    guard let self, self.emulator === ended else { return }
+                    self.emulator = nil
+                    if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
+                    if self.state != .sleeping { self.state = .off }
+                }
+            }
+        }
+        do { try p.run() } catch { return started(error) }
+        emulator = p
+        Task { await awaitBoot(since: Date()) }
+    }
+
+    /// Ready once Android says it finished booting.
+    private func awaitBoot(since: Date) async {
+        let first = !FileManager.default.fileExists(atPath: folder.appendingPathComponent("booted").path)
+        while state == .starting, emulator != nil {
+            if (try? await adb(["shell", "getprop", "sys.boot_completed"]))?.trimmingCharacters(in: .whitespacesAndNewlines) == "1" {
+                FileManager.default.createFile(atPath: folder.appendingPathComponent("booted").path, contents: nil)
+                return started(nil)
+            }
+            if Date().timeIntervalSince(since) > (first ? 600 : 180) { return started(VMError("Android didn't finish booting.")) }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+    }
+
+    private func started(_ error: Error?) {
+        if let error {
+            log("start failed: \(error.localizedDescription)")
+            emulator?.terminate()
+        }
+        state = error == nil ? .running : .error
+        lastUse = Date()
+        let waiting = ready; ready = []
+        waiting.forEach { $0(error?.localizedDescription) }
+    }
+
+    /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was.
+    private func sleep(_ done: @escaping (String?) -> Void) {
+        guard let p = emulator, [.running, .paused].contains(state) else { return done(nil) }
+        Task {
+            if state == .paused { _ = try? await adb(["emu", "avd", "start"]) }
+            state = .sleeping
+            _ = try? await adb(["emu", "kill"])
+            for _ in 0..<120 where p.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
+            if p.isRunning { p.terminate() }
+            log("asleep")
+            done(nil)
+        }
+    }
+
+    /// Quits it and forgets its snapshot: the next start boots afresh.
+    private func stop(_ done: @escaping () -> Void) {
+        let forget = { [self] in
+            try? FileManager.default.removeItem(at: snapshot)
+            state = .off
+            done()
+        }
+        guard let p = emulator else { return forget() }
+        Task {
+            _ = try? await adb(["emu", "kill"])
+            for _ in 0..<120 where p.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
+            if p.isRunning { p.terminate() }
+            forget()
+        }
+    }
+
+    private func tick() {
+        let idle = Date().timeIntervalSince(lastUse)
+        if state == .running, !windowed, idle > Runtime.pauseAfter {
+            Task { if (try? await adb(["emu", "avd", "stop"])) != nil, state == .running { state = .paused; log("paused") } }
+        } else if state == .paused, idle > Runtime.sleepAfter {
+            sleep { _ in }
+        }
+    }
+
+    private func adb(_ args: [String]) async throws -> String {
+        guard let adb = AndroidSDK.adb else { throw VMError("No adb: the Android SDK's platform-tools.") }
+        let out = try await Subprocess.run([adb, "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 30)
+        guard out.status == 0 else { throw VMError(String(decoding: out.stderr, as: UTF8.self)) }
+        return String(decoding: out.stdout, as: UTF8.self)
+    }
+
+    /// An even console port (5554–5680) with it and the next free on this Mac: where adb finds emulators.
+    nonisolated static func freePort() -> Int {
+        func taken(_ port: Int) -> Bool {
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            defer { close(fd) }
+            var a = sockaddr_in()
+            a.sin_family = sa_family_t(AF_INET); a.sin_port = UInt16(port).bigEndian; a.sin_addr.s_addr = inet_addr("127.0.0.1")
+            let r = withUnsafePointer(to: &a) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+            }
+            return r == 0
+        }
+        return stride(from: 5600, through: 5680, by: 2).first { !taken($0) && !taken($0 + 1) } ?? 5600
+    }
+}

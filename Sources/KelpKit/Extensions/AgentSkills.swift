@@ -33,8 +33,9 @@ enum AgentSkills {
             body: artifactsGuide)
         // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
         put("kelp-vm", on: s.bool("agents.skills.vm") != false,
-            description: "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and click a Mac app, "
-                + "in Kelp, the IDE this session runs in: Linux builds and tests, servers and scripts kept off the Mac, a Mac app's UI. "
+            description: "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and tap a Mac "
+                + "or Android app, in Kelp, the IDE this session runs in: Linux builds and tests, servers and scripts kept off the Mac, "
+                + "a Mac app's UI, an Android app on an emulator. "
                 + "kelp vm run <name> -- <command> runs it there, in this project's folder at the same path.",
             body: vmGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
@@ -167,6 +168,13 @@ enum AgentSkills {
         - Look again after each step that changes the screen. The user sees it live with `kelp vm show <name>`.
         - "Kelp Guest isn't running" or a permission error: tell the user to open the machine's window (`kelp vm show <name>`)
           and turn Kelp Guest on in Privacy & Security (Screen Recording and Accessibility). Don't work around it.
+
+        ## An Android machine
+
+        An emulator of the user's Android SDK, the same commands through adb: `kelp vm run <name> -- <command>` is Android's
+        shell (am start, pm list packages, logcat -d), `kelp vm install <name> app.apk`, then `ui`, `press`, `screenshot`,
+        `click X Y` (its screen's pixels, 1080 × 2400), `type`, `key <name> back|home|enter|appswitch`, `scroll`, `drag`.
+        It shares no folders: `adb push` isn't needed for an apk, `install` takes the file from here.
 
         """
 

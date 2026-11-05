@@ -53,7 +53,7 @@ struct MachineView: View {
                 Text(summary(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             }
             Spacer(minLength: 8)
-            if info?.machine.os == "macos" {
+            if let os = info?.machine.os, os != "linux" {
                 Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
                     .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             }
@@ -236,7 +236,7 @@ struct MachineView: View {
             (String(localized: "Account"), m.user),
             (String(localized: "Intel programs"), m.rosetta ? String(localized: "Through Rosetta") : String(localized: "Off")),
             (String(localized: "Address"), detail?.address ?? "—")
-        ]
+        ].filter { m.os != "android" || [String(localized: "Image"), String(localized: "Processors"), String(localized: "Memory")].contains($0.0) }
         return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
             ForEach(rows, id: \.0) { r in
                 GridRow {

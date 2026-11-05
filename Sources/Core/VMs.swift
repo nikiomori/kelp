@@ -162,7 +162,8 @@ public struct VMImage: Sendable, Equatable {
         VMImage(id: "debian-13", title: "Debian 13",
                 url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
                 sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
-        VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos")
+        VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos"),
+        VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android")
     ]
     public static func named(_ id: String) -> VMImage? { all.first { $0.id == id } }
 }
@@ -183,8 +184,11 @@ public enum VMHelper {
         public var error: String?
         /// `share`: its slot, tag `kelp<slot>` inside.
         public var slot: Int?
-        public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil) {
+        /// An Android machine's adb serial while its emulator runs ("emulator-5600").
+        public var serial: String?
+        public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil, serial: String? = nil) {
             self.state = state; self.connections = connections; self.memoryMiB = memoryMiB; self.error = error; self.slot = slot
+            self.serial = serial
         }
     }
 }

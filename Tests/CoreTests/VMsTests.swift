@@ -94,3 +94,17 @@ import Testing
     let check = try Subprocess.run(["/bin/sh", "-n", "-c", p + "true"], cwd: "/", env: [:], timeLimit: 10)
     #expect(check.status == 0)
 }
+
+@Test func anAndroidScreenReadsAsLinesWithRefs() {
+    let xml = """
+        <?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation="0">\
+        <node index="0" text="" class="android.widget.FrameLayout" clickable="false" bounds="[0,0][1080,2400]">\
+        <node index="0" text="Sign in" resource-id="com.app:id/login" class="android.widget.Button" clickable="true" bounds="[96,1180][984,1312]"/>\
+        <node index="1" text="" class="android.widget.EditText" clickable="true" bounds="[96,900][984,1020]"/>\
+        </node></hierarchy>
+        """
+    let ui = AndroidSDK.ui(xml)
+    #expect(ui.text == "- button \"Sign in\" #login [ref=e1] (96,1180 888×132)\n- edittext \"\" [ref=e2] (96,900 888×120)")
+    #expect(ui.centers["e1"]! == (540, 1246))
+    #expect(AndroidSDK.inputText("a b;$(x)") == #"a%sb\;\$\(x\)"#)
+}

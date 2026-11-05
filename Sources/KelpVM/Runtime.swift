@@ -29,7 +29,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     /// Its screen, when someone asked to see it (`show`): while it's open the machine counts as in use.
     private var window: NSWindow?
 
-    static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
+    nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { folder.appendingPathComponent("state.vzsave") }
     private func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
 

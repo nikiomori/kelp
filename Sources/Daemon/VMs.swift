@@ -41,7 +41,7 @@ struct VMService: Sendable {
 
     /// What runs in it, read over its own connection, which neither wakes it nor counts as use; nil unless it runs.
     func detail(_ name: String) -> VMDetail? {
-        guard status(name)?.state == .running else { return nil }
+        guard status(name)?.state == .running, (FileManager.default.fileExists(atPath: file(name, "avd").path)) == false else { return nil }   // Android: none
         let out: Subprocess.Output
         do {
             out = try Subprocess.run(["/usr/bin/ssh", "-F", file(name, "ssh_config").path, "-T", "-o", "BatchMode=yes", name + "-own", "sh"],
@@ -103,7 +103,7 @@ struct VMService: Sendable {
             try startHelper(m)
             try check(ask(name, .init(op: .start), wait: 620))
         case .show:
-            guard m.os == "macos" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
+            guard m.os != "linux" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
             try admit(m)
             try startHelper(m)
             try check(ask(name, .init(op: .show), wait: 180))
@@ -118,6 +118,14 @@ struct VMService: Sendable {
     /// no `cwd`: its home folder, nothing shared.
     func connect(_ name: String, cwd: String?) throws -> VMConnection {
         let m = try ready(name)
+        if m.os == "android" {   // adb to its emulator, booted or woken first
+            try admit(m)
+            try startHelper(m)
+            let r = try ask(name, .init(op: .start), wait: 620)
+            try check(r)
+            guard let adb = AndroidSDK.adb, let serial = r.serial else { throw RPCError.internalError("\(name)'s emulator has no adb serial") }
+            return VMConnection(ssh: [adb, "-s", serial], prefix: "")
+        }
         let ssh = ["/usr/bin/ssh", "-F", file(name, "ssh_config").path, name]
         guard let cwd else {
             try admit(m)
@@ -248,12 +256,12 @@ struct VMService: Sendable {
         }
         let cores = ProcessInfo.processInfo.activeProcessorCount, gib = Int(ProcessInfo.processInfo.physicalMemory >> 30)
         let mac = image.os == "macos"
-        let cpus = r.cpus ?? (mac ? 4 : 2), memory = r.memory ?? (mac ? 6 : 2), disk = r.disk ?? (mac ? 64 : 32)
+        let cpus = r.cpus ?? (mac ? 4 : 2), memory = r.memory ?? (mac ? 6 : 2), disk = r.disk ?? (mac ? 64 : image.os == "android" ? 8 : 32)
         guard (1...cores).contains(cpus), (1...max(1, gib / 2)).contains(memory), (8...2048).contains(disk) else {
             throw RPCError.invalidParams("--cpus 1–\(cores), --memory 1–\(max(1, gib / 2)) GB, --disk 8–2048 GB.")
         }
         let m = VMMachine(name: r.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
-                          user: VMs.user(NSUserName()), rosetta: !mac)
+                          user: VMs.user(NSUserName()), rosetta: image.os == "linux")
         let f = folder(m.name)
         if failure(m.name) != nil { quit(m.name); try FileManager.default.removeItem(at: f) }   // an earlier try's remains
         try Paths.ensure(root)
@@ -263,7 +271,13 @@ struct VMService: Sendable {
         chmod(f.path, 0o700)
         step(m, "Getting \(image.title)")
         try JSONEncoder().encode(m).write(to: file(m.name, "machine.json"))
-        Task.detached { if mac { await self.makeMac(m) } else { await self.make(m, image) } }
+        Task.detached {
+            switch image.os {
+            case "macos": await self.makeMac(m)
+            case "android": await self.makeAndroid(m)
+            default: await self.make(m, image)
+            }
+        }
         return info(m)
     }
 

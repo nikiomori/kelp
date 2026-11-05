@@ -51,7 +51,7 @@ extension AppModel {
     func machineLine(_ v: VMInfo) -> String {
         switch v.state {
         case .creating, .error: return v.detail ?? ""
-        case .sleeping: return v.machine.os == "macos" ? String(localized: "Wakes in a few seconds") : String(localized: "Wakes in under a second")
+        case .sleeping: return v.machine.os == "linux" ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
         case .off: return String(localized: "Boots in a few seconds")
         default:
             var parts: [String] = []
@@ -71,6 +71,7 @@ extension VMImage {
         case let i where i.hasPrefix("ubuntu"): ("U", NSColor(hex: 0xE95420))
         case let i where i.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
         case "macos": ("", NSColor(hex: 0x5A6B8C))
+        case "android": ("", NSColor(hex: 0x2E9E5B))
         default: (String(title.prefix(1)), .systemGray)
         }
     }
