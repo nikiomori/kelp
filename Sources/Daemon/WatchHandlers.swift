@@ -71,12 +71,18 @@ extension Daemon {
             } catch { e = FilesEvent(worktree: k.key, error: message(error)) }
             return (line(e), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
         case .artifacts:
-            // Read on this Mac: a remote project's folder here holds only its marker.
-            var items: [ArtifactItem] = []
+            // Read on this Mac: a remote project's folder here holds only its marker. Every page is read, so off the pool;
+            // a failed read sends nothing, and the panel keeps what it had rather than going empty.
+            let store = store, remotes = remotes
             do {
-                if let w = try store.worktree(k.key), remotes.of(w.path) == nil { items = Artifacts.items(root: w.path) }
-            } catch { Log.session.error("reading workspace \(k.key) for its artifacts: \(error)") }
-            return (line(ArtifactsEvent(worktree: k.key, items: items)), nil)
+                let items = try await offload {
+                    try store.worktree(k.key).flatMap { remotes.of($0.path) == nil ? Artifacts.items(root: $0.path) : [] } ?? []
+                }
+                return (line(ArtifactsEvent(worktree: k.key, items: items)), nil)
+            } catch {
+                Log.session.error("reading workspace \(k.key) for its artifacts: \(error)")
+                return (nil, nil)
+            }
         case .host, .hostDetail:
             let again: TimeInterval = k.topic == .host ? 10 : 2
             do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch { return (nil, again) }
