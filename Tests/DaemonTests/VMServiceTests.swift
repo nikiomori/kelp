@@ -63,3 +63,19 @@ import Testing
         #expect(VMControl(name: "x", action: .start).notForAgents == nil)
     }
 }
+
+/// simctl's list isn't in age order: the plain iPhone with the highest number, on the newest iOS.
+@Test func theNewestIPhoneOnTheNewestIOS() throws {
+    let json = """
+        {"runtimes": [
+          {"identifier": "iOS-26-0", "platform": "iOS", "version": "26.0", "isAvailable": true, "supportedDeviceTypes": []},
+          {"identifier": "iOS-27-0", "platform": "iOS", "version": "27.0", "isAvailable": true, "supportedDeviceTypes": [
+            {"identifier": "iPhone-17", "name": "iPhone 17", "productFamily": "iPhone"},
+            {"identifier": "iPhone-11", "name": "iPhone 11", "productFamily": "iPhone"},
+            {"identifier": "iPhone-17-Pro", "name": "iPhone 17 Pro", "productFamily": "iPhone"},
+            {"identifier": "iPad-Air", "name": "iPad Air", "productFamily": "iPad"}]},
+          {"identifier": "watchOS-12", "platform": "watchOS", "version": "12.0", "isAvailable": true}]}
+        """
+    let pick = try VMService.newestIPhone(json)
+    #expect(pick.runtime == "iOS-27-0" && pick.device == "iPhone-17")
+}

@@ -40,9 +40,11 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
     catch { log("can't read the machine: \(error)"); exit(1) }
     // An Android machine is the SDK's emulator, not Virtualization's: a runtime of its own, the same protocol.
     let android = machine.os == "android" ? AndroidRuntime(folder: folder, machine: machine) : nil
-    let runtime: Runtime? = android == nil ? try? Runtime(folder: folder) : nil
-    guard android != nil || runtime != nil else { log("can't start \(machine.name)"); exit(1) }
+    let ios = machine.os == "ios" ? IOSRuntime(folder: folder, machine: machine) : nil
+    let runtime: Runtime? = android == nil && ios == nil ? try? Runtime(folder: folder) : nil
+    guard android != nil || ios != nil || runtime != nil else { log("can't start \(machine.name)"); exit(1) }
     android?.listen()
+    ios?.listen()
     runtime?.listen()
     // AppKit's run loop, not dispatchMain() (that ends the main thread, and the main queue, the VM's and MainActor's, would
     // run elsewhere): a macOS machine's screen is a window.

@@ -211,7 +211,7 @@ final class AndroidRuntime {
     }
 
     /// An even console port (5554–5680) with it and the next free on this Mac: where adb finds emulators.
-    nonisolated static func freePort() -> Int {
+    nonisolated static func freePort(from start: Int = 5600) -> Int {
         func taken(_ port: Int) -> Bool {
             let fd = socket(AF_INET, SOCK_STREAM, 0)
             defer { close(fd) }
@@ -222,6 +222,6 @@ final class AndroidRuntime {
             }
             return r == 0
         }
-        return stride(from: 5600, through: 5680, by: 2).first { !taken($0) && !taken($0 + 1) } ?? 5600
+        return stride(from: start, through: start + 80, by: 2).first { !taken($0) && !taken($0 + 1) } ?? start
     }
 }

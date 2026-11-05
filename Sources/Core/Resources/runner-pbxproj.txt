@@ -1,0 +1,32 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+		A0000000000000000000001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		A0000000000000000000002 /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
+		A0000000000000000000003 /* KelpHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KelpHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000004 /* KelpRunner.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelpRunner.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000011 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001; };
+		A0000000000000000000012 /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002; };
+		A0000000000000000000020 = {isa = PBXGroup; children = (A0000000000000000000021, A0000000000000000000022, A0000000000000000000023); sourceTree = "<group>"; };
+		A0000000000000000000021 /* Host */ = {isa = PBXGroup; children = (A0000000000000000000001); path = Host; sourceTree = "<group>"; };
+		A0000000000000000000022 /* Runner */ = {isa = PBXGroup; children = (A0000000000000000000002); path = Runner; sourceTree = "<group>"; };
+		A0000000000000000000023 /* Products */ = {isa = PBXGroup; children = (A0000000000000000000003, A0000000000000000000004); name = Products; sourceTree = "<group>"; };
+		A0000000000000000000031 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000011); runOnlyForDeploymentPostprocessing = 0; };
+		A0000000000000000000032 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000012); runOnlyForDeploymentPostprocessing = 0; };
+		A0000000000000000000041 /* KelpHost */ = {isa = PBXNativeTarget; buildConfigurationList = A0000000000000000000061; buildPhases = (A0000000000000000000031); dependencies = (); name = KelpHost; productName = KelpHost; productReference = A0000000000000000000003; productType = "com.apple.product-type.application"; };
+		A0000000000000000000042 /* KelpRunner */ = {isa = PBXNativeTarget; buildConfigurationList = A0000000000000000000062; buildPhases = (A0000000000000000000032); dependencies = (A0000000000000000000051); name = KelpRunner; productName = KelpRunner; productReference = A0000000000000000000004; productType = "com.apple.product-type.bundle.ui-testing"; };
+		A0000000000000000000051 = {isa = PBXTargetDependency; target = A0000000000000000000041; targetProxy = A0000000000000000000052; };
+		A0000000000000000000052 = {isa = PBXContainerItemProxy; containerPortal = A0000000000000000000070; proxyType = 1; remoteGlobalIDString = A0000000000000000000041; remoteInfo = KelpHost; };
+		A0000000000000000000061 = {isa = XCConfigurationList; buildConfigurations = (A0000000000000000000071); defaultConfigurationName = Debug; };
+		A0000000000000000000062 = {isa = XCConfigurationList; buildConfigurations = (A0000000000000000000072); defaultConfigurationName = Debug; };
+		A0000000000000000000063 = {isa = XCConfigurationList; buildConfigurations = (A0000000000000000000073); defaultConfigurationName = Debug; };
+		A0000000000000000000071 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = dev.kelp.host; PRODUCT_NAME = KelpHost; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		A0000000000000000000072 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = dev.kelp.runner; PRODUCT_NAME = KelpRunner; GENERATE_INFOPLIST_FILE = YES; SWIFT_VERSION = 5.0; TEST_TARGET_NAME = KelpHost; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		A0000000000000000000073 = {isa = XCBuildConfiguration; buildSettings = {SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; }; name = Debug; };
+		A0000000000000000000070 /* Project */ = {isa = PBXProject; buildConfigurationList = A0000000000000000000063; compatibilityVersion = "Xcode 14.0"; mainGroup = A0000000000000000000020; productRefGroup = A0000000000000000000023; projectDirPath = ""; projectRoot = ""; targets = (A0000000000000000000041, A0000000000000000000042); };
+	};
+	rootObject = A0000000000000000000070;
+}

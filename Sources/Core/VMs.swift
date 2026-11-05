@@ -106,7 +106,11 @@ public struct VMDetailRead: InternalMethod {
 public struct VMConnection: Codable, Sendable, Equatable {
     public var ssh: [String]
     public var prefix: String
-    public init(ssh: [String], prefix: String) { self.ssh = ssh; self.prefix = prefix }
+    /// An iOS machine's: its simulator's UDID and its runner's port (`ssh` is then xcrun simctl).
+    public var device: String?, port: Int?
+    public init(ssh: [String], prefix: String, device: String? = nil, port: Int? = nil) {
+        self.ssh = ssh; self.prefix = prefix; self.device = device; self.port = port
+    }
 }
 
 /// The machines and their state.
@@ -163,7 +167,8 @@ public struct VMImage: Sendable, Equatable {
                 url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
                 sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
         VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos"),
-        VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android")
+        VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android"),
+        VMImage(id: "ios", title: "iOS", url: "", sums: "", member: "", os: "ios")
     ]
     public static func named(_ id: String) -> VMImage? { all.first { $0.id == id } }
 }
@@ -184,8 +189,10 @@ public enum VMHelper {
         public var error: String?
         /// `share`: its slot, tag `kelp<slot>` inside.
         public var slot: Int?
-        /// An Android machine's adb serial while its emulator runs ("emulator-5600").
+        /// An Android machine's adb serial while its emulator runs ("emulator-5600"); an iOS one's simulator UDID.
         public var serial: String?
+        /// An iOS machine's runner, on the Mac's loopback.
+        public var port: Int?
         public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil, serial: String? = nil) {
             self.state = state; self.connections = connections; self.memoryMiB = memoryMiB; self.error = error; self.slot = slot
             self.serial = serial

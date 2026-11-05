@@ -72,6 +72,7 @@ extension VMImage {
         case let i where i.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
         case "macos": ("", NSColor(hex: 0x5A6B8C))
         case "android": ("", NSColor(hex: 0x2E9E5B))
+        case "ios": ("", NSColor(hex: 0x3478F6))
         default: (String(title.prefix(1)), .systemGray)
         }
     }

@@ -3831,6 +3831,13 @@
       "VMConnection" : {
         "description" : "How to run something in a machine: `ssh` and its arguments up to the host, then the command line for the machine's shell, which puts the project folder at the same path inside and goes there.",
         "properties" : {
+          "device" : {
+            "description" : "An iOS machine's: its simulator's UDID and its runner's port (`ssh` is then xcrun simctl).",
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer"
+          },
           "prefix" : {
             "type" : "string"
           },

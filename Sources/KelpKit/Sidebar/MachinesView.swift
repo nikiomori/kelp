@@ -36,6 +36,7 @@ struct MachinesView: View {
             Group {
                 if v.machine.os == "macos" { Image(systemName: "apple.logo").font(.ui(12, weight: .semibold)) }
                 else if v.machine.os == "android" { Image(systemName: "smartphone").font(.ui(12, weight: .semibold)) }
+                else if v.machine.os == "ios" { Image(systemName: "iphone").font(.ui(12, weight: .semibold)) }
                 else { Text(mark.letter).font(.ui(11, weight: .bold)) }
             }
                 .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)

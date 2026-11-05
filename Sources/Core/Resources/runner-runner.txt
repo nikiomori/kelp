@@ -1,0 +1,157 @@
+import Network
+import XCTest
+
+/// Kelp's runner in an iOS simulator: a UI test that never ends, answering on 127.0.0.1:$KELP_PORT (the simulator shares
+/// the Mac's loopback) one JSON line per connection: {"op": "tap", "args": ["120", "300"], "app": "com.apple.mobilesafari"}.
+/// Coordinates are the screen's points, as its screenshots here are.
+final class KelpRunner: XCTestCase {
+    /// A failed action (a control that can't be tapped) is the request's error, not the end of the test, and of the runner.
+    override func record(_ issue: XCTIssue) { Server.failures.append(issue.compactDescription) }
+
+    func testServe() throws {
+        continueAfterFailure = true
+        let port = UInt16(ProcessInfo.processInfo.environment["KELP_PORT"] ?? "") ?? 8722
+        let server = try Server(port: port)
+        print("KELP-RUNNER-UP \(port)")
+        while true {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            server.drain()
+        }
+    }
+}
+
+final class Server: @unchecked Sendable {
+    /// What XCTest reported going wrong during the request being handled (main thread only).
+    nonisolated(unsafe) static var failures: [String] = []
+    private let listener: NWListener
+    private let lock = NSLock()
+    private var queue: [(request: [String: Any], connection: NWConnection)] = []
+    private var refs: [String: CGRect] = [:]
+    private var lastApp = "com.apple.springboard"
+
+    init(port: UInt16) throws {
+        let p = NWParameters.tcp
+        p.requiredInterfaceType = .loopback
+        listener = try NWListener(using: p, on: NWEndpoint.Port(rawValue: port) ?? 8722)
+        listener.newConnectionHandler = { [weak self] c in self?.accept(c) }
+        listener.start(queue: .global())
+    }
+
+    private func accept(_ c: NWConnection) {
+        c.start(queue: .global())
+        var buffer = Data()
+        func read() {
+            c.receive(minimumIncompleteLength: 1, maximumLength: 1 << 20) { [weak self] data, _, done, _ in
+                if let data { buffer.append(data) }
+                if let nl = buffer.firstIndex(of: 0x0A) ?? (done ? buffer.endIndex : nil) {
+                    let json = (try? JSONSerialization.jsonObject(with: buffer[..<nl])) as? [String: Any] ?? [:]
+                    self?.lock.withLock { self?.queue.append((json, c)) }
+                } else if !done { read() }
+            }
+        }
+        read()
+    }
+
+    /// On the main thread, where XCUITest acts.
+    func drain() {
+        let jobs = lock.withLock { () -> [(request: [String: Any], connection: NWConnection)] in defer { queue = [] }; return queue }
+        for (request, c) in jobs {
+            var reply: [String: Any]
+            Self.failures = []
+            do { reply = try handle(request) } catch { reply = ["error": "\(error)"] }
+            if let f = Self.failures.first { reply = ["error": f] }
+            var d = (try? JSONSerialization.data(withJSONObject: reply)) ?? Data()
+            d.append(0x0A)
+            c.send(content: d, completion: .contentProcessed { _ in c.cancel() })
+        }
+    }
+
+    private func handle(_ r: [String: Any]) throws -> [String: Any] {
+        let a = r["args"] as? [String] ?? []
+        if let id = r["app"] as? String, !id.isEmpty { lastApp = id }
+        let app = XCUIApplication(bundleIdentifier: lastApp)
+        let screen = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        func point(_ i: Int) throws -> XCUICoordinate {
+            guard a.count > i + 1, let x = Double(a[i]), let y = Double(a[i + 1]) else { throw Failure("two numbers at \(i + 1)") }
+            return screen.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+        }
+        switch r["op"] as? String ?? "" {
+        case "ping": return ["text": "ok"]
+        case "app": return ["text": lastApp]
+        case "screenshot":
+            let shot = XCUIScreen.main.screenshot().image
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let points = UIGraphicsImageRenderer(size: shot.size, format: format).pngData { _ in shot.draw(in: CGRect(origin: .zero, size: shot.size)) }
+            return ["png": points.base64EncodedString()]
+        case "tap":
+            let p = try point(0)
+            if a.contains("--double") { p.doubleTap() } else if a.contains("--long") { p.press(forDuration: 0.8) } else { p.tap() }
+        case "swipe": try point(0).press(forDuration: 0.05, thenDragTo: try point(2))
+        case "type": app.typeText(a.joined(separator: " "))
+        case "key":
+            switch (a.first ?? "").lowercased() {
+            case "home": XCUIDevice.shared.press(.home)
+            case "enter", "return": app.typeText("\n")
+            case "tab": app.typeText("\t")
+            case "delete", "backspace": app.typeText(XCUIKeyboardKey.delete.rawValue)
+            default: throw Failure("key: home, enter, tab, delete")
+            }
+        case "ui": return ["text": try tree(app)]
+        case "press":
+            let target = a.joined(separator: " ")
+            if let f = refs[target] {
+                screen.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
+            } else {
+                let e = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ OR identifier == %@", target, target)).firstMatch
+                guard e.exists else { throw Failure("No \(target) in \(lastApp): kelp vm ui shows what's there.") }
+                guard e.isHittable else { throw Failure("\(target) isn't on screen now (scroll, or another page): kelp vm ui shows what's there.") }
+                e.tap()
+            }
+            return ["text": "pressed"]
+        default: throw Failure("unknown: \(r["op"] ?? "")")
+        }
+        return ["text": "ok"]
+    }
+
+    /// The app's controls, a line each, indented by depth: `- button "Sign in" #login [ref=e3] (24,610 345×50)`.
+    private func tree(_ app: XCUIApplication) throws -> String {
+        refs = [:]
+        var lines = [lastApp == "com.apple.springboard" ? "Home Screen (springboard)" : lastApp]
+        let named: Set<XCUIElement.ElementType> = [.button, .textField, .secureTextField, .searchField, .textView, .switch, .slider,
+                                                  .link, .cell, .tab, .menuItem, .segmentedControl, .stepper, .picker, .toggle]
+        let bounds = CGRect(origin: .zero, size: XCUIScreen.main.screenshot().image.size)
+        func walk(_ s: XCUIElementSnapshot, _ depth: Int) {
+            guard refs.count < 400 else { return }
+            let label = s.label.isEmpty ? (s.value as? String ?? "") : s.label
+            var next = depth
+            // On screen (a home screen's other pages are beside it), and named or something to act on.
+            if !label.trimmingCharacters(in: .whitespaces).isEmpty || named.contains(s.elementType), s.frame.intersects(bounds), s.frame.width > 0 {
+                let ref = "e\(refs.count + 1)"
+                refs[ref] = s.frame
+                let id = s.identifier.isEmpty ? "" : " #\(s.identifier)"
+                let f = s.frame
+                lines.append(String(repeating: "  ", count: depth)
+                    + "- \(Self.name(s.elementType)) \"\(label.prefix(80))\"\(id) [ref=\(ref)] (\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))×\(Int(f.height)))")
+                next = depth + 1
+            }
+            for c in s.children { walk(c, next) }
+        }
+        walk(try app.snapshot(), 0)
+        return lines.joined(separator: "\n")
+    }
+
+    static func name(_ t: XCUIElement.ElementType) -> String {
+        let names: [XCUIElement.ElementType: String] = [.button: "button", .staticText: "text", .textField: "textfield",
+            .secureTextField: "securefield", .searchField: "searchfield", .textView: "textview", .switch: "switch", .slider: "slider",
+            .link: "link", .cell: "cell", .image: "image", .icon: "icon", .tab: "tab", .tabBar: "tabbar", .navigationBar: "navbar",
+            .alert: "alert", .sheet: "sheet", .toggle: "toggle", .other: "group", .window: "window", .scrollView: "scrollview",
+            .table: "table", .collectionView: "collection", .webView: "webview", .keyboard: "keyboard", .key: "key"]
+        return names[t] ?? "element"
+    }
+}
+
+struct Failure: Error, CustomStringConvertible {
+    let description: String
+    init(_ d: String) { description = d }
+}
