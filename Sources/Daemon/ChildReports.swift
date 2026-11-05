@@ -82,6 +82,14 @@ extension Sessions {
         return line
     }
 
+    /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (a session it
+    /// came from is gone, or is the daemon's own), which can't be told from an agent's.
+    func forAnAgent(_ id: String) throws -> Bool {
+        let line = try lineage(id)
+        let cameFrom = line.last.flatMap { $0.parent ?? $0.startedBy ?? $0.origin }
+        return line.contains(where: \.isAgent) || cameFrom != nil
+    }
+
     /// The parent of `create`, if it makes one: an agent's, and of an agent. A shell or a test run has no input to report to:
     /// typed there, a report would be run as a command. A command it runs is its own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {
@@ -187,11 +195,16 @@ extension Sessions {
         }
     }
 
-    /// A restart is a new session in the old one's place: its children stay its children, and what it hadn't typed is the
-    /// new one's to type. `owed`: what was taken from the old one as it stopped.
+    /// A restart is a new session in the old one's place: its children stay its children (and what it started, its own),
+    /// and what it hadn't typed is the new one's to type. `owed`: what was taken from the old one as it stopped.
     func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
-        for c in try store.sessions() where c.parent == old {
-            if let ls = existing(c.id) { _ = ls.update { $0.parent = new }; publish(ls) } else { try change(c.id) { $0.parent = new } }
+        let pass: @Sendable (inout Session) -> Void = { s in
+            if s.parent == old { s.parent = new }
+            if s.startedBy == old { s.startedBy = new }
+            if s.origin == old { s.origin = new }
+        }
+        for c in try store.sessions() where [c.parent, c.startedBy, c.origin].contains(old) {
+            if let ls = existing(c.id) { _ = ls.update(pass); publish(ls) } else { try change(c.id, pass) }
         }
         existing(new)?.giveBack(owed + (existing(old)?.takeOwed() ?? []) + (try store.takeOwed(old)))
     }

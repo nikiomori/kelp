@@ -447,6 +447,28 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
 }
 
+/// A restart keeps what an agent started its own (its commands, what came from its terminal); a session whose line
+/// breaks off (the one it came from is gone) is held to an agent's rules.
+@Test func aRestartedAgentKeepsWhatItStarted() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let a = try await session(r, "cat"), cmd = try await session(r, "cat"), term = try await session(r, "cat")
+    func set(_ id: String, _ f: @escaping @Sendable (inout Session) -> Void) throws {
+        let ls = try #require(r.d.sessions.existing(id))
+        _ = ls.update(f)
+        r.d.sessions.publish(ls)
+    }
+    try set(cmd.id) { [a] in $0.startedBy = a.id }
+    try set(term.id) { [a] in $0.origin = a.id }
+    #expect(try await waitFor { try r.d.sessions.store.session(term.id)?.origin == a.id && r.d.sessions.store.session(cmd.id)?.startedBy == a.id })
+    let a2: Session = try await r.c.call("session.restart", .obj(["id": .string(a.id)]), as: Session.self)
+    #expect(try await waitFor { try r.d.sessions.store.session(cmd.id)?.startedBy == a2.id })
+    #expect(try await waitFor { try r.d.sessions.store.session(term.id)?.origin == a2.id })
+    #expect(try r.d.sessions.lineage(term.id).map(\.id) == [term.id, a2.id])
+    #expect(try !r.d.sessions.forAnAgent(term.id))
+    try set(term.id) { $0.origin = UUID().uuidString }
+    #expect(try await waitFor { try r.d.sessions.forAnAgent(term.id) })
+}
+
 /// An agent that ended unread is read at a glance too: its record, as it isn't live any more.
 @Test func anEndedSessionCanBeMarkedRead() async throws {
     let r = try await rig(); defer { r.d.stop() }

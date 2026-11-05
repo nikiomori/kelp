@@ -170,7 +170,7 @@ extension Daemon {
                 throw RPCError.invalidParams("A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
             }
         }
-        guard try sessions.lineage(own).contains(where: \.isAgent) else { return }
+        guard try sessions.forAnAgent(own) else { return }
         try allowAgent(m, own: own)
     }
 
