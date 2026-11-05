@@ -140,8 +140,8 @@ enum KeyBindings {
     }()
 }
 
-/// The Keyboard page: every command, its shortcut, click to record a new one. Menus start folded, what you changed above
-/// them; Settings' own search lists what it finds by menu (`query`), so the page has no second search field.
+/// The Keyboard page: every command, its shortcut, click to record a new one. Menus start folded but the first, what you
+/// changed above them; Settings' own search lists what it finds by menu (`query`), so the page has no second search field.
 struct KeyboardSettings: View {
     var query = ""
     @Environment(AppModel.self) private var app
@@ -159,7 +159,11 @@ struct KeyboardSettings: View {
                 }
             }
         }
-        .onAppear { entries = KeyBindings.entries() }
+        .onAppear {
+            entries = KeyBindings.entries()
+            // The first menu open, so "click a shortcut" has shortcuts to click.
+            if open.isEmpty, let first = entries.first?.menu { open = [first] }
+        }
         .onDisappear { stop() }
     }
 
@@ -176,11 +180,29 @@ struct KeyboardSettings: View {
         if !changed.isEmpty { Section("Changed by you") { ForEach(changed) { e in row(e) } } }
         Section("Menus") {
             ForEach(groups, id: \.0) { menu, items in
-                DisclosureGroup(isExpanded: Binding(get: { open.contains(menu) }, set: { if $0 { open.insert(menu) } else { open.remove(menu) } })) {
-                    ForEach(items) { e in row(e) }
-                } label: { LabeledContent(menu) { Text("\(items.count)").monospacedDigit().foregroundStyle(.secondary) } }
+                fold(menu, count: items.count)
+                if open.contains(menu) { ForEach(items) { e in row(e) } }
             }
         }
+    }
+
+    /// A menu's line, folding its shortcuts under it. A row of the form's own height: a DisclosureGroup in a grouped form
+    /// stood each folded menu half again as tall as a row.
+    private func fold(_ menu: String, count: Int) -> some View {
+        let shown = open.contains(menu)
+        return Button {
+            withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { if shown { open.remove(menu) } else { open.insert(menu) } }
+        } label: {
+            HStack(spacing: Metrics.gap) {
+                Image(systemName: "chevron.right").imageScale(.small).foregroundStyle(.secondary).rotationEffect(.degrees(shown ? 90 : 0))
+                Text(menu)
+                Spacer()
+                Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(shown ? Text("Expanded") : Text("Collapsed"))
     }
 
     private func restore() {

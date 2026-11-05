@@ -7,9 +7,9 @@ import DesignKit
 /// window in the theme: its surface, its card, its lines of text.
 struct ThemeGallery: View {
     @Binding var selection: String
-    /// What a theme covers, under the heading: below the gallery it was half a screen from anything it could be about.
-    var about: String?
-    var help: String?
+    /// Its title and what a theme covers, as every picture row has them: below the gallery it was half a screen from
+    /// anything it could be about.
+    var heading: AnyView?
     /// The first row only (Match System, Ghostty, Kelp's own), as the welcome shows it; Settings has the rest.
     var kelpOnly = false
     @Environment(AppModel.self) private var app
@@ -26,40 +26,28 @@ struct ThemeGallery: View {
     private var gallery: some View {
         let looks = Theme.looks.map(\.id), popular = Theme.popular.map(\.id)
         let classic = all.filter { popular.contains($0.id) }
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: Metrics.gap) { heading("Theme"); if let help { HelpMark(text: help) } }
-            if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+        return VStack(alignment: .leading, spacing: Metrics.gapWide) {
+            heading
             first
-            heading("Looks")
+            Text("Looks").padding(.top, Metrics.gap)   // a group of its own, not a caption of the row above
             grid(all.filter { looks.contains($0.id) }.map(card))
             DisclosureGroup(isExpanded: Binding(get: { classics || classic.contains { $0.id == selection } }, set: { classics = $0 })) {
-                grid(classic.map(card)).padding(.top, 8)
-            } label: { heading("Classics") }
+                grid(classic.map(card)).padding(.top, Metrics.gapWide)
+            } label: { Text("Classics") }
             let installed = all.filter { !kelp.contains($0.id) && !looks.contains($0.id) && !popular.contains($0.id) }
             if !installed.isEmpty {
-                heading("Installed")
+                Text("Installed").padding(.top, Metrics.gap)
                 grid(installed.map(card))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Metrics.lineGap)
     }
 
-    private func heading(_ title: LocalizedStringKey) -> some View { Text(title) }
-
+    /// Captions in the system font, as every tile's: the theme's own font in them (Phosphor's mono) stood out of the row.
     private func grid(_ cards: [ThemeCard]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: PictureGrid.columns), spacing: 10) {
+        TileGrid {
             ForEach(cards) { c in
-                Button { selection = c.id } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        MiniWindow(card: c)
-                            .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                                .strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selection == c.id ? 2 : 1))
-                        Text(c.name).font(.caption).fontDesign(c.design).lineLimit(1)
-                            .fontWeight(selection == c.id ? .semibold : .regular).foregroundStyle(selection == c.id ? .primary : .secondary)
-                    }
-                }
-                .buttonStyle(PointerCardStyle())
-                .accessibilityLabel(c.name).accessibilityAddTraits(selection == c.id ? .isSelected : [])
+                PictureTile(name: c.name, on: selection == c.id, pick: { selection = c.id }) { MiniWindow(card: c) }
             }
         }
     }
@@ -96,7 +84,6 @@ private struct ThemeCard: Identifiable {
     var background: Color, foreground: Color, accent: Color
     var lines: [Color]
     var opacity: Double
-    var design: Font.Design
 
     init(_ t: Theme) {
         id = t.id; name = t.name
@@ -107,7 +94,6 @@ private struct ThemeCard: Identifiable {
         accent = (t.window?.accent ?? t.terminal?.palette?.dropFirst(4).first).flatMap { Color(hex: $0) } ?? .accentColor
         lines = (t.terminal?.palette ?? []).dropFirst().prefix(6).compactMap { Color(hex: $0) }
         opacity = t.terminal?.opacity ?? 1
-        design = ["mono": .monospaced, "serif": .serif, "rounded": .rounded][t.window?.font ?? ""] ?? .default
     }
 }
 
@@ -135,8 +121,6 @@ private struct MiniWindow: View {
                 .padding(.vertical, 4).padding(.trailing, 4)
             }
         }
-        .frame(height: 72)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
     }
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: card.look.radius / 2, style: .continuous) }

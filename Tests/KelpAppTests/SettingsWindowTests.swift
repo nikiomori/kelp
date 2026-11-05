@@ -2,6 +2,7 @@ import AppKit
 import Testing
 @testable import KelpApp
 @testable import KelpKit
+@testable import BuiltinAgents
 
 @MainActor @Test func aPickerListsAValueFromOutsideItsChoices() {
     #expect(SettingRow.shown(["block", "bar"], "bar") == ["block", "bar"])
@@ -74,4 +75,13 @@ import Testing
     let keys = Set(m.extensions.all.settings.flatMap(\.specs).map(\.key))
     let parents = m.extensions.all.settings.flatMap(\.specs).compactMap(\.requires).map { String($0.split(whereSeparator: { "=!".contains($0) })[0]) }
     #expect(Set(parents).subtracting(keys).isEmpty)   // each names a real setting
+}
+
+/// The Agent Catalog's ↑ ↓: the next agent as the list shows it, nothing past either end or from one filtered out.
+@MainActor @Test func theCatalogsArrowsWalkItsList() {
+    let shown = ["claude", "codex", "crush"]
+    #expect(AgentsSettings.neighbour(of: "codex", by: 1, in: shown) == "crush")
+    #expect(AgentsSettings.neighbour(of: "codex", by: -1, in: shown) == "claude")
+    #expect(AgentsSettings.neighbour(of: "crush", by: 1, in: shown) == nil)
+    #expect(AgentsSettings.neighbour(of: "gemini", by: 1, in: shown) == nil)
 }

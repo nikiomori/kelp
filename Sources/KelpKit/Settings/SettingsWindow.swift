@@ -98,9 +98,10 @@ private struct SettingsIcon: View {
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
+    /// Grey is General's alone. Terminal is a terminal's near-black, lifted in dark mode, where dark grey sank into the sidebar.
     static let tint: [String: Color] = ["general": .gray, "appearance": .blue, "agents": .purple, "catalog": .mint, "notifications": .pink,
-                                        "terminal": Color(nsColor: .darkGray), "editor": .teal, "git": .orange, "integrations": .green,
-                                        "keyboard": .gray, "extensions": .gray]
+                                        "terminal": Color(nsColor: .dynamic(light: .darkGray, dark: NSColor(white: 0.42, alpha: 1))),
+                                        "editor": .teal, "git": .orange, "integrations": .green, "keyboard": .indigo, "extensions": .brown]
 }
 
 private struct SectionForm: View {
@@ -160,7 +161,10 @@ private struct SearchResults: View {
                 Section(f.title) {
                     ForEach(f.specs) { spec in SettingRow(spec: spec) { open(f.section.id) } }
                     ForEach(f.screens, id: \.self) { word in
-                        LabeledContent(word) { Button("Open") { open(f.section.id) } }
+                        // The word goes along: the Agent Catalog opens on the agent it names (it has no search of its own).
+                        LabeledContent(word) {
+                            Button("Open") { UserDefaults.standard.set(word, forKey: "settings.group"); open(f.section.id) }
+                        }
                     }
                 }
             }
@@ -239,13 +243,12 @@ struct SettingRow: View {
             })
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
             LabeledContent {
-                HStack(spacing: 4) {
-                    if let b = spec.bounds {
-                        Text("\(Int(b.lowerBound))…\(Int(b.upperBound))").font(.subheadline).foregroundStyle(.secondary).padding(.trailing, 4)
-                    }
+                // The stepper keeps it in bounds; what they are is the field's help, as macOS panels say it.
+                HStack(spacing: Metrics.gap) {
                     TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 56)
                     Stepper("", value: value, in: spec.bounds ?? -.greatestFiniteMagnitude ... .greatestFiniteMagnitude).labelsHidden()
                 }
+                .help(spec.bounds.map { String(localized: "From \(Int($0.lowerBound)) to \(Int($0.upperBound))") } ?? spec.key)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
@@ -253,10 +256,7 @@ struct SettingRow: View {
             }
         case "enum" where SettingPictures.keys.contains(spec.key):
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
-                VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                    title
-                    if let d = spec.description { Text(loc(d)).font(.subheadline).foregroundStyle(.secondary) }
-                }
+                TileHeading(title: { title }, about: spec.description.map(loc))
                 PictureGrid(key: spec.key, options: Self.shown(Self.options(spec, app), string() ?? ""),
                             selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }), label: { Self.label(spec.key, $0, app) })
             }
@@ -277,7 +277,7 @@ struct SettingRow: View {
             InspectorPanelsRow(title: AnyView(title), about: spec.description.map(loc))
         case "theme":
             ThemeGallery(selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
-                         about: spec.description.map(loc), help: spec.help.map(loc))
+                         heading: AnyView(TileHeading(title: { title }, about: spec.description.map(loc))))
         case "color":
             ColorPicker(selection: Binding(get: { Color(hex: string() ?? "") ?? .accentColor },
                                            set: { put(.string($0.hex)) })) { label }
@@ -353,7 +353,7 @@ struct SettingRow: View {
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "agents.onFinish", "agents.onWaiting", "agents.onError":
             return ["sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"), "off": String(localized: "Off")][v] ?? v
-        case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) seconds")
+        case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) Seconds")
         case "sessions.hibernateMinutes":
             let m = Int(v) ?? -1
             return m == 0 ? String(localized: "Never") : m == 60 ? String(localized: "After 1 Hour")

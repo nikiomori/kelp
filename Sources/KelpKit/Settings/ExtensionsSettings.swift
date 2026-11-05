@@ -13,17 +13,18 @@ struct ExtensionsSettings: View {
     /// Opened on the library when asked for (`SettingsWindow.show(section: "extensions", group: "library")`).
     @State private var library = UserDefaults.standard.string(forKey: "settings.group") == "library"
     var body: some View {
-        Form { if library { LibrarySection() } else { installed } }
-        .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
+        Form {
+            // The page's first row, as the Agent Catalog's filter: in the title bar it read as the window's, not the page's.
+            Section {
                 Picker("", selection: $library) {
                     Text("Installed").tag(false)
                     Text("Library").tag(true)
                 }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                .pickerStyle(.segmented).labelsHidden().fixedSize().frame(maxWidth: .infinity)
             }
+            if library { LibrarySection() } else { installed }
         }
+        .formStyle(.grouped)
         .fileImporter(isPresented: $picking, allowedContentTypes: [.folder, UTType(filenameExtension: "vsix") ?? .zip]) { result in
             guard case .success(let url) = result else { return }
             Task {
@@ -67,34 +68,39 @@ struct ExtensionsSettings: View {
         }
     }
 
+    /// A row as every setting's: the name over its description, the form's own sizes and spacing; the symbol beside it.
     private func row(_ e: ExtensionInfo) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: e.icon).font(.title3).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(loc(e.name)).fontWeight(.medium)
-                    if !e.builtin { Text(e.version).font(.subheadline).foregroundStyle(.secondary) }
-                }
-                if !e.description.isEmpty { Text(loc(e.description)).font(.subheadline).foregroundStyle(.secondary) }
-                if let err = e.error { Text(err).font(.subheadline).foregroundStyle(Color.textOrange).textSelection(.enabled) }
-                if let u = e.unavailable { Text(u).font(.subheadline).foregroundStyle(.secondary) }
+        LabeledContent {
+            HStack(spacing: Metrics.gap) { more(e); enabled(e) }
+        } label: {
+            Label {
+                Text(e.builtin ? loc(e.name) : "\(loc(e.name)) \(e.version)")
+                if !e.description.isEmpty { Text(loc(e.description)) }
+                if let err = e.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
+                if let u = e.unavailable { Text(u) }
+            } icon: {
+                Image(systemName: e.icon).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(width: Metrics.iconMenu)
             }
-            Spacer()
-            if let p = e.path, !e.builtin {
-                Menu {
-                    Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
-                    let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
-                        ? "extension.json" : "package.json"
-                    Button("Edit \(manifest)") { app.workbench.showFile(p.appendingPathComponent(manifest)) }
-                    Divider()
-                    Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
-                } label: { Image(systemName: "ellipsis.circle") }
-                .menuStyle(.borderlessButton).fixedSize()
-            }
-            Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) }))
-                .toggleStyle(.switch).labelsHidden()
         }
-        .padding(.vertical, 2)
+    }
+
+    private func enabled(_ e: ExtensionInfo) -> some View {
+        Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) })).toggleStyle(.switch).labelsHidden()
+    }
+
+    /// What can be done to one that was installed; Kelp's own only turn off.
+    @ViewBuilder private func more(_ e: ExtensionInfo) -> some View {
+        if let p = e.path, !e.builtin {
+            Menu {
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
+                let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
+                    ? "extension.json" : "package.json"
+                Button("Edit \(manifest)") { app.workbench.showFile(p.appendingPathComponent(manifest)) }
+                Divider()
+                Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
+            } label: { Image(systemName: "ellipsis.circle") }
+            .menuStyle(.borderlessButton).fixedSize()
+        }
     }
 }
 

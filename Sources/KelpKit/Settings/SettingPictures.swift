@@ -21,24 +21,56 @@ struct PictureGrid: View {
     static let columns = 5
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: Self.columns), spacing: 10) {
+        TileGrid {
             ForEach(options, id: \.self) { o in
-                let on = o == selection
-                Button { selection = o } label: {
-                    VStack(alignment: .leading, spacing: 4) {   // names under the cards as the themes have theirs
-                        PictureArt(key: key, option: o)
-                            .frame(maxWidth: .infinity).frame(height: 64)
-                            .background(Color(nsColor: .fillHover))
-                            .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                                .strokeBorder(on ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: on ? 2 : 1))
-                        Text(label(o)).font(.caption).fontWeight(on ? .semibold : .regular).foregroundStyle(on ? .primary : .secondary)
-                            .lineLimit(1)
-                    }
+                PictureTile(name: label(o), on: o == selection, pick: { selection = o }) {
+                    PictureArt(key: key, option: o).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .fillHover))
                 }
-                .buttonStyle(PointerCardStyle())
-                .accessibilityLabel(label(o)).accessibilityAddTraits(on ? .isSelected : [])
             }
+        }
+    }
+}
+
+/// Tiles five to a row, at one spacing: the theme gallery's and every picture setting's.
+struct TileGrid<Content: View>: View {
+    @ViewBuilder let content: Content
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.inset), count: PictureGrid.columns),
+                  spacing: Metrics.inset) { content }
+    }
+}
+
+/// One choice: its picture at the one tile height, its name under it in the system font, picked by a click.
+struct PictureTile<Art: View>: View {
+    let name: String
+    let on: Bool
+    let pick: () -> Void
+    @ViewBuilder let art: Art
+    /// Themes and pictures alike, so a page of them is one grid.
+    static var height: CGFloat { 64 }
+
+    var body: some View {
+        Button(action: pick) {
+            VStack(alignment: .leading, spacing: Metrics.gap) {
+                art.frame(height: Self.height)
+                    .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+                    .cardEdge(selected: on)
+                Text(name).font(.caption).fontWeight(on ? .semibold : .regular).foregroundStyle(on ? .primary : .secondary).lineLimit(1)
+            }
+        }
+        .buttonStyle(PointerCardStyle())
+        .accessibilityLabel(name).accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// A picture row's or the theme gallery's heading: its title (with ⓘ and the changed dot) over what it covers.
+struct TileHeading<Title: View>: View {
+    @ViewBuilder let title: Title
+    let about: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.lineGap) {
+            title
+            if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
         }
     }
 }
@@ -208,10 +240,7 @@ struct InspectorPanelsRow: View {
             .sorted { (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (order.firstIndex(of: $1.element.id) ?? .max, $1.offset) }
             .map(\.element)
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
-            VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                title
-                if let about { Text(about).font(.subheadline).foregroundStyle(.secondary) }
-            }
+            TileHeading(title: { title }, about: about)
             ForEach(panels, id: \.id) { p in
                 Toggle(isOn: Binding(get: { !hidden.contains(p.id) }, set: { on in
                     var next = hidden

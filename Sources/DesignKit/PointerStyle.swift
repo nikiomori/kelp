@@ -30,21 +30,19 @@ public struct PointerButtonStyle: ButtonStyle {
     }
 }
 
-/// A card that is a choice (a theme): under the pointer its edge brightens, pressed it dips a little.
+/// A card that is a choice (a theme): pressed it dips a little; under the pointer it tells its label, whose tile brightens
+/// its own edge (`cardEdge`). A ring of the style's own went round the caption too, and with the tile's it was two lines.
 public struct PointerCardStyle: ButtonStyle {
-    private let radius: CGFloat
-    public init(radius: CGFloat = Metrics.radiusMD) { self.radius = radius }
-    public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Card(configuration: configuration, radius: radius) }
+    public init() {}
+    public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Card(configuration: configuration) }
 
     private struct Card: View {
         let configuration: ButtonStyleConfiguration
-        let radius: CGFloat
         @State private var hovering = false
         @State private var size = CGSize.zero
         var body: some View {
             configuration.label
-                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(hovering ? 0.35 : 0), lineWidth: 1))
+                .environment(\.cardHovering, hovering)
                 .contentShape(Rectangle())
                 .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
@@ -52,6 +50,27 @@ public struct PointerCardStyle: ButtonStyle {
                 .onHover { hovering = $0 }
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         }
+    }
+}
+
+extension EnvironmentValues {
+    /// The pointer is over the `PointerCardStyle` button this is in.
+    @Entry var cardHovering = false
+}
+
+extension View {
+    /// A choice tile's one edge: the accent when it's the one picked, brighter under the pointer, a hairline otherwise.
+    public func cardEdge(selected: Bool, radius: CGFloat = Metrics.radiusMD) -> some View {
+        modifier(CardEdge(selected: selected, radius: radius))
+    }
+}
+
+private struct CardEdge: ViewModifier {
+    let selected: Bool, radius: CGFloat
+    @Environment(\.cardHovering) private var hovering
+    func body(content: Content) -> some View {
+        content.overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(hovering ? 0.35 : 0.15), lineWidth: selected ? 2 : 1))
     }
 }
 

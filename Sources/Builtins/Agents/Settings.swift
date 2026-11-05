@@ -19,7 +19,6 @@ struct AgentsSettings: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
     @State private var selection: String? = "claude"
-    @State private var query = ""
     @State private var show = Show.all
     private enum Show: Int { case all, installed, available }
     @State private var command = ""
@@ -42,68 +41,114 @@ struct AgentsSettings: View {
     private func installed(_ m: AgentManifest) -> Bool { app.availability.ids.contains(m.id) || versions[m.id]?.version != nil }
 
     var body: some View {
-        GeometryReader { pane in HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                TextField("Search agents", text: $query, prompt: Text("Search agents")).textFieldStyle(.roundedBorder).labelsHidden()
-                // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
-                ColumnSegments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
-                               selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
-                // What's on this Mac first; the rest under it, greyed, to install from the card.
-                List(selection: $selection) {
-                    let shown = agents.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
-                    let have = show == .available ? [] : shown.filter(installed)
-                    if !have.isEmpty { Section("Installed \(have.count)") { ForEach(have, id: \.id) { row($0) } } }
-                    let rest = show == .installed ? [] : shown.filter { !installed($0) }
-                    if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
-                    if have.isEmpty && rest.isEmpty {
-                        let empty: LocalizedStringKey = show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed."
-                        Text(!query.isEmpty ? "No agents match “\(query)”." : empty).foregroundStyle(.secondary)
-                    }
-                }
-                if !updates.isEmpty {
-                    Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
-                        .font(.subheadline).foregroundStyle(Color.textOrange)
-                }
-            }
-            .frame(width: min(250, pane.size.width * 0.4))
-            ScrollView {
-                if let m = current { card(m).padding(.trailing, 4) }
-            }
+        // Two grouped forms side by side, as every other page is one: the agents in a card on the left, the chosen one's on the
+        // right. Settings' own search finds an agent by name and opens this page on it, so there's no second search field.
+        GeometryReader { pane in HStack(alignment: .top, spacing: 0) {
+            list.frame(width: min(Self.listWidth, pane.size.width * 0.4))
+            Form { if let m = current { card(m) } }.formStyle(.grouped)
         } }
-        .padding(16)
         .onChange(of: selection) { _, _ in persist(); load() }
         .onChange(of: field) { _, now in if now == nil { persist() } }
-        .onAppear { load() }
+        .onAppear { reveal(); load() }
         .onDisappear(perform: persist)
         .task { await loadVersions() }
         .onChange(of: app.availability.ids) { _, _ in Task { await loadVersions() } }   // an install ended
     }
 
+    /// The list's column, the form's margins included.
+    private static let listWidth: CGFloat = 300
+
+    /// What's on this Mac first; the rest under it, greyed, to install from the card.
+    private var list: some View {
+        let have = show == .available ? [] : agents.filter(installed)
+        let rest = show == .installed ? [] : agents.filter { !installed($0) }
+        return Form {
+            // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
+            Section {
+                ColumnSegments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                               selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
+            }
+            if !have.isEmpty {
+                Section {
+                    ForEach(have, id: \.id) { row($0) }
+                } header: { Text("Installed") } footer: {
+                    if !updates.isEmpty {
+                        Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
+                            .font(.subheadline).foregroundStyle(Color.textOrange)
+                    }
+                }
+            }
+            if !rest.isEmpty { Section("Not Installed") { ForEach(rest, id: \.id) { row($0) } } }
+            if have.isEmpty && rest.isEmpty {
+                Text(show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed.").foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onKeyPress(.upArrow) { step(-1, in: have + rest) }
+        .onKeyPress(.downArrow) { step(1, in: have + rest) }
+    }
+
+    /// ↑ and ↓ walk the list, as they did when it was a List.
+    private func step(_ by: Int, in shown: [AgentManifest]) -> KeyPress.Result {
+        guard let next = Self.neighbour(of: selection, by: by, in: shown.map(\.id)) else { return .ignored }
+        selection = next
+        return .handled
+    }
+
+    /// The id `by` places from `id` in the list as shown; none past either end, or when `id` isn't shown.
+    static func neighbour(of id: String?, by: Int, in ids: [String]) -> String? {
+        guard let i = ids.firstIndex(where: { $0 == id }), ids.indices.contains(i + by) else { return nil }
+        return ids[i + by]
+    }
+
+    /// Opened from Settings' search on an agent's name: that agent.
+    private func reveal() {
+        guard let word = UserDefaults.standard.string(forKey: "settings.group"), let m = agents.first(where: { $0.name == word }) else { return }
+        UserDefaults.standard.set("", forKey: "settings.group")
+        selection = m.id
+    }
+
     private func row(_ a: AgentManifest) -> some View {
-        let have = installed(a)
+        let have = installed(a), on = a.id == selection
         var caption = String(localized: "Not installed")
         if have { caption = versions[a.id]?.version.map { "\($0) · \(a.command)" } ?? a.command }
         else if case .running? = app.availability.phases[a.id] { caption = String(localized: "Installing…") }
-        return HStack(spacing: 8) {
-            Image(nsImage: app.catalog.icon(a.id, size: 18) ?? NSImage()).resizable().frame(width: 18, height: 18).opacity(have ? 1 : 0.5)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    Text(a.name).foregroundStyle(have ? .primary : .secondary)
-                    if updates.contains(where: { $0.id == a.id }) { Circle().fill(.orange).frame(width: 6, height: 6).help("Update available") }
+        return Button { selection = a.id } label: {
+            HStack(spacing: Metrics.gapWide) {
+                Image(nsImage: app.catalog.icon(a.id, size: Metrics.iconMenu) ?? NSImage()).resizable()
+                    .frame(width: Metrics.iconMenu, height: Metrics.iconMenu).opacity(have ? 1 : 0.5)
+                VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                    HStack(spacing: Metrics.gap) {
+                        Text(a.name).foregroundStyle(have ? .primary : .secondary)
+                        if updates.contains(where: { $0.id == a.id }) {
+                            Circle().fill(Color.textOrange).frame(width: Metrics.gap, height: Metrics.gap).help("Update available")
+                        }
+                    }
+                    HStack(spacing: 0) {
+                        Text(caption).foregroundStyle(.secondary)
+                        if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
+                    }.font(.subheadline)
                 }
-                HStack(spacing: 0) {
-                    Text(caption).foregroundStyle(.secondary)
-                    if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
-                }.font(.subheadline)
+                Spacer(minLength: 0)
             }
-        }.tag(Optional(a.id))
+            .contentShape(Rectangle())
+            // The chosen one tinted to just past its text: a form's rows take no list row background on macOS.
+            .background {
+                RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
+                    .fill(on ? Color(nsColor: .fillTint(.controlAccentColor)) : .clear).padding(-Metrics.gap)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     @ViewBuilder private func card(_ m: AgentManifest) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(nsImage: app.catalog.icon(m.id, size: 32) ?? NSImage()).resizable().frame(width: 32, height: 32)
-                VStack(alignment: .leading, spacing: 2) {
+        Section {
+            HStack(spacing: Metrics.inset) {
+                // As tall as the name and the line under it.
+                Image(nsImage: app.catalog.icon(m.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
+                    .frame(width: Metrics.rowTwoLine, height: Metrics.rowTwoLine)
+                VStack(alignment: .leading, spacing: Metrics.lineGap) {
                     Text(m.name).font(.title3.weight(.semibold))
                     if let about = app.catalog.about(m.id) { Text(about).foregroundStyle(.secondary) }
                 }
@@ -111,11 +156,9 @@ struct AgentsSettings: View {
             if installed(m) {
                 if app.availability.phases[m.id] == .done { started(m) }
                 versionRow(m)
-                Divider()
-                launch(m)
             } else { installBox(m) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        if installed(m) { launch(m) }
     }
 
     /// Not on this Mac: its installer, what it needs first, the installer running, or ended without the agent found.
@@ -194,8 +237,8 @@ struct AgentsSettings: View {
                 Image(systemName: "doc.on.doc")
             }.buttonStyle(PointerButtonStyle()).help("Copy")
         }
-        .padding(8)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Metrics.radiusSM))
+        .padding(Metrics.gapWide)
+        .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
 
     @ViewBuilder private func versionRow(_ m: AgentManifest) -> some View {
@@ -223,22 +266,35 @@ struct AgentsSettings: View {
     }
 
     /// How Kelp starts it: binary, arguments, environment (and a provider's variables).
-    @ViewBuilder private func launch(_ m: AgentManifest) -> some View {
-        Text("Launch").font(.ui(13, weight: .semibold))
-        Form {
-            TextField("Command", text: $command).focused($field, equals: .command).onSubmit(persist)
-            TextField("Arguments", text: $args, prompt: Text("space separated")).focused($field, equals: .args).onSubmit(persist)
-            TextField("Environment", text: $env, prompt: Text("KEY=value, one per line"), axis: .vertical).lineLimit(3...6).focused($field, equals: .env)
-            if !Self.presets(m.id).isEmpty {
-                Menu("Provider Presets") {
-                    ForEach(Self.presets(m.id), id: \.0) { name, lines in Button(name) { addLines(lines) } }
-                }.fixedSize()
+    /// Bordered fields as wide as the card, as the text settings are bordered: an agent's environment lines are long.
+    private func launch(_ m: AgentManifest) -> some View {
+        Section {
+            input("Command", $command, .command)
+            input("Arguments", $args, .args, prompt: "space separated")
+            input("Environment", $env, .env, prompt: "KEY=value, one per line", lines: 3...6)
+            HStack {
+                if !Self.presets(m.id).isEmpty {
+                    Menu("Provider Presets") {
+                        ForEach(Self.presets(m.id), id: \.0) { name, lines in Button(name) { addLines(lines) } }
+                    }.fixedSize()
+                }
+                Spacer()
+                Button("Reset to Default…") { reset(m) }
             }
-            Button("Reset to Default…") { reset(m) }
+        } header: { Text("Launch") } footer: {
+            Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
+                .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
-        .formStyle(.columns)   // already inside Settings' grouped section: a second card in it would nest boxes
-        Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
-            .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// A bordered field beside its name, its text from the left: a form sets a field's text at its trailing end.
+    private func input(_ title: LocalizedStringKey, _ text: Binding<String>, _ which: LaunchField, prompt: LocalizedStringKey? = nil,
+                       lines: ClosedRange<Int> = 1...1) -> some View {
+        LabeledContent(title) {
+            TextField("", text: text, prompt: prompt.map { Text($0) }, axis: lines.upperBound > 1 ? .vertical : .horizontal)
+                .lineLimit(lines).textFieldStyle(.roundedBorder).multilineTextAlignment(.leading)
+                .focused($field, equals: which).onSubmit(persist)
+        }
     }
 
     /// One remote project's folder per host: a command run in it runs on that host, in its login shell.

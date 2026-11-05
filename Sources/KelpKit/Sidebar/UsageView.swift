@@ -42,7 +42,9 @@ struct UsageView: View {
         var main: Line? { lines.max { $0.used < $1.used } }
     }
     let app: AppModel
-    init(app: AppModel) { self.app = app }
+    /// The line over it, against the sidebar's rows; Settings' preview of it has none.
+    private let ruled: Bool
+    init(app: AppModel, ruled: Bool = true) { self.app = app; self.ruled = ruled }
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
@@ -60,7 +62,7 @@ struct UsageView: View {
         // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
         VStack(alignment: .leading, spacing: 0) {
             if !shown.isEmpty {
-                Divider()
+                if ruled { Divider() }
                 // A minute at a time: a reading ages while nothing else changes.
                 // The reset times only while the bars keep their room; a narrow sidebar has them on hover.
                 TimelineView(.periodic(from: .now, by: 60)) { _ in

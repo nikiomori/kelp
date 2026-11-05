@@ -19759,6 +19759,50 @@
           }
         }
       }
+    },
+    "%@ Seconds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ с"
+          }
+        }
+      }
+    },
+    "From %lld to %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "От %lld до %lld"
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развёрнуто"
+          }
+        }
+      }
+    },
+    "Collapsed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свёрнуто"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
