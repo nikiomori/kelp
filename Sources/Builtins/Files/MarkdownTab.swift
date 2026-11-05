@@ -178,8 +178,19 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         web.evaluateJavaScript("kelpToLine(\(editor.topLine))", completionHandler: nil)
     }
 
+    /// `html` with a policy, first in its head, that runs only scripts carrying `nonce` (Kelp's own, added after it).
+    nonisolated static func scriptless(_ html: String, nonce: String) -> String {
+        let policy = #"<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-\#(nonce)'; script-src-attr 'none'; object-src 'none'">"#
+        let at = html.range(of: #"<head\b[^>]*>"#, options: [.regularExpression, .caseInsensitive])
+            ?? html.range(of: #"<!doctype[^>]*>"#, options: [.regularExpression, .caseInsensitive])
+        guard let at else { return policy + html }
+        return html[..<at.upperBound] + policy + html[at.upperBound...]
+    }
+
     /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
+    /// Only from the page Kelp loaded: one the preview was taken away to (a meta refresh, a form) isn't heard.
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        guard m.frameInfo.isMainFrame, m.frameInfo.request.url?.isFileURL != false else { return }
         if artifactBar != nil, let body = m.body as? [String: Any], body["kind"] as? String == "ask" { return ask(about: body["text"] as? String ?? "") }
         if isReview, let body = m.body as? [String: Any], let kind = body["kind"] as? String, ["pick", "note", "send"].contains(kind) {
             guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
@@ -235,9 +246,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 page = (p.background.hexString, p.text.hexString)
             }
             let review = isReview, slides = isSlides, raw = isHTML, sendTo = pageAuthor?.title
+            // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run, Kelp's do.
+            let nonce = UUID().uuidString
             let ask = artifactBar == nil ? "" : PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))
             let html = await Task.detached { [page] in
-                if raw { return text }
+                if raw { return Self.scriptless(text, nonce: nonce) }
                 if review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
                     return MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.extras
@@ -251,7 +264,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place = currentMode == "split" && !review && !raw ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
-            web.loadHTMLString(html + ask + "<script>\(place)</script>", baseURL: base)
+            let tail = (ask + "<script>\(place)</script>").replacingOccurrences(of: "<script>", with: raw ? "<script nonce=\"\(nonce)\">" : "<script>")
+            web.loadHTMLString(html + tail, baseURL: base)
         }
     }
 
