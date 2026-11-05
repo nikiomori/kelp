@@ -115,9 +115,16 @@ enum AgentSkills {
           address it shows does the same).
         - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`,
           `- textbox "Email" [ref=e3]: "a@b.c"`, `- link "Docs" [ref=e5] -> /docs`. Read it rather than a screenshot.
+          On a long page: `snapshot --find "cart"` keeps the lines that mention it (and what they sit in), `snapshot e7`
+          only what's inside e7.
         - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — the refs of the last snapshot; take a new one
-          after the page changed (a stale ref says so). Both wait for a page they load, and outline the element a moment
-          so the user sees it.
+          after the page changed (a stale ref says so). Both wait for a page they load; Kelp's pointer moves to the
+          element and it glows a moment, so the user sees it. `type` replaces the text a key at a time.
+        - `kelp browser upload e9 photo.png [more…]` — files into a file field: its ref, its label's, or the button over a
+          hidden one. A file chooser the page opens by itself is cancelled.
+        - A page's `alert` / `confirm` / `prompt` doesn't stop you: the action's answer lists it under `dialogs`
+          (`confirm "Delete?" → dismissed`) and so does `console`. They get OK / Cancel / Cancel unless you said before the
+          click: `kelp browser dialog accept ["text for a prompt"]` or `dialog dismiss`, for the next one only.
         - `kelp browser press Escape` (`Enter`, `Tab`, `Shift+Tab`, `ArrowDown`, … `[ref]` to focus one first) — closes a
           menu, moves through a list, submits. Not for text: `type` it.
         - `kelp browser hover e7` — menus that open on hover from script; pure CSS `:hover` doesn't follow.
@@ -137,6 +144,9 @@ enum AgentSkills {
 
         Clicks and typing are DOM events: a page that only takes trusted ones (some payment and captcha widgets) ignores
         them. Tell the user rather than work around it.
+
+        The user can take your page over (a bar over it says an agent uses it): then only snapshot, screenshot, wait,
+        console, network and info work, and the error says so. Wait for them or ask; don't open another page around it.
 
         """
 

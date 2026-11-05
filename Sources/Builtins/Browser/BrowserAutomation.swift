@@ -15,6 +15,9 @@ extension BrowserTab {
             return v
         }
         watch(); sized()
+        if takenOver, !Self.reads.contains(action) {
+            throw RPCError.internalError("The user took this page over: only snapshot, screenshot, wait, console, network and info until they hand it back")
+        }
         switch action {
         case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
         case "info": return try await settled()
@@ -25,7 +28,23 @@ extension BrowserTab {
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case "reload": web.reloadFromOrigin(); return try await settled()
-        case "snapshot": return .string(try await run(Self.snapshotJS) as? String ?? "")
+        case "snapshot":
+            let find = args["find"]?.string ?? ""
+            let text = try await run(Self.snapshotJS, ["ref": args["ref"]?.string ?? "", "max": find.isEmpty ? 1500 : 20000]) as? String ?? ""
+            return .string(find.isEmpty ? text : Self.found(find, in: text))
+        case "dialog":
+            let accept = try need("answer") == "accept", text = accept ? args["text"]?.string : nil
+            dialogAnswer = (accept, text)
+            guard accept else { return .string("The page's next question gets Cancel") }
+            return .string("The page's next question gets OK" + (text.map { " and \"\($0)\"" } ?? ""))
+        case "upload":
+            // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
+            let files = (args["files"]?.array ?? []).compactMap { f -> [String: String]? in
+                if case .object(let o) = f { return o.compactMapValues(\.string) } else { return nil }
+            }
+            guard !files.isEmpty else { throw RPCError.invalidParams("upload needs a file") }
+            _ = try await run(Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": try need("ref"), "files": files]))
+            return try await settled()
         case "click", "hover":
             _ = try await run(Self.findJS + Self.flashJS + (action == "click" ? Self.clickJS : Self.hoverJS), shown(["ref": try need("ref")]))
             return try await settled()
@@ -51,7 +70,8 @@ extension BrowserTab {
                 + "no(new Error('No answer from the script in \(limit / 1000) s')), \(limit)))]);\n"
                 + "return v === undefined ? 'null' : (JSON.stringify(v) ?? 'null');"
             let text = try await run(body, page: true) as? String ?? "null"
-            return (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
+            let v = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
+            return v == .null ? .string("null") : v   // the CLI prints nothing for null: the agent couldn't tell it ran
         case "screenshot":
             _ = try await run(Self.calmJS)   // what an action started has played out and been drawn
             let image: NSImage
@@ -80,6 +100,25 @@ extension BrowserTab {
         web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
     }
 
+    /// What an agent may still do on a page the user took over: look.
+    static let reads: Set = ["snapshot", "screenshot", "wait", "console", "network", "info"]
+
+    /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place.
+    nonisolated static func found(_ text: String, in snapshot: String) -> String {
+        let lines = snapshot.components(separatedBy: "\n")
+        guard let head = lines.first else { return "" }
+        var keep = IndexSet()
+        for (i, l) in lines.enumerated().dropFirst() where l.localizedCaseInsensitiveContains(text) {
+            keep.insert(i)
+            var depth = l.prefix { $0 == " " }.count
+            for j in stride(from: i - 1, to: 0, by: -1) where depth > 0 {
+                let d = lines[j].prefix { $0 == " " }.count
+                if d < depth { keep.insert(j); depth = d }
+            }
+        }
+        return keep.isEmpty ? head + "\nNothing on the page mentions \"\(text)\"." : ([head] + keep.map { lines[$0] }).joined(separator: "\n")
+    }
+
     /// Two spellings of one address: `http://localhost:3000` and `http://localhost:3000/`.
     static func same(_ a: String, _ b: String) -> Bool {
         func bare(_ s: String) -> String { s.hasSuffix("/") ? String(s.dropLast()) : s }
@@ -93,16 +132,18 @@ extension BrowserTab {
         while web.isLoading, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
         var o = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
         if web.isLoading { o["loading"] = .bool(true) }
+        if !dialogs.isEmpty { o["dialogs"] = .array(dialogs.map(JSONValue.string)); dialogs = [] }
         if let e = loadError { o["error"] = .string(e) }
         return .object(o)
     }
 
     /// The arguments of an action the user sees done: the element's glow, in the accent colour and Kelp's motion (ms).
-    /// The wait before the action isn't motion, so Reduce Motion keeps it.
+    /// The wait before the action, the typing pace and how long the pointer stays aren't motion: Reduce Motion keeps them.
     private func shown(_ args: [String: Any]) -> [String: Any] {
         let ms = { (d: TimeInterval) in Int(d * 1000) }
         let motion = ["appear": ms(Motion.duration(Motion.appear)), "disappear": ms(Motion.duration(Motion.disappear)),
-                      "flash": ms(Motion.flash), "lead": ms(Motion.appear + Motion.fast)]
+                      "flash": ms(Motion.flash), "lead": ms(Motion.appear + Motion.fast), "idle": ms(Motion.wait),
+                      "key": ms(Motion.stagger), "typing": ms(Motion.linger)]
         return args.merging(["accent": NSColor.themeAccent.hexString, "motion": motion]) { $1 }
     }
 
@@ -119,7 +160,9 @@ extension BrowserTab {
     /// or typed in. Refs are kept in Kelp's world until the next snapshot. Elements without a role don't show, their
     /// children do, one level up; links, buttons and fields show their text, not what's inside them.
     static let snapshotJS = #"""
-    const refs = new Map(); window.__kelpRefs = refs; let n = 0; const out = [], MAX = 1500;
+    const old = window.__kelpRefs, root = ref ? old && old.get(ref) : document.body;
+    if (ref && (!root || !root.isConnected)) throw new Error('No ' + ref + ' on the page now: take a new snapshot');
+    const refs = new Map(); window.__kelpRefs = refs; let n = 0; const out = [], MAX = max;
     const ACT = new Set(['link','button','textbox','searchbox','checkbox','radio','combobox','listbox','slider','switch','tab',
       'menuitem','menuitemcheckbox','menuitemradio','option','spinbutton','treeitem','clickable']);
     const LEAF = new Set(['link','button','textbox','searchbox','checkbox','radio','combobox','slider','switch','tab','menuitem',
@@ -188,7 +231,7 @@ extension BrowserTab {
         if (!LEAF.has(role)) walk(kids(el), depth + 1);
       }
     };
-    walk(document.body ? [document.body] : [], 0);
+    walk(root ? [root] : [], 0);
     return '- page ' + JSON.stringify(document.title) + ' ' + location.href + '\n' + out.join('\n')
       + (out.length >= MAX ? '\n… cut at ' + MAX + ' lines' : '');
     """#
@@ -200,10 +243,32 @@ extension BrowserTab {
     el.scrollIntoView({block: 'center', inline: 'center'});
     """#
 
-    /// A glow on `el` for a moment, closing in on it, so the user watching sees what the agent is about to click or type
-    /// in; the action waits for it when the page is on screen (a link's page would replace it at once).
+    /// The agent's pointer glides to `el` from where it last was, then a glow closes in on it, so the user watching sees
+    /// what the agent is about to click or type in; the action waits for both when the page is on screen (a link's page
+    /// would replace them at once). The pointer fades when the agent stops.
     static let flashJS = #"""
-    const fr = el.getBoundingClientRect(), fl = document.createElement('div');
+    const fr = el.getBoundingClientRect(), on = document.visibilityState === 'visible';
+    const to = [fr.left + fr.width / 2, fr.top + Math.min(fr.height / 2, 20)];
+    let cur = document.querySelector('[data-kelp-flash="cursor"]');
+    if (!cur) {
+      const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'), path = document.createElementNS(ns, 'path');
+      svg.setAttribute('width', '22'); svg.setAttribute('height', '22');
+      path.setAttribute('d', 'M3 2 L3 18 L7.5 14 L10.5 20.5 L13 19.3 L10 13 L16 13 Z');
+      path.setAttribute('stroke', '#fff'); path.setAttribute('stroke-width', '1.5'); path.setAttribute('stroke-linejoin', 'round');
+      svg.append(path); cur = document.createElement('div'); cur.append(svg);
+      cur.setAttribute('data-kelp-flash', 'cursor');
+      cur.style.cssText = 'position:fixed;left:0;top:0;pointer-events:none;z-index:2147483647;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))';
+      document.documentElement.appendChild(cur);
+    }
+    cur.querySelector('path').setAttribute('fill', accent);
+    cur.getAnimations().forEach(a => a.cancel());
+    const from = window.__kelpAt || [to[0] + 60, to[1] + 60], at = p => 'translate(' + (p[0] - 3) + 'px,' + (p[1] - 2) + 'px)';
+    window.__kelpAt = to; cur.style.transform = at(to);
+    const move = cur.animate([{transform: at(from)}, {transform: at(to)}], {duration: motion.appear, easing: 'ease-in-out'});
+    clearTimeout(window.__kelpHide);
+    window.__kelpHide = setTimeout(() => cur.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'}), motion.idle);
+    if (on) await move.finished.catch(() => 0);
+    const fl = document.createElement('div');
     fl.setAttribute('data-kelp-flash', '');
     fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483647;border-radius:8px;'
       + 'left:' + (fr.left - 4) + 'px;top:' + (fr.top - 4) + 'px;width:' + (fr.width + 8) + 'px;height:' + (fr.height + 8) + 'px;'
@@ -211,9 +276,10 @@ extension BrowserTab {
       + 'box-shadow:0 0 0 4px ' + accent + '4d,0 0 18px 6px ' + accent + '99';
     document.documentElement.appendChild(fl);
     fl.animate([{opacity: 0, transform: 'scale(1.3)'}, {opacity: 1, transform: 'scale(1)'}], {duration: motion.appear, easing: 'ease-out'});
-    setTimeout(() => fl.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'}).finished.then(() => fl.remove()),
-      motion.flash);
-    if (document.visibilityState === 'visible') await new Promise(r => setTimeout(r, motion.lead));
+    // Removed by the clock: a page off screen plays no animation, so one's end would never come.
+    setTimeout(() => { fl.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'});
+      setTimeout(() => fl.remove(), motion.disappear); }, motion.flash);
+    if (on) await new Promise(r => setTimeout(r, motion.lead));
     """#
 
     /// Before a screenshot: no outline of ours, finite animations done (a dialog closing), and a frame drawn.
@@ -238,25 +304,63 @@ extension BrowserTab {
     el.click();
     """#
 
-    /// Replaces the field's text the way typing does: through the value's own setter (frameworks that wrap it, as React
-    /// does, see the change), then `input` and `change`. A select takes an option's text or value. `submit` presses Enter.
+    /// Replaces the field's text the way typing does: a key at a time (keydown, the value through its own setter so
+    /// frameworks that wrap it, as React does, see it, input, keyup), so masks and suggestions follow and the user sees
+    /// it typed; then `change`. A key the page cancels isn't typed. Fields whose half-typed value isn't one (date, number,
+    /// colour) and selects take the whole text at once; a select an option's text or value. `submit` presses Enter.
     static let typeJS = #"""
     el.focus();
-    if (el.isContentEditable) { document.execCommand('selectAll'); document.execCommand('insertText', false, text); }
-    else {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const delay = document.visibilityState === 'visible' ? Math.min(motion.key, motion.typing / Math.max(1, text.length)) : 0;
+    const typed = el.isContentEditable || el.localName === 'textarea'
+      || el.localName === 'input' && ['text', 'search', 'email', 'url', 'tel', 'password'].includes(el.type);
+    const proto = el.localName === 'textarea' ? HTMLTextAreaElement.prototype
+      : el.localName === 'select' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    const set = v => Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
+    if (!typed) {
       let v = text;
       if (el.localName === 'select') { const o = [...el.options].find(o => o.value === text || o.text.trim() === text); if (o) v = o.value; }
-      const proto = el.localName === 'textarea' ? HTMLTextAreaElement.prototype
-        : el.localName === 'select' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
-      Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
-      el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true}));
+      set(v); el.dispatchEvent(new Event('input', {bubbles: true}));
+    } else {
+      if (el.isContentEditable) { document.execCommand('selectAll'); document.execCommand('delete'); }
+      else if (el.value) { set(''); el.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'deleteContentBackward'})); }
+      for (const ch of text) {
+        const k = {key: ch === '\n' ? 'Enter' : ch, bubbles: true, cancelable: true, composed: true};
+        if (el.dispatchEvent(new KeyboardEvent('keydown', k)) && el.dispatchEvent(new KeyboardEvent('keypress', k))) {
+          if (el.isContentEditable) document.execCommand('insertText', false, ch);
+          else if (!(el.maxLength > 0 && el.value.length >= el.maxLength)) {
+            set(el.value + ch); el.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertText', data: ch}));
+          }
+        }
+        el.dispatchEvent(new KeyboardEvent('keyup', k));
+        if (delay >= 4) await wait(delay);
+      }
     }
+    el.dispatchEvent(new Event('change', {bubbles: true}));
     if (submit) {
       const k = {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true};
       const go = el.dispatchEvent(new KeyboardEvent('keydown', k));
       el.dispatchEvent(new KeyboardEvent('keypress', k)); el.dispatchEvent(new KeyboardEvent('keyup', k));
       if (go && el.form && el.localName !== 'textarea') el.form.requestSubmit();
     }
+    """#
+
+    /// `files` ({name, type, data in base64}) into the file field `el` is, holds or labels (or the page's only one, for a
+    /// styled button over a hidden field), then `input` and `change`: what choosing them in the panel does.
+    static let uploadJS = #"""
+    const isFile = x => x && x.localName === 'input' && x.type === 'file';
+    const all = document.querySelectorAll('input[type=file]');
+    const input = [el, el.control, el.querySelector('input[type=file]'), all.length === 1 ? all[0] : null].find(isFile);
+    if (!input) throw new Error(ref + ' is no file field: give the ref of an <input type=file>, its label or the button over it');
+    if (files.length > 1 && !input.multiple) throw new Error('This field takes one file');
+    const dt = new DataTransfer();
+    for (const f of files) {
+      const bin = atob(f.data), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      dt.items.add(new File([bytes], f.name, {type: f.type}));
+    }
+    input.files = dt.files;
+    input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true}));
     """#
 
     static let waitJS = #"""

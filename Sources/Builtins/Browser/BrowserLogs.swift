@@ -11,6 +11,7 @@ extension BrowserTab {
     func watch() {
         guard !watching else { return }
         watching = true
+        showAgentBar()
         let uc = web.configuration.userContentController
         uc.add(WeakHandler(self), name: "kelpWatch")
         uc.addUserScript(WKUserScript(source: Self.watchJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -43,7 +44,10 @@ extension BrowserTab {
     static let watchJS = #"""
     (() => { if (window.__kelpWatch) return; window.__kelpWatch = true;
     const post = d => { try { window.webkit.messageHandlers.kelpWatch.postMessage(d); } catch (_) {} };
-    const str = v => { if (typeof v === 'string') return v; if (v instanceof Error) return v.stack ? v.message + '\n' + v.stack : String(v);
+    // An error as its kind and message (`TypeError: …`), then its stack without nameless frames (a lone "@": a timer's
+    // or eval's), none when that's all it had.
+    const stack = e => String(e.stack || '').split('\n').filter(l => l.trim() && l.trim() !== '@').join('\n');
+    const str = v => { if (typeof v === 'string') return v; if (v instanceof Error) return String(v) + (stack(v) ? '\n' + stack(v) : '');
       try { return JSON.stringify(v) ?? String(v); } catch (_) { return String(v); } };
     const log = (level, text) => post({k: 'console', level, text});
     for (const level of ['log', 'info', 'warn', 'error', 'debug']) {
@@ -52,8 +56,8 @@ extension BrowserTab {
     addEventListener('error', e => {
       const t = e.target;
       if (t && t !== window && t.localName) log('error', 'Failed to load <' + t.localName + '> ' + (t.currentSrc || t.src || t.href || ''));
-      else if (e.error && e.error.stack) log('error', str(e.error));
-      else log('error', (e.error ? str(e.error) : e.message) + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : ''));
+      else if (e.error && stack(e.error)) log('error', str(e.error));
+      else log('error', (e.error ? str(e.error) : e.message) + (e.filename && e.filename !== 'undefined' ? ' (' + e.filename + ':' + e.lineno + ')' : ''));
     }, true);
     addEventListener('unhandledrejection', e => log('error', 'Unhandled rejection: ' + str(e.reason)));
     const abs = u => { try { return new URL(u, location.href).href; } catch (_) { return String(u); } };

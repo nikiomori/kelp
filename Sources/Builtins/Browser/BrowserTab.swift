@@ -37,6 +37,17 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var watching = false
     @ObservationIgnored var logs: [String] = []
     @ObservationIgnored var requests: [String] = []
+    /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
+    @ObservationIgnored var dialogAnswer: (accept: Bool, text: String?)?
+    /// The questions the agent's page answered since the last action's answer said them.
+    @ObservationIgnored var dialogs: [String] = []
+    /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
+    var takenOver = false
+    /// Under the toolbar once an agent drives the page: that it does, and Take Over / Hand Back. No height until then.
+    @ObservationIgnored private let agentSlot = NSView()
+    @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
+    @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
+    @ObservationIgnored private let agentButton = PointerButton()
     var title: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page.url?.host
             ?? String(localized: "New Page")
@@ -73,10 +84,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let bar = Bar.content([back, fwd, reload, address], [designButton, ext, more], stretching: address)
         let body = NSView()
         for x in [web, ports] as [NSView] { body.pin(x) }
-        view = stacked(bar, body)
+        view = stacked(bar, agentSlot, body)
         super.init()
+        agentSlotHeight.isActive = true
         ports.onOpen = { [weak self] u in self?.load(u) }
         web.navigationDelegate = self
+        web.uiDelegate = self
         web.configuration.userContentController.add(WeakHandler(self), name: "kelp")
         address.delegate = self
         address.target = self
@@ -90,6 +103,30 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if agent { watch() }
         load(start)
     }
+
+    /// Shows the agent's strip (an agent drove the page) in its current state.
+    func showAgentBar() {
+        if agentSlot.subviews.isEmpty {
+            let icon = NSImageView(image: .symbol("cursorarrow.motionlines") ?? NSImage())
+            icon.contentTintColor = .themeAccent
+            agentLabel.font = .ui(12)
+            agentLabel.textColor = .secondaryLabelColor
+            agentLabel.lineBreakMode = .byTruncatingTail
+            agentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            agentButton.padding = Metrics.gap
+            agentButton.restFill = .fillRest
+            agentButton.onClick = { [weak self] in self?.toggleTakeOver() }
+            agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
+            agentSlotHeight.isActive = false
+        }
+        agentLabel.stringValue = takenOver ? String(localized: "You took this page over: the agent can only look at it")
+            : String(localized: "An agent is using this page")
+        agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
+        agentButton.toolTip = takenOver ? String(localized: "Let the agent click and type here again")
+            : String(localized: "Stop the agent's clicks and typing here; the page's questions come to you")
+    }
+
+    private func toggleTakeOver() { takenOver.toggle(); showAgentBar() }
 
     func focus() { if web.url == nil { view.window?.makeFirstResponder(address) } else { view.window?.makeFirstResponder(web) } }
 
