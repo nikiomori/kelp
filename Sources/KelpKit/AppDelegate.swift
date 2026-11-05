@@ -163,7 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private func trackGlances() {
         let w = main?.window, e = app.workbench.editor
-        let front = NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil
+        // And someone is there: a front window in an empty room reads nothing (`Presence`).
+        let front = NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil && Presence.here()
         let app = app
         let mark = glances.tick(front: front, shown: e?.attendedSessions ?? [], readable: { app.session($0).map(Self.readOnSight) ?? false },
                                 unread: { app.session($0)?.unread == true }, now: Date())

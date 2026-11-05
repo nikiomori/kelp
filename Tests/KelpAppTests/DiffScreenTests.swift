@@ -126,7 +126,8 @@ extension AppOfItsOwn {
         save.performClick(nil)
         for _ in 0..<100 where !vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
         #expect(vc.draft == nil && !vc.rows.contains(.draft))
-        #expect(vc.rows[at + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
+        let line = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })   // read again: found again
+        #expect(vc.rows[line + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
     }
 
     /// Findings are picked: Space on a selected comment leaves it out of Send to Agent, and its box says so.

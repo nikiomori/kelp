@@ -141,3 +141,11 @@ import Core
     NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { rest = NSColor.fillRest.usingColorSpace(.sRGB)?.alphaComponent ?? 0 }
     #expect(abs(rest - NSColor.fillAlpha(0.05, highContrast: NSColor.increaseContrast)) < 0.001)
 }
+
+/// A finished agent is read only with someone there: input in the last three minutes and the screen unlocked; unknown is away.
+@Test func readingNeedsSomeoneThere() {
+    #expect(Presence.decide(idle: 12, locked: false))
+    #expect(!Presence.decide(idle: 12, locked: true))
+    #expect(!Presence.decide(idle: 600, locked: false))
+    #expect(!Presence.decide(idle: nil, locked: false) && !Presence.decide(idle: 12, locked: nil))
+}
