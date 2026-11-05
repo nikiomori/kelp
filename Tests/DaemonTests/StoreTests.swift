@@ -100,3 +100,14 @@ import Core
     #expect(read.wait(timeout: .now() + 2) == .success)
     release.signal()
 }
+
+/// A routine's old run whose tab is open stays, though a hidden tab lets go of its terminal: the saved layouts say.
+@Test func aTabInALayoutIsFoundByItsSession() throws {
+    let s = try Store()
+    let tabs: JSONValue = .object(["groups": .object(["g": .object(["tabs": .array([.object(["uri": .string("session:abc")])])])])])
+    try s.setUIState("layout/w1", tabs)
+    #expect(try s.inALayout("session:abc"))
+    #expect(try !s.inALayout("session:ab"))   // a whole id, not its start
+    try s.setUIState("sidebar.order", .array([.string("session:zzz")]))
+    #expect(try !s.inALayout("session:zzz"))   // only a layout's tabs
+}

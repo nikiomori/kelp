@@ -281,6 +281,13 @@ public final class Store: Sendable {
             }
         }
     }
+    /// Whether a tab of `uri` (`session:<id>`) is in a workspace's saved layout: open, shown or not.
+    public func inALayout(_ uri: String) throws -> Bool {
+        try db.read { d in
+            try Bool.fetchOne(d, sql: "SELECT EXISTS (SELECT 1 FROM uiState WHERE instr(key, 'layout/') = 1 AND instr(value, ?) > 0)",
+                              arguments: ["\"" + uri + "\""]) ?? false
+        }
+    }
     /// No value deletes the key.
     public func setUIState(_ key: String, _ value: JSONValue?) throws {
         let text = try value.flatMap { String(bytes: try JSONEncoder().encode($0), encoding: .utf8) }
