@@ -295,7 +295,8 @@ public struct SessionTurns: RPCMethod {
 }
 
 /// A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back
-/// and the folder's state now; with it, done only while the folder is still that `state`. Refused while the agent works,
+/// and the folder's state now; with it, done only while the folder is still that `state`, answering with the state after
+/// (for `session.turnRedo`). Refused while the agent works,
 /// after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.
 public struct SessionTurnUndo: RPCMethod {
     public static let name = "session.turnUndo"; public typealias Result = Plan
@@ -307,6 +308,14 @@ public struct SessionTurnUndo: RPCMethod {
         public var files: [String], state: String
         public init(files: [String], state: String) { self.files = files; self.state = state }
     }
+}
+
+/// The last `session.turnUndo` taken back: the folder as it was before it, while it is still `state` (the Plan that
+/// undo answered with). `turn` is the one that was undone.
+public struct SessionTurnRedo: RPCMethod {
+    public static let name = "session.turnRedo"; public typealias Result = Done
+    public var id: String, turn: String, state: String
+    public init(id: String, turn: String, state: String) { self.id = id; self.turn = turn; self.state = state }
 }
 
 /// What a finished Claude Code agent did and what's left, in a line, from a fork of its conversation that leaves the

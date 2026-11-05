@@ -233,9 +233,39 @@ extension SessionContinueAt: Handled {
 extension SessionTurnUndo: Handled {
     var actsOn: String? { id }   // an agent undoes only its own turns and its children's
     func handle(_ workspaces: Workspaces) throws -> Result {
-        guard let ls = workspaces.sessions.existing(id) else { throw RPCError.invalidParams("That agent isn't running.") }
-        guard let t = try workspaces.store.turns(session: id).first(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn.") }
-        let r = workspaces.remotes, dir = try Git.root(of: t.folder, remotes: r)   // paths count from the top, whatever folder it was in
+        let (t, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes
+        let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
+        guard apply == true else { return Plan(files: plan.files, state: plan.now) }
+        // What it was before stays reachable (git gc keeps it) for Redo.
+        try Git.run(["update-ref", Workspaces.undoneRef(id), state ?? ""], cwd: dir, remotes: r)
+        try Git.restore(plan.files, from: t.tree, now: state ?? "", cwd: dir, remotes: r)
+        return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: r))
+    }
+}
+
+extension SessionTurnRedo: Handled {
+    var actsOn: String? { id }
+    func handle(_ workspaces: Workspaces) throws -> Done {
+        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes, ref = Workspaces.undoneRef(id)
+        guard let before = try? Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, remotes: r).trimmingCharacters(in: .whitespacesAndNewlines),
+              !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
+        let plan = try Git.changed(since: before, cwd: dir, remotes: r)
+        try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: r)
+        try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: r)
+        return Done()
+    }
+}
+
+extension Workspaces {
+    /// The folder before the session's last undone turn.
+    static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
+
+    /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
+    /// turn began, no other agent in the checkout, and its snapshot still there.
+    func turnPlace(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
+        guard let ls = sessions.existing(id) else { throw RPCError.invalidParams("That agent isn't running.") }
+        guard let t = try store.turns(session: id).first(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn.") }
+        let r = remotes, dir = try Git.root(of: t.folder, remotes: r)   // paths count from the top, whatever folder it was in
         guard ls.snapshot.status != .working, ls.snapshot.status != .waiting else {
             throw RPCError.invalidParams("The agent is still in its turn: stop it first.")
         }
@@ -244,14 +274,28 @@ extension SessionTurnUndo: Handled {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
         let top = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
-        let others = workspaces.sessions.live.all.filter { o in   // anywhere in the checkout, by any path to it
+        let others = sessions.live.all.filter { o in   // anywhere in the checkout, by any path to it
             let s = o.snapshot, at = URL(fileURLWithPath: o.turnDir ?? s.cwd).resolvingSymlinksInPath().path
             return s.id != id && s.status != .exited && !["shell", "custom"].contains(s.agent ?? "custom") && (at == top || at.hasPrefix(top + "/"))
         }
         guard others.isEmpty else { throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.") }
-        let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
-        if apply == true { try Git.restore(plan.files, from: t.tree, now: state ?? "", cwd: dir, remotes: r) }
-        return Plan(files: plan.files, state: plan.now)
+        guard (try? Git.run(["cat-file", "-e", t.tree + "^{tree}"], cwd: dir, remotes: r)) != nil else {
+            throw RPCError.invalidParams("That turn's snapshot is gone: git cleaned it up.")
+        }
+        return (t, dir)
+    }
+}
+
+extension Sessions {
+    /// A turn that began, kept with its snapshot under refs/kelp/turns/ so `git gc` doesn't take it while the turn is listed;
+    /// the turns that drop off the list let theirs go.
+    func keepTurn(_ t: SessionTurns.Mark) {
+        Log.store.attempt("keeping a turn") {
+            let dropped = try store.addTurn(t)
+            guard remotes.of(t.folder) == nil else { return }   // no snapshots there
+            try Git.run(["update-ref", "refs/kelp/turns/" + t.id, t.tree], cwd: t.folder)
+            for d in dropped { _ = try? Git.run(["update-ref", "-d", "refs/kelp/turns/" + d.id], cwd: d.folder) }
+        }
     }
 }
 

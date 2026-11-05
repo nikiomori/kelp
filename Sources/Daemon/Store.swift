@@ -253,12 +253,14 @@ public final class Store: Sendable {
         return x as? R ?? r
     }
     public func delete<R: PersistableRecord>(_ r: R) throws { try ordered.withLock { try db.write { _ = try r.delete($0) }; report(r, removed: true) } }
-    /// A turn that began; past `keep` of the session's, the oldest go.
-    public func addTurn(_ t: SessionTurns.Mark, keep: Int = 20) throws {
+    /// A turn that began; past `keep` of the session's, the oldest go, and are returned.
+    @discardableResult
+    public func addTurn(_ t: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark] {
         try db.write { d in
             try t.insert(d)
-            try d.execute(sql: "DELETE FROM turn WHERE session = ? AND id NOT IN (SELECT id FROM turn WHERE session = ? ORDER BY at DESC LIMIT ?)",
-                          arguments: [t.session, t.session, keep])
+            let old = try SessionTurns.Mark.filter(Column("session") == t.session).order(Column("at").desc).fetchAll(d).dropFirst(keep)
+            for m in old { _ = try m.delete(d) }
+            return Array(old)
         }
     }
     /// The session's turns, the newest first.

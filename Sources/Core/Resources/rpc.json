@@ -206,7 +206,7 @@
         "type" : "object"
       },
       "ArtifactVersion" : {
-        "description" : "A page as one turn of its agent left it: `versions/<n>.md` beside it, named by the prompt that started the turn.",
+        "description" : "A page as one turn of its agent left it: `versions/<n>.md` (or `.html`) beside it, named by the prompt that started the turn.",
         "properties" : {
           "at" : {
             "description" : "Seconds since 1970.",
@@ -9138,7 +9138,41 @@
       }
     },
     {
-      "description" : "A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back and the folder's state now; with it, done only while the folder is still that `state`. Refused while the agent works, after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.",
+      "description" : "The last `session.turnUndo` taken back: the folder as it was before it, while it is still `state` (the Plan that undo answered with). `turn` is the one that was undone.",
+      "name" : "session.turnRedo",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "state",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "turn",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      }
+    },
+    {
+      "description" : "A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back and the folder's state now; with it, done only while the folder is still that `state`, answering with the state after (for `session.turnRedo`). Refused while the agent works, after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.",
       "name" : "session.turnUndo",
       "paramStructure" : "by-name",
       "params" : [

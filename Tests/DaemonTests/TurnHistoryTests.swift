@@ -52,10 +52,21 @@ import Agents
     try "later\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)   // changed after the look
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state)) }
     #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
+    // The turn's snapshot is reachable, so git gc keeps it while the turn is listed.
+    #expect(try Git.run(["rev-parse", "refs/kelp/turns/" + turn.id], cwd: wt.path).trimmingCharacters(in: .whitespacesAndNewlines) == turn.tree)
     let fresh = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
-    _ = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: fresh.state))
+    var after = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: fresh.state))
     #expect(file("a.txt") == before && file("new.txt") == nil && file(".env") == "KEY=1\n")
     #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: wt.path).isEmpty)   // nothing of the turn left to commit
+    // Redo: what the undo took (the user's own "later" too) comes back, only while the folder is as the undo left it.
+    _ = try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state))
+    #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
+    await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state)) }   // once
+    after = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)).state))
+    try "mine\n".write(toFile: wt.path + "/b.txt", atomically: true, encoding: .utf8)
+    await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state)) }
+    #expect(file("a.txt") == before && file("b.txt") == "mine\n")
+    try FileManager.default.removeItem(atPath: wt.path + "/b.txt")
     // Another agent in the folder, or a commit since: no.
     let other: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
