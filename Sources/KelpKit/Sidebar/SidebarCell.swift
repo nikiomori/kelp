@@ -210,7 +210,8 @@ final class SidebarCell: NSTableCellView {
         guard action.isHidden == on else { return }
         slot.crossfade()
         action.isHidden = !on
-        rest?.isHidden = on
+        // Faded, not hidden: whether it shows is its own (a read agent's mark hides itself), and unhiding brought back a ✓.
+        rest?.alphaValue = on ? 0 : 1
     }
 
     /// The chevron turns as the row folds.
