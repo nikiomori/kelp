@@ -169,6 +169,18 @@ public final class Store: Sendable {
         m.registerMigration("diffComment.side") { db in
             try db.alter(table: "diffComment") { t in t.add(column: "side", .text); t.add(column: "commit", .text) }
         }
+        m.registerMigration("turn") { db in   // an agent's turns, kept for the diff of any of them; they go with their session
+            try db.create(table: "turn") { t in
+                t.primaryKey("id", .text)
+                t.column("session", .text).notNull().indexed()
+                t.column("tree", .text).notNull()
+                t.column("head", .text)
+                t.column("folder", .text).notNull()
+                t.column("prompt", .text).notNull()
+                t.column("at", .datetime).notNull()
+            }
+            try db.execute(sql: "CREATE TRIGGER sessionTurns AFTER DELETE ON session BEGIN DELETE FROM turn WHERE session = OLD.id; END")
+        }
         m.registerMigration("diffComment.author") { db in try db.alter(table: "diffComment") { t in t.add(column: "author", .text) } }
         return m
     }
@@ -238,6 +250,19 @@ public final class Store: Sendable {
         return x as? R ?? r
     }
     public func delete<R: PersistableRecord>(_ r: R) throws { try ordered.withLock { try db.write { _ = try r.delete($0) }; report(r, removed: true) } }
+    /// A turn that began; past `keep` of the session's, the oldest go.
+    public func addTurn(_ t: SessionTurns.Mark, keep: Int = 20) throws {
+        try db.write { d in
+            try t.insert(d)
+            try d.execute(sql: "DELETE FROM turn WHERE session = ? AND id NOT IN (SELECT id FROM turn WHERE session = ? ORDER BY at DESC LIMIT ?)",
+                          arguments: [t.session, t.session, keep])
+        }
+    }
+    /// The session's turns, the newest first.
+    public func turns(session: String) throws -> [SessionTurns.Mark] {
+        try db.read { try SessionTurns.Mark.filter(Column("session") == session).order(Column("at").desc).fetchAll($0) }
+    }
+
     public func comments(worktree: String) throws -> [DiffComment] {
         try db.read { try DiffComment.filter(Column("worktreeId") == worktree).fetchAll($0) }
     }

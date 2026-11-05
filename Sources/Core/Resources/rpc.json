@@ -3032,6 +3032,42 @@
         ],
         "type" : "object"
       },
+      "SessionTurns.Mark" : {
+        "description" : "A turn's start: `tree` is the folder then (a snapshot in the project's git, which git's cleanup may take after two weeks), `head` its HEAD then.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "folder" : {
+            "type" : "string"
+          },
+          "head" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "prompt" : {
+            "type" : "string"
+          },
+          "session" : {
+            "type" : "string"
+          },
+          "tree" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "folder",
+          "id",
+          "prompt",
+          "session",
+          "tree"
+        ],
+        "type" : "object"
+      },
       "SessionUsage.Usage" : {
         "description" : "CPU (ps's %, summed over the session's processes; 100 = one core) and resident memory of a live session.",
         "properties" : {
@@ -5006,6 +5042,14 @@
         },
         {
           "name" : "source",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "With source \"turn\": that turn (`SessionTurns.Mark.id`), up to where the next one began; nil: the last turn.",
+          "name" : "turn",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -8870,6 +8914,29 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/SessionTurn.Info"
+        }
+      }
+    },
+    {
+      "description" : "The session's turns, the newest first (the last 20): how its folder was as each began, with the prompt that started it. None for a remote project's, where no snapshots are taken.",
+      "name" : "session.turns",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SessionTurns.Mark"
+          },
+          "type" : "array"
         }
       }
     },

@@ -9,6 +9,7 @@ public enum DiffSource: Sendable {
     case branch(base: String)     // HEAD vs merge-base(base)
     case commit(String)
     case since(tree: String)      // the working tree now vs a snapshot taken earlier (`snapshotTree`)
+    case between(String, String)  // one snapshot (or commit) vs a later one: a turn that ended before the next began
 }
 
 extension Git {
@@ -142,6 +143,7 @@ extension Git {
         case .branch(let base): a.append("\(try rev(base))...HEAD")
         case .commit(let c): a = ["show", "--format=", "-M", "--diff-merges=first-parent"] + common + [try rev(c)]
         case .since(let tree): a += [try rev(tree), try snapshotTree(path, remotes: remotes)]   // two trees: new files included, nothing staged
+        case .between(let from, let to): a += [try rev(from), try rev(to)]
         }
         let only = file.map { ["--"] + literal([$0]) } ?? []
         var budget = Allowance(oneFile: file != nil)

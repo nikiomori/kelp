@@ -261,6 +261,24 @@ public struct SessionTurn: RPCMethod {
     }
     public typealias Result = Info?
 }
+/// The session's turns, the newest first (the last 20): how its folder was as each began, with the prompt that started
+/// it. None for a remote project's, where no snapshots are taken.
+public struct SessionTurns: RPCMethod {
+    public static let name = "session.turns"; public typealias Result = [Mark]
+    public var id: String
+    public init(id: String) { self.id = id }
+    /// A turn's start: `tree` is the folder then (a snapshot in the project's git, which git's cleanup may take after
+    /// two weeks), `head` its HEAD then.
+    public struct Mark: Codable, Sendable, Equatable, Identifiable {
+        public var id: String, session: String, tree: String, head: String?, folder: String, prompt: String, at: Date
+        public init(id: String = UUID().uuidString, session: String, tree: String, head: String?, folder: String, prompt: String,
+                    at: Date = Date()) {
+            self.id = id; self.session = session; self.tree = tree; self.head = head
+            self.folder = folder; self.prompt = prompt; self.at = at
+        }
+    }
+}
+
 /// The agent's last message, from its transcript.
 public struct SessionLastReply: RPCMethod {
     public static let name = "session.lastReply"; public typealias Result = String?

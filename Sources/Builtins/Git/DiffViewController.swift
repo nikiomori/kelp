@@ -39,6 +39,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// The session reviewing this diff, if one was started here (`DiffReviewWith`).
     var reviewer: String?
     let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
+    /// The agent's turns, with "Agent's Last Turn" (`DiffTurns`).
+    let turnPop = NSPopUpButton()
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -143,6 +145,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         buildBar()
         view = stacked(bar, split)
         track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
+        turnPop.controlSize = .small; turnPop.isHidden = true
+        turnPop.target = self; turnPop.action = #selector(sourceChanged)
         reviewPop.addItem(withTitle: String(localized: "Review with"))
         reviewPop.controlSize = .small
         reviewPop.menu?.delegate = self
@@ -182,7 +186,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 b.controlSize = .small
                 return b
             }
-            bar.set([source, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
+            bar.set([source, turnPop, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
                      btn(String(localized: "Send to Agent"), #selector(sendComments))], [status, position, steps])
         }
     }
@@ -276,7 +280,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         case 2: return GitDiff(id: id, source: "staged")
         case 3: return GitDiff(id: id, source: "branch")
         case 4: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
-        case 5: return GitDiff(id: id, source: "turn", session: FileActions(app).targetAgent?.id ?? "")
+        case 5:
+            var turn = GitDiff(id: id, source: "turn", session: FileActions(app).targetAgent?.id ?? "")
+            turn.turn = chosenTurn
+            return turn
         default: return GitDiff(id: id, source: "all")
         }
     }
@@ -347,6 +354,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             table.reloadData()
             status.stringValue = String(localized: "No agent on this screen"); return
         }
+        if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? FileActions(app).targetAgent?.id : nil) }
         let asked = asking, request = diffRequest()
         basis = request.basis(app.git[wid])
         let r = await app.tryCall(request)

@@ -194,6 +194,10 @@ extension SessionContinueAt: Handled {
     }
 }
 
+extension SessionTurns: Handled {
+    func handle(_ workspaces: Workspaces) throws -> Result { try workspaces.store.turns(session: id) }
+}
+
 extension SessionTurn: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Info? {

@@ -181,7 +181,10 @@ extension LiveSession {
     func type(_ text: String, enter: Bool, paste: Bool, _ s: inout State) {
         s.detector.input(); s.typedYet = true
         s.inputs += 1
-        if enter { s.boxEmpty = true; s.expectHook() } else { s.draftWaiting = true }   // a draft is left for the user to read and send
+        if enter {
+            s.boxEmpty = true; s.expectHook()
+            s.lastSent = text   // what the turn it starts is named after
+        } else { s.draftWaiting = true }   // a draft is left for the user to read and send
         let takesPastes = s.pasteMode
         var text = Self.typeable(text)
         // Not to be sent (a draft: an issue's text, say) to a program that takes no pastes: each newline would submit a

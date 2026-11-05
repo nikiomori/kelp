@@ -101,6 +101,8 @@ extension LiveSession {
 
         // Turns: written by turnWork, read by requests.
         var turnTree: String?, turnFolder: String?, turnResult: Turn?, turnStart: Date?, inTurn = false
+        /// The last line sent (a prompt): what a turn that starts is named after in its history.
+        var lastSent = ""
 
         init(record: Session, manifest: AgentManifest, logSize: Int, callbacks: Callbacks, trail: StatusTrail) {
             self.record = record
@@ -470,7 +472,7 @@ extension LiveSession {
         private mutating func sendLine() -> String? {
             let line = typing.trimmingCharacters(in: .whitespacesAndNewlines)
             typing = ""; boxEmpty = true
-            if !line.isEmpty { expectHook() }
+            if !line.isEmpty { expectHook(); lastSent = line }
             guard !sawFirstPrompt, line.count >= 8 else { return nil }
             sawFirstPrompt = true
             return line

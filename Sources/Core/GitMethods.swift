@@ -36,6 +36,8 @@ public struct GitDiff: RPCMethod {
     public var ignoreSpace: Bool?
     /// Unchanged lines around each change, 3 when nil (git's -U).
     public var context: Int?
+    /// With source "turn": that turn (`SessionTurns.Mark.id`), up to where the next one began; nil: the last turn.
+    public var turn: String?
     public init(id: String, source: String? = nil, file: String? = nil, base: String? = nil, commit: String? = nil, session: String? = nil,
                 ignoreSpace: Bool? = nil) {
         self.id = id; self.source = source; self.file = file; self.base = base; self.commit = commit; self.session = session

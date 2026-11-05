@@ -29,10 +29,17 @@ extension GitDiff: Handled {
         let src: DiffSource
         switch source ?? "all" {
         case "turn":   // since the agent's last turn started, where it worked then (its own worktree, maybe)
-            guard let s = session, let ls = workspaces.sessions.existing(s), let base = ls.turnBase else {
-                throw RPCError.invalidParams("That agent hasn't started a turn since Kelp launched.")
+            guard let s = session, let ls = workspaces.sessions.existing(s) else { throw RPCError.invalidParams("That agent isn't running.") }
+            dir = ls.turnDir ?? ls.snapshot.cwd
+            if let turn {   // one turn of its history: up to the next one's start, or now for the newest
+                let marks = try workspaces.store.turns(session: s)
+                guard let i = marks.firstIndex(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn of that agent.") }
+                dir = marks[i].folder
+                src = i > 0 ? .between(marks[i].tree, marks[i - 1].tree) : .since(tree: marks[i].tree)
+            } else {
+                guard let base = ls.turnBase else { throw RPCError.invalidParams("That agent hasn't started a turn since Kelp launched.") }
+                src = .since(tree: base)
             }
-            src = .since(tree: base); dir = ls.turnDir ?? dir
         case "unstaged": src = .unstaged
         case "staged": src = .staged
         case "branch": src = .branch(base: try clientRef(base) ?? (try workspaces.store.repo(w.repoId)?.baseBranch ?? "main"))
@@ -258,5 +265,5 @@ extension Methods {
     static let gitMethods: [any Handled.Type] = [GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self,
         GitUnsynced.self, GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self, GitGraph.self,
         GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitUndoDiscard.self, GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self,
-        FilesList.self, FilesIgnored.self, FilesSearch.self, CommentAdd.self, CommentList.self, CommentSetState.self, CommentSend.self]
+        SessionTurns.self, FilesList.self, FilesIgnored.self, FilesSearch.self, CommentAdd.self, CommentList.self, CommentSetState.self, CommentSend.self]
 }

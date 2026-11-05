@@ -230,6 +230,7 @@ final class Sessions: Sendable {
         if rec.agent == "cursor" { c.limits = { [weak self] r in self?.agentUsage.recordPlanHit("cursor", r) } }
         // Naming follows the session however it started (created, or woken from a pause).
         c.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
+        c.turnStarted = { [weak self] t in Log.store.attempt("keeping a turn") { try self?.store.addTurn(t) } }
         if !["shell", "custom"].contains(rec.agent ?? "custom") {
             c.topic = { [weak self] t in
                 guard let self else { return }
