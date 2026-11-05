@@ -9,7 +9,7 @@ extension GhosttyTerminalView {
         state: UnsafeMutableRawPointer?, mimes: UnsafePointer<UnsafePointer<CChar>?>?, count: Int, list: Bool
     ) -> ghostty_clipboard_read_result_e {
         guard let surface else { return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE }
-        let pb = NSPasteboard.general
+        let pb = GhosttyRuntime.pasteboard
         var asked: [String] = []
         for i in 0..<count { if let m = mimes?[i].map({ String(cString: $0) }), !asked.contains(m) { asked.append(m) } }
         let contents = asked.compactMap { m in TerminalPaste.data(pb, mime: m).map { (mime: m, data: $0) } }
@@ -49,7 +49,7 @@ extension GhosttyTerminalView {
     func confirmClipboard(_ c: UnsafePointer<ghostty_clipboard_confirm_s>?, state: UnsafeMutableRawPointer?, request: ghostty_clipboard_request_e) {
         guard let surface else { return }
         guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE, let c else { ghostty_surface_deny_clipboard_request(surface, state); return }
-        if GhosttyRuntime.programCopy == NSPasteboard.general.changeCount {
+        if GhosttyRuntime.programCopy == GhosttyRuntime.pasteboard.changeCount {
             ghostty_surface_deny_clipboard_request(surface, state); onPasteRefused?(); return
         }
         var done = ghostty_clipboard_complete_s()

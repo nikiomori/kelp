@@ -175,8 +175,9 @@ let wrappedRows = ["! cd ", "/Users/username/projects/Kelp ", "&& swift build -c
     v.mouseDown(with: try send(.leftMouseDown, at(2.2, first)))
     v.mouseDragged(with: try send(.leftMouseDragged, at(31.8, last)))
     v.mouseUp(with: try send(.leftMouseUp, at(31.8, last)))
-    let pb = NSPasteboard.general, kept = pb.string(forType: .string)
-    defer { pb.clearContents(); if let kept { pb.setString(kept, forType: .string) } }
+    let pb = NSPasteboard.withUniqueName()   // not the user's clipboard
+    GhosttyRuntime.pasteboard = pb
+    defer { GhosttyRuntime.pasteboard = .general; pb.releaseGlobally() }
     let before = pb.changeCount
     v.copy(nil)
     while pb.changeCount == before, Date() < deadline + 2 { try await Task.sleep(for: .milliseconds(20)) }

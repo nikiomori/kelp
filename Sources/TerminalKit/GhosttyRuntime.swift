@@ -58,6 +58,8 @@ public final class GhosttyRuntime {
     public static var cleanCopy = true
     /// The pasteboard's `changeCount` after a program in a terminal last wrote it (OSC 52), while nothing else has.
     static var programCopy: Int?
+    /// The clipboard terminals copy to and paste from: tests give their own, so they leave the user's alone.
+    static var pasteboard = NSPasteboard.general
 
     /// Applies a new appearance to every open terminal.
     public func configure(_ a: TerminalAppearance) {
@@ -180,7 +182,7 @@ public final class GhosttyRuntime {
                 DispatchQueue.main.async { [weak view] in MainActor.assumeIsolated {
                     let text = GhosttyRuntime.cleanCopy && !fromProgram
                         ? TerminalCopy.clean(raw, from: view?.selectionColumn ?? 0, columns: view?.gridSize?.cols) : raw
-                    let pb = NSPasteboard.general
+                    let pb = GhosttyRuntime.pasteboard
                     pb.clearContents(); pb.setString(text, forType: .string)
                     GhosttyRuntime.programCopy = fromProgram ? pb.changeCount : nil
                 } }
