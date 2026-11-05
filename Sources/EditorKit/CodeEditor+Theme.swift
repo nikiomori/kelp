@@ -117,7 +117,7 @@ extension CodeEditor {
     }
 
     /// Tree-sitter capture names (their first part, or the whole for the few that differ) to colors.
-    private static func captureColors(_ l: Look) -> [String: NSColor] {
+    static func captureColors(_ l: Look) -> [String: NSColor] {
         let keyword = ["keyword", "include", "boolean", "repeat", "conditional", "tag", "exception", "label", "variable.builtin", "constant.builtin"]
         var c: [String: NSColor] = ["comment": l.comment, "string": l.string, "character": l.string, "escape": l.string,
                                     "number": l.number, "float": l.number, "type": l.type, "constructor": l.type, "attribute": l.type,

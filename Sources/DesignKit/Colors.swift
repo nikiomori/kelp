@@ -70,6 +70,22 @@ extension NSColor {
     /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on it.
     /// Ask for it while drawing, it's fixed to the current appearance as `labelColor.withAlphaComponent` is.
     public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
+    /// A diff's fills: a whole added or removed line, the words changed in it (stronger), a hunk's header band and the band
+    /// of unchanged lines between hunks.
+    public static let diffAdded = tint(.systemGreen, 0.14)
+    public static let diffRemoved = tint(.systemRed, 0.14)
+    public static let diffAddedWord = tint(.systemGreen, 0.32)
+    public static let diffRemovedWord = tint(.systemRed, 0.32)
+    public static let diffHunk = NSColor(name: nil) { _ in NSColor.themeAccent.withAlphaComponent(0.08) }
+    public static let diffGap = tint(.quaternaryLabelColor, 0.06)
+    /// `color` at `alpha`, read in each appearance (`withAlphaComponent` alone keeps the one it was first read in).
+    private static func tint(_ color: NSColor, _ alpha: CGFloat) -> NSColor {
+        NSColor(name: nil) { a in
+            var resolved = color
+            a.performAsCurrentDrawingAppearance { resolved = color.usingColorSpace(.sRGB) ?? color }
+            return resolved.withAlphaComponent(alpha)
+        }
+    }
     /// Twice as strong with Increase Contrast (System Settings › Accessibility › Display), as the system's own fills get.
     private static func grey(_ alpha: CGFloat) -> NSColor {
         NSColor(name: nil) { a in

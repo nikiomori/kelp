@@ -16,7 +16,7 @@ extension DiffViewController {
         t.lineBreakMode = .byClipping
         return t
     }
-    private func tint(_ k: DiffLine.Kind) -> NSColor? { k == .add ? Self.addTint : k == .del ? Self.delTint : nil }
+    private func tint(_ k: DiffLine.Kind) -> NSColor? { k == .add ? .diffAdded : k == .del ? .diffRemoved : nil }
     func number(_ n: Int?, kind: DiffLine.Kind) -> NSTextField {
         let t = label(n.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right)
         if let c = tint(kind) { t.drawsBackground = true; t.backgroundColor = c }
@@ -31,33 +31,52 @@ extension DiffViewController {
     }
     func band(_ s: String) -> NSTextField {
         let t = label(s, font: .ui(11), color: .tertiaryLabelColor)
-        t.drawsBackground = true; t.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.06)
+        t.drawsBackground = true; t.backgroundColor = .diffGap
         return t
     }
     private func prefix(_ l: DiffLine, marker: Bool) -> String {
         marker ? (l.kind == .add ? "+ " : l.kind == .del ? "- " : "  ") : " "
     }
-    /// Lines wrap at words. Limit: past 4000 characters (a minified file) at any character, which `height(of:)` can count
-    /// without measuring every such line on each resize.
-    private static func wrap(_ text: String) -> NSParagraphStyle {
-        let p = NSMutableParagraphStyle()
-        p.lineBreakMode = text.utf16.count > 4000 ? .byCharWrapping : .byWordWrapping
+    /// Lines wrap at words and go on under their own code's indent, not under the "+" (at most half the column). Tabs
+    /// stop every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a minified file) at any
+    /// character from the edge, which `height(of:)` can count without measuring every such line on each resize.
+    private static func wrap(_ text: String, prefix: String, font: NSFont, width: CGFloat) -> NSParagraphStyle {
+        let p = NSMutableParagraphStyle(), space = charWidth(font)
+        p.tabStops = []
+        p.defaultTabInterval = 4 * space
+        guard text.utf16.count <= 4000 else { p.lineBreakMode = .byCharWrapping; return p }
+        p.lineBreakMode = .byWordWrapping
+        p.headIndent = min(CGFloat(indent(prefix, text)) * space, width / 2)
         return p
     }
+    /// Columns before a line's code: the marker, then its leading spaces and tabs.
+    nonisolated static func indent(_ prefix: String, _ text: String) -> Int {
+        var column = prefix.count
+        for c in text {
+            if c == " " { column += 1 } else if c == "\t" { column = (column / 4 + 1) * 4 } else { break }
+        }
+        return column
+    }
+    /// The width a code column wraps its lines at.
+    private func wrapWidth(marker: Bool) -> CGFloat { (table.tableColumn(withIdentifier: .init(marker ? "t" : "r"))?.width ?? 0) - 4 }
     /// What a row shows of a line: a text field takes seconds over a megabyte, and nobody reads that far along one line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
     func codeCell(_ l: DiffLine, file f: Int, marker: Bool) -> NSTextField {
         let prefix = prefix(l, marker: marker)
         let text = Self.shown(l.text)
-        let s = NSMutableAttributedString(attributedString: Highlighter.attributed(prefix + text, ext: ext(f), font: font))
+        let colored = DiffColors.key(f, l).flatMap { syntax[$0] }.map {
+            Highlighter.attributed(prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
+        } ?? Highlighter.attributed(prefix + text, ext: ext(f), font: font)
+        let s = NSMutableAttributedString(attributedString: colored)
         let key = l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
         if let key, let r = words[key], r.length > 0, r.location + r.length <= (text as NSString).length {
-            s.addAttribute(.backgroundColor, value: l.kind == .add ? Self.addWord : Self.delWord,
+            s.addAttribute(.backgroundColor, value: l.kind == .add ? NSColor.diffAddedWord : .diffRemovedWord,
                            range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
         markFound(s, from: (prefix as NSString).length)
         // Its own paragraph style, the same `height(of:)` measures with: the field's mode doesn't reach an attributed string.
-        s.addAttribute(.paragraphStyle, value: Self.wrap(text), range: NSRange(location: 0, length: s.length))
+        s.addAttribute(.paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
+                       range: NSRange(location: 0, length: s.length))
         let t = NSTextField(labelWithAttributedString: s)
         t.maximumNumberOfLines = 0
         if let c = tint(l.kind) { t.drawsBackground = true; t.backgroundColor = c }
@@ -66,10 +85,21 @@ extension DiffViewController {
 
     func tableViewSelectionDidChange(_ n: Notification) {
         guard (n.object as? NSTableView) === files, files.selectedRow >= 0 else { return }
-        let path = diffs[files.selectedRow].path
-        if let i = rows.firstIndex(where: { if case .diff(.file(let p, _, _)) = $0 { p == path } else { false } }) {
-            table.scrollRowToVisible(min(i + 40, rows.count - 1)); table.scrollRowToVisible(i)
-        }
+        scroll(toFile: diffs[files.selectedRow].path)
+    }
+    /// A file's band to the top, its changes under it; false for a file this diff doesn't show.
+    @discardableResult func scroll(toFile path: String) -> Bool {
+        guard let i = rows.firstIndex(where: { if case .diff(.file(let p, _, _)) = $0 { p == path } else { false } }) else { return false }
+        table.scrollRowToVisible(min(i + 40, rows.count - 1)); table.scrollRowToVisible(i)
+        return true
+    }
+
+    /// Every diff controller made, for `reveal`.
+    static let reviews = NSHashTable<DiffViewController>.weakObjects()
+    /// A file clicked in Source Control: the review of that workspace on screen scrolls to it, in place of a tab of its
+    /// own; false when none shows it.
+    static func reveal(_ path: String, worktree: String) -> Bool {
+        reviews.allObjects.contains { $0.single == nil && $0.worktreeId == worktree && $0.view.window != nil && $0.scroll(toFile: path) }
     }
 
     // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
@@ -169,14 +199,16 @@ extension DiffViewController {
         guard rows.indices.contains(row), case .diff(let r) = rows[row] else { return h }
         func lines(_ l: DiffLine?, _ column: String, marker: Bool) -> Int {
             guard let l, let c = table.tableColumn(withIdentifier: .init(column)) else { return 1 }
-            let fit = max(1, Int((c.width - 4) / Self.charWidth(font)))
+            let width = c.width - 4, fit = max(1, Int(width / Self.charWidth(font)))
             let shown = Self.shown(l.text)
             let n = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
             guard n > fit else { return 1 }   // most lines: no need to measure
             guard shown.utf16.count <= Highlighter.maxColored else { return (n + fit - 1) / fit }
             // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
-            let text = NSAttributedString(string: prefix(l, marker: marker) + l.text, attributes: [.font: font, .paragraphStyle: Self.wrap(l.text)])
-            let tall = text.boundingRect(with: NSSize(width: c.width - 4, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin).height
+            let marked = prefix(l, marker: marker)
+            let text = NSAttributedString(string: marked + l.text,
+                                          attributes: [.font: font, .paragraphStyle: Self.wrap(l.text, prefix: marked, font: font, width: width)])
+            let tall = text.boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin).height
             return max(1, Int((tall / NSLayoutManager().defaultLineHeight(for: font)).rounded(.up)))
         }
         let n = switch r {
@@ -206,7 +238,7 @@ extension DiffViewController {
         let stack = NSStackView()
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.08).cgColor
+        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
         let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
         where_.lineBreakMode = .byTruncatingTail
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -226,5 +258,15 @@ extension DiffViewController {
             stack.addArrangedSubview(button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
         }
         return stack
+    }
+}
+
+/// A file-list row: its folder only when the whole of it fits (`full`), else the name and counts alone (`short`).
+final class FitLabel: NSTextField {
+    var full = NSAttributedString(), short = NSAttributedString()
+    override func setFrameSize(_ size: NSSize) {
+        super.setFrameSize(size)
+        let s = full.size().width + 6 <= size.width ? full : short
+        if !attributedStringValue.isEqual(to: s) { attributedStringValue = s }
     }
 }

@@ -2,7 +2,8 @@ import AppKit
 import EditorKit
 import KelpKit
 
-/// Small regex highlighter for diffs and previews. The editor uses tree-sitter; this only needs to be cheap.
+/// A diff line's colours: the editor's tree-sitter captures where the diff has them (`DiffColors`), else a small regex
+/// highlighter (a language without a grammar, a side too long to parse, lines opened between changes).
 enum Highlighter {
     static let keywords: [String: [String]] = {
         let c = ["if", "else", "for", "while", "return", "break", "continue", "switch", "case", "default", "struct", "class", "enum", "static",
@@ -38,6 +39,17 @@ enum Highlighter {
         let c = CodeEditor.tokenColors
         for (re, color) in zip(res, [c.keyword, c.number, c.string, c.comment]) {
             for m in re.matches(in: s, range: NSRange(s.startIndex..., in: s)) { a.addAttribute(.foregroundColor, value: color, range: m.range) }
+        }
+        return a
+    }
+
+    /// `s` coloured by its line's captures, which start `from` characters in (past the "+ " marker).
+    @MainActor static func attributed(_ s: String, spans: [DiffColors.Span], from: Int, font: NSFont, colors: [String: NSColor]) -> NSAttributedString {
+        let a = NSMutableAttributedString(string: s, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
+        for span in spans {
+            let r = NSRange(location: span.range.location + from, length: span.range.length)
+            guard NSMaxRange(r) <= a.length, let c = colors[span.name] ?? colors[String(span.name.prefix { $0 != "." })] else { continue }
+            a.addAttribute(.foregroundColor, value: c, range: r)
         }
         return a
     }

@@ -184,6 +184,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     var sidebarShown: Bool { !sidebarItem.isCollapsed || peeking === sidebarItem }
     var inspectorShown: Bool { !inspectorItem.isCollapsed || peeking === inspectorItem }
+    /// In its column beside the editors, not only peeking over them.
+    var inspectorDocked: Bool { !inspectorItem.isCollapsed }
 
     /// Quitting: focus mode's panels come back first, or the split's autosave would start the next launch wrong.
     func leaveFocusMode() {

@@ -16,9 +16,12 @@ public final class Bar: NSView {
     }
     public static func content(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) -> Bar {
         let b = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset))
+        b.sizesControls = true
         b.set(leading, trailing, stretching: stretching)
         return b
     }
+    /// A tab's toolbar gives its system controls one size: a pop-up kept 13 pt at small size beside 11 pt buttons.
+    private var sizesControls = false
 
     public static func foot(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
         let b = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset), lineOnTop: true)
@@ -54,12 +57,24 @@ public final class Bar: NSView {
         let flex = stretching ?? NSView()
         flex.setContentHuggingPriority(.init(1), for: .horizontal)
         for v in (stretching == nil ? leading + [flex] + trailing : leading + trailing) { stack.addArrangedSubview(v) }
+        if sizesControls { (leading + trailing).forEach(Self.small) }
         // Icon buttons side by side: their 22 pt squares already hold them apart.
         for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst()) where a is IconButton && b is IconButton {
             stack.setCustomSpacing(Metrics.iconGap, after: a)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Push buttons, pop-ups and segments as AppKit draws them, and those in a stack among them: small, in the chrome's
+    /// 11 pt. Kelp's own (`PointerButton`, `PointerPopUpButton`) size themselves.
+    private static func small(_ v: NSView) {
+        if let s = v as? NSStackView { s.arrangedSubviews.forEach(small); return }
+        let push = (v as? NSButton).map { !($0 is PointerButton) && !($0 is NSPopUpButton) && $0.isBordered && $0.bezelStyle == .push } ?? false
+        let plain = [ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self)].contains(ObjectIdentifier(type(of: v)))
+        guard push || plain, let c = v as? NSControl else { return }
+        c.controlSize = .small
+        c.font = .ui(11)
+    }
 
     /// A bar's title words: semibold row text, the panel's name or what it lists.
     public static func title(_ s: String) -> NSTextField {

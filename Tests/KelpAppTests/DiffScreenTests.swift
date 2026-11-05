@@ -5,6 +5,7 @@ import Core
 import GitKit
 import Daemon
 import WorkbenchKit
+import DesignKit
 @testable import KelpApp
 @testable import KelpKit
 @testable import BuiltinAgents
@@ -322,4 +323,37 @@ extension AppOfItsOwn {
     #expect(!colored(long))
     #expect(DiffViewController.shown("short") == "short")
     #expect(DiffViewController.shown(String(repeating: "y", count: 30_000)).utf16.count == 20_001)
+}
+
+/// A diff colours as the editor does: each side parsed whole, a capture cut at line ends, a removed line from the old side.
+@MainActor @Test func aDiffIsColoredByTheEditorsGrammar() {
+    let lines = [DiffLine(kind: .context, text: "let a = \"x\"", oldLine: 1, newLine: 1), DiffLine(kind: .del, text: "var b = 1", oldLine: 2),
+                 DiffLine(kind: .add, text: "/* one", newLine: 2), DiffLine(kind: .add, text: "two */", newLine: 3)]
+    let d = [FileDiff(path: "a.swift", header: "", hunks: [Hunk(header: "@@", oldStart: 1, newStart: 1, lines: lines)], binary: false)]
+    let spans = DiffColors.spans(d, grammars: DiffColors.grammars(d))
+    #expect(spans["0:n:1"]?.contains { $0.name == "string" && $0.range.location == 8 } == true)
+    #expect(spans["0:o:2"]?.contains { $0.name.hasPrefix("keyword") && $0.range == NSRange(location: 0, length: 3) } == true)
+    #expect(spans["0:n:2"]?.contains { $0.name == "comment" && $0.range == NSRange(location: 0, length: 6) } == true)
+    #expect(spans["0:n:3"]?.contains { $0.name == "comment" && $0.range == NSRange(location: 0, length: 6) } == true)
+    #expect(spans["0:o:1"] == nil)   // an unchanged line once, from the new side
+    #expect(DiffColors.grammars([FileDiff(path: "notes.unknownext", header: "", hunks: d[0].hunks, binary: false)]).isEmpty)
+}
+
+/// A wrapped line goes on under its code, past the marker and the line's own indent (tabs every four columns).
+@Test func aWrappedDiffLineKeepsItsIndent() {
+    #expect(DiffViewController.indent("+ ", "    x") == 6)
+    #expect(DiffViewController.indent("+ ", "\tx") == 4)
+    #expect(DiffViewController.indent(" ", "\t\t x") == 9)
+    #expect(DiffViewController.indent("- ", "x  ") == 2)
+}
+
+/// A tab's toolbar gives its push buttons, pop-ups and segments one size and font; Kelp's own buttons keep theirs.
+@MainActor @Test func aContentBarsControlsAreOneSize() {
+    let push = NSButton(title: "Comment", target: nil, action: nil), pop = NSPopUpButton(), seg = NSSegmentedControl()
+    push.bezelStyle = .push
+    let check = NSButton(checkboxWithTitle: "Viewed", target: nil, action: nil), own = PointerButton()
+    let inner = NSPopUpButton()
+    _ = Bar.content([pop, NSStackView(views: [inner]), push], [seg, check, own])
+    #expect([push, pop, seg, inner].allSatisfy { $0.controlSize == .small && $0.font == .ui(11) })
+    #expect(check.controlSize == .regular && own.controlSize == .regular)
 }

@@ -63,6 +63,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var changes: [FileChange] = []
     /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
     var words: [String: NSRange] = [:]
+    /// Each line's tree-sitter captures, by `DiffColors.key`; the theme's colours for them.
+    var syntax: [String: [DiffColors.Span]] = [:]
+    var syntaxColors = CodeEditor.syntaxColors
     var worktreeId: String?
     var commitHash: String?
     /// One-file mode: (path, "unstaged" | "staged", commit).
@@ -74,8 +77,6 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
     private var narrow = false
 
-    static let addTint = NSColor.systemGreen.withAlphaComponent(0.14), delTint = NSColor.systemRed.withAlphaComponent(0.14)
-    static let addWord = NSColor.systemGreen.withAlphaComponent(0.32), delWord = NSColor.systemRed.withAlphaComponent(0.32)
     static let hatch = NSColor(patternImage: NSImage(size: NSSize(width: 7, height: 7), flipped: false) { _ in
         NSColor.secondaryLabelColor.withAlphaComponent(0.14).setStroke()
         let p = NSBezierPath()
@@ -100,7 +101,6 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         source.lastItem?.toolTip = String(localized: "What changed since the agent's last prompt, even with other agents in the same folder")
         source.target = self
         source.action = #selector(sourceChanged)
-        source.controlSize = .small
         status.font = .ui(11); status.textColor = .secondaryLabelColor
         position.font = .uiDigits(11); position.textColor = .secondaryLabelColor
         position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
@@ -149,10 +149,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         buildBar()
         view = stacked(bar, split)
         track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
-        turnPop.controlSize = .small; turnBar.isHidden = true
+        track(owner: self) { [app] in app.workbench.panelBeside } changed: { [weak self] _ in self?.placeFileList() }
+        Self.reviews.add(self)
+        turnBar.isHidden = true
         turnPop.target = self; turnPop.action = #selector(sourceChanged)
         reviewPop.addItem(withTitle: String(localized: "Review with"))
-        reviewPop.controlSize = .small
         reviewPop.menu?.delegate = self
         followReviewer()
     }
@@ -161,6 +162,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private func themeChanged() {
         table.backgroundColor = CodeEditor.page.background
         table.rowHeight = Self.lineHeight
+        syntaxColors = CodeEditor.syntaxColors
         rebuildRows()
     }
 
@@ -170,7 +172,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private var positioned = false
     override func viewDidLayout() {
         super.viewDidLayout()
-        if single == nil, !positioned, let s = split, s.bounds.width > 400 { positioned = true; s.setPosition(220, ofDividerAt: 0) }
+        placeFileList()
+        if !positioned, fileList?.isHidden == false, let s = split, s.bounds.width > 400 { positioned = true; s.setPosition(220, ofDividerAt: 0) }
         let n = table.bounds.width > 0 && table.bounds.width < 640
         if n != narrow {
             narrow = n
@@ -184,10 +187,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single != nil {
             bar.set([pathLabel, status], [position, steps, spaceToggle, layoutToggle])
         } else {
-            func btn(_ t: String, _ a: Selector) -> NSButton {
+            func btn(_ t: String, _ a: Selector) -> NSButton {   // sized by the bar, as its pop-ups
                 let b = NSButton(title: t, target: self, action: a)
                 b.bezelStyle = .push
-                b.controlSize = .small
                 return b
             }
             bar.set([source, turnBar, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
@@ -228,7 +230,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// One file, VS Code's diff editor: no file list, just this file's changes.
     func showFile(_ path: String, source: String, commit: String?) {
         single = (path, source, commit)
-        fileList?.isHidden = true
+        placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
         let s = NSMutableAttributedString(string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
         if !dir.isEmpty {
@@ -373,12 +375,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             cm = await app.quiet(CommentList(id: wid)) ?? []
         }
         if d != diffs { opened = [:] }   // lines opened between changes may have moved
+        let grammars = d == diffs ? [:] : DiffColors.grammars(d)   // the same diff keeps its colours
+        async let parsed = Task.detached { DiffColors.spans(d, grammars: grammars) }.value
         let layout = sideBySide, built = await buildRows(d, cm, sideBySide: layout)
         let printed = await Task.detached { Dictionary(d.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a } }.value
+        let spans = await parsed
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
         builds += 1   // rows a layout change is still building are the old diff's
-        if d != diffs { position.stringValue = "" }   // "Change 3 of 17" counted another diff
+        if d != diffs { position.stringValue = ""; syntax = spans }   // "Change 3 of 17" counted another diff
         diffs = d
         prints = printed
         changes = ch
@@ -393,29 +398,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         status.stringValue = statusText()
     }
 
-    /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
-    private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> ([ReviewRow], [String: NSRange]) {
-        let one = single != nil, open = opened
-        return await Task.detached {
-            (DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open), DiffRows.changedWords(d))
-        }.value
-    }
-
     /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
     private var builds = 0
-    func rebuildRows() {
-        builds += 1
-        let n = builds, d = diffs, cm = comments, layout = sideBySide
-        Task {
-            let built = await buildRows(d, cm, sideBySide: layout)
-            guard n == builds else { return }
-            if fadesNextLoad { table.crossfade(Motion.base) }
-            fadesNextLoad = false
-            (rows, words) = built
-            placeDraft(); reloadKeepingDraft()
-            if !find.needle.isEmpty { search(find.needle, step: false) }
-        }
-    }
 
     // MARK: table
     func numberOfRows(in t: NSTableView) -> Int { t === files ? diffs.count : rows.count }
@@ -481,6 +465,37 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 }
 
 extension DiffViewController {
+    /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
+    private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> ([ReviewRow], [String: NSRange]) {
+        let one = single != nil, open = opened
+        return await Task.detached {
+            (DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open), DiffRows.changedWords(d))
+        }.value
+    }
+
+    func rebuildRows() {
+        builds += 1
+        let n = builds, d = diffs, cm = comments, layout = sideBySide
+        Task {
+            let built = await buildRows(d, cm, sideBySide: layout)
+            guard n == builds else { return }
+            if fadesNextLoad { table.crossfade(Motion.base) }
+            fadesNextLoad = false
+            (rows, words) = built
+            placeDraft(); reloadKeepingDraft()
+            if !find.needle.isEmpty { search(find.needle, step: false) }
+        }
+    }
+
+    /// Source Control beside the tab lists the same files: the tab's own list steps aside meanwhile, and comes back
+    /// where it was when the inspector closes or shows another panel. One file's tab has none.
+    func placeFileList() {
+        let hide = single != nil || app.workbench.panelBeside == "git.changes"
+        guard let list = fileList, let s = split, list.isHidden != hide else { return }
+        list.isHidden = hide; s.adjustSubviews()
+        if !hide { positioned = false }   // at its width again on the next layout
+    }
+
     /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
     /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
@@ -509,15 +524,5 @@ extension DiffViewController {
         case 5: return nil
         default: return DiffTab.uri(wid, file: path, source: "all")
         }
-    }
-}
-
-/// A file-list row: its folder only when the whole of it fits (`full`), else the name and counts alone (`short`).
-final class FitLabel: NSTextField {
-    var full = NSAttributedString(), short = NSAttributedString()
-    override func setFrameSize(_ size: NSSize) {
-        super.setFrameSize(size)
-        let s = full.size().width + 6 <= size.width ? full : short
-        if !attributedStringValue.isEqual(to: s) { attributedStringValue = s }
     }
 }
