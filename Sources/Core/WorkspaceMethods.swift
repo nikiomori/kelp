@@ -41,8 +41,14 @@ public struct WorkspaceCreate: RPCMethod {
 public struct WorktreeCreate: RPCMethod {
     public static let name = "worktree.create"
     public var repoId: String, branch: String?, base: String?, note: String?, tabs: Bool?, setup: Bool?
-    public init(repoId: String, branch: String? = nil, base: String? = nil, note: String? = nil, tabs: Bool? = nil, setup: Bool? = nil) {
+    /// `branch` is there already (a local one, or "origin/x"): checked out as it is, not made from `base`.
+    public var existing: Bool?
+    /// A pull request's number: its head is fetched into `branch` (else "pr-N") and checked out.
+    public var pr: Int?
+    public init(repoId: String, branch: String? = nil, base: String? = nil, note: String? = nil, tabs: Bool? = nil, setup: Bool? = nil,
+                existing: Bool? = nil, pr: Int? = nil) {
         self.repoId = repoId; self.branch = branch; self.base = base; self.note = note; self.tabs = tabs; self.setup = setup
+        self.existing = existing; self.pr = pr
     }
     /// The worktree's own fields, and beside them what its .kelp.yaml setup needs.
     public struct Result: Codable, Sendable, Equatable {

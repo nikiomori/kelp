@@ -7,13 +7,22 @@ extension Git {
         String(branch.map { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" ? $0 : "-" })
     }
 
-    /// New branch from `base` in a fresh worktree; copies `copyFiles` present in the repo root.
-    public static func addWorktree(repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], remotes: Remotes = .none) throws -> String {
+    /// New branch from `base` in a fresh worktree; copies `copyFiles` present in the repo root. `existing`: a branch that is
+    /// there already, checked out as it is (a remote one, "origin/x", gets a local "x" that follows it); `base` unused.
+    public static func addWorktree(repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
+                                   remotes: Remotes = .none) throws -> String {
         // "feat/a" and "feat-a" make one slug: the second gets "-2" rather than a confusing "already exists" from git.
         var path = dir.appendingPathComponent(slug(branch)).path, n = 2
         while FileManager.default.fileExists(atPath: path) { path = dir.appendingPathComponent("\(slug(branch))-\(n)").path; n += 1 }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)
+        if !existing {
+            try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)
+        } else if branchExists(repo, branch, remotes: remotes) {
+            try run(["worktree", "add", path, rev(branch)], cwd: repo, remotes: remotes)
+        } else {   // "origin/x": a local "x" following it
+            let local = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
+            try run(["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes)
+        }
         let fm = FileManager.default
         for f in Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) {
             let src = (repo as NSString).appendingPathComponent(f), dst = (path as NSString).appendingPathComponent(f)
@@ -22,6 +31,15 @@ extension Git {
             try? fm.copyItem(atPath: src, toPath: dst)
         }
         return path
+    }
+
+    /// A pull request's head as local branch `branch` (GitHub's pull/N/head, else GitLab's merge-requests/N/head), from
+    /// `origin`; one already there is left as it is.
+    public static func fetchPullRequest(repo: String, number: Int, into branch: String, remotes: Remotes = .none) throws {
+        guard !branchExists(repo, branch, remotes: remotes) else { return }
+        do { try run(["fetch", "-q", "origin", "pull/\(number)/head:" + rev(branch)], cwd: repo, remotes: remotes) } catch {
+            try run(["fetch", "-q", "origin", "merge-requests/\(number)/head:" + rev(branch)], cwd: repo, remotes: remotes)
+        }
     }
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.

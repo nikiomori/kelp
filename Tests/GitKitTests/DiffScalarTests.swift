@@ -36,3 +36,20 @@ import TestSupport
     #expect(!FileManager.default.fileExists(atPath: wt + "/../escape"))
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/node_modules")) == nil)   // a copy, not a link
 }
+
+/// A worktree on a branch that's there: a local one as it is, a remote one as a local branch following it, a pull
+/// request's head fetched into a branch of its own.
+@Test func worktreesOnBranchesThatExist() throws {
+    let origin = tmp().path, repo = try tempRepo(), dir = tmp()
+    try Git.run(["init", "-q", "--bare", origin], cwd: repo)
+    try Git.run(["remote", "add", "origin", origin], cwd: repo)
+    try Git.run(["branch", "feat/local"], cwd: repo)
+    try Git.run(["push", "-q", "origin", "main:spike", "main:refs/pull/7/head"], cwd: repo)
+    try Git.run(["fetch", "-q", "origin"], cwd: repo)
+    let a = try Git.addWorktree(repo: repo, branch: "feat/local", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(try Git.run(["branch", "--show-current"], cwd: a).trimmingCharacters(in: .whitespacesAndNewlines) == "feat/local")
+    let b = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(try Git.run(["branch", "--show-current"], cwd: b).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
+    try Git.fetchPullRequest(repo: repo, number: 7, into: "pr-7")
+    #expect(Git.branchExists(repo, "pr-7"))
+}

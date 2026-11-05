@@ -107,11 +107,26 @@ extension WorktreeCreate: Handled {
             throw RPCError.invalidParams("“\(r.name)” isn't a Git repository, so it has no branches.")
         }
         let auto = try workspaces.nextWorkspace(in: r)
-        let branch = try clientRef(branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch
+        var branch = try clientRef(branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch
+        // A name given for a new branch names it too, as a first prompt would (`nameBranch`), "-2" if it's taken.
+        if self.branch == nil, pr == nil, let n = note?.trimmingCharacters(in: .whitespaces), !n.isEmpty, !Naming.slug(n).isEmpty {
+            let wanted = workspaces.sessions.branchPrefix + Naming.slug(n)
+            var k = 2
+            branch = wanted
+            while Git.branchExists(r.path, branch, remotes: workspaces.remotes) { branch = "\(wanted)-\(k)"; k += 1 }
+        }
+        if let pr {
+            if self.branch == nil { branch = "pr-\(pr)" }
+            try Git.fetchPullRequest(repo: r.path, number: pr, into: branch, remotes: workspaces.remotes)
+        }
         let base = try clientRef(base.flatMap { $0.isEmpty ? nil : $0 }) ?? r.baseBranch
         let into = Workspaces.worktreesDir(workspaces.root, r, chosen: workspaces.sessions.settings["worktrees.folder"]?.string)
-        let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: into,
-                                       copyFiles: r.copyFiles, remotes: workspaces.remotes)
+        let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: into, copyFiles: r.copyFiles,
+                                       existing: existing == true || pr != nil, remotes: workspaces.remotes)
+        // "origin/x" checked out as the local "x" that follows it
+        if existing == true, !Git.branchExists(r.path, branch, remotes: workspaces.remotes) {
+            branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
+        }
         let w = Worktree(repoId: r.id, branch: branch, path: path, note: note ?? (self.branch == nil ? auto.name : ""), base: base)
         try workspaces.store.save(w)
         var result = Result(worktree: w)

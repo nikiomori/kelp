@@ -220,6 +220,34 @@ extension Workbench {
         }
     }
 
+    /// ⌥⌃⌘N, "New Chat on Branch…": the sheet (`NewChatSheet`) for a branch with a name, one that's there, or a pull
+    /// request, and the agent to start on it.
+    func newBranchAsking(repo: String? = nil) {
+        Task {
+            guard let rid = await project(repo) else { return }
+            let w = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
+            var b: BranchInfo?
+            if let w { b = await app.quiet(GitBranches(id: w.id)) }
+            let prs = await app.quiet(GitHubPRs(repoId: rid, filter: "open")) ?? []
+            let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" }.map { (id: $0.id, name: $0.name) }
+            let sheet = NewChatSheet(local: b?.local ?? [base], remote: b?.remote ?? [], base: base, prs: prs, agents: agents,
+                                     picked: app.catalog.defaultAgent)
+            let a = NSAlert()
+            a.messageText = String(localized: "New Chat on Branch")
+            a.accessoryView = sheet.view
+            a.addButton(withTitle: String(localized: "Start"))
+            a.addButton(withTitle: String(localized: "Cancel"))
+            a.window.initialFirstResponder = sheet.name
+            guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            let c = sheet.choice
+            guard let made = await app.call(NewChatSheet.request(c, repo: rid)) else { return }
+            await startChat(on: made.worktree.id, agent: c.agent)
+            if made.setupNeedsTrust == true, let info = await app.scripts.load(made.worktree.id), info.setup != nil {
+                await app.scripts.runKelp(made.worktree.id, "setup", info)
+            }
+        }
+    }
+
     /// The project a new screen goes to: the one asked for, the one on screen, or the first; with none, adding one.
     private func project(_ repo: String?) async -> String? {
         let m = app
@@ -230,9 +258,9 @@ extension Workbench {
 
     /// A new agent of the default kind, started before anything shows: it comes as a row of its own. With no agent on this
     /// Mac the empty screen offers to install one.
-    private func startChat(on id: String, cwd: String? = nil) async {
+    private func startChat(on id: String, cwd: String? = nil, agent: String? = nil) async {
         var chat: Session?
-        if let a = app.catalog.startable {
+        if let a = agent ?? app.catalog.startable {
             var p = SessionCreate(cwd: cwd, worktreeId: id, agent: a)
             if let g = terminalGrid { p.cols = g.cols; p.rows = g.rows }
             chat = await app.call(p)

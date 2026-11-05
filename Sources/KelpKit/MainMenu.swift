@@ -94,7 +94,7 @@ extension AppDelegate {
     private func fileMenu(_ b: MenuBuilder) {
         let app = self.app
         let file = b.sub("File")
-        b.add(file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "agents.new", "terminal.new", "terminal.tmux")
+        b.add(file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking", "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
         for a in app.catalog.installed(app.catalog.all) { with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) } }
         with.addItem(.separator())

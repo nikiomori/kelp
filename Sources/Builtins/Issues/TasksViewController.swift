@@ -321,6 +321,15 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         detail.addArrangedSubview(label(String(localized: "\(r.author) wants to merge \(branch)\(draft)\(decision)"), color: .secondaryLabelColor))
         let wt = worktreeFor(branch: branch)
         let actions = NSStackView(); actions.spacing = 8
+        if wt == nil, let repoId {   // a folder of its own on the PR's head, as New Chat on Branch… › Pull Request makes
+            actions.addArrangedSubview(button(String(localized: "Open in Worktree"), "arrow.triangle.branch") {
+                Task {
+                    guard let made = await app.call(WorktreeCreate(repoId: repoId, branch: branch, pr: n)) else { return }
+                    await app.refresh()
+                    app.workbench.show(workspace: made.worktree.id)
+                }
+            })
+        }
         if let wt {
             actions.addArrangedSubview(button(String(localized: "Open Worktree"), "arrow.triangle.branch") { app.workbench.show(workspace: wt.id) })
             actions.addArrangedSubview(button(String(localized: "Send Review Comments to Agent"), "text.bubble") { [weak self] in self?.sendReview(n, wt) })

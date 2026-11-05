@@ -9807,10 +9807,26 @@
           }
         },
         {
+          "description" : "`branch` is there already (a local one, or \"origin/x\"): checked out as it is, not made from `base`.",
+          "name" : "existing",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
           "name" : "note",
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "description" : "A pull request's number: its head is fetched into `branch` (else \"pr-N\") and checked out.",
+          "name" : "pr",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
           }
         },
         {

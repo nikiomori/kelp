@@ -118,3 +118,18 @@ import Core
     m.park(s.id, until: Date().addingTimeInterval(-1))   // a time that passed counts no more
     #expect(!m.isParked(s.id))
 }
+
+/// New Chat on Branch…: each mode asks the daemon for its own kind of folder.
+@Test @MainActor func theNewChatSheetAsksForWhatWasPicked() {
+    var c = NewChatSheet.Choice(mode: .new, name: "Fix login", from: "dev", branch: nil, pr: nil, agent: "codex")
+    var r = NewChatSheet.request(c, repo: "r")
+    #expect(r.note == "Fix login" && r.base == "dev" && r.branch == nil && r.existing == nil)
+    c.mode = .existing; c.branch = "origin/spike"
+    r = NewChatSheet.request(c, repo: "r")
+    #expect(r.branch == "origin/spike" && r.existing == true)
+    c.mode = .pullRequest; c.branch = "fix/flaky"; c.pr = 212
+    r = NewChatSheet.request(c, repo: "r")
+    #expect(r.pr == 212 && r.branch == "fix/flaky")
+    let sheet = NewChatSheet(local: ["main"], remote: [], base: "main", prs: [], agents: [(id: "codex", name: "Codex")], picked: "codex")
+    #expect(sheet.choice.mode == .new && sheet.choice.agent == "codex" && sheet.choice.from == "main")
+}

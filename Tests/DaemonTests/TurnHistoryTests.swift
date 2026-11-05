@@ -127,3 +127,12 @@ import Agents
     changed = s.noteQuiet(now: now)
     #expect(changed && s.record.quietSince == nil)
 }
+
+/// A new branch given a name is named after it, "-2" when that's taken.
+@Test func aNewBranchIsNamedAfterTheNameGiven() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let first: WorktreeCreate.Result = try await w.c.call(WorktreeCreate(repoId: w.repo.id, note: "Fix the login page", setup: false))
+    #expect(first.worktree.branch.hasSuffix("login-page") && first.worktree.note == "Fix the login page")
+    let again: WorktreeCreate.Result = try await w.c.call(WorktreeCreate(repoId: w.repo.id, note: "Fix the login page", setup: false))
+    #expect(again.worktree.branch == first.worktree.branch + "-2")
+}
