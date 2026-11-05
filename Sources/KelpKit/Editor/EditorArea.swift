@@ -12,6 +12,7 @@ package final class EditorArea: NSViewController {
     let workspaceId: String
     package var layout: WorkspaceLayout
     var contents: [String: TabContent] = [:]       // by tab id
+    var recent: [String] = []                      // tab ids by when last shown, newest last (EditorRelease)
     var groupViews: [String: GroupView] = [:]
     /// The card under an agent's tab, one for all of this workspace's strips: moving along them goes from card to card.
     private lazy var tabCard = HoverCard(app: app, underTabs: true)
@@ -237,6 +238,7 @@ package final class EditorArea: NSViewController {
             return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)
         g.show(visible?.view)
+        noteShown(model.selectedTab?.id)
         // With panes side by side, those without focus fade, tabs too: the one you're in is the lit one, whatever it shows.
         // Never the one that calls for you: it's the pane to look at.
         g.dimmed = !g.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible != nil && visible?.badge?.attention == nil

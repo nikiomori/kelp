@@ -150,3 +150,23 @@ extension OneAtATime {
     // An ordinary single-quoted string still reads the value as text in it.
     #expect(actions.expand("echo 'Issue: ${title}'", item: item, quote: true).hasSuffix(#"echo 'Issue: '"${KELP_V1}"''"#))
 }
+
+/// A hidden terminal lets go of its surface once two others were shown after it; the one on screen and files stay built.
+@MainActor @Test func terminalsHiddenLongestAreReleased() {
+    final class Fake: TabContent {
+        let uri: String; let view = NSView(); var title: String { uri }; var icon: NSImage? { nil }
+        init(_ uri: String) { self.uri = uri }
+        func focus() {}
+    }
+    let area = EditorArea(app: AppModel(builtins: Builtins.all), workspaceId: "release-test")
+    let file = area.layout.add(TabURI.file("/tmp/a.txt"))
+    area.contents[file.id] = Fake(file.uri); area.noteShown(file.id)
+    let tabs = (1...4).map { area.layout.add("session:s\($0)") }
+    for t in tabs {
+        area.contents[t.id] = Fake(t.uri)
+        if let g = area.layout.group(of: t.id) { area.layout.groups[g]?.selected = t.id }
+        area.noteShown(t.id)
+    }
+    #expect(area.contents[tabs[0].id] == nil && area.contents[tabs[1].id] != nil && area.contents[tabs[3].id] != nil)
+    #expect(area.contents[file.id] != nil)
+}
