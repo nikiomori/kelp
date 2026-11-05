@@ -136,3 +136,22 @@ import Agents
     let again: WorktreeCreate.Result = try await w.c.call(WorktreeCreate(repoId: w.repo.id, note: "Fix the login page", setup: false))
     #expect(again.worktree.branch == first.worktree.branch + "-2")
 }
+
+/// Allow given in Kelp goes to the question's waiting hook, not into the menu; once it's answered otherwise, the hook
+/// goes with no answer.
+@Test func allowGoesToTheWaitingHook() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
+    let wt = try await desk(w, "perm")
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let c = w.c, id = s.id
+    let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
+    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    #expect(try await c.call(SessionChoose(id: id, answer: "allow")))
+    #expect(try await waiting.value == "allow")
+    #expect(w.d.sessions.existing(id)?.snapshot.status == .working)
+    let again = Task { try await c.call(SessionPermissionWait(id: id)) }
+    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    w.d.sessions.answerPermission(id, nil)   // as when it's answered in the terminal and stops waiting
+    #expect(try await again.value == nil)
+    #expect(Hooks.settingsJSON().contains(#""PermissionRequest":[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#))
+}

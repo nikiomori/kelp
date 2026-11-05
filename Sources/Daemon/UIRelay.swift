@@ -48,7 +48,7 @@ extension UIBrowserReply: Handled {
 
 extension Methods {
     static let uiMethods: [any Handled.Type] = [UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowserReply.self]
-    static let uiAsyncMethods: [any AsyncHandled.Type] = [UIBrowser.self]
+    static let uiAsyncMethods: [any AsyncHandled.Type] = [UIBrowser.self, SessionPermissionWait.self]
 }
 
 extension Clients {

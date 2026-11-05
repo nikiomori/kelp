@@ -94,9 +94,44 @@ extension SessionChoose: Handled {
     var actsOn: String? { id }
     var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
-        guard let ls = sessions.existing(id), ls.choose(answer, to: question) != nil else { return false }
+        guard let ls = sessions.existing(id) else { return false }
+        // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu.
+        if sessions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
+            _ = ls.answeredThroughHook()
+            sessions.publish(ls)
+            return true
+        }
+        guard ls.choose(answer, to: question) != nil else { return false }
         sessions.publish(ls)
         return true
+    }
+}
+
+extension SessionPermissionWait: AsyncHandled {
+    var reportsFor: String? { id }   // only the session's own hook waits for its answer
+    func handle(_ sessions: Sessions) async throws -> String? { await sessions.waitForPermission(id, within: 600) }
+}
+
+extension Sessions {
+    /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.
+    func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
+        let token = UUID()
+        return await withCheckedContinuation { c in
+            permissionWaits.withLock { w in w.updateValue((token, c), forKey: id) }?.1.resume(returning: nil)
+            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in self?.answerPermission(id, nil, only: token) }
+        }
+    }
+
+    /// Hands `answer` to the hook waiting for `id`'s question (nil: none, it went on otherwise); whether one was waiting.
+    @discardableResult
+    func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil) -> Bool {
+        let waiting = permissionWaits.withLock { w -> CheckedContinuation<String?, Never>? in
+            guard let (t, c) = w[id], token == nil || t == token else { return nil }
+            w[id] = nil
+            return c
+        }
+        waiting?.resume(returning: answer)
+        return waiting != nil
     }
 }
 

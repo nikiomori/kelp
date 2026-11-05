@@ -300,10 +300,12 @@ public enum Hooks {
             #"{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}"#
         }
         func hook(_ ev: String, _ matcher: String? = nil) -> String { "[\(entry(ev, matcher))]" }
+        // It waits for Kelp's Allow or Deny (`session.permissionWait`), up to ten minutes; Claude's menu shows meanwhile.
+        let permission = #"[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#
         let command = entry("command", nil)
         return #"{"hooks":{"Stop":\#(hook("done")),"Notification":\#(hook("waiting")),"UserPromptSubmit":\#(hook("working")),"StopFailure":\#(hook("done")),"#
             + #""PreToolUse":[\#(entry("waiting", "AskUserQuestion")),\#(command)],"PostToolUse":[\#(entry("working", "AskUserQuestion")),\#(command)],"#
-            + #""PostToolUseFailure":[\#(command)],"PostToolBatch":[\#(command)],"PermissionRequest":\#(hook("waiting")),"#
+            + #""PostToolUseFailure":[\#(command)],"PostToolBatch":[\#(command)],"PermissionRequest":\#(permission),"#
             + #""Elicitation":\#(hook("waiting")),"ElicitationResult":\#(hook("working")),"#
             + #""SubagentStart":\#(hook("subagent")),"SubagentStop":\#(hook("subagent")),"#
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#

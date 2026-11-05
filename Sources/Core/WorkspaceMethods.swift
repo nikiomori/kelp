@@ -150,6 +150,15 @@ public struct SessionChoose: RPCMethod {
     public static let name = "session.choose"; public typealias Result = Bool; public var id: String, answer: String, question: String?
     public init(id: String, answer: String, question: String? = nil) { self.id = id; self.answer = answer; self.question = question }
 }
+/// A permission question's hook (Claude Code's PermissionRequest) waits here for Allow or Deny given in Kelp: "allow",
+/// "deny", or nil once it was answered in the terminal or ten minutes passed. The agent's own menu stays on screen
+/// meanwhile (Claude Code shows it while the hook runs), so the terminal can answer too.
+public struct SessionPermissionWait: InternalMethod {
+    public static let name = "session.permissionWait"; public typealias Result = String?
+    public static var timeout: TimeInterval? { 620 }
+    public var id: String
+    public init(id: String) { self.id = id }
+}
 /// Kept in the login keychain, read when the agent starts. No `value`: deleted.
 public struct AgentSetSecret: InternalMethod {
     public static let name = "agent.setSecret"; public typealias Result = Done; public var agent: String, key: String, value: String?

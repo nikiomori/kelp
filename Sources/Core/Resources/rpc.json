@@ -8684,6 +8684,27 @@
       }
     },
     {
+      "description" : "A permission question's hook (Claude Code's PermissionRequest) waits here for Allow or Deny given in Kelp: \"allow\", \"deny\", or nil once it was answered in the terminal or ten minutes passed. The agent's own menu stays on screen meanwhile (Claude Code shows it while the hook runs), so the terminal can answer too.",
+      "name" : "session.permissionWait",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The last `bytes` it printed, as text.",
       "name" : "session.read",
       "paramStructure" : "by-name",

@@ -176,6 +176,12 @@ func plist() -> String {
                     if h.hookName == "Stop" { h.reply = v["last_assistant_message"]?.string }
                 }
                 try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
+                // A permission question: Allow or Deny given in Kelp comes back as this hook's decision, not as keys typed
+                // into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
+                if h.hookName == "PermissionRequest", let answer = try await connect().call(SessionPermissionWait(id: id)) {
+                    let decision = answer == "allow" ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
+                    print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":"# + decision + "}}")
+                }
                 if ev == "command", let v = hookPayload, let page = Artifacts.published(hook: v) {
                     await notePublished(page, cwd: v["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
                 }

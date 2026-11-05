@@ -13,6 +13,8 @@ final class Sessions: Sendable {
     let wakeLocks = WakeLocks()   // one wake per session even when several clients open it at once; pausing holds it too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
+    /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
+    let permissionWaits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
     let pausing = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions an idle pause is stopping: input waits, then wakes them
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
@@ -224,6 +226,7 @@ final class Sessions: Sendable {
             // The record as it is now, not the snapshot from when this change was queued: a title set meanwhile stays.
             // The turn bookkeeping gets each change, in order.
             publishHere(ls); ls.noteTurn(s.status, remotes: remotes)
+            if s.status != .waiting { answerPermission(sid, nil) }   // answered in the terminal: its hook goes with no answer
             if s.status == .exited { _ = live.remove(ls) }
         }
         if rec.agent == "claude" { c.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }

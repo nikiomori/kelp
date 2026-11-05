@@ -122,6 +122,15 @@ extension LiveSession {
         }
     }
 
+    /// Allow or Deny went to the question's hook: it works again (the agent goes on either way, told what was decided).
+    func answeredThroughHook() -> Session {
+        state.withLock { s in
+            s.detector.input(); s.record.unread = false
+            s.detector.override(.working, because: "an answer from Kelp, through its hook")
+            return s.sync() ?? s.record
+        }
+    }
+
     func resize(cols: UInt16, rows: UInt16) {
         state.withLock { $0.redrawUntil = Date().addingTimeInterval(1) }
         pty.resize(cols: cols, rows: rows)
