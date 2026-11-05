@@ -5,7 +5,8 @@ import Foundation
 /// A folder's block comes from its path, the same on every run; two that land on one block are told apart in path order.
 /// Limit: a folder added later whose path sorts first can move another's block when they collide (new sessions only).
 public enum PortBlocks {
-    public static let first = 20_000, size = 10, count = 3_000
+    /// 20000–48999: below macOS's ephemeral ports (49152 and up), where outgoing connections take their source ports.
+    public static let first = 20_000, size = 10, count = 2_900
 
     /// The first port of `folder`'s block, among `folders` (every project folder Kelp knows).
     public static func port(for folder: String, among folders: [String]) -> Int {

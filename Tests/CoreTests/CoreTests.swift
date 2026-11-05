@@ -454,7 +454,8 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let folders = (1...200).map { "/projects/app-\($0)" }
     let ports = folders.map { PortBlocks.port(for: $0, among: folders) }
     #expect(Set(ports).count == folders.count)
-    #expect(ports.allSatisfy { $0 >= 20_000 && $0 + 9 < 50_000 && $0 % 10 == 0 })
+    #expect(ports.allSatisfy { $0 >= 20_000 && $0 + 9 < 49_152 && $0 % 10 == 0 })   // under the ephemeral range
+    #expect(PortBlocks.first + PortBlocks.count * PortBlocks.size <= 49_152)
     #expect(PortBlocks.port(for: folders[7], among: folders.reversed()) == ports[7])   // not the list's order
 }
 
