@@ -190,6 +190,9 @@ An extension is a folder with an `extension.json` in `~/.kelp/extensions`: a pan
 commands, settings, themes, agents. Format: [docs/extensions.md](docs/extensions.md). Ready ones are in the
 [library](https://github.com/nikiomori/kelp-extensions) (Settings › Extensions › Library, or `kelp ext search`).
 
+Your own tools can drive Kelp too: the background service answers JSON-RPC on a local socket, and what's public there only
+grows from release to release ([docs/rpc.md](docs/rpc.md)).
+
 ## Build from source
 
 ```sh
