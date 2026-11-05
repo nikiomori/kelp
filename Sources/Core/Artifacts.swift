@@ -136,10 +136,11 @@ public enum Artifacts {
     // MARK: pages agents publish themselves
 
     /// A page an agent's own tool published (claude-artifacts, Claude Docs), from a PostToolUse hook's payload:
-    /// its link, and the title the tool was given. nil for any other tool or event.
+    /// its link, and the title the tool was given. nil for any other tool or event: tools that only read or list
+    /// (list_types, list_artifacts, read_artifact) name pages too, the types' own and other people's.
     public static func published(hook v: JSONValue) -> (url: String, title: String, type: String)? {
-        guard v["hook_event_name"]?.string == "PostToolUse", v["tool_name"]?.string?.hasPrefix("mcp__") == true,
-              let response = v["tool_response"] else { return nil }
+        guard v["hook_event_name"]?.string == "PostToolUse", let tool = v["tool_name"]?.string, tool.hasPrefix("mcp__"),
+              publishers.contains(where: tool.hasSuffix), let response = v["tool_response"] else { return nil }
         let unescaped = strings(in: response).joined(separator: "\n")
         guard let url = unescaped.firstMatch(of: nativePage).map({ String($0.output) }) else { return nil }
         let input = v["tool_input"]
@@ -149,6 +150,10 @@ public enum Artifacts {
         let type = v["tool_name"]?.string?.contains("Claude_Docs") == true ? "doc" : "page"
         return (url, title, type)
     }
+
+    /// The tools that make or change a page: claude-artifacts' and Claude Docs'.
+    static let publishers = ["__publish_version", "__publish_files", "__edit_version", "Claude_Docs__batch", "Claude_Docs__create",
+                             "Claude_Docs__update"]
 
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
     private static func strings(in v: JSONValue) -> [String] {

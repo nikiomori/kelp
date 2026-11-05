@@ -56,6 +56,10 @@ private func tempRoot() throws -> URL {
     #expect(p.url == "https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL" && p.title == "Kelp 0.9 for the team" && p.type == "page")
     #expect(Artifacts.published(hook: hook("PreToolUse", "mcp__claude-artifacts__publish_files")) == nil)
     #expect(Artifacts.published(hook: hook("PostToolUse", "Bash")) == nil)
+    // Reading or listing names pages too (a type's own, someone else's): not published here.
+    #expect(Artifacts.published(hook: hook("PostToolUse", "mcp__claude-artifacts__list_types")) == nil)
+    #expect(Artifacts.published(hook: hook("PostToolUse", "mcp__claude-artifacts__read_artifact")) == nil)
+    #expect(Artifacts.published(hook: hook("PostToolUse", "mcp__claude_ai_Claude_Docs__batch")) != nil)
 
     let root = try tempRoot()
     #expect(try Artifacts.addNative(url: p.url, title: p.title, type: p.type, root: root.path, session: "s1") != nil)
