@@ -93,8 +93,14 @@ final class PipsView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// Two to a line, so four dots make a square of 12 pt and leave the name its width: column and line of dot `i`
+    /// among `n`, the first line on top.
+    static func cell(_ i: Int, of n: Int) -> (column: Int, line: Int) { n <= 2 ? (i, 0) : (i % 2, i / 2) }
+    static func grid(_ n: Int) -> (columns: Int, lines: Int) { n <= 2 ? (n, n > 0 ? 1 : 0) : (2, (n + 1) / 2) }
+
     override var intrinsicContentSize: NSSize {
-        NSSize(width: CGFloat(pips.count) * (Self.side + Self.gap) - Self.gap, height: Self.side)
+        let g = Self.grid(pips.count), step = Self.side + Self.gap
+        return NSSize(width: max(0, CGFloat(g.columns) * step - Self.gap), height: max(0, CGFloat(g.lines) * step - Self.gap))
     }
     override var wantsUpdateLayer: Bool { true }
 
@@ -109,18 +115,27 @@ final class PipsView: NSView {
         CATransaction.commit()
     }
 
+    /// Each dot in its cell; the layer's origin is at the bottom, so the first line is the top one.
+    private func place() {
+        let lines = Self.grid(pips.count).lines, step = Self.side + Self.gap
+        for (i, dot) in dots.enumerated() where i < pips.count {
+            let c = Self.cell(i, of: pips.count)
+            dot.frame = NSRect(x: CGFloat(c.column) * step, y: CGFloat(lines - 1 - c.line) * step, width: Self.side, height: Self.side)
+        }
+    }
+
     private func addDots() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         while dots.count < pips.count {
             let dot = CALayer()
-            dot.frame = NSRect(x: CGFloat(dots.count) * (Self.side + Self.gap), y: 0, width: Self.side, height: Self.side)
             dot.cornerRadius = Self.side / 2
             dot.shadowOffset = .zero
             dot.shadowRadius = 2
             layer?.addSublayer(dot)
             dots.append(dot)
         }
+        place()   // the count changes the grid: dots move without sliding
         CATransaction.commit()
     }
 

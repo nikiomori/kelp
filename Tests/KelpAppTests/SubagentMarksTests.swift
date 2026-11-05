@@ -46,6 +46,16 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
     #expect(done.pips == [.finished] && done.count == 5)
 }
 
+/// Three or four dots stand two to a line, so they take the width of two and leave it to the name.
+@MainActor @Test func dotsStandTwoToALine() {
+    #expect(PipsView.grid(0) == (0, 0) && PipsView.grid(2) == (2, 1) && PipsView.grid(3) == (2, 2) && PipsView.grid(4) == (2, 2))
+    #expect((0..<2).map { PipsView.cell($0, of: 2) }.map { [$0.column, $0.line] } == [[0, 0], [1, 0]])
+    #expect((0..<4).map { PipsView.cell($0, of: 4) }.map { [$0.column, $0.line] } == [[0, 0], [1, 0], [0, 1], [1, 1]])
+    let view = PipsView()
+    view.pips = [.works, .works, .finished, .finished]
+    #expect(view.intrinsicContentSize == NSSize(width: 12, height: 12))
+}
+
 @Test func aKindIsShownWhenItSaysSomething() {
     #expect(Subagent(id: "a", kind: "general-purpose", task: "Reviews").shownKind == nil)
     #expect(Subagent(id: "a", kind: "Explore", task: "Reviews").shownKind == "Explore")
