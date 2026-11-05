@@ -42,6 +42,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private(set) var shownVersion: String?
 
     private var artifactBar: ArtifactBar?
+    /// A page an agent made: its title, for the tab.
+    var onPageTitle: ((String?) -> Void)?
 
     /// What goes over the tab: a page an agent made has its bar (what it is, its versions, its chat) where the path would be.
     func header(else crumbs: NSView) -> NSView {

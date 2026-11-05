@@ -34,7 +34,9 @@ final class ArtifactBar: NSObject {
 
     private(set) lazy var view: NSView = {
         kind.font = .ui(12, weight: .medium)
-        for t in [kind, status] { t.textColor = .secondaryLabelColor; t.lineBreakMode = .byTruncatingTail }
+        kind.textColor = .labelColor   // what this is: not a path, so not quiet like one
+        status.textColor = .secondaryLabelColor
+        for t in [kind, status] { t.lineBreakMode = .byTruncatingTail }
         status.font = .ui(12)
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning; ring.controlSize = .small
@@ -79,6 +81,7 @@ final class ArtifactBar: NSObject {
         let s = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
         kind.stringValue = type == "review" ? String(localized: "Review") : String(localized: "Doc")
+        if let t = item?.title, !t.isEmpty { markdown.onPageTitle?(t) }
         // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
         let versions = item?.versions ?? []
         let live = item?.changed != false || versions.isEmpty

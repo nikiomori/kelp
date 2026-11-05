@@ -17,6 +17,8 @@ final class FileTab: SavableTab {
     let view: NSView
     private(set) var editor: CodeEditor?
     private(set) var markdown: MarkdownTab?
+    /// A page an agent made is named by its title, not "doc.md".
+    private var pageTitle: String?
     private var notebook: NotebookTab?
     private var changeBars: ChangeBars?
     /// Its indentation and what Save tidies.
@@ -65,7 +67,7 @@ final class FileTab: SavableTab {
 
     var uri: String { TabURI.file(path) }
     var fileURL: URL? { url }
-    var title: String { url.lastPathComponent }
+    var title: String { pageTitle ?? url.lastPathComponent }
     var icon: NSImage? { gone ? .symbol("exclamationmark.triangle", String(localized: "Moved or deleted")) : app.fileIcons.image(url.lastPathComponent) }
     var toolTip: String? { gone ? String(localized: "\(path) was moved or deleted. ⌘S asks before writing it there again.") : path }
 
@@ -148,7 +150,7 @@ final class FileTab: SavableTab {
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path || Review.isReview(path)   // the help is for reading, a review for answering
             md.onEditing = { [weak bar] in bar?.editing = $0 }
-            md.saveFile = { [weak self] in await self?.save() ?? false }
+            md.saveFile = { [weak self] in await self?.save() ?? false }; md.onPageTitle = { [weak self] in self?.pageTitle = $0 }
             markdown = md; box.pin(stacked(md.header(else: crumbs), md.view, bar))
         } else {
             box.pin(stacked(crumbs, e.view, bar))
