@@ -315,11 +315,12 @@ extension Sessions {
         }
     }
 
-    /// A session going: its turns' snapshots and its last undone state needn't be kept any more.
-    func dropTurnRefs(of session: String) {
+    /// A session going: its turns' snapshots and its last undone state needn't be kept any more. `repo`: where to drop
+    /// them when their folder, a removed worktree, is gone; the refs are in the project's repository, which it shared.
+    func dropTurnRefs(of session: String, in repo: String? = nil) {
         Log.store.attempt("dropping \(session)'s turn refs") {
             let marks = try store.turns(session: session)
-            dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), $0.folder) })
+            dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
         }
     }
 

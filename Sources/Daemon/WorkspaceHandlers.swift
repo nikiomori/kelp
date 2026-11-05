@@ -197,9 +197,10 @@ extension WorktreeRemove: Handled {
             // writing can't have its work deleted under it.
             try Git.checkRemovable(repo: r.path, path: w.path, branch: branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
             try workspaces.sessions.pauseSessions(of: w.id)
-            // Its sessions' turn refs live in the project's repository: dropped while the folder can still reach it.
-            for s in try workspaces.store.sessions() where s.worktreeId == w.id { workspaces.sessions.dropTurnRefs(of: s.id) }
             try Git.removeWorktree(repo: r.path, path: w.path, branch: branch, force: force, dropCommits: drop, remotes: workspaces.remotes)
+            // Its sessions' turn refs live in the project's repository: dropped there, once the folder is gone. Not before:
+            // a removal that fails keeps the workspace, and its turns keep their snapshots.
+            for s in try workspaces.store.sessions() where s.worktreeId == w.id { workspaces.sessions.dropTurnRefs(of: s.id, in: r.path) }
         } else {
             try workspaces.sessions.pauseSessions(of: w.id)
         }
