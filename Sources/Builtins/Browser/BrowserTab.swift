@@ -74,7 +74,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.allowsBackForwardNavigationGestures = true; web.isInspectable = true
         func b(_ sym: String, _ tip: String) -> NSButton { IconButton(.symbol(sym), tip: tip, target: nil, action: nil) }
         let back = b("chevron.left", String(localized: "Back")), fwd = b("chevron.right", String(localized: "Forward"))
-        let reload = b("arrow.clockwise", String(localized: "Reload (⌘R)")), ext = b("safari", String(localized: "Open in Safari"))
+        let reload = b("arrow.clockwise", String(localized: "Reload (⌘R)"))
+        let browser = Self.defaultBrowser()
+        let ext = IconButton(browser?.icon ?? .symbol("safari"), tip: Self.openIn(browser), target: nil, action: nil)
         let more = b("ellipsis.circle", String(localized: "More"))
         address.placeholderString = String(localized: "Search or enter address")
         address.lineBreakMode = .byTruncatingTail
@@ -153,8 +155,22 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @objc private func go() { load(address.stringValue); view.window?.makeFirstResponder(web) }
     @objc private func openExternal() { if let u = web.url { NSWorkspace.shared.open(u) } }
 
+    private static func openIn(_ b: (name: String, icon: NSImage)?) -> String {
+        b.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
+    }
+
+    /// The browser that opens web links on this Mac, by name and with its icon: the button says where the page goes.
+    private static func defaultBrowser() -> (name: String, icon: NSImage)? {
+        guard let probe = URL(string: "https://example.com"), let app = NSWorkspace.shared.urlForApplication(toOpen: probe) else { return nil }
+        let icon = NSWorkspace.shared.icon(forFile: app.path)
+        icon.size = NSSize(width: Metrics.appIcon, height: Metrics.appIcon)
+        return ((FileManager.default.displayName(atPath: app.path) as NSString).deletingPathExtension, icon)
+    }
+
     @objc private func showMore(_ sender: NSButton) {
         let m = NSMenu()
+        m.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
+        m.addItem(.separator())
         m.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.web.reloadFromOrigin() }
         m.add(String(localized: "Copy Screenshot")) { [weak self] in
             self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit answers on main

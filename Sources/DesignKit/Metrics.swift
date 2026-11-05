@@ -34,6 +34,7 @@ public enum Metrics {
     public static let iconButton: CGFloat = 22    // an icon-only button's square
     public static let iconPoint: CGFloat = 13     // its symbol's point size
     public static let iconMenu: CGFloat = 20      // the icon of a big menu row, a section tile in Settings
+    public static let appIcon: CGFloat = 16       // an app's own icon in an icon button (the browser a page opens in)
     /// Every symbol in the chrome: medium draws about the 1.3 pt line of Kelp's own glyphs (the branch, the checklist),
     /// so the system's symbols and Kelp's read as one set; regular was a hairline beside them.
     public static let iconWeight: NSFont.Weight = .medium
