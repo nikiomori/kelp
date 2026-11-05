@@ -173,6 +173,8 @@ package final class AppModel {
     @ObservationIgnored private var connecting: Task<Void, Never>?
     @ObservationIgnored private var retryDelay = 1.0
     @ObservationIgnored private var failing = false
+    /// Ends the reader of the connection last listened to (`listen`).
+    @ObservationIgnored private var stopListening: (@Sendable () -> Void)?
 
     /// Up to ~5 s for the first connection (and the lists it brings), for things asked for at launch.
     func waitForConnection() async {
@@ -320,7 +322,7 @@ package final class AppModel {
     func restartDaemon(keepingSessions: Bool = false) async -> Bool {
         let old = client
         if keepingSessions, (try? await old?.call(DaemonUpgrade())) == nil { return false }
-        old?.onClose = nil   // this restart reconnects itself: a second client would hear every event twice
+        stopHearing(old)
         client = nil; connected = false
         // One that doesn't answer (hung) is stopped: else the reconnect finds it again, still holding the socket.
         if !keepingSessions, let old {
@@ -414,7 +416,16 @@ package final class AppModel {
         let (events, feed) = AsyncStream<any RPCEvent>.makeStream()
         c.onEvent = { feed.yield($0) }
         Task { @MainActor [weak self] in for await e in events { self?.handle(e) } }
-        return { feed.finish() }
+        let stop: @Sendable () -> Void = { feed.finish() }
+        stopListening = stop
+        return stop
+    }
+
+    /// A connection this model stops hearing, before a restart that reconnects itself (a second client would hear every
+    /// event twice): its close does nothing more, and its events' reader ends.
+    func stopHearing(_ c: RPCClient?) {
+        c?.onClose = nil
+        stopListening?(); stopListening = nil
     }
 
     func handle(_ event: any RPCEvent) {

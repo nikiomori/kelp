@@ -97,3 +97,19 @@ extension OneAtATime {
         #expect(s.values["editor.lsp"] == .bool(false))
     }
 }
+
+/// Restart Background Service stops hearing the old connection: its events' reader ends (it used to wait for good, one
+/// more task left at each restart).
+@MainActor @Test func aConnectionLeftByARestartIsNoLongerHeard() async throws {
+    let path = NSTemporaryDirectory() + "kelp-hear-\(getpid()).sock"
+    let server = try Unix.listen(path)
+    defer { close(server); unlink(path) }
+    let c = try RPCClient(socket: path), m = AppModel(builtins: [])
+    m.listen(c)
+    c.onEvent?(Repo(id: "r1", name: "one", path: "/one"))
+    for _ in 0..<100 where m.repos.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    m.stopHearing(c)
+    c.onEvent?(Repo(id: "r2", name: "two", path: "/two"))
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(m.repos.map(\.id) == ["r1"])
+}
