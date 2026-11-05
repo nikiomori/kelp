@@ -223,7 +223,8 @@ extension FilesSearch: Handled {
 extension CommentAdd: Handled {
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
         let w = try workspaces.store.worktree(named: id)
-        let head = try Git.run(["rev-parse", "--short", "--verify", "-q", "HEAD"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
+        let on = try clientRef(commit) ?? "HEAD"
+        let head = try Git.run(["rev-parse", "--short", "--verify", "-q", on + "^{commit}"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
         let agent = session.flatMap { workspaces.sessions.existing($0)?.snapshot.agent }.flatMap { $0 == "shell" || $0 == "custom" ? nil : $0 }
         let author = try agent.map { try workspaces.sessions.manifest($0, command: nil).name }

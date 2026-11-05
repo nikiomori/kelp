@@ -18,6 +18,12 @@ struct CommentDraft {
 extension DiffViewController {
     /// Where a line's code starts, past its numbers: what goes under a line (a card, unchanged lines) starts there too.
     static let codeIndent: CGFloat = 88
+    /// The commit on screen when it's a past one's diff: a comment there is on that commit, not the folder's HEAD.
+    var shownCommit: String? {
+        if let s = single { return s.source == "commit" ? s.commit : nil }
+        return source.indexOfSelectedItem == 4 ? commitHash : nil
+    }
+
     /// The card's field: two lines and more as they wrap; its row holds it and the buttons.
     static let draftField: CGFloat = 44
     static var draftHeight: CGFloat { draftField + 22 + 3 * Metrics.gap }
@@ -101,7 +107,8 @@ extension DiffViewController {
         let text = d.field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { NSSound.beep(); return }
         Task {
-            guard await app.call(CommentAdd(id: wid, file: d.file, start: d.start, end: d.end, quote: d.quote, text: text, side: d.side)) != nil else { return }
+            guard await app.call(CommentAdd(id: wid, file: d.file, start: d.start, end: d.end, quote: d.quote, text: text, side: d.side,
+                                                   commit: shownCommit)) != nil else { return }
             closeDraft()
             await load()
         }

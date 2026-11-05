@@ -215,10 +215,12 @@ public struct CommentAdd: RPCMethod {
     public var side: String?
     /// The session it comes from (`kelp comment add` in an agent's terminal): its agent is named as the comment's author.
     public var session: String?
+    /// The commit whose diff it's on, when that isn't the folder's HEAD (a past commit on screen).
+    public var commit: String?
     public init(id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String, side: String? = nil,
-                session: String? = nil) {
+                session: String? = nil, commit: String? = nil) {
         self.id = id; self.file = file; self.start = start; self.end = end; self.quote = quote; self.text = text; self.side = side
-        self.session = session
+        self.session = session; self.commit = commit
     }
 }
 /// The workspace's review comments.

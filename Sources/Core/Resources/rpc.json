@@ -4370,6 +4370,14 @@
       "paramStructure" : "by-name",
       "params" : [
         {
+          "description" : "The commit whose diff it's on, when that isn't the folder's HEAD (a past commit on screen).",
+          "name" : "commit",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "end",
           "required" : false,
           "schema" : {
