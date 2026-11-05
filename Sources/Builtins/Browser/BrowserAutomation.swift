@@ -15,6 +15,7 @@ extension BrowserTab {
             return v
         }
         watch(); sized()
+        drivenAt = Date()
         // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs.
         if takenOver, !Self.whileTakenOver.contains(action) {
             throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")

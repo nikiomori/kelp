@@ -25,6 +25,17 @@ extension BrowserTab: WKDownloadDelegate {
         return PageOrigin.of(u) != allowed
     }
 
+    /// Sites the user let download this run.
+    static var downloadsAllowed: Set<String> = []
+
+    private static func allowDownloads(from host: String) async -> Bool {
+        let a = NSAlert()
+        a.messageText = String(localized: "Allow downloads from \(host)?")
+        a.informativeText = String(localized: "Its files go to your Downloads folder.")
+        a.addButton(withTitle: String(localized: "Allow")); a.addButton(withTitle: String(localized: "Don't Allow"))
+        return await runSheet(a) == .alertFirstButtonReturn
+    }
+
     /// What the page answered is a file to keep: not a type WebKit shows, or sent as an attachment.
     static func downloads(_ r: WKNavigationResponse) -> Bool {
         let disposition = (r.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
@@ -35,6 +46,11 @@ extension BrowserTab: WKDownloadDelegate {
     func webView(_ w: WKWebView, navigationResponse r: WKNavigationResponse, didBecome d: WKDownload) { d.delegate = self }
 
     func download(_ d: WKDownload, decideDestinationUsing r: URLResponse, suggestedFilename name: String) async -> URL? {
+        // The user's pages ask once per site, as Safari does: a page can't fill ~/Downloads unasked.
+        if !agentAnswers, let host = r.url?.host ?? web.url?.host, !Self.downloadsAllowed.contains(host) {
+            guard await Self.allowDownloads(from: host) else { return nil }
+            Self.downloadsAllowed.insert(host)
+        }
         let dir = agentAnswers ? FileManager.default.temporaryDirectory.appendingPathComponent("kelp-downloads", isDirectory: true)
             : FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) } catch {

@@ -35,6 +35,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     var loadError: String?
     /// `kelp browser console | network` (BrowserLogs.swift): kept once an agent drives the page.
     @ObservationIgnored var watching = false
+    /// When `kelp browser` last acted here (`agentAnswers`).
+    @ObservationIgnored var drivenAt = Date.distantPast
     @ObservationIgnored var logs: [String] = []
     @ObservationIgnored var requests: [String] = []
     /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).

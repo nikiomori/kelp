@@ -7,8 +7,9 @@ import KelpKit
 /// over) answers for the agent: with what `kelp browser dialog` said ahead, else OK to an alert and no to the rest;
 /// either way it's in the console and in the action's answer, so the agent knows it was asked.
 extension BrowserTab: WKUIDelegate {
-    /// The agent answers this page's questions: a page it drives (its own, or the user's it was let into), not taken over.
-    var agentAnswers: Bool { watching && !takenOver }
+    /// The agent answers this page's questions: a page it drives (its own, or the user's it was let into, while it still
+    /// does: ten minutes after its last action that tab is the user's again), not taken over.
+    var agentAnswers: Bool { watching && !takenOver && (agent || Date().timeIntervalSince(drivenAt) < 600) }
 
     func webView(_ w: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async {
         if agentAnswers { _ = agentAnswer("alert", message, fallback: true); return }

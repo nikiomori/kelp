@@ -210,8 +210,11 @@ import WorkbenchKit
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     let other = URL(string: "https://mail.other.com/")!, same = URL(string: "https://www.example.com/x")!
     #expect(!tab.leavesSharedSite(other, mainFrame: true))   // nobody drives it: the user's own browsing
-    tab.watch()
+    tab.watch(); tab.drivenAt = Date()   // as `kelp browser` does on each action
     #expect(tab.leavesSharedSite(other, mainFrame: true) && !tab.leavesSharedSite(same, mainFrame: true))
+    tab.drivenAt = Date().addingTimeInterval(-601)
+    #expect(!tab.agentAnswers && !tab.leavesSharedSite(other, mainFrame: true))   // left alone a while: the user's tab again
+    tab.drivenAt = Date()
     #expect(!tab.leavesSharedSite(other, mainFrame: false))   // a frame inside it (an embed) isn't the page going
     tab.takenOver = true
     #expect(!tab.leavesSharedSite(other, mainFrame: true))   // the user, browsing
