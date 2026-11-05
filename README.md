@@ -126,6 +126,30 @@ Panels, commands, settings, themes and agents. A JSON file is enough, and the
 </tr>
 </table>
 
+## How light it is
+
+Measured on 5 November 2026, an M4 Max with 48 GB on macOS 27.0.1. Each app was opened three times with no agents
+running; each number is the median of the three, or the range where they differed widely.
+
+| | Opens a window in | Memory (all its processes) | CPU when idle |
+| --- | --- | --- | --- |
+| **Kelp 0.9.0** (app and background service) | 0.3 s | 81 MB | 0.8 % |
+| Orca 1.4.229 (Electron) | 0.9 s | 1.2 GB | 4–19 % |
+| Herdr 0.9.5 (in a terminal) | 0.3 s | 17 MB, plus the terminal it runs in | 0.1 % |
+
+<details><summary>How it was measured</summary>
+
+- **Opens a window in:** from launching it to its first window on screen (`CGWindowListCopyWindowInfo`, polled every
+  20 ms); for Herdr, to its first screen in a 120 × 40 pseudo-terminal.
+- **Memory:** the sum of `phys_footprint` (`footprint -p`) over every process the launch started, 20 s after the window.
+- **CPU when idle:** the CPU time those processes used over the next 30 s.
+- Kelp ran with a home of its own (`KELP_HOME`) whose usage index was already built: the first launch reads every
+  agent's logs once, about 25 s of CPU on a heavy user's Mac. Orca ran with its existing settings; its first run of the
+  three used 50 % CPU while starting up.
+- Not measured yet: Paradev, and four agents working in each app.
+
+</details>
+
 ## Install
 
 Requires macOS 14+. Download [`Kelp.dmg`](https://github.com/nikiomori/kelp/releases/latest/download/Kelp.dmg) and
