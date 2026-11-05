@@ -57,26 +57,26 @@ package enum Builtins {
         ] + sidebar + inspector + [
             s("workbench.sideBySideButton", "Agents side by side button", "boolean", true,
               "In the title bar; ⌃⌘T works either way.",
-              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "Window"),
+              help: "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.", group: "General"),
             s("workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
               "Icons in Files, Source Control and tabs.",
-              help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "Window"),
+              help: "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…", group: "General"),
             s("workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
-              options: ["system", "en", "ru"], group: "Window")
+              options: ["system", "en", "ru"], group: "General")
         ], order: 10), SettingsSection(id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
                                        custom: { AnyView(KeyboardSettings()) }, order: 95)]
         return c
     }
 
-    /// Appearance › Window: the inspector. Where the icons sit is set on the icons, in their menu.
+    /// Appearance › Inspector. Where the icons sit is set on the icons, in their menu.
     private static let inspector = [
         s("workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false, "Comes in while the pointer is at the window's right edge.",
-          group: "Window"),
+          group: "Inspector"),
         s("workbench.inspectorIcons", "Inspector icons", "enum", "center", "Where the panel icons sit in their row.",
-          options: ["left", "center", "right"], group: "Window", hidden: true),
+          options: ["left", "center", "right"], group: "Inspector", hidden: true),
         s("workbench.inspectorIconsPosition", "Inspector icons position", "enum", "top",
           "Level with the tabs or under the panel. Drag an icon to move it; right-click the icons to hide them.",
-          options: ["top", "bottom"], group: "Window", hidden: true)
+          options: ["top", "bottom"], group: "Inspector", hidden: true)
     ]
 
     /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.

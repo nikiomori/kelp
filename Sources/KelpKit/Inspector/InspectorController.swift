@@ -263,7 +263,7 @@ final class InspectorController: NSViewController {
         for v in ["left", "center", "right"] { m.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), ("workbench.inspectorIcons", v), on: side == v)) }
         m.addItem(.separator())
         m.addItem(item(String(localized: "Auto-Hide Inspector"), #selector(toggleAutoHide), nil, on: s.bool("workbench.inspector.autoHide") == true))
-        m.addSettingsLink(String(localized: "Inspector Settings…"), section: "appearance", group: "Window", app)
+        m.addSettingsLink(String(localized: "Inspector Settings…"), section: "appearance", group: "Inspector", app)
         return m
     }
 

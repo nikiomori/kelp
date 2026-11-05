@@ -61,6 +61,7 @@ import Testing
 /// A row's `requires`: on, equal, not equal, read through the defaults.
 @MainActor @Test func aRowWaitsForItsParent() {
     _ = testHome
+    _ = NSApplication.shared   // the theme applies to NSApp
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
     let s = m.settings
