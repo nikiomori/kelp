@@ -183,7 +183,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     @objc private func go() { load(address.stringValue); view.window?.makeFirstResponder(web) }
-    @objc private func openExternal() { if let u = web.url { NSWorkspace.shared.open(u) } }
+    @objc private func openExternal() { if let u = web.url { PreviewLinks.openOutside(u) } }
 
     private static func openIn(_ b: (name: String, icon: NSImage)?) -> String {
         b.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")

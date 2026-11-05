@@ -218,6 +218,14 @@ private func codeOnly(_ s: String) -> String {
                         "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/WindowParts.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"])
 }
 
+/// A URL goes to another app through `PreviewLinks.openOutside` only, which lets web pages, mail and System Settings
+/// through: links come from pages, forges and agents, and a file or another app's scheme would run something.
+/// (TerminalKit's fallback is unused: Kelp's terminals hand their links to `PaneView.openLink`.)
+@Test func urlsLeaveKelpThroughOneDoor() throws {
+    let opens = try matches(#"NSWorkspace\.shared\.open\((?!\[)|\.open\(\w+, configuration:"#, in: appDirs)
+    #expect(opens.map { String($0.split(separator: ":")[0]) } == ["Sources/KelpKit/Shell/PreviewLinks.swift"])
+}
+
 /// The app doesn't ask the daemon again and again: views watch (`watch.start`) and the daemon pushes what changed.
 /// A clock left in the app is the app's own, each listed with why; a new one that polls the daemon belongs in a watch.
 @Test func theAppDoesntPollTheDaemon() throws {

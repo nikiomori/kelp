@@ -282,7 +282,7 @@ extension SourceControlController {
             menu.add(String(localized: "Open in Browser")) {
                 Task {
                     guard let found = await app.call(GitWebPages(worktreeId: wid)), let url = (found?.commitURL(c.hash)).flatMap(URL.init) else { return }
-                    NSWorkspace.shared.open(url)
+                    PreviewLinks.openOutside(url)
                 }
             }
             menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(text: "commit \(c.hash.prefix(10)) (\(c.subject))") }

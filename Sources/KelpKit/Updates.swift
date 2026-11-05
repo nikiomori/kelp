@@ -36,7 +36,7 @@ final class Updates: NSObject {
         guard let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
               let update = installed(current: current) else { return }
         Banner.show(String(localized: "Kelp updated to \(current)"), action: update.notes.map { url in
-            (String(localized: "What's New"), { NSWorkspace.shared.open(url) })
+            (String(localized: "What's New"), { @MainActor in PreviewLinks.openOutside(url) })
         })
     }
 

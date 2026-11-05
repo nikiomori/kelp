@@ -240,7 +240,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                             action: (String(localized: "Open Settings"), {
                                 let id = Bundle.main.bundleIdentifier ?? ""
                                 if let u = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
-                                    NSWorkspace.shared.open(u)
+                                    PreviewLinks.openOutside(u)
                                 }
                             }))
             }

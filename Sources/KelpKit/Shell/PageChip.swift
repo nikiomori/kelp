@@ -85,7 +85,7 @@ final class PageChip: NSStackView {
         if l.page.isWeb {
             m.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) { NSWorkspace.shared.open(u) }
+                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) { PreviewLinks.openOutside(u) }
                 }
             }
         }

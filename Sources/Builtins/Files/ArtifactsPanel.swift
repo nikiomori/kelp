@@ -124,7 +124,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let r = rows[table.clickedRow]
         // Only a web page: the record may be a cloned repository's (`Artifacts.record` refuses any other scheme too).
         if r.url != nil {
-            if let u = URL(string: r.target), u.scheme == "https" { NSWorkspace.shared.open(u) }
+            if let u = URL(string: r.target), u.scheme == "https" { PreviewLinks.openOutside(u) }
         } else { app.workbench.open(r.target) }
     }
 

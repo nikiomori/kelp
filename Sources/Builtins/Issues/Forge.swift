@@ -50,7 +50,7 @@ enum Forge {
     }
 
     /// In the default browser, where the user is signed in to the site.
-    static func open(_ url: String) { if let u = webPage(url) { NSWorkspace.shared.open(u) } }
+    static func open(_ url: String) { if let u = webPage(url) { PreviewLinks.openOutside(u) } }
 
     /// Only a web page: the URL comes from a forge's or tracker's API, and a self-hosted one could hand over a file or
     /// another app's scheme, which `NSWorkspace` would run.

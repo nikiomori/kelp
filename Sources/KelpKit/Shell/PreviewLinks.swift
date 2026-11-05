@@ -24,14 +24,22 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         switch target(u) {
         case .web(let s): app.workbench.open(s)
         case .file(let p): app.workbench.open(TabURI.file(p))
-        case .mail(let m): NSWorkspace.shared.open(m)
+        case .mail(let m): openOutside(m)
         case .refused: refuse(u)
         }
     }
 
+    /// The one place Kelp hands a URL to macOS to open in another app (ArchitectureTests holds it to that): a web page,
+    /// mail, a pane of System Settings. A file, an app or another app's scheme could run something, so it's refused.
+    package static func openOutside(_ u: URL) {
+        guard opensOutside(u) else { return refuse(u) }
+        NSWorkspace.shared.open(u)
+    }
+    static func opensOutside(_ u: URL) -> Bool { ["http", "https", "mailto", "x-apple.systempreferences"].contains(u.scheme?.lowercased() ?? "") }
+
     /// Says why nothing opened, with the link to copy (a terminal's links go by the same rules: `target`).
-    package static func refuse(_ u: URL) {
-        Banner.show(String(localized: "Links from a preview open web pages and files only, not “\(u.absoluteString)”."),
+    private static func refuse(_ u: URL) {
+        Banner.show(String(localized: "Kelp opens links to web pages and files only, not “\(u.absoluteString)”."),
                     action: (String(localized: "Copy Link"), {
                         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(u.absoluteString, forType: .string)
                     }))

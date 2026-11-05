@@ -47,7 +47,7 @@ extension EditorArea {
             select(t.id, focus: focus); return
         }
         if TabURI.scheme(uri) != "session", app.extensions.tabProvider(for: uri) == nil {
-            if let u = URL(string: uri), u.scheme?.hasPrefix("http") == true { NSWorkspace.shared.open(u); return }   // browser extension off
+            if let u = URL(string: uri), u.scheme?.hasPrefix("http") == true { PreviewLinks.openOutside(u); return }   // browser extension off
         }
         var target: String? = layout.focusedGroup?.id
         if let split, let f = target { target = layout.newGroup(beside: f, vertical: split == .right); zoomed = nil }

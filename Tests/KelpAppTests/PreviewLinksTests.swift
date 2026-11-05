@@ -33,6 +33,18 @@ import PDFKit
     }
 }
 
+/// What Kelp hands to another app (`openOutside`, the one door): web pages, mail and System Settings, never a file or an
+/// app's scheme, whoever asks (a forge's link, a page's Open in Browser, a terminal's link).
+@MainActor
+@Test func onlyPagesMailAndSettingsLeaveKelp() throws {
+    for ok in ["https://example.com", "HTTP://jira.local", "mailto:a@b.c", "x-apple.systempreferences:com.apple.Notifications-Settings.extension"] {
+        #expect(PreviewLinks.opensOutside(try #require(URL(string: ok))), "\(ok)")
+    }
+    for refused in ["file:///Applications/Calculator.app", "ssh://host", "smb://host/share", "terminal://x?cmd=ls", "vscode://file/a", "/tmp/a"] {
+        #expect(!PreviewLinks.opensOutside(try #require(URL(string: refused))), "\(refused)")
+    }
+}
+
 /// A terminal link without a scheme is a path from the agent's folder (`PaneView.openLink`): one Ghostty found in the
 /// text, or an agent's Markdown link — with a line, a space or Cyrillic in it.
 @MainActor

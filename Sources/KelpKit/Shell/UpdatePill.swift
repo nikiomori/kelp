@@ -35,7 +35,7 @@ final class UpdatePill: PointerButton {
         toolTip = String(localized: "Kelp \(update.version) is ready. Click to restart.")
         menu = update.notes.map { url in
             let m = NSMenu()
-            m.add(String(localized: "What's New")) { NSWorkspace.shared.open(url) }
+            m.add(String(localized: "What's New")) { PreviewLinks.openOutside(url) }
             return m
         }
     }

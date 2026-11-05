@@ -7872,12 +7872,12 @@
         }
       }
     },
-    "Links from a preview open web pages and files only, not “%@”.": {
+    "Kelp opens links to web pages and files only, not “%@”.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ссылки из превью открывают только веб-страницы и файлы, а не «%@»."
+            "value": "Kelp открывает ссылки только на веб-страницы и файлы, а не «%@»."
           }
         }
       }

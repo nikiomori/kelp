@@ -60,7 +60,7 @@ struct ExtensionsSettings: View {
                 Button("Install…") { picking = true }
                     .help("A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder")
                 Menu {
-                    Button("Show in Finder") { NSWorkspace.shared.open(ExtensionRegistry.userDir) }
+                    Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: ExtensionRegistry.userDir.path) }
                     Button("Reload Extensions") { registry.reload() }
                 } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()

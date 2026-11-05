@@ -184,14 +184,13 @@ final class PaneView: NSView {
         switch PreviewLinks.target(url) {
         case .web(let s):
             let local = url.host == "localhost" || url.host == "127.0.0.1"
-            guard local else { if option { app.workbench.open(s, split: .right) } else { NSWorkspace.shared.open(url) }; return }
+            guard local else { if option { app.workbench.open(s, split: .right) } else { PreviewLinks.openOutside(url) }; return }
             Task {
                 guard let here = await hostLink(s, in: wid, app) else { return }
-                if option { URL(string: here).map { _ = NSWorkspace.shared.open($0) } } else { app.workbench.open(here, split: .right) }
+                if option { URL(string: here).map(PreviewLinks.openOutside) } else { app.workbench.open(here, split: .right) }
             }
         case .file(let p): app.workbench.open(TabURI.file(p), split: .right)
-        case .mail(let m): NSWorkspace.shared.open(m)
-        case .refused: PreviewLinks.refuse(url)
+        case .mail, .refused: PreviewLinks.openOutside(url)   // which says why another app's scheme doesn't open
         }
     }
 
