@@ -389,7 +389,8 @@ private struct ExtensionsSettings: View {
     @Environment(AppModel.self) private var app
     private var registry: ExtensionRegistry { app.extensions }
     @State private var picking = false
-    @State private var library = false
+    /// Opened on the library when asked for (`SettingsWindow.show(section: "extensions", group: "library")`).
+    @State private var library = UserDefaults.standard.string(forKey: "settings.group") == "library"
     var body: some View {
         Form { if library { LibrarySection() } else { installed } }
         .formStyle(.grouped)
