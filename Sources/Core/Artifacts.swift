@@ -18,6 +18,26 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     }
 }
 
+/// An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.
+public struct ArtifactItem: Codable, Equatable, Sendable {
+    public var slug: String, type: String, title: String
+    /// Seconds since 1970, as `modified`.
+    public var created: Double
+    public var session: String?, url: String?
+    /// Its file, or its page on the service (`Artifacts.target`).
+    public var target: String
+    /// A review's points, and how many have a pick.
+    public var points: Int?, answered: Int?
+    /// When its file was last saved; nil for a page on a service.
+    public var modified: Double?
+
+    public init(slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil, target: String,
+                points: Int? = nil, answered: Int? = nil, modified: Double? = nil) {
+        self.slug = slug; self.type = type; self.title = title; self.created = created; self.session = session; self.url = url
+        self.target = target; self.points = points; self.answered = answered; self.modified = modified
+    }
+}
+
 public enum Artifacts {
     /// The kinds Kelp makes on this Mac, and the file each one is.
     public enum Kind: String, CaseIterable, Sendable {
@@ -69,6 +89,23 @@ public enum Artifacts {
             .compactMap { ($0 as? URL)?.lastPathComponent } ?? []
         return names.compactMap { name in record(in: base.appendingPathComponent(name)).map { (name, $0) } }
             .sorted { $0.record.created > $1.record.created }
+    }
+
+    /// The list as the panel shows it: a review's answers counted from its file, each file's last save.
+    public static func items(root: String) -> [ArtifactItem] {
+        list(root: root).map { slug, r in
+            let target = target(slug, r, root: root)
+            var item = ArtifactItem(slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
+                                    url: r.url, target: target)
+            guard r.url == nil else { return item }
+            var st = stat()
+            if stat(target, &st) == 0 { item.modified = Double(st.st_mtimespec.tv_sec) }
+            if r.type == Kind.review.rawValue, let d = FileManager.default.contents(atPath: target) {
+                let points = Review(String(decoding: d, as: UTF8.self)).points
+                item.points = points.count; item.answered = points.filter { $0.pick != nil }.count
+            }
+            return item
+        }
     }
 
     /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written).

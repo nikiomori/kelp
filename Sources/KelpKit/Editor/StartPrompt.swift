@@ -62,7 +62,11 @@ final class StartPrompt: NSView, NSTextViewDelegate {
         fit()
     }
 
-    func focus() { window?.makeFirstResponder(text) }
+    /// The caret at the end, after what's there.
+    func focus() {
+        window?.makeFirstResponder(text)
+        text.setSelectedRange(NSRange(location: (text.string as NSString).length, length: 0))
+    }
 
     func textDidChange(_ notification: Notification) { changed() }
 

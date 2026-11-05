@@ -243,6 +243,13 @@ extension EditorArea {
             m.add(String(localized: "Choose What to Run…"), symbol: "list.bullet", key: "r") { app.scripts.choose() }
                 .keyEquivalentModifierMask = [.control, .command]
         }
+        if !agents.isEmpty {
+            m.addItem(.separator())
+            Make.addItems(to: m) { [weak self] line in
+                if let group { self?.layout.focused = group }
+                self?.newAgent(prompt: line, draft: true)
+            }
+        }
         let ctx = IDEContext.of(app)
         let editors = app.extensions.all.editors
         if !editors.isEmpty { m.addItem(.separator()) }

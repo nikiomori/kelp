@@ -70,6 +70,13 @@ extension Daemon {
                 e = FilesEvent(worktree: k.key, paths: try await ask(FilesList(id: k.key)), ignored: try? await ask(FilesIgnored(id: k.key)))
             } catch { e = FilesEvent(worktree: k.key, error: message(error)) }
             return (line(e), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+        case .artifacts:
+            // Read on this Mac: a remote project's folder here holds only its marker.
+            var items: [ArtifactItem] = []
+            do {
+                if let w = try store.worktree(k.key), remotes.of(w.path) == nil { items = Artifacts.items(root: w.path) }
+            } catch { Log.session.error("reading workspace \(k.key) for its artifacts: \(error)") }
+            return (line(ArtifactsEvent(worktree: k.key, items: items)), nil)
         case .host, .hostDetail:
             let again: TimeInterval = k.topic == .host ? 10 : 2
             do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch { return (nil, again) }

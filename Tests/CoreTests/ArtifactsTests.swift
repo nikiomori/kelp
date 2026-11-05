@@ -76,3 +76,17 @@ private func tempRoot() throws -> URL {
     #expect(slides.contains("make it there") && !slides.contains("kelp artifact new"))
     #expect(Artifacts.guide("poster", whereTo: "agent") == nil)
 }
+
+/// The panel's list: a review's answers counted from its file, its last save; a page on a service only its link.
+@Test func artifactItems() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.review, title: "Two points", root: root.path, session: "s1", now: Date(timeIntervalSince1970: 1))
+    try "# Two points\n\n## 1. One\n- [x] A. Yes\n- [ ] B. No\n\n## 2. Two\n- [ ] A. Yes\n".write(to: page, atomically: true, encoding: .utf8)
+    _ = try Artifacts.addNative(url: "https://claude.ai/artifact/abc", title: "Deck", type: "page", root: root.path, session: nil,
+                                now: Date(timeIntervalSince1970: 2))
+    let items = Artifacts.items(root: root.path)
+    #expect(items.map(\.title) == ["Deck", "Two points"])
+    #expect(items[0].target == "https://claude.ai/artifact/abc" && items[0].modified == nil && items[0].points == nil)
+    #expect(items[1].points == 2 && items[1].answered == 1 && items[1].session == "s1" && items[1].created == 1)
+    #expect(items[1].target == page.path && (items[1].modified ?? 0) > Date().timeIntervalSince1970 - 60)
+}

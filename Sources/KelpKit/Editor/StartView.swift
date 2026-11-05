@@ -82,7 +82,9 @@ final class StartView: NSView {
         var views: [NSView] = [icon, title, folder]
         let field = agents.contains { $0.id == def } ? promptField() : nil
         if let field { views += [field, planBar] }
-        views += [open, card, hint]
+        views += [open, card]
+        let make = field == nil ? nil : makeSection()
+        views += [make, hint].compactMap { $0 }
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .centerX
@@ -93,6 +95,10 @@ final class StartView: NSView {
             stack.setCustomSpacing(22, after: planBar)
         }
         stack.setCustomSpacing(6, after: open); stack.setCustomSpacing(14, after: card)
+        if let make {
+            stack.setCustomSpacing(22, after: card); stack.setCustomSpacing(14, after: make)
+            make.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         // In a scroll view: a low window scrolls the list rather than growing to hold it.
         let page = FlippedView(); page.translatesAutoresizingMaskIntoConstraints = false
         let scroll = NSScrollView()
@@ -255,6 +261,25 @@ final class StartView: NSView {
     }
 
     func focus() { if prompt.superview != nil { prompt.focus() } }
+
+    /// Make, under the card: a page the default agent writes, its line put in the field for the user to finish.
+    private func makeSection() -> NSView {
+        let title = NSTextField(labelWithString: String(localized: "Make"))
+        title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
+        let tiles = MakeTiles { [weak self] k in self?.draftMake(k) }
+        let section = NSStackView(views: [title, tiles])
+        section.orientation = .vertical; section.alignment = .leading
+        section.spacing = 6
+        NSLayoutConstraint.activate([title.leadingAnchor.constraint(equalTo: section.leadingAnchor, constant: 4),
+                                     tiles.widthAnchor.constraint(equalTo: section.widthAnchor)])
+        return section
+    }
+
+    /// The Make line in the field, the caret after it: what to make is the user's to say.
+    private func draftMake(_ k: Make.Kind) {
+        prompt.value = Make.line(k)
+        prompt.focus()
+    }
 
     static func padded(_ v: NSView) -> NSView {
         let p = NSStackView(views: [v]); p.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)

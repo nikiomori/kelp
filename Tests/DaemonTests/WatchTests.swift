@@ -251,3 +251,20 @@ private final class Heard: Sendable {
     _ = try await w.c.call(SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1"))
     #expect(try await waitFor(10) { heard.events(SubagentsEvent.self).last?.steps["a1"]?.step.tool == "Read" })
 }
+
+/// A workspace's artifacts are pushed as its `.kelp/artifacts` changes; its other files don't read them again.
+@Test func aWorkspacesArtifactsArePushedAsTheyChange() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await firstDesk(w)
+    let heard = Heard(); heard.listen(w.c)
+    w.c.notify(WatchStart(.artifacts, wt.id))
+    #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).map(\.items) == [[]] })
+    _ = try Artifacts.create(.doc, title: "Plan", root: wt.path, session: nil)
+    #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
+    let reads = { w.d.watches.reads.withLock { $0[Watches.Key(topic: .artifacts, key: wt.id)] ?? 0 } }
+    try await Task.sleep(for: .milliseconds(1200))
+    let before = reads()
+    try "x\n".write(toFile: wt.path + "/other.txt", atomically: true, encoding: .utf8)
+    try await Task.sleep(for: .milliseconds(1200))
+    #expect(reads() == before)
+}

@@ -121,8 +121,9 @@ final class Watches: Sendable {
     /// holds only its marker, and the rest go by their clock).
     private func folder(_ k: Key) -> (String, @Sendable ([String]) -> Bool)? {
         switch k.topic {
-        case .git, .files:
+        case .git, .files, .artifacts:
             guard let w = try? store.worktree(k.key), remotes.of(w.path) == nil else { return nil }
+            if k.topic == .artifacts { return (w.path, { $0.contains { $0.contains("/\(Artifacts.folder)/") } }) }
             let touches = k.topic == .git ? Git.touchesStatus : Git.touchesFileList, ignored = IgnoredFolders(root: w.path, remotes: remotes)
             return (w.path, { touches(ignored.drop($0)) })
         case .file:

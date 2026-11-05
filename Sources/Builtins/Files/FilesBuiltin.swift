@@ -27,7 +27,8 @@ extension Builtins {
         c.tabs = [TabProvider(schemes: ["file"], make: { FileTab(uri: $0, app: app) }, menu: { FileTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),
                   TabProvider(schemes: ["untitled"]) { UntitledTab(uri: $0, app: app) },
                   TabProvider(schemes: ["prompt"]) { PromptTab(uri: $0, app: app) }]
-        c.panels = [PanelSpec(id: "files", title: "Files", icon: "folder", extensionId: "kelp.files") { FilesPanel(app: app) }]
+        c.panels = [PanelSpec(id: "files", title: "Files", icon: "folder", extensionId: "kelp.files") { FilesPanel(app: app) },
+                    PanelSpec(id: "artifacts", title: "Artifacts", icon: "doc.richtext", extensionId: "kelp.files") { ArtifactsPanel(app: app) }]
         c.editors = [EditorSpec(id: "files.new", title: "New File", icon: "doc.badge.plus") { _ in UntitledTab.next(app) }]
         c.settings = [SettingsSection(id: "editor", title: "Editor", icon: "doc.text", specs: [
             s("editor.fontFamily", "Font", "font", "", "Default: SF Mono."),

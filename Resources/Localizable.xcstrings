@@ -1,6 +1,196 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Doc": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ"
+          }
+        }
+      }
+    },
+    "Review": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбор"
+          }
+        }
+      }
+    },
+    "Slides": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды"
+          }
+        }
+      }
+    },
+    "Design": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дизайн"
+          }
+        }
+      }
+    },
+    "Dashboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дашборд"
+          }
+        }
+      }
+    },
+    "A page to read and keep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница, чтобы прочесть и сохранить"
+          }
+        }
+      }
+    },
+    "Choices you answer on the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты, на которые отвечают на странице"
+          }
+        }
+      }
+    },
+    "A deck to present": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды для показа"
+          }
+        }
+      }
+    },
+    "Screens side by side": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экраны рядом друг с другом"
+          }
+        }
+      }
+    },
+    "Numbers at a glance": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цифры одним взглядом"
+          }
+        }
+      }
+    },
+    "Make": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать"
+          }
+        }
+      }
+    },
+    "Make a %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать: %@"
+          }
+        }
+      }
+    },
+    "Artifacts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакты"
+          }
+        }
+      }
+    },
+    "No pages yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страниц пока нет"
+          }
+        }
+      }
+    },
+    "Docs and reviews agents make for you list here. Ask for one with Make, on the start page or in +.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь будут документы и разборы, которые агенты делают для вас. Попросите их через «Сделать» на стартовой странице или в «+»."
+          }
+        }
+      }
+    },
+    "%lld of %lld answered": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отвечено %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "ended": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "завершён"
+          }
+        }
+      }
+    },
+    "The agent is writing it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент её пишет"
+          }
+        }
+      }
+    },
+    "Show the Chat That Made It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать чат, который её сделал"
+          }
+        }
+      }
+    },
     "Recommended": {
       "localizations": {
         "ru": {

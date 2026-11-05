@@ -34,6 +34,9 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case host
     /// The same every 2 s, for the server tab on screen. Key: the host.
     case hostDetail
+    /// The pages agents made in a workspace (`ArtifactsEvent`): read when its `.kelp/artifacts` changes. Nothing for a
+    /// remote project. Key: worktree id.
+    case artifacts
 }
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
@@ -133,6 +136,13 @@ public struct FilesEvent: RPCEvent, Equatable {
     public init(worktree: String, paths: [String]? = nil, ignored: [String]? = nil, error: String? = nil) {
         self.worktree = worktree; self.paths = paths; self.ignored = ignored; self.error = error
     }
+}
+
+/// A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.
+public struct ArtifactsEvent: RPCEvent, Equatable {
+    public static let name = "event.artifacts"
+    public var worktree: String, items: [ArtifactItem]
+    public init(worktree: String, items: [ArtifactItem]) { self.worktree = worktree; self.items = items }
 }
 
 /// A project or workspace record as it is now, after any change (as `event.session` is for sessions).

@@ -148,6 +148,72 @@
         ],
         "type" : "object"
       },
+      "ArtifactItem" : {
+        "description" : "An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.",
+        "properties" : {
+          "answered" : {
+            "type" : "integer"
+          },
+          "created" : {
+            "description" : "Seconds since 1970, as `modified`.",
+            "type" : "number"
+          },
+          "modified" : {
+            "description" : "When its file was last saved; nil for a page on a service.",
+            "type" : "number"
+          },
+          "points" : {
+            "description" : "A review's points, and how many have a pick.",
+            "type" : "integer"
+          },
+          "session" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "target" : {
+            "description" : "Its file, or its page on the service (`Artifacts.target`).",
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "created",
+          "slug",
+          "target",
+          "title",
+          "type"
+        ],
+        "type" : "object"
+      },
+      "ArtifactsEvent" : {
+        "description" : "A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.",
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactItem"
+            },
+            "type" : "array"
+          },
+          "worktree" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "items",
+          "worktree"
+        ],
+        "type" : "object"
+      },
       "BitbucketStatus.Result" : {
         "properties" : {
           "connected" : {
@@ -3691,7 +3757,8 @@
           "file",
           "files",
           "host",
-          "hostDetail"
+          "hostDetail",
+          "artifacts"
         ],
         "type" : "string"
       },
@@ -9933,6 +10000,13 @@
       "name" : "event.activity",
       "params" : {
         "$ref" : "#/components/schemas/ActivityEvent"
+      }
+    },
+    {
+      "description" : "A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.",
+      "name" : "event.artifacts",
+      "params" : {
+        "$ref" : "#/components/schemas/ArtifactsEvent"
       }
     },
     {

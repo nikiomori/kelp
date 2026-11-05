@@ -36,6 +36,7 @@ extension AppModel {
         case .limits: limits = nil
         case .file: fileVersions[key] = nil
         case .files: fileLists[key] = nil
+        case .artifacts: artifacts[key] = nil
         case .commands: commands[key] = nil
         case .subagents: subagentSteps[key] = nil
         case .host, .hostDetail: break   // the other may still watch it; an old value says only how it was
@@ -53,6 +54,7 @@ extension AppModel {
         case let e as LimitsEvent: if limits != e.usage { forecast.record(e.usage); limits = e.usage }
         case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
         case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
+        case let e as ArtifactsEvent: if artifacts[e.worktree] != e.items { artifacts[e.worktree] = e.items }
         case let e as CommandsEvent: if commands[e.session] != e.commands { commands[e.session] = e.commands }
         case let e as SubagentsEvent: if subagentSteps[e.session] != e.steps { subagentSteps[e.session] = e.steps }
         case let e as RoutinesEvent: if routines != e { routines = e }
