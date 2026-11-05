@@ -62,6 +62,9 @@ public enum Subprocess {
         let exited = DispatchSemaphore(value: 0)
         p.terminationHandler = { _ in exited.signal() }   // set before it starts: one that exits at once isn't missed
         try p.run()
+        let pid = p.processIdentifier
+        running.withLock { _ = $0.insert(pid) }
+        defer { running.withLock { _ = $0.remove(pid) } }
         out.start(); err.start()
         if let inp, let stdin {
             let w = inp.fileHandleForWriting
@@ -90,6 +93,11 @@ public enum Subprocess {
             Thread.detachNewThread { c.resume(with: Result { try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit) }) }
         }
     }
+
+    /// Whether `pid` is a program `run` started in this process and still waits for: what that one starts in turn (a repo's
+    /// git hook, an extension's command) is this process's doing, not a terminal's (`Sessions.caller`).
+    public static func isRunning(_ pid: pid_t) -> Bool { running.withLock { $0.contains(pid) } }
+    private static let running = OSAllocatedUnfairLock<Set<pid_t>>(initialState: [])
 
     /// SIGTERM to `pid` and everything it started, children first (found before the parent goes, while they're still its),
     /// then SIGKILL to whatever is left after 2 s: one that ignores SIGTERM would hold the pipes for good.
@@ -141,6 +149,14 @@ public enum Subprocess {
         var info = proc_bsdinfo()
         let size = Int32(MemoryLayout<proc_bsdinfo>.size)
         return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? pid_t(info.pbi_ppid) : nil
+    }
+
+    /// Its controlling terminal's device; nil for none (a program started by launchd, or `setsid`), or no such process.
+    public static func terminal(_ pid: pid_t) -> UInt32? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size, info.e_tdev != UInt32.max else { return nil }
+        return info.e_tdev
     }
 
     /// Ended, not reaped yet: nothing left to stop.

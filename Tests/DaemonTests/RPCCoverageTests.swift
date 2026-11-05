@@ -424,6 +424,27 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try r.d.sessions.lineage(outlived.id).contains { $0.id == me.id })
 }
 
+/// What the daemon runs itself (an extension's command or event, a git hook) answers no question, nor does a program an
+/// agent forked away from its tree: that one still has the agent's terminal.
+@Test func kelpdsOwnProgramsAndForkedAwayOnesAnswerNoQuestion() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let choose = #"session.choose "{\"id\":\"\#(other.id)\",\"answer\":\"allow\"}""#
+    let ran = try await r.c.call(ProcessRun(argv: ["/bin/zsh", "-c", "zmodload zsh/net/socket; \(call); r kelpd \(choose)"],
+                                            cwd: nil, stdin: nil, timeLimit: 20, extensionId: nil))
+    #expect(ran.stdout.contains(#/<kelpd> [^\n]*has no session to act for/#), "\(ran.stdout) \(ran.stderr)")
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); read go; ( sleep 0.3; r forked \(choose) & ); cat'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<forked>") })
+    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
+}
+
 /// An agent that ended unread is read at a glance too: its record, as it isn't live any more.
 @Test func anEndedSessionCanBeMarkedRead() async throws {
     let r = try await rig(); defer { r.d.stop() }

@@ -127,21 +127,29 @@ final class Sessions: Sendable {
         }
     }
 
-    /// The live session whose program `pid` is, or runs under (its own child, a shell's job…).
+    /// What `caller` names for a program this daemon started (`Subprocess`: an extension's command or event, a repo's git
+    /// hook) or one on a connection that hung up: whoever wrote it, it acts on no session and answers no question.
+    static let inside = "kelpd"
+
+    /// The live session whose program `pid` is, or runs under (its own child, a shell's job…); `inside` for one this
+    /// daemon started. One that left its tree (a double fork, `nohup … &`) still has its session's terminal as its own.
     func session(running pid: pid_t) -> String? {
         let mine = Dictionary(live.all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
         var p = pid
         for _ in 0..<64 {
             if let id = mine[p] { return id }
-            guard let up = Subprocess.parent(p), up > 1, up != p else { return nil }
+            if Subprocess.isRunning(p) { return Self.inside }
+            guard let up = Subprocess.parent(p), up > 1, up != p else { break }
             p = up
         }
-        return nil
+        guard let tty = Subprocess.terminal(pid) else { return nil }
+        return live.all.first { Subprocess.terminal($0.pty.pid) == tty }?.snapshot.id
     }
 
     /// The session the program on `conn` runs in: its process tree, looked up once per connection (`Connection.owner`).
+    /// The daemon's own calls (`conn` -1) are the user's; a connection gone already is `inside`.
     func caller(_ conn: Int) -> String? {
-        guard let c = clients.connection(conn) else { return nil }
+        guard let c = clients.connection(conn) else { return conn < 0 ? nil : Self.inside }
         if let known = c.owner.withLock({ $0 }) { return known }
         let found = c.peerPID.flatMap { session(running: $0) }   // not under the connection's lock: this takes the sessions'
         c.owner.withLock { $0 = .some(found) }

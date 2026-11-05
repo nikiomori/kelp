@@ -155,17 +155,27 @@ extension Daemon {
     /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
     /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types
     /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
-    /// counts, so a method needn't remember to say so. The user's own terminals drive any. Limit: a program that left the
-    /// tree (a double fork, `nohup … &`, a tmux server) is taken for one outside every session, and an agent typed into a
+    /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook) is held
+    /// to the same with no session of its own. The user's own terminals drive any. Limit: a program that left the tree
+    /// and its terminal (`setsid`, a tmux server) is taken for one outside every session, and an agent typed into a
     /// plain terminal by hand counts as that terminal; macOS doesn't show another process's environment (its
-    /// KELP_SESSION) to tell, and an agent can still leave a program for the user to run (a file, an extension): the
-    /// socket, and the files, are the user's.
+    /// KELP_SESSION) to tell, and an agent can still leave a program for the user to run (a file): the socket, and the
+    /// files, are the user's.
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
         guard let own = sessions.caller(conn) else { return }
         if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
-        let line = try sessions.lineage(own)
-        guard line.contains(where: \.isAgent) else { return }
+        guard own != Sessions.inside else {
+            do { return try allowAgent(m, own: own) } catch {
+                throw RPCError.invalidParams("A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
+            }
+        }
+        guard try sessions.lineage(own).contains(where: \.isAgent) else { return }
+        try allowAgent(m, own: own)
+    }
+
+    /// What a program of an agent's (or of the daemon's, `own` = `Sessions.inside`) may not do.
+    private func allowAgent(_ m: any Answered, own: String) throws {
         if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
