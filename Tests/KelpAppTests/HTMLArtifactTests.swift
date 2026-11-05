@@ -15,14 +15,16 @@ import Markdown
         + #"</head><body onload="document.title='onload'"><script>document.title = 'ran'; webkit.messageHandlers.kelpSync?.postMessage('page')"#
         + #"</script><p>x</p><iframe srcdoc='<script>parent.document.body.dataset.frame = "ran"</script>'></iframe></body></html>"#
     let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-    let links = PreviewLinks(app: AppModel(builtins: Builtins.all)), heard = Heard()
-    web.navigationDelegate = links
+    let links = PreviewLinks(app: AppModel(builtins: Builtins.all)), heard = Heard(), decided = Decided(links)
+    web.navigationDelegate = decided
     web.configuration.userContentController.add(heard, contentWorld: MarkdownTab.world, name: "kelpSync")
     let base = FileManager.default.temporaryDirectory
     links.load(page, baseURL: base, scripts: ["document.body.dataset.kelp = 'yes'; webkit.messageHandlers.kelpSync.postMessage('kelp')"], world: MarkdownTab.world, in: web)
     func js(_ s: String) async -> String? { (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String }
     for _ in 0..<100 where await js("document.readyState") != "complete" { try await Task.sleep(for: .milliseconds(50)) }
-    try await Task.sleep(for: .seconds(1))   // the refresh, had it been let through
+    // The refresh is tried, and refused, rather than waited out.
+    for _ in 0..<200 where !decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(decided.refused.contains { $0.hasPrefix("https://example.com") })
     #expect(await js("document.title") == "t")
     #expect(await js("document.body.dataset.kelp") == "yes")
     #expect(web.url?.absoluteString == base.absoluteString)
@@ -43,6 +45,20 @@ import Markdown
         try await Task.sleep(for: .milliseconds(50))
     }
     #expect(await js("document.querySelector('.mermaid svg') ? 'drawn' : 'no'") == "drawn")
+}
+
+/// What PreviewLinks decides, as it decides it: what it refused.
+@MainActor private final class Decided: NSObject, WKNavigationDelegate {
+    let links: PreviewLinks
+    var refused: [String] = []
+    init(_ links: PreviewLinks) { self.links = links }
+    func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences,
+                 decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        links.webView(w, decidePolicyFor: a, preferences: preferences) { [weak self] p, prefs in
+            if p == .cancel { self?.refused.append(a.request.url?.absoluteString ?? "") }
+            decisionHandler(p, prefs)
+        }
+    }
 }
 
 @MainActor private final class Heard: NSObject, WKScriptMessageHandler {

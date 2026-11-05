@@ -88,3 +88,16 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(s.argv.filter { $0.hasPrefix(skills.path) } == ["kelp-browser", "kelp-settings", "kelp-terminals"].map { skills.path + "/" + $0 })
     #expect(!s.argv.contains(skills.path) && !s.argv.contains { $0.contains("SKILL.md") })
 }
+
+/// The machines skill goes to agents once there's a machine (a folder in vms/), and a hidden folder there isn't one.
+@Test func theMachinesSkillComesWithAMachine() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await firstWorkspace(w), fm = FileManager.default
+    try fm.createDirectory(at: w.root.appendingPathComponent("agent-skills/kelp-vm"), withIntermediateDirectories: true)
+    func vm() -> Bool { w.d.sessions.skillArgs(flag: "--plugin-dir", contextFlag: nil, worktreeId: wt.id, cwd: wt.path).argv.contains { $0.hasSuffix("/kelp-vm") } }
+    #expect(!vm())
+    try fm.createDirectory(at: w.root.appendingPathComponent("vms/.unpack-1/deep"), withIntermediateDirectories: true)
+    #expect(!vm())
+    try fm.createDirectory(at: w.root.appendingPathComponent("vms/dev"), withIntermediateDirectories: true)
+    #expect(vm())
+}

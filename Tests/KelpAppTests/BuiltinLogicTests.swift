@@ -222,7 +222,8 @@ import Core
     // Both replies in (the late one too, which the old guard let land last), however slow the machine is.
     let deadline = Date().addingTimeInterval(20)
     while Date() < deadline, !lateSent.withLock({ $0 }) || panel.rows.isEmpty { try await Task.sleep(for: .milliseconds(50)) }
-    try await Task.sleep(for: .milliseconds(300))
+    // Replies come back in order: once one asked after the late one is in, the panel has had the late one too.
+    _ = try? await m.client?.call(DaemonInfo())
     guard case .pr(let shown)? = panel.rows.first else { Issue.record("no rows"); return }
     #expect(panel.rows.count == 1 && shown.number == 2)
 }

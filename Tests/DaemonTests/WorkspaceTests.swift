@@ -49,14 +49,16 @@ import Agents
     try FileManager.default.createDirectory(atPath: there, withIntermediateDirectories: true)
     try Git.run(["init", "-q", "-b", "main"], cwd: there); try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there)
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
-    let flag = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("slow-host").path
+    let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
+    let flag = shim.appendingPathComponent("slow-host").path, asked = shim.appendingPathComponent("slow-asked").path
+    try? FileManager.default.removeItem(atPath: asked)
     FileManager.default.createFile(atPath: flag, contents: nil); defer { try? FileManager.default.removeItem(atPath: flag) }
     let workspaces = d.workspaces
     let creating = Task.detached { try workspaces.createWorkspace(in: repo) }
-    try await Task.sleep(for: .milliseconds(500))   // its branch is being read on the host
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: asked) })   // its branch is being read on the host, for 3 s
     let start = Date()
     try workspaces.syncMainWorkspaces()
-    #expect(Date().timeIntervalSince(start) < 1.5)
+    #expect(Date().timeIntervalSince(start) < 2.5)   // not behind that read
     _ = try await creating.value
 }
 

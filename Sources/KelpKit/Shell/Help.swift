@@ -9,8 +9,8 @@ package enum Help {
     ## Projects, workspaces, agents
     - **Project** — a folder, usually a git repository (the folder button over the sidebar, or File › Add Project…, ⌘O).
       It's a section in the sidebar.
-    - **Workspace** — a clean desk in that folder: its own tabs, splits and agents. **+** next to the project (⌘N) opens one
-      at once; it's named after the first thing you ask an agent. Rename with a double-click; close with ⇧⌘W (agents stop,
+    - **Workspace** — a screen of its own in that folder: its tabs, splits and agents. **+** next to the project (New Chat,
+      ⌘N) opens one at once; it's named after the first thing you ask an agent. Rename with a double-click; close with ⇧⌘W (agents stop,
       files stay). Several workspaces can work in the same folder.
     - **Agent** — Claude Code, Grok, Antigravity, Qwen… whatever is installed and runs on this Mac (found automatically).
 
