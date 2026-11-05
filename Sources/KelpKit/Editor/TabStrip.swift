@@ -109,19 +109,19 @@ final class TabStrip: NSView {
         overflow.image = .symbol("chevron.down", String(localized: "All Tabs"))
         overflow.isBordered = false
         overflow.contentTintColor = .secondaryLabelColor
-        overflow.symbolConfiguration = .init(pointSize: 10, weight: .semibold); overflow.toolTip = String(localized: "All tabs in this group")
+        overflow.symbolConfiguration = .chrome(Metrics.iconTiny); overflow.toolTip = String(localized: "All tabs in this group")
         overflow.target = self
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true
         unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes")); unzoom.isBordered = false
-        unzoom.contentTintColor = .themeAccent; unzoom.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+        unzoom.contentTintColor = .themeAccent; unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
         unzoom.toolTip = String(localized: "Show all panes (⇧⌘↩)")
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)
         unzoom.isHidden = true
         // The one way to add a tab, in each pane (like Safari's "+"); the empty workspace offers the same choices.
         add.image = .symbol("plus", String(localized: "New Tab")); add.contentTintColor = .secondaryLabelColor
-        add.symbolConfiguration = .init(pointSize: 12, weight: .medium); add.toolTip = String(localized: "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…")
+        add.symbolConfiguration = .chrome(); add.toolTip = String(localized: "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…")
         add.target = self; add.action = #selector(addTapped)
         newAgent.imageScaling = .scaleNone
         newAgent.target = self

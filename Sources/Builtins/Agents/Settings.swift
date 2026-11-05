@@ -65,7 +65,7 @@ struct AgentsSettings: View {
         return Form {
             // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
             Section {
-                ColumnSegments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                Segments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
                                selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
             }
             if !have.isEmpty {
@@ -74,7 +74,7 @@ struct AgentsSettings: View {
                 } header: { Text("Installed") } footer: {
                     if !updates.isEmpty {
                         Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
-                            .font(.subheadline).foregroundStyle(Color.textOrange)
+                            .font(.ui(11)).foregroundStyle(Color.textOrange)
                     }
                 }
             }
@@ -127,7 +127,7 @@ struct AgentsSettings: View {
                     HStack(spacing: 0) {
                         Text(caption).foregroundStyle(.secondary)
                         if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
-                    }.font(.subheadline)
+                    }.font(.ui(11))
                 }
                 Spacer(minLength: 0)
             }
@@ -149,7 +149,7 @@ struct AgentsSettings: View {
                 Image(nsImage: app.catalog.icon(m.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
                     .frame(width: Metrics.rowTwoLine, height: Metrics.rowTwoLine)
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                    Text(m.name).font(.title3.weight(.semibold))
+                    Text(m.name).font(.ui(15, weight: .semibold))
                     if let about = app.catalog.about(m.id) { Text(about).foregroundStyle(.secondary) }
                 }
             }
@@ -224,14 +224,14 @@ struct AgentsSettings: View {
     private func status(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).fontWeight(.medium)
-            Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(detail).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
     /// A command as it runs, to read or copy.
     private func commandLine(_ cmd: String) -> some View {
         HStack(alignment: .top) {
-            Text(cmd).font(.system(.caption, design: .monospaced)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            Text(cmd).font(.uiMono(11)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string) } label: {
                 Image(systemName: "doc.on.doc")
@@ -283,7 +283,7 @@ struct AgentsSettings: View {
             }
         } header: { Text("Launch") } footer: {
             Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
-                .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -411,32 +411,5 @@ struct AgentsSettings: View {
         if field == nil { load() }   // a secret reads as the keychain's mark now; not under someone's typing
         app.agents = AgentManifest.load(dir: Paths.agents)
         app.availability.refresh(force: true)
-    }
-}
-
-/// Segments exactly as wide as their column, in any language. A segmented Picker can ask for three times its longest label
-/// (321 pt in Russian): a 250 pt column then centres on it, sliding off the pane on the left and over the card on the right.
-private struct ColumnSegments: NSViewRepresentable {
-    let labels: [String]
-    @Binding var selection: Int
-
-    func makeNSView(context: Context) -> NSSegmentedControl {
-        let s = NSSegmentedControl(labels: labels, trackingMode: .selectOne, target: context.coordinator, action: #selector(Coordinator.changed))
-        s.segmentDistribution = .fillProportionally
-        return s
-    }
-    func updateNSView(_ s: NSSegmentedControl, context: Context) {
-        context.coordinator.selection = $selection
-        s.selectedSegment = selection
-    }
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView s: NSSegmentedControl, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? s.intrinsicContentSize.width, height: s.intrinsicContentSize.height)
-    }
-    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
-
-    final class Coordinator: NSObject {
-        var selection: Binding<Int>
-        init(selection: Binding<Int>) { self.selection = selection }
-        @objc func changed(_ s: NSSegmentedControl) { selection.wrappedValue = s.selectedSegment }
     }
 }

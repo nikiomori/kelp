@@ -100,7 +100,7 @@ struct ExtListView: View {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(x.expand(def.title ?? "${name}", item: item, quote: false)).lineLimit(1)
                 if !subtitle.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(subtitle).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 4)

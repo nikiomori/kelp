@@ -194,7 +194,7 @@ struct KeyboardSettings: View {
             withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { if shown { open.remove(menu) } else { open.insert(menu) } }
         } label: {
             HStack(spacing: Metrics.gap) {
-                Image(systemName: "chevron.right").imageScale(.small).foregroundStyle(.secondary).rotationEffect(.degrees(shown ? 90 : 0))
+                Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary).rotationEffect(.degrees(shown ? 90 : 0))
                 Text(menu)
                 Spacer()
                 Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
@@ -233,7 +233,7 @@ struct KeyboardSettings: View {
                         KeyBindings.set(e.id, nil, in: app.settings)
                         warning[e.id] = nil
                         later()
-                    }.buttonStyle(.link).font(.subheadline)
+                    }.buttonStyle(.link).font(.ui(11))
                         .help(e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") } ?? String(localized: "Kelp's default: none"))
                 }
                 // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
@@ -249,7 +249,7 @@ struct KeyboardSettings: View {
                 }
                 .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
-            if let w = warning[e.id] { Text(w).font(.subheadline).foregroundStyle(Color.textOrange) }
+            if let w = warning[e.id] { Text(w).font(.ui(11)).foregroundStyle(Color.textOrange) }
         }
     }
 

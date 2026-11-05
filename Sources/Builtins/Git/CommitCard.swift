@@ -146,14 +146,14 @@ final class CommitCardView: NSView {
     private static func header(_ s: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
         var views: [NSView] = []
         if let m = CommitCell.mark(s, merge: merge) {
-            let icon = NSImageView(image: .symbol(m.symbol)); icon.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+            let icon = NSImageView(image: .symbol(m.symbol)); icon.symbolConfiguration = .chrome(Metrics.iconSmall)
             icon.contentTintColor = m.color
             let kind = s.type.map { [$0, s.scope].compactMap { $0 }.joined(separator: " · ") } ?? String(localized: "Merge commit")
             views += [icon, label(kind, font: .ui(11, weight: .medium))]
         }
         for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }   // "Not pushed yet" gives way
         if unpushed {
-            let up = NSImageView(image: .symbol("arrow.up")); up.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+            let up = NSImageView(image: .symbol("arrow.up")); up.symbolConfiguration = .chrome(Metrics.iconTiny)
             up.contentTintColor = .secondaryLabelColor
             views += [NSView(), up, label(String(localized: "Not pushed yet"), font: .ui(11))]
         }

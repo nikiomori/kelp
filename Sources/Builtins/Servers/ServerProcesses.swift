@@ -28,7 +28,7 @@ struct ServerProcesses: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Processes").font(.ui(11, weight: .semibold)).foregroundStyle(.secondary)
+                Text("Processes").sectionTitle()
                 Spacer()
                 Picker("", selection: $kelpOnly) {
                     Text("All").tag(false)
@@ -57,7 +57,7 @@ struct ServerProcesses: View {
             title("Memory", .memory).frame(width: ProcessRow.number, alignment: .trailing)
             title("Running", .running).frame(width: ProcessRow.number, alignment: .trailing)
         }
-        .font(.ui(11, weight: .semibold)).foregroundStyle(.secondary)
+        .sectionTitle()
         .padding(.horizontal, 8)
     }
 
@@ -65,7 +65,7 @@ struct ServerProcesses: View {
         Button { sort = by } label: {
             HStack(spacing: 2) {
                 Text(text)
-                if sort == by { Image(systemName: "chevron.down").font(.ui(8, weight: .semibold)) }
+                if sort == by { Image(systemName: "chevron.down").font(.symbol(Metrics.iconTiny)) }
             }
             .foregroundStyle(sort == by ? .primary : .secondary)
         }

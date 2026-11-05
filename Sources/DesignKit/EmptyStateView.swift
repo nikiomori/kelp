@@ -14,7 +14,7 @@ public final class EmptyStateView: NSView {
 
     public init() {
         super.init(frame: .zero)
-        icon.symbolConfiguration = .init(pointSize: 28, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome(Metrics.iconEmpty)
         icon.contentTintColor = .tertiaryLabelColor
         title.font = .ui(13, weight: .semibold)
         text.font = .ui(13)

@@ -48,7 +48,7 @@ struct YearBoard: View {
             }
         }
         .fixedSize(horizontal: true, vertical: false)   // the legend ends under the last week, not the panel's edge
-        .font(.caption2).foregroundStyle(.secondary)
+        .font(.ui(11)).foregroundStyle(.secondary)
     }
 
     private func tile(_ level: Int) -> some View {

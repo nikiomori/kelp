@@ -79,7 +79,7 @@ final class LimitStrip: NSView {
 
     private func build() {
         let mark = NSImageView(image: .symbol("clock", String(localized: "Stopped at its limit")))
-        mark.symbolConfiguration = .init(pointSize: 14, weight: .regular)
+        mark.symbolConfiguration = .chrome(Metrics.segmentPoint)
         mark.contentTintColor = .textOrange
         title.font = .ui(13, weight: .semibold)
         detail.font = .ui(11)

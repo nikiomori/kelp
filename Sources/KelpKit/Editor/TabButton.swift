@@ -37,12 +37,12 @@ final class TabButton: NSControl, NSDraggingSource {
     init() {
         super.init(frame: .zero)
         wantsLayer = true; layer?.cornerRadius = Metrics.radiusSM
-        icon.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         title.font = .ui(12); title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
         close.toolTip = String(localized: "Close Tab (⌘W)")
         close.isBordered = false
-        close.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        close.symbolConfiguration = .chrome(Metrics.iconTiny)
         close.wantsLayer = true
         close.contentTintColor = .secondaryLabelColor
         close.imagePosition = .imageOnly
@@ -50,7 +50,7 @@ final class TabButton: NSControl, NSDraggingSource {
         close.target = self
         close.action = #selector(closeTapped)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
-        editedDot.image = .symbol("circle.fill", String(localized: "Edited")); editedDot.symbolConfiguration = .init(pointSize: 9, weight: .bold)
+        editedDot.image = .symbol("circle.fill", String(localized: "Edited")); editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
         editedDot.contentTintColor = .labelColor
         // One slot at the start: the agent's state while there's something to see, else the tab's icon; the close button on hover.
         for v in [icon, mark, close, editedDot] as [NSView] {

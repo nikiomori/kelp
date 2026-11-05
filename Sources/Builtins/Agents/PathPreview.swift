@@ -129,9 +129,9 @@ struct PathPreviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Text(model.name).font(.ui(13, weight: .semibold))
-                if !model.folder.isEmpty { Text(model.folder).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                if !model.folder.isEmpty { Text(model.folder).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                 Spacer(minLength: 8)
-                if model.changed { Text("Changed").font(.caption.weight(.medium)).foregroundStyle(Color.textOrange) }
+                if model.changed { Text("Changed").font(.ui(11, weight: .medium)).foregroundStyle(Color.textOrange) }
             }
             if let img = model.image {
                 Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 360, maxHeight: 240)
@@ -149,7 +149,7 @@ struct PathPreviewView: View {
                 }
                 .font(.uiMono(11))
             }
-            Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.caption2).foregroundStyle(.tertiary)
+            Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.ui(11)).foregroundStyle(.tertiary)
         }
         .padding(12).frame(width: 520, alignment: .leading)
     }

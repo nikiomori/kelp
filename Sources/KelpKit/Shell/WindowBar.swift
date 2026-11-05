@@ -140,7 +140,7 @@ final class WindowBar: NSView {
         b.imageHugsTitle = true
         if let symbol {
             b.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, "")
-            b.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+            b.symbolConfiguration = .chrome(Metrics.iconSmall)
         }
         return b
     }
@@ -327,7 +327,7 @@ final class SearchPill: PointerControl {
         self.app = app
         super.init(frame: .zero)
         restFill = .fillRest   // a field's ground; under the pointer a step darker, held darker still
-        glass.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight); glass.contentTintColor = .secondaryLabelColor
+        glass.symbolConfiguration = .chrome(Metrics.iconSmall); glass.contentTintColor = .secondaryLabelColor
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.init(200), for: .horizontal)

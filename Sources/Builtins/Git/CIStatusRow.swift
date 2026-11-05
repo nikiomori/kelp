@@ -19,7 +19,7 @@ final class CIStatusRow: NSView {
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         time.font = .uiDigits(11); time.textColor = .secondaryLabelColor
         chevron.image = .symbol("chevron.right", "")
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         line.spacing = 6; line.alignment = .centerY
         pin(line, inset: NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4))

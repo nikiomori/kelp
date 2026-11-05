@@ -18,7 +18,7 @@ public final class IconButton: PointerButton {
         toolTip = tip
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
-        symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
+        symbolConfiguration = .chrome()
         font = .uiDigits(11, weight: .medium)
         self.target = target
         self.action = action

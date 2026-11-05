@@ -86,7 +86,7 @@ struct UsageReportView: View {
     /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
         HStack(spacing: Metrics.gapWide) {
-            Text("Last \(range) days · from each agent's own logs on this Mac").font(.caption).foregroundStyle(.secondary)
+            Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(11)).foregroundStyle(.secondary)
             if loading { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
@@ -109,7 +109,7 @@ struct UsageReportView: View {
                 less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
                 differently, and "—" is a model without one.
             """)
-            .font(.caption).foregroundStyle(.secondary)
+            .font(.ui(11)).foregroundStyle(.secondary)
     }
 
     // MARK: The agents
@@ -144,7 +144,7 @@ struct UsageReportView: View {
     private func table(_ lines: [Line]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             columns(Text("Agent"), Text("Plan"), Text("Last \(range) days"), Text("Tokens"), Text("At API prices"))
-                .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
+                .font(.ui(11)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
             Divider()
             ForEach(lines) { row($0) }
         }
@@ -187,7 +187,7 @@ struct UsageReportView: View {
     }
 
     /// A figure not read yet.
-    private static var reading: some View { Text(verbatim: "0000").font(.caption).redacted(reason: .placeholder) }
+    private static var reading: some View { Text(verbatim: "0000").font(.ui(11)).redacted(reason: .placeholder) }
 
     private func agentCell(_ l: Line) -> some View {
         HStack(spacing: 8) {
@@ -195,7 +195,7 @@ struct UsageReportView: View {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(app.catalog.name(l.id)).lineLimit(1)
                 if let models = l.usage?.models.prefix(2), !models.isEmpty {
-                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
         }
@@ -221,12 +221,12 @@ struct UsageReportView: View {
                 }
                 Text(note).foregroundStyle(.secondary).lineLimit(1)
             }
-            .font(.caption)
+            .font(.ui(11))
             .opacity(stale ? 0.55 : 1)
             .help(plan.limits.map { l in "\(l.label): \(percent(l.used))" + (l.resets.map { String(localized: ", resets \($0)") } ?? "") }
                 .joined(separator: "\n"))
         } else {
-            Text("—").font(.caption).foregroundStyle(.tertiary)
+            Text("—").font(.ui(11)).foregroundStyle(.tertiary)
         }
     }
 
@@ -242,22 +242,22 @@ struct UsageReportView: View {
             .overlay(alignment: .bottom) { Rectangle().fill(.quaternary).frame(height: 1) }
         } else {
             Text(Self.counted.contains(l.id) ? String(localized: "Not used in this time") : String(localized: "Keeps no token counts on this Mac"))
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
     private func tokensCell(_ a: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(a.map { count($0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cacheRead > 0 { Text("\(percent(a.cacheRead, of: a.tokens)) from cache").font(.caption).foregroundStyle(.secondary) }
+            if let a, a.cacheRead > 0 { Text("\(percent(a.cacheRead, of: a.tokens)) from cache").font(.ui(11)).foregroundStyle(.secondary) }
         }
     }
 
     private func costCell(_ a: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(a.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cost == 0 { Text("no list price").font(.caption).foregroundStyle(.secondary) }
-            else if let a, Self.ownPrice.contains(a.id) { Text("as it reports").font(.caption).foregroundStyle(.secondary) }
+            if let a, a.cost == 0 { Text("no list price").font(.ui(11)).foregroundStyle(.secondary) }
+            else if let a, Self.ownPrice.contains(a.id) { Text("as it reports").font(.ui(11)).foregroundStyle(.secondary) }
         }
     }
 
@@ -275,11 +275,11 @@ struct UsageReportView: View {
                     Text("Cost").tag(true)
                     Text("Tokens").tag(false)
                 }
-                    .pickerStyle(.segmented).fixedSize()
+                    .pickerStyle(.segmented).controlSize(.small).fixedSize()
             }
             if !year.isEmpty { board }
             Text(byCost ? String(localized: "Cost per day · last \(range) days") : String(localized: "Tokens per day · last \(range) days"))
-                .font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+                .font(.ui(11)).foregroundStyle(.secondary).padding(.top, 8)
             Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { d in
                 BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value(byCost ? "Cost" : "Tokens", value(d)))
                     .foregroundStyle(by: .value("Agent", app.catalog.name(d.agent)))
@@ -306,7 +306,7 @@ struct UsageReportView: View {
         let cost = days.values.reduce(0) { $0 + $1.cost }, tokens = days.values.reduce(0) { $0 + $1.tokens }
         let total = byCost ? money(cost, tokens) : String(localized: "\(count(tokens)) tokens")
         return VStack(alignment: .leading, spacing: 8) {
-            Text("\(total) in the last year · \(days.count) active days").font(.caption).foregroundStyle(.secondary)
+            Text("\(total) in the last year · \(days.count) active days").font(.ui(11)).foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {   // a year is wider than a narrow pane: this week stays in view
                 YearBoard(values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green) { day in
                     let when = day.formatted(.dateTime.month(.wide).day())
@@ -338,7 +338,7 @@ struct UsageReportView: View {
                     Spacer(minLength: 12)
                     Text(count(r.tokens)).foregroundStyle(.secondary).monospacedDigit()
                     Text(money(r.cost, r.tokens)).monospacedDigit().frame(width: 72, alignment: .trailing)
-                }.font(.callout)
+                }.font(.ui(12))
                 Divider()
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -387,8 +387,8 @@ struct UsageReportView: View {
     private func tint(_ u: Double, quiet: Color) -> Color { u >= 0.9 ? .red : u >= 0.7 ? .orange : quiet }
     private func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title2.weight(.semibold).monospacedDigit())
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.ui(17, weight: .semibold).monospacedDigit())
+            Text(label).font(.ui(11)).foregroundStyle(.secondary)
         }
     }
 }

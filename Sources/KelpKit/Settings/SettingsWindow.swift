@@ -94,7 +94,7 @@ struct SettingsView: View {
 private struct SettingsIcon: View {
     let symbol: String, id: String
     var body: some View {
-        Image(systemName: symbol).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+        Image(systemName: symbol).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
@@ -263,11 +263,11 @@ struct SettingRow: View {
             .padding(.vertical, Metrics.lineGap)
         case "enum" where Self.segmented.contains(spec.key):
             // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
+            let options = Self.shown(Self.options(spec, app), string() ?? "")
             LabeledContent {
-                Picker("", selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
-                    ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Segments(labels: options.map { Self.label(spec.key, $0, app) },
+                         selection: Binding(get: { options.firstIndex(of: string() ?? "") ?? -1 },
+                                            set: { if options.indices.contains($0) { put(.string(options[$0])) } }))
             } label: { label }
         case "enum":
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {

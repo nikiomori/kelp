@@ -85,7 +85,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let r = rows[row], s = r.session.flatMap(app.session)
         let symbol = Self.symbols[r.type] ?? "link"
         let icon = NSImageView(image: .symbol(symbol))
-        icon.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let name = NSTextField(labelWithString: r.title)
         name.font = .ui(12, weight: .medium); name.lineBreakMode = .byTruncatingTail

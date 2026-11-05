@@ -42,7 +42,7 @@ struct ServerSide: View {
     }
 
     private func heading(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(.ui(11, weight: .semibold)).foregroundStyle(.secondary).frame(height: Metrics.rowSection, alignment: .bottom)
+        Text(text).sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom)
     }
     private func quiet(_ text: LocalizedStringKey) -> some View { Text(text).font(.ui(12)).foregroundStyle(.secondary) }
 
@@ -77,7 +77,7 @@ struct ServerSide: View {
     private func tmuxRow(_ t: HostStats.TmuxSession) -> some View {
         let s = t.session.flatMap(app.session)
         return HStack(spacing: 6) {
-            Image(systemName: "moon").font(.ui(11)).foregroundStyle(.secondary).frame(width: 14)
+            Image(systemName: "moon").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(s.map(app.catalog.displayName) ?? t.name).font(.ui(12)).lineLimit(1)
                 Text(s == nil ? String(localized: "Not started by this Kelp · \(t.name)") : String(localized: "Closed in Kelp, still running"))
@@ -111,7 +111,7 @@ struct ServerSide: View {
             if let w = mainWorkspace(of: r, among: app.worktrees) { app.workbench.show(workspace: w.id) }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "folder").font(.ui(11)).foregroundStyle(.secondary).frame(width: 14)
+                Image(systemName: "folder").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
                 Text(r.name).font(.ui(12))
                 Spacer(minLength: 6)
                 Text(RemoteHost.of(r.path)?.path ?? "").font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)

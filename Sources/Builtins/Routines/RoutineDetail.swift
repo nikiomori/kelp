@@ -14,9 +14,9 @@ struct RoutineDetail: View {
             HStack(spacing: Metrics.gapWide) {
                 if let icon = app.catalog.icon(routine.agent, size: 28) { Image(nsImage: icon) }
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                    Text(routine.name).font(.headline)
+                    Text(routine.name).font(.ui(13, weight: .semibold))
                     Text([app.catalog.name(routine.agent), routine.model].compactMap { $0 }.joined(separator: " · "))
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.ui(11)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button(String(localized: "Run Now")) { Task { await app.call(RoutineRun(id: routine.id)) } }
@@ -24,7 +24,7 @@ struct RoutineDetail: View {
                 Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
                 Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
             }
-            Text(routine.prompt).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            Text(routine.prompt).font(.ui(12)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Metrics.gapWide).background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM))
             Form { RepeatFields(routine: Binding(get: { routine }, set: { save($0) })) }.formStyle(.columns).frame(maxWidth: 420)
             facts
@@ -43,7 +43,7 @@ struct RoutineDetail: View {
         let wake = routine.onWake ? String(localized: "Missed while the Mac slept: runs once it wakes")
             : String(localized: "Missed while the Mac slept: skipped")
         return Text([next, place, wake, String(localized: "Asks for permission as usual")].compactMap { $0 }.joined(separator: " · "))
-            .font(.caption).foregroundStyle(.secondary)
+            .font(.ui(11)).foregroundStyle(.secondary)
     }
 
     private func save(_ r: Routine) { Task { await app.call(RoutineSet(routine: r)) } }
@@ -80,18 +80,18 @@ struct RunResult: View {
         VStack(alignment: .leading, spacing: Metrics.gap) {
             HStack(spacing: Metrics.gap) {
                 RunMark(mark: .init(id: run.id, at: run.due, kind: .run(run.outcome), run: run), picked: false)
-                Text(headline).font(.callout.weight(.medium))
+                Text(headline).font(.ui(12, weight: .medium))
                 Spacer()
                 if let s = run.sessionId, app.session(s) != nil {
                     Button(run.outcome == .asked ? String(localized: "Answer") : String(localized: "Open Run")) { app.workbench.focus(session: s) }
                 }
             }
             if !run.summary.isEmpty {
-                Text(prefix + run.summary).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                Text(prefix + run.summary).font(.ui(12)).foregroundStyle(.secondary).textSelection(.enabled)
             }
             if run.late {
                 Text("Ran late: the Mac was asleep or Kelp wasn't running at \(run.due.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption).foregroundStyle(.tertiary)
+                    .font(.ui(11)).foregroundStyle(.tertiary)
             }
         }
         .padding(Metrics.inset)

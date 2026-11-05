@@ -39,6 +39,12 @@ public enum Metrics {
     /// Every symbol in the chrome: medium draws about the 1.3 pt line of Kelp's own glyphs (the branch, the checklist),
     /// so the system's symbols and Kelp's read as one set; regular was a hairline beside them.
     public static let iconWeight: NSFont.Weight = .medium
+    // A symbol's size by where it sits; `NSImage.SymbolConfiguration.chrome` / `Font.symbol` give each the one weight.
+    public static let iconTiny: CGFloat = 9       // a chevron, a tab's ✕, an arrow beside a count
+    public static let iconSmall: CGFloat = 11    // beside a row's text: a tab's icon, a row's mark
+    public static let iconLarge: CGFloat = 15     // a choice's icon in a grouped card, an extension's in the library
+    public static let iconEmpty: CGFloat = 28     // an empty state's
+    public static let iconHero: CGFloat = 40      // the one big symbol of an empty window or workspace
     public static let iconGap: CGFloat = 2        // between two icon buttons side by side
     public static let iconGlow: CGFloat = 7       // the blur of a project's colour around its icon
     public static let paneDim: CGFloat = 0.5      // how far a pane without focus fades toward the background
@@ -54,6 +60,13 @@ public enum Metrics {
     public static let sheetWidth: CGFloat = 480
     public static let alertAccessory: CGFloat = 400   // the fields a question sheet holds
     public static let formLabel: CGFloat = 96         // a field's name beside it, right-aligned
+}
+
+extension NSImage.SymbolConfiguration {
+    /// A symbol in the chrome: the one weight (`Metrics.iconWeight`) at a size from Metrics.
+    public static func chrome(_ size: CGFloat = Metrics.iconPoint) -> NSImage.SymbolConfiguration {
+        .init(pointSize: size, weight: Metrics.iconWeight)
+    }
 }
 
 /// How long things move, and nothing under Reduce Motion.

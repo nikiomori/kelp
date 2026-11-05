@@ -41,9 +41,9 @@ struct LibrarySection: View {
         } footer: {
             HStack {
                 Text("Extensions people shared, each reviewed before it's added. Or any repository: kelp ext install owner/repo")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.ui(11)).foregroundStyle(.secondary)
                 Spacer()
-                if let url = URL(string: "https://github.com/\(IDE.libraryRepo)") { Link("Share Yours on GitHub", destination: url).font(.subheadline) }
+                if let url = URL(string: "https://github.com/\(IDE.libraryRepo)") { Link("Share Yours on GitHub", destination: url).font(.ui(11)) }
             }
         }
         .task { await load() }
@@ -87,10 +87,10 @@ struct LibrarySection: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("From GitHub · not reviewed").fontWeight(.semibold)
-                Text("topic kelp-extension, fastest growing first").font(.subheadline).foregroundStyle(.secondary)
+                Text("topic kelp-extension, fastest growing first").font(.ui(11)).foregroundStyle(.secondary)
             }
             Text("Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.")
-                .font(.subheadline).foregroundStyle(Color.textOrange)
+                .font(.ui(11)).foregroundStyle(Color.textOrange)
             ForEach(found, id: \.id) { row($0) }
         }
         .padding(.top, 8)
@@ -99,18 +99,18 @@ struct LibrarySection: View {
     private func row(_ e: ExtensionLibrary.Entry) -> some View {
         let have = registry.extensions.first { $0.id == e.id && !$0.builtin }
         return HStack(alignment: .top, spacing: 10) {
-            Image(systemName: e.icon ?? "puzzlepiece.extension").font(.title3).foregroundStyle(.secondary).frame(width: 24)
+            Image(systemName: e.icon ?? "puzzlepiece.extension").font(.symbol(Metrics.iconLarge)).foregroundStyle(.secondary).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(e.name).fontWeight(.medium)
-                    Text(e.version).font(.subheadline).foregroundStyle(.secondary)
+                    Text(e.version).font(.ui(11)).foregroundStyle(.secondary)
                     if let stars = e.stars {
-                        Text("★ \(stars)" + (e.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(.subheadline.monospacedDigit())
+                        Text("★ \(stars)" + (e.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(.ui(11).monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 }
-                if let d = e.description, !d.isEmpty { Text(d).font(.subheadline).foregroundStyle(.secondary) }
-                if let m = missing[e.id] { Text("Needs `\(m)` — not found on this Mac.").font(.subheadline).foregroundStyle(.secondary) }
+                if let d = e.description, !d.isEmpty { Text(d).font(.ui(11)).foregroundStyle(.secondary) }
+                if let m = missing[e.id] { Text("Needs `\(m)` — not found on this Mac.").font(.ui(11)).foregroundStyle(.secondary) }
             }
             Spacer()
             if installing == e.id {
@@ -120,7 +120,7 @@ struct LibrarySection: View {
             } else if let s = have?.source, s != e.source || e.reviewed == false {   // found by its topic: its branch may have moved
                 Button(e.reviewed == false ? "Update…" : "Update") { install(e) }
             } else {
-                Text("Already installed").font(.subheadline).foregroundStyle(.secondary)
+                Text("Already installed").font(.ui(11)).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 2)

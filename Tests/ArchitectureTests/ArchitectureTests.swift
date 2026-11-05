@@ -299,6 +299,9 @@ private func codeOnly(_ s: String) -> String {
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 2)
     #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 2)
+    // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
+    let styles = try matches(#"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#, in: chrome + ["Sources/EditorKit"])
+    #expect(styles.count <= 0, "\(styles)")
 }
 
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,

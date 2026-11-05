@@ -100,7 +100,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         let item = items[row]
         let icon = NSImageView(image: NSImage(systemSymbolName: Self.symbol(item.kind), accessibilityDescription: item.kind) ?? NSImage())
         icon.contentTintColor = .secondaryLabelColor
-        icon.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome()
         let label = NSTextField(labelWithString: item.label)
         label.font = .uiMono(12)
         label.lineBreakMode = .byTruncatingTail

@@ -66,7 +66,7 @@ struct RoutinesView: View {
             let on = list.filter(\.enabled).count
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
-            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.callout).foregroundStyle(.secondary)
+            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(12)).foregroundStyle(.secondary)
             Spacer()
             if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() }.controlSize(.small) }   // else it's under No Routines
         }
@@ -97,7 +97,7 @@ struct WeekGrid: View {
                 ForEach(week.days, id: \.self) { day in
                     let today = week.isToday(day)
                     Text(day.formatted(.dateTime.weekday(.abbreviated).day()))
-                        .font(.caption.weight(today ? .semibold : .regular)).foregroundStyle(today ? Color.accentColor : .secondary)
+                        .font(.ui(11, weight: today ? .semibold : .regular)).foregroundStyle(today ? Color.accentColor : .secondary)
                         .frame(maxWidth: .infinity, minHeight: Metrics.rowSection)
                         .background(today ? Color(nsColor: .fillRest) : .clear)
                 }
@@ -127,10 +127,10 @@ struct WeekGrid: View {
                 var x = r; x.enabled = on
                 Task { await app.call(RoutineSet(routine: x)) }
             }))
-            .toggleStyle(.switch).controlSize(.mini).labelsHidden()
+            .toggleStyle(.switch).controlSize(.small).labelsHidden()
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(r.name).font(.callout.weight(.medium)).lineLimit(1)
-                Text(RoutineWeek.schedule(r)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(r.name).font(.ui(12, weight: .medium)).lineLimit(1)
+                Text(RoutineWeek.schedule(r)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .padding(.horizontal, Metrics.inset)
@@ -157,7 +157,7 @@ struct WeekGrid: View {
                     picked = m.run?.id
                 }
             }
-            if marks.count > 3 { Text("+\(marks.count - 2)").font(.caption2.monospacedDigit()).foregroundStyle(.tertiary) }
+            if marks.count > 3 { Text("+\(marks.count - 2)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary) }
         }
         .frame(maxWidth: .infinity, minHeight: 44)
         .background(week.isToday(day) ? Color(nsColor: .fillRest) : .clear)
@@ -181,7 +181,7 @@ struct RunMark: View {
     var body: some View {
         VStack(spacing: 1) {
             symbol.frame(height: 16)
-            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
         }
         .padding(.horizontal, 3).padding(.vertical, 2)
         .background(picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS))

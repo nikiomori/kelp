@@ -22,7 +22,7 @@ final class RunChip: NSStackView {
         }
         go.imagePosition = .imageOnly
         go.contentTintColor = .labelColor
-        go.symbolConfiguration = .init(pointSize: 10, weight: Metrics.iconWeight)
+        go.symbolConfiguration = .chrome(Metrics.iconSmall)
         go.widthAnchor.constraint(equalToConstant: 22).isActive = true
         go.image = .symbol("stop.fill", String(localized: "Stop"))
         go.toolTip = String(localized: "Stop (⌘.)")
@@ -31,7 +31,7 @@ final class RunChip: NSStackView {
         name.imagePosition = .imageTrailing
         name.imageHugsTitle = true
         name.image = .symbol("chevron.down", "")
-        name.symbolConfiguration = .init(pointSize: 8, weight: .semibold)
+        name.symbolConfiguration = .chrome(Metrics.iconTiny)
         name.lineBreakMode = .byTruncatingTail
         name.onClick = { [weak self] in self?.app.scripts.choose() }
         name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")

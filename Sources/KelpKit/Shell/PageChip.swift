@@ -29,7 +29,7 @@ final class PageChip: NSStackView {
         open.imagePosition = .imageLeading
         open.imageHugsTitle = true
         open.image = .symbol("network", "")
-        open.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        open.symbolConfiguration = .chrome(Metrics.iconSmall)
         open.onClick = { [weak self] in
             guard let self, let l = look else { return }
             app.scripts.open(l.page, in: l.workspace)

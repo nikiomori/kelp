@@ -11,7 +11,7 @@ final class UnavailableTab: TabContent {
     var icon: NSImage? { .symbol("questionmark.square.dashed") }
     init(uri: String, app: AppModel) {
         self.uri = uri
-        let icon = NSImageView(image: .symbol("puzzlepiece.extension")); icon.symbolConfiguration = .init(pointSize: 28, weight: .light)
+        let icon = NSImageView(image: .symbol("puzzlepiece.extension")); icon.symbolConfiguration = .chrome(Metrics.iconEmpty)
         icon.contentTintColor = .tertiaryLabelColor
         let t = NSTextField(labelWithString: String(localized: "Extension Turned Off")); t.font = .ui(13, weight: .semibold)
         let l = NSTextField(wrappingLabelWithString: String(localized: "The extension that shows “\(uri)” is turned off or was removed."))

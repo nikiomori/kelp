@@ -29,7 +29,7 @@ final class ServerHeader: NSTableCellView {
         self.owner = owner
         super.init(frame: .zero)
         let glyph = NSImageView(image: .symbol("server.rack"))
-        glyph.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
+        glyph.symbolConfiguration = .chrome()
         glyph.contentTintColor = .secondaryLabelColor
         glyph.setContentHuggingPriority(.required, for: .horizontal)
         title.font = .ui(12, weight: .semibold)
@@ -37,7 +37,7 @@ final class ServerHeader: NSTableCellView {
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.setContentHuggingPriority(.init(2), for: .horizontal)
         word.font = .uiDigits(11)
-        fold.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        fold.symbolConfiguration = .chrome(Metrics.iconTiny)
         fold.isHidden = true
         let top = NSStackView(views: [glyph, title, word, fold])
         top.spacing = Metrics.gap
@@ -122,7 +122,7 @@ private final class Meter: NSStackView {
     init(_ symbol: String, _ name: String) {
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(symbol, name))
-        icon.symbolConfiguration = .init(pointSize: 10, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
         value.font = .uiDigits(11)
         setViews([icon, value], in: .leading)

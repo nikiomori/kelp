@@ -364,7 +364,7 @@ private final class Header: PointerControl {
 
     init() {
         super.init(frame: .zero)
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         for (b, title) in [(stop, String(localized: "Stop")), (toTab, String(localized: "Open in Tab"))] {
             b.title = title
@@ -426,7 +426,7 @@ final class CommandRow: NSTableCellView {
         lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
         command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         command.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
-        server.symbolConfiguration = .init(pointSize: 9, weight: .medium)
+        server.symbolConfiguration = .chrome(Metrics.iconTiny)
         server.contentTintColor = .systemGreen
         server.isHidden = true
         for v in [server, mark] { v.translatesAutoresizingMaskIntoConstraints = false }

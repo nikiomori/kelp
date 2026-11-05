@@ -61,7 +61,7 @@ struct AccountsSettings: View {
                 Button("Remove…") { remove() }.disabled(selection == nil)
             }
             Text("Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage.")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.ui(11)).foregroundStyle(.secondary)
         }
         .task { profiles = await Accounts.load(app) }
     }

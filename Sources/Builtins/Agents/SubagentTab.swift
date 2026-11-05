@@ -75,10 +75,10 @@ struct SubagentJournalView: View {
     private func header(_ j: SessionSubagentJournal.Journal) -> some View {
         HStack(spacing: Metrics.gap) {
             Text(j.task ?? (j.kind.isEmpty ? String(localized: "Subagent") : j.kind)).font(.ui(12, weight: .medium)).lineLimit(1)
-            Text(facts(j)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+            Text(facts(j)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
-            if working, let run { Text(run.started, style: .timer).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle()).font(.caption)
+            if working, let run { Text(run.started, style: .timer).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
+            Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle()).font(.ui(11))
                 .lineLimit(1).fixedSize()
         }
         .padding(.horizontal, Metrics.inset)
@@ -97,10 +97,10 @@ struct SubagentJournalView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(j.steps.enumerated()), id: \.offset) { _, s in
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
-                        Text(Self.clock(s.at.timeIntervalSince(start))).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(Self.clock(s.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
                             .frame(width: 48, alignment: .trailing)
-                        Text(s.tool).font(.callout).foregroundStyle(.secondary).frame(width: 72, alignment: .leading).lineLimit(1)
-                        Text(s.detail).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
+                        Text(s.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading).lineLimit(1)
+                        Text(s.detail).font(.uiMono(11)).lineLimit(1).truncationMode(.middle)
                     }
                     .frame(minHeight: Metrics.row, alignment: .leading)
                 }

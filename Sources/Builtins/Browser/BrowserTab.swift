@@ -90,7 +90,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.bezelStyle = .roundedBezel
         designButton.setButtonType(.pushOnPushOff)
         designButton.imagePosition = .imageOnly
-        designButton.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
+        designButton.symbolConfiguration = .chrome()
         designButton.contentTintColor = .secondaryLabelColor
         designButton.image = .symbol("cursorarrow.rays", String(localized: "Design Mode"))
         designButton.toolTip = String(localized: "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)")

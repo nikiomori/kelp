@@ -123,7 +123,7 @@ final class LineNumbers: NSRulerView {
             let line = s.lineRange(for: NSRange(location: start, length: 0))
             let folded = tv.folds.fold(at: MultiCursor.lineEnd(s, start)) != nil
             guard folded || (hovering && editor.foldRegion(line, in: s) != nil) else { return }
-            let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: .semibold).applying(.init(paletteColors: [color]))
+            let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: Metrics.iconWeight).applying(.init(paletteColors: [color]))
             guard let img = NSImage(systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
                 .withSymbolConfiguration(config) else { return }
             let at = NSPoint(x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2, y: y0 + frag.minY + (frag.height - img.size.height) / 2)

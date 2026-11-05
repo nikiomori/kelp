@@ -27,7 +27,7 @@ final class SidebarCell: NSTableCellView {
         b.isBordered = false
         b.radius = nil   // a round fill under the pointer, the slot's 16 pt
         b.contentTintColor = .secondaryLabelColor
-        b.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        b.symbolConfiguration = .chrome(Metrics.iconTiny)
         b.isHidden = true
         return b
     }()
@@ -39,7 +39,7 @@ final class SidebarCell: NSTableCellView {
     /// On the row that was muted (`Mutes`), not on what's inside it.
     private let muted: NSImageView = {
         let v = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
-        v.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+        v.symbolConfiguration = .chrome(Metrics.iconSmall)
         v.contentTintColor = .secondaryLabelColor
         v.toolTip = v.image?.accessibilityDescription
         v.isHidden = true
@@ -500,7 +500,7 @@ final class Chip: NSView {
 
     init() {
         super.init(frame: .zero)
-        icon.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
         count.font = .uiDigits(11, weight: .medium)
         count.textColor = .secondaryLabelColor
@@ -528,7 +528,7 @@ extension SidebarCell {
     /// A group's row: its branch quieter than its name, and what gives way first.
     fileprivate func styleBranch() {
         icon.contentTintColor = .secondaryLabelColor
-        icon.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
+        icon.symbolConfiguration = .chrome()
         detail.font = .ui(11); detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)

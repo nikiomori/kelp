@@ -186,7 +186,7 @@ package final class StatusMark: NSView {
         if s == .working {
             image.image = .symbol(compacting ? "arrow.down.right.and.arrow.up.left" : "ellipsis.circle",
                 compacting ? String(localized: "Compacting its conversation") : s?.words ?? "")
-            image.symbolConfiguration = .init(pointSize: size - 2, weight: .regular); image.contentTintColor = .secondaryLabelColor
+            image.symbolConfiguration = .chrome(size - 2); image.contentTintColor = .secondaryLabelColor
             if compacting, !still {
                 image.wantsLayer = true
                 let p = CABasicAnimation(keyPath: "opacity")
@@ -202,12 +202,12 @@ package final class StatusMark: NSView {
         guard let s else { return }
         if limited {
             image.image = .symbol("clock", String(localized: "Stopped at its limit"))
-            image.symbolConfiguration = .init(pointSize: size - 1, weight: .regular); image.contentTintColor = .textOrange
+            image.symbolConfiguration = .chrome(size - 1); image.contentTintColor = .textOrange
             return
         }
         image.image = .symbol(s.symbol, s.words)
         // The moon is wider than the circles: a size smaller, it takes the same room.
-        image.symbolConfiguration = .init(pointSize: s == .hibernated ? size - 3 : size - 1, weight: .regular)
+        image.symbolConfiguration = .chrome(s == .hibernated ? size - 3 : size - 1)
         image.contentTintColor = s.nsColor
     }
 }

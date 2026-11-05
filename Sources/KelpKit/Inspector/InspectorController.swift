@@ -399,7 +399,7 @@ final class PanelIcon: NSButton {
         isBordered = false
         setButtonType(.pushOnPushOff)
         wantsLayer = true
-        symbolConfiguration = .init(pointSize: Metrics.segmentPoint, weight: Metrics.iconWeight); imageScaling = .scaleProportionallyDown
+        symbolConfiguration = .chrome(Metrics.segmentPoint); imageScaling = .scaleProportionallyDown
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
 

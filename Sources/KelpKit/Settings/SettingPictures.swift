@@ -55,7 +55,7 @@ struct PictureTile<Art: View>: View {
                 art.frame(height: Self.height)
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
                     .cardEdge(selected: on)
-                Text(name).font(.caption).fontWeight(on ? .semibold : .regular).foregroundStyle(on ? .primary : .secondary).lineLimit(1)
+                Text(name).font(.ui(11)).fontWeight(on ? .semibold : .regular).foregroundStyle(on ? .primary : .secondary).lineLimit(1)
             }
         }
         .buttonStyle(PointerCardStyle())
@@ -70,7 +70,7 @@ struct TileHeading<Title: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.lineGap) {
             title
-            if let about { Text(about).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+            if let about { Text(about).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
         }
     }
 }
@@ -96,6 +96,10 @@ private struct PictureArt: View {
     }
 
     private static let pink = Color(nsColor: .systemPink)
+    /// Text drawn into a picture at a fixed size: the Text size picture shows each size itself, so it mustn't follow the setting.
+    private static func drawn(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+        .system(size: size, weight: weight, design: design)
+    }
 
     private func row<Content: View>(height: CGFloat, fill: Color = Color.primary.opacity(0.08), @ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 5) { content() }
@@ -111,10 +115,10 @@ private struct PictureArt: View {
     private var textSize: some View {
         let s: CGFloat = ["large": 1.15, "larger": 1.3][option] ?? 1
         return VStack(spacing: 3) {
-            row(height: 15 * s) { Text(verbatim: "Kelp").font(.caption2.weight(.semibold)).scaleEffect(s, anchor: .leading) }
+            row(height: 15 * s) { Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(s, anchor: .leading) }
             row(height: 15 * s) {
                 Circle().fill(Color.textGreen).frame(width: 5, height: 5)
-                Text(verbatim: "Claude").font(.caption2).scaleEffect(s, anchor: .leading)
+                Text(verbatim: "Claude").font(Self.drawn(10)).scaleEffect(s, anchor: .leading)
             }
         }
         .padding(.horizontal, 12)
@@ -203,7 +207,7 @@ private struct PictureArt: View {
     private var cursor: some View {
         let ink = app.themes.shown?.terminal.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .white
         return HStack(spacing: 1) {
-            Text(verbatim: "❯ ls").font(.callout.monospaced()).foregroundStyle(ink)
+            Text(verbatim: "❯ ls").font(Self.drawn(12, design: .monospaced)).foregroundStyle(ink)
             Group {
                 switch option {
                 case "bar": Rectangle().frame(width: 2, height: 15)

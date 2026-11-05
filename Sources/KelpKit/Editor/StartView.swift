@@ -45,7 +45,7 @@ final class StartView: NSView {
         let repo = app.repo(w.repoId)
         let icon = NSImageView(image: .symbol("folder"))
         if let repo { ProjectIcon.show(repo.path, in: icon, app: app, initial: false) }
-        icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
+        icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .chrome(Metrics.iconHero)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName)
         title.font = .ui(20, weight: .semibold)
@@ -374,7 +374,7 @@ private final class StartRow: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = Metrics.radiusMD; layer?.cornerCurve = .continuous
-        let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .init(pointSize: 15, weight: Metrics.iconWeight)
+        let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .chrome(Metrics.iconLarge)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)
         label.font = .ui(13)

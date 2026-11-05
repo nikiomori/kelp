@@ -18,7 +18,7 @@ struct RowAction {
 private func actionButtons(_ actions: [RowAction]) -> NSStackView {
     let s = NSStackView(views: actions.map { a in
         let b = IconButton(.symbol(a.symbol), tip: a.title) { a.run() }   // greys in under the pointer, dips when pressed
-        b.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        b.symbolConfiguration = .chrome(Metrics.iconSmall)
         return b
     })
     s.spacing = Metrics.iconGap; s.isHidden = true
@@ -62,7 +62,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     init(title: String, count: Int?, expanded: Bool, actions a: [RowAction], detail: NSAttributedString? = nil) {
         actions = actionButtons(a)
         super.init(frame: .zero)
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: Metrics.iconWeight); chevron.contentTintColor = .secondaryLabelColor
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny); chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
         let t = NSTextField(labelWithString: title)
         t.font = .ui(11, weight: .semibold)
@@ -263,7 +263,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         let mark = Self.mark(s, merge: c.parents.count > 1).map { m in
             let v = NSImageView(image: .symbol(m.symbol, s.type ?? String(localized: "Merge commit")))
             // One colour in the list, so the subjects lead; the card under the pointer shows the type's own.
-            v.symbolConfiguration = .init(pointSize: 10, weight: .medium); v.contentTintColor = .secondaryLabelColor
+            v.symbolConfiguration = .chrome(Metrics.iconSmall); v.contentTintColor = .secondaryLabelColor
             v.widthAnchor.constraint(equalToConstant: 13).isActive = true
             return v
         }
@@ -277,7 +277,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         date.textColor = .secondaryLabelColor
         // Not on the remote yet: an arrow before the time, as in GitHub Desktop.
         let notPushed = String(localized: "Not pushed yet")
-        up.image = .symbol("arrow.up", notPushed); up.symbolConfiguration = .init(pointSize: 10, weight: .semibold)
+        up.image = .symbol("arrow.up", notPushed); up.symbolConfiguration = .chrome(Metrics.iconTiny)
         up.contentTintColor = .secondaryLabelColor
         up.toolTip = notPushed
         up.isHidden = !unpushed && delay == nil

@@ -339,7 +339,7 @@ extension ScriptsMenu {
     /// colour would paint its mark into the disc.
     static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
         let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
-        let look = NSImage.SymbolConfiguration(pointSize: 13, weight: Metrics.iconWeight).applying(.init(paletteColors: colors))
+        let look = NSImage.SymbolConfiguration.chrome().applying(.init(paletteColors: colors))
         let i = NSImage.symbol(name, "").withSymbolConfiguration(look)
         i?.isTemplate = false
         return i

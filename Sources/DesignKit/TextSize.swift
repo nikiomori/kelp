@@ -41,4 +41,12 @@ extension NSFont {
 extension Font {
     public static func ui(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.ui(size, weight: weight) as CTFont) }
     public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.uiMono(size, weight: weight) as CTFont) }
+    /// An `Image(systemName:)` beside chrome text: the symbols' one weight at a size from Metrics.
+    public static func symbol(_ size: CGFloat = Metrics.iconPoint) -> Font { .ui(size, weight: Metrics.iconWeight) }
+}
+
+@MainActor
+extension View {
+    /// A section's title over its rows: 11 semibold, secondary. One look for every titled section.
+    public func sectionTitle() -> some View { font(.ui(11, weight: .semibold)).foregroundStyle(.secondary) }
 }

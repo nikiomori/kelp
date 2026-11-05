@@ -24,7 +24,7 @@ package enum CIRunLook {
         let v = NSImageView(image: .symbol(symbol, words))
         v.contentTintColor = color
         v.toolTip = words
-        v.symbolConfiguration = .init(pointSize: 12, weight: Metrics.iconWeight)
+        v.symbolConfiguration = .chrome()
         return v
     }
 
@@ -70,7 +70,7 @@ final class CIMark: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         agentLike.announces = false   // its words are an agent's; the chip or badge says the CI's
         failed.image = .symbol("xmark.circle.fill", "")
-        failed.symbolConfiguration = .init(pointSize: 11, weight: Metrics.iconWeight)
+        failed.symbolConfiguration = .chrome(Metrics.iconSmall)
         failed.contentTintColor = .systemRed
         for v in [agentLike, failed] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v)

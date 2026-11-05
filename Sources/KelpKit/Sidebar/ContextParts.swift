@@ -40,7 +40,7 @@ struct ContextParts: View {
                 legend(Row(id: "free", label: String(localized: "Free"), tokens: max(0, window - used - buffer), detail: "", color: nil), bold: false)
             }
             if let d = parts.setup?.deferred, !d.isEmpty {
-                Text(Self.deferred(d)).font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                Text(Self.deferred(d)).font(.ui(11)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
         }
@@ -55,11 +55,11 @@ struct ContextParts: View {
             Text(Self.k(r.tokens)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
             Text(Self.share(r.tokens, of: window)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
         }
-        .font(.caption)
+        .font(.ui(11))
         if !r.detail.isEmpty {
             GridRow {
                 Color.clear.frame(width: 0, height: 0)
-                Text(r.detail).font(.caption).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.tail).gridCellColumns(3)
+                Text(r.detail).font(.ui(11)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.tail).gridCellColumns(3)
             }
         }
     }

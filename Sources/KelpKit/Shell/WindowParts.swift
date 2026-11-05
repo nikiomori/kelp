@@ -160,7 +160,7 @@ extension NSButton {
         b.image = .symbol(symbol, label)
         b.imagePosition = .imageOnly
         b.toolTip = tip
-        b.symbolConfiguration = .init(pointSize: 14, weight: Metrics.iconWeight)
+        b.symbolConfiguration = .chrome(Metrics.segmentPoint)
         return b
     }
 }
@@ -351,7 +351,7 @@ final class WelcomeView: NSView {
         self.hasRepos = hasRepos
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "bubble.left"))
-        icon.symbolConfiguration = .init(pointSize: 40, weight: Metrics.iconWeight); icon.contentTintColor = .tertiaryLabelColor
+        icon.symbolConfiguration = .chrome(Metrics.iconHero); icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
         let body = NSTextField(wrappingLabelWithString: hasRepos

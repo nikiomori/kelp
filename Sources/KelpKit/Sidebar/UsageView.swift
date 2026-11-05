@@ -104,7 +104,7 @@ struct UsageView: View {
                         Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }
                 }
-                .font(.caption)
+                .font(.ui(11))
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))
@@ -168,7 +168,7 @@ struct UsageView: View {
                     if let at = row.readAt {
                         Text(row.stale ? String(localized: "Read \(shortAgo(at)) ago; not since, so these may be out of date.")
                              : Date().timeIntervalSince(at) < 60 ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago"))
-                            .font(.caption).foregroundStyle(row.stale ? Color.textOrange : .secondary)
+                            .font(.ui(11)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -188,19 +188,19 @@ struct UsageView: View {
                                 Spacer(minLength: Metrics.gapWide)
                                 if let e = even { Text("Even pace \(UsageView.percent(e))").fixedSize().monospacedDigit() }
                             }
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.ui(11)).foregroundStyle(.secondary)
                         }
                         if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resetAt, window: l.window) {
-                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.caption).foregroundStyle(Color.textOrange)
+                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.ui(11)).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else if !row.stale, LimitForecast.unusedNearReset(percent: l.used * 100, resetAt: l.resetAt, window: l.window) {
-                            Text("Over half left; what isn't used by the reset is lost.").font(.caption).foregroundStyle(.secondary)
+                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(11)).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
-            .font(.callout)
+            .font(.ui(12))
             .frame(width: 276, alignment: .leading)   // 300 with its padding, as the design's popovers are
             .padding(12)
         }
