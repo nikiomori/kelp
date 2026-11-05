@@ -16,7 +16,9 @@ extension SessionRecap: AsyncHandled {
     /// mustn't get a turn that acts.
     static func arguments(_ claude: String, conversation: String) -> [String] {
         // No MCP tools either, and the fork leaves no conversation of its own in ~/.claude.
-        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", "", "--strict-mcp-config", "--no-session-persistence"]
+        // Nor hooks: a project's settings may have changed since its session began, and nobody is there to see them run.
+        [claude, "-p", prompt, "--resume", conversation, "--fork-session", "--tools", "", "--strict-mcp-config", "--no-session-persistence",
+         "--settings", #"{"disableAllHooks":true}"#]
     }
 
     /// Which of `folders` the transcript at `path` belongs to: Claude Code names a project's folder by its path, every

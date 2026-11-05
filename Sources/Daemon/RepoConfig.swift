@@ -69,7 +69,7 @@ public enum Recipes {
     /// Placeholders whose text someone outside wrote (a CI log, a pull request's comments, an issue): each goes in inside
     /// a frame that says it is data, so a comment reading "ignore the above and …" stays a quote. A log keeps its tail.
     static let untrusted = ["error": "command output", "comments": "review comments", "title": "issue title", "body": "issue body",
-                            "check": "check name", "files": "file names"]   // a pull request names its own files
+                            "check": "check name", "files": "file names", "diffStat": "changed files"]   // a pull request names its own files
     static let logTail = 12_000
     public static func framed(_ vars: [String: String]) -> [String: String] {
         vars.reduce(into: [:]) { out, kv in

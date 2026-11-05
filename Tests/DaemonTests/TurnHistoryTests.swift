@@ -204,7 +204,8 @@ import Agents
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
     #expect(SessionRecap.prompt.contains("what is left"))
-    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(4) == ["--tools", "", "--strict-mcp-config", "--no-session-persistence"])
+    let args = SessionRecap.arguments("claude", conversation: "c")
+    #expect(args.suffix(6) == ["--tools", "", "--strict-mcp-config", "--no-session-persistence", "--settings", #"{"disableAllHooks":true}"#])
     let t = "/Users/me/.claude/projects/-Users-me-code-app-v2/abc.jsonl"   // began in the project, works in its worktree now
     #expect(SessionRecap.folder(of: t, among: ["/Users/me/code/app.v2", "/Users/me/code/app.v2/.claude/worktrees/x"]) == "/Users/me/code/app.v2")
 }

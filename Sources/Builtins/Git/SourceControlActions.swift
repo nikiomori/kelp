@@ -57,8 +57,9 @@ extension SourceControlController {
                 .hasDestructiveAction = true
         }
         a.addButton(withTitle: String(localized: "Cancel"))
+        let wid = worktreeId   // the folder the files were picked in, whatever is shown once the sheet is answered
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn, let wid = worktreeId else { return }
+            guard await runSheet(a) == .alertFirstButtonReturn, let wid else { return }
             noteChanges()
             fadeRows(Set(files.map(\.path)))
             let undo = UUID().uuidString

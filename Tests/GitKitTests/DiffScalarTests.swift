@@ -34,6 +34,13 @@ import TestSupport
     try "v2\n".write(toFile: wt + "/node_modules/pkg/index.js", atomically: true, encoding: .utf8)
     #expect(try String(contentsOfFile: repo + "/node_modules/pkg/index.js", encoding: .utf8) == "v1\n")
     #expect(!FileManager.default.fileExists(atPath: wt + "/../escape"))
+    // A path the branch commits as a link to somewhere else (~/.ssh) stays a link: nothing of there is copied in.
+    let secrets = tmp().path
+    try FileManager.default.createDirectory(atPath: secrets, withIntermediateDirectories: true)
+    try "key\n".write(toFile: secrets + "/id", atomically: true, encoding: .utf8)
+    try FileManager.default.createSymbolicLink(atPath: repo + "/vendor", withDestinationPath: secrets)
+    Git.cloneShared(["vendor"], repo: repo, worktree: wt)
+    #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/vendor")) == secrets)
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/node_modules")) == nil)   // a copy, not a link
 }
 

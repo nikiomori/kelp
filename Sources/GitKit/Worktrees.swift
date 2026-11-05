@@ -96,7 +96,8 @@ extension Git {
     public static func cloneShared(_ dirs: [String], repo: String, worktree: String) -> [String] {
         var left: [String] = []
         place(dirs, repo: repo, worktree: worktree) { src, dst in
-            if clonefile(src, dst, 0) != 0 { left.append("\((src as NSString).lastPathComponent): \(String(cString: strerror(errno)))") }
+            // A link the branch commits (node_modules -> ~/.ssh) isn't followed.
+            if clonefile(src, dst, UInt32(CLONE_NOFOLLOW)) != 0 { left.append("\((src as NSString).lastPathComponent): \(String(cString: strerror(errno)))") }
         }
         return left
     }
