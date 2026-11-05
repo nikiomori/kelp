@@ -36,6 +36,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var draft: CommentDraft?
     /// Open comments left out of Send to Agent (`DiffFindings`).
     var skipped: Set<String> = []
+    /// The session reviewing this diff, if one was started here (`DiffReviewWith`).
+    var reviewer: String?
+    let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -55,7 +58,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
     var words: [String: NSRange] = [:]
     var worktreeId: String?
-    private var commitHash: String?
+    var commitHash: String?
     /// One-file mode: (path, "unstaged" | "staged", commit).
     var single: (file: String, source: String, commit: String?)?
     /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
@@ -140,6 +143,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         buildBar()
         view = stacked(bar, split)
         track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
+        reviewPop.addItem(withTitle: String(localized: "Review with"))
+        reviewPop.controlSize = .small
+        reviewPop.menu?.delegate = self
+        followReviewer()
     }
 
     /// The editor's theme or font changed: the code here follows.
@@ -175,7 +182,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 b.controlSize = .small
                 return b
             }
-            bar.set([source, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)),
+            bar.set([source, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
                      btn(String(localized: "Send to Agent"), #selector(sendComments))], [status, position, steps])
         }
     }

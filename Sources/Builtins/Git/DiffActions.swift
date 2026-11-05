@@ -41,6 +41,7 @@ extension DiffViewController {
     // MARK: menus
 
     func menuNeedsUpdate(_ m: NSMenu) {
+        if m === reviewPop.menu { return reviewItems(m) }
         if m === files.menu { fileMenu(m, row: files.clickedRow) } else { lineMenu(m, row: table.clickedRow) }
     }
 
@@ -107,7 +108,9 @@ extension DiffViewController {
 
     /// The focused session if it is in this worktree, else ask.
     func pickAgentSession(_ wid: String) async -> String? {
-        let live = app.sessions.filter { $0.worktreeId == wid && $0.status != .exited }
+        // Not a reviewer: findings go to the agent that wrote the code.
+        let reviewers = Set(app.catalog.all.map { Self.reviewTitle($0.name) })
+        let live = app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title) }
         if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }
         guard !live.isEmpty else { status.stringValue = String(localized: "No running agent in this worktree"); return nil }

@@ -141,6 +141,24 @@ extension AppOfItsOwn {
         #expect(box.state == .off)
     }
 
+    /// The reviewer is pointed at exactly what the diff shows: its source's own git command.
+    @Test func aReviewCoversWhatTheDiffShows() async throws {
+        let rig = try await AppRig(files: ["f.txt": "one\n"]); defer { rig.done() }
+        try rig.write("f.txt", "two\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff HEAD; git status --short")
+        vc.source.selectItem(at: 2)
+        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff --cached")
+        vc.source.selectItem(at: 3)
+        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff '\(rig.workspace.base)...HEAD'")
+        let menu = try #require(vc.reviewPop.menu)
+        vc.reviewItems(menu)
+        #expect(menu.numberOfItems >= 2)   // the title, then the agents (or why there are none)
+    }
+
     @Test func aHunksStageButtonStagesThatHunk() async throws {
         let lines = (1...40).map { "line \($0)" }
         let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }

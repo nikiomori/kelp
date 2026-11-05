@@ -24,3 +24,11 @@ import Testing
     #expect(fix.contains("THE END") && fix.count < 13_000)
     #expect(Recipes.render("fixCI", config: RepoConfig(), vars: ["check": "a"]).contains("{error}"))   // nothing to frame: left as is
 }
+
+/// Review with: the reviewer is told what to look at, how to see it, and to leave its findings with kelp comment add.
+@Test func theReviewWithPromptSaysWhatAndHow() {
+    let p = Recipes.render("reviewWith", config: RepoConfig(), vars: ["scope": "the staged changes", "command": "git diff --cached"])
+    #expect(p.hasPrefix("Review the staged changes") && p.contains("`git diff --cached`") && p.contains("kelp comment add"))
+    let own = RepoConfig.parse("recipe.reviewWith: Look at {scope} only")
+    #expect(Recipes.render("reviewWith", config: own, vars: ["scope": "x"]) == "Look at x only")
+}

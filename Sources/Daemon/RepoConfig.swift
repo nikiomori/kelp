@@ -53,6 +53,9 @@ public enum Recipes {
         "resolveConflicts": "Merge {base} into this branch, resolve all conflicts ({files}), run the tests, and commit.",
         "fixCI": "CI check \"{check}\" failed on this branch. Here is what broke and the log tail; fix the cause and push.\n\n{error}",
         "review": "Address these review comments from the pull request:\n\n{comments}",
+        "reviewWith": "Review {scope} as a careful second reviewer; `{command}` shows them. Don't change any file. For each real "
+            + "problem (a bug, a case not handled, a security hole, a broken contract) leave a comment on its line: "
+            + "`kelp comment add <file> <line> \"<what's wrong and why>\"`. Skip style. At the end say in one line how many you left.",
         "issue": "Work on this issue.\n\n{title}\n\n{body}\n\n(Issue: {url})"
     ]
     public static func render(_ name: String, config: RepoConfig, vars: [String: String]) -> String {
