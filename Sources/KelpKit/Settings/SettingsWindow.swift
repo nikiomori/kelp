@@ -303,6 +303,8 @@ struct SettingRow: View {
             return ["agents": String(localized: "Show Agents"), "usage": String(localized: "Show Plan Usage"),
                     "icon": String(localized: "Show Application Icon")][v] ?? v
         case "terminal.opacity": return v == "theme" ? String(localized: "From Theme") : "\(v)%"
+        case "artifacts.where":
+            return ["agent": String(localized: "Agent’s Own When It Has One"), "local": String(localized: "Always on This Mac")][v] ?? v
         case "agents.skills.browser":
             return ["auto": String(localized: "In Web Projects"), "on": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
         case "power.keepAwake":

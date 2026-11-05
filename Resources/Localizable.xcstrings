@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Where agents make pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где агенты делают страницы"
+          }
+        }
+      }
+    },
+    "Docs, slides and designs: an agent with artifacts of its own (Claude Code on claude.ai) makes them there. Reviews stay in the project.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документы, слайды и дизайн: агент со своими артефактами (Claude Code на claude.ai) делает их там. Разборы остаются в проекте."
+          }
+        }
+      }
+    },
+    "Make docs and reviews": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Делать документы и разборы"
+          }
+        }
+      }
+    },
+    "Claude Code puts a doc, or choices for you to pick from, on a page beside it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code кладёт документ или варианты на выбор на страницу рядом с собой."
+          }
+        }
+      }
+    },
+    "Agent’s Own When It Has One": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У агента, если они у него есть"
+          }
+        }
+      }
+    },
+    "Always on This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всегда на этом Mac"
+          }
+        }
+      }
+    },
     "set for this project": {
       "localizations": {
         "ru": {

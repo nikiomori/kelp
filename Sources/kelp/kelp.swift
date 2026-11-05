@@ -52,6 +52,9 @@ usage: kelp <command>
               [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
                                        missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
   routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
+  artifact guide <doc|review|slides|design|dashboard>   how and where to make one: read it first
+  artifact new <doc|review> <title> [--no-open]   a page in the project's .kelp/artifacts, opened beside you; prints its file
+  artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages; one an agent published elsewhere
   schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
 """
 
@@ -154,8 +157,10 @@ func plist() -> String {
             case "hook":   // inside an agent session: report status to the daemon
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else { fail("hook: needs KELP_SESSION and an event") }
                 var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)
+                var hookPayload: JSONValue?
                 // Claude Code hooks pass a JSON payload on stdin (session id, transcript path).
                 if isatty(0) == 0, let d = try? FileHandle.standardInput.readToEnd(), let v = try? JSONDecoder().decode(JSONValue.self, from: d) {
+                    hookPayload = v
                     h.hookName = v["hook_event_name"]?.string; h.agentId = v["agent_id"]?.string
                     h.agentType = v["agent_type"]?.string
                     h.transcript = v["transcript_path"]?.string
@@ -170,6 +175,9 @@ func plist() -> String {
                     if h.hookName == "Stop" { h.reply = v["last_assistant_message"]?.string }
                 }
                 try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
+                if ev == "command", let v = hookPayload, let page = Artifacts.published(hook: v) {
+                    await notePublished(page, cwd: v["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                }
             default:
                 let c = try connect()
                 try await run(cmd, c)
@@ -194,6 +202,7 @@ func plist() -> String {
         case "shot": try await shot(sub, c)
         case "browser": try await browser(sub, c)
         case "routine": try await routines(sub, c)
+        case "artifact": try await artifacts(sub, c)
         default: print(usage)
         }
     }

@@ -26,6 +26,11 @@ enum AgentSkills {
             description: "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
                 + "another model, a long job while you go on. Start it with kelp session new --agent; its result comes back to you by itself.",
             body: agentsGuide)
+        put("kelp-artifacts", on: s.bool("agents.skills.artifacts") != false,
+            description: "Use when the user asks for a doc, report or plan, choices to pick from, slides, a design or a dashboard, in "
+                + "Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says where to make it (your own "
+                + "artifact tools come first) and how.",
+            body: artifactsGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
         put("kelp-browser", on: true,
             description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
@@ -77,6 +82,21 @@ enum AgentSkills {
         - `kelp report working "Migrating table 3 of 10" --progress 30` — on a long multi-step task, what you're doing
           and how far you got show on your row; `kelp report clear` takes it away. That you finished or ask something
           already shows by itself.
+
+        """
+
+    private static let artifactsGuide = """
+        # Docs, reviews and other pages in Kelp
+
+        This session runs inside Kelp and the `kelp` CLI is on PATH. For a page the user reads more than once or decides
+        on (a doc, a report, a plan, choices to pick from, slides, a design, a dashboard), run
+        `kelp artifact guide <doc|review|slides|design|dashboard>` first and follow it: it says whether to make it with your
+        own artifact tools or in the project, and the rules for that kind. A short answer stays in the chat.
+
+        - `kelp artifact new <doc|review> "<title>"` — a page in the project's `.kelp/artifacts`, opened beside you; prints
+          the file to write. Write it with your file tools; the tab follows.
+        - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
+        - A page you publish with claude-artifacts or Claude Docs joins that list and opens beside you by itself.
 
         """
 

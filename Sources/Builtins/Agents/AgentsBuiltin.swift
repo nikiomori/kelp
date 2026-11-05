@@ -39,6 +39,9 @@ extension Builtins {
                   "A tick on the bar: how much would be used by now, spending evenly until the reset.", group: "Plan limits"),
                 s("usage.alertAt", "Warn about limits at", "enum", "80", "A notification at this level, and again at 95%.",
                   options: ["off", "70", "80", "90"], group: "Plan limits"),
+                s("artifacts.where", "Where agents make pages", "enum", "agent",
+                  "Docs, slides and designs: an agent with artifacts of its own (Claude Code on claude.ai) makes them there. Reviews stay in the project.",
+                  options: ["agent", "local"]),
                 // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
                 s("agents.skills.extensions", "Write Kelp extensions", "boolean", true,
                   "Ask Claude Code for a panel, tab or command: it knows how to make one.", group: "Claude Code skills"),
@@ -48,6 +51,8 @@ extension Builtins {
                   "Tests and servers run in a tab you can watch; Claude Code reads what they print.", group: "Claude Code skills"),
                 s("agents.skills.agents", "Hand work to other agents", "boolean", true,
                   "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills"),
+                s("agents.skills.artifacts", "Make docs and reviews", "boolean", true,
+                  "Claude Code puts a doc, or choices for you to pick from, on a page beside it.", group: "Claude Code skills"),
                 s("agents.skills.browser", "Use pages in Kelp's browser", "enum", "auto",
                   "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",
                   options: ["auto", "on", "off"], group: "Claude Code skills")
