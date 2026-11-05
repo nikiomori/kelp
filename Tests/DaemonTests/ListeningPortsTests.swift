@@ -92,3 +92,15 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     let local = try await c.call("worktree.list", as: [Worktree].self).filter { $0.repoId != repo.id }
     if let l = local.first { await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: l.id, port: 1)) } }
 }
+
+/// Forwardings changed from many threads at once (a prune beside a forward) are saved as they end up, not as an older copy.
+@Test func portForwardingsAreSavedInTheOrderTheyChanged() throws {
+    for _ in 0..<12 {   // a lost save is a race: one round finds it about a third of the time
+        let store = try Store(), forwards = Forwards(store: store)
+        DispatchQueue.concurrentPerform(iterations: 400) { i in
+            forwards.change { $0.append(Forwards.Record(host: "box", target: "localhost:\(i)", here: i, worktree: "w", manual: true)) }
+        }
+        let text = try store.uiState(prefix: "ports.forwards")["ports.forwards"]?.string ?? ""
+        #expect(try JSONDecoder().decode([Forwards.Record].self, from: Data(text.utf8)).count == 400)
+    }
+}

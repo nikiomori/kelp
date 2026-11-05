@@ -50,6 +50,9 @@ final class Forwards: Sendable {
     private static let key = "ports.forwards"
     private let store: Store
     private let state: OSAllocatedUnfairLock<State>
+    /// Each change and its save, one at a time: saved apart from its edit, an older copy could land after a newer one
+    /// and stay. Taken before `state`, never inside it (that lock is held for no save).
+    private let saving = NSLock()
 
     init(store: Store) {
         self.store = store
@@ -59,11 +62,13 @@ final class Forwards: Sendable {
         state = OSAllocatedUnfairLock(initialState: State(records: records))
     }
 
-    private func change(_ edit: @Sendable (inout [Record]) -> Void) {
-        let records = state.withLock { s in edit(&s.records); return s.records }
-        Log.store.attempt("saving the port forwardings") {
-            let text = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
-            try store.setUIState(Self.key, .string(text))
+    func change(_ edit: @Sendable (inout [Record]) -> Void) {
+        saving.withLock {
+            let records = state.withLock { s in edit(&s.records); return s.records }
+            Log.store.attempt("saving the port forwardings") {
+                let text = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
+                try store.setUIState(Self.key, .string(text))
+            }
         }
     }
 
