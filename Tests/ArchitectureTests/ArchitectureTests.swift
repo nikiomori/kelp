@@ -406,6 +406,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (2, "a local page, shown: it reloads as its folder changes; a page's screenshot"),
+        "Builtins/Browser/BrowserDownloads.swift": (2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"),
         "Builtins/Files/Preview.swift": (2, "an image's bytes, shown")
     ]
     let all = try matches(#"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#

@@ -41,6 +41,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var dialogAnswer: (accept: Bool, text: String?)?
     /// The questions the agent's page answered since the last action's answer said them.
     @ObservationIgnored var dialogs: [String] = []
+    /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
+    @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
+    /// What the agent's page downloaded since the last action's answer said it.
+    @ObservationIgnored var downloads: [String] = []
     /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
     var takenOver = false
     /// Under the toolbar once an agent drives the page: that it does, and Take Over / Hand Back. No height until then.
@@ -195,7 +199,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if watching, r.isForMainFrame, let h = r.response as? HTTPURLResponse, let u = h.url {
             noteRequest("\(h.statusCode) \(u.absoluteString) (page)")
         }
-        return r.canShowMIMEType ? .allow : .cancel   // WebKit's own choice without this method
+        return Self.downloads(r) ? .download : .allow
     }
     func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
         address.stringValue = w.url?.absoluteString ?? ""; page = (w.url, w.title)

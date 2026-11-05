@@ -129,10 +129,12 @@ extension BrowserTab {
     private func settled(_ extra: [String: JSONValue] = [:], within: TimeInterval = 30) async throws -> JSONValue {
         try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
         let end = Date().addingTimeInterval(within)
-        while web.isLoading, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
+        // A download the action started is waited for too, so its answer says where the file is.
+        while web.isLoading || !downloading.isEmpty, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
         var o = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
         if web.isLoading { o["loading"] = .bool(true) }
         if !dialogs.isEmpty { o["dialogs"] = .array(dialogs.map(JSONValue.string)); dialogs = [] }
+        if !downloads.isEmpty { o["downloads"] = .array(downloads.map(JSONValue.string)); downloads = [] }
         if let e = loadError { o["error"] = .string(e) }
         return .object(o)
     }

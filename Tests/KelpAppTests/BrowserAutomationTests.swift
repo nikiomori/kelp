@@ -218,3 +218,30 @@ import WorkbenchKit
         """)
     #expect(BrowserTab.found("checkout", in: snap).hasSuffix(#"Nothing on the page mentions "checkout"."#))
 }
+
+/// A link with `download` on an agent's page: the file lands in Kelp's temporary folder, and the click's answer says
+/// where once it's there (it was cancelled without a word).
+@MainActor @Test(.timeLimit(.minutes(1))) func anAgentsPageDownloadsAFile() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    let name = "kelp-test-\(UUID().uuidString.prefix(6)).txt"
+    tab.web.loadHTMLString("""
+        <a id="get" download="\(name)">Get</a>
+        <script>get.href = URL.createObjectURL(new Blob(['hello'], {type: 'text/plain'}))</script>
+        """, baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse("snapshot", .object([:]))
+    let answer = try await tab.browse("click", .object(["ref": .string("e1")]))
+    let said = (answer["downloads"]?.array ?? []).compactMap { $0.string }
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-downloads").appendingPathComponent(name)
+    defer { try? FileManager.default.removeItem(at: file) }
+    #expect(said.contains("\(file.path) (done, 5 bytes)"))
+    #expect(try String(contentsOf: file, encoding: .utf8) == "hello")
+}
+
+@Test func aDownloadTakesTheNextFreeName() {
+    let dir = URL(fileURLWithPath: "/d")
+    let taken: Set = ["/d/report.pdf", "/d/report-2.pdf", "/d/notes"]
+    #expect(BrowserTab.free("report.pdf", in: dir) { taken.contains($0.path) }.path == "/d/report-3.pdf")
+    #expect(BrowserTab.free("notes", in: dir) { taken.contains($0.path) }.path == "/d/notes-2")
+    #expect(BrowserTab.free("new.zip", in: dir) { taken.contains($0.path) }.path == "/d/new.zip")
+}
