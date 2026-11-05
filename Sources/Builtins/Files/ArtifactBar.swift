@@ -103,9 +103,11 @@ final class ArtifactBar: NSObject {
         latest.isHidden = shown == nil; restore.isHidden = shown == nil
         author.isHidden = s == nil
         if let s {
-            author.title = s.title.isEmpty ? app.catalog.displayName(s) : s.title
+            // The agent, not the chat's title, which reads as the page's own name; the chat is in the tip.
+            author.title = app.catalog.displayName(s)
             author.image = s.agent.flatMap { app.catalog.icon($0, size: 14) }
-            author.toolTip = s.status == .exited ? String(localized: "The chat that made it has ended") : String(localized: "Show the Chat That Made It")
+            let tip = s.status == .exited ? String(localized: "The chat that made it has ended") : String(localized: "Show the Chat That Made It")
+            author.toolTip = s.title.isEmpty ? tip : "\(tip): \(s.title)"
             author.isEnabled = s.status != .exited
         }
     }

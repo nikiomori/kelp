@@ -180,6 +180,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        if artifactBar != nil, let body = m.body as? [String: Any], body["kind"] as? String == "ask" { return ask(about: body["text"] as? String ?? "") }
         if isReview, let body = m.body as? [String: Any], let kind = body["kind"] as? String, ["pick", "note", "send"].contains(kind) {
             guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
             return answer(kind, point: body["point"] as? String ?? "", value: body[kind == "pick" ? "key" : "text"] as? String ?? "")
@@ -233,7 +234,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let p = CodeEditor.page
                 page = (p.background.hexString, p.text.hexString)
             }
-            let review = isReview, slides = isSlides, raw = isHTML, sendTo = reviewAuthor?.title
+            let review = isReview, slides = isSlides, raw = isHTML, sendTo = pageAuthor?.title
+            let ask = artifactBar == nil ? "" : PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))
             let html = await Task.detached { [page] in
                 if raw { return text }
                 if review {
@@ -249,7 +251,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place = currentMode == "split" && !review && !raw ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
-            web.loadHTMLString(html + "<script>\(place)</script>", baseURL: base)
+            web.loadHTMLString(html + ask + "<script>\(place)</script>", baseURL: base)
         }
     }
 
@@ -257,8 +259,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     // MARK: a review's answers
 
-    /// The chat that wrote this review, while it's there to read the answers.
-    private var reviewAuthor: Session? {
+    /// The chat that made this page (a review's answers go back to it, and questions about it), while it's there.
+    private var pageAuthor: Session? {
         Artifacts.record(in: url.deletingLastPathComponent())?.session.flatMap(app.session).flatMap { $0.status == .exited ? nil : $0 }
     }
 
@@ -274,11 +276,21 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             guard await saveFile?() != false else { return }
             guard kind == "send" else { return }
             let line = Review(editor.text).answer(file: Artifacts.projectPath(url.path))
-            guard let author = reviewAuthor else { return FileActions(app).sendToAgent(text: line) }
+            guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
             guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
             let sent = String(localized: "Sent to \(author.title)")
             web.evaluateJavaScript("kelpReviewSent(\(Self.jsString(sent)))", completionHandler: nil)
         }
+    }
+
+    /// Text selected on the page, quoted into the chat that made it (else the agent on screen), not sent: the user asks.
+    private func ask(about quote: String) {
+        let q = quote.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
+        guard !q.isEmpty else { return }
+        let line = "About “\(q.count > 400 ? String(q.prefix(399)) + "…" : q)” in \(Artifacts.projectPath(url.path)):"
+        guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
+        Task { await app.call(SessionSend(id: author.id, text: line + " ", enter: false)) }
+        app.workbench.focus(session: author.id)
     }
 
     /// A JavaScript string literal.
