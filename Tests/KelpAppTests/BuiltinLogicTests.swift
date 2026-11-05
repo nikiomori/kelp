@@ -164,3 +164,14 @@ import Core
     #expect(broken.info.id == "keep.me" && broken.contributions.commands.count == 1)
     #expect(broken.info.error?.contains("Still running the version from before the change.") == true)
 }
+
+/// The library lists what it reviewed apart from what GitHub has under the topic, those fastest growing first.
+@Test @MainActor func theLibraryKeepsTheUnreviewedApart() {
+    func e(_ id: String, reviewed: Bool? = nil, weekly: Int? = nil) -> ExtensionLibrary.Entry {
+        var x = ExtensionLibrary.Entry(id: id, name: id, version: "1", source: "o/\(id)")
+        x.reviewed = reviewed; x.weekly = weekly; x.stars = weekly.map { $0 * 3 }
+        return x
+    }
+    let (reviewed, found) = LibrarySection.split([e("a"), e("slow", reviewed: false, weekly: 2), e("b", reviewed: true), e("fast", reviewed: false, weekly: 40)])
+    #expect(reviewed.map(\.id) == ["a", "b"] && found.map(\.id) == ["fast", "slow"])
+}

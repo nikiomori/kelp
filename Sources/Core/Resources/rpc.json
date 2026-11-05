@@ -1051,6 +1051,13 @@
           "description" : {
             "type" : "string"
           },
+          "files" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Each file's SHA-256 as reviewed, by path in the folder: an install takes these bytes or nothing.",
+            "type" : "object"
+          },
           "icon" : {
             "type" : "string"
           },
@@ -1067,12 +1074,23 @@
             },
             "type" : "array"
           },
+          "reviewed" : {
+            "description" : "false: found on GitHub by its `kelp-extension` topic, never reviewed; shown apart, with a warning.",
+            "type" : "boolean"
+          },
           "source" : {
             "description" : "The reviewed folder on GitHub, at its commit: what `extension.fetch` takes.",
             "type" : "string"
           },
+          "stars" : {
+            "description" : "Its repository's stars, and how many it gained in the last week (what the unreviewed list is sorted by).",
+            "type" : "integer"
+          },
           "version" : {
             "type" : "string"
+          },
+          "weekly" : {
+            "type" : "integer"
           }
         },
         "required" : [
@@ -4569,6 +4587,17 @@
       "name" : "extension.fetch",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "The library's SHA-256 of each file (`Entry.files`): other bytes are refused, nothing installed.",
+          "name" : "files",
+          "required" : false,
+          "schema" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          }
+        },
         {
           "name" : "source",
           "required" : true,

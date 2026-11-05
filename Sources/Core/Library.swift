@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// The extension library: github.com/nikiomori/kelp-extensions, a public repo of extensions reviewed before they're
@@ -41,7 +42,7 @@ extension IDE {
 
     /// A GitHub folder (`librarySource`) downloaded into a new temporary folder named by the extension's id, with
     /// `sourceFile` in it. Limit: the repo's whole archive comes down for one folder; fine while repos are small.
-    public static func fetchExtension(_ source: String) throws -> URL {
+    public static func fetchExtension(_ source: String, files: [String: String]? = nil) throws -> URL {
         guard let s = librarySource(source) else {
             throw RPCError.invalidParams("Not a GitHub folder: \(source). Use https://github.com/owner/repo or https://github.com/owner/repo/tree/<branch>/<folder>.")
         }
@@ -50,8 +51,31 @@ extension IDE {
         defer { try? fm.removeItem(at: work) }
         let archive = work.appendingPathComponent("archive.tar.gz")
         _ = try download("https://codeload.github.com/\(s.repo)/tar.gz/\(s.ref)", to: archive)
-        return try unpackExtension(archive, path: s.path, source: sourceURL(s), work: work)
+        let folder = try unpackExtension(archive, path: s.path, source: sourceURL(s), work: work)
+        if let files, let wrong = differing(folder, from: files) {
+            do { try fm.removeItem(at: folder.deletingLastPathComponent()) } catch {}   // a temporary folder: the system clears it anyway
+            throw RPCError.invalidParams("\(source): “\(wrong)” isn't the file the library reviewed, so nothing was installed.")
+        }
+        return folder
     }
+
+    /// The first file in `folder` that isn't as `files` says (missing, changed, or not in the list), nil when all are.
+    static func differing(_ folder: URL, from files: [String: String]) -> String? {
+        let fm = FileManager.default, root = folder.resolvingSymlinksInPath().path
+        var seen = Set<String>()
+        let all = fm.enumerator(at: folder, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? []
+        for u in all {
+            var dir: ObjCBool = false
+            guard fm.fileExists(atPath: u.path, isDirectory: &dir), !dir.boolValue else { continue }
+            let path = String(u.resolvingSymlinksInPath().path.dropFirst(root.count + 1))
+            if path == sourceFile { continue }   // Kelp's own, written after the download
+            guard let data = fm.contents(atPath: u.path), files[path] == sha256(data) else { return path }
+            seen.insert(path)
+        }
+        return files.keys.sorted().first { !seen.contains($0) }
+    }
+
+    public static func sha256(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
 
     /// `archive` is a GitHub tarball (one top folder); the extension at `path` in it ends up in a temporary folder of its own.
     static func unpackExtension(_ archive: URL, path: String, source: String, work: URL) throws -> URL {

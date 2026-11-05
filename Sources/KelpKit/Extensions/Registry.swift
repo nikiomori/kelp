@@ -341,8 +341,9 @@ package final class ExtensionRegistry {
 
     /// From GitHub (the library's `source`, or any GitHub folder): downloaded, then installed once the user has seen what
     /// it runs. False when they said no or it failed (a banner says why).
-    func install(source: String) async -> Bool {
-        guard let fetched = await app.call(ExtensionFetch(source: source)) else { return false }
+    /// `files`: the library's SHA-256 of each, which the download must match.
+    func install(source: String, files: [String: String]? = nil) async -> Bool {
+        guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
         let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir
         guard await ExtensionReview.approve(folder) else { try? FileManager.default.removeItem(at: folder); return false }
         do { _ = try await Task.detached { try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true) }.value }

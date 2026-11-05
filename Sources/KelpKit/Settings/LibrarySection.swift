@@ -1,5 +1,6 @@
 import SwiftUI
 import Core
+import DesignKit
 
 /// Settings › Extensions › Library: what github.com/nikiomori/kelp-extensions holds, read when the pane shows,
 /// to install or bring up to date.
@@ -29,15 +30,18 @@ struct LibrarySection: View {
                 } else {
                     filters(entries)
                     let shown = entries.filter { (category == nil || Self.category($0) == category) && $0.matches(query) }
+                    let (reviewed, found) = Self.split(shown)
                     if shown.isEmpty { Text("No extension matches “\(query)”.").foregroundStyle(.secondary) }
-                    ForEach(shown, id: \.id) { row($0) }
+                    ForEach(reviewed, id: \.id) { row($0) }
+                    if !found.isEmpty { unreviewed(found) }
                 }
             } else {
                 HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Loading…").foregroundStyle(.secondary) }
             }
         } footer: {
             HStack {
-                Text("Extensions people shared, each reviewed before it's added.").font(.subheadline).foregroundStyle(.secondary)
+                Text("Extensions people shared, each reviewed before it's added. Or any repository: kelp ext install owner/repo")
+                    .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
                 if let url = URL(string: "https://github.com/\(IDE.libraryRepo)") { Link("Share Yours on GitHub", destination: url).font(.subheadline) }
             }
@@ -72,6 +76,26 @@ struct LibrarySection: View {
         }
     }
 
+    /// The reviewed ones by name; those found on GitHub by their topic apart, fastest growing first.
+    static func split(_ entries: [ExtensionLibrary.Entry]) -> (reviewed: [ExtensionLibrary.Entry], found: [ExtensionLibrary.Entry]) {
+        (entries.filter { $0.reviewed != false },
+         entries.filter { $0.reviewed == false }.sorted { ($0.weekly ?? 0, $0.stars ?? 0) > ($1.weekly ?? 0, $1.stars ?? 0) })
+    }
+
+    /// GitHub's repositories under the `kelp-extension` topic: nobody reviewed them, and the list says so first.
+    private func unreviewed(_ found: [ExtensionLibrary.Entry]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("From GitHub · not reviewed").fontWeight(.semibold)
+                Text("topic kelp-extension, fastest growing first").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Text("Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.")
+                .font(.subheadline).foregroundStyle(Color.textOrange)
+            ForEach(found, id: \.id) { row($0) }
+        }
+        .padding(.top, 8)
+    }
+
     private func row(_ e: ExtensionLibrary.Entry) -> some View {
         let have = registry.extensions.first { $0.id == e.id && !$0.builtin }
         return HStack(alignment: .top, spacing: 10) {
@@ -80,6 +104,10 @@ struct LibrarySection: View {
                 HStack(spacing: 6) {
                     Text(e.name).fontWeight(.medium)
                     Text(e.version).font(.subheadline).foregroundStyle(.secondary)
+                    if let stars = e.stars {
+                        Text("★ \(stars)" + (e.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if let d = e.description, !d.isEmpty { Text(d).font(.subheadline).foregroundStyle(.secondary) }
                 if let m = missing[e.id] { Text("Needs `\(m)` — not found on this Mac.").font(.subheadline).foregroundStyle(.secondary) }
@@ -88,7 +116,7 @@ struct LibrarySection: View {
             if installing == e.id {
                 ProgressView().controlSize(.small)
             } else if have == nil {
-                Button("Install") { install(e) }
+                Button(e.reviewed == false ? "Install…" : "Install") { install(e) }
             } else if let s = have?.source, s != e.source {
                 Button("Update") { install(e) }
             } else {
@@ -100,7 +128,7 @@ struct LibrarySection: View {
 
     private func install(_ e: ExtensionLibrary.Entry) {
         installing = e.id
-        Task { _ = await registry.install(source: e.source); installing = nil }
+        Task { _ = await registry.install(source: e.source, files: e.files); installing = nil }
     }
 
     private func load() async {

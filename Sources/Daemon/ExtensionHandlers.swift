@@ -10,5 +10,5 @@ extension ExtensionLibrary: Handled {
 }
 
 extension ExtensionFetch: Handled {
-    func handle(_: NoService) throws -> Result { Result(folder: try IDE.fetchExtension(source).path) }
+    func handle(_: NoService) throws -> Result { Result(folder: try IDE.fetchExtension(source, files: files).path) }
 }

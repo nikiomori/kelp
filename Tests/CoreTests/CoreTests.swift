@@ -486,3 +486,20 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(view == "my.ext/view" && props == ["file": "a b.txt", "line": "3"])
     #expect(ExtBridge.split("my.ext/view").props.isEmpty)
 }
+
+/// An install takes the bytes the library reviewed or nothing: a changed, missing or extra file is named.
+@Test func onlyTheReviewedBytesInstall() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent("web"), withIntermediateDirectories: true)
+    try "{}".write(to: dir.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
+    try "<p>hi</p>".write(to: dir.appendingPathComponent("web/index.html"), atomically: true, encoding: .utf8)
+    try #"{"source":"x"}"#.write(to: dir.appendingPathComponent(IDE.sourceFile), atomically: true, encoding: .utf8)   // Kelp's own
+    var files = ["extension.json": IDE.sha256(Data("{}".utf8)), "web/index.html": IDE.sha256(Data("<p>hi</p>".utf8))]
+    #expect(IDE.differing(dir, from: files) == nil)
+    files["web/index.html"] = IDE.sha256(Data("<p>other</p>".utf8))
+    #expect(IDE.differing(dir, from: files) == "web/index.html")
+    files["web/index.html"] = IDE.sha256(Data("<p>hi</p>".utf8)); files["gone.js"] = "00"
+    #expect(IDE.differing(dir, from: files) == "gone.js")
+    files["gone.js"] = nil; files["extension.json"] = nil
+    #expect(IDE.differing(dir, from: files) == "extension.json")   // in the folder, not in the list
+}

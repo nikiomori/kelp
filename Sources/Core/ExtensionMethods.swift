@@ -15,6 +15,17 @@ public struct ExtensionLibrary: InternalMethod {
         public var category: String?
         /// The reviewed folder on GitHub, at its commit: what `extension.fetch` takes.
         public var source: String
+        /// Each file's SHA-256 as reviewed, by path in the folder: an install takes these bytes or nothing.
+        public var files: [String: String]?
+        /// false: found on GitHub by its `kelp-extension` topic, never reviewed; shown apart, with a warning.
+        public var reviewed: Bool?
+        /// Its repository's stars, and how many it gained in the last week (what the unreviewed list is sorted by).
+        public var stars: Int?, weekly: Int?
+        public init(id: String, name: String, version: String, description: String? = nil, icon: String? = nil, requires: [String]? = nil,
+                    category: String? = nil, source: String) {
+            self.id = id; self.name = name; self.version = version; self.description = description; self.icon = icon
+            self.requires = requires; self.category = category; self.source = source
+        }
 
         /// Every word of `query` is in its id, name, description or category, any case; an empty query matches all.
         public func matches(_ query: String) -> Bool {
@@ -35,5 +46,7 @@ public struct ExtensionFetch: InternalMethod {
         public init(folder: String) { self.folder = folder }
     }
     public var source: String
-    public init(source: String) { self.source = source }
+    /// The library's SHA-256 of each file (`Entry.files`): other bytes are refused, nothing installed.
+    public var files: [String: String]?
+    public init(source: String, files: [String: String]? = nil) { self.source = source; self.files = files }
 }
