@@ -69,3 +69,12 @@ import Core
     context.evaluateScript("new Function(\(literal)[0])")   // parses it without running it (no page here)
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
 }
+
+/// A long review thread reaches the agent as at most 12 comments of 800 characters, the rest counted.
+@Test @MainActor func reviewCommentsForAnAgentAreCapped() {
+    let long = String(repeating: "x", count: 2000)
+    let cs = (1...15).map { GitHub.ReviewComment(path: "a.swift", line: $0, body: long, author: "amy", url: nil) }
+    let text = TasksViewController.forAgent(cs)
+    #expect(text.contains("12. a.swift:12 (amy)") && !text.contains("13. a.swift"))
+    #expect(text.hasSuffix("(3 more comments omitted.)") && text.count < 12 * 830 + 40)
+}

@@ -421,14 +421,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         Task {
             guard let cs = await app.call(GitHubReviewComments(repoId: repoId, pr: n)) else { return }   // the banner says why
             guard !cs.isEmpty else { status.stringValue = String(localized: "No review comments"); return }
-            var parts: [String] = []
-            for (i, c) in cs.enumerated() {
-                let line: String = c.line.map { ":\($0)" } ?? ""
-                let loc: String = c.path.map { $0 + line } ?? String(localized: "General")
-                parts.append("\(i + 1). \(loc) (\(c.author)):\n   \(c.body)")
-            }
-            let text = parts.joined(separator: "\n\n")
-            await sendRecipe("review", wt, ["comments": text])
+            await sendRecipe("review", wt, ["comments": Self.forAgent(cs)])
         }
     }
     private func merge(_ n: Int, _ wt: Worktree?) {
@@ -446,6 +439,19 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
 }
 
 extension TasksViewController {
+    /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a prompt.
+    static func forAgent(_ cs: [GitHub.ReviewComment]) -> String {
+        var parts: [String] = []
+        for (i, c) in cs.prefix(12).enumerated() {
+            let line: String = c.line.map { ":\($0)" } ?? ""
+            let loc: String = c.path.map { $0 + line } ?? String(localized: "General")
+            let body = c.body.count > 800 ? c.body.prefix(800) + "…" : c.body
+            parts.append("\(i + 1). \(loc) (\(c.author)):\n   \(body)")
+        }
+        if cs.count > 12 { parts.append("(\(cs.count - 12) more comments omitted.)") }
+        return parts.joined(separator: "\n\n")
+    }
+
     // MARK: right-click
     func menuNeedsUpdate(_ m: NSMenu) {
         m.removeAllItems()

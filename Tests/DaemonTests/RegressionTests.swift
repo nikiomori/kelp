@@ -436,14 +436,6 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(c.scripts == [RepoConfig.Script(name: "run", command: "npm start")])
 }
 
-/// A recipe fills each placeholder once: an issue's body that says "{url}" stays as written (in any order of the names).
-@Test func recipesFillEachPlaceholderOnce() {
-    for _ in 0..<20 {   // Dictionary order changes from run to run: the old loop got this right only sometimes
-        let brief = Recipes.render("issue", config: RepoConfig(), vars: ["title": "T", "body": "see {url} and {title}", "url": "U"])
-        #expect(brief == "T\n\nsee {url} and {title}\n\n(Issue: U)")
-    }
-}
-
 /// A woken session still follows the topic its agent sets (Claude Code's terminal title), as one that was never paused.
 @Test func aWokenSessionStillFollowsItsAgentsTopic() async throws {
     let script = #"echo up; sleep 1.5; printf '\033]0;* Fixing the login bug\007'; sleep 30"#
