@@ -37,11 +37,14 @@ extension GitDiff: Handled {
                 dir = marks[i].folder
                 src = i > 0 ? .between(marks[i].tree, marks[i - 1].tree) : .since(tree: marks[i].tree)
             } else {
-                // The one in memory, else the last kept (gone after the daemon restarted).
-                guard let base = try ls.turnBase ?? workspaces.store.turns(session: s).first?.tree else {
+                // The one in memory, else the last kept (gone after the daemon restarted), in the folder it was taken in.
+                if let base = ls.turnBase {
+                    src = .since(tree: base)
+                } else if let last = try workspaces.store.turns(session: s).first {
+                    dir = last.folder; src = .since(tree: last.tree)
+                } else {
                     throw RPCError.invalidParams("That agent hasn't started a turn yet.")
                 }
-                src = .since(tree: base)
             }
         case "unstaged": src = .unstaged
         case "staged": src = .staged

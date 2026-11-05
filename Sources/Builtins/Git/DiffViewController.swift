@@ -285,7 +285,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         case 3: return GitDiff(id: id, source: "branch")
         case 4: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
         case 5:
-            var turn = GitDiff(id: id, source: "turn", session: FileActions(app).targetAgent?.id ?? "")
+            // The agent whose turns the picker lists, not whichever has the focus by now.
+            let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
+            var turn = GitDiff(id: id, source: "turn", session: listed ?? FileActions(app).targetAgent?.id ?? "")
             turn.turn = chosenTurn
             return turn
         default: return GitDiff(id: id, source: "all")
@@ -349,7 +351,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             }
         }
         askCommit = false
-        if single == nil, source.indexOfSelectedItem == 5, FileActions(app).targetAgent == nil {
+        let agent = FileActions(app).targetAgent?.id   // read once: the focus can move during the reads below
+        if single == nil, source.indexOfSelectedItem == 5, agent == nil {
             builds += 1
             diffs = []
             rows = []
@@ -358,7 +361,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             table.reloadData()
             status.stringValue = String(localized: "No agent on this screen"); return
         }
-        if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? FileActions(app).targetAgent?.id : nil) }
+        if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
         let asked = asking, request = diffRequest()
         basis = request.basis(app.git[wid])
         let r = await app.tryCall(request)
