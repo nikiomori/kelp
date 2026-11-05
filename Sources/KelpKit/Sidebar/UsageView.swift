@@ -146,8 +146,12 @@ struct UsageView: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(.quaternary)
                     Capsule().fill(UsageView.tint(used)).frame(width: max(height, w * min(used, 1)))
-                    // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
-                    // popover's vibrancy (the track went black).
+                }
+                .frame(height: height)
+                // An overlay, so the taller tick doesn't make the bar thicker than one without it.
+                // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
+                // popover's vibrancy (the track went black).
+                .overlay(alignment: .leading) {
                     if let p = pace { Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(x: (w * p).rounded()) }
                 }
             }
