@@ -27,5 +27,9 @@ public enum ViewedFiles {
         return m.map { "\($0.key)\t\($0.value)" }.sorted()
     }
 
-    public static func viewed(_ d: FileDiff, in marks: [String: String]) -> Bool { marks[d.path] == print(d) }
+    /// `printed`: the file's print worked out already (off the main thread, with its rows); a file not marked needs none.
+    public static func viewed(_ d: FileDiff, in marks: [String: String], printed: String? = nil) -> Bool {
+        guard let m = marks[d.path] else { return false }
+        return m == (printed ?? print(d))
+    }
 }

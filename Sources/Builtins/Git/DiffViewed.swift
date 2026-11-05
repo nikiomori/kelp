@@ -37,7 +37,7 @@ extension DiffViewController {
     func statusText() -> String {
         let add = diffs.reduce(0) { $0 + $1.additions }, del = diffs.reduce(0) { $0 + $1.deletions }
         if single != nil { return diffs.isEmpty ? String(localized: "No changes") : RowBadges.changes(added: add, removed: del).string }
-        let left = diffs.filter { !ViewedFiles.viewed($0, in: viewed) }.count
+        let left = diffs.filter { !ViewedFiles.viewed($0, in: viewed, printed: prints[$0.path]) }.count
         let open = comments.filter { $0.state == .open }.count
         return String(localized: "\(diffs.count) files") + "  \(RowBadges.changes(added: add, removed: del).string)"
             + (left < diffs.count ? "  ·  " + String(localized: "\(left) of \(diffs.count) left") : "")

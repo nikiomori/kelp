@@ -18,4 +18,7 @@ private func file(_ path: String, _ text: String) -> FileDiff {
     marks = ViewedFiles.read(ViewedFiles.marking(b, true, in: marks, diffs: [b]))   // a.swift's changes are gone
     #expect(marks.keys.sorted() == ["b.swift"])
     #expect(ViewedFiles.marking(b, false, in: marks, diffs: [b]).isEmpty)
+    // The print made with the rows is the one compared; a file not marked is never hashed.
+    #expect(ViewedFiles.viewed(b, in: marks, printed: ViewedFiles.print(b)) && !ViewedFiles.viewed(b, in: marks, printed: "other"))
+    #expect(!ViewedFiles.viewed(a, in: marks, printed: ViewedFiles.print(a)))
 }

@@ -58,7 +58,7 @@ extension AppOfItsOwn {
         vc.showFile("f.txt", source: "unstaged", commit: nil)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
-        vc.search("CHANGE")   // any case
+        await vc.search("CHANGE").value   // any case, looked for off the main thread
         #expect(vc.find.rows.count == 2 && vc.find.at == 0 && vc.table.selectedRow == vc.find.rows[0])
         vc.stepFind(next: true); vc.stepFind(next: true)
         #expect(vc.find.at == 0)   // round to the first
@@ -67,7 +67,7 @@ extension AppOfItsOwn {
         vc.table.deselectAll(nil)
         vc.nextChange(); vc.nextChange()
         #expect(vc.position.stringValue == "Change 2 of 2")
-        vc.search("")
+        await vc.search("").value
         #expect(vc.find.rows.isEmpty)
     }
 

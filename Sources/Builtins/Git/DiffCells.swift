@@ -131,7 +131,7 @@ extension DiffViewController {
         let counts = NSTextField(labelWithAttributedString: RowBadges.changes(added: d.additions, removed: d.deletions))
         counts.setContentHuggingPriority(.required, for: .horizontal)
         counts.setContentCompressionResistancePriority(.required, for: .horizontal)
-        if ViewedFiles.viewed(d, in: viewed) { v.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
+        if ViewedFiles.viewed(d, in: viewed, printed: prints[d.path]) { v.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
         let row = NSStackView(views: [v, counts])
         row.distribution = .fill   // the room goes to the name: the counts stand in a column at the end
         row.spacing = 6

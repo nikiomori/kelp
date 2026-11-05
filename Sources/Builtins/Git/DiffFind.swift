@@ -6,6 +6,8 @@ import WorkbenchKit
 /// What ⌘F in a diff found: the text, the rows holding it, the one stepped to, and its card.
 struct DiffFinding {
     var needle = "", rows: [Int] = [], at = -1
+    /// Counts searches: one a newer search or new rows overtook drops what it found.
+    var searches = 0
     var card: FindCard?
 }
 
@@ -39,11 +41,24 @@ extension DiffViewController {
     }
 
     /// The lines holding `needle` (any case), in every file. `step`: go to the first; a diff read again keeps its place.
-    func search(_ needle: String, step: Bool = true) {
+    /// The rows are looked through off the main thread: a big diff is a lot of lines, and each new load looks again.
+    @discardableResult
+    func search(_ needle: String, step: Bool = true) -> Task<Void, Never> {
         find.needle = needle
-        find.rows = needle.isEmpty ? [] : rows.indices.filter { i in
-            Self.texts(rows[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
+        find.searches += 1
+        let n = find.searches, all = rows
+        return Task {
+            let found = needle.isEmpty ? [] : await Task.detached {
+                all.indices.filter { i in Self.texts(all[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil } }
+            }.value
+            guard n == find.searches else { return }
+            show(found, step: step)
         }
+    }
+
+    private func show(_ found: [Int], step: Bool) {
+        let needle = find.needle
+        find.rows = found
         find.at = step || find.at >= find.rows.count ? -1 : find.at
         find.card?.total = needle.isEmpty ? -1 : find.rows.count
         find.card?.selected = find.at
@@ -61,7 +76,7 @@ extension DiffViewController {
         find.card?.selected = find.at
     }
 
-    private static func texts(_ r: ReviewRow) -> [String] {
+    nonisolated private static func texts(_ r: ReviewRow) -> [String] {
         switch r {
         case .diff(.line(_, let l)): [l.text]
         case .diff(.pair(_, let l, let r)): [l?.text, r?.text].compactMap { $0 }

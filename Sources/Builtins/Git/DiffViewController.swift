@@ -28,6 +28,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var find = DiffFinding()
     /// Files marked as read, with their diff's print then (`DiffViewed`).
     var viewed: [String: String] = [:]
+    /// Each file's print (`ViewedFiles.print`), made with its rows off the main thread: a big diff hashes slowly.
+    var prints: [String: String] = [:]
     /// The last write of `viewed`: each waits for the one before, so quick clicks land in order.
     var viewedWrite: Task<Void, Never>?
     /// Unchanged lines the user opened between changes, by `DiffRows.gapKey` (`DiffGaps`).
@@ -369,11 +371,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         }
         if d != diffs { opened = [:] }   // lines opened between changes may have moved
         let layout = sideBySide, built = await buildRows(d, cm, sideBySide: layout)
+        let printed = await Task.detached { Dictionary(d.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a } }.value
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
         builds += 1   // rows a layout change is still building are the old diff's
         if d != diffs { position.stringValue = "" }   // "Change 3 of 17" counted another diff
         diffs = d
+        prints = printed
         changes = ch
         comments = cm
         readViewed()
