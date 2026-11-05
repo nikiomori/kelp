@@ -42,7 +42,7 @@ enum KeyBindings {
                 if let s = i.submenu { if s !== NSApp.servicesMenu { walk(s, path + [i.title]) }; continue }
                 guard let action = i.action else { continue }
                 // A command's item goes by the command id, the others by their English path ("Edit › Copy").
-                let command = action == Selector(("runCommand:")), name = i.identifier?.rawValue ?? i.title
+                let command = action == #selector(AppDelegate.runCommand(_:)), name = i.identifier?.rawValue ?? i.title
                 let id = command ? name : (path + [i.title]).joined(separator: " › ")   // English: the same in every language
                 i.identifier = NSUserInterfaceItemIdentifier(id)
                 defaults[id] = i.keyEquivalent.isEmpty ? KeySpec?.none : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))

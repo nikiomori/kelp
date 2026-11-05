@@ -12,14 +12,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CH=${1:-}   # the channel: stable (none), beta or dev
-CONFIG=${CONFIG:-release}; ARCHS=(--arch arm64 --arch x86_64); NAME=Kelp; APP=dist/Kelp.app; DMG=dist/Kelp.dmg
+CONFIG=${CONFIG:-release}; ARCHS=(--arch arm64 --arch x86_64)
+# No dSYMs: nothing keeps them, and dsymutil warned about every object of CodeEditLanguages (its debug map names its
+# maker's Mac). Dev keeps its debug info, for the debugger.
+DEBUG_INFO=(-debug-info-format none); NAME=Kelp; APP=dist/Kelp.app; DMG=dist/Kelp.dmg
 case $CH in
   "") ;;
   beta) NAME="Kelp Beta"; APP="dist/beta/$NAME.app"; DMG=dist/beta/Kelp-Beta.dmg
     # What's built is what's committed: the commit it names (KelpCommit) is what it ships.
     [ -z "$(git status --porcelain -- Sources Resources Package.swift Package.resolved)" ] ||
       { echo "uncommitted changes in Sources, Resources or Package.*: they'd ship in Kelp Beta. Commit them first."; exit 1; } ;;
-  dev) CONFIG=debug; ARCHS=(); NAME="Kelp Dev"; APP="dist/dev/$NAME.app" ;;
+  dev) CONFIG=debug; ARCHS=(); DEBUG_INFO=(); NAME="Kelp Dev"; APP="dist/dev/$NAME.app" ;;
   *) echo "usage: scripts/bundle.sh [beta|dev]"; exit 1 ;;
 esac
 # Replacing a running app's files can crash it; its daemon (and agents) may keep running.
@@ -31,8 +34,8 @@ if [ "$CH" != dev ] && [ -d "/Volumes/$NAME" ]; then echo "Eject the $NAME disk 
 stamp=$(cat scripts/build-ghostty.sh scripts/ghostty-patches/*.patch(N) | shasum | cut -c1-40)
 [ "$(cat Vendor/GhosttyKit.xcframework/kelp-stamp 2>/dev/null)" = "$stamp" ] || scripts/build-ghostty.sh
 # SWIFT_FLAGS: more for swift build (CI: --build-system swiftbuild).
-swift build -c "$CONFIG" "${ARCHS[@]}" ${=SWIFT_FLAGS:-}
-BIN=$(swift build -c "$CONFIG" "${ARCHS[@]}" ${=SWIFT_FLAGS:-} --show-bin-path)
+swift build -c "$CONFIG" "${ARCHS[@]}" "${DEBUG_INFO[@]}" ${=SWIFT_FLAGS:-}
+BIN=$(swift build -c "$CONFIG" "${ARCHS[@]}" "${DEBUG_INFO[@]}" ${=SWIFT_FLAGS:-} --show-bin-path)
 rm -rf "$APP"; [ "$CH" = dev ] || rm -f "$DMG"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN/KelpApp" "$APP/Contents/MacOS/KelpApp"
