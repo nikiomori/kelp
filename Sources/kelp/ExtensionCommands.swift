@@ -45,7 +45,8 @@ extension Main {
                 found = true
                 // One from elsewhere on GitHub may have moved on its branch: it's fetched again.
                 let entry = library.first { $0.id == id }, latest = entry?.source
-                if latest == source { print("\(id) is up to date"); continue }
+                // A pinned commit (reviewed) says whether it changed; a repository found by its topic is a branch: fetched again.
+                if latest == source, entry?.reviewed != false { print("\(id) is up to date"); continue }
                 // The library's pinned commit was reviewed; a branch elsewhere may hold anything its owner pushed since. Either
                 // way, commands it didn't run before are asked about.
                 installed(try await fetch(latest ?? source, as: f.lastPathComponent, c, review: (latest == nil || entry?.reviewed == false)

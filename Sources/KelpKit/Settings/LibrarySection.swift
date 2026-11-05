@@ -117,8 +117,8 @@ struct LibrarySection: View {
                 ProgressView().controlSize(.small)
             } else if have == nil {
                 Button(e.reviewed == false ? "Install…" : "Install") { install(e) }
-            } else if let s = have?.source, s != e.source {
-                Button("Update") { install(e) }
+            } else if let s = have?.source, s != e.source || e.reviewed == false {   // found by its topic: its branch may have moved
+                Button(e.reviewed == false ? "Update…" : "Update") { install(e) }
             } else {
                 Text("Already installed").font(.subheadline).foregroundStyle(.secondary)
             }
