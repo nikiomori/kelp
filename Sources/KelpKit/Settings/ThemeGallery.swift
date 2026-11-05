@@ -47,7 +47,7 @@ struct ThemeGallery: View {
     private func heading(_ title: LocalizedStringKey) -> some View { Text(title) }
 
     private func grid(_ cards: [ThemeCard]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: PictureGrid.columns), spacing: 10) {
             ForEach(cards) { c in
                 Button { selection = c.id } label: {
                     VStack(alignment: .leading, spacing: 4) {
@@ -55,6 +55,7 @@ struct ThemeGallery: View {
                             .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
                                 .strokeBorder(selection == c.id ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: selection == c.id ? 2 : 1))
                         Text(c.name).font(.caption).fontDesign(c.design).lineLimit(1)
+                            .fontWeight(selection == c.id ? .semibold : .regular).foregroundStyle(selection == c.id ? .primary : .secondary)
                     }
                 }
                 .buttonStyle(PointerCardStyle())

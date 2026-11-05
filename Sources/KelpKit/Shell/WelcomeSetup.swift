@@ -24,12 +24,12 @@ struct WelcomeSetup: View {
         .frame(width: 560)   // the five theme cards in one row
     }
 
-    /// Four at most, the chosen one among them: a row, not a wall of every agent installed (Settings has them all).
+    /// One row at most, the chosen one first: not a wall of every agent installed (Settings has them all).
     static func firstAgents(_ installed: [String], current: String?) -> [String] {
         let known = ["claude", "codex", "gemini", "cursor", "copilot", "opencode"]
         var picked = known.filter(installed.contains) + installed.filter { !known.contains($0) }
         if let current, installed.contains(current) { picked.removeAll { $0 == current }; picked.insert(current, at: 0) }
-        return Array(picked.prefix(4))
+        return Array(picked.prefix(PictureGrid.columns))
     }
 
     private func choice<Content: View>(_ title: LocalizedStringKey, @ViewBuilder _ content: () -> Content) -> some View {

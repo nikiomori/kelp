@@ -50,11 +50,11 @@ import Testing
     #expect(SettingPictures.keys.subtracting(enums).isEmpty)
 }
 
-/// The welcome's agents: the chosen one first, the best-known after, four at most.
+/// The welcome's agents: the chosen one first, the best-known after, one row at most.
 @MainActor @Test func theWelcomeOffersFourAgents() {
     let installed = ["antigravity", "claude", "codex", "crush", "cursor", "pi"]
-    #expect(WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity"])
-    #expect(WelcomeSetup.firstAgents(installed, current: "pi") == ["pi", "claude", "codex", "cursor"])
+    #expect(WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity", "crush"])
+    #expect(WelcomeSetup.firstAgents(installed, current: "pi") == ["pi", "claude", "codex", "cursor", "antigravity"])
     #expect(WelcomeSetup.firstAgents(["crush"], current: "claude") == ["crush"])
 }
 

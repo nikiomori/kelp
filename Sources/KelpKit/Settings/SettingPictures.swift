@@ -5,26 +5,28 @@ import DesignKit
 /// instead of its name in a menu. The value written is the option, as from the menu.
 enum SettingPictures {
     static let keys: Set<String> = ["workbench.textSize", "workbench.sidebar.rowHeight", "workbench.sidebar.agentDetail",
-                                    "workbench.sidebar.projectColor", "agents.dockIcon", "agents.dockStrip", "terminal.cursorStyle",
-                                    "agents.default"]
+                                    "workbench.sidebar.projectColor", "agents.dockIcon", "agents.dockStrip", "terminal.cursorStyle"]
 }
 
-/// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour.
+/// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
+/// row whatever their number, so tiles are one size across the page (the agents in the welcome too).
 struct PictureGrid: View {
     let key: String
     let options: [String]
     @Binding var selection: String
     let label: (String) -> String
     @Environment(AppModel.self) private var app
+    /// The theme gallery's too: Kelp's five themes are one row.
+    static let columns = 5
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: min(max(options.count, 3), 4)), spacing: 10) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: Self.columns), spacing: 10) {
             ForEach(options, id: \.self) { o in
                 let on = o == selection
                 Button { selection = o } label: {
-                    VStack(spacing: 4) {
+                    VStack(alignment: .leading, spacing: 4) {   // names under the cards as the themes have theirs
                         PictureArt(key: key, option: o)
-                            .frame(maxWidth: .infinity).frame(height: 58)
+                            .frame(maxWidth: .infinity).frame(height: 64)
                             .background(Color(nsColor: .fillHover))
                             .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
