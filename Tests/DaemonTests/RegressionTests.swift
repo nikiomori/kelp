@@ -375,10 +375,8 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 
 /// What the program read first as one line (`GOT[…]`), the screen's wrapping undone.
 private func submitted(_ screen: String) -> String {
-    let flat = screen.replacingOccurrences(of: "\n", with: "")
-    guard let r = flat.range(of: "GOT[") else { return "" }
-    let rest = flat[r.upperBound...]
-    return String(rest[..<(rest.firstIndex(of: "]") ?? rest.endIndex)])
+    let rest = screen.replacingOccurrences(of: "\n", with: "").split(separator: "GOT[", maxSplits: 1).dropFirst().first ?? ""
+    return String(rest.prefix { $0 != "]" })
 }
 
 /// A draft (an issue's brief) to a program that takes no pastes isn't submitted line by line: it arrives as one line,
