@@ -595,6 +595,26 @@
         }
       }
     },
+    "A link asked to open %@, which is outside your projects.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка просит открыть %@ — это вне ваших проектов."
+          }
+        }
+      }
+    },
+    "Open “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть «%@»?"
+          }
+        }
+      }
+    },
     "A ring while it runs, ✕ when it fails.": {
       "extractionState": "manual",
       "localizations": {
