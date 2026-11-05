@@ -452,6 +452,17 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
 }
 
+/// The sessions a call names are found wherever they sit in its params (a struct, a list of them, an optional), and
+/// free-form JSON in it names none.
+@Test func aSessionNamedDeepInACallIsFound() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let s = try await session(r, "cat"), t = try await session(r, "cat")
+    struct Inner { var session: String?; var count = 3 }
+    struct Call { var top = "x"; var inner: [Inner]; var args: JSONValue }
+    let found = try r.d.sessions.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
+    #expect(found == [s.id])
+}
+
 /// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.
 @Test func anAgentDoesntTypeIntoAQuestion() async throws {
     let r = try await rig(); defer { r.d.stop() }

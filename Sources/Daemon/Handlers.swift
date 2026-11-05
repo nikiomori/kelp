@@ -565,15 +565,16 @@ extension Data {
 }
 
 extension Sessions {
-    /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
-    /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them): what an agent's call
-    /// may reach is decided by what it names, not by each method remembering to say.
-    func named(by m: any Answered) throws -> [String] {
-        let ids = Mirror(reflecting: m).children.flatMap { c -> [String] in
-            if let s = c.value as? String { return [s] }
-            return c.value as? [String] ?? []
+    /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them, a struct's or an
+    /// enum's in turn): what an agent's call may reach is decided by what it names, not by each method remembering to
+    /// say. Free-form JSON (`JSONValue`: a setting's value, a command's args) and bytes name none.
+    func named(by m: Any) throws -> [String] {
+        func strings(_ v: Any, depth: Int) -> [String] {
+            if let s = v as? String { return [s] }
+            guard depth < 6, !(v is JSONValue), !(v is Data) else { return [] }
+            return Mirror(reflecting: v).children.flatMap { strings($0.value, depth: depth + 1) }
         }
-        return try ids.filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }
+        return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }
     }
 
     /// Whether `w` is the workspace of `own` or of one that started it, one they made, or one a session it started works
@@ -585,6 +586,7 @@ extension Sessions {
         return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
     }
 
+    /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
     func ending(_ e: Ending) throws -> [String] {
         let ids: Set<String> = switch e {
         case .workspace(let w): [w]

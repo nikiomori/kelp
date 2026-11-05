@@ -31,8 +31,10 @@ extension SessionCreate: Handled {
         }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
-        o.parent = try sessions.parent(parent, of: self)
-        o.startedBy = try sessions.starter(parent, of: self)
+        // Asked from inside a session, the parent asked for is that one, whatever id was sent (`Sessions.caller`).
+        let asked = parent.map { Sessions.asker ?? $0 }
+        o.parent = try sessions.parent(asked, of: self)
+        o.startedBy = try sessions.starter(asked, of: self)
         // "swift build", not the program's "Custom"; a prompt names the session itself, and its fresh workspace and branch.
         if o.title == nil, prompt == nil, let command { o.title = CommandName.of(command) }
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
