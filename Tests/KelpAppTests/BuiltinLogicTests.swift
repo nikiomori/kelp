@@ -93,3 +93,13 @@ import Core
     pr.mergeState = "CLEAN"
     #expect(TasksViewController.mergeBlock(pr) == nil)
 }
+
+/// A status read off the screen looks like a guess: a ring of dashes, and says so.
+@Test @MainActor func aGuessedStatusSaysSo() {
+    let mark = StatusMark()
+    mark.status = .working
+    mark.guessed = true
+    #expect(mark.toolTip == "Working, as far as the screen shows")
+    mark.guessed = false
+    #expect(mark.toolTip == AgentStatus.working.words)
+}

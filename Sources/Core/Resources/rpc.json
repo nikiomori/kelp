@@ -2664,6 +2664,10 @@
             "description" : "The /goal it works toward (Claude Code checks it after each turn and goes on until it's met); nil without one.",
             "type" : "string"
           },
+          "guessed" : {
+            "description" : "Its status is read off the screen, a guess (an agent without hooks, or one whose hooks went silent): it never says Done on its own nor sends a notification for one. nil: told by the agent itself.",
+            "type" : "boolean"
+          },
           "id" : {
             "type" : "string"
           },
@@ -2685,6 +2689,11 @@
           "progress" : {
             "description" : "How far what runs in it got, 0–100, when it says (OSC 7501's `progress`, `kelp report`, ConEmu's OSC 9;4).",
             "type" : "integer"
+          },
+          "quietSince" : {
+            "description" : "Working, but nothing heard from it since then (no hook, or for an agent without hooks no output) for minutes: the sidebar says \"quiet 34m\" rather than a working ring that tells nothing. nil while news comes.",
+            "format" : "seconds-since-2001",
+            "type" : "number"
           },
           "revision" : {
             "type" : "integer"

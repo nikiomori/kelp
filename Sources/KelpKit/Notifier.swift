@@ -289,6 +289,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func statusChanged(_ s: Session, _ old: Session?) {
         guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.isChat else { return }
         if Self.leftToItsParent(s) { return }
+        if s.status == .done, s.guessed == true { return }   // a guess off the screen; the row says it, a banner would claim it
         let turn = NotifyRule.turn(s, after: old)
         // What the agent itself said with this change (a permission request, an error) beats its last reply.
         if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary { tell(s, turn: turn); return }

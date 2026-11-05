@@ -107,3 +107,23 @@ import Agents
     let name = Git.slug(w.repo.name).replacingOccurrences(of: ".", with: "-")
     #expect(URL(fileURLWithPath: wt.path).resolvingSymlinksInPath().path.hasPrefix(URL(fileURLWithPath: chosen + "/" + name).resolvingSymlinksInPath().path))
 }
+
+/// Working with no news for five minutes is said as quiet since the last news; news, or another status, ends it.
+@Test func aWorkingAgentWithNoNewsIsQuiet() {
+    var s = LiveSession.State(record: Session(cwd: "/", command: "x"), manifest: AgentManifest(id: "x", name: "x", command: "x"),
+                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "q"))
+    let now = Date(), then = now.addingTimeInterval(-600)
+    s.record.status = .working
+    s.record.statusAt = then
+    s.lastOutputAt = now.addingTimeInterval(-60)
+    var changed = s.noteQuiet(now: now)
+    #expect(!changed && s.record.quietSince == nil)   // a minute: not yet
+    s.lastOutputAt = then
+    changed = s.noteQuiet(now: now)
+    #expect(changed && s.record.quietSince == then)
+    changed = s.noteQuiet(now: now)
+    #expect(!changed)   // said once
+    s.lastOutputAt = now
+    changed = s.noteQuiet(now: now)
+    #expect(changed && s.record.quietSince == nil)
+}

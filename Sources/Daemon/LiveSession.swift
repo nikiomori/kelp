@@ -324,6 +324,7 @@ final class LiveSession: Sendable {
                     s.interruptArmed = nil
                 } else if Date().timeIntervalSince(arm.at) > 10 { s.interruptArmed = nil }
             }
+            if s.noteQuiet() { emit(s.record) }
             emit(s.sync())
             continueIfDue(&s)
             // Deliver the launch prompt once the TUI has drawn and gone quiet (or after a timeout).

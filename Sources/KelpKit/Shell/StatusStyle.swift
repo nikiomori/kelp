@@ -83,6 +83,8 @@ package final class StatusMark: NSView {
     var waitsForCommand = false { didSet { if waitsForCommand != oldValue { update() } } }
     /// Stopped by a plan limit, read or not: a clock, until it does something else.
     var limited = false { didSet { if limited != oldValue { update() } } }
+    /// Its status is read off the screen (`Session.guessed`): a whole ring of dashes, a guess that looks like one.
+    var guessed = false { didSet { if guessed != oldValue { update() } } }
     /// How far it got (0…1), when it says: a pie filling a circle, as Finder's and Safari's progress, not the spinning ring.
     var progress: Double? { didSet { if progress != oldValue { update() } } }
     /// Read by VoiceOver on its own; off where its row says the state in its own label (a sidebar agent).
@@ -133,7 +135,9 @@ package final class StatusMark: NSView {
         let filling = s == .working ? progress : nil
         isHidden = s == nil
         let dotted = s == .working && waitsForCommand && !compacting
-        toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" } ?? (dotted ? String(localized: "Waits for its command") : s?.words)
+        let dashed = s == .working && guessed && !dotted && !compacting
+        toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" }
+            ?? (dotted ? String(localized: "Waits for its command") : dashed ? String(localized: "Working, as far as the screen shows") : s?.words)
         // VoiceOver reads the state (the spinning ring is only a layer): the same words as the tooltip.
         setAccessibilityElement(s != nil && announces); setAccessibilityRole(.image)
         setAccessibilityLabel(compacting && s == .working ? String(localized: "Compacting its conversation") : toolTip)
@@ -165,9 +169,9 @@ package final class StatusMark: NSView {
             CATransaction.begin()
             CATransaction.setDisableActions(true)   // a layer of its own: it would ease over 0.25 s
             // Eight round dots: a dash of nothing, drawn by its caps, wider than the arc's line to weigh as much as it does.
-            ring.lineDashPattern = dotted ? [0, NSNumber(value: Double.pi * (size - 3) / 8)] : nil
+            ring.lineDashPattern = dotted ? [0, NSNumber(value: Double.pi * (size - 3) / 8)] : dashed ? [2, 2.4] : nil
             ring.lineWidth = dotted ? 2 : 1.5
-            ring.strokeEnd = dotted ? 1 : 0.75
+            ring.strokeEnd = dotted || dashed ? 1 : 0.75
             CATransaction.commit()
             guard !still else { return }
             let a = CABasicAnimation(keyPath: "transform.rotation.z")

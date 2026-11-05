@@ -241,6 +241,13 @@ struct CardView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let g = a.session.goal { Text("Goal: \(g)").font(.caption).foregroundStyle(.secondary).lineLimit(3) }
+                    if let q = a.session.quietSince, a.session.status == .working {
+                        Text("No news for \(shortSpan(Date().timeIntervalSince(q)))").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if a.session.guessed == true, [.working, .done].contains(a.session.status) {
+                        Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(.caption).foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let w = a.session.workingElsewhere { Text(w).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
                     if model.agentOnly, let b = a.session.browser {
                         Text("Browser \(BrowserSkillWords.line(b))").font(.caption).foregroundStyle(.tertiary).lineLimit(1)

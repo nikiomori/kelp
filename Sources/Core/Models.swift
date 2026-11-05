@@ -154,6 +154,12 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var startedBy: String?
     /// Whether Claude Code got Kelp's browser skill, and why ("on · Vite in package.json"); nil for agents without skills.
     public var browser: String?
+    /// Working, but nothing heard from it since then (no hook, or for an agent without hooks no output) for minutes: the
+    /// sidebar says "quiet 34m" rather than a working ring that tells nothing. nil while news comes.
+    public var quietSince: Date?
+    /// Its status is read off the screen, a guess (an agent without hooks, or one whose hooks went silent): it never
+    /// says Done on its own nor sends a notification for one. nil: told by the agent itself.
+    public var guessed: Bool?
     /// Its own subagents at work now, by id, and what kind each is (its hooks say): they run inside it, with no tab of their own.
     public var subagents: [String: String]? { didSet { followSubagents() } }
     /// What each of them does, by the same id, when the agent says (OSC 7501's `title`).

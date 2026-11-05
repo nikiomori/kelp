@@ -163,6 +163,9 @@ public final class Store: Sendable {
         m.registerMigration("v23") { db in try db.alter(table: "session") { t in t.add(column: "subagentRuns", .text) } }
         m.registerMigration("session.startedBy") { db in try db.alter(table: "session") { t in t.add(column: "startedBy", .text) } }
         m.registerMigration("session.browser") { db in try db.alter(table: "session") { t in t.add(column: "browser", .text) } }
+        m.registerMigration("session.quiet") { db in
+            try db.alter(table: "session") { t in t.add(column: "quietSince", .datetime); t.add(column: "guessed", .boolean) }
+        }
         m.registerMigration("uiState.viewed") { db in   // a workspace's read marks go with it, as its layout does
             try db.execute(sql: "CREATE TRIGGER uiStateViewed AFTER DELETE ON worktree BEGIN DELETE FROM uiState WHERE key = 'viewed/' || OLD.id; END")
         }

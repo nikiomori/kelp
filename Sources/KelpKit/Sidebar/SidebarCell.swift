@@ -352,12 +352,15 @@ final class SidebarCell: NSTableCellView {
             mark.limited = s.limitHit != nil
             mark.compacting = s.summary.hasPrefix("Compacting")
             mark.waitsForCommand = s.waitsForCommand
+            mark.guessed = s.guessed == true
             mark.progress = s.progress.map { Double($0) / 100 }
             // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
             // A chat with no project working in a folder you picked says which (its own folders are just dates).
             let r = m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }
             let picked = NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path ? (s.cwd as NSString).lastPathComponent : ""
-            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : picked
+            // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
+            let quiet = Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
+            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : quiet ?? picked
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
             showState(s)

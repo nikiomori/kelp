@@ -15,6 +15,14 @@ import WorkbenchKit
 @testable import BuiltinActivity
 
 @MainActor private func buttons(in v: NSView) -> [NSButton] { ((v as? NSButton).map { [$0] } ?? []) + v.subviews.flatMap(buttons) }
+/// The line a diff row shows, inline or side by side (the new side's when it has both).
+private func shown(_ r: ReviewRow) -> DiffLine? {
+    switch r {
+    case .diff(.line(_, let l)): l
+    case .diff(.pair(_, let l, let r)): r ?? l
+    default: nil
+    }
+}
 @MainActor private func tables(in v: NSView) -> [NSTableView] { ((v as? NSTableView).map { [$0] } ?? []) + v.subviews.flatMap(tables) }
 /// Every cell of every table, made as a window on screen would (offscreen, tables make none until asked).
 @MainActor private func cells(in v: NSView) -> [NSView] {
@@ -97,7 +105,7 @@ extension AppOfItsOwn {
         button.performClick(nil)
         for _ in 0..<100 where vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
-        #expect(vc.rows.contains { if case .diff(.line(_, let l)) = $0 { l.text == "line 20" && l.kind == .context } else { false } })
+        #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
 
     /// A comment is written in a card under its line, which a new read of the diff keeps, and ⌘↩'s button saves.
@@ -108,7 +116,7 @@ extension AppOfItsOwn {
         rig.show(vc, 900, 700)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
-        let at = try #require(vc.rows.firstIndex { if case .diff(.line(_, let l)) = $0 { l.text == "TWO" } else { false } })
+        let at = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })
         vc.openDraft(at: at)
         #expect(vc.rows[at + 1] == .draft)
         vc.draft?.field.stringValue = "why upper case?"

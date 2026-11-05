@@ -429,9 +429,23 @@ extension LiveSession {
             guard s != record.status, record.status != .exited else { return nil }
             trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")
             record.status = s
+            // Read off the screen: a guess, said as one (`Session.guessed`). Hooks and the program's own reports aren't.
+            let src = detector.source
+            record.guessed = src.hasPrefix("screen") || src.hasPrefix("no hook") ? true : nil
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
             if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on
             return record
+        }
+
+        /// Working with no news for 5 minutes: the time of the last (a hook from an agent that sends them, else output),
+        /// kept in `record.quietSince` until news comes or it stops working. Whether it changed, for the sidebar.
+        mutating func noteQuiet(now: Date = Date()) -> Bool {
+            let heard = hooked && hooksSpoke ? lastHookAt : (lastOutputAt ?? .distantPast)
+            let last = max(heard, record.statusAt ?? .distantPast)
+            let quiet = record.status == .working && now.timeIntervalSince(last) >= 300 ? last : nil
+            guard quiet != record.quietSince else { return false }
+            record.quietSince = quiet
+            return true
         }
 
         /// The user's keys into `typing`; the first line of 8 characters or more they send (once), which names the session.
