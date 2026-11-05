@@ -31,7 +31,7 @@ extension DiffViewController {
             // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
             let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint)
             if let e = await app.tryCall(m).error { Banner.show(e, style: .error) } else {
-                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid) { [weak self] in await self?.load() }
+                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid) { await self.load() }
             }
             fadesNextLoad = true
             await load()

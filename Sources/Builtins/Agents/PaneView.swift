@@ -249,7 +249,7 @@ final class PaneView: NSView {
     }
 
     // MARK: find (Edit › Find reaches the pane through the responder chain)
-    private var findBar: FindBar?
+    private var findBar: FindCard?
 
     @objc func performFindPanelAction(_ sender: Any?) {
         guard let g = ghostty else { return }
@@ -264,7 +264,7 @@ final class PaneView: NSView {
     private func showFind(_ needle: String?) {
         guard let g = ghostty else { return }
         let bar = findBar ?? {
-            let b = FindBar()
+            let b = FindCard()
             b.onSearch = { g.perform(action: "search:" + $0) }
             b.onStep = { g.perform(action: "navigate_search:" + ($0 ? "next" : "previous")) }
             b.onClose = { [weak self] in g.perform(action: "end_search"); self?.focus() }

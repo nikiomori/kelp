@@ -38,6 +38,30 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: rig.repo + "/f.txt", encoding: .utf8) == "one\ntypo\n")
     }
 
+    /// ⌘F finds lines across the diff and steps through them round; ⌥↓ says which change of how many it is on.
+    @Test func aDiffIsSearchedAndSteppedThrough() async throws {
+        let lines = (1...40).map { "line \($0)" }
+        let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }
+        var changed = lines; changed[2] = "top Change"; changed[35] = "bottom change"
+        try rig.write("f.txt", changed.joined(separator: "\n") + "\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.showFile("f.txt", source: "unstaged", commit: nil)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        vc.search("CHANGE")   // any case
+        #expect(vc.find.rows.count == 2 && vc.find.at == 0 && vc.table.selectedRow == vc.find.rows[0])
+        vc.stepFind(next: true); vc.stepFind(next: true)
+        #expect(vc.find.at == 0)   // round to the first
+        vc.stepFind(next: false)
+        #expect(vc.find.at == 1)
+        vc.table.deselectAll(nil)
+        vc.nextChange(); vc.nextChange()
+        #expect(vc.position.stringValue == "Change 2 of 2")
+        vc.search("")
+        #expect(vc.find.rows.isEmpty)
+    }
+
     @Test func aHunksStageButtonStagesThatHunk() async throws {
         let lines = (1...40).map { "line \($0)" }
         let rig = try await AppRig(files: ["f.txt": lines.joined(separator: "\n") + "\n"]); defer { rig.done() }

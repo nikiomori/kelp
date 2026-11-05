@@ -1,0 +1,83 @@
+import AppKit
+import Core
+import DesignKit
+import WorkbenchKit
+
+/// What ⌘F in a diff found: the text, the rows holding it, the one stepped to, and its card.
+struct DiffFinding {
+    var needle = "", rows: [Int] = [], at = -1
+    var card: FindCard?
+}
+
+/// ⌘F in a diff looks through every file's lines, marks each match, and ⌘G / ⇧⌘G step through them.
+extension DiffViewController {
+    @objc func performFindPanelAction(_ sender: Any?) {
+        switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
+        case .next?: stepFind(next: true)
+        case .previous?: stepFind(next: false)
+        default: findCard().begin(nil)
+        }
+    }
+
+    private func findCard() -> FindCard {
+        if let c = find.card { return c }
+        let c = FindCard()
+        c.onSearch = { [weak self] in self?.search($0) }
+        c.onStep = { [weak self] in self?.stepFind(next: $0) }
+        c.onClose = { [weak self] in
+            guard let self else { return }
+            search("")
+            view.window?.makeFirstResponder(table)
+        }
+        c.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(c)
+        let under: NSView = table.enclosingScrollView ?? table
+        NSLayoutConstraint.activate([c.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
+                                     c.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)])
+        find.card = c
+        return c
+    }
+
+    /// The lines holding `needle` (any case), in every file. `step`: go to the first; a diff read again keeps its place.
+    func search(_ needle: String, step: Bool = true) {
+        find.needle = needle
+        find.rows = needle.isEmpty ? [] : rows.indices.filter { i in
+            Self.texts(rows[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
+        }
+        find.at = step || find.at >= find.rows.count ? -1 : find.at
+        find.card?.total = needle.isEmpty ? -1 : find.rows.count
+        find.card?.selected = find.at
+        table.reloadData()   // the marks
+        if step, !find.rows.isEmpty { stepFind(next: true) }
+    }
+
+    func stepFind(next: Bool) {
+        let n = find.rows.count
+        guard n > 0 else { NSSound.beep(); return }
+        find.at = next ? (find.at + 1) % n : (max(find.at, 0) - 1 + n) % n
+        let r = find.rows[find.at]
+        table.selectRowIndexes([r], byExtendingSelection: false)
+        table.scrollRowToVisible(min(r + 4, rows.count - 1)); table.scrollRowToVisible(r)
+        find.card?.selected = find.at
+    }
+
+    private static func texts(_ r: ReviewRow) -> [String] {
+        switch r {
+        case .diff(.line(_, let l)): [l.text]
+        case .diff(.pair(_, let l, let r)): [l?.text, r?.text].compactMap { $0 }
+        default: []
+        }
+    }
+
+    /// Every match of the find's text in a shown line, past its first `from` characters (the +/- marker).
+    func markFound(_ s: NSMutableAttributedString, from: Int) {
+        guard !find.needle.isEmpty else { return }
+        let text = s.string as NSString
+        var rest = NSRange(location: from, length: text.length - from)
+        while case let f = text.range(of: find.needle, options: .caseInsensitive, range: rest), f.location != NSNotFound {
+            // Dark text on the find colour, as Xcode marks a match: grey comment text on yellow can't be read.
+            s.addAttributes([.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: f)
+            rest = NSRange(location: NSMaxRange(f), length: text.length - NSMaxRange(f))
+        }
+    }
+}

@@ -55,6 +55,7 @@ extension DiffViewController {
             s.addAttribute(.backgroundColor, value: l.kind == .add ? Self.addWord : Self.delWord,
                            range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
+        markFound(s, from: (prefix as NSString).length)
         // Its own paragraph style, the same `height(of:)` measures with: the field's mode doesn't reach an attributed string.
         s.addAttribute(.paragraphStyle, value: Self.wrap(text), range: NSRange(location: 0, length: s.length))
         let t = NSTextField(labelWithAttributedString: s)
@@ -71,23 +72,34 @@ extension DiffViewController {
         }
     }
 
-    // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥→/⌥← files
+    // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
     func key(_ e: NSEvent) -> Bool {
         guard e.modifierFlags.contains(.option) else { return false }
+        let comments = e.modifierFlags.contains(.shift)
         switch e.keyCode {
-        case 125: jump(hunk: 1); return true
-        case 126: jump(hunk: -1); return true
+        case 125: jump(1, comments: comments); return true
+        case 126: jump(-1, comments: comments); return true
         case 124: files.selectRowIndexes([min(files.selectedRow + 1, diffs.count - 1)], byExtendingSelection: false); return true
         case 123: files.selectRowIndexes([max(files.selectedRow - 1, 0)], byExtendingSelection: false); return true
         default: return false
         }
     }
-    @objc func nextChange() { jump(hunk: 1) }
-    @objc func prevChange() { jump(hunk: -1) }
-    private func jump(hunk dir: Int) {
-        let idx = rows.indices.filter { if case .diff(.hunk) = rows[$0] { true } else { false } }
+    @objc func nextChange() { jump(1) }
+    @objc func prevChange() { jump(-1) }
+    /// To the next (or previous) change or comment, and says which of how many it is.
+    private func jump(_ dir: Int, comments: Bool = false) {
+        let idx = rows.indices.filter {
+            switch rows[$0] {
+            case .comment: comments
+            case .diff(.hunk): !comments
+            default: false
+            }
+        }
         let cur = max(table.selectedRow, dir > 0 ? -1 : rows.count)
-        guard let t = dir > 0 ? idx.first(where: { $0 > cur }) : idx.last(where: { $0 < cur }) else { NSSound.beep(); return }
+        guard let t = dir > 0 ? idx.first(where: { $0 > cur }) : idx.last(where: { $0 < cur }), let n = idx.firstIndex(of: t) else {
+            NSSound.beep(); return
+        }
+        position.stringValue = comments ? String(localized: "Comment \(n + 1) of \(idx.count)") : String(localized: "Change \(n + 1) of \(idx.count)")
         table.selectRowIndexes([t], byExtendingSelection: false)
         table.scrollRowToVisible(min(t + 8, rows.count - 1))
         table.scrollRowToVisible(t)

@@ -1,24 +1,23 @@
 import AppKit
-import DesignKit
-import KelpKit
 
-/// ⌘F over a terminal: floats in the top corner (the terminal doesn't resize, so an agent's screen doesn't reflow).
-/// Matches as you type; ↩ / ⇧↩ or ⌘G / ⇧⌘G step through them, Esc closes.
+/// ⌘F over a terminal or a diff: floats in the top corner (what's under it doesn't move, so an agent's screen doesn't
+/// reflow). Matches as you type; ↩ / ⇧↩ or ⌘G / ⇧⌘G step through them, Esc closes. The owner searches (`onSearch`) and
+/// says what it found (`total`, `selected`).
 @MainActor
-final class FindBar: NSView, NSSearchFieldDelegate {
-    let field = NSSearchField()
+public final class FindCard: NSView, NSSearchFieldDelegate {
+    public let field = NSSearchField()
     private let count = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Match (⇧⌘G)"), next: String(localized: "Next Match (⌘G)"),
                                                       target: self, action: #selector(stepped))
-    var onSearch: ((String) -> Void)?
-    var onStep: ((_ next: Bool) -> Void)?
-    var onClose: (() -> Void)?
-    private let pending = Debounce()
-    /// From the terminal; -1 while it's still counting.
-    var total = -1 { didSet { updateCount() } }
-    var selected = -1 { didSet { updateCount() } }
+    public var onSearch: ((String) -> Void)?
+    public var onStep: ((_ next: Bool) -> Void)?
+    public var onClose: (() -> Void)?
+    private var pending: DispatchWorkItem?
+    /// From the owner; -1 while it's still counting.
+    public var total = -1 { didSet { updateCount() } }
+    public var selected = -1 { didSet { updateCount() } }
 
-    init() {
+    public init() {
         super.init(frame: .zero)
         field.placeholderString = String(localized: "Find")
         field.delegate = self
@@ -31,12 +30,16 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         done.bezelStyle = .push
         let row = NSStackView(views: [field, count, steps, done]); row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 5, left: 6, bottom: 5, right: 6)
-        pin(FloatingCard(row, radius: Metrics.radiusMD)); field.widthAnchor.constraint(equalToConstant: 190).isActive = true
+        let card = FloatingCard(row, radius: Metrics.radiusMD)
+        card.translatesAutoresizingMaskIntoConstraints = false; addSubview(card)
+        NSLayoutConstraint.activate([card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
+                                     card.leadingAnchor.constraint(equalTo: leadingAnchor), card.trailingAnchor.constraint(equalTo: trailingAnchor),
+                                     field.widthAnchor.constraint(equalToConstant: 190)])
         count.setContentHuggingPriority(.required, for: .horizontal)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func begin(_ needle: String?) {
+    public func begin(_ needle: String?) {
         isHidden = false
         if let needle, !needle.isEmpty, needle != field.stringValue { field.stringValue = needle; search() }
         window?.makeFirstResponder(field)
@@ -50,10 +53,11 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     // One or two letters match half the scrollback: wait for a pause before searching for them.
-    func controlTextDidChange(_ n: Notification) {
-        pending.cancel()
+    public func controlTextDidChange(_ n: Notification) {
+        pending?.cancel()
         guard field.stringValue.count < 3, !field.stringValue.isEmpty else { search(); return }
-        pending.after(0.3) { [weak self] in self?.search() }
+        let w = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search() } }   // on the main queue below
+        pending = w; DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: w)
     }
     private func search() {
         total = -1
@@ -61,7 +65,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         onSearch?(field.stringValue)
     }
 
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    public func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         switch sel {
         case #selector(insertNewline(_:)): onStep?(!(NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false)); return true
         case #selector(cancelOperation(_:)): close(); return true
@@ -70,15 +74,15 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     /// ⌘G / ⇧⌘G while typing (the field editor would swallow them otherwise).
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
+    override public func performKeyEquivalent(with e: NSEvent) -> Bool {
         guard !isHidden, e.modifierFlags.contains(.command), e.charactersIgnoringModifiers?.lowercased() == "g",
               (window?.firstResponder as? NSText)?.delegate === field else { return super.performKeyEquivalent(with: e) }
         onStep?(!e.modifierFlags.contains(.shift)); return true
     }
 
     @objc private func stepped() { onStep?(steps.selectedSegment == 1) }
-    @objc func close() {
-        pending.cancel()
+    @objc public func close() {
+        pending?.cancel()
         isHidden = true
         onClose?()
     }

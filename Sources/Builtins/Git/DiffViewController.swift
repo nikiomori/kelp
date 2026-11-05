@@ -25,6 +25,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                                                  trackingMode: .selectAny, target: nil, action: nil)
     /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
     var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
+    var find = DiffFinding()
+    /// "Change 3 of 17" after a step; a comment's place after a step between comments.
+    let position = NSTextField(labelWithString: "")
+    private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
+                                                      target: self, action: #selector(stepped(_:)))
     let files = NSTableView()
     let table = DiffTable()
     let status = NSTextField(labelWithString: "")
@@ -78,6 +83,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         source.action = #selector(sourceChanged)
         source.controlSize = .small
         status.font = .ui(11); status.textColor = .secondaryLabelColor
+        position.font = .uiDigits(11); position.textColor = .secondaryLabelColor
+        position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
         pathLabel.lineBreakMode = .byTruncatingHead; pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let fc = NSTableColumn(identifier: .init("file")); fc.title = String(localized: "Files")
@@ -150,9 +157,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
     private func buildBar() {
         if single != nil {
-            let steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
-                                                 target: self, action: #selector(stepped(_:)))
-            bar.set([pathLabel, status], [steps, spaceToggle, layoutToggle])
+            bar.set([pathLabel, status], [position, steps, spaceToggle, layoutToggle])
         } else {
             func btn(_ t: String, _ a: Selector) -> NSButton {
                 let b = NSButton(title: t, target: self, action: a)
@@ -161,7 +166,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 return b
             }
             bar.set([source, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)),
-                     btn(String(localized: "Send to Agent"), #selector(sendComments))], [status])
+                     btn(String(localized: "Send to Agent"), #selector(sendComments))], [status, position, steps])
         }
     }
 
@@ -339,11 +344,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
         builds += 1   // rows a layout change is still building are the old diff's
+        if d != diffs { position.stringValue = "" }   // "Change 3 of 17" counted another diff
         diffs = d
         changes = ch
         comments = cm
         (rows, words) = built
         files.reloadData(); table.reloadData()
+        if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
         if let e = r.error { status.stringValue = e; return }   // why there's nothing, not "0 files"
         let add = diffs.reduce(0) { $0 + $1.additions }, del = diffs.reduce(0) { $0 + $1.deletions }
@@ -370,6 +377,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
             (rows, words) = built; table.reloadData()
+            if !find.needle.isEmpty { search(find.needle, step: false) }
         }
     }
 
