@@ -40,3 +40,23 @@ import Agents
     _ = try await w.c.call(WorktreeRemove(id: own.id, dropCommits: true))
     #expect(try Git.linkedWorktrees(w.repo.path).isEmpty && !Git.branchExists(w.repo.path, "own-commit"))
 }
+
+/// Remove Clean Worktrees puts each folder in the Trash, the ignored files git doesn't count (.env) with it, and keeps the
+/// one a paused agent last worked in.
+@Test func removingCleanWorktreesTrashesIgnoredFilesAndKeepsAPausedAgentsFolder() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let repo = w.repo.path
+    try ".env\n".write(toFile: repo + "/.git/info/exclude", atomically: true, encoding: .utf8)
+    let clean = w.root.appendingPathComponent("clean").path, paused = w.root.appendingPathComponent("paused").path
+    for (p, b) in [(clean, "clean"), (paused, "paused")] { try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo) }
+    try "SECRET=1\n".write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
+    var s = Session(cwd: paused, command: "agent"); s.status = .hibernated
+    try w.d.store.save(s)
+    let listed = try Git.linkedWorktrees(repo).map(\.path)
+    let res = try await w.c.call(RepoRemoveWorktrees(id: w.repo.id, paths: listed))
+    #expect(res.removed.count == 1 && res.kept.count == 1 && res.kept.values.first?.contains("agent") == true, "\(res)")
+    #expect(FileManager.default.fileExists(atPath: paused) && !FileManager.default.fileExists(atPath: clean))
+    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+    let trashed = (FileManager.default.enumerator(atPath: trash)?.allObjects as? [String] ?? []).filter { $0.hasSuffix("clean/.env") }
+    #expect(!trashed.isEmpty)
+}
