@@ -20,7 +20,7 @@ extension GitHub {
     public enum PRFilter: Sendable { case open, mine, reviewRequested }
     public enum MergeMethod: String, Sendable { case squash, merge, rebase }
 
-    static let prFields = "number,title,url,author,headRefName,isDraft,state,reviewDecision,statusCheckRollup"
+    static let prFields = "number,title,url,author,headRefName,headRefOid,isDraft,state,reviewDecision,statusCheckRollup"
 
     /// Where the user's shell finds it (MacPorts, nix, mise… too), not only in the daemon's own PATH.
     /// `KELP_GH` names another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`.
@@ -104,8 +104,12 @@ extension GitHub {
         return String(decoding: out, as: UTF8.self).split(separator: "\n").last.map(String.init) ?? ""
     }
 
-    public static func mergePR(cwd: String, number: Int, method: MergeMethod) throws {
-        try gh(["pr", "merge", String(number), "--\(method.rawValue)"], cwd: cwd)
+    /// With `head`, only while that commit is still the PR's head: what was reviewed is what lands.
+    public static func mergePR(cwd: String, number: Int, method: MergeMethod, head: String? = nil) throws {
+        do { try gh(["pr", "merge", String(number), "--\(method.rawValue)"] + (head.map { ["--match-head-commit", $0] } ?? []), cwd: cwd) } catch {
+            guard head != nil, (error as? GitHubError)?.stderr.contains("Head branch was modified") == true else { throw error }
+            throw RPCError.invalidParams(String(localized: "#\(number) has new commits since you looked. Reload and read them before merging."))
+        }
     }
 
     public static func projects(cwd: String) throws -> [Project] {
@@ -126,7 +130,7 @@ extension GitHub {
         var status: String?, conclusion: String?, state: String?
     }
     private struct RawPR: Decodable {
-        var number: Int, title: String, url: String, author: Login, headRefName: String
+        var number: Int, title: String, url: String, author: Login, headRefName: String, headRefOid: String?
         var isDraft: Bool, state: String, reviewDecision: String?, statusCheckRollup: [RawRollup]?
     }
 
@@ -134,7 +138,7 @@ extension GitHub {
         try JSONDecoder().decode([RawPR].self, from: data).map {
             PullRequest(number: $0.number, title: $0.title, url: $0.url, author: $0.author.login, headRefName: $0.headRefName,
                         isDraft: $0.isDraft, state: $0.state, reviewDecision: $0.reviewDecision?.isEmpty == false ? $0.reviewDecision : nil,
-                        checks: summarize($0.statusCheckRollup ?? []))
+                        checks: summarize($0.statusCheckRollup ?? []), headRefOid: $0.headRefOid)
         }
     }
 

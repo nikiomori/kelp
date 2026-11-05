@@ -1353,6 +1353,10 @@
           "headRefName" : {
             "type" : "string"
           },
+          "headRefOid" : {
+            "description" : "The head commit when the list was read (GitHub's): a merge goes ahead only while it is still the head.",
+            "type" : "string"
+          },
           "isDraft" : {
             "type" : "boolean"
           },
@@ -5681,10 +5685,17 @@
       }
     },
     {
-      "description" : "`method`: squash (default) | merge | rebase; `pr`: else the workspace's linked one.",
+      "description" : "`method`: squash (default) | merge | rebase; `pr`: else the workspace's linked one; `head`: the commit that was on screen, merged only while it is still the PR's head (GitHub).",
       "name" : "github.pr-merge",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "name" : "head",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
         {
           "name" : "method",
           "required" : false,

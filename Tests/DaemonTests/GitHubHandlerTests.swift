@@ -22,7 +22,8 @@ private let fakeGh: (log: String, script: String) = {
                     *) printf 'step 1\\nstep 2 failed\\n';;
                   esac;;
       "run list") echo '[{"databaseId":99,"displayTitle":"Add login","workflowName":"CI","status":"completed","conclusion":"failure","event":"push","url":"https://github.com/o/r/actions/runs/99","createdAt":"2026-10-20T10:00:00Z"}]';;
-      "run rerun"|"run cancel"|"workflow run"|"pr merge") ;;
+      "run rerun"|"run cancel"|"workflow run") ;;
+      "pr merge") case "$*" in *"--match-head-commit old"*) echo "GraphQL: Head branch was modified. Review and try the merge again." >&2; exit 1;; esac;;
       "pr create") echo "Creating pull request"; echo "https://github.com/o/r/pull/8";;
       "repo view") echo '{"owner":{"id":"O_1","login":"acme"}}';;
       "project list") echo '{"projects":[{"closed":false,"id":"PVT_1","number":3,"owner":{"login":"acme"},"title":"Roadmap","url":"https://github.com/orgs/acme/projects/3"}],"totalCount":1}';;
@@ -227,4 +228,10 @@ private let fakeGlab: String = {
     #expect(create.contains("--title Add gh") && create.contains("--base main") && create.hasSuffix("--draft"))
     _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "method": "rebase"]))
     #expect(calls().contains("pr merge 8 --rebase"))   // the GitLab test's merge is #12, through glab
+    // Only the commit that was on screen is merged: a PR that moved on says so instead.
+    _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "head": "abc"]))
+    #expect(calls().contains("pr merge 8 --squash --match-head-commit abc"))
+    await #expect { _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "head": "old"])) } throws: {
+        "\($0)".contains("new commits since you looked")
+    }
 }

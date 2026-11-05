@@ -87,11 +87,14 @@ public struct GitHubPRCreate: RPCMethod {
         self.worktreeId = worktreeId; self.title = title; self.body = body; self.draft = draft
     }
 }
-/// `method`: squash (default) | merge | rebase; `pr`: else the workspace's linked one.
+/// `method`: squash (default) | merge | rebase; `pr`: else the workspace's linked one; `head`: the commit that was on
+/// screen, merged only while it is still the PR's head (GitHub).
 public struct GitHubPRMerge: RPCMethod {
     public static let name = "github.pr-merge"; public typealias Result = Done
-    public var worktreeId: String, pr: Int?, method: String?
-    public init(worktreeId: String, pr: Int? = nil, method: String? = nil) { self.worktreeId = worktreeId; self.pr = pr; self.method = method }
+    public var worktreeId: String, pr: Int?, method: String?, head: String?
+    public init(worktreeId: String, pr: Int? = nil, method: String? = nil, head: String? = nil) {
+        self.worktreeId = worktreeId; self.pr = pr; self.method = method; self.head = head
+    }
 }
 
 /// CI runs of the branch checked out in the workspace → {branch, runs, workflows}.

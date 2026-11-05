@@ -209,7 +209,7 @@ extension GitHubPRMerge: AsyncHandled {
             try await forges.offloads.run { try GitLab.mergeMR(cwd: w.path, number: n, squash: how == "squash") }
         } else {
             let m = GitHub.MergeMethod(rawValue: how) ?? .squash
-            try await forges.offloads.run { try GitHub.mergePR(cwd: w.path, number: n, method: m) }
+            try await forges.offloads.run { try GitHub.mergePR(cwd: w.path, number: n, method: m, head: head) }
         }
         await forges.moveLinear(w, to: .done)
         await forges.moveJira(w, toName: "done", category: "done")

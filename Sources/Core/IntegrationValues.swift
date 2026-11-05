@@ -18,10 +18,12 @@ public enum GitHub {
         public var isDraft: Bool, state: String
         public var reviewDecision: String?
         public var checks: Checks
+        /// The head commit when the list was read (GitHub's): a merge goes ahead only while it is still the head.
+        public var headRefOid: String?
         public init(number: Int, title: String, url: String, author: String, headRefName: String, isDraft: Bool, state: String,
-                    reviewDecision: String? = nil, checks: Checks) {
+                    reviewDecision: String? = nil, checks: Checks, headRefOid: String? = nil) {
             self.number = number; self.title = title; self.url = url; self.author = author; self.headRefName = headRefName
-            self.isDraft = isDraft; self.state = state; self.reviewDecision = reviewDecision; self.checks = checks
+            self.isDraft = isDraft; self.state = state; self.reviewDecision = reviewDecision; self.checks = checks; self.headRefOid = headRefOid
         }
     }
     public struct Issue: Codable, Sendable, Equatable {

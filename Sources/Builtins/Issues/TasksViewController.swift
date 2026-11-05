@@ -325,7 +325,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             actions.addArrangedSubview(button(String(localized: "Open Worktree"), "arrow.triangle.branch") { app.workbench.show(workspace: wt.id) })
             actions.addArrangedSubview(button(String(localized: "Send Review Comments to Agent"), "text.bubble") { [weak self] in self?.sendReview(n, wt) })
         }
-        actions.addArrangedSubview(button(String(localized: "Merge (squash)"), "arrow.triangle.merge") { [weak self] in self?.merge(n, wt) })
+        actions.addArrangedSubview(button(String(localized: "Merge (squash)"), "arrow.triangle.merge") { [weak self] in self?.merge(n, r.headRefOid, wt) })
         detail.addArrangedSubview(actions)
         let checksBox = NSStackView()
         checksBox.orientation = .vertical
@@ -424,7 +424,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             await sendRecipe("review", wt, ["comments": Self.forAgent(cs)])
         }
     }
-    private func merge(_ n: Int, _ wt: Worktree?) {
+    private func merge(_ n: Int, _ head: String?, _ wt: Worktree?) {
         let a = NSAlert()
         a.messageText = String(localized: "Squash and merge #\(n)?")
         a.addButton(withTitle: String(localized: "Merge"))
@@ -433,7 +433,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
             // The merge runs in a workspace of the project (gh needs a checkout); the PR's own if it has one.
             guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else { NSSound.beep(); return }
-            if await app.call(GitHubPRMerge(worktreeId: wid, pr: n)) != nil { status.stringValue = String(localized: "Merged #\(n)"); reload() }
+            if await app.call(GitHubPRMerge(worktreeId: wid, pr: n, head: head)) != nil { status.stringValue = String(localized: "Merged #\(n)"); reload() }
         }
     }
 }
