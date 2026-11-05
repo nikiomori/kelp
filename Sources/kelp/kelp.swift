@@ -155,6 +155,13 @@ func plist() -> String {
             case "schema":   // no daemon: the file ships with this binary
                 guard let file = IDE.resource("rpc", "json") else { fail("this build has no schema") }
                 print(has("--openrpc") ? file : RPCSchema.text(try JSONDecoder().decode(JSONValue.self, from: Data(file.utf8)), args.first))
+            case "ext" where ["types", "check"].contains(args.first ?? ""):   // no daemon: they read files
+                if args.first == "types" { print(ExtBridge.declarations); break }
+                let folder = URL(fileURLWithPath: args.dropFirst().first ?? ".").standardizedFileURL
+                let found = ExtCheck.problems(in: folder)
+                guard !found.isEmpty else { print("OK: \(folder.path)"); break }
+                found.forEach { print($0) }
+                exit(1)
             case "hook":   // inside an agent session: report status to the daemon
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else { fail("hook: needs KELP_SESSION and an event") }
                 var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)

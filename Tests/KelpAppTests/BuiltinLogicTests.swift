@@ -149,3 +149,18 @@ import Core
     #expect(!Presence.decide(idle: 600, locked: false))
     #expect(!Presence.decide(idle: nil, locked: false) && !Presence.decide(idle: 12, locked: nil))
 }
+
+/// An extension.json broken while it's edited keeps the version that last loaded, its error beside it.
+@Test @MainActor func aBrokenManifestKeepsTheLastOneThatWorked() async throws {
+    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let file = dir.appendingPathComponent("extension.json")
+    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}]}}"#.write(to: file, atomically: true, encoding: .utf8)
+    let good = DeclarativeExtension.load(dir, app: rig.app)
+    #expect(good.info.error == nil && good.contributions.commands.count == 1)
+    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}"#.write(to: file, atomically: true, encoding: .utf8)
+    let broken = DeclarativeExtension.load(dir, app: rig.app)
+    #expect(broken.info.id == "keep.me" && broken.contributions.commands.count == 1)
+    #expect(broken.info.error?.contains("Still running the version from before the change.") == true)
+}

@@ -457,3 +457,32 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(ports.allSatisfy { $0 >= 20_000 && $0 + 9 < 50_000 && $0 % 10 == 0 })
     #expect(PortBlocks.port(for: folders[7], among: folders.reversed()) == ports[7])   // not the list's order
 }
+
+/// kelp ext check names each mistake and where it is; a sound extension has none.
+@Test func anExtensionsMistakesAreNamedWithWhereTheyAre() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    func write(_ json: String) throws { try json.write(to: dir.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8) }
+    try write(#"{"id":"x","name":"X","contributes":{"panels":[{"id":"p","title":"P","web":"index.html"}]}}"#)
+    try "<p>hi</p>".write(to: dir.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+    #expect(ExtCheck.problems(in: dir).isEmpty)
+    try write(#"{"id":"x","nmae":"X","contributes":{"panels":[{"id":"p","title":"P"}],"commands":[{"title":"Go","run":"a","open":"b"}]}}"#)
+    let found = ExtCheck.problems(in: dir)
+    #expect(found.contains("“name” is missing: a non-empty string.") && found.contains("Unknown key “nmae” (a typo?)."))
+    #expect(found.contains("contributes.panels[0]: needs exactly one of “list” or “web”."))
+    #expect(found.contains("contributes.commands[0]: needs exactly one of terminal, run, open, agent (has run, open)."))
+    try write("{ not json")
+    #expect(ExtCheck.problems(in: dir).first?.hasPrefix("extension.json isn't valid JSON") == true)
+}
+
+/// The bridge and its TypeScript say the same things, and an ext: link's query reaches the page as props.
+@Test func theBridgeAndItsTypesAgree() {
+    let script = ExtBridge.script(props: ["file": "a.txt"])
+    for name in ["exec", "terminal", "open", "agent", "run", "notify", "badge", "settings", "on", "sessions", "props", "workspace"] {
+        #expect(script.contains("\(name):") && ExtBridge.declarations.contains("\(name)"), "\(name)")
+    }
+    #expect(script.contains(#"props: {"file":"a.txt"}"#))
+    let (view, props) = ExtBridge.split("my.ext/view?file=a%20b.txt&line=3")
+    #expect(view == "my.ext/view" && props == ["file": "a b.txt", "line": "3"])
+    #expect(ExtBridge.split("my.ext/view").props.isEmpty)
+}

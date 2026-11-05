@@ -91,14 +91,23 @@ A web panel can also set it itself: `kelp.badge(3)`, `kelp.badge("!")`, `kelp.ba
 The page (relative to the extension folder) gets `window.kelp`:
 ```js
 await kelp.exec("adb devices")            // {code, stdout, stderr}, runs in the workspace
+await kelp.exec(["git", "log", "-1"])     // one program and its words, passed as they are (no shell)
 kelp.terminal("emulator -avd Pixel_8")    // opens a terminal tab
 kelp.open("https://localhost:3000")       // URL → browser tab, path → file tab (never a terminal: or agent: URI)
 kelp.agent("Write a test for the parser") // new agent tab with this prompt typed, for the user to send
 await kelp.settings.get("my.key"); await kelp.settings.set("my.key", 3)
 kelp.workspace                            // {name, path, branch, project}
 kelp.on("settings", s => …); kelp.on("workspace", w => …)
+kelp.sessions                             // [{id, title, agent, status, workspace, unread}], the agents; kelp.on("sessions", list => …)
+kelp.run("agents.new", {agent: "codex"})  // a Kelp command by its id, as `kelp run` does
+kelp.notify("Build finished")             // a banner in the window
+kelp.props                                // what the ext: link carried: ext:my.ext/view?file=a.txt → {file: "a.txt"}
 kelp.badge(2)                             // the panel icon's badge (see badge above)
 ```
+`kelp ext types > kelp.d.ts` writes what the bridge has as TypeScript, for your editor. `kelp ext check <folder>` says what's
+wrong with an extension.json and where ("contributes.panels[0]: needs exactly one of “list” or “web”"); while you fix one,
+Kelp keeps running the version that last loaded, the error beside it in Settings › Extensions.
+
 A page may show other people's text, and `kelp.exec` runs commands, so markup never runs script: inline event attributes
 (`onclick="…"`, `onerror="…"`) are off. Attach listeners in a script (`el.addEventListener("click", …)`); `<script>` tags,
 the folder's files and scripts from a site work as usual.

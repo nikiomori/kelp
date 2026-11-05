@@ -72,6 +72,8 @@ struct VSCodePackage: Decodable {
 enum DeclarativeExtension {
     /// View definitions by "extension/view", for `ext:` tabs: only enabled extensions' (see `forget`).
     private static var views: [String: (ExtManifest, ExtManifest.ViewDef, URL)] = [:]
+    /// The last manifest of each folder that loaded: a mistake while it's edited keeps this one working, the error beside it.
+    private static var lastGood: [String: ExtManifest] = [:]
 
     /// A reload starts over (nil: every extension; uninstalled ones go); an extension turned off takes its views along.
     static func forget(_ id: String? = nil) { views = id.map { id in views.filter { $0.value.0.id != id } } ?? [:] }
@@ -81,13 +83,23 @@ enum DeclarativeExtension {
         let fallbackId = folder.lastPathComponent
         do {
             let own = folder.appendingPathComponent("extension.json"), vscode = folder.appendingPathComponent("package.json")
-            let m = !FileManager.default.fileExists(atPath: own.path) && FileManager.default.fileExists(atPath: vscode.path)
-                ? try JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: vscode)).manifest
-                : try JSONDecoder().decode(ExtManifest.self, from: Data(contentsOf: own))
+            let m: ExtManifest, problem: String?
+            do {
+                m = !FileManager.default.fileExists(atPath: own.path) && FileManager.default.fileExists(atPath: vscode.path)
+                    ? try JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: vscode)).manifest
+                    : try JSONDecoder().decode(ExtManifest.self, from: Data(contentsOf: own))
+                lastGood[folder.path] = m
+                problem = nil
+            } catch {
+                guard let kept = lastGood[folder.path] else { throw error }   // nothing worked before: the error alone
+                m = kept
+                problem = (error as? DecodingError).map(describe) ?? error.localizedDescription
+            }
             var info = ExtensionInfo(id: m.id, name: m.name, description: m.description ?? "", version: m.version ?? "",
                                      icon: m.icon ?? "puzzlepiece.extension",
                                      builtin: false, path: folder, enabled: true)
             info.source = IDE.extensionSource(folder)
+            info.error = problem.map { String(localized: "\($0) Still running the version from before the change.") }
             info.requires = m.requires ?? []
             if let missing = info.requires.first(where: { tools[$0] == false }) {
                 info.unavailable = String(localized: "Needs `\(missing)` — not found on this Mac.")
@@ -137,20 +149,23 @@ enum DeclarativeExtension {
     }
 
     static func viewInfo(_ uri: String) -> (title: String, icon: String)? {
-        views[TabURI.body(uri)].map { ($0.1.title, $0.1.icon ?? $0.0.icon ?? "puzzlepiece.extension") }
+        views[ExtBridge.split(TabURI.body(uri)).view].map { ($0.1.title, $0.1.icon ?? $0.0.icon ?? "puzzlepiece.extension") }
     }
 
     /// Opens `ext:<extension>/<view>` tabs.
     static func tabProvider(_ app: AppModel) -> TabProvider {
         TabProvider(schemes: ["ext"]) { uri in
-            guard let (m, v, folder) = views[TabURI.body(uri)] else { return nil }
-            return ExtViewTab(uri: uri, title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension", controller: viewController(m, v, folder, app))
+            let (view, props) = ExtBridge.split(TabURI.body(uri))   // ext:my.ext/view?file=a.txt: kelp.props
+            guard let (m, v, folder) = views[view] else { return nil }
+            return ExtViewTab(uri: uri, title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
+                              controller: viewController(m, v, folder, app, props: props))
         }
     }
 
-    private static func viewController(_ m: ExtManifest, _ v: ExtManifest.ViewDef, _ folder: URL, _ app: AppModel, badge: ExtBadge? = nil) -> NSViewController {
+    private static func viewController(_ m: ExtManifest, _ v: ExtManifest.ViewDef, _ folder: URL, _ app: AppModel, badge: ExtBadge? = nil,
+                                       props: [String: String] = [:]) -> NSViewController {
         if let list = v.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
-        if let web = v.web { return ExtWebController(page: folder.appendingPathComponent(web), folder: folder, app: app, badge: badge) }
+        if let web = v.web { return ExtWebController(page: folder.appendingPathComponent(web), folder: folder, app: app, badge: badge, props: props) }
         let vc = NSViewController(); vc.view = NSTextField(labelWithString: String(localized: "\(m.name): view “\(v.id)” has neither list nor web."))
         return vc
     }

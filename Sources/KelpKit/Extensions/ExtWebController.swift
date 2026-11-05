@@ -7,18 +7,22 @@ import WorkbenchKit
 
 // MARK: web views
 
-/// An extension's HTML page with `window.kelp` (exec, terminal, open, agent, settings, workspace).
+/// An extension's HTML page with `window.kelp` (`ExtBridge`: exec, terminal, open, agent, run, notify, settings, workspace,
+/// sessions, props).
 @MainActor
 final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNavigationDelegate {
     private let page: URL, folder: URL, app: AppModel
     /// The panel icon's badge `kelp.badge` sets (nil in a tab).
     private let badge: ExtBadge?
+    /// What the `ext:` link that opened it carried (`ext:my.ext/view?file=a.txt`): `kelp.props`.
+    private let props: [String: String]
     private(set) var web: WKWebView!
-    init(page: URL, folder: URL, app: AppModel, badge: ExtBadge? = nil) {
+    init(page: URL, folder: URL, app: AppModel, badge: ExtBadge? = nil, props: [String: String] = [:]) {
         self.page = page
         self.folder = folder
         self.app = app
         self.badge = badge
+        self.props = props
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -28,7 +32,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         let cfg = WKWebViewConfiguration(), pages = ExtPages(folder: folder)
         cfg.setURLSchemeHandler(pages, forURLScheme: ExtPages.scheme)
         cfg.userContentController.add(WeakHandler(self), name: "kelp")
-        cfg.userContentController.addUserScript(WKUserScript(source: Self.bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(WKUserScript(source: ExtBridge.script(props: props), injectionTime: .atDocumentStart,
+                                                             forMainFrameOnly: true))
         web = WKWebView(frame: .zero, configuration: cfg); web.isInspectable = true
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
@@ -36,6 +41,17 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         if let u = pages.url(of: page) { web.load(URLRequest(url: u)) }
         track(owner: self) { app.workbench.workspaceId } changed: { [weak self] _ in self?.push() }
         track(owner: self) { app.settings.values } changed: { [weak self] _ in self?.push() }
+        track(owner: self) { app.sessions } changed: { [weak self] _ in self?.pushSessions() }
+    }
+
+    /// The agents, as `kelp.sessions` and to `kelp.on("sessions")`: id, title, agent, status, workspace, unread.
+    private func pushSessions() {
+        guard let u = web.url, Self.isOwn(u, folder) else { return }
+        let list = JSONValue.array(app.sessions.filter(\.isChat).map { s in
+            .obj(["id": .string(s.id), "title": .string(app.catalog.displayName(s)), "agent": .string(s.agent ?? "shell"),
+                  "status": .string(s.status.rawValue), "workspace": .string(s.worktreeId ?? ""), "unread": .bool(s.unread)])
+        })
+        web.evaluateJavaScript("window.kelp && window.kelp.__sessions(\(ExtBridge.json(list)))")
     }
 
     /// The window stays on the extension's own pages: the bridge is in every page it shows, and `push` hands it the
@@ -73,8 +89,11 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         let ctx = IDEContext.of(app)
         switch op {
         case "exec":
+            // An array is one program and its words, each passed as it is (no shell reads them): `kelp.exec(["git", "log"])`.
+            let argv = ExtBridge.decode(d["argv"], as: [String].self)
+            let line = argv.map { $0.map(IDE.shellWord).joined(separator: " ") } ?? arg
             Task {
-                let r = await Shell.run(app, arg, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
+                let r = await Shell.run(app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
                 reply(id, .obj(["code": .int(Int(r.code)), "stdout": .string(r.stdout), "stderr": .string(r.stderr)]))
             }
         case "terminal": app.workbench.editor?.run(command: arg, title: d["title"] as? String); reply(id, .null)
@@ -85,13 +104,18 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             reply(id, .null)
         case "agent": app.workbench.editor?.newAgent(nil, prompt: arg, draft: true); reply(id, .null)
         case "badge": badge?.value = PanelBadge(arg); reply(id, .null)
+        // A Kelp command by its id (the menus', the palette's, an extension's), as `kelp run` does.
+        case "run":
+            let args = ExtBridge.decode(d["args"], as: [String: JSONValue].self)
+            app.extensions.run(arg, args ?? [:]); reply(id, .null)
+        case "notify": Banner.show(arg); reply(id, .null)
         case "settings.get": reply(id, app.settings.value(arg) ?? .null)
         case "settings.set":
             let v = (d["value"] as? String).flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
             app.settings.set(arg, v); reply(id, .null)
         default: reply(id, .null)
         }
-        if op == "ready" { push() }
+        if op == "ready" { push(); pushSessions() }
     }
 
     private func reply(_ id: Int, _ v: JSONValue) {
@@ -99,22 +123,6 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         web.evaluateJavaScript("window.kelp.__resolve(\(id), \(s))")
     }
 
-    static let bridge = """
-    (() => {
-      let n = 0; const pending = {}; const listeners = {settings: [], workspace: []};
-      const call = (op, arg, extra) => new Promise(res => { const id = ++n; pending[id] = res;
-        window.webkit.messageHandlers.kelp.postMessage(Object.assign({op, arg, id}, extra || {})); });
-      window.kelp = {
-        workspace: {}, exec: c => call('exec', c), terminal: (c, o) => call('terminal', c, {title: o && o.title}),
-        open: u => call('open', u), agent: p => call('agent', p), badge: v => call('badge', v == null ? '' : String(v)),
-        settings: { get: k => call('settings.get', k), set: (k, v) => call('settings.set', k, {value: JSON.stringify(v)}) },
-        on: (ev, cb) => (listeners[ev] = listeners[ev] || []).push(cb),
-        __resolve: (id, v) => { const r = pending[id]; delete pending[id]; r && r(v); },
-        __update: (ws, settings) => { window.kelp.workspace = ws; listeners.workspace.forEach(f => f(ws)); listeners.settings.forEach(f => f(settings)); }
-      };
-      document.addEventListener('DOMContentLoaded', () => window.webkit.messageHandlers.kelp.postMessage({op: 'ready', id: 0}));
-    })();
-    """
 }
 
 /// WKUserContentController retains its handlers; break the cycle.
