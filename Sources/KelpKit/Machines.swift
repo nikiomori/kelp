@@ -17,7 +17,7 @@ extension AppModel {
         let home = folder.map { !VMs.mayShare($0) } ?? true
         var line = "kelp vm run " + VMs.shellQuoted(name) + (home ? " --home" : "")
         if let command { line += " -- " + command }
-        workbench.editor?.run(command: line, title: name)
+        workbench.editorForNewTab?.run(command: line, title: name)
     }
 
     /// Start, sleep or stop it; its row shows the answer at once, the watch the rest.
