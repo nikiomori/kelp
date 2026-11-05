@@ -247,8 +247,8 @@ extension SessionTurnRedo: Handled {
     var actsOn: String? { id }
     func handle(_ workspaces: Workspaces) throws -> Done {
         let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes, ref = Workspaces.undoneRef(id)
-        guard let before = try? Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, remotes: r).trimmingCharacters(in: .whitespacesAndNewlines),
-              !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
+        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: r).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
         let plan = try Git.changed(since: before, cwd: dir, remotes: r)
         try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: r)
         try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: r)
@@ -279,7 +279,7 @@ extension Workspaces {
             return s.id != id && s.status != .exited && !["shell", "custom"].contains(s.agent ?? "custom") && (at == top || at.hasPrefix(top + "/"))
         }
         guard others.isEmpty else { throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.") }
-        guard (try? Git.run(["cat-file", "-e", t.tree + "^{tree}"], cwd: dir, remotes: r)) != nil else {
+        guard try !Git.run(["rev-parse", "--verify", "-q", t.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: r).isEmpty else {
             throw RPCError.invalidParams("That turn's snapshot is gone: git cleaned it up.")
         }
         return (t, dir)
@@ -293,8 +293,8 @@ extension Sessions {
         Log.store.attempt("keeping a turn") {
             let dropped = try store.addTurn(t)
             guard remotes.of(t.folder) == nil else { return }   // no snapshots there
-            try Git.run(["update-ref", "refs/kelp/turns/" + t.id, t.tree], cwd: t.folder)
-            for d in dropped { _ = try? Git.run(["update-ref", "-d", "refs/kelp/turns/" + d.id], cwd: d.folder) }
+            try Git.run(["update-ref", "refs/kelp/turns/" + t.id, t.tree], cwd: t.folder, remotes: remotes)
+            for d in dropped { try Git.run(["update-ref", "-d", "refs/kelp/turns/" + d.id], cwd: d.folder, remotes: remotes) }
         }
     }
 }

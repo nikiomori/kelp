@@ -55,7 +55,8 @@ extension DiffViewController {
                   let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state)) else { return }
             status.stringValue = String(localized: "Put \(plan.files.count) files back")
             await load()
-            Banner.show(String(localized: "Put \(plan.files.count) files back as they were before the turn"), action: (String(localized: "Redo"), { [weak self] in
+            let done = String(localized: "Put \(plan.files.count) files back as they were before the turn")
+            Banner.show(done, action: (String(localized: "Redo"), { [weak self] in
                 Task {
                     guard let self, await self.app.call(SessionTurnRedo(id: sid, turn: turn, state: after.state)) != nil else { return }
                     self.status.stringValue = ""

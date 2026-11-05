@@ -36,7 +36,8 @@ extension Artifacts {
         try live.write(to: URL(fileURLWithPath: versionPath(target: target, n)))
         versions.append(ArtifactVersion(n: n, at: now.timeIntervalSince1970, label: oneLine(label, n: n)))
         for old in versions.dropLast(keptVersions) {   // one gone already (by hand) is no reason to stop keeping
-            try? FileManager.default.removeItem(atPath: versionPath(target: target, old.n))
+            let p = versionPath(target: target, old.n)
+            if FileManager.default.fileExists(atPath: p) { try FileManager.default.removeItem(atPath: p) }
         }
         var record = r
         record.versions = Array(versions.suffix(keptVersions))

@@ -42,8 +42,9 @@ extension Git {
             try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
         }
         let head = try run(["rev-parse", "FETCH_HEAD"], cwd: repo, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
-        if let wanted, Git.isRevision(wanted), branchExists(repo, wanted, remotes: remotes),
-           let at = try? run(["rev-parse", "refs/heads/" + wanted], cwd: repo, remotes: remotes), at.trimmingCharacters(in: .whitespacesAndNewlines) == head,
+        if let wanted, Git.isRevision(wanted),
+           try run(["rev-parse", "--verify", "-q", "refs/heads/" + wanted], cwd: repo, ok: [0, 1], remotes: remotes)
+               .trimmingCharacters(in: .whitespacesAndNewlines) == head,
            (try run(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + wanted], cwd: repo, remotes: remotes))
                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return wanted
