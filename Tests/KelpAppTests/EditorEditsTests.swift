@@ -346,8 +346,9 @@ extension OneAtATime {
         #expect(tv.cursors == [NSRange(location: 2, length: 3), NSRange(location: 8, length: 3)])
         tv.doCommand(by: #selector(NSResponder.moveLeftAndModifySelection(_:)))   // the moving end goes back
         #expect(tv.cursors == [NSRange(location: 2, length: 2), NSRange(location: 8, length: 2)])
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("1\n2\n", forType: .string)
+        tv.pasteboard = NSPasteboard.withUniqueName()   // not the user's clipboard
+        defer { tv.pasteboard.releaseGlobally() }
+        tv.pasteboard.setString("1\n2\n", forType: .string)
         tv.paste(nil)
         #expect(e.text == "ab1d\nef2h\n")   // a line each
         tv.doCommand(by: #selector(NSResponder.deleteWordBackward(_:)))

@@ -160,10 +160,13 @@ public final class EditorTextView: NSTextView {
         replace(cs, with: Array(repeating: s, count: cs.count))
     }
 
+    /// Where a paste with several cursors reads from: tests give their own, so they leave the user's clipboard alone.
+    var pasteboard = NSPasteboard.general
+
     /// With several cursors: a line each when the clipboard has as many lines as there are cursors, else all of it at each.
     public override func paste(_ sender: Any?) {
         let cs = cursors
-        guard cs.count > 1, let text = NSPasteboard.general.string(forType: .string) else { return super.paste(sender) }
+        guard cs.count > 1, let text = pasteboard.string(forType: .string) else { return super.paste(sender) }
         var lines = text.components(separatedBy: "\n")
         if lines.last == "" { lines.removeLast() }
         replace(cs, with: lines.count == cs.count ? lines : Array(repeating: text, count: cs.count))
