@@ -84,7 +84,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let name = NSTextField(labelWithString: r.title)
         name.font = .ui(12, weight: .medium); name.lineBreakMode = .byTruncatingTail
         let progress = r.points.flatMap { n in n == 0 ? nil : String(localized: "\(r.answered ?? 0) of \(n) answered") }
-        var about = [s.map(app.catalog.displayName), s?.status == .exited ? String(localized: "ended") : nil, progress]
+        var about = [s.map { app.catalog.name($0.agent) }, s?.status == .exited ? String(localized: "ended") : nil, progress]
         if let u = r.url { about.append(URL(string: u)?.host) }
         let detail = NSTextField(labelWithString: about.compactMap { $0 }.joined(separator: " · "))
         detail.font = .ui(11); detail.textColor = .secondaryLabelColor

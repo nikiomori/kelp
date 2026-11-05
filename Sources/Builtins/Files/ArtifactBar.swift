@@ -92,7 +92,7 @@ final class ArtifactBar: NSObject {
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
         } else {
-            status.stringValue = writing ? String(localized: "\(s.map(app.catalog.displayName) ?? "") is writing") : ""
+            status.stringValue = writing ? String(localized: "\(app.catalog.name(s?.agent)) is writing") : ""
         }
         ring.isHidden = !writing || shown != nil
         if ring.isHidden { ring.stopAnimation(nil) } else { ring.startAnimation(nil) }
@@ -104,7 +104,7 @@ final class ArtifactBar: NSObject {
         author.isHidden = s == nil
         if let s {
             // The agent, not the chat's title, which reads as the page's own name; the chat is in the tip.
-            author.title = app.catalog.displayName(s)
+            author.title = app.catalog.name(s.agent)   // displayName is the chat's title once it has one
             author.image = s.agent.flatMap { app.catalog.icon($0, size: 14) }
             let tip = s.status == .exited ? String(localized: "The chat that made it has ended") : String(localized: "Show the Chat That Made It")
             author.toolTip = s.title.isEmpty ? tip : "\(tip): \(s.title)"
