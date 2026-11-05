@@ -29,6 +29,12 @@ import Agents
     var last = GitDiff(id: wt.id, source: "turn", session: s.id); last.turn = marks[0].id
     #expect(try await w.c.call(last).map(\.path) == ["two.txt"])
     #expect(try Git.run(["log", "--all", "--oneline"], cwd: wt.path).split(separator: "\n").count == 1)   // nothing in the project's history
+    // Paused, its turns still read, and it isn't woken for that.
+    try w.d.sessions.pauseSessions(of: wt.id)
+    #expect(w.d.sessions.existing(s.id) == nil)
+    #expect(try await w.c.call(last).map(\.path) == ["two.txt"])
+    #expect(try await w.c.call(GitDiff(id: wt.id, source: "turn", session: s.id)).map(\.path) == ["two.txt"])
+    #expect(w.d.sessions.existing(s.id) == nil)
 }
 
 /// A turn undone puts its folder back as the turn found it: after a look at what goes, only while nothing changed since

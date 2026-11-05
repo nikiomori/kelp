@@ -29,8 +29,10 @@ extension GitDiff: Handled {
         let src: DiffSource
         switch source ?? "all" {
         case "turn":   // since the agent's last turn started, where it worked then (its own worktree, maybe)
-            guard let s = session, let ls = workspaces.sessions.existing(s) else { throw RPCError.invalidParams("That agent isn't running.") }
-            dir = ls.turnDir ?? ls.snapshot.cwd
+            // A paused agent isn't woken: its turns are kept in the store.
+            guard let s = session, let rec = try workspaces.store.session(s) else { throw RPCError.invalidParams("No such agent.") }
+            let ls = workspaces.sessions.existing(s)
+            dir = ls?.turnDir ?? ls?.snapshot.cwd ?? rec.cwd
             if let turn {   // one turn of its history: up to the next one's start, or now for the newest
                 let marks = try workspaces.store.turns(session: s)
                 guard let i = marks.firstIndex(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn of that agent.") }
@@ -38,7 +40,7 @@ extension GitDiff: Handled {
                 src = i > 0 ? .between(marks[i].tree, marks[i - 1].tree) : .since(tree: marks[i].tree)
             } else {
                 // The one in memory, else the last kept (gone after the daemon restarted), in the folder it was taken in.
-                if let base = ls.turnBase {
+                if let base = ls?.turnBase {
                     src = .since(tree: base)
                 } else if let last = try workspaces.store.turns(session: s).first {
                     dir = last.folder; src = .since(tree: last.tree)
@@ -221,15 +223,19 @@ extension FilesSearch: Handled {
 }
 
 extension CommentAdd: Handled {
+    var reportsFor: String? { session }   // a comment names its own session's agent as author, not another's
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
         let w = try workspaces.store.worktree(named: id)
         let on = try clientRef(commit) ?? "HEAD"
-        let head = try Git.run(["rev-parse", "--short", "--verify", "-q", on + "^{commit}"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
+        let full = try Git.run(["rev-parse", "--verify", "-q", on + "^{commit}"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
+        if commit != nil, full.isEmpty { throw RPCError.invalidParams("No commit \(on) here.") }
+        let head = String(full.prefix(12))
         let agent = session.flatMap { workspaces.sessions.existing($0)?.snapshot.agent }.flatMap { $0 == "shell" || $0 == "custom" ? nil : $0 }
         let author = try agent.map { try workspaces.sessions.manifest($0, command: nil).name }
         let c = DiffComment(worktreeId: w.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "", text: text,
-                            side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head, author: author)
+                            side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head, author: author,
+                            onCommit: commit == nil ? nil : full)
         try workspaces.store.save(c)
         return c
     }
@@ -266,7 +272,8 @@ extension CommentSend: Handled {
         for (i, c) in comments.enumerated() {
             let range = c.startLine == c.endLine ? "\(c.startLine)" : "\(c.startLine)-\(c.endLine)"
             let removed = c.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
-            s += "\n\(i + 1). \(c.file):\(range)\(removed)\n"
+            let past = c.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
+            s += "\n\(i + 1). \(c.file):\(range)\(removed)\(past)\n"
             for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
             s += "   " + (c.author.map { "(\($0)) " } ?? "") + "\(c.text)\n"
         }

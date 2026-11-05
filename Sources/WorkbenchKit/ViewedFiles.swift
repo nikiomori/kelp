@@ -20,9 +20,14 @@ public enum ViewedFiles {
         }, uniquingKeysWith: { _, b in b })
     }
 
-    /// `marks` with `d` marked or not, keeping only the files `diffs` still holds (what's gone needs no mark).
+    /// Marks kept of files the diff on screen doesn't hold: another source (Staged, a commit) shows them.
+    public static let kept = 300
+
+    /// `marks` with `d` marked or not. A file `diffs` doesn't hold keeps its mark (its print tells whether it's still
+    /// read), until there are more than `kept`: then only the files `diffs` holds keep theirs.
     public static func marking(_ d: FileDiff, _ on: Bool, in marks: [String: String], diffs: [FileDiff]) -> [String] {
-        var m = marks.filter { k, _ in diffs.contains { $0.path == k } }
+        let here = Set(diffs.map(\.path))
+        var m = marks.count < kept ? marks : marks.filter { here.contains($0.key) }
         m[d.path] = on ? print(d) : nil
         return m.map { "\($0.key)\t\($0.value)" }.sorted()
     }

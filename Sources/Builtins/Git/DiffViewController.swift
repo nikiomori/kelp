@@ -372,7 +372,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single == nil, r.error == nil {   // the files' letters and the comments: the diff above already said what failed
             // The letters as pushed for this workspace (a review tab watches it), else asked.
             if let pushed = app.git[wid]?.changes { ch = pushed } else { ch = await app.quiet(GitStatus(id: wid)) ?? [] }
-            cm = await app.quiet(CommentList(id: wid)) ?? []
+            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
         }
         if d != diffs { opened = [:] }   // lines opened between changes may have moved
         let grammars = d == diffs ? [:] : DiffColors.grammars(d)   // the same diff keeps its colours

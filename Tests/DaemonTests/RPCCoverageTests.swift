@@ -336,7 +336,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(say); r \(other.id) blocked; r $KELP_SESSION done; cat'")
     #expect(try await waitFor(10) { try await sessions(r).first { $0.id == me.id }?.status == .done })
     // The status comes over the socket, the refusal it printed through the terminal, which can be behind it.
-    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("only its own status") })
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("speaks only for itself") })
     #expect(try await sessions(r).first { $0.id == other.id }?.status != .waiting)
     _ = try await r.c.call(SessionReport(id: other.id, state: "blocked"))   // this test process is in no session
     #expect(try await waitFor { try await sessions(r).first { $0.id == other.id }?.status == .waiting })
@@ -358,6 +358,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
         + #"r comment.send "{\"id\":\"\#(r.wt.id)\",\"session\":\"\#(other.id)\"}"; "#
         + #"r ui.browser "{\"action\":\"info\",\"worktreeId\":\"elsewhere\"}"; "#
+        + #"r comment.add "{\"id\":\"\#(r.wt.id)\",\"file\":\"a.txt\",\"text\":\"x\",\"session\":\"\#(other.id)\"}"; "#
         + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     let ls = try #require(r.d.sessions.existing(me.id))
@@ -372,6 +373,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains("acts only on its own session"))
     #expect(out.contains(#/session\.restart [^\n]*acts only on its own session/#))
     #expect(out.contains(#/comment\.send [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/comment\.add [^\n]*speaks only for itself/#))   // a comment signed as another agent
     #expect(out.contains(#/ui\.browser [^\n]*pages only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
     #expect(out.contains(#/stream kelp: An agent acts only/#))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
@@ -473,10 +475,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try Git.run(["commit", "-q", "--allow-empty", "-m", "later"], cwd: wt.path)
     let past: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "in the older one", commit: "HEAD~1"))
     let now = try Git.run(["rev-parse", "--short", "HEAD"], cwd: wt.path).trimmingCharacters(in: .whitespacesAndNewlines)
-    #expect(past.commit == gone.commit && past.commit != now)
-    _ = try await c.call(CommentSetState(id: past.id, state: "resolved"))
+    let pastHash = try #require(past.commit)
+    #expect(past.commit == gone.commit && !pastHash.hasPrefix(now) && gone.onCommit == nil && past.onCommit?.hasPrefix(pastHash) == true)
+    #expect(past.isOn(String(pastHash.prefix(7))) && !past.isOn(nil) && gone.isOn(nil))   // on that commit's diff only
     _ = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
     #expect(try await waitFor { box.output(s.id).contains("a.txt:3 (removed lines, numbered as in the file before this change)") })
+    #expect(try await waitFor { box.output(s.id).contains("a.txt:1 (in commit \(pastHash), not the current changes)") })
     // Only the findings picked go; the others stay open.
     let a: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "picked one"))
     let b: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 2, text: "left out"))

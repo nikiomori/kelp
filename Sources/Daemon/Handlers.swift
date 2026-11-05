@@ -147,7 +147,7 @@ extension Daemon {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
         guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion || m.inWorkspace != nil,
               let pid = clients.peerPID(conn), let own = sessions.session(running: pid) else { return }
-        if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session reports only its own status.") }
+        if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
         guard try sessions.lineage(own).contains(where: \.isAgent) else { return }
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")

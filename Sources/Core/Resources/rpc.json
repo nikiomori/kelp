@@ -958,6 +958,10 @@
           "id" : {
             "type" : "string"
           },
+          "onCommit" : {
+            "description" : "The past commit whose diff it's on (full hash); nil: on the folder's changes.",
+            "type" : "string"
+          },
           "quote" : {
             "type" : "string"
           },

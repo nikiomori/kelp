@@ -277,11 +277,19 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public var commit: String?
     /// The agent that wrote it (a reviewer's finding); nil: the user.
     public var author: String?
+    /// The past commit whose diff it's on (full hash); nil: on the folder's changes.
+    public var onCommit: String?
     public init(id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String, text: String,
-                state: State = .open, side: String? = nil, commit: String? = nil, author: String? = nil) {
+                state: State = .open, side: String? = nil, commit: String? = nil, author: String? = nil, onCommit: String? = nil) {
         self.id = id; self.worktreeId = worktreeId; self.file = file; self.startLine = startLine
         self.endLine = endLine; self.quote = quote; self.text = text; self.state = state; self.side = side; self.commit = commit
-        self.author = author
+        self.author = author; self.onCommit = onCommit
+    }
+
+    /// Whether it belongs on the diff of `commit` (nil: the folder's changes); a hash matches either way it's cut short.
+    public func isOn(_ commit: String?) -> Bool {
+        guard let on = onCommit, let commit else { return onCommit == nil && commit == nil }
+        return on.hasPrefix(commit) || commit.hasPrefix(on)
     }
 }
 

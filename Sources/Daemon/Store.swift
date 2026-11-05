@@ -185,6 +185,7 @@ public final class Store: Sendable {
             try db.execute(sql: "CREATE TRIGGER sessionTurns AFTER DELETE ON session BEGIN DELETE FROM turn WHERE session = OLD.id; END")
         }
         m.registerMigration("diffComment.author") { db in try db.alter(table: "diffComment") { t in t.add(column: "author", .text) } }
+        m.registerMigration("diffComment.onCommit") { db in try db.alter(table: "diffComment") { t in t.add(column: "onCommit", .text) } }
         return m
     }
 

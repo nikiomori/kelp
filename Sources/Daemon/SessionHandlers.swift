@@ -277,10 +277,11 @@ extension Workspaces {
     /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
     /// turn began, no other agent in the checkout, and its snapshot still there.
     func turnPlace(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
-        guard let ls = sessions.existing(id) else { throw RPCError.invalidParams("That agent isn't running.") }
+        guard try store.session(id) != nil else { throw RPCError.invalidParams("No such agent.") }
+        let status = sessions.existing(id)?.snapshot.status   // nil: paused, so not in a turn
         guard let t = try store.turns(session: id).first(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn.") }
         let r = remotes, dir = try Git.root(of: t.folder, remotes: r)   // paths count from the top, whatever folder it was in
-        guard ls.snapshot.status != .working, ls.snapshot.status != .waiting else {
+        guard status != .working, status != .waiting else {
             throw RPCError.invalidParams("The agent is still in its turn: stop it first.")
         }
         let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: r).trimmingCharacters(in: .whitespacesAndNewlines)
