@@ -31,7 +31,7 @@ private final class Heard: Sendable {
     let w = try await world(); defer { w.d.stop() }
     let wt = try await firstDesk(w)
     let key = Watches.Key(topic: .git, key: wt.id)
-    func reads() -> Int { w.d.watches.reads.withLock { $0[key] ?? 0 } }
+    func reads() -> Int { w.d.watches.reads.withLock { $0?[key] ?? 0 } }
     let heard = Heard(); heard.listen(w.c)
     try "dist/\n".write(toFile: wt.path + "/.gitignore", atomically: true, encoding: .utf8)
     try FileManager.default.createDirectory(atPath: wt.path + "/dist/js", withIntermediateDirectories: true)
@@ -80,9 +80,9 @@ private final class Heard: Sendable {
     b.close()
     #expect(try await waitFor(5) { w.d.watches.running == 0 })
     let key = Watches.Key(topic: .ports, key: wt.id)
-    let reads = w.d.watches.reads.withLock { $0[key] ?? 0 }
+    let reads = w.d.watches.reads.withLock { $0?[key] ?? 0 }
     try await Task.sleep(for: .seconds(4))   // a ports reader reads every 3 s while anyone watches
-    #expect(w.d.watches.reads.withLock { $0[key] ?? 0 } == reads)
+    #expect(w.d.watches.reads.withLock { $0?[key] ?? 0 } == reads)
 }
 
 /// Projects and workspaces come as records when they change, including a desk the list itself added, and removals say
@@ -175,7 +175,7 @@ private final class Heard: Sendable {
     try await Task.sleep(for: .milliseconds(1200))
     #expect(heard.events(FilesEvent.self).count == 2)   // once
     try "changed\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)
-    #expect(try await waitFor(10) { w.d.watches.reads.withLock { $0[Watches.Key(topic: .files, key: wt.id)] ?? 0 } >= 3 })   // read again…
+    #expect(try await waitFor(10) { w.d.watches.reads.withLock { $0?[Watches.Key(topic: .files, key: wt.id)] ?? 0 } >= 3 })   // read again…
     try await Task.sleep(for: .milliseconds(300))   // (counted before it's compared and pushed)
     #expect(heard.events(FilesEvent.self).count == 2)   // …not pushed
 }
@@ -261,10 +261,16 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).map(\.items) == [[]] })
     _ = try Artifacts.create(.doc, title: "Plan", root: wt.path, session: nil)
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
-    let reads = { w.d.watches.reads.withLock { $0[Watches.Key(topic: .artifacts, key: wt.id)] ?? 0 } }
+    let reads = { w.d.watches.reads.withLock { $0?[Watches.Key(topic: .artifacts, key: wt.id)] ?? 0 } }
     try await Task.sleep(for: .milliseconds(1200))
     let before = reads()
     try "x\n".write(toFile: wt.path + "/other.txt", atomically: true, encoding: .utf8)
     try await Task.sleep(for: .milliseconds(1200))
     #expect(reads() == before)
+}
+
+/// The daemon as it runs keeps no count of reads: one per key ever watched would only grow. Tests turn it on.
+@Test func aRunningDaemonCountsNoReads() throws {
+    let d = try Daemon(root: tmp())
+    #expect(d.watches.reads.withLock { $0 } == nil)
 }

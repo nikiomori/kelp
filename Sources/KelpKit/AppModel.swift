@@ -75,12 +75,14 @@ package final class AppModel {
     package var hostStats: [String: HostStats] = [:]
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
-    /// `event.repo` / `event.worktree` / `event.removed` handled so far, per id: a list asked for before one may be older.
+    /// `event.repo` / `event.worktree` / `event.removed` handled since the last refresh, per id: a list asked for before
+    /// one may be older. Emptied as each refresh ends (nothing compares with them until the next begins), or they'd keep
+    /// every record that ever was.
     @ObservationIgnored var recordEvents: [String: Int] = [:]
     @ObservationIgnored package var agents: [AgentManifest] = AgentManifest.load(dir: Paths.agents)
 
-    /// `event.session`s handled so far, per session: a list asked for before one of them may be older than it.
-    @ObservationIgnored private var sessionEvents: [String: Int] = [:]
+    /// `event.session`s handled since the last refresh, per session, the same way.
+    @ObservationIgnored private(set) var sessionEvents: [String: Int] = [:]
     /// Sessions a restart is replacing: their removal waits for the new one, which takes their tab.
     @ObservationIgnored var restarting: Set<String> = []
     /// The refresh under way, and whether another was asked for meanwhile (a burst of `event.changed` makes one more).
@@ -387,6 +389,7 @@ package final class AppModel {
         }
         if let r = await quiet(RoutineList()), r != routines { routines = r }
         syncContextWatches()
+        recordEvents = [:]; sessionEvents = [:]
     }
 
     /// The daemon's list, except records in `newer`: an event about them came while the list was on its way (on the

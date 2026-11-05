@@ -218,3 +218,14 @@ import Core
     guard case .pr(let shown)? = panel.rows.first else { Issue.record("no rows"); return }
     #expect(panel.rows.count == 1 && shown.number == 2)
 }
+
+/// What tells a refresh's lists from newer events is let go of as each refresh ends: it kept every record that ever was.
+@MainActor @Test func eventCountsGoWithTheRefreshTheyServed() async {
+    let m = AppModel(builtins: [])
+    m.handle(Session(id: "s1", cwd: "/", command: "claude", agent: "claude", status: .working))
+    m.handle(Repo(id: "r1", name: "one", path: "/one"))
+    m.handle(RemovedEvent(repo: "r1", session: "s1"))
+    #expect(!m.sessionEvents.isEmpty && !m.recordEvents.isEmpty)
+    await m.refresh()
+    #expect(m.sessionEvents.isEmpty && m.recordEvents.isEmpty)
+}

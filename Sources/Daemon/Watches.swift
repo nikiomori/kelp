@@ -25,8 +25,9 @@ final class Watches: Sendable {
     /// Watches running now (tests).
     var count: Int { entries.withLock { $0.count } }
     private let numbers = OSAllocatedUnfairLock(initialState: 0)   // watches' and scheduled reads'
-    /// Reads so far by key: tests see one read for two watchers, and none after the last one left.
-    let reads = OSAllocatedUnfairLock<[Key: Int]>(initialState: [:])
+    /// Reads so far by key, counted once a test sets it to `[:]`: one read for two watchers, and none after the last one
+    /// left. Nil, as the daemon runs: a count for every key ever watched would only grow.
+    let reads = OSAllocatedUnfairLock<[Key: Int]?>(initialState: nil)
     var running: Int { entries.withLock { $0.count } }
     /// How a topic is read now: the event as sent (nil: nothing to say) and when to read it again with nothing else
     /// saying so (nil: only when something does). The daemon's (it answers the topic's methods as a client would), set
@@ -174,7 +175,7 @@ final class Watches: Sendable {
         Task {
             let began = Date()
             let (line, next) = await reading.withLock({ $0.read })?(k, fastUntil > Date()) ?? (nil, nil)
-            reads.withLock { $0[k, default: 0] += 1 }
+            reads.withLock { $0?[k, default: 0] += 1 }
             let ours = entries.withLock { e -> (send: Data?, to: Set<Int>, again: Bool, quiet: Int)? in
                 // Stopped meanwhile, maybe started again: what it read may be older than the new watch's first value,
                 // and the new one keeps its own clock.

@@ -59,6 +59,7 @@ func daemon(agents: [AgentManifest] = [], lspDelays: (retry: TimeInterval, idle:
         try FileManager.default.createDirectory(at: root.appendingPathComponent("agents"), withIntermediateDirectories: true)
         for a in agents { try JSONEncoder().encode(a).write(to: root.appendingPathComponent("agents/\(a.id).json")) }
     }
+    d.watches.reads.withLock { $0 = [:] }   // counted for the tests that look
     try d.start()
     return (d, try client(root), root)
 }
