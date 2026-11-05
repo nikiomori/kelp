@@ -357,6 +357,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let script = "zmodload zsh/net/socket; \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
         + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
         + #"r comment.send "{\"id\":\"\#(r.wt.id)\",\"session\":\"\#(other.id)\"}"; "#
+        + #"r ui.browser "{\"action\":\"info\",\"worktreeId\":\"elsewhere\"}"; "#
         + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     let ls = try #require(r.d.sessions.existing(me.id))
@@ -370,7 +371,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let out = try await r.c.call(SessionRead(id: me.id))
     #expect(out.contains("acts only on its own session"))
     #expect(out.contains(#/session\.restart [^\n]*acts only on its own session/#))
-    #expect(out.contains(#/comment\.send [^\n]*acts only on its own session/#))   // comments typed, with Enter, into another agent
+    #expect(out.contains(#/comment\.send [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/ui\.browser [^\n]*pages only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
     #expect(out.contains(#/stream kelp: An agent acts only/#))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
     let seen = try await r.c.call(SessionRead(id: other.id))

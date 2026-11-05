@@ -28,7 +28,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let shown = previewFile != nil ? start : page.url?.absoluteString ?? start
         return agent ? TabURI.agentPage(shown) : shown
     }
-    private let start: String
+    let start: String
     /// An agent's page (`kelp browser open`): cookies and storage of its own, gone when the tab is.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).

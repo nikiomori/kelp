@@ -34,6 +34,9 @@ protocol Answered: RPCMethod {
     /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
     /// started, which would approve its own question or another agent's.
     var answersQuestion: Bool { get }
+    /// The workspace whose tabs it drives (`kelp browser`): an agent drives only its own workspace's pages, which
+    /// may carry the user's login it was let into.
+    var inWorkspace: String? { get }
 }
 
 extension Answered {
@@ -41,6 +44,7 @@ extension Answered {
     var reportsFor: String? { nil }
     var actsOn: String? { nil }
     var answersQuestion: Bool { false }
+    var inWorkspace: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -141,7 +145,7 @@ extension Daemon {
     /// process's environment (its KELP_SESSION) to tell, and any program of the user's may call anyway (the socket is theirs).
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion,
+        guard m.reportsFor != nil || m.actsOn != nil || m.answersQuestion || m.inWorkspace != nil,
               let pid = clients.peerPID(conn), let own = sessions.session(running: pid) else { return }
         if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session reports only its own status.") }
         guard try sessions.lineage(own).contains(where: { !["shell", "custom"].contains($0.agent ?? "shell") }) else { return }
@@ -150,6 +154,9 @@ extension Daemon {
         }
         if let id = m.actsOn, id != own, try !sessions.lineage(id).contains(where: { $0.id == own }) {
             throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
+        }
+        if let w = m.inWorkspace, try sessions.lineage(own).allSatisfy({ $0.worktreeId != w }) {
+            throw RPCError.invalidParams("An agent drives pages only in its own workspace.")
         }
     }
 

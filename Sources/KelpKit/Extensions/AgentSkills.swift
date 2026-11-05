@@ -132,7 +132,8 @@ enum AgentSkills {
 
         - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints its url and title once
           it loaded; `error` says why it didn't. The page has cookies and storage of its own, so you start logged out.
-          `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks them first. Every other
+          `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks them first, for that one
+          site; going to another site is blocked (the console says so) until you open it with `--shared` again. Every other
           command drives a page you opened: the user's own tabs aren't yours.
         - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
           address it shows does the same).

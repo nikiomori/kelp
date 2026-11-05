@@ -33,8 +33,11 @@ extension EditorArea {
     /// an agent's own, of the kind asked (`shared`: the user's cookies, which only a plain page has). A shared one acts as
     /// the user, so the user says so first.
     func pageForOpen(shared: Bool, args: JSONValue) async throws -> TabRef? {
-        if let t = ownPage(), shared == (TabURI.scheme(t.uri) != TabURI.agentScheme) { return nil }
-        guard let url = args["url"]?.string, !url.isEmpty else { return nil }
+        let url = args["url"]?.string ?? ""
+        // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own.
+        if let t = ownPage(), shared == (TabURI.scheme(t.uri) != TabURI.agentScheme),
+           !shared || url.isEmpty || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(t.uri))) { return nil }
+        guard !url.isEmpty else { return nil }
         if shared, await !Self.allowShared(url) {
             throw RPCError.invalidParams("The user didn't let you use their logged-in browser: kelp browser open without --shared.")
         }

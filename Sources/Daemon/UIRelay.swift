@@ -29,6 +29,7 @@ extension UICommand: Handled { func handle(_ clients: Clients) throws -> Deliver
 
 /// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
 extension UIBrowser: AsyncHandled {
+    var inWorkspace: String? { worktreeId ?? "" }   // none named: the one on screen, which needn't be the agent's
     func handle(_ ui: UIStore) async throws -> JSONValue {
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
         let clients = ui.clients, apps = clients.apps

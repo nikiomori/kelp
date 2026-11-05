@@ -1,6 +1,7 @@
 import AppKit
 import WebKit
 import KelpKit
+import WorkbenchKit
 
 /// Files a page hands over instead of showing: a link with `download`, an attachment, a type WebKit can't show. Without
 /// this they were cancelled without a word. The user's go to ~/Downloads as Safari's do (a new name beside one already
@@ -10,7 +11,18 @@ import KelpKit
 extension BrowserTab: WKDownloadDelegate {
     func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences) async
         -> (WKNavigationActionPolicy, WKWebpagePreferences) {
-        (a.shouldPerformDownload ? .download : .allow, preferences)
+        if let u = a.request.url, leavesSharedSite(u, mainFrame: a.targetFrame?.isMainFrame != false) {
+            noteLog("[blocked] \(u.absoluteString): another site than the one the user let the agent use")
+            return (.cancel, preferences)
+        }
+        return (a.shouldPerformDownload ? .download : .allow, preferences)
+    }
+
+    /// The user let the agent into their logged-in browser for one site (`open --shared`): while the agent drives the page,
+    /// it stays on that site; another one is asked for again.
+    func leavesSharedSite(_ u: URL, mainFrame: Bool) -> Bool {
+        guard agentAnswers, !agent, mainFrame, u.scheme != "about", let allowed = URL(string: start).flatMap(PageOrigin.of) else { return false }
+        return PageOrigin.of(u) != allowed
     }
 
     /// What the page answered is a file to keep: not a type WebKit shows, or sent as an attachment.

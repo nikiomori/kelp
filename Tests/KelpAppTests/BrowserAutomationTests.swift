@@ -205,6 +205,21 @@ import WorkbenchKit
     _ = try await act("info", [:])
 }
 
+/// The user let the agent into their logged-in browser for one site: while it drives the page it stays on that site.
+@MainActor @Test func aSharedPageKeepsTheAgentOnItsSite() {
+    let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
+    let other = URL(string: "https://mail.other.com/")!, same = URL(string: "https://www.example.com/x")!
+    #expect(!tab.leavesSharedSite(other, mainFrame: true))   // nobody drives it: the user's own browsing
+    tab.watch()
+    #expect(tab.leavesSharedSite(other, mainFrame: true) && !tab.leavesSharedSite(same, mainFrame: true))
+    #expect(!tab.leavesSharedSite(other, mainFrame: false))   // a frame inside it (an embed) isn't the page going
+    tab.takenOver = true
+    #expect(!tab.leavesSharedSite(other, mainFrame: true))   // the user, browsing
+    let own = BrowserTab(uri: TabURI.agentPage("https://example.com/"), app: AppModel())
+    own.watch()
+    #expect(!own.leavesSharedSite(other, mainFrame: true))   // its own page has no login to keep
+}
+
 @Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() {
     let snap = """
         - page "Shop" http://x/
