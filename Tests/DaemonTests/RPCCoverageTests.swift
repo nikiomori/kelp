@@ -480,6 +480,20 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(read("a.txt") == "hello\nagent's\n")
 }
 
+/// A discard's Undo outlives the daemon (an in-place upgrade, a restart): what it threw away is kept on disk for its
+/// minute, and gone once used.
+@Test func undoDiscardWorksAfterTheDaemonRestarts() async throws {
+    let w = try await world()
+    let wt = try await desk(w, "restart")
+    try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    _ = try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"], undo: "u"))
+    w.d.stop()
+    let d = try Daemon(root: w.root); try d.start(); defer { d.stop() }
+    _ = try await client(w.root).call(GitUndoDiscard(id: wt.id, undo: "u"))
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
+    #expect((try? FileManager.default.contentsOfDirectory(atPath: d.workspaces.discards.path))?.isEmpty != false)
+}
+
 @Test func discardHunkOnlyWhatWasShown() async throws {
     let w = try await world(); defer { w.d.stop() }
     let c = w.c, wt = try await desk(w, "h")
