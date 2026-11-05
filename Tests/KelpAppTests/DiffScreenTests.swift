@@ -4,6 +4,7 @@ import Testing
 import Core
 import GitKit
 import Daemon
+import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
 @testable import BuiltinAgents
@@ -60,6 +61,23 @@ extension AppOfItsOwn {
         #expect(vc.position.stringValue == "Change 2 of 2")
         vc.search("")
         #expect(vc.find.rows.isEmpty)
+    }
+
+    /// A file's Viewed box marks it read and counts what's left; the mark is kept in the daemon's state for the workspace.
+    @Test func aFileMarkedViewedCountsAsRead() async throws {
+        let rig = try await AppRig(files: ["a.txt": "a\n", "b.txt": "b\n"]); defer { rig.done() }
+        try rig.write("a.txt", "a2\n"); try rig.write("b.txt", "b2\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        try #require(vc.diffs.count == 2)
+        let box = vc.viewedBox(0)
+        box.state = .on
+        box.performClick(nil); box.performClick(nil)   // a click flips it: off, then on again
+        #expect(vc.status.stringValue.contains("1 of 2 left"))
+        for _ in 0..<50 where rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
     @Test func aHunksStageButtonStagesThatHunk() async throws {

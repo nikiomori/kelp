@@ -26,6 +26,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
     var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
     var find = DiffFinding()
+    /// Files marked as read, with their diff's print then (`DiffViewed`).
+    var viewed: [String: String] = [:]
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -348,16 +350,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         diffs = d
         changes = ch
         comments = cm
+        readViewed()
         (rows, words) = built
         files.reloadData(); table.reloadData()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
         if let e = r.error { status.stringValue = e; return }   // why there's nothing, not "0 files"
-        let add = diffs.reduce(0) { $0 + $1.additions }, del = diffs.reduce(0) { $0 + $1.deletions }
-        let open = comments.filter { $0.state == .open }.count
-        status.stringValue = single != nil ? (diffs.isEmpty ? String(localized: "No changes") : RowBadges.changes(added: add, removed: del).string)
-            : String(localized: "\(diffs.count) files") + "  \(RowBadges.changes(added: add, removed: del).string)"
-            + (open > 0 ? "  ·  " + String(localized: "\(open) open comments") : "")
+        status.stringValue = statusText()
     }
 
     /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.

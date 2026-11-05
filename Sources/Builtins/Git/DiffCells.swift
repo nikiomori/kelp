@@ -130,6 +130,7 @@ extension DiffViewController {
         let counts = NSTextField(labelWithAttributedString: RowBadges.changes(added: d.additions, removed: d.deletions))
         counts.setContentHuggingPriority(.required, for: .horizontal)
         counts.setContentCompressionResistancePriority(.required, for: .horizontal)
+        if ViewedFiles.viewed(d, in: viewed) { v.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
         let row = NSStackView(views: [v, counts])
         row.distribution = .fill   // the room goes to the name: the counts stand in a column at the end
         row.spacing = 6
@@ -147,6 +148,10 @@ extension DiffViewController {
         name.lineBreakMode = .byTruncatingHead
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let stack = NSStackView(views: [icon, name, NSTextField(labelWithAttributedString: RowBadges.changes(added: a, removed: d))])
+        if single == nil, let i = diffs.firstIndex(where: { $0.path == path }) {   // the room between goes to a spacer
+            let gap = NSView(); gap.setContentHuggingPriority(.init(1), for: .horizontal)
+            stack.addArrangedSubview(gap); stack.addArrangedSubview(viewedBox(i))
+        }
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
         stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.fillSelected.cgColor
