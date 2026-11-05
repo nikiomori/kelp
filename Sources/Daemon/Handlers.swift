@@ -438,6 +438,7 @@ extension RepoWorktreeSizes: Handled {
 }
 
 extension RepoRemoveWorktrees: Handled {
+    var notForAgents: String? { "Only the user clears a project's worktrees." }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let r = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         let linked = try Git.linkedWorktrees(r.path, remotes: workspaces.remotes), ours = try RepoWorktreeSizes.ours(workspaces.store, r)

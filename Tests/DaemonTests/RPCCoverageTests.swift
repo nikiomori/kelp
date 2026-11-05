@@ -378,8 +378,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/comment\.add [^\n]*speaks only for itself/#))   // a comment signed as another agent
     #expect(out.contains(#/session\.continueAt [^\n]*acts only on its own session/#))   // "continue" typed later
     #expect(out.contains(#/ports\.stop [^\n]*only in its own workspace/#))
-    // Removing the workspace or the project would end `other`, which this agent didn't start.
-    #expect(out.contains(#/worktree\.remove [^\n]*ends only its own sessions/#) && out.contains(#/repo\.remove [^\n]*ends only its own sessions/#))
+    // Removing the workspace would end `other`, which this agent didn't start; a project is the user's to remove.
+    #expect(out.contains(#/worktree\.remove [^\n]*ends only its own sessions/#) && out.contains(#/repo\.remove [^\n]*Only the user removes a project/#))
     #expect(out.contains(#/ui\.browser [^\n]*only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
     #expect(out.contains(#/stream kelp: An agent acts only/#))
     #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
@@ -405,7 +405,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
         + #"r close ui.command "{\"id\":\"editor.closeTab\"}"; r term ui.open "{\"uri\":\"terminal:?cmd=true\"}"; "#
         + #"r new ui.command "{\"id\":\"agents.new\",\"args\":{\"agent\":\"shell\"}}"; r pane ui.command "{\"id\":\"view.nextPane\"}"; "#
-        + #"r routine routine.delete "{\"id\":\"x\"}"; r away session.create "{\"worktreeId\":\"\#(away.id)\",\"command\":\"cat\"}"; "#
+        + #"r routine routine.delete "{\"id\":\"x\"}"; r away session.create "{\"worktreeId\":\"\#(away.id)\",\"command\":\"cat\"}";"#
+        + #"r archive worktree.archive "{\"id\":\"\#(away.id)\"}"; r forget repo.remove "{\"id\":\"\#(r.repo.id)\"}"; "#
+        + #"r clear repo.removeWorktrees "{\"id\":\"\#(r.repo.id)\",\"paths\":[]}"; "#
         + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     for id in [me.id, other.id] {
@@ -421,7 +423,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
     #expect(out.contains(#/<new> [^\n]*is the user's to run/#) && !out.contains(#/<pane> [^\n]*is the user's to run/#))
     #expect(out.contains(#/<routine> [^\n]*routine is the user's/#) && out.contains(#/<drop> [^\n]*Only the user removes/#))
-    #expect(out.contains(#/<away> [^\n]*works only in its own workspace/#))
+    #expect(out.contains(#/<away> [^\n]*works only in its own workspace/#) && out.contains(#/<archive> [^\n]*works only in its own workspace/#))
+    #expect(out.contains(#/<forget> [^\n]*Only the user removes a project/#) && out.contains(#/<clear> [^\n]*Only the user clears/#))
     #expect(try !r.d.sessions.works(me.id, in: away.id))
     r.d.sessions.made.withLock { $0[away.id] = me.id }   // as `worktree.create` from its terminal does
     #expect(try r.d.sessions.works(me.id, in: away.id))

@@ -78,6 +78,7 @@ extension RepoRename: Handled {
 /// Its workspaces go with it, and so do their agents: none keeps working out of sight.
 extension RepoRemove: Handled {
     var ends: Ending? { .project(id) }
+    var notForAgents: String? { "Only the user removes a project from Kelp." }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let r = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         let ids = Set(try workspaces.store.worktrees(repo: r.id).map(\.id))
@@ -168,6 +169,7 @@ extension WorktreeList: Handled {
 
 extension WorktreeArchive: Handled {
     var ends: Ending? { .workspace(id) }
+    var inWorkspace: String? { id }   // one with no sessions ends none: still not another's to put away
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
         try workspaces.archive(w, r); return Done()
