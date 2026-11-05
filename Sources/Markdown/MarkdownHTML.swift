@@ -13,9 +13,10 @@ public enum MarkdownHTML {
     }
 
     /// Keeps a preview with its source: `kelpToLine(n)` scrolls to source line `n`, between the marks around it; scrolling
-    /// and double-clicking post the line to the `kelpSync` handler. A scroll it did itself doesn't echo back.
+    /// and double-clicking post the line to the `kelpSync` handler. A scroll it did itself doesn't echo back. JavaScript, run
+    /// beside the page (`MarkdownTab.world`), as all of Kelp's scripts for a preview are.
     public static let scrollSync = """
-    <script>(function () {
+    (function () {
       const marks = () => [...document.querySelectorAll('[data-line]')].map(e => ({ l: +e.dataset.line, y: e.getBoundingClientRect().top + scrollY }));
       const between = (list, get, v) => {
         let a = list[0], b = null;
@@ -37,24 +38,23 @@ public enum MarkdownHTML {
       const post = (kind, line) => webkit.messageHandlers.kelpSync?.postMessage({ kind, line });
       addEventListener('scroll', () => { if (Date.now() > quiet) post('scroll', lineAt(scrollY)); }, { passive: true });
       addEventListener('dblclick', e => post('open', lineAt(e.clientY + scrollY)));
-    })();</script>
+    })();
     """
 
     /// Full HTML document around `body`. `baseURL` (the document's URL) resolves relative links and images.
     /// `dark: true` forces the dark palette; otherwise `prefers-color-scheme` decides.
     /// Diagrams for ```mermaid blocks, drawn in the page with the bundled mermaid (no network); nil when there are none.
+    /// JavaScript, as `scrollSync`.
     public static func mermaid(for md: String, dark: Bool) -> String? {
         guard md.contains("```mermaid") || md.contains("~~~mermaid"), let js = mermaidJS else { return nil }
-        return """
-        <script>\(js)</script>
-        <script>
+        return js + """
+
         mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: '\(dark ? "dark" : "default")'});
         document.querySelectorAll('pre > code.language-mermaid').forEach(c => {
           const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = c.textContent;
           c.parentElement.replaceWith(d);
         });
         mermaid.run().catch(() => {});   // a broken diagram shows mermaid's own error in its place
-        </script>
         """
     }
 

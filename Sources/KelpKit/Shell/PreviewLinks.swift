@@ -6,17 +6,42 @@ import WorkbenchKit
 /// pages in a browser tab, the repo's files in their own tab, mail in the mail app. Jumps within the page (#heading)
 /// stay. Nothing else opens: the page may come from a cloned repository, and a link to its `tool.app` or to some other
 /// app's scheme would run it (files from `git clone` carry no quarantine for Gatekeeper to check).
+/// For the same reason nothing of the page's own runs (an agent's page of HTML, a notebook's output): its scripts are off,
+/// Kelp's run beside it in a world of their own (`load`), and its main frame stays on what Kelp loaded (no meta refresh
+/// or form takes it away).
 @MainActor
 package final class PreviewLinks: NSObject, WKNavigationDelegate {
     package enum Target: Equatable { case web(String), file(String), mail(URL), refused }
     private let app: AppModel
+    /// What `load` showed last: the one place the main frame may go but by a clicked link.
+    private var shown = "about:blank"
     package init(app: AppModel) { self.app = app }
 
-    package func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-        guard a.navigationType == .linkActivated, let u = a.request.url else { decisionHandler(.allow); return }
-        if u.fragment != nil, Self.sansFragment(u) == w.url.map(Self.sansFragment) { decisionHandler(.allow); return }
-        decisionHandler(.cancel)
+    /// `html` as the preview's page; Kelp's `scripts` (JavaScript) run in `world` once its document is read, in order. That
+    /// world, not the page's, is where the tab's message handlers belong.
+    package func load(_ html: String, baseURL: URL?, scripts: [String] = [], world: WKContentWorld = .defaultClient, in web: WKWebView) {
+        let uc = web.configuration.userContentController
+        uc.removeAllUserScripts()
+        for s in scripts { uc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world)) }
+        shown = baseURL.map(Self.sansFragment) ?? "about:blank"
+        web.loadHTMLString(html, baseURL: baseURL)
+    }
+
+    package func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences,
+                         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        preferences.allowsContentJavaScript = false
+        decisionHandler(policy(a, in: w), preferences)
+    }
+
+    private func policy(_ a: WKNavigationAction, in w: WKWebView) -> WKNavigationActionPolicy {
+        let u = a.request.url
+        guard a.navigationType == .linkActivated, let u else {
+            // A page's frames load what they load (their scripts are off too); the page itself stays.
+            return a.targetFrame?.isMainFrame == false || u.map(Self.sansFragment) == shown ? .allow : .cancel
+        }
+        if u.fragment != nil, Self.sansFragment(u) == w.url.map(Self.sansFragment) { return .allow }
         Self.open(u, in: app)
+        return .cancel
     }
 
     /// A clicked link, by `target`: a web page as a browser tab, a file as a tab, mail in Mail, anything else refused.

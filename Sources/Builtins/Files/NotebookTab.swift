@@ -50,14 +50,14 @@ final class NotebookTab: NSViewController {
             let d = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
             guard let d, let body = NotebookHTML.render(d) else {
                 let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
-                web.loadHTMLString(EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil)
+                links.load(EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web)
                 return
             }
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance { page = (CodeEditor.page.background.hexString, CodeEditor.page.text.hexString) }
-            web.loadHTMLString(MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
-                               baseURL: url.deletingLastPathComponent())
+            links.load(MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
+                       baseURL: url.deletingLastPathComponent(), in: web)
             if let s = NotebookHTML.summary(d) { status.stringValue = String(localized: "\(s.cells) cells · \(s.language)") }
         }
     }

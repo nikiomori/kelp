@@ -223,7 +223,7 @@ package struct StatusIcon: NSViewRepresentable {
 
 extension Session {
     /// Ended on its own with a non-zero exit code (the daemon says so in the summary): shown red, not grey.
-    package var endedWithError: Bool { status == .exited && summary.hasPrefix("Ended with an error") }
+    var endedWithError: Bool { status == .exited && summary.hasPrefix("Ended with an error") }
     /// What its mark shows: a terminal or a command (not an agent) works while a program in it shows how far it got.
     package var markStatus: AgentStatus { progress != nil && (agent == "shell" || agent == "custom") ? .working : status }
     /// "Working · 40 %" when it says how far it got.

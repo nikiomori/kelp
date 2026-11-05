@@ -3,10 +3,10 @@ import Foundation
 /// On an agent's page, a button under the text you select: it posts the quote to `kelpSync` as `{kind: "ask", text}`, and
 /// the tab types it into the chat that made the page for you to finish the question.
 enum PageAsk {
-    /// `label`: the button's words, already a JavaScript string literal.
+    /// `label`: the button's words, already a JavaScript string literal. JavaScript, run beside the page (`MarkdownTab.world`).
     static func script(label: String) -> String {
         """
-        <script>(function () {
+        (function () {
           const b = document.createElement('button');
           b.textContent = \(label);
           b.style.cssText = 'position:absolute;z-index:2147483647;display:none;padding:4px 10px;border:0;border-radius:999px;'
@@ -32,7 +32,7 @@ enum PageAsk {
             webkit.messageHandlers.kelpSync?.postMessage({ kind: 'ask', text: quote });
             hide(); getSelection().removeAllRanges();
           });
-        })();</script>
+        })();
         """
     }
 }

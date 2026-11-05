@@ -31,7 +31,7 @@ import Markdown
 
     if let dir = ProcessInfo.processInfo.environment["KELP_REVIEW_HTML"] {
         for dark in [false, true] {
-            let html = MarkdownHTML.page(body: body, baseURL: nil, dark: dark) + ReviewPage.extras
+            let html = MarkdownHTML.page(body: body, baseURL: nil, dark: dark) + ReviewPage.style
             try html.write(toFile: "\(dir)/review-\(dark ? "dark" : "light").html", atomically: true, encoding: .utf8)
         }
     }

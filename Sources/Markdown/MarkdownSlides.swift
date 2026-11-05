@@ -1,7 +1,8 @@
 extension MarkdownHTML {
     /// Slides: a page from `render` cut at its rules (`---`) into 16:9 slides, one under the next, their text sized by
-    /// the slide's width. ← → (and space, Page Up/Down) step through them; Print gives a landscape page each.
-    public static let slides = """
+    /// the slide's width. ← → (and space, Page Up/Down) step through them; Print gives a landscape page each. Their look,
+    /// for the page; `slidesScript` cuts them.
+    public static let slidesStyle = """
     <style>
     html{background:var(--subtle)}
     .markdown-body{max-width:none;padding:24px}
@@ -16,7 +17,11 @@ extension MarkdownHTML {
     @media print{html{background:none}.markdown-body{padding:0}
       .slide{width:100%;margin:0;border:0;border-radius:0;break-after:page}}
     </style>
-    <script>(function () {
+    """
+
+    /// What cuts the page into `slidesStyle`'s slides and steps through them: JavaScript, as `scrollSync`.
+    public static let slidesScript = """
+    (function () {
       const page = document.querySelector('.markdown-body');
       if (!page) return;
       const blocks = [...page.children], groups = [[]];
@@ -37,6 +42,6 @@ extension MarkdownHTML {
         const now = all.reduce((b, s, j) => Math.abs(top(s) - scrollY) < Math.abs(top(all[b]) - scrollY) ? j : b, 0);
         scrollTo({ top: top(all[Math.max(0, Math.min(all.length - 1, now + d))]), behavior: 'smooth' });
       });
-    })();</script>
+    })();
     """
 }

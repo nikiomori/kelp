@@ -15,6 +15,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private let app: AppModel
     private let web = WKWebView()
     private let links: PreviewLinks
+    /// Where Kelp's scripts for the preview run (the page's own don't: `PreviewLinks`), and the only world `kelpSync` hears.
+    static let world = WKContentWorld.world(name: "kelp")
     private let mode = NSSegmentedControl(labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
         trackingMode: .selectOne, target: nil, action: nil)
     private let split = NSSplitView()
@@ -145,7 +147,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.isVertical = true; split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
-        web.configuration.userContentController.add(WeakHandler(self), name: "kelpSync")
+        web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view); split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
         // An agent's page has its own bar, whose ⋯ holds the modes (and ⇧⌘V cycles them): one bar over it, not two.
@@ -173,7 +175,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).
-    private func runJS(_ js: String) { web.evaluateJavaScript(js, completionHandler: nil) }
+    private func runJS(_ js: String) { web.evaluateJavaScript(js, in: nil, in: Self.world, completionHandler: nil) }
 
     @objc private func scrolled() {
         if !selectionBar.isHidden { placeSelectionBar() }
@@ -181,18 +183,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         runJS("kelpToLine(\(editor.topLine))")
     }
 
-    /// `html` with a policy, first in its head, that runs only scripts carrying `nonce` (Kelp's own, added after it).
-    nonisolated static func scriptless(_ html: String, nonce: String) -> String {
-        let rules = ["script-src 'nonce-\(nonce)'", "script-src-attr 'none'", "object-src 'none'"].joined(separator: "; ")
-        let policy = #"<meta http-equiv="Content-Security-Policy" content=""# + rules + #"">"#
-        let at = html.range(of: #"<head\b[^>]*>"#, options: [.regularExpression, .caseInsensitive])
-            ?? html.range(of: #"<!doctype[^>]*>"#, options: [.regularExpression, .caseInsensitive])
-        guard let at else { return policy + html }
-        return html[..<at.upperBound] + policy + html[at.upperBound...]
-    }
-
-    /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
-    /// Only from the page Kelp loaded: one the preview was taken away to (a meta refresh, a form) isn't heard.
+    /// From Kelp's scripts beside the preview's page (`world`; the page's own don't run): scrolled to a line
+    /// (the source follows), or double-clicked on one (the cursor goes there).
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
         guard m.frameInfo.isMainFrame, m.frameInfo.request.url?.isFileURL != false else { return }
         if artifactBar != nil, let body = m.body as? [String: Any], body["kind"] as? String == "ask" { return ask(about: body["text"] as? String ?? "") }
@@ -250,26 +242,26 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 page = (p.background.hexString, p.text.hexString)
             }
             let review = isReview, slides = isSlides, raw = isHTML, sendTo = pageAuthor?.title
-            // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run, Kelp's do.
-            let nonce = UUID().uuidString
-            let ask = artifactBar == nil ? "" : PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))
-            let html = await Task.detached { [page] in
-                if raw { return Self.scriptless(text, nonce: nonce) }
+            // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
+            // Kelp's do, beside it.
+            let ask = artifactBar == nil ? [] : [PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))]
+            let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
+                if raw { return (text, []) }
                 if review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
-                    return MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.extras
+                    return (MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.style, [ReviewPage.script])
                 }
-                return MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
-                    + (slides ? MarkdownHTML.slides : "") + (MarkdownHTML.mermaid(for: text, dark: dark) ?? "") + MarkdownHTML.scrollSync
+                let html = MarkdownHTML.page(body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
+                return (html + (slides ? MarkdownHTML.slidesStyle : ""),
+                        [slides ? MarkdownHTML.slidesScript : nil, MarkdownHTML.mermaid(for: text, dark: dark), MarkdownHTML.scrollSync].compactMap { $0 })
             }.value
             guard !Task.isCancelled else { return }
             // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).
-            let y = (try? await web.evaluateJavaScript("window.scrollY")) as? Double ?? 0
+            let y = (try? await web.evaluateJavaScript("window.scrollY", contentWorld: Self.world)) as? Double ?? 0
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place = currentMode == "split" && !review && !raw ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
-            let tail = (ask + "<script>\(place)</script>").replacingOccurrences(of: "<script>", with: raw ? "<script nonce=\"\(nonce)\">" : "<script>")
-            web.loadHTMLString(html + tail, baseURL: base)
+            links.load(html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, in: web)
         }
     }
 

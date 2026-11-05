@@ -31,8 +31,8 @@ enum ReviewPage {
         return html
     }
 
-    /// The page's look on top of the Markdown one, and its clicks.
-    static let extras = """
+    /// The page's look on top of the Markdown one.
+    static let style = """
         <style>
         :root{--k-acc:#007aff}:root.dark{--k-acc:#0a84ff}@supports (color:AccentColor){:root,:root.dark{--k-acc:AccentColor}}
         .markdown-body{padding-bottom:96px}
@@ -61,7 +61,10 @@ enum ReviewPage {
         .k-send:disabled{opacity:.4;cursor:default}
         @media (prefers-reduced-motion:reduce){.k-opt{transition:none}}
         </style>
-        <script>
+        """
+
+    /// Its clicks: JavaScript, run beside the page (`MarkdownTab.world`).
+    static let script = """
         const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
         document.querySelectorAll('.k-opt').forEach(b => b.addEventListener('click', () => post({ kind: 'pick', point: b.dataset.p, key: b.dataset.k })));
         document.querySelectorAll('.k-note').forEach(i => {
@@ -71,7 +74,6 @@ enum ReviewPage {
         });
         document.querySelector('.k-send')?.addEventListener('click', () => post({ kind: 'send' }));
         function kelpReviewSent(text) { const s = document.querySelector('.k-sum'); if (s) s.textContent = text; }
-        </script>
         """
 
     /// A line of Markdown inline (code, emphasis, links), without the paragraph around it.
