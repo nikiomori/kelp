@@ -42,6 +42,8 @@ protocol Answered: RPCMethod {
     var ends: Ending? { get }
     /// Why an agent, or a program it runs, may not call it at all (a routine starts agents of the user's later): nil if it may.
     var notForAgents: String? { get }
+    /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
+    var typesInto: String? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -54,6 +56,7 @@ extension Answered {
     var inWorkspace: String? { nil }
     var ends: Ending? { nil }
     var notForAgents: String? { nil }
+    var typesInto: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -179,6 +182,9 @@ extension Daemon {
         if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
+        }
+        if let id = m.typesInto, sessions.existing(id)?.snapshot.status == .waiting {
+            throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
         for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where id != own {
             guard try sessions.lineage(id).contains(where: { $0.id == own }) else {

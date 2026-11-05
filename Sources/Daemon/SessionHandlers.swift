@@ -34,6 +34,7 @@ extension SessionDetach: Handled {
 extension SessionWrite: SessionInput {
     static var inOrder: Bool { true }   // keystrokes
     var actsOn: String? { id }
+    var typesInto: String? { id }
     func apply(to s: LiveSession) throws -> Done {
         let data: Data
         if let base64, let b = Data(base64Encoded: base64) {

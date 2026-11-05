@@ -447,6 +447,23 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
 }
 
+/// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.
+@Test func anAgentDoesntTypeIntoAQuestion() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let write = #"r write session.write "{\"id\":\"$KELP_SESSION\",\"base64\":\"MQ0=\"}""#
+    let go = r.wt.path + "/go"   // not typed: a key from the user would end the question
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); until [[ -e \(go) ]]; do sleep 0.1; done; \(write); cat'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude"; $0.status = .waiting }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.status == .waiting })
+    FileManager.default.createFile(atPath: go, contents: nil)
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<write>") })
+    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<write> [^\n]*asks a question/#))
+}
+
 /// A restart keeps what an agent started its own (its commands, what came from its terminal); a session whose line
 /// breaks off (the one it came from is gone) is held to an agent's rules.
 @Test func aRestartedAgentKeepsWhatItStarted() async throws {
