@@ -259,6 +259,14 @@ struct SettingRow: View {
                             selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }), label: { Self.label(spec.key, $0, app) })
             }
             .padding(.vertical, Metrics.lineGap)
+        case "enum" where Self.segmented.contains(spec.key):
+            // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
+            LabeledContent {
+                Picker("", selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
+                    ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+            } label: { label }
         case "enum":
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
@@ -279,6 +287,10 @@ struct SettingRow: View {
             LabeledContent { SettingTextField(key: spec.key, language: language).frame(width: 220) } label: { label }
         }
     }
+
+    /// Two or three short choices seen side by side, as macOS shows them, instead of behind a menu.
+    static let segmented: Set<String> = ["agents.onWaiting", "agents.onFinish", "agents.onError", "power.keepAwake", "usage.limits",
+                                         "workbench.sidebar.order", "markdown.defaultMode"]
 
     /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
     /// installed), which would otherwise leave the picker blank.
@@ -333,7 +345,7 @@ struct SettingRow: View {
         case "workbench.sidebar.order":
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "agents.onFinish", "agents.onWaiting", "agents.onError":
-            return ["sound": String(localized: "Banner and Sound"), "banner": String(localized: "Banner Only"), "off": String(localized: "Off")][v] ?? v
+            return ["sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"), "off": String(localized: "Off")][v] ?? v
         case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) seconds")
         case "sessions.hibernateMinutes":
             let m = Int(v) ?? -1
