@@ -37,6 +37,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     var rows: [Row] = []
     private(set) var repoId: String?
     private var projectOwner: String?
+    /// Bumped by every reload and every filter menu built: a reply for an older one (another project, list or filter)
+    /// lands nowhere.
+    private var reloads = 0, menus = 0
     private var jiraJQL = "project = ENG AND statusCategory != Done ORDER BY priority DESC"
 
     override func loadView() {
@@ -121,6 +124,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
 
     @objc private func sourceChanged() {
         filter.removeAllItems()
+        menus += 1
+        let menu = menus
         switch source.indexOfSelectedItem {
         case 0: filter.addItems(withTitles: [String(localized: "All open"), String(localized: "Mine"), String(localized: "Review requested")])
         case 1: filter.addItems(withTitles: [String(localized: "All open"), String(localized: "Assigned to me")])
@@ -128,7 +133,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         case 2:
             filter.addItems(withTitles: [String(localized: "My issues")])
             Task {   // team boards
-                for t in await app.quiet(LinearTeams()) ?? [] {   // the list's own load says what failed
+                for t in await app.quiet(LinearTeams()) ?? [] where menu == menus {   // the list's own load says what failed
                     filter.addItem(withTitle: String(localized: "Team: \(t.name)")); filter.lastItem?.representedObject = t.id
                 }
             }
@@ -147,6 +152,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     }
 
     @objc func reload() {
+        reloads += 1; let gen = reloads
         guard let repoId else {
             rows = []
             table.reloadData()
@@ -178,6 +184,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 default:
                     if filter.itemTitles.first == String(localized: "Loading projects…") {
                         let ps = try await m.get(GitHubProjects(repoId: repoId))
+                        guard gen == reloads else { return }
                         filter.removeAllItems()
                         for p in ps { filter.addItem(withTitle: p.title); filter.lastItem?.tag = p.number }
                         projectOwner = ps.first.flatMap { URL(string: $0.url)?.pathComponents.dropFirst(2).first }
@@ -187,8 +194,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                             .sorted { ($0.status ?? "~") < ($1.status ?? "~") }.map(Row.item)
                     } else { rows = [] }
                 }
-                // Switched project or list meanwhile: these rows belong to the old one.
-                guard repoId == self.repoId, src == source.indexOfSelectedItem else { return }
+                // Switched project, list or filter meanwhile: these rows belong to the old one.
+                guard gen == reloads else { return }
                 self.rows = rows
                 filter.isHidden = false
                 // Empty because of the filter isn't the same as empty: say which, and offer the way back.
@@ -200,7 +207,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 showAll.isHidden = !narrowed; setupButton.isHidden = true
                 showEmpty(rows.isEmpty ? why : nil)
             } catch {
-                guard repoId == self.repoId, src == source.indexOfSelectedItem else { return }
+                guard gen == reloads else { return }
                 showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"
                 setup = src == 2 || src == 3 ? nil : Forge.setup(for: message)

@@ -184,3 +184,37 @@ import Core
     for _ in 0..<40 where m.parked["s1"] != nil { try await Task.sleep(for: .milliseconds(50)) }
     #expect(m.parked["s1"] == nil)
 }
+
+/// The Issues panel shows the list last asked for: the slower reply of a filter left behind (All open, then Mine) used
+/// to land over it, since only the project and the source were checked.
+@MainActor @Test func theIssuesPanelShowsTheFilterLastPicked() async throws {
+    let path = NSTemporaryDirectory() + "kelp-issues-\(getpid()).sock"
+    let server = try Unix.listen(path)
+    defer { close(server); unlink(path) }
+    // A daemon whose "open" list answers late, the rest at once (an error for what isn't a list).
+    Thread.detachNewThread {
+        let fd = accept(server, nil, nil)
+        var lines = LineBuffer(), buf = [UInt8](repeating: 0, count: 65536)
+        while case let n = read(fd, &buf, buf.count), n > 0 {
+            for line in lines.append(Data(buf[0..<n])) {
+                guard let m = try? JSONSerialization.jsonObject(with: line) as? [String: Any], let id = m["id"] as? Int else { continue }
+                let late = (m["params"] as? [String: Any])?["filter"] as? String == "open"
+                let pr = #"{"number":\#(late ? 1 : 2),"title":"t","url":"","author":"a","headRefName":"b","isDraft":false,"state":"OPEN","checks":{"passed":0,"failed":0,"pending":0}}"#
+                let reply = m["method"] as? String == "github.prs" ? #"{"jsonrpc":"2.0","id":\#(id),"result":[\#(pr)]}"#
+                    : #"{"jsonrpc":"2.0","id":\#(id),"error":{"code":-32601,"message":"no"}}"#
+                DispatchQueue.global().asyncAfter(deadline: .now() + (late ? 0.3 : 0)) { _ = Unix.writeAll(fd, Data((reply + "\n").utf8)) }
+            }
+        }
+    }
+    let m = AppModel(builtins: [])
+    m.client = try RPCClient(socket: path)
+    m.repos = [Repo(id: "r1", name: "one", path: "/one")]
+    let panel = TasksViewController(app: m)
+    panel.show(worktree: nil)
+    _ = panel.view   // asks for All open
+    panel.filter.selectItem(at: 1)
+    panel.reload()   // then Mine
+    try await Task.sleep(for: .milliseconds(600))
+    guard case .pr(let shown)? = panel.rows.first else { Issue.record("no rows"); return }
+    #expect(panel.rows.count == 1 && shown.number == 2)
+}
