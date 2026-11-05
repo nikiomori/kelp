@@ -223,6 +223,14 @@ import WorkbenchKit
     #expect(!own.leavesSharedSite(other, mainFrame: true))   // its own page has no login to keep
 }
 
+/// The user's tab, once taken to another site (by the user, after the agent left it), isn't the agent's to drive there.
+@MainActor @Test(.timeLimit(.minutes(1))) func aSharedTabOnAnotherSiteIsntDriven() async throws {
+    let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
+    tab.web.loadHTMLString("<p>mail</p>", baseURL: URL(string: "https://mail.other.com/"))
+    for _ in 0..<100 where tab.web.url?.host != "mail.other.com" { try await Task.sleep(for: .milliseconds(20)) }
+    await #expect(throws: RPCError.self) { try await tab.browse("snapshot", .object([:])) }
+}
+
 @Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() {
     let snap = """
         - page "Shop" http://x/

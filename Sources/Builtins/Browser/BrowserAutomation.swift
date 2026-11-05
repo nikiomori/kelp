@@ -2,6 +2,7 @@ import AppKit
 import WebKit
 import Core
 import DesignKit
+import WorkbenchKit
 
 /// `kelp browser`: what an agent does on the page. Kelp's scripts run in a world of their own (`world`): the page can't see
 /// or change them, but they see its DOM. Clicks and typing are DOM events (`isTrusted` false), so they work while the tab
@@ -13,6 +14,11 @@ extension BrowserTab {
         func need(_ k: String) throws -> String {
             guard let v = args[k]?.string, !v.isEmpty else { throw RPCError.invalidParams("\(action) needs \(k)") }
             return v
+        }
+        // The user's logged-in tab is the agent's on the one site the user allowed: taken elsewhere since (by the user, once
+        // the agent left it), it's theirs.
+        if !agent, let now = web.url, now.scheme != "about", PageOrigin.of(now) != PageOrigin.of(URL(string: start)) {
+            throw RPCError.invalidParams("This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again.")
         }
         watch(); sized()
         drivenAt = Date()
