@@ -25,7 +25,7 @@ extension Workspaces {
 
     /// Nothing in it runs, links, or speaks to an agent for the user: a file like that needs no trust.
     static func asksNothing(_ c: RepoConfig) -> Bool {
-        c.setup == nil && c.scripts.isEmpty && c.tabs.isEmpty && c.shared.isEmpty && c.recipes.isEmpty && c.issueCommand == nil
+        c.setup == nil && c.scripts.isEmpty && c.tabs.isEmpty && c.shared.isEmpty && c.clone.isEmpty && c.recipes.isEmpty && c.issueCommand == nil
     }
 
     /// The project's .kelp.yaml if the user trusts it as it is now, else nothing of it: a cloned repository's prompts

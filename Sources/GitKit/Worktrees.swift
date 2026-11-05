@@ -44,12 +44,23 @@ extension Git {
 
     /// Symlink shared directories (node_modules, .venv…) from the main checkout instead of reinstalling.
     public static func linkShared(_ dirs: [String], repo: String, worktree: String) {
+        place(dirs, repo: repo, worktree: worktree) { src, dst in try? FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src) }
+    }
+
+    /// `.kelp.yaml`'s `clone:` paths copied into a new worktree as APFS clones: seconds and next to no disk, and each
+    /// branch has its own (`npm install` there changes only its copy). Off APFS (another volume) a path is left out:
+    /// a real copy of a node_modules would hold the new worktree up for minutes.
+    public static func cloneShared(_ dirs: [String], repo: String, worktree: String) {
+        place(dirs, repo: repo, worktree: worktree) { src, dst in _ = clonefile(src, dst, 0) }
+    }
+
+    private static func place(_ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void) {
         // Only paths inside the project: "/etc", "../x" or "a/../../b" would link (or create folders) outside it.
         for d in dirs where !d.hasPrefix("/") && !d.hasPrefix("~") && !d.split(separator: "/").contains("..") {
             let src = (repo as NSString).appendingPathComponent(d), dst = (worktree as NSString).appendingPathComponent(d)
             guard FileManager.default.fileExists(atPath: src), !FileManager.default.fileExists(atPath: dst), staysInside(dst, worktree) else { continue }
             try? FileManager.default.createDirectory(atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-            try? FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src)
+            put(src, dst)
         }
     }
 

@@ -3,6 +3,7 @@ import Core
 
 /// `.kelp.yaml`: flat `key: value` lines. Deliberately not full YAML.
 ///   setup: shell command      shared: node_modules, .venv   (symlinked into each worktree)
+///   clone: node_modules   (an APFS copy in each worktree: its own, made in seconds)
 ///   tabs: claude, shell   (sessions opened in a new worktree)      issueCommand: prompt template for issue worktrees
 ///   recipe.<action>: prompt template with {stagedPatch} {branch} {diffStat} {error} {linkedIssue}
 ///   run / test / lint / build: the project's commands (Run menu, ⌘R ⌘U)      script.<name>: any other one
@@ -10,6 +11,8 @@ import Core
 public struct RepoConfig: Sendable, Equatable {
     public var setup: String?, issueCommand: String?
     public var shared: [String] = [], tabs: [String] = []
+    /// Copied into each new worktree as APFS clones (`Git.cloneShared`), where `shared` links one folder for all.
+    public var clone: [String] = []
     public var recipes: [String: String] = [:]
     /// Named commands in the file's order.
     public var scripts: [Script] = []
@@ -29,6 +32,7 @@ public struct RepoConfig: Sendable, Equatable {
             case "setup": c.setup = v
             case "issueCommand": c.issueCommand = v
             case "shared": c.shared = list
+            case "clone": c.clone = list
             case "tabs": c.tabs = list
             default:
                 if key.hasPrefix("recipe.") { c.recipes[String(key.dropFirst(7))] = v.replacingOccurrences(of: "\\n", with: "\n") }

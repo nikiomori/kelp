@@ -121,6 +121,7 @@ extension WorktreeCreate: Handled {
         let read = workspaces.configAndTrust(r.path), cfg = read.config
         if read.trusted {
             Git.linkShared(cfg.shared, repo: r.path, worktree: path)
+            Git.cloneShared(cfg.clone, repo: r.path, worktree: path)
             if tabs != false {
                 for t in cfg.tabs {
                     do { _ = try workspaces.sessions.spawn(cwd: path, manifest: workspaces.sessions.manifest(t, command: nil), worktreeId: w.id) }
@@ -128,7 +129,7 @@ extension WorktreeCreate: Handled {
                 }
             }
         }
-        let asks = cfg.setup != nil || !cfg.tabs.isEmpty || !cfg.shared.isEmpty
+        let asks = cfg.setup != nil || !cfg.tabs.isEmpty || !cfg.shared.isEmpty || !cfg.clone.isEmpty
         if asks, setup != false, !read.trusted {
             result.setupNeedsTrust = true   // the app asks, then scripts.trust + scripts.run "setup"
         } else if let cmd = cfg.setup, setup != false {

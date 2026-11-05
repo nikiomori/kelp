@@ -171,6 +171,7 @@ Claude Code sessions get Kelp's skills for this (Settings › Agents): ask the a
 ```yaml
 setup: npm install              # runs in every new worktree
 shared: node_modules            # symlinked from the main checkout instead of reinstalling
+clone: .venv                    # or each worktree gets its own copy, an APFS clone: seconds, next to no disk
 tabs: claude, shell             # sessions opened in each new worktree
 run: PORT=$KELP_PORT npm run dev   # Run menu (⌘R). Also test (⌘U), lint, build, script.<name>
 test: npm test
