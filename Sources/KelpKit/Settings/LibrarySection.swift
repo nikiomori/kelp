@@ -36,7 +36,7 @@ struct LibrarySection: View {
                     if !found.isEmpty { unreviewed(found) }
                 }
             } else {
-                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Loading…").foregroundStyle(.secondary) }
+                LoadingLine(String(localized: "Loading…"))
             }
         } footer: {
             HStack {

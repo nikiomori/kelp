@@ -40,8 +40,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     }
 
     private init(app: AppModel) {
-        grid = NSGridView(views: [[NSTextField(labelWithString: String(localized: "Host:")), host],
-                                  [NSTextField(labelWithString: String(localized: "Folder:")), path]])
+        grid = SheetForm.grid([(String(localized: "Host"), host), (String(localized: "Folder"), path)])
         super.init(app: app, width: Metrics.sheetWidth)
         build()
     }
@@ -52,14 +51,8 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         host.addItems(withObjectValues: Self.sshHosts()); host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         host.completes = true; host.delegate = self
         host.stringValue = UserDefaults.standard.string(forKey: "remote.host") ?? ""
-        for f in [host, path] as [NSView] { f.widthAnchor.constraint(equalToConstant: 340).isActive = true }
-        grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .none
         grid.yPlacement = .center   // a combo box has no first baseline for the grid to line its label up with
-        grid.rowSpacing = 10
-        grid.columnSpacing = 8
-        // The fields don't move when the folder row and the list come and go.
-        grid.setContentHuggingPriority(.required, for: .horizontal)
-        grid.column(at: 0).width = (0..<2).compactMap { grid.cell(atColumnIndex: 0, rowIndex: $0).contentView?.fittingSize.width }.max() ?? 0
         let column = NSTableColumn(identifier: .init("folder")); column.resizingMask = .autoresizingMask
         table.addTableColumn(column)
         table.headerView = nil
@@ -75,7 +68,6 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         for t in [note, status] {
             t.textColor = .secondaryLabelColor
             t.font = .ui(11)
-            t.preferredMaxLayoutWidth = 430
         }
         spinner.style = .spinning
         spinner.controlSize = .small
@@ -89,15 +81,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         cancel.keyEquivalent = "\u{1b}"
         cancel.target = self
         cancel.action = #selector(close)
-        let buttons = NSStackView(views: [spinner, NSView(), cancel, go]); buttons.spacing = 8
-        let stack = NSStackView(views: [title, grid, scroll, note, status, buttons])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.detachesHiddenViews = true
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.sheetInset, left: Metrics.sheetInset, bottom: Metrics.sheetInset, right: Metrics.sheetInset)
-        for v in [scroll, buttons] { v.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true }
-        window?.contentView = stack
+        let buttons = NSStackView(views: [spinner, NSView(), cancel, go]); buttons.spacing = Metrics.gapWide
+        window?.contentView = SheetForm.stack([title, grid, scroll, note, status, buttons], wide: [scroll, note, status, buttons],
+                                              width: Metrics.sheetWidth)
         window?.initialFirstResponder = host
         say(nil); update()
     }

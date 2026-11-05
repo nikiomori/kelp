@@ -44,7 +44,7 @@ struct ServerView: View {
             if let s = stats, s.connected {
                 ServerDetail(app: app, host: host, stats: s, history: history)
             } else if stats == nil || dialing {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingLine(String(localized: "Connecting…")).offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 offline
             }

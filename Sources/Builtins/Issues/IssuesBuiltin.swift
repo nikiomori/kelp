@@ -11,7 +11,7 @@ extension Builtins {
                                         icon: "checklist") { app in
         var c = Contributions()
         let failed = FailedRuns(app: app)
-        c.panels = [PanelSpec(id: "issues", title: "Issues & PRs", icon: "checklist", extensionId: "kelp.issues") {
+        c.panels = [PanelSpec(id: "issues", title: "Issues & Pull Requests", icon: "checklist", extensionId: "kelp.issues") {
             let t = TasksViewController(app: app)
             track(owner: t) { app.workbench.workspaceId } changed: { [weak t] in t?.show(worktree: $0) }
             return t

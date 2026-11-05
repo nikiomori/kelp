@@ -69,11 +69,12 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private let go = NSButton(title: "", target: nil, action: nil)
     /// The rows: a file, or a match of one.
     private let rows: [(file: Int, match: Int?)]
+    private static let width: CGFloat = 640   // wider than a form: the lines of code it lists
 
     init(_ files: [ReplaceFile], leftOut: Int) {
         self.files = files
         rows = files.indices.flatMap { f in [(f, nil)] + files[f].matches.indices.map { (f, Optional($0)) } }
-        window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 640, height: 460), styleMask: [.titled], backing: .buffered, defer: true)
+        window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 460), styleMask: [.titled], backing: .buffered, defer: true)
         super.init()
         let column = NSTableColumn(identifier: .init("r"))
         table.addTableColumn(column)
@@ -96,11 +97,8 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         go.action = #selector(confirmed)
         go.keyEquivalent = "\r"
         let buttons = NSStackView(views: [note, NSView(), cancel, go])
-        let stack = NSStackView(views: [scroll, buttons])
-        stack.orientation = .vertical
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.sheetInset, left: Metrics.sheetInset, bottom: Metrics.sheetInset, right: Metrics.sheetInset)
-        window?.contentView = stack
-        scroll.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.sheetInset).isActive = true
+        buttons.spacing = Metrics.gapWide
+        window?.contentView = SheetForm.stack([scroll, buttons], wide: [scroll, buttons], width: Self.width)
         count()
     }
 

@@ -401,10 +401,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let dirs = [URL(fileURLWithPath: root).appendingPathComponent(".kelp/templates"), Paths.root.appendingPathComponent("templates")]
         let all = dirs.flatMap { Templates.list(in: $0) }
         guard !all.isEmpty else {
-            let a = NSAlert(); a.messageText = String(localized: "No templates yet")
-            a.informativeText = String(
-                localized: "Add Markdown files to .kelp/templates in the repo or ~/.kelp/templates. Placeholders: {{date}}, {{time}}, {{branch}}, {{title}}, {{repo}}.")
-            Task { _ = await runSheet(a) }; return
+            // Nothing to decide, so no question: a note in the corner says where templates go.
+            let how = String(localized: "Add Markdown files to .kelp/templates in the repo or ~/.kelp/templates. Placeholders: {{date}}, {{time}}, {{branch}}, {{title}}, {{repo}}.")
+            return Banner.show(String(localized: "No templates yet") + ". " + how)
         }
         let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 26))
         for t in all { pop.addItem(withTitle: t.deletingPathExtension().lastPathComponent) }

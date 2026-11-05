@@ -73,14 +73,7 @@ public final class EmptyStateView: NSView {
     }
 
     /// Fills `area` under `top` (its bar), over whatever the area shows when it has something.
-    public func place(in area: NSView, under top: NSView? = nil) {
-        translatesAutoresizingMaskIntoConstraints = false
-        area.addSubview(self)
-        NSLayoutConstraint.activate([
-            topAnchor.constraint(equalTo: top?.bottomAnchor ?? area.topAnchor), bottomAnchor.constraint(equalTo: area.bottomAnchor),
-            leadingAnchor.constraint(equalTo: area.leadingAnchor), trailingAnchor.constraint(equalTo: area.trailingAnchor)
-        ])
-    }
+    public func place(in area: NSView, under top: NSView? = nil) { pin(in: area, under: top) }
 
     /// The same block as a web page, for a web view that has nothing to show (a page that didn't load, a notebook that
     /// can't be read): the title and a line under it, centred and lifted as the view is. Plain text; it's escaped here.

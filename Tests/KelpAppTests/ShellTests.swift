@@ -187,3 +187,16 @@ import WorkbenchKit
     m.sessions.append(s("w1", "codex", .idle))
     #expect(WindowBar.liveAgents(m, in: "w1") == 2)
 }
+
+/// A form sheet's fields end where its buttons end, and its names stand in one column.
+@MainActor @Test func aFormSheetsFieldsEndWhereItsButtonsEnd() {
+    let field = NSTextField(), cancel = NSButton(title: "Cancel", target: nil, action: nil)
+    let buttons = NSStackView(views: [NSView(), cancel])
+    let grid = SheetForm.grid([("URL", field)])
+    let stack = SheetForm.stack([grid, buttons], wide: [buttons], width: Metrics.sheetWidth)
+    stack.frame = NSRect(x: 0, y: 0, width: Metrics.sheetWidth, height: 200)
+    stack.layoutSubtreeIfNeeded()
+    let fieldEnd = field.convert(field.bounds, to: stack).maxX, buttonsEnd = buttons.convert(buttons.bounds, to: stack).maxX
+    #expect(fieldEnd == buttonsEnd && buttonsEnd == Metrics.sheetWidth - Metrics.sheetInset)
+    #expect(grid.column(at: 0).width == Metrics.formLabel)
+}

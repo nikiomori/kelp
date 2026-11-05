@@ -47,7 +47,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         let title = NSTextField(labelWithString: String(localized: "Clone a Repository"))
         title.font = .ui(13, weight: .semibold)
         field.placeholderString = "https://github.com/owner/repo or git@…"
-        field.widthAnchor.constraint(equalToConstant: 340).isActive = true; field.delegate = self
+        field.delegate = self
         dest.delegate = self
         dest.setContentHuggingPriority(.defaultLow, for: .horizontal)
         dest.usesSingleLineMode = true
@@ -57,14 +57,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         choose.bezelStyle = .push
         choose.target = self
         choose.action = #selector(pick)
-        let row = NSStackView(views: [dest, choose]); row.spacing = 8
-        let grid = NSGridView(views: [[NSTextField(labelWithString: String(localized: "URL:")), field],
-                                      [NSTextField(labelWithString: String(localized: "Clone into:")), row]])
-        row.widthAnchor.constraint(equalTo: field.widthAnchor).isActive = true
-        grid.column(at: 0).xPlacement = .trailing
-        grid.rowAlignment = .firstBaseline
-        grid.rowSpacing = 10
-        grid.columnSpacing = 8
+        let row = NSStackView(views: [dest, choose]); row.spacing = Metrics.gapWide
+        let grid = SheetForm.grid([(String(localized: "URL"), field), (String(localized: "Clone into"), row)])
         bar.style = .bar
         bar.isIndeterminate = true
         bar.isHidden = true
@@ -73,7 +67,6 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         status.textColor = .secondaryLabelColor
         status.font = .ui(11)
         status.isHidden = true
-        status.preferredMaxLayoutWidth = 430
         go.title = String(localized: "Clone")
         go.bezelStyle = .push
         go.keyEquivalent = "\r"
@@ -84,15 +77,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         cancel.keyEquivalent = "\u{1b}"
         cancel.target = self
         cancel.action = #selector(stop)
-        let buttons = NSStackView(views: [NSView(), cancel, go]); buttons.spacing = 8
-        let stack = NSStackView(views: [title, grid, bar, status, buttons])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.detachesHiddenViews = true
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.sheetInset, left: Metrics.sheetInset, bottom: Metrics.sheetInset, right: Metrics.sheetInset)
-        for v in [bar, buttons] { v.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true }
-        window?.contentView = stack
+        let buttons = NSStackView(views: [NSView(), cancel, go]); buttons.spacing = Metrics.gapWide
+        window?.contentView = SheetForm.stack([title, grid, bar, status, buttons], wide: [bar, status, buttons], width: Metrics.sheetWidth)
         window?.initialFirstResponder = field
     }
 

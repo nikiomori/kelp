@@ -7,7 +7,7 @@ import KelpKit
 
 extension Builtins {
 
-    package static let git = Builtin("kelp.git", "Git", "Source Control: changes and staging, commits, branches, the history graph and diffs.",
+    package static let git = Builtin("kelp.git", "Source Control", "Changes and staging, commits, branches, the history graph and diffs, with Git.",
                                      icon: "arrow.triangle.branch") { app in
         var c = Contributions()
         c.tabs = [TabProvider(schemes: ["diff"]) { DiffTab(uri: $0, app: app) },
@@ -22,7 +22,7 @@ extension Builtins {
         }]
         c.editors = [EditorSpec(id: "git.review", title: "Review Changes", icon: "plus.forwardslash.minus",
                                 uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })]
-        c.settings = [SettingsSection(id: "git", title: "Git", icon: "arrow.triangle.branch", specs: [
+        c.settings = [SettingsSection(id: "git", title: "Source Control", icon: "arrow.triangle.branch", specs: [
             s("git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names.", placeholder: "you/"),
             s("worktrees.folder", "Folder for worktrees", "string", "",
               "Empty: inside Kelp's own folder.",
