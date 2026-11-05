@@ -174,10 +174,26 @@ import Agents
     let ls = try #require(w.d.sessions.existing(id))
     ls.hook("waiting", message: "Allow git push --force?", asker: "")
     #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow ls?")) == false)
+
     #expect(w.d.sessions.permissionWaits.withLock { $0[id] != nil })
     #expect(try await c.call(SessionChoose(id: id, answer: "deny", question: "Allow git push --force?")))
     #expect(try await third.value == "deny")
     #expect(Hooks.settingsJSON().contains(#""PermissionRequest":[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#))
+}
+
+/// A question that doesn't show all it would allow (a command of more lines) isn't answered from a banner, even its own.
+@Test func aQuestionCutShortIsntAnsweredFromABanner() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")]); defer { w.d.stop() }
+    let wt = try await desk(w, "cut")
+    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let c = w.c, id = s.id
+    let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
+    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    try #require(w.d.sessions.existing(id)).hook("waiting", message: "Allow npm test …?", asker: "")
+    #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow npm test …?")) == false)
+    #expect(w.d.sessions.permissionWaits.withLock { $0[id] != nil })   // still the dialog's to answer
+    w.d.sessions.answerPermission(id, nil)
+    #expect(try await waiting.value == nil)
 }
 
 /// A recap is asked only of Claude Code with a conversation to fork; any other session gets none and keeps its summary.

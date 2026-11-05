@@ -96,6 +96,8 @@ extension SessionChoose: Handled {
     var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
+        // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
+        if let question, !Hooks.shownWhole(question) { return false }
         // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
         // goes only to the question it showed: the hook waiting now may be a newer one's.
         if ls.asks(question), sessions.answerPermission(id, answer == "allow" ? "allow" : "deny") {

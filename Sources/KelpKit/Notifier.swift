@@ -1,6 +1,7 @@
 import AppKit
 @preconcurrency import UserNotifications   // its center and settings aren't marked Sendable
 import Core
+import Agents
 
 /// Banner + dock badge when an agent finishes or waits; clicking opens the right pane.
 @MainActor
@@ -427,9 +428,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
+    /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
     static func asksPermission(_ s: Session) -> Bool {
         let t = s.summary.lowercased()
-        return s.status == .waiting && ["permission", "approve", "allow"].contains { t.contains($0) }
+        return s.status == .waiting && ["permission", "approve", "allow"].contains { t.contains($0) } && Hooks.shownWhole(s.summary)
     }
 
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {

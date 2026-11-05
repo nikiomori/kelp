@@ -22,8 +22,10 @@ extension Hooks {
         }
         func field(_ key: String) -> String? { input[key]?.string.map(oneLine).flatMap { $0.isEmpty ? nil : $0 } }
         func file(_ key: String) -> String? { field(key).map { shortPath($0, cwd: n["cwd"]?.string) } }
+        // A command of more lines than shows ends "…": what's asked isn't all on screen (`Hooks.shownWhole`).
+        let lines = input["command"]?.string?.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.count ?? 0
         let what: String? = switch tool {
-        case "Bash": field("command")
+        case "Bash": field("command").map { lines > 1 ? $0 + " …" : $0 }
         case "Edit", "MultiEdit", "NotebookEdit": file("file_path").map { "editing " + $0 } ?? file("notebook_path").map { "editing " + $0 }
         case "Write": file("file_path").map { "writing " + $0 }
         case "Read": file("file_path").map { "reading " + $0 }
@@ -35,6 +37,10 @@ extension Hooks {
         let text = what ?? (name.isEmpty ? "this" : name)
         return "Allow " + (text.count > 120 ? String(text.prefix(119)) + "…" : text) + "?"
     }
+
+    /// Whether a permission's question shows all it would allow: one cut short or a command of several lines doesn't,
+    /// so it is answered in the agent's own dialog, never with one click on a banner or the Dock.
+    public static func shownWhole(_ question: String) -> Bool { !question.hasSuffix("…?") }
 
     private static func oneLine(_ s: String) -> String {
         s.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
