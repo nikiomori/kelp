@@ -25,9 +25,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     let graphOutline = NSOutlineView()
     private let graphBar = GraphBar()
     private var graphHeight: NSLayoutConstraint?, graphClosed: NSLayoutConstraint?, barHeight: NSLayoutConstraint?
-    /// Never dragged, the open graph has the lower half; the changes keep at least their rows' height up to 80 pt.
-    private var graphHalf: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
-    let branchButton = PointerButton(frame: .zero)   // greys in under the pointer, as the window bar's branch chip
+    /// Never dragged, the changes are as tall as their rows, up to half the panel, and the open graph follows right under
+    /// them (a gap there looked like something still loading); they keep at least their rows' height up to 80 pt.
+    private var changesHug: NSLayoutConstraint?, changesCap: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
+    let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
     private let placeholder = NSTextField(labelWithString: "")
@@ -99,14 +100,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     override func loadView() {
         let app = self.app
-        branchButton.padding = 4
-        branchButton.imagePosition = .imageLeading
-        branchButton.imageHugsTitle = true
-        branchButton.image = Glyph.image("arrow.triangle.branch", size: 14); branchButton.font = .ui(12, weight: .semibold)
-        branchButton.lineBreakMode = .byTruncatingMiddle
         branchButton.target = self
         branchButton.action = #selector(branchMenu)
-        branchButton.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         branchButton.toolTip = String(localized: "Switch or create a branch")
         branchButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
         moreButton = bar.more
@@ -129,8 +124,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
         gh.priority = .init(495)
         graphHeight = gh
-        graphHalf = graphScroll.heightAnchor.constraint(equalTo: v.heightAnchor, multiplier: 0.5)
-        graphHalf?.priority = .init(495)
+        changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
+        changesHug?.priority = .init(495)
+        changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: v.heightAnchor, multiplier: 0.5)
+        changesCap?.priority = .init(750)   // under the 80 pt the changes keep
         graphClosed = graphScroll.heightAnchor.constraint(equalToConstant: 0)
         graphClosed?.priority = .defaultHigh
         let bh = graphBar.heightAnchor.constraint(equalToConstant: 0); barHeight = bh
@@ -322,6 +319,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let rows = outline.numberOfRows
         let height = rows > 0 ? outline.rect(ofRow: rows - 1).maxY : 0
         changesRoom?.constant = min(80, height)
+        changesHug?.constant = height
         slideStaged(from: places)
     }
 
@@ -347,7 +345,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
         graphHeight?.constant = min(saved ?? 0, (NSScreen.main?.visibleFrame.height ?? 800) / 2)
         graphHeight?.isActive = open && saved != nil
-        graphHalf?.isActive = open && saved == nil
+        changesHug?.isActive = open && saved == nil; changesCap?.isActive = open && saved == nil
         graphClosed?.isActive = !open
     }
 
@@ -355,7 +353,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         guard let gh = graphHeight, graphClosed?.isActive == false, let changes = outline.enclosingScrollView,
               let graph = graphOutline.enclosingScrollView else { return }
         gh.constant = min(max(60, graph.frame.height + dy), changes.frame.height + graph.frame.height - 80)
-        graphHalf?.isActive = false; gh.isActive = true
+        changesHug?.isActive = false; changesCap?.isActive = false
+        gh.isActive = true
         UserDefaults.standard.set(gh.constant, forKey: "scm.graphHeight")
     }
 
@@ -397,7 +396,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             return cell
         case .file(let f, let s):
             return FileCell(f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, s),
-                            indent: 16, actions: fileActions(f, s))
+                            indent: SectionCell.indent, actions: fileActions(f, s))
         case .commit(let i):
             if more, !loadingMore, i >= commits.count - 30 { loadMore() }
             let c = commits[i]
@@ -413,10 +412,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             let commit = commits.first { $0.hash == h }
             let width = commit.map(Self.graphWidth) ?? GraphView.width(lanes: 1)
             let cell = FileCell(f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, .graph),
-                                indent: width + 4, actions: [])
+                                indent: width + Metrics.gapWide, actions: [])
             // The lanes below the commit run on through its expanded files, as in VS Code.
             let g = GraphView(); g.through = Array(Set(commit?.bottom.compactMap(\.last) ?? []))
-            g.frame = NSRect(x: 6, y: 0, width: width, height: 22); g.autoresizingMask = [.height]
+            g.frame = NSRect(x: GraphView.leading, y: 0, width: width, height: 22); g.autoresizingMask = [.height]
             cell.addSubview(g)
             return cell
         case .note(let t):
@@ -478,6 +477,7 @@ extension SourceControlController {
     func open(_ f: FileChange, _ s: Section) {
         guard let w = worktreeId else { return }
         if s == .merge { openFile(f); return }
+        if DiffViewController.reveal(f.path, worktree: w) { return }   // the review beside it scrolls there instead
         app.workbench.open(DiffTab.uri(w, file: f.path, source: s == .staged ? "staged" : "unstaged"))
     }
     func openFile(_ f: FileChange) {

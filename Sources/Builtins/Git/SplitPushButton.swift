@@ -57,7 +57,7 @@ final class SplitPushButton: NSButton {
         arrow.image = .symbol("chevron.down", arrowTip)
         arrow.toolTip = arrowTip
         arrow.isBordered = false
-        arrow.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: .semibold)
+        arrow.symbolConfiguration = .init(pointSize: Metrics.iconPoint, weight: Metrics.iconWeight)
         divider.wantsLayer = true
         for v in [arrow, divider, ring] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
         addSubview(glow)

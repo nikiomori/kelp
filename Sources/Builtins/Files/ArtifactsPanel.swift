@@ -61,9 +61,15 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private func reload() {
         let list = app.artifacts[app.workbench.workspaceId ?? ""]
         rows = list ?? []
-        empty.show(list != nil && rows.isEmpty ? String(localized: "No pages yet") : nil, symbol: "doc.richtext",
-                   text: String(localized: "Docs and reviews agents make for you list here. Ask for one with Make, on the start page or in +."))
+        empty.show(list != nil && rows.isEmpty ? String(localized: "No artifacts yet") : nil, symbol: "doc.richtext",
+                   text: String(localized: "Pages agents make show here."), buttons: [makeButton])
         table.reloadData()
+    }
+
+    /// Make's choices, as on the start page and in "+": the default agent starts with the line, for the user to finish.
+    private lazy var makeButton = NSButton(title: String(localized: "Make…"), target: self, action: #selector(showMake))
+    @objc private func showMake() {
+        makeMenu(app).popUp(positioning: nil, at: NSPoint(x: 0, y: makeButton.bounds.height + 4), in: makeButton)
     }
 
     /// Saved in the last two minutes while its chat works: the agent is writing it.

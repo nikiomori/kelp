@@ -37,6 +37,8 @@ private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailin
 }
 
 final class SectionCell: NSTableCellView, Hoverable {
+    /// Where its rows start, past the inset: under its title, after the chevron.
+    static let indent: CGFloat = 16
     private let chevron = NSImageView()
     private let actions: NSStackView
     var expanded = true {
@@ -60,7 +62,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     init(title: String, count: Int?, expanded: Bool, actions a: [RowAction], detail: NSAttributedString? = nil) {
         actions = actionButtons(a)
         super.init(frame: .zero)
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold); chevron.contentTintColor = .secondaryLabelColor
+        chevron.symbolConfiguration = .init(pointSize: 9, weight: Metrics.iconWeight); chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
         let t = NSTextField(labelWithString: title)
         t.font = .ui(11, weight: .semibold)
@@ -69,7 +71,7 @@ final class SectionCell: NSTableCellView, Hoverable {
         c.isHidden = count == nil
         let d = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
         d.isHidden = detail == nil
-        pinRow(self, [chevron, t, NSView(), actions, d, c], leading: 10)
+        pinRow(self, [chevron, t, NSView(), actions, d, c], leading: Metrics.inset)   // the panel's edge, as its header's branch
         self.expanded = expanded; showChevron()   // didSet doesn't run in init
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -194,7 +196,7 @@ final class FileCell: NSTableCellView, Hoverable {
         l.font = .uiMono(11, weight: .semibold)
         l.textColor = letter.1
         l.alignment = .center; l.widthAnchor.constraint(equalToConstant: 12).isActive = true
-        pinRow(self, [icon, name, dir, NSView(), actions, l], leading: indent + 10)
+        pinRow(self, [icon, name, dir, NSView(), actions, l], leading: indent + Metrics.inset)
         toolTip = f.path
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -210,7 +212,7 @@ final class NoteCell: NSTableCellView {
         let t = NSTextField(labelWithString: text)
         t.font = .ui(12)
         t.textColor = .secondaryLabelColor
-        pinRow(self, [t], leading: 26)
+        pinRow(self, [t], leading: Metrics.inset + SectionCell.indent)
     }
     required init?(coder: NSCoder) { fatalError() }
 }
@@ -285,12 +287,12 @@ final class CommitCell: NSTableCellView, Hoverable {
         scope.isHidden = !badges.isEmpty
         scopeLabel = badges.isEmpty ? scope : nil
         let row = NSStackView(views: badges + [mark, bang, subject].compactMap { $0 } + [NSView(), scope, up, date])
-        row.spacing = 5
+        row.spacing = Metrics.gap
         row.alignment = .centerY
         if let bang { row.setCustomSpacing(2, after: bang) }
         row.translatesAutoresizingMaskIntoConstraints = false; addSubview(row)
         NSLayoutConstraint.activate([
-            g.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6), g.topAnchor.constraint(equalTo: topAnchor),
+            g.leadingAnchor.constraint(equalTo: leadingAnchor, constant: GraphView.leading), g.topAnchor.constraint(equalTo: topAnchor),
             g.bottomAnchor.constraint(equalTo: bottomAnchor), g.widthAnchor.constraint(equalToConstant: graphWidth),
             row.leadingAnchor.constraint(equalTo: g.trailingAnchor, constant: 2), row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
@@ -368,6 +370,7 @@ final class CommitCell: NSTableCellView, Hoverable {
     }
 
     /// Local branches and tags (HEAD's branch first); a remote ref shows only when no local branch of that name is here.
+    /// The branches in `emphasis`: with Graphite the accent's grey was the remote's, and "main" read as "origin/main".
     static func labels(_ refs: [String]) -> [(String, NSColor, Bool)] {
         var out: [(String, NSColor, Bool)] = []
         let locals = Set(refs.compactMap { r -> String? in
@@ -375,11 +378,11 @@ final class CommitCell: NSTableCellView, Hoverable {
             return r.hasPrefix("tag: ") || r.contains("/") || r == "HEAD" ? nil : r
         })
         for r in refs where !r.hasSuffix("/HEAD") {   // origin/HEAD only repeats origin/main
-            if r.hasPrefix("HEAD -> ") { out.insert((String(r.dropFirst(8)), .themeAccent, true), at: 0) }
-            else if r == "HEAD" { out.insert(("HEAD", .themeAccent, true), at: 0) }
+            if r.hasPrefix("HEAD -> ") { out.insert((String(r.dropFirst(8)), .emphasis, true), at: 0) }
+            else if r == "HEAD" { out.insert(("HEAD", .emphasis, true), at: 0) }
             else if r.hasPrefix("tag: ") { out.append((String(r.dropFirst(5)), .systemOrange, false)) }
             else if r.contains("/") { if !locals.contains(String(r.drop { $0 != "/" }.dropFirst())) { out.append((r, .secondaryLabelColor, false)) } }
-            else { out.append((r, .themeAccent, false)) }
+            else { out.append((r, .emphasis, false)) }
         }
         return out
     }
@@ -412,7 +415,7 @@ final class Badge: NSView {
     override var intrinsicContentSize: NSSize { NSSize(width: min(ceil(text.size().width) + 10, 110), height: 16) }
     override func draw(_ r: NSRect) {
         color.withAlphaComponent(0.15).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4).fill()
+        NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
         let w = bounds.width - 10
         text.draw(with: NSRect(x: 5, y: (bounds.height - text.size().height) / 2, width: w, height: text.size().height),
                   options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
@@ -423,6 +426,8 @@ final class Badge: NSView {
 final class GraphView: NSView {
     static let maxLanes = 6
     static let step: CGFloat = 11, inset: CGFloat = 7
+    /// Where a commit's graph starts in its row: the panel's inset, so the subjects start under the section's title.
+    static let leading = Metrics.inset
     static let colors: [NSColor] = [.systemBlue, .systemPurple, .systemOrange, .systemTeal, .systemPink, .systemGreen, .systemIndigo, .systemBrown]
     static func width(lanes: Int) -> CGFloat { inset * 2 + CGFloat(max(lanes, 1) - 1) * step }
     static func x(_ lane: Int) -> CGFloat { inset + CGFloat(lane) * step }

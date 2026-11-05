@@ -104,6 +104,24 @@ extension AppOfItsOwn {
     #expect(r.committed && !r.pushed)
 }
 
+/// A few changes take their rows' height and the graph follows right under them, not half the panel down.
+@Test func theGraphFollowsAShortListOfChanges() async throws {
+    UserDefaults.standard.removeObject(forKey: "scm.graphHeight"); UserDefaults.standard.removeObject(forKey: "scm.collapsed")
+    let rig = try await AppRig(files: ["kept.txt": "a\n"]); defer { rig.done() }
+    try rig.write("kept.txt", "b\n")
+    let vc = SourceControlController(app: rig.app)
+    rig.show(vc, 320, 800)
+    vc.followWatches()
+    let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
+    for _ in 0..<100 where outline.numberOfRows < 2 || graph.numberOfRows < 1 { try await Task.sleep(for: .milliseconds(50)) }
+    vc.view.window?.setContentSize(NSSize(width: 320, height: 800))   // the window took the panel's fitting size
+    vc.view.layoutSubtreeIfNeeded()
+    let changes = try #require(outline.enclosingScrollView), rows = outline.rect(ofRow: outline.numberOfRows - 1).maxY
+    #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
+    let below = try #require(graph.enclosingScrollView).frame
+    #expect(below.height > vc.view.bounds.height / 2, "\(below) in \(vc.view.bounds), changes \(changes.frame)")   // the room left
+}
+
 /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
 /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
 @Test func sourceControlFitsANarrowInspector() async throws {

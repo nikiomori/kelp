@@ -28,6 +28,17 @@ enum Make {
     }
 }
 
+/// Make's choices for a built-in (Artifacts' empty state): the default agent starts in the focused pane with the line
+/// typed in, for the user to finish, as from "+".
+@MainActor package func makeMenu(_ app: AppModel) -> NSMenu {
+    let m = NSMenu()
+    Make.addItems(to: m) { line in
+        guard let editor = app.workbench.editor else { NSSound.beep(); return }
+        editor.newAgent(prompt: line, draft: true)
+    }
+    return m
+}
+
 /// Make on the start page, right under the field it fills: "Make" and a small grey chip per kind. Each only puts a line
 /// in the field, so it weighs no more than the words it adds.
 @MainActor

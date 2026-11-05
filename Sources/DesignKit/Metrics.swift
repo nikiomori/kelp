@@ -44,6 +44,12 @@ public enum Metrics {
     public static let paneDim: CGFloat = 0.5      // how far a pane without focus fades toward the background
     public static let tabDim: CGFloat = 0.7       // what its tabs keep
 
+    // Segments: one icon of a segmented capsule (the inspector's panels), `iconGap` apart and from the capsule's edge.
+    // The symbol is as big as the title bar's toggles, which the capsule sits beside.
+    public static let segment = CGSize(width: 36, height: 22)
+    public static let segmentPoint: CGFloat = 14
+    public static var segmentCapsule: CGFloat { segment.height + 2 * iconGap }   // the capsule's height; half of it, its radius
+
     // Sheets
     public static let sheetWidth: CGFloat = 480
     public static let alertAccessory: CGFloat = 400   // the fields a question sheet holds

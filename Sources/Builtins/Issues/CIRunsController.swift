@@ -34,7 +34,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
     private let outline = ListOutlineView()
-    private let branch = NSTextField(labelWithString: "")
+    private let branch = BranchChip()   // Source Control's, in the same place: switching panels doesn't move it
     private let empty = EmptyStateView()
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
         let b = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
@@ -65,10 +65,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// The list being shown, its open runs read again.
     private var applying: Task<Void, Never>?
     private let clock = CIClock()
-    private let history = CIHistoryStrip()
 
     override func loadView() {
-        branch.font = .ui(12, weight: .semibold); branch.lineBreakMode = .byTruncatingMiddle
         let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in self?.showMore() }
         workflowsButton.isHidden = true
         for (b, symbol, tip) in [(workflowsButton, "play.circle", String(localized: "Run Workflow…")),
@@ -82,8 +80,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         workflowsButton.action = #selector(runWorkflow)
         webButton.action = #selector(showPages)
         webButton.isHidden = true
-        history.onPick = { [weak self] in self?.reveal($0) }
-        let header = Bar.panel([NSImageView(image: Glyph.image("arrow.triangle.branch", size: 14) ?? NSImage()), branch], [workflowsButton, webButton, more])
+        let header = Bar.panel([branch], [workflowsButton, webButton, more])
 
         let col = NSTableColumn(identifier: .init("ci")); col.resizingMask = .autoresizingMask
         outline.addTableColumn(col)
@@ -114,7 +111,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.dividerStyle = .thin
         split.addArrangedSubview(scroll); split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
-        let v = stacked(header, history, split)
+        let v = stacked(header, split)
         empty.place(in: v, under: header)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
         bottom.isHidden = true
@@ -122,7 +119,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         view = v
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self, app] in
             self?.worktree = $0
-            self?.branch.stringValue = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
+            self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.follow()
             self?.loadPages()
         }
@@ -188,12 +185,12 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         applying?.cancel()
         applying = Task {
             if let error = e.error {
-                branch.stringValue = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
+                branch.title = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
                 workflowsButton.isHidden = true
                 show(note: error, setup: Forge.setup(for: error), failed: true); return
             }
             branchName = e.result?.branch ?? ""
-            branch.stringValue = branchName
+            branch.title = branchName
             // What was open stays open across a refresh, its jobs read again.
             let open = Set(runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
@@ -203,7 +200,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             clock.clear()
             outline.reloadData()
-            history.show(CIRuns.history(allRuns))
             for run in runs where open.contains(run.key ?? "") {
                 await expand(run, openFailed: false)
                 guard !Task.isCancelled else { return }
@@ -220,15 +216,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 await expand(item, openFailed: true)
             }
         }
-    }
-
-    /// A mark in the strip: its run, in the list.
-    private func reveal(_ run: CIRuns.Run) {
-        guard let item = runs.first(where: { $0.id == run.id }) else { return }
-        let row = outline.row(forItem: item)
-        guard row >= 0 else { return }
-        outline.selectRowIndexes([row], byExtendingSelection: false)
-        outline.scrollRowToVisible(row)
     }
 
     /// A run's jobs and the folds of their steps, top down, as they have to be opened.
@@ -425,7 +412,11 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         text.spacing = Metrics.lineGap
         for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
-        let cell = CIRow.row([CIRunLook.mark(r.status, r.conclusion), text])
+        // Only each workflow's newest run says what its CI is now; older ones keep their shape in grey. History isn't
+        // state: a week of old red crosses round one failure read as a dozen.
+        let mark = CIRunLook.mark(r.status, r.conclusion)
+        if !CIRuns.latest(allRuns).contains(where: { $0.id == r.id }) { (mark as? NSImageView)?.contentTintColor = .tertiaryLabelColor }
+        let cell = CIRow.row([mark, text])
         cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(separator: "\n")
         return cell
     }

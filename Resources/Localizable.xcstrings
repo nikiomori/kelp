@@ -19803,6 +19803,61 @@
           }
         }
       }
+    },
+    "No Project Open": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проект не открыт"
+          }
+        }
+      }
+    },
+    "A project's files, changes and runs show here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь будут файлы, изменения и запуски проекта."
+          }
+        }
+      }
+    },
+    "No artifacts yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефактов пока нет"
+          }
+        }
+      }
+    },
+    "Pages agents make show here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь будут страницы, которые делают агенты."
+          }
+        }
+      }
+    },
+    "Make…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

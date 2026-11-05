@@ -4,8 +4,8 @@ import AppKit
 /// commits as rings, a list with rings, CI's check in a ring, the activity gauge. `NSImage.symbol` hands them out
 /// under the SF Symbol names they replace, so every AppKit use (inspector, window bar, menus) gets them. Drawn on
 /// a 16-point grid with 1.3-point round strokes, as templates: they tint like symbols do.
-package enum Glyph {
-    package static func image(_ name: String, size: CGFloat = 17) -> NSImage? {   // as tall as a 14-point symbol
+enum Glyph {
+    static func image(_ name: String, size: CGFloat = 17) -> NSImage? {   // as tall as a 14-point symbol
         guard let shape = shapes[name] else { return nil }
         let img = NSImage(size: NSSize(width: size, height: size), flipped: true) { r in
             let p = NSBezierPath(); shape(p)
