@@ -177,12 +177,14 @@ final class Workspaces: Sendable {
 
     /// A new desk in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
     func createDesk(in r: Repo) throws -> Worktree {
+        // Read before the lock: a remote project's is read over ssh, and a host that doesn't answer would hold every
+        // project's sync for its timeout.
+        let branch = (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
         let w = try deskLock.withLock {   // its "Workspace N" counts the desks there now
             try syncDesks()   // names the project's first desk, so the new one doesn't take "Workspace 1"
             let taken = Set(try store.worktrees(repo: r.id).map(\.note))
             var n = 1
             while taken.contains("Workspace \(n)") { n += 1 }
-            let branch = (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
             let w = Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace \(n)", base: branch)
             try store.save(w)
             return w

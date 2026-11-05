@@ -41,6 +41,25 @@ import Agents
     #expect(try Git.linkedWorktrees(w.repo.path).isEmpty && !Git.branchExists(w.repo.path, "own-commit"))
 }
 
+/// A new workspace in a remote project whose host is slow to answer: every other project's workspaces sync meanwhile.
+@Test func aSlowHostDoesntHoldOtherProjectsWorkspaces() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(); defer { d.stop() }
+    let there = tmp().appendingPathComponent("slow-host").path
+    try FileManager.default.createDirectory(atPath: there, withIntermediateDirectories: true)
+    try Git.run(["init", "-q", "-b", "main"], cwd: there); try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there)
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let flag = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("slow-host").path
+    FileManager.default.createFile(atPath: flag, contents: nil); defer { try? FileManager.default.removeItem(atPath: flag) }
+    let workspaces = d.workspaces
+    let creating = Task.detached { try workspaces.createDesk(in: repo) }
+    try await Task.sleep(for: .milliseconds(500))   // its branch is being read on the host
+    let start = Date()
+    try workspaces.syncMainWorkspaces()
+    #expect(Date().timeIntervalSince(start) < 1.5)
+    _ = try await creating.value
+}
+
 /// Remove Clean Worktrees puts each folder in the Trash, the ignored files git doesn't count (.env) with it, and keeps the
 /// one a paused agent last worked in.
 @Test func removingCleanWorktreesTrashesIgnoredFilesAndKeepsAPausedAgentsFolder() async throws {
