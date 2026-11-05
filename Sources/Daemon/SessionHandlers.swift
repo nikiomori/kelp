@@ -354,5 +354,5 @@ extension Methods {
         SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, PortsForward.self,
         PortsUnforward.self, SessionUsage.self, HostStatsRead.self, HostDisconnect.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
-        SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self]
+        SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self, SessionTurns.self, SessionTurnUndo.self, SessionTurnRedo.self]
 }

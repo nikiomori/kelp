@@ -39,6 +39,10 @@ contributions, the command palette and settings.
   (it has no terminal, and other agents keep no such file). What a child asks is the row's second line, and its result is
   the parent's to read, so a finished child neither notifies nor needs you.
   `kelp why <session>` says where its status came from and what led there (`history/<id>.trail`, kept with the session).
+  Each turn starts with a snapshot of its folder (a tree object, `Git.snapshotTree`), kept under `refs/kelp/turns/<turn>`
+  while the turn is listed (the last 20), and the state before an Undo Turn under `refs/kelp/undone/<session>` (with its
+  reflog), so `git gc` keeps them; they go with the session. They are trees, not commits: `git log --all` doesn't show
+  them, but `git push --mirror` would send them.
 - **Tab**: anything shown in the editor area, addressed by a URI:
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.
   Groups of tabs split right/down; drag tabs between groups or onto an edge to split.
