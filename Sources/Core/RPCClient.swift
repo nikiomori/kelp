@@ -128,24 +128,31 @@ public final class RPCClient: Sendable {
         try await call(method, params, timeout: timeout, as: JSONValue.self)
     }
 
-    /// The reply's line: a message with `id` and `result` (or `error`, thrown before it gets here).
+    /// The reply's line: a message with `id` and `result` (or `error`, thrown before it gets here). A cancelled caller stops
+    /// waiting at once, with `CancellationError`; the daemon's answer, if one comes, is dropped.
     private func reply(_ method: String, _ params: JSONValue?, timeout: TimeInterval?) async throws -> Data {
-        try await withCheckedThrowingContinuation { c in
-            let id = state.withLock { s -> Int? in
-                guard !s.closed else { return nil }
-                defer { s.nextID += 1 }
-                s.pending[s.nextID] = c; return s.nextID
-            }
-            guard let id else { c.resume(throwing: RPCError.connectionClosed); return }
-            if let timeout {
-                // Weak: every typed call has one now, and a dropped connection's client mustn't wait them out.
-                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
-                    self?.state.withLock { $0.pending.removeValue(forKey: id) }?
-                        .resume(throwing: RPCError.noReply(method, in: timeout))
+        let id = state.withLock { s in defer { s.nextID += 1 }; return s.nextID }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { c in
+                // Under the lock the cancel handler takes it out with: cancelled before it's in, it never goes in.
+                let refused = state.withLock { s -> Error? in
+                    if s.closed { return RPCError.connectionClosed }
+                    if Task.isCancelled { return CancellationError() }
+                    s.pending[id] = c; return nil
                 }
+                if let refused { c.resume(throwing: refused); return }
+                if let timeout {
+                    // Weak: every typed call has one now, and a dropped connection's client mustn't wait them out.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
+                        self?.state.withLock { $0.pending.removeValue(forKey: id) }?
+                            .resume(throwing: RPCError.noReply(method, in: timeout))
+                    }
+                }
+                do { write(try Wire.line(RPCRequest(id: id, method: method, params: params))) }
+                catch { state.withLock { $0.pending.removeValue(forKey: id) }?.resume(throwing: error) }
             }
-            do { write(try Wire.line(RPCRequest(id: id, method: method, params: params))) }
-            catch { state.withLock { $0.pending[id] = nil }; c.resume(throwing: error) }
+        } onCancel: {
+            state.withLock { $0.pending.removeValue(forKey: id) }?.resume(throwing: CancellationError())
         }
     }
 

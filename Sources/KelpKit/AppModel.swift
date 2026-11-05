@@ -461,9 +461,10 @@ package final class AppModel {
         return r.value
     }
 
-    /// Like `call`, but a failure comes back as its message (for actions that offer a way out) instead of a banner.
+    /// Like `call`, but a failure comes back as its message (for actions that offer a way out) instead of a banner. A
+    /// cancelled caller isn't waiting for an answer: nil, and no message.
     package func tryCall<M: RPCMethod>(_ m: M) async -> (value: M.Result?, error: String?) {
-        do { return (try await get(m), nil) } catch { return (nil, Self.message(error)) }
+        do { return (try await get(m), nil) } catch is CancellationError { return (nil, nil) } catch { return (nil, Self.message(error)) }
     }
     /// `tryCall` for a chain of calls that one `catch` turns into the panel's error state.
     package func get<M: RPCMethod>(_ m: M) async throws -> M.Result {
