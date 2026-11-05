@@ -16,6 +16,8 @@ struct CommentDraft {
 /// A comment is written in a card right under its line, as on GitHub: the Comment button, or the "+" beside a line under
 /// the pointer, opens it; ⌘↩ saves, Esc puts it away.
 extension DiffViewController {
+    /// Where a line's code starts, past its numbers: what goes under a line (a card, unchanged lines) starts there too.
+    static let codeIndent: CGFloat = 88
     /// The card's field: two lines and more as they wrap; its row holds it and the buttons.
     static let draftField: CGFloat = 44
     static var draftHeight: CGFloat { draftField + 22 + 3 * Metrics.gap }
@@ -69,9 +71,9 @@ extension DiffViewController {
         card.orientation = .vertical
         card.alignment = .trailing
         card.spacing = Metrics.gap
-        card.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 88, bottom: Metrics.gap, right: Metrics.gapWide)
+        card.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Self.codeIndent, bottom: Metrics.gap, right: Metrics.gapWide)
         card.wantsLayer = true; card.layer?.backgroundColor = NSColor.fillRest.cgColor
-        NSLayoutConstraint.activate([d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -88 - Metrics.gapWide),
+        NSLayoutConstraint.activate([d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
                                      d.field.heightAnchor.constraint(equalToConstant: Self.draftField)])
         draft?.card = card
         return card

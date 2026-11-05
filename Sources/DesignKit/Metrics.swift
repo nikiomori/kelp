@@ -45,6 +45,8 @@ public enum Metrics {
 
     // Sheets
     public static let sheetWidth: CGFloat = 480
+    public static let alertAccessory: CGFloat = 400   // the fields a question sheet holds
+    public static let formLabel: CGFloat = 96         // a field's name beside it, right-aligned
 }
 
 /// How long things move, and nothing under Reduce Motion.

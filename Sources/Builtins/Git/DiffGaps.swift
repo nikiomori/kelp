@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Core
 import KelpKit
 import WorkbenchKit
@@ -15,7 +16,7 @@ extension DiffViewController {
         b.toolTip = String(localized: "Show These Lines")
         b.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let row = NSStackView(views: [b])
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 88, bottom: 0, right: 8)   // under the code, past the line numbers
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Self.codeIndent, bottom: 0, right: Metrics.gapWide)   // under the code
         return row
     }
 

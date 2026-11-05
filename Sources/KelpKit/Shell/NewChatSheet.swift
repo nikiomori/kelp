@@ -39,8 +39,8 @@ final class NewChatSheet: NSObject {
     private func row(_ label: String, _ control: NSView) -> NSView {
         let l = NSTextField(labelWithString: label)
         l.alignment = .right
-        l.widthAnchor.constraint(equalToConstant: 96).isActive = true
-        control.widthAnchor.constraint(equalToConstant: 280).isActive = true
+        l.widthAnchor.constraint(equalToConstant: Metrics.formLabel).isActive = true
+        control.widthAnchor.constraint(equalToConstant: Metrics.alertAccessory - Metrics.formLabel - Metrics.gapWide).isActive = true
         let r = NSStackView(views: [l, control])
         r.spacing = Metrics.gapWide
         return r
@@ -53,7 +53,7 @@ final class NewChatSheet: NSObject {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gapWide
-        stack.frame = NSRect(x: 0, y: 0, width: 400, height: stack.fittingSize.height)
+        stack.frame = NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: stack.fittingSize.height)
         return stack
     }
 

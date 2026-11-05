@@ -33,7 +33,7 @@ extension DiffViewController {
         let row = NSStackView(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
-        row.wantsLayer = true; row.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.2).cgColor
+        row.wantsLayer = true; row.layer?.backgroundColor = NSColor.fillSelected.cgColor
         return row
     }
 
@@ -61,7 +61,7 @@ extension DiffViewController {
         guard !ids.isEmpty else { status.stringValue = String(localized: "No open comments ticked"); return }
         Task {
             guard let sid = await pickAgentSession(wid) else { return }
-            let n = await app.call(CommentSend(id: wid, session: sid, only: ids)) ?? 0
+            guard let n = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }   // the banner says why
             status.stringValue = String(localized: "Sent \(n) comments to agent"); await load()
         }
     }
