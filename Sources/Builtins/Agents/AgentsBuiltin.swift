@@ -65,6 +65,8 @@ extension Builtins {
                   "Claude Code can start another agent with kelp and gets its result back.", group: "Claude Code skills"),
                 s("agents.skills.artifacts", "Make docs and reviews", "boolean", true,
                   "Claude Code puts a doc, or choices for you to pick from, on a page beside it.", group: "Claude Code skills"),
+                s("agents.skills.vm", "Run commands in Kelp machines", "boolean", true,
+                  "Claude Code runs Linux builds, tests and servers in a machine of yours, not on this Mac.", group: "Claude Code skills"),
                 s("agents.skills.browser", "Use pages in Kelp's browser", "enum", "auto",
                   "Your app in a tab beside it; a project can have its own.",
                   help: "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",

@@ -31,6 +31,12 @@ enum AgentSkills {
                 + "Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says where to make it (your own "
                 + "artifact tools come first) and how.",
             body: artifactsGuide)
+        // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
+        put("kelp-vm", on: s.bool("agents.skills.vm") != false,
+            description: "Use when a command should run in a Linux machine instead of on this Mac, in Kelp, the IDE this session runs in: "
+                + "builds and tests for Linux, a server or a script you'd rather keep off the Mac, an x86-64 Linux binary. "
+                + "kelp vm run <name> -- <command> runs it there, in this project's folder at the same path.",
+            body: vmGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
         put("kelp-browser", on: true,
             description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
@@ -121,6 +127,30 @@ enum AgentSkills {
         - Children end when you do. `--outlive` starts one that isn't your child: it stays, and tells you nothing.
         - `kelp usage` prints each agent's plan limits (percent used, when it resets). Before a long job, look at the
           child's: one near full stops midway, so pick another agent or a cheaper `--model`.
+
+        """
+
+    private static let vmGuide = """
+        # Running commands in a Kelp machine
+
+        This session runs inside Kelp and the `kelp` CLI is on PATH. Kelp keeps Linux machines (Apple Virtualization) for
+        commands that should not run on this Mac. One machine serves every chat at once.
+
+        - `kelp vm list` — the machines and their state. Use one that's `running` before one that sleeps; a sleeping one
+          wakes in under a second, an `off` one boots in a few.
+        - `kelp vm run <name> -- <command>` — runs it in the machine, in this folder: the project is shared with the
+          machine at the same path, so paths in its output are yours. Its output and exit code are the command's. Each run is
+          a connection of its own; run several at once if you like.
+        - Choose the machine for Linux builds and tests, servers and scripts you'd rather keep off the Mac, Docker-free Linux
+          tooling, and x86-64 Linux binaries (they run through Rosetta). Keep macOS work (Xcode, swift on this Mac, the
+          user's apps) on the Mac.
+        - What you install there (`sudo apt-get install -y …`, no password) stays, for every chat: install what the task
+          needs, nothing more.
+        - A machine pauses after 2 minutes without a connection and sleeps after 10: a server keeps running only while a
+          run holds it. Start one that should stay up as a Kelp session, so the user sees it:
+          `kelp session new --cmd "kelp vm run <name> -- npm run dev"`.
+        - There's no machine yet: tell the user `kelp vm create <name>` makes one (Debian 13, about 0.2 GB to download).
+          Don't create one yourself.
 
         """
 

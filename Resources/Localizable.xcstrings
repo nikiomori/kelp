@@ -1017,6 +1017,26 @@
         }
       }
     },
+    "Run commands in Kelp machines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать команды в машинах Kelp"
+          }
+        }
+      }
+    },
+    "Claude Code runs Linux builds, tests and servers in a machine of yours, not on this Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code запускает сборки, тесты и серверы для Linux в вашей машине, а не на этом Mac."
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

@@ -79,6 +79,7 @@ extension Remotes: DaemonService { static func of(_ d: Daemon) -> Remotes { d.re
 extension Sessions: DaemonService { static func of(_ d: Daemon) -> Sessions { d.sessions } }
 extension Workspaces: DaemonService { static func of(_ d: Daemon) -> Workspaces { d.workspaces } }
 extension Forges: DaemonService { static func of(_ d: Daemon) -> Forges { d.forges } }
+extension VMService: DaemonService { static func of(_ d: Daemon) -> VMService { d.vms } }
 extension Clients: DaemonService { static func of(_ d: Daemon) -> Clients { d.clients } }
 extension LSPHost: DaemonService { static func of(_ d: Daemon) -> LSPHost { d.lsp } }
 extension SettingsEvents: DaemonService { static func of(_ d: Daemon) -> SettingsEvents { d.settingsEvents } }
@@ -191,7 +192,7 @@ extension Daemon {
                                         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self, WatchStop.self,
                                         RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self]
             + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods + Methods.integrationMethods + Methods.projectMethods
-            + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
+            + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods + Methods.vmMethods
         let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })

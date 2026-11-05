@@ -31,6 +31,10 @@ public final class Daemon: Sendable {
     let workspaces: Workspaces   // workspaces, the branches they follow, the .kelp.yaml files the user trusts
     var files: FileService { FileService(remotes: remotes) }   // files.*: read, written, moved here or on a remote project's host
     let remotes: Remotes   // which project folders stand for one on a host (only those in this home's remote/), and how to reach it
+    /// The virtual machines agents run commands in (vm.*), each run by its own kelp-vm, the one beside kelpd.
+    var vms: VMService {
+        VMService(home: root, helper: URL(fileURLWithPath: Daemon.executable).deletingLastPathComponent().appendingPathComponent("kelp-vm").path)
+    }
 
     public convenience init(root: URL, store: Store? = nil) throws { try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60)) }
 

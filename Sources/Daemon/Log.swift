@@ -10,6 +10,7 @@ enum Log {
     static let store = Logger(subsystem: "dev.kelp.daemon", category: "store")
     static let rpc = Logger(subsystem: "dev.kelp.daemon", category: "rpc")
     static let session = Logger(subsystem: "dev.kelp.daemon", category: "session")
+    static let vm = Logger(subsystem: "dev.kelp.daemon", category: "vm")
 }
 
 extension Logger {

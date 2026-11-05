@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- kelp-vm runs the virtual machines agents use (Apple Virtualization): only it holds this, not the app or kelpd.
+     swift build links it without: kelpd's error says how to sign a debug build's, scripts/bundle.sh signs the app's. -->
+<plist version="1.0"><dict>
+  <key>com.apple.security.virtualization</key><true/>
+</dict></plist>

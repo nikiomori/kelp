@@ -15,7 +15,9 @@ extension Sessions {
             .map { dir.appendingPathComponent($0) }   // this home's own spelling (not /private/tmp for /tmp): a restart finds them by it
         let hasBrowser = all.contains { $0.lastPathComponent == "kelp-browser" }
         let browser = hasBrowser ? browserSkill(worktreeId: worktreeId, cwd: cwd) : nil
-        let on = all.filter { $0.lastPathComponent != "kelp-browser" || browser?.on == true }
+        let machines = FileManager.default.enumerator(atPath: root.appendingPathComponent("vms").path)?
+            .contains { ($0 as? String).map { !$0.hasPrefix(".") && !$0.contains("/") } == true } == true
+        let on = all.filter { ($0.lastPathComponent != "kelp-browser" || browser?.on == true) && ($0.lastPathComponent != "kelp-vm" || machines) }
         var argv = on.flatMap { [flag, $0.path] }
         let guide = browser.flatMap { $0.on || !$0.hint ? nil : dir.appendingPathComponent("kelp-browser/skills/kelp-browser/SKILL.md").path }
         if let contextFlag, let text = Self.kelpContext(on.map(\.lastPathComponent), browserGuide: guide) { argv += [contextFlag, text] }

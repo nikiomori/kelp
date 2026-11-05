@@ -3799,6 +3799,124 @@
         ],
         "type" : "object"
       },
+      "VMConnection" : {
+        "description" : "How to run something in a machine: `ssh` and its arguments up to the host, then the command line for the machine's shell, which puts the project folder at the same path inside and goes there.",
+        "properties" : {
+          "prefix" : {
+            "type" : "string"
+          },
+          "ssh" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "prefix",
+          "ssh"
+        ],
+        "type" : "object"
+      },
+      "VMControl.Action" : {
+        "enum" : [
+          "start",
+          "sleep",
+          "stop"
+        ],
+        "type" : "string"
+      },
+      "VMInfo" : {
+        "properties" : {
+          "connections" : {
+            "description" : "Commands and shells open in it now.",
+            "type" : "integer"
+          },
+          "detail" : {
+            "description" : "While creating, how far (\"Downloading Debian 13: 43%\"); after an error, what went wrong.",
+            "type" : "string"
+          },
+          "diskMiB" : {
+            "description" : "Its disk's size on the Mac's disk, MiB.",
+            "type" : "integer"
+          },
+          "machine" : {
+            "$ref" : "#/components/schemas/VMMachine"
+          },
+          "memoryMiB" : {
+            "description" : "What it holds of the Mac's memory while it runs (its balloon's target), MiB.",
+            "type" : "integer"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/VMState"
+          }
+        },
+        "required" : [
+          "machine",
+          "state"
+        ],
+        "type" : "object"
+      },
+      "VMMachine" : {
+        "description" : "A virtual machine Kelp runs for agents on Apple Virtualization: a folder of its own under `<home>/vms/<name>` (its disk, keys, sockets), run by a `kelp-vm` process (the only one with the virtualization entitlement). Agents reach it over SSH through that process (vsock, no network address), each command a connection of its own; it pauses and then sleeps to disk when none is open, and wakes on the next.",
+        "properties" : {
+          "cpus" : {
+            "type" : "integer"
+          },
+          "diskGiB" : {
+            "type" : "integer"
+          },
+          "image" : {
+            "description" : "Its `VMImage.id`.",
+            "type" : "string"
+          },
+          "memoryMiB" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "network" : {
+            "type" : "boolean"
+          },
+          "os" : {
+            "description" : "`linux` for now.",
+            "type" : "string"
+          },
+          "rosetta" : {
+            "description" : "x86-64 Linux programs run through Rosetta (when the Mac has it).",
+            "type" : "boolean"
+          },
+          "user" : {
+            "description" : "The account inside: the Mac user's name, so paths and prompts read the same.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "cpus",
+          "diskGiB",
+          "image",
+          "memoryMiB",
+          "name",
+          "network",
+          "os",
+          "rosetta",
+          "user"
+        ],
+        "type" : "object"
+      },
+      "VMState" : {
+        "enum" : [
+          "creating",
+          "off",
+          "sleeping",
+          "starting",
+          "running",
+          "paused",
+          "error"
+        ],
+        "type" : "string"
+      },
       "WatchTopic" : {
         "description" : "What can be watched, and what its key names.",
         "enum" : [
@@ -9842,6 +9960,126 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path).",
+      "name" : "vm.connect",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cwd",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/VMConnection"
+        }
+      }
+    },
+    {
+      "description" : "`start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop` shuts it down (what ran inside ends).",
+      "name" : "vm.control",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "action",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/VMControl.Action"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/VMInfo"
+        }
+      }
+    },
+    {
+      "description" : "Makes a machine: downloads its image the first time (checked against the distribution's checksums), then its disk and first boot. Answers at once, `creating`; `vm.list` follows it.",
+      "name" : "vm.create",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "Memory in GiB, disk in GiB.",
+          "name" : "cpus",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "disk",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "image",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "memory",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/VMInfo"
+        }
+      }
+    },
+    {
+      "description" : "The machines and their state.",
+      "name" : "vm.list",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/VMInfo"
+          },
+          "type" : "array"
+        }
+      }
     },
     {
       "description" : "Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching what this connection watches already reads it again now (after a push: the CI run it started shows within seconds).",

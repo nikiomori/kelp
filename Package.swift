@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "kelp", targets: ["kelp"]),
         .executable(name: "kelpd", targets: ["kelpd"]),
         .executable(name: "KelpApp", targets: ["KelpApp"]),
+        .executable(name: "kelp-vm", targets: ["KelpVM"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
@@ -29,6 +30,8 @@ let package = Package(
         .target(name: "TerminalKit", dependencies: ["Core", "GhosttyKit"], linkerSettings: ghosttyLinks),
         .executableTarget(name: "kelpd", dependencies: ["Daemon"]),
         .executableTarget(name: "kelp", dependencies: ["Core"]),
+        // A virtual machine for agents (Core/VMs.swift): the only program signed with the virtualization entitlement.
+        .executableTarget(name: "KelpVM", dependencies: ["Core"], linkerSettings: [.linkedFramework("Virtualization")]),
         .target(name: "LSPKit", dependencies: ["Core"]),
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),

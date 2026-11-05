@@ -58,6 +58,10 @@ usage: kelp <command>
   artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
   artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                        browser, where they're signed in); list one an agent published elsewhere
+  \(Main.vmUsage)
+                                       a Linux machine for commands: run goes through SSH (no network address), the
+                                       project folder at the same path inside; it pauses and sleeps when unused, and
+                                       the next command wakes it
   schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
 """
 
@@ -220,6 +224,7 @@ func plist() -> String {
         case "browser": try await browser(sub, c)
         case "routine": try await routines(sub, c)
         case "artifact": try await artifacts(sub, c)
+        case "vm": try await vm(sub, c)
         default: print(usage)
         }
     }
