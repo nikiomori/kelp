@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/hero.webp" alt="Kelp, a native macOS IDE for coding agents. “Real artists ship.” Steve Jobs. Kelp plants growing into agents reach for the light beside the Kelp window" />
 
-**Run Claude Code, Codex, Gemini CLI or any other CLI agent side by side in a native Mac app.**<br/>
+**Run Claude Code, Codex, Antigravity or any other CLI agent side by side in a native Mac app.**<br/>
 See who needs you at a glance, and read every change right beside the agent that made it.
 
 <a href="https://github.com/nikiomori/kelp/releases/latest/download/Kelp.dmg"><img src="docs/download-button.png" alt="Download Kelp for Mac" width="224" height="56" /></a>
@@ -44,7 +44,7 @@ the app. No Electron, no account, no cloud, no telemetry.
 </table>
 
 <p align="center"><sub>
-Claude Code · Codex · OpenCode · Gemini CLI · Cursor Agent · GitHub Copilot · Grok · Antigravity · Amp · Aider · Goose ·
+Claude Code · Codex · Antigravity · OpenCode · Cursor Agent · GitHub Copilot · Grok · Amp · Aider · Goose ·
 Droid · Kilo Code · Qwen Code · Kimi · Pi · oh-my-pi · Crush · Hermes · Augment · Kiro · fx
 </sub></p>
 

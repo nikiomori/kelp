@@ -102,7 +102,7 @@ final class OnboardingSheet: SheetController {
         }
         if found.isEmpty {
             let none = NSTextField(wrappingLabelWithString: String(localized:
-                "None found yet. Kelp runs agent CLIs such as Claude Code, Codex or Gemini. Pick one in the Agent Catalog and it shows up here."))
+                "None found yet. Kelp runs agent CLIs such as Claude Code, Codex or Antigravity. Pick one in the Agent Catalog and it shows up here."))
             none.textColor = .secondaryLabelColor; none.preferredMaxLayoutWidth = 410
             let open = ClosureButton(title: String(localized: "Open Agent Catalog")) { [app] in SettingsWindow.show(app, section: "catalog") }
             open.bezelStyle = .push

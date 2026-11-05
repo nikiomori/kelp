@@ -53,7 +53,7 @@ package struct AgentCatalog {
         switch id {
         case "claude": String(localized: "Anthropic’s coding agent")
         case "codex": String(localized: "OpenAI’s coding agent")
-        case "gemini": String(localized: "Google’s agent, free with a Google account")
+        case "gemini": String(localized: "Retired by Google in June 2026: Antigravity takes its place")
         case "opencode": String(localized: "Open source, works with any model provider")
         case "cursor": String(localized: "Cursor’s agent in the terminal")
         case "qwen": String(localized: "Alibaba’s open source agent")
@@ -78,7 +78,7 @@ package struct AgentCatalog {
     }
     /// What the empty workspace offers to install when no agent is on this Mac; the rest are in Settings › Agent Catalog.
     var suggested: [AgentManifest] {
-        ["claude", "codex", "gemini", "opencode", "cursor"].compactMap { id in all.first { $0.id == id && $0.install != nil } }
+        ["claude", "codex", "antigravity", "opencode", "cursor"].compactMap { id in all.first { $0.id == id && $0.install != nil } }
     }
     /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
     /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
