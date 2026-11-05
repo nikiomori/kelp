@@ -17,14 +17,14 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
         {"__typename":"CheckRun","conclusion":"SKIPPED","name":"triage","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"T"},
         {"__typename":"StatusContext","context":"ci/circle","state":"PENDING"}]},
      {"author":{"login":"bob"},"headRefName":"b","isDraft":true,"number":8,"reviewDecision":"","state":"OPEN","title":"WIP",
-      "url":"https://github.com/o/r/pull/8","statusCheckRollup":[]}]
+      "url":"https://github.com/o/r/pull/8","statusCheckRollup":[],"mergeStateStatus":"DRAFT"}]
     """
     let prs = try GitHub.parsePullRequests(d(json))
     #expect(prs.count == 2)
     #expect(prs[0] == GitHub.PullRequest(number: 7, title: "Fix", url: "https://github.com/o/r/pull/7", author: "alice", headRefName: "123-fix",
                                          isDraft: false, state: "OPEN", reviewDecision: "REVIEW_REQUIRED",
                                          checks: .init(passed: 1, failed: 1, pending: 2)))
-    #expect(prs[1].reviewDecision == nil && prs[1].isDraft && prs[1].checks == .init())
+    #expect(prs[1].reviewDecision == nil && prs[1].isDraft && prs[1].checks == .init() && prs[1].mergeState == "DRAFT")
 }
 
 @Test func parseIssuesFlattensLabelsAndAssignees() throws {

@@ -78,3 +78,18 @@ import Core
     #expect(text.contains("12. a.swift:12 (amy)") && !text.contains("13. a.swift"))
     #expect(text.hasSuffix("(3 more comments omitted.)") && text.count < 12 * 830 + 40)
 }
+
+/// Why a pull request can't merge yet is said in words, the review or the checks named when GitHub only says BLOCKED.
+@Test @MainActor func aBlockedMergeSaysWhy() {
+    var pr = GitHub.PullRequest(number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN",
+                                reviewDecision: "REVIEW_REQUIRED", checks: .init(failed: 1))
+    #expect(TasksViewController.mergeBlock(pr) == nil)   // GitHub hasn't said
+    pr.mergeState = "BLOCKED"
+    #expect(TasksViewController.mergeBlock(pr) == "It needs an approving review.")
+    pr.reviewDecision = "APPROVED"
+    #expect(TasksViewController.mergeBlock(pr) == "Required checks failed.")
+    pr.mergeState = "DIRTY"
+    #expect(TasksViewController.mergeBlock(pr)?.contains("conflicts") == true)
+    pr.mergeState = "CLEAN"
+    #expect(TasksViewController.mergeBlock(pr) == nil)
+}

@@ -20,6 +20,8 @@ public enum GitHub {
         public var checks: Checks
         /// The head commit when the list was read (GitHub's): a merge goes ahead only while it is still the head.
         public var headRefOid: String?
+        /// GitHub's word for whether it can merge: CLEAN, BLOCKED, BEHIND, DIRTY (conflicts), UNSTABLE, DRAFT, UNKNOWN.
+        public var mergeState: String?
         public init(number: Int, title: String, url: String, author: String, headRefName: String, isDraft: Bool, state: String,
                     reviewDecision: String? = nil, checks: Checks, headRefOid: String? = nil) {
             self.number = number; self.title = title; self.url = url; self.author = author; self.headRefName = headRefName

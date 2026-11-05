@@ -35,7 +35,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
     var rows: [Row] = []
-    private var repoId: String?
+    private(set) var repoId: String?
     private var projectOwner: String?
     private var jiraJQL = "project = ENG AND statusCategory != Done ORDER BY priority DESC"
 
@@ -325,8 +325,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             actions.addArrangedSubview(button(String(localized: "Open Worktree"), "arrow.triangle.branch") { app.workbench.show(workspace: wt.id) })
             actions.addArrangedSubview(button(String(localized: "Send Review Comments to Agent"), "text.bubble") { [weak self] in self?.sendReview(n, wt) })
         }
-        actions.addArrangedSubview(button(String(localized: "Merge (squash)"), "arrow.triangle.merge") { [weak self] in self?.merge(n, r.headRefOid, wt) })
+        actions.addArrangedSubview(mergeButton(r, wt))
         detail.addArrangedSubview(actions)
+        if let why = Self.mergeBlock(r) { detail.addArrangedSubview(label(why, color: .secondaryLabelColor)) }
         let checksBox = NSStackView()
         checksBox.orientation = .vertical
         checksBox.alignment = .leading
@@ -422,18 +423,6 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             guard let cs = await app.call(GitHubReviewComments(repoId: repoId, pr: n)) else { return }   // the banner says why
             guard !cs.isEmpty else { status.stringValue = String(localized: "No review comments"); return }
             await sendRecipe("review", wt, ["comments": Self.forAgent(cs)])
-        }
-    }
-    private func merge(_ n: Int, _ head: String?, _ wt: Worktree?) {
-        let a = NSAlert()
-        a.messageText = String(localized: "Squash and merge #\(n)?")
-        a.addButton(withTitle: String(localized: "Merge"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        Task {
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
-            // The merge runs in a workspace of the project (gh needs a checkout); the PR's own if it has one.
-            guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else { NSSound.beep(); return }
-            if await app.call(GitHubPRMerge(worktreeId: wid, pr: n, head: head)) != nil { status.stringValue = String(localized: "Merged #\(n)"); reload() }
         }
     }
 }

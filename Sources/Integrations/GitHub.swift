@@ -20,7 +20,7 @@ extension GitHub {
     public enum PRFilter: Sendable { case open, mine, reviewRequested }
     public enum MergeMethod: String, Sendable { case squash, merge, rebase }
 
-    static let prFields = "number,title,url,author,headRefName,headRefOid,isDraft,state,reviewDecision,statusCheckRollup"
+    static let prFields = "number,title,url,author,headRefName,headRefOid,isDraft,state,reviewDecision,statusCheckRollup,mergeStateStatus"
 
     /// Where the user's shell finds it (MacPorts, nix, mise… too), not only in the daemon's own PATH.
     /// `KELP_GH` names another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`.
@@ -131,14 +131,16 @@ extension GitHub {
     }
     private struct RawPR: Decodable {
         var number: Int, title: String, url: String, author: Login, headRefName: String, headRefOid: String?
-        var isDraft: Bool, state: String, reviewDecision: String?, statusCheckRollup: [RawRollup]?
+        var isDraft: Bool, state: String, reviewDecision: String?, statusCheckRollup: [RawRollup]?, mergeStateStatus: String?
     }
 
     public static func parsePullRequests(_ data: Data) throws -> [PullRequest] {
         try JSONDecoder().decode([RawPR].self, from: data).map {
-            PullRequest(number: $0.number, title: $0.title, url: $0.url, author: $0.author.login, headRefName: $0.headRefName,
-                        isDraft: $0.isDraft, state: $0.state, reviewDecision: $0.reviewDecision?.isEmpty == false ? $0.reviewDecision : nil,
-                        checks: summarize($0.statusCheckRollup ?? []), headRefOid: $0.headRefOid)
+            var pr = PullRequest(number: $0.number, title: $0.title, url: $0.url, author: $0.author.login, headRefName: $0.headRefName,
+                                 isDraft: $0.isDraft, state: $0.state, reviewDecision: $0.reviewDecision?.isEmpty == false ? $0.reviewDecision : nil,
+                                 checks: summarize($0.statusCheckRollup ?? []), headRefOid: $0.headRefOid)
+            pr.mergeState = $0.mergeStateStatus
+            return pr
         }
     }
 

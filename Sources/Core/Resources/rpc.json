@@ -1360,6 +1360,10 @@
           "isDraft" : {
             "type" : "boolean"
           },
+          "mergeState" : {
+            "description" : "GitHub's word for whether it can merge: CLEAN, BLOCKED, BEHIND, DIRTY (conflicts), UNSTABLE, DRAFT, UNKNOWN.",
+            "type" : "string"
+          },
           "number" : {
             "type" : "integer"
           },
