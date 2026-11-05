@@ -12,7 +12,9 @@ struct SettingPreview: View {
     var body: some View {
         switch (section, group) {
         case ("terminal", nil): TerminalSample()
-        case ("editor", nil): EditorSample().frame(height: 132).clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        case ("editor", nil):
+            EditorSample().frame(height: 132).clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
         case ("agents", "Plan limits"): LimitsSample()
         default: EmptyView()
         }
@@ -42,6 +44,8 @@ private struct TerminalSample: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Metrics.inset)
         .background(Color(nsColor: app.themes.terminalBackground), in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        // Its edge: a light theme's terminal is as white as the card it sits on.
+        .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
         .accessibilityHidden(true)
     }
 

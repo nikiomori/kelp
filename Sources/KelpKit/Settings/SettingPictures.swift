@@ -167,9 +167,11 @@ private struct PictureArt: View {
         .background(LinearGradient(colors: [Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.12)], startPoint: .top, endPoint: .bottom))
     }
 
+    /// In the terminal's own colors, as the sample above it.
     private var cursor: some View {
-        HStack(spacing: 1) {
-            Text(verbatim: "❯ ls").font(.callout.monospaced()).foregroundStyle(.white)
+        let ink = app.themes.shown?.terminal.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .white
+        return HStack(spacing: 1) {
+            Text(verbatim: "❯ ls").font(.callout.monospaced()).foregroundStyle(ink)
             Group {
                 switch option {
                 case "bar": Rectangle().frame(width: 2, height: 15)
@@ -177,10 +179,10 @@ private struct PictureArt: View {
                 default: Rectangle().frame(width: 8, height: 15)
                 }
             }
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(ink.opacity(0.9))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.85))
+        .background(Color(nsColor: app.themes.terminalBackground))
     }
 
     private var agent: some View {
