@@ -127,6 +127,8 @@ extension SidebarController {
             }
             if m.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
+            } else if m.session(sid)?.status == .done {   // finished and waiting to be seen: put away by hand, as a glance would
+                menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) } }
             }
             muteItem(menu, n.muteIds)
             parkItem(menu, sid)
