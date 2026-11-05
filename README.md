@@ -3,7 +3,8 @@
 <img src="docs/screenshots/hero.webp" alt="Kelp, a native macOS IDE for coding agents. “Real artists ship.” Steve Jobs. Kelp plants growing into agents reach for the light beside the Kelp window" />
 
 **Run Claude Code, Codex, Antigravity or any other CLI agent side by side in a native Mac app.**<br/>
-See who needs you at a glance, and read every change right beside the agent that made it.
+See who needs you at a glance, and read every change right beside the agent that made it.<br/>
+<sub>For people who run a few agents and still read the code.</sub>
 
 <a href="https://github.com/nikiomori/kelp/releases/latest/download/Kelp.dmg"><img src="docs/download-button.png" alt="Download Kelp for Mac" width="224" height="56" /></a>
 
@@ -60,14 +61,18 @@ grid. Every one is the real CLI in a real terminal, with your config and your pl
 ### 2. Get on with your day
 
 Each agent's state sits on its row in the sidebar: working, finished, or waiting for you, with its question right there.
+Nothing to set up: Kelp knows it from the agent itself, and says so when it's only reading the screen.
 <kbd>⇧⌘U</kbd> goes to the next one that needs you. Allow a command or send a reply straight from the notification.
 
 <img src="docs/screenshots/agent-asks.png" alt="An agent waiting on a question; its row in the sidebar shows the question and the capsule counts who needs you" />
 
 ### 3. Read what they did
 
-Open the diff beside the agent that wrote it. Stage or discard a hunk, or comment on a line and send your comments back
-to the agent.
+Open the diff beside the agent that wrote it, by turn or for the whole branch. Tick files as you read them, search the
+diff, stage or discard a hunk (with Undo), or comment on a line and send your comments back to the agent.
+
+**Review with** hands the change to a second agent, say Codex reviewing what Claude wrote. Its findings land as comments
+on the lines; the ones you tick go back to the first agent in one message.
 
 <img src="docs/screenshots/agent-and-diff.png" alt="An agent's finished change next to its diff, Source Control on the right" />
 
