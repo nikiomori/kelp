@@ -119,7 +119,7 @@ extension BrowserTab {
     const LEAF = new Set(['link','button','textbox','searchbox','checkbox','radio','combobox','slider','switch','tab','menuitem',
       'option','spinbutton','img','heading','clickable']);
     const FIELD = new Set(['textbox','searchbox','combobox','slider','spinbutton']);
-    const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+    const clean = s => (typeof s === 'string' ? s : '').replace(/\s+/g, ' ').trim();
     const cut = s => (s = s || '').length > 100 ? s.slice(0, 100) + '…' : s;
     const SKIP = new Set(['script','style','noscript','template','head','svg','iframe']);
     const INPUT = {checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', button: 'button', submit: 'button',
@@ -145,11 +145,11 @@ extension BrowserTab {
       const by = el.getAttribute('aria-labelledby');
       if (by) { const s = clean(by.split(/\s+/).map(id => (document.getElementById(id) || {}).innerText || '').join(' ')); if (s) return s; }
       if (el.labels && el.labels.length) return clean([...el.labels].map(x => x.innerText).join(' '));
-      if (el.localName === 'img') return clean(el.alt || el.title);
+      if (el.localName === 'img') return clean(el.alt || el.getAttribute('title'));
       if (el.localName === 'input' && ['button', 'submit', 'reset'].includes(el.type)) return clean(el.value);
-      if (FIELD.has(role)) return clean(el.placeholder || el.title);
-      if (LEAF.has(role)) return clean(el.innerText || el.title);
-      return clean(el.title);
+      if (FIELD.has(role)) return clean(el.placeholder || el.getAttribute('title'));
+      if (LEAF.has(role)) return clean(el.innerText || el.getAttribute('title'));
+      return clean(el.getAttribute('title'));
     };
     const shown = el => {
       if (el.getAttribute('aria-hidden') === 'true') return false;
