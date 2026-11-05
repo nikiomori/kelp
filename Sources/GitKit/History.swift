@@ -166,8 +166,10 @@ extension Git {
         do {
             if !t.isEmpty { back = try runData(["diff"] + plain + ["--"] + literal(t), cwd: path, remotes: remotes) }
             for f in u { back += try runData(["diff"] + plain + ["--no-index", "--", "/dev/null", f], cwd: path, ok: [0, 1], remotes: remotes) }
-        } catch {
-            throw GitError(args: ["diff"], status: 1, stderr: "This change is too big to keep for Undo, so Kelp left it as it is.")
+            if back.count > Subprocess.outputLimit { throw tooMuch(["diff"]) }   // all of them, held in the daemon a minute
+        } catch let e as GitError where e.status == 0 {   // `tooMuch`: any other failure says what it was
+            throw GitError(args: ["diff"], status: 1, stderr: "This change is too big to keep for Undo, so Kelp left it as it is: "
+                           + "discard it in a terminal (git restore) if you're sure.")
         }
         // New files go to the Trash on this Mac: should Undo fail, they are still there to put back.
         if remotes.of(path) == nil {

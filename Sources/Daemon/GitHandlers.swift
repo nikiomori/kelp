@@ -166,7 +166,7 @@ extension GitDiscard: Handled {
 extension GitUndoDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
-        guard let d = workspaces.discarded.withLock({ $0[path]?.removeValue(forKey: undo ?? "") }), d.at.timeIntervalSinceNow > -60 else {
+        guard let d = workspaces.takeDiscard(folder: path, name: undo) else {
             throw RPCError.invalidParams("There's no discard to undo here any more.")
         }
         do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {

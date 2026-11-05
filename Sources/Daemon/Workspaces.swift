@@ -25,9 +25,21 @@ final class Workspaces: Sendable {
     /// Keeps `d` under `name` in `folder`, dropping what's past its minute.
     func keepDiscard(_ d: Discarded, folder: String, name: String?) {
         discarded.withLock { all in
-            all = all.mapValues { $0.filter { $0.value.at.timeIntervalSinceNow > -60 } }.filter { !$0.value.isEmpty }   // every folder's
+            all = Self.fresh(all)
             all[folder, default: [:]][name ?? ""] = d
         }
+        // Gone after its minute even when nothing else is discarded: a patch can be large.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 61) { [weak self] in self?.discarded.withLock { $0 = Self.fresh($0) } }
+    }
+    /// The discard kept under `name`, taken (an Undo is once), if its minute isn't over.
+    func takeDiscard(folder: String, name: String?) -> Discarded? {
+        discarded.withLock { all in
+            all = Self.fresh(all)
+            return all[folder]?.removeValue(forKey: name ?? "")
+        }
+    }
+    private static func fresh(_ all: [String: [String: Discarded]]) -> [String: [String: Discarded]] {
+        all.mapValues { $0.filter { $0.value.at.timeIntervalSinceNow > -60 } }.filter { !$0.value.isEmpty }
     }
     struct Discarded: Sendable {
         var at = Date()
