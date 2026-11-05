@@ -15821,7 +15821,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Что сделать %@? Return — запустить"
+            "value": "Что поручить %@? Return — запустить"
           }
         }
       }

@@ -5,7 +5,8 @@ import DesignKit
 import WorkbenchKit
 
 /// An empty workspace: where it is, a field for the default agent's first task, and what can be opened here, one
-/// click each (like Xcode's welcome window) — the installed agents, a terminal, and whatever extensions add (the browser…).
+/// click each (like Xcode's welcome window) — the installed agents, a terminal and what to run. The rest (a tmux
+/// session, a new file, the browser, what extensions open) is in the "+" menu and ⌘P.
 @MainActor
 final class StartView: NSView {
     var onAgent: ((String) -> Void)?
@@ -31,6 +32,8 @@ final class StartView: NSView {
     }
     /// The rows of the agents on show, whose plan limits follow the daemon: the view isn't made again, what's typed stays.
     private var agentRowsById: [String: StartRow] = [:]
+    /// Those in the two columns: a half row has room for the percentage, the reset time goes in its tip.
+    private var halfRows: Set<String> = []
     private let planLine = NSTextField(wrappingLabelWithString: "")
     private let planSwitch = PointerButton()
     private lazy var planBar = NSStackView(views: [planLine, planSwitch])
@@ -56,20 +59,23 @@ final class StartView: NSView {
         folder.isHidden = folder.stringValue.isEmpty
 
         // The default agent first, then those in use, then the others (two columns: people often have a dozen). Six at
-        // most, the rest behind one row: however many there are, Terminal stays on screen.
+        // most, the rest and the catalog behind one row: however many there are, Terminal stays on screen.
         let started = Set(app.sessions.map(\.agent))
         let first = def
         let rank = { (a: AgentManifest) in (a.id == first ? 0 : 1, started.contains(a.id) ? 0 : 1, a.name) }
         let agents = app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
-        var tiles = agents.prefix(Self.agentRows).map { a in
-            let row = StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, detail: a.id == def ? String(localized: "Default") : nil,
-                               shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in self?.onAgent?(a.id) }
+        let shown = agents.prefix(Self.agentRows)
+        var tiles = shown.map { a in
+            let row = StartRow(image: app.catalog.icon(a.id, size: 20), title: a.name, shortcut: a.id == def ? "⌥⌘T" : nil) { [weak self] in
+                self?.onAgent?(a.id)
+            }
             agentRowsById[a.id] = row
             return row
         }
-        if agents.count > Self.agentRows { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
+        if !agents.isEmpty { tiles.append(moreAgents(Array(agents.dropFirst(Self.agentRows)))) }
         // In two columns the default agent still runs across the card, its ⌥⌘T at the right edge with ⌘T and the rest.
         let lead = agents.first?.id == def ? 1 : 0
+        if Self.paired(tiles.count) { halfRows = Set(shown.dropFirst(lead).map(\.id)) }
         let rows = agentRows(agents, tiles: tiles, lead: lead)
         let others = otherRows(w)
         let card = StartCard(rows: rows, others: others)
@@ -81,24 +87,22 @@ final class StartView: NSView {
 
         var views: [NSView] = [icon, title, folder]
         let field = agents.contains { $0.id == def } ? promptField() : nil
-        if let field { views += [field, planBar] }
-        views += [open, card]
-        let make = field == nil ? nil : makeSection()
-        views += [make, hint].compactMap { $0 }
+        // Make, right under the field it fills.
+        let make = field == nil ? nil : MakeChips { [weak self] k in self?.draftMake(k) }
+        if let field, let make { views += [field, make, planBar] }
+        views += [open, card, hint]
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 4
         stack.detachesHiddenViews = true
         stack.setCustomSpacing(14, after: icon); stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
-        if let field {
+        if let field, let make {
+            stack.setCustomSpacing(Metrics.gapWide, after: field)
             stack.setCustomSpacing(22, after: planBar)
-        }
-        stack.setCustomSpacing(6, after: open); stack.setCustomSpacing(14, after: card)
-        if let make {
-            stack.setCustomSpacing(22, after: card); stack.setCustomSpacing(14, after: make)
             make.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
+        stack.setCustomSpacing(6, after: open); stack.setCustomSpacing(14, after: card)
         // In a scroll view: a low window scrolls the list rather than growing to hold it.
         let page = FlippedView(); page.translatesAutoresizingMaskIntoConstraints = false
         let scroll = NSScrollView()
@@ -119,35 +123,39 @@ final class StartView: NSView {
             width, stack.leadingAnchor.constraint(greaterThanOrEqualTo: page.leadingAnchor, constant: 24),
             icon.widthAnchor.constraint(equalToConstant: 56), icon.heightAnchor.constraint(equalToConstant: 56),
             title.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor), folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor),
-            card.widthAnchor.constraint(equalTo: stack.widthAnchor), open.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 4)
+            card.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            open.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: StartCard.inset + StartRow.inset)   // over the rows' icons
         ])
         if let field { field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
-        if tiles.count > 5 {
-            tiles.dropFirst(lead).forEach { $0.widthAnchor.constraint(equalTo: card.widthAnchor, multiplier: 0.5, constant: -6).isActive = true }
-        }
-        followPlans(in: stack, after: field)
+        followPlans(in: stack, after: make)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     private static let agentRows = 6
+    /// Past five rows (the agents and More Agents…), all but the default agent go in two columns.
+    static func paired(_ tiles: Int) -> Bool { tiles > 5 }
 
-    /// The agents past the first six, in a menu under its row.
+    /// The agents past the first six, then the catalog (Settings: installing and setting up agents is rare), in a menu
+    /// under its row.
     private func moreAgents(_ rest: [AgentManifest]) -> StartRow {
         weak var row: StartRow?
+        let app = self.app
         let more = StartRow(image: .symbol("ellipsis.circle"), title: String(localized: "More Agents…"), shortcut: nil) { [weak self] in
             guard let self, let row else { return }
             let menu = NSMenu()
             for a in rest {
                 let item = menu.add(a.name) { [weak self] in self?.onAgent?(a.id) }
-                item.show(self.app.catalog.icon(a.id, size: 16))
+                item.show(app.catalog.icon(a.id, size: 16))
             }
+            if !rest.isEmpty { menu.addItem(.separator()) }
+            menu.add(String(localized: "Agent Catalog…")) { SettingsWindow.show(app, section: "catalog") }
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: row)
         }
         row = more
         return more
     }
 
-    /// The agents to start, in two columns after the first `lead` when there are many; with none, what to install; then
+    /// The agents to start, in two columns after the first `lead` when there are many; with none, what to install and
     /// the catalog.
     private func agentRows(_ agents: [AgentManifest], tiles: [StartRow], lead: Int) -> [NSView] {
         let app = self.app
@@ -161,65 +169,51 @@ final class StartView: NSView {
                     self?.onInstall?(m)
                 }
             }
-        } else if tiles.count > 5 {
+            // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
+            rows.append(StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
+                SettingsWindow.show(app, section: "catalog")
+            })
+        } else if Self.paired(tiles.count) {
             rows += tiles.prefix(lead).map { $0 as NSView }
+            // A pair per card row: the card draws the same line between them as between its other rows.
             let paired = Array(tiles.dropFirst(lead))
-            let grid = NSGridView(numberOfColumns: 2, rows: 0)
-            grid.columnSpacing = 4
-            grid.rowSpacing = 0
             for i in stride(from: 0, to: paired.count, by: 2) {
-                grid.addRow(with: [paired[i], i + 1 < paired.count ? paired[i + 1] : NSGridCell.emptyContentView])
+                let pair = NSStackView(views: [paired[i], i + 1 < paired.count ? paired[i + 1] : NSView()])
+                pair.distribution = .fillEqually
+                pair.spacing = StartCard.inset
+                rows.append(pair)
             }
-            rows.append(grid)
         } else {
             rows += tiles
         }
-        // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
-        rows.append(StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
-            SettingsWindow.show(app, section: "catalog")
-        })
         return rows
     }
 
-    /// What else opens here: a terminal, a tmux session, what extensions open.
+    /// What else opens here: a terminal and what to run. What extensions open waits in "+" and ⌘P: each would add a row.
     private func otherRows(_ w: Worktree) -> [NSView] {
-        let app = self.app
-        var others: [NSView] = [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in
-            self?.onOpen?("terminal:")
-        }]
-        others.append(RunSlot(app: app, workspace: w.id))
-        if app.catalog.hasTmux(w) {
-            others.append(StartRow(image: .symbol("rectangle.split.3x1"), title: String(localized: "tmux Session"), shortcut: nil) { app.quickOpen.showTmux() })
-        }
-        // Changes live in Source Control; the rest of what extensions open is offered here.
-        for e in app.extensions.all.editors where e.id != "git.review" {
-            let key = app.extensions.command(e.id)?.key.flatMap(KeySpec.init).map(KeyBindings.display)
-            others.append(StartRow(image: .symbol(e.icon), title: e.title, shortcut: key) { e.open(IDEContext.of(app), in: app) })
-        }
-        return others
+        [StartRow(image: .symbol("terminal"), title: String(localized: "Terminal"), shortcut: "⌘T") { [weak self] in self?.onOpen?("terminal:") },
+         RunSlot(app: app, workspace: w.id)]
     }
 
-    private func followPlans(in stack: NSStackView, after field: NSView?) {
-        // Not in the stack when the default agent isn't installed: there is no field for it to sit under.
-        if field != nil { planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
+    /// `under`: what the warning sits under (Make, under the field); nil when the default agent isn't installed.
+    private func followPlans(in stack: NSStackView, after under: NSView?) {
+        if under != nil { planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         planBar.spacing = Metrics.gapWide
         planLine.font = .ui(12)
         planLine.textColor = .secondaryLabelColor
         planSwitch.padding = Metrics.gap
         planSwitch.restFill = .fillRest
         planSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
-        showPlans(in: stack, after: field)
+        showPlans(in: stack, after: under)
         track(owner: self) { [app] in app.limits } changed: { [weak self, weak stack] _ in
-            if let stack { self?.showPlans(in: stack, after: field) }
+            if let stack { self?.showPlans(in: stack, after: under) }
         }
     }
 
     /// Each agent's plan beside its name; under the field, what to know when the default agent is nearly out.
-    private func showPlans(in stack: NSStackView, after field: NSView?) {
+    private func showPlans(in stack: NSStackView, after under: NSView?) {
         let notes = app.planNotes
-        for (id, row) in agentRowsById {
-            row.show(lead: id == def ? String(localized: "Default") : nil, note: notes[id])
-        }
+        for (id, row) in agentRowsById { row.show(note: notes[id], half: halfRows.contains(id)) }
         let name = app.catalog.all.first { $0.id == def }?.name ?? def
         let warning = notes[def]?.warning(for: name)
         planLine.stringValue = warning ?? ""
@@ -231,7 +225,7 @@ final class StartView: NSView {
             planSwitch.title = String(localized: "Start in \(n)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
-        if let field { stack.setCustomSpacing(planBar.isHidden ? 22 : 8, after: field) }
+        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
     }
 
     /// With what was typed, if anything.
@@ -262,19 +256,6 @@ final class StartView: NSView {
 
     func focus() { if prompt.superview != nil { prompt.focus() } }
 
-    /// Make, under the card: a page the default agent writes, its line put in the field for the user to finish.
-    private func makeSection() -> NSView {
-        let title = NSTextField(labelWithString: String(localized: "Make"))
-        title.font = .ui(11, weight: .semibold); title.textColor = .secondaryLabelColor
-        let tiles = MakeTiles { [weak self] k in self?.draftMake(k) }
-        let section = NSStackView(views: [title, tiles])
-        section.orientation = .vertical; section.alignment = .leading
-        section.spacing = 6
-        NSLayoutConstraint.activate([title.leadingAnchor.constraint(equalTo: section.leadingAnchor, constant: 4),
-                                     tiles.widthAnchor.constraint(equalTo: section.widthAnchor)])
-        return section
-    }
-
     /// The Make line in the field, the caret after it: what to make is the user's to say.
     private func draftMake(_ k: Make.Kind) {
         prompt.value = Make.line(k)
@@ -282,7 +263,8 @@ final class StartView: NSView {
     }
 
     static func padded(_ v: NSView) -> NSView {
-        let p = NSStackView(views: [v]); p.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        let inset = StartCard.inset + StartRow.inset
+        let p = NSStackView(views: [v]); p.edgeInsets = NSEdgeInsets(top: 10, left: inset, bottom: 10, right: inset)
         return p
     }
 }
@@ -309,6 +291,9 @@ private final class StartBox: NSView {
 /// The choices in one grouped box, like a Settings list: the agents, a line, then the terminal and the rest.
 @MainActor
 private final class StartCard: NSView {
+    /// The card's edge to its rows' highlight.
+    static let inset: CGFloat = 4
+
     init(rows: [NSView], others: [NSView]) {
         super.init(frame: .zero)
         let box = StartBox(radius: Metrics.radiusXL)   // the card
@@ -325,11 +310,11 @@ private final class StartCard: NSView {
         list.detachesHiddenViews = true   // the run rows, while there's nothing to run, and their separator
         list.orientation = .vertical
         list.spacing = 0
-        list.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        list.edgeInsets = NSEdgeInsets(top: Self.inset, left: Self.inset, bottom: Self.inset, right: Self.inset)
         pin(box); pin(list)
         for v in views {
             if v is NSBox { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -40).isActive = true }   // inset like grouped lists
-            else if !(v is NSGridView) { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -8).isActive = true }
+            else { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Self.inset).isActive = true }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -353,7 +338,9 @@ private final class RunSlot: NSStackView {
     private func show(_ o: ScriptsMenu.Offer?, _ app: AppModel, _ wid: String) {
         isHidden = o == nil
         guard let o else { return }
-        let run = StartRow(image: .symbol("play"), title: String(localized: "Run \(o.label)"), detail: o.command, shortcut: o.guess ? nil : "⌘R") {
+        // The command beside it only when the name doesn't already say it (cut short, or with its folder).
+        let run = StartRow(image: .symbol("play"), title: String(localized: "Run \(o.label)"), detail: o.command == o.label ? nil : o.command,
+                           shortcut: o.guess ? nil : "⌘R") {
             Task { await app.scripts.start(choice: o.choice, in: wid) }
         }
         let choose = StartRow(image: .symbol("list.bullet"), title: String(localized: "Choose What to Run…"), shortcut: "⌃⌘R") { app.scripts.choose() }
@@ -371,13 +358,15 @@ private final class StartRow: NSView {
     private var hover = false
     private let more = NSTextField(labelWithString: "")
 
-    /// `lead` in grey; the plan in its colour after it.
-    func show(lead: String?, note: PlanNote?) {
-        let text = NSMutableAttributedString(string: [lead, note == nil ? nil : ""].compactMap { $0 }.joined(separator: " · "),
-                                             attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
-        if let note { text.append(NSAttributedString(string: note.text, attributes: [.font: NSFont.ui(12), .foregroundColor: note.color])) }
-        more.attributedStringValue = text
-        more.isHidden = text.length == 0
+    /// The edge of the row's highlight to its icon.
+    static let inset: CGFloat = 10
+
+    /// The plan in its colour; in a `half` row only how full, when it resets in the tip.
+    func show(note: PlanNote?, half: Bool) {
+        more.stringValue = (half ? note?.amount : note?.text) ?? ""
+        more.textColor = note?.color ?? .secondaryLabelColor
+        more.isHidden = note == nil
+        toolTip = half ? note?.resetsTip : nil
     }
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
@@ -402,9 +391,10 @@ private final class StartRow: NSView {
         row.spacing = 10
         row.detachesHiddenViews = true
         more.isHidden = detail == nil; key.isHidden = shortcut == nil
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Self.inset, bottom: 0, right: Self.inset)
         pin(row)
-        NSLayoutConstraint.activate([heightAnchor.constraint(equalToConstant: 36), icon.widthAnchor.constraint(equalToConstant: 22)])
+        NSLayoutConstraint.activate([heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
+                                     icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)])
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)

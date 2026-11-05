@@ -10,6 +10,10 @@ private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil)
     #expect(note(0.92)?.text == "92 % · 3:40pm")
     #expect(note(0.12, resets: nil)?.text == "12 %")
     #expect(note(1)?.text == "Full · 3:40pm")
+    #expect(note(0.92)?.amount == "92 %")
+    #expect(note(1)?.amount == "Full")
+    #expect(note(0.92)?.resetsTip == "Resets 3:40pm")
+    #expect(note(0.92, resets: nil)?.resetsTip == nil)
 }
 
 @Test func anUnusedOrOldPlanSaysNothing() {

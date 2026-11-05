@@ -28,58 +28,24 @@ enum Make {
     }
 }
 
-/// Make on the start page: a row of grey tiles, a symbol in each and its name under it.
+/// Make on the start page, right under the field it fills: "Make" and a small grey chip per kind. Each only puts a line
+/// in the field, so it weighs no more than the words it adds.
 @MainActor
-final class MakeTiles: NSStackView {
+final class MakeChips: NSStackView {
     init(pick: @escaping (Make.Kind) -> Void) {
         super.init(frame: .zero)
-        distribution = .fillEqually
-        spacing = Metrics.gapWide
-        setViews(Make.kinds.map { k in MakeTile(k) { pick(k) } }, in: .leading)
+        spacing = Metrics.gap
+        let title = NSTextField(labelWithString: String(localized: "Make"))
+        title.font = .ui(12); title.textColor = .secondaryLabelColor
+        let chips = Make.kinds.map { k in
+            let b = PointerButton(title: k.title) { pick(k) }
+            b.font = .ui(12); b.padding = Metrics.gap
+            b.restFill = .fillRest; b.toolTip = k.help
+            b.setAccessibilityLabel(String(localized: "Make a \(k.title)")); b.setAccessibilityHelp(k.help)
+            return b
+        }
+        setViews([title] + chips, in: .leading)
+        setCustomSpacing(Metrics.gapWide, after: title)
     }
     required init?(coder: NSCoder) { fatalError() }
-}
-
-@MainActor
-private final class MakeTile: NSView {
-    private let box = NSView()
-    private let action: () -> Void
-    private var hover = false, area: NSTrackingArea?
-
-    init(_ k: Make.Kind, action: @escaping () -> Void) {
-        self.action = action
-        super.init(frame: .zero)
-        box.wantsLayer = true
-        box.layer?.cornerRadius = Metrics.radiusLG; box.layer?.cornerCurve = .continuous
-        let icon = NSImageView(image: .symbol(k.symbol))
-        icon.symbolConfiguration = .init(pointSize: 17, weight: Metrics.iconWeight)
-        icon.contentTintColor = .secondaryLabelColor
-        icon.translatesAutoresizingMaskIntoConstraints = false; box.addSubview(icon)
-        let name = NSTextField(labelWithString: k.title)
-        name.font = .ui(12); name.alignment = .center
-        name.lineBreakMode = .byTruncatingTail
-        let col = NSStackView(views: [box, name])
-        col.orientation = .vertical; col.spacing = Metrics.gap
-        pin(col)
-        NSLayoutConstraint.activate([icon.centerXAnchor.constraint(equalTo: box.centerXAnchor), icon.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-                                     box.heightAnchor.constraint(equalToConstant: 56), box.widthAnchor.constraint(equalTo: col.widthAnchor),
-                                     name.widthAnchor.constraint(lessThanOrEqualTo: col.widthAnchor)])
-        toolTip = k.help
-        setAccessibilityElement(true); setAccessibilityRole(.button)
-        setAccessibilityLabel(String(localized: "Make a \(k.title)")); setAccessibilityHelp(k.help)
-        rest()
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    private func rest() { box.fadeBackground(to: hover ? .fillHover : .fillRest) }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); rest() }
-    override func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
-    override func mouseEntered(with e: NSEvent) { hover = true; rest() }
-    override func mouseExited(with e: NSEvent) { hover = false; rest() }
-    override func mouseDown(with e: NSEvent) { box.fadeBackground(to: .fillSelected, held: true) }
-    override func mouseUp(with e: NSEvent) {
-        rest()
-        if bounds.contains(convert(e.locationInWindow, from: nil)) { box.pressBounce(); action() }
-    }
-    override func accessibilityPerformPress() -> Bool { action(); return true }
 }

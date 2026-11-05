@@ -15,7 +15,11 @@ struct PlanNote: Equatable {
 
     private var isFull: Bool { used >= 1 }
     private var percent: String { "\(Int((used * 100).rounded())) %" }
-    var text: String { [isFull ? String(localized: "Full") : percent, resets].compactMap { $0 }.joined(separator: " · ") }
+    /// How full, without when it resets: where a half-width row has no room for the time.
+    var amount: String { isFull ? String(localized: "Full") : percent }
+    var text: String { [amount, resets].compactMap { $0 }.joined(separator: " · ") }
+    /// The reset time on its own, for a tip beside `amount`.
+    var resetsTip: String? { resets.map { String(localized: "Resets \($0)") } }
     var color: NSColor { used >= 0.9 ? .textRed : used >= 0.7 ? .textOrange : .secondaryLabelColor }
 
     /// Said under the first-task field when the agent it starts is nearly out.

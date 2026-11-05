@@ -13,6 +13,7 @@ public enum Metrics {
     public static let rowTwoLine: CGFloat = 38    // a name with a line under it
     public static let rowSection: CGFloat = 26    // a section's title over its rows
     public static let rowMenu: CGFloat = 30       // Quick Open, the switcher
+    public static let rowCard: CGFloat = 36       // a choice in a grouped card (the empty workspace's)
 
     // Spacing
     public static let inset: CGFloat = 12         // a panel's edge to its content

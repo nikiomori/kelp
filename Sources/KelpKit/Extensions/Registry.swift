@@ -78,6 +78,8 @@ package struct EditorSpec: Identifiable {
         self.uri = uri
     }
     package let id: String, title: String, icon: String
+    /// The title as shown: `title` is English data, translated where it appears.
+    var label: String { loc(title) }
     /// The tab it opens (nil: none here, as for a workspace that has no changes to review).
     let uri: @MainActor (IDEContext) -> String?
 

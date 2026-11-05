@@ -254,7 +254,7 @@ extension EditorArea {
         let editors = app.extensions.all.editors
         if !editors.isEmpty { m.addItem(.separator()) }
         for e in editors {
-            m.add(e.title, symbol: e.icon) { [weak self] in
+            m.add(e.label, symbol: e.icon) { [weak self] in
                 if let group { self?.layout.focused = group }
                 e.open(ctx, in: app)
             }
