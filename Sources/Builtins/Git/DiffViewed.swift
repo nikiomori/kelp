@@ -27,7 +27,10 @@ extension DiffViewController {
         viewed = ViewedFiles.read(entries)
         files.reloadData(forRowIndexes: [b.tag], columnIndexes: [0])   // dimmed or not
         status.stringValue = statusText()
-        Task { _ = await app.uiState.save(ViewedFiles.key(wid), .array(entries.map(JSONValue.string))) }
+        viewedWrite = Task { [app, before = viewedWrite] in
+            await before?.value
+            _ = await app.uiState.save(ViewedFiles.key(wid), .array(entries.map(JSONValue.string)))
+        }
     }
 
     /// "3 files +12 −4 · 1 of 3 left · 2 open comments"; the one file's counts alone in one-file mode.

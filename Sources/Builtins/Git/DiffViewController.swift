@@ -28,8 +28,12 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var find = DiffFinding()
     /// Files marked as read, with their diff's print then (`DiffViewed`).
     var viewed: [String: String] = [:]
+    /// The last write of `viewed`: each waits for the one before, so quick clicks land in order.
+    var viewedWrite: Task<Void, Never>?
     /// Unchanged lines the user opened between changes, by `DiffRows.gapKey` (`DiffGaps`).
     var opened: [String: [DiffLine]] = [:]
+    /// The comment being written, if any (`DiffDraft`).
+    var draft: CommentDraft?
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -355,6 +359,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         comments = cm
         readViewed()
         (rows, words) = built
+        placeDraft()
         files.reloadData(); table.reloadData()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
@@ -380,7 +385,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             guard n == builds else { return }
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
-            (rows, words) = built; table.reloadData()
+            (rows, words) = built
+            placeDraft(); table.reloadData()
             if !find.needle.isEmpty { search(find.needle, step: false) }
         }
     }
@@ -389,7 +395,12 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     func numberOfRows(in t: NSTableView) -> Int { t === files ? diffs.count : rows.count }
 
     /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { t === files ? ListRowView() : nil }
+    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        if t === files { return ListRowView() }
+        let v = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
+        v.onPlus = shownLine(row) != nil && worktreeId != nil ? { [weak self] in self?.openDraft(at: row) } : nil
+        return v
+    }
 
     func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
@@ -397,6 +408,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         let id = col?.identifier.rawValue ?? ""
         let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
         switch rows[row] {
+        case .draft: return draftCard()
         case .comment(let c):
             guard first else { return label("", font: font) }
             let v = label("💬 \(c.text)  [\(c.state.rawValue)]", font: .ui(11, weight: .medium))
@@ -438,12 +450,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool {
         guard t === table, rows.indices.contains(row) else { return false }
         switch rows[row] {
-        case .diff(.hunk), .diff(.file): return true
+        case .diff(.hunk), .diff(.file), .draft: return true
         default: return false
         }
     }
     func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { t === table ? height(of: row) : t.rowHeight }
 
+}
+
+extension DiffViewController {
     /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
     /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
@@ -473,7 +488,6 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         default: return DiffTab.uri(wid, file: path, source: "all")
         }
     }
-
 }
 
 /// A file-list row: its folder only when the whole of it fits (`full`), else the name and counts alone (`short`).

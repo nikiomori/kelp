@@ -74,29 +74,10 @@ extension DiffViewController {
         if c.state != .open { state(String(localized: "Reopen"), "open") }
     }
 
+    /// The selected lines get a comment card under them (`DiffDraft`).
     @objc func addComment() {
-        guard let wid = worktreeId else { return }
-        var lines: [(Int, String)] = []; var file: String?, removed = true
-        for r in table.selectedRowIndexes {
-            guard case .diff(let d) = rows[r] else { continue }
-            let picked: DiffLine?
-            switch d {
-            case .line(let f, let l): file = diffs[f].path; picked = l
-            case .pair(let f, let l, let rr): file = diffs[f].path; picked = rr ?? l
-            default: picked = nil
-            }
-            guard let x = picked, let n = x.newLine ?? x.oldLine else { continue }
-            removed = removed && x.newLine == nil
-            lines.append((n, x.text))
-        }
-        guard let file, let first = lines.first, let last = lines.last else { NSSound.beep(); return }
-        Task {
-            guard let text = await prompt(String(localized: "Comment on \(file):\(first.0)\(first.0 == last.0 ? "" : "-\(last.0)")"),
-                                          String(localized: "Goes to the agent with the code quote.")), !text.isEmpty else { return }
-            await app.call(CommentAdd(id: wid, file: file, start: first.0, end: last.0, quote: lines.map(\.1).joined(separator: "\n"), text: text,
-                                      side: removed ? "old" : nil))
-            await load()
-        }
+        guard worktreeId != nil else { return }
+        openDraft()
     }
 
     /// The file and the line a row of the diff shows, the new side's when it has both.

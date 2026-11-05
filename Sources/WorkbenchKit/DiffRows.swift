@@ -68,6 +68,8 @@ public enum DiffRows {
 public enum ReviewRow: Equatable, Sendable {
     case diff(DiffRow)
     case comment(DiffComment)
+    /// A comment being written, in a card under its line (placed by the view, not built here).
+    case draft
 }
 
 extension DiffRows {

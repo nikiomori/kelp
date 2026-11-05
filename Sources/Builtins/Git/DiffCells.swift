@@ -164,6 +164,7 @@ extension DiffViewController {
     /// band a little taller than a line.
     func height(of row: Int) -> CGFloat {
         let h = Self.lineHeight
+        if rows.indices.contains(row), rows[row] == .draft { return Self.draftHeight }   // the comment card
         guard rows.indices.contains(row), case .diff(let r) = rows[row] else { return h }
         func lines(_ l: DiffLine?, _ column: String, marker: Bool) -> Int {
             guard let l, let c = table.tableColumn(withIdentifier: .init(column)) else { return 1 }

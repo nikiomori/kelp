@@ -76,7 +76,7 @@ extension AppOfItsOwn {
         box.state = .on
         box.performClick(nil); box.performClick(nil)   // a click flips it: off, then on again
         #expect(vc.status.stringValue.contains("1 of 2 left"))
-        for _ in 0..<50 where rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<250 where rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
@@ -98,6 +98,27 @@ extension AppOfItsOwn {
         for _ in 0..<100 where vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
         #expect(vc.rows.contains { if case .diff(.line(_, let l)) = $0 { l.text == "line 20" && l.kind == .context } else { false } })
+    }
+
+    /// A comment is written in a card under its line, which a new read of the diff keeps, and ⌘↩'s button saves.
+    @Test func aCommentIsWrittenInACardUnderItsLine() async throws {
+        let rig = try await AppRig(files: ["f.txt": "one\ntwo\n"]); defer { rig.done() }
+        try rig.write("f.txt", "one\nTWO\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        let at = try #require(vc.rows.firstIndex { if case .diff(.line(_, let l)) = $0 { l.text == "TWO" } else { false } })
+        vc.openDraft(at: at)
+        #expect(vc.rows[at + 1] == .draft)
+        vc.draft?.field.stringValue = "why upper case?"
+        await vc.load()   // an agent's change read again: the card and its text stay under the line
+        #expect(vc.rows[at + 1] == .draft && vc.draft?.field.stringValue == "why upper case?")
+        let save = try #require(buttons(in: vc.draftCard()).first { $0.keyEquivalent == "\r" })
+        save.performClick(nil)
+        for _ in 0..<100 where !vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(vc.draft == nil && !vc.rows.contains(.draft))
+        #expect(vc.rows[at + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
     }
 
     @Test func aHunksStageButtonStagesThatHunk() async throws {
