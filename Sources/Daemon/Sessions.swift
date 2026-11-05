@@ -37,6 +37,9 @@ final class Sessions: Sendable {
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
+    /// Workspaces a session made (`worktree.create`, `workspace.create`), by id: it works there too (`works(_:in:)`).
+    /// Limit: kept until the daemon restarts; then one it already started a session in still counts, an empty one not.
+    let made = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 

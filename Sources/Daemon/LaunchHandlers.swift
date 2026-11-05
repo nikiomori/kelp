@@ -19,6 +19,7 @@ extension Sessions.Launch {
 }
 
 extension SessionCreate: Handled {
+    var inWorkspace: String? { worktreeId }   // a session of its there would let an agent into that workspace (`works`)
     func handle(_ sessions: Sessions) throws -> Session {
         // cwd wins when both are given (e.g. an agent building an extension, shown in the current workspace).
         var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }

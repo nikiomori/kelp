@@ -395,6 +395,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 @Test func anAgentCantStartSessionsOutsideItsOwnLine() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let other = try await session(r, "cat")
+    let away = try await r.c.call(WorktreeCreate(repoId: r.repo.id, branch: "away", setup: false)).worktree
     let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
         + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
     let wt = r.wt.id, o = other.id
@@ -404,7 +405,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
         + #"r close ui.command "{\"id\":\"editor.closeTab\"}"; r term ui.open "{\"uri\":\"terminal:?cmd=true\"}"; "#
         + #"r new ui.command "{\"id\":\"agents.new\",\"args\":{\"agent\":\"shell\"}}"; r pane ui.command "{\"id\":\"view.nextPane\"}"; "#
-        + #"r routine routine.delete "{\"id\":\"x\"}"; "#
+        + #"r routine routine.delete "{\"id\":\"x\"}"; r away session.create "{\"worktreeId\":\"\#(away.id)\",\"command\":\"cat\"}"; "#
         + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
     for id in [me.id, other.id] {
@@ -420,6 +421,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
     #expect(out.contains(#/<new> [^\n]*is the user's to run/#) && !out.contains(#/<pane> [^\n]*is the user's to run/#))
     #expect(out.contains(#/<routine> [^\n]*routine is the user's/#) && out.contains(#/<drop> [^\n]*Only the user removes/#))
+    #expect(out.contains(#/<away> [^\n]*works only in its own workspace/#))
+    #expect(try !r.d.sessions.works(me.id, in: away.id))
+    r.d.sessions.made.withLock { $0[away.id] = me.id }   // as `worktree.create` from its terminal does
+    #expect(try r.d.sessions.works(me.id, in: away.id))
     #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
     let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
     #expect(outlived.parent == nil && outlived.startedBy == nil)   // still not its child, nor on its line
