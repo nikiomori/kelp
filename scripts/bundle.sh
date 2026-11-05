@@ -77,7 +77,7 @@ if [ -n "${SIGN_ID:-}" ]; then
     "${SIGN[@]}" "$SP/Updater.app"
     "${SIGN[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
   fi
-  "${SIGN[@]}" "$APP/Contents/MacOS/kelpd"; touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
+  "${SIGN[@]}" --entitlements Resources/Kelpd.entitlements "$APP/Contents/MacOS/kelpd"; touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
   "${SIGN[@]}" "$APP/Contents/MacOS/kelp"
   codesign --force --options runtime --timestamp --entitlements Resources/Kelp.entitlements --sign "$SIGN_ID" "$APP"
 fi

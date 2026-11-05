@@ -71,6 +71,10 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>A program running in a Kelp terminal wants to use the microphone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>A program running in a Kelp terminal wants to use the camera.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>A program running in a Kelp terminal wants to reach devices on your local network.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUAutomaticallyUpdate</key>
