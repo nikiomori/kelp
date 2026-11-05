@@ -73,6 +73,9 @@ package final class AppModel {
     package var artifacts: [String: [ArtifactItem]] = [:]
     /// Remote hosts as they're doing, by host (`WatchTopic.host` / `.hostDetail`, and what `host.stats` answered).
     package var hostStats: [String: HostStats] = [:]
+    /// Kelp's virtual machines as the daemon last told (`WatchTopic.machines`), and what runs in each (`.machineDetail`).
+    package var machines: [VMInfo] = []
+    package var machineDetail: [String: VMDetail] = [:]
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
     /// `event.repo` / `event.worktree` / `event.removed` handled since the last refresh, per id: a list asked for before

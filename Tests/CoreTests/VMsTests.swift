@@ -63,3 +63,20 @@ import Testing
         #expect(!VMs.mayShare(bad), "\(bad)")
     }
 }
+
+/// A run carries the session it came from; a shell has no command.
+@Test func aRunIsMarkedWithItsSession() throws {
+    #expect(VMs.command("npm test && ls", session: "abc") == "exec env KELP_VM_RUN='abc' bash -l -c 'npm test && ls'")
+    #expect(VMs.command("", session: nil) == "exec env KELP_VM_RUN='-' bash -l")
+    let check = try Subprocess.run(["/bin/sh", "-n", "-c", VMs.command("echo 'it''s'", session: "x")], cwd: "/", env: [:], timeLimit: 10)
+    #expect(check.status == 0)
+}
+
+@Test func whatRunsInsideIsReadBack() {
+    let text = "192.168.64.7\n@\n22\n3000\n5432\n@\n812\t41\tabc\tbash -l -c npm test \n901\t7\t-\tbash -l \n"
+    let d = VMs.parseDetail(text)
+    #expect(d.address == "192.168.64.7")
+    #expect(d.ports == [22, 3000, 5432])
+    #expect(d.runs == [.init(pid: 812, seconds: 41, session: "abc", command: "npm test"), .init(pid: 901, seconds: 7, session: nil, command: "")])
+    #expect(VMs.parseDetail("\n@\n@\n") == VMDetail())
+}

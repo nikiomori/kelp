@@ -107,12 +107,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
 
         let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
+        let machines = NSHostingView(rootView: MachinesView(app: app))   // Kelp's virtual machines, once there's one
+        machines.sizingOptions = [.intrinsicContentSize]
         let v = NSView()
         // Over the projects it adds to, where people look for it.
         let add = NSButton.titlebar("folder.badge.plus", String(localized: "Add Project"),
                                     tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
         add.target = self; add.action = #selector(addMenu(_:))
-        for x in [add, scroll, footer] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [add, scroll, machines, footer] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
         addTrailing = add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6)
         footerTrailing = footer.trailingAnchor.constraint(equalTo: v.trailingAnchor)
         NSLayoutConstraint.activate([
@@ -121,7 +123,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             addTrailing,
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
             scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: machines.topAnchor),
+            machines.leadingAnchor.constraint(equalTo: v.leadingAnchor), machines.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
+            machines.bottomAnchor.constraint(equalTo: footer.topAnchor),
             footer.leadingAnchor.constraint(equalTo: v.leadingAnchor), footerTrailing,
             footer.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
@@ -138,6 +142,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.hostStats } changed: { [weak self] _ in self?.updateHeaders() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in app.machines } changed: { [weak self] _ in self?.updateVisibleCells() }   // who runs in one
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
         track(owner: self) { [app] in app.themes.chromeText } changed: { [weak self] _ in self?.refresh() }

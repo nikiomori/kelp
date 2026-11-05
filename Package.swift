@@ -52,10 +52,11 @@ let package = Package(
         .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
         .target(name: "BuiltinRoutines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Routines"),
         .target(name: "BuiltinServers", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Servers"),
+        .target(name: "BuiltinMachines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Machines"),
         .executableTarget(
             name: "KelpApp",
             dependencies: ["KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues", "BuiltinActivity",
-                           "BuiltinRoutines", "BuiltinServers", "GhosttyKit"],
+                           "BuiltinRoutines", "BuiltinServers", "BuiltinMachines", "GhosttyKit"],
             // SwiftPM records the deployment target (14.0) as the SDK the app was built with, and AppKit then draws the
             // macOS 14 look (compatibility mode). Naming a current SDK gets the system's own design on macOS 26+.
             // Limit: fixed at 26.0; raise it when a later SDK's look is wanted.

@@ -25,19 +25,41 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMMachine.self, from: d)
     }
 
-    func list() -> [VMInfo] {
+    /// `sessions`: who runs something in each busy one, read from inside (an SSH run each).
+    func list(sessions: Bool = false) -> [VMInfo] {
         let names: [String]
         do { names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") } } catch { return [] }
         return names.sorted().compactMap { n in
-            do { return info(try machine(n)) } catch { return nil }
+            var v: VMInfo
+            do { v = info(try machine(n)) } catch { return nil }
+            if sessions, v.state == .running, (v.connections ?? 0) > 0 {
+                v.sessions = Array(Set(detail(n)?.runs.compactMap(\.session) ?? [])).sorted()
+            }
+            return v
         }
+    }
+
+    /// What runs in it, read over its own connection, which neither wakes it nor counts as use; nil unless it runs.
+    func detail(_ name: String) -> VMDetail? {
+        guard status(name)?.state == .running else { return nil }
+        let out: Subprocess.Output
+        do {
+            out = try Subprocess.run(["/usr/bin/ssh", "-F", file(name, "ssh_config").path, "-T", "-o", "BatchMode=yes", name + "-own", "sh"],
+                                     cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data(VMs.detailScript.utf8), timeLimit: 10)
+        } catch { Log.vm.info("reading \(name): \(error)"); return nil }
+        guard out.status == 0 else { return nil }
+        var d = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
+        if let json = FileManager.default.contents(atPath: file(name, "shares.json").path) {
+            do { d.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch { Log.vm.error("\(name)'s shares: \(error)") }
+        }
+        return d
     }
 
     private func info(_ m: VMMachine) -> VMInfo {
         if let failed = text(m.name, "failed") { return VMInfo(machine: m, state: .error, detail: failed) }
         if let step = making(m.name) { return VMInfo(machine: m, state: .creating, detail: step) }
         var st = stat()
-        let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? Int(st.st_blocks) * 512 >> 20 : nil
+        let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
         guard let r = status(m.name) else {
             let asleep = FileManager.default.fileExists(atPath: file(m.name, "state.vzsave").path)
             return VMInfo(machine: m, state: asleep ? .sleeping : .off, diskMiB: disk)
@@ -72,9 +94,16 @@ struct VMService: Sendable {
         return info(m)
     }
 
-    /// The machine's ssh, with `cwd`'s project folder shared at its own path (the git repository's top, else `cwd`).
-    func connect(_ name: String, cwd: String) throws -> VMConnection {
+    /// The machine's ssh, with `cwd`'s project folder shared at its own path (the git repository's top, else `cwd`);
+    /// no `cwd`: its home folder, nothing shared.
+    func connect(_ name: String, cwd: String?) throws -> VMConnection {
         let m = try ready(name)
+        let ssh = ["/usr/bin/ssh", "-F", file(name, "ssh_config").path, name]
+        guard let cwd else {
+            try admit(m)
+            try startHelper(m)
+            return VMConnection(ssh: ssh, prefix: "cd || exit 1; ")
+        }
         let project = projectFolder(cwd)
         guard VMs.mayShare(project) else {
             throw RPCError.invalidParams("\(project) can't be shared with a machine: only folders inside your home folder "
@@ -85,8 +114,7 @@ struct VMService: Sendable {
         let shared = try ask(name, .init(op: .share, path: project), wait: 5)
         try check(shared)
         guard let slot = shared.slot else { throw RPCError.internalError("\(name) didn't share \(project)") }
-        return VMConnection(ssh: ["/usr/bin/ssh", "-F", file(name, "ssh_config").path, name],
-                            prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd))
+        return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd))
     }
 
     private func ready(_ name: String) throws -> VMMachine {
@@ -307,7 +335,11 @@ private final class DownloadProgress: NSObject, URLSessionTaskDelegate, Sendable
 }
 
 extension VMList: Handled {
-    func handle(_ vms: VMService) throws -> [VMInfo] { vms.list() }
+    func handle(_ vms: VMService) throws -> [VMInfo] { vms.list(sessions: true) }
+}
+
+extension VMDetailRead: Handled {
+    func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
 
 extension VMCreate: Handled {
@@ -323,5 +355,5 @@ extension VMConnect: Handled {
 }
 
 extension Methods {
-    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self]
+    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self]
 }

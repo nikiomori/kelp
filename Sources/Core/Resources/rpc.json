@@ -2162,6 +2162,35 @@
         ],
         "type" : "object"
       },
+      "MachineEvent" : {
+        "description" : "What runs in a machine; nil while it isn't running.",
+        "properties" : {
+          "detail" : {
+            "$ref" : "#/components/schemas/VMDetail"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name"
+        ],
+        "type" : "object"
+      },
+      "MachinesEvent" : {
+        "properties" : {
+          "machines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/VMInfo"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "machines"
+        ],
+        "type" : "object"
+      },
       "OutputEvent" : {
         "description" : "What a session printed, to a client attached with JSON (`session.attach`), not as a byte pipe.",
         "properties" : {
@@ -3826,6 +3855,62 @@
         ],
         "type" : "string"
       },
+      "VMDetail" : {
+        "description" : "What runs in a machine, read from inside (`VMs.detailScript`), with the folders shared with it.",
+        "properties" : {
+          "address" : {
+            "description" : "Its address on the Mac's NAT network: where its ports open from here.",
+            "type" : "string"
+          },
+          "folders" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "ports" : {
+            "items" : {
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "runs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/VMDetail.Run"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "folders",
+          "ports",
+          "runs"
+        ],
+        "type" : "object"
+      },
+      "VMDetail.Run" : {
+        "description" : "A `kelp vm run`: its command (\"\" for a shell), how long it has run, and the Kelp session that ran it.",
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "pid" : {
+            "type" : "integer"
+          },
+          "seconds" : {
+            "type" : "integer"
+          },
+          "session" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "command",
+          "pid",
+          "seconds"
+        ],
+        "type" : "object"
+      },
       "VMInfo" : {
         "properties" : {
           "connections" : {
@@ -3846,6 +3931,13 @@
           "memoryMiB" : {
             "description" : "What it holds of the Mac's memory while it runs (its balloon's target), MiB.",
             "type" : "integer"
+          },
+          "sessions" : {
+            "description" : "The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "state" : {
             "$ref" : "#/components/schemas/VMState"
@@ -3933,6 +4025,8 @@
           "files",
           "host",
           "hostDetail",
+          "machines",
+          "machineDetail",
           "artifacts"
         ],
         "type" : "string"
@@ -9962,13 +10056,13 @@
       "x-internal" : true
     },
     {
-      "description" : "What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path).",
+      "description" : "What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path); with no `cwd`, in its own home folder, nothing shared.",
       "name" : "vm.connect",
       "paramStructure" : "by-name",
       "params" : [
         {
           "name" : "cwd",
-          "required" : true,
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
@@ -10063,6 +10157,27 @@
           "$ref" : "#/components/schemas/VMInfo"
         }
       }
+    },
+    {
+      "description" : "What runs in a running machine; nil while it isn't running (reading never wakes it).",
+      "name" : "vm.detail",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/VMDetail"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "The machines and their state.",
@@ -10486,6 +10601,19 @@
       "name" : "event.limits",
       "params" : {
         "$ref" : "#/components/schemas/LimitsEvent"
+      }
+    },
+    {
+      "description" : "What runs in a machine; nil while it isn't running.",
+      "name" : "event.machine",
+      "params" : {
+        "$ref" : "#/components/schemas/MachineEvent"
+      }
+    },
+    {
+      "name" : "event.machines",
+      "params" : {
+        "$ref" : "#/components/schemas/MachinesEvent"
       }
     },
     {

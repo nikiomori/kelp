@@ -37,7 +37,8 @@ public enum VMState: String, Codable, Sendable, CaseIterable {
     case error
 }
 
-public struct VMInfo: Codable, Sendable, Equatable {
+public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
+    public var id: String { machine.name }
     public var machine: VMMachine
     public var state: VMState
     /// While creating, how far ("Downloading Debian 13: 43%"); after an error, what went wrong.
@@ -48,11 +49,43 @@ public struct VMInfo: Codable, Sendable, Equatable {
     public var memoryMiB: Int?
     /// Its disk's size on the Mac's disk, MiB.
     public var diskMiB: Int?
+    /// The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).
+    public var sessions: [String]?
 
     public init(machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil, diskMiB: Int? = nil) {
         self.machine = machine; self.state = state; self.detail = detail; self.connections = connections
         self.memoryMiB = memoryMiB; self.diskMiB = diskMiB
     }
+}
+
+/// What runs in a machine, read from inside (`VMs.detailScript`), with the folders shared with it.
+public struct VMDetail: Codable, Sendable, Equatable {
+    /// Its address on the Mac's NAT network: where its ports open from here.
+    public var address: String?
+    public var ports: [Int]
+    public var runs: [Run]
+    public var folders: [String]
+
+    public init(address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = []) {
+        self.address = address; self.ports = ports; self.runs = runs; self.folders = folders
+    }
+
+    /// A `kelp vm run`: its command ("" for a shell), how long it has run, and the Kelp session that ran it.
+    public struct Run: Codable, Sendable, Equatable {
+        public var pid: Int, seconds: Int
+        public var session: String?
+        public var command: String
+        public init(pid: Int, seconds: Int, session: String?, command: String) {
+            self.pid = pid; self.seconds = seconds; self.session = session; self.command = command
+        }
+    }
+}
+
+/// What runs in a running machine; nil while it isn't running (reading never wakes it).
+public struct VMDetailRead: InternalMethod {
+    public static let name = "vm.detail"; public typealias Result = VMDetail?
+    public var name: String
+    public init(name: String) { self.name = name }
 }
 
 /// How to run something in a machine: `ssh` and its arguments up to the host, then the command line for the machine's
@@ -91,11 +124,12 @@ public struct VMControl: RPCMethod {
     public init(name: String, action: Action) { self.name = name; self.action = action }
 }
 
-/// What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path).
+/// What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path);
+/// with no `cwd`, in its own home folder, nothing shared.
 public struct VMConnect: RPCMethod {
     public static let name = "vm.connect"; public typealias Result = VMConnection
-    public var name: String, cwd: String
-    public init(name: String, cwd: String) { self.name = name; self.cwd = cwd }
+    public var name: String, cwd: String?
+    public init(name: String, cwd: String?) { self.name = name; self.cwd = cwd }
 }
 
 /// An image a machine can start from: a distribution's own cloud image, checked against its published checksums.
@@ -226,6 +260,43 @@ public enum VMs {
         if availableMiB < 512 { want = max(want, targetMiB + 1024) }
         want = min(machineMiB, want)
         return abs(want - targetMiB) < 256 ? targetMiB : want
+    }
+
+    /// What runs after `prefix`: the command (a login shell for none) under bash's login profile, marked with the Kelp
+    /// session it comes from ("-" for none), which `detailScript` reads back.
+    public static func command(_ command: String, session: String?) -> String {
+        let run = "exec env KELP_VM_RUN=\(shellQuoted(session ?? "-")) bash -l"
+        return command.isEmpty ? run : run + " -c " + shellQuoted(command)
+    }
+
+    /// Run inside over `<name>-own`: its address, the TCP ports the account's own programs listen on (ss names only those;
+    /// the system's DNS isn't news), then each `kelp vm run` still
+    /// going (the top process marked KELP_VM_RUN: pid, seconds, session, command line), sections split by "@".
+    public static let detailScript = #"""
+        hostname -I 2>/dev/null | cut -d' ' -f1
+        echo @
+        ss -ltnpH 2>/dev/null | grep 'users:' | awk '{n=split($4,a,":"); print a[n]}' | sort -un
+        echo @
+        ps -u "$(id -u)" -o pid=,ppid=,etimes= | while read pid ppid secs; do
+          r=$(tr '\0' '\n' < /proc/$pid/environ 2>/dev/null | sed -n 's/^KELP_VM_RUN=//p'); [ -n "$r" ] || continue
+          tr '\0' '\n' < /proc/$ppid/environ 2>/dev/null | grep -q '^KELP_VM_RUN=' && continue
+          printf '%s\t%s\t%s\t%s\n' "$pid" "$secs" "$r" "$(tr '\0' ' ' < /proc/$pid/cmdline)"
+        done
+        """#
+
+    public static func parseDetail(_ text: String) -> VMDetail {
+        let parts = text.components(separatedBy: "\n@\n")
+        let lines = { (i: Int) in parts.count > i ? parts[i].split(separator: "\n").map(String.init) : [] }
+        var d = VMDetail(address: lines(0).first.flatMap { $0.isEmpty ? nil : $0 })
+        d.ports = lines(1).compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        d.runs = lines(2).compactMap { line in
+            let f = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
+            guard f.count == 4, let pid = Int(f[0]), let secs = Int(f[1]) else { return nil }
+            var cmd = f[3].trimmingCharacters(in: .whitespaces)
+            for shell in ["bash -l -c ", "bash -l"] where cmd.hasPrefix(shell) { cmd = String(cmd.dropFirst(shell.count)); break }
+            return VMDetail.Run(pid: pid, seconds: secs, session: f[2] == "-" ? nil : f[2], command: cmd.trimmingCharacters(in: .whitespaces))
+        }
+        return d
     }
 
     public static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'" }

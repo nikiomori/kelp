@@ -34,6 +34,11 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case host
     /// The same every 2 s, for the server tab on screen. Key: the host.
     case hostDetail
+    /// Kelp's virtual machines (`MachinesEvent`): read every 5 s while watched, every second while one starts or is made.
+    /// No key.
+    case machines
+    /// What runs in one machine (`MachineEvent`): every 2 s, for its tab on screen. Reading never wakes it. Key: its name.
+    case machineDetail
     /// The pages agents made in a workspace (`ArtifactsEvent`): read when its `.kelp/artifacts` changes. Nothing for a
     /// remote project. Key: worktree id.
     case artifacts
@@ -111,6 +116,19 @@ public struct HostEvent: RPCEvent, Equatable {
     public static let name = "event.host"
     public var stats: HostStats
     public init(stats: HostStats) { self.stats = stats }
+}
+
+public struct MachinesEvent: RPCEvent, Equatable {
+    public static let name = "event.machines"
+    public var machines: [VMInfo]
+    public init(machines: [VMInfo]) { self.machines = machines }
+}
+
+/// What runs in a machine; nil while it isn't running.
+public struct MachineEvent: RPCEvent, Equatable {
+    public static let name = "event.machine"
+    public var name: String, detail: VMDetail?
+    public init(name: String, detail: VMDetail?) { self.name = name; self.detail = detail }
 }
 
 public struct LimitsEvent: RPCEvent, Equatable {

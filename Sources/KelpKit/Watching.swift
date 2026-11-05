@@ -39,7 +39,8 @@ extension AppModel {
         case .artifacts: artifacts[key] = nil
         case .commands: commands[key] = nil
         case .subagents: subagentSteps[key] = nil
-        case .host, .hostDetail: break   // the other may still watch it; an old value says only how it was
+        case .host, .hostDetail, .machines: break   // the other may still watch it; an old value says only how it was
+        case .machineDetail: machineDetail[key] = nil
         }
     }
 
@@ -59,6 +60,8 @@ extension AppModel {
         case let e as SubagentsEvent: if subagentSteps[e.session] != e.steps { subagentSteps[e.session] = e.steps }
         case let e as RoutinesEvent: if routines != e { routines = e }
         case let e as HostEvent: if hostStats[e.stats.host] != e.stats { hostStats[e.stats.host] = e.stats }
+        case let e as MachinesEvent: if machines != e.machines { machines = e.machines }
+        case let e as MachineEvent: if machineDetail[e.name] != e.detail { machineDetail[e.name] = e.detail }
         case let e as ContextEvent:
             // No usage (not Claude Code, ended, just compacted) takes the ring away.
             let usage = e.usage.flatMap { $0.window > 0 ? $0 : nil }, old = contextUsage[e.session]

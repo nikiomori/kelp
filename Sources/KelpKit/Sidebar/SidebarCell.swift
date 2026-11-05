@@ -459,18 +459,19 @@ final class SidebarCell: NSTableCellView {
         toolTip = nil
     }
 
-    /// A mark for the goal it works toward, else for what runs beside it, as on its tab. Words have no room here: a name
-    /// and a chip shared the same points, and a command mostly ended before it could be read. The tooltip and the card say them.
+    /// A mark for the goal it works toward, else for what runs beside it, as on its tab, else for the machine it runs a
+    /// command in (`kelp vm run`). Words have no room here: a name and a chip shared the same points, and a command mostly
+    /// ended before it could be read. The tooltip and the card say them.
     private func showChip(_ s: Session) {
-        let beside = s.aside.count
+        let beside = s.aside.count, machine = beside == 0 ? app.machine(runningFor: s.id) : nil
         // Beside the dots there's no room for both it and the name: the card lists what it says.
-        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0)
+        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0 && machine == nil)
         if let g = s.goal {
             chip.show("scope")
             chip.toolTip = String(localized: "Goal: \(g)")
         } else {
-            chip.show("apple.terminal", count: beside)
-            chip.toolTip = s.backgroundTip
+            chip.show(machine == nil ? "apple.terminal" : "shippingbox", count: beside)
+            chip.toolTip = machine.map { String(localized: "Runs a command in \($0)") } ?? s.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)
     }

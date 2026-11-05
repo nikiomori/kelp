@@ -83,6 +83,14 @@ extension Daemon {
                 Log.session.error("reading workspace \(k.key) for its artifacts: \(error)")
                 return (nil, nil)
             }
+        case .machines:
+            // Each machine's kelp-vm answers from memory; one with a command running is asked over its own connection who runs it.
+            do {
+                let all = try await ask(VMList())
+                return (line(MachinesEvent(machines: all)), all.contains { [.creating, .starting].contains($0.state) } ? 1 : 5)
+            } catch { return (nil, 5) }
+        case .machineDetail:
+            do { return (line(MachineEvent(name: k.key, detail: try await ask(VMDetailRead(name: k.key)))), 2) } catch { return (nil, 2) }
         case .host, .hostDetail:
             let again: TimeInterval = k.topic == .host ? 10 : 2
             do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch { return (nil, again) }

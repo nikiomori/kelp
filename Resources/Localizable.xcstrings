@@ -1037,6 +1037,426 @@
         }
       }
     },
+    "%.1f GB of %.0f GB in use by it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f из %.0f ГБ занято ею"
+          }
+        }
+      }
+    },
+    "%.1f GB of %d GB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f из %d ГБ"
+          }
+        }
+      }
+    },
+    "%.1f of %.0f GB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f из %.0f ГБ"
+          }
+        }
+      }
+    },
+    "%@ is asleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спит"
+          }
+        }
+      }
+    },
+    "%@ is shut down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ выключена"
+          }
+        }
+      }
+    },
+    "%@ wasn't made": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не создана"
+          }
+        }
+      }
+    },
+    "%lld CPUs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Процессоров: %lld"
+          }
+        }
+      }
+    },
+    "%lld running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняется: %lld"
+          }
+        }
+      }
+    },
+    "Account": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Учётная запись"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес"
+          }
+        }
+      }
+    },
+    "Asleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спит"
+          }
+        }
+      }
+    },
+    "Being made": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создаётся"
+          }
+        }
+      }
+    },
+    "Boots in a few seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузится за несколько секунд"
+          }
+        }
+      }
+    },
+    "Copy Run Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать команду запуска"
+          }
+        }
+      }
+    },
+    "Disk": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диск"
+          }
+        }
+      }
+    },
+    "Image": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Образ"
+          }
+        }
+      }
+    },
+    "Intel programs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Программы для Intel"
+          }
+        }
+      }
+    },
+    "It holds none of this Mac's memory. The next command wakes it in under a second, with all it ran.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Она не занимает память этого Mac. Следующая команда разбудит её меньше чем за секунду, со всем, что в ней работало."
+          }
+        }
+      }
+    },
+    "Listening": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слушают порты"
+          }
+        }
+      }
+    },
+    "Machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина"
+          }
+        }
+      }
+    },
+    "Machines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машины"
+          }
+        }
+      }
+    },
+    "Making it…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создаётся…"
+          }
+        }
+      }
+    },
+    "Memory": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Память"
+          }
+        }
+      }
+    },
+    "No machine called %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет машины %@"
+          }
+        }
+      }
+    },
+    "Nothing running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего не выполняется"
+          }
+        }
+      }
+    },
+    "Nothing runs in it now. Agents use it with kelp vm run.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас в ней ничего не выполняется. Агенты запускают команды через kelp vm run."
+          }
+        }
+      }
+    },
+    "Open Terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть терминал"
+          }
+        }
+      }
+    },
+    "Paused: nothing has run for a while. The next command goes on at once.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На паузе: какое-то время ничего не запускалось. Следующая команда пойдёт сразу."
+          }
+        }
+      }
+    },
+    "Processors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Процессоры"
+          }
+        }
+      }
+    },
+    "Runs a command in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняет команду в %@"
+          }
+        }
+      }
+    },
+    "Shared Folders": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общие папки"
+          }
+        }
+      }
+    },
+    "Shut Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить"
+          }
+        }
+      }
+    },
+    "Sleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усыпить"
+          }
+        }
+      }
+    },
+    "Start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить"
+          }
+        }
+      }
+    },
+    "Starting…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускается…"
+          }
+        }
+      }
+    },
+    "The next command boots it in a few seconds.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая команда загрузит её за несколько секунд."
+          }
+        }
+      }
+    },
+    "Through Rosetta": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через Rosetta"
+          }
+        }
+      }
+    },
+    "Wake": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбудить"
+          }
+        }
+      }
+    },
+    "Wakes in under a second": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проснётся меньше чем за секунду"
+          }
+        }
+      }
+    },
+    "`kelp vm list` shows the machines.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список машин: `kelp vm list`."
+          }
+        }
+      }
+    },
+    "disk %.1f GB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "диск %.1f ГБ"
+          }
+        }
+      }
+    },
+    "shell": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "оболочка"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

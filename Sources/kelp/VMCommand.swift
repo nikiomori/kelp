@@ -4,7 +4,7 @@ import Core
 extension Main {
     static let vmUsage = """
     vm list [--json] | create <name> [--image debian-13] [--cpus 2] [--memory 2] [--disk 32]
-          | run <name> [--cwd dir] [-- command…] | start|sleep|stop <name>
+          | run <name> [--cwd dir | --home] [-- command…] | start|sleep|stop <name>
     """
 
     /// `vm <action>`: Kelp's virtual machines (Core/VMs.swift).
@@ -32,15 +32,17 @@ extension Main {
             guard let name = args.first, let action = VMControl.Action(rawValue: sub ?? "") else { fail("vm \(sub ?? "") <name>") }
             print(line(try await c.call(VMControl(name: name, action: action))))
         case "run":
-            guard let name = args.first else { fail("vm run <name> [--cwd dir] [-- command…]") }
+            guard let name = args.first else { fail("vm run <name> [--cwd dir | --home] [-- command…]") }
             args.removeFirst()
-            let cwd = URL(fileURLWithPath: flag("--cwd") ?? FileManager.default.currentDirectoryPath).standardizedFileURL.path
+            let home = has("--home")
+            let cwd = home ? nil : URL(fileURLWithPath: flag("--cwd") ?? FileManager.default.currentDirectoryPath).standardizedFileURL.path
             if args.first == "--" { args.removeFirst() }
             let to = try await c.call(VMConnect(name: name, cwd: cwd))
-            // A terminal on both ends gets one inside (an editor, htop); an agent's pipes don't.
+            // A terminal on both ends gets one inside (an editor, htop); an agent's pipes don't. The session it comes from goes
+            // with it: the machine's tab and the sidebar say whose command runs there.
             let tty = isatty(0) == 1 && isatty(1) == 1
-            let command = args.isEmpty ? #"exec "$SHELL" -l"# : args.joined(separator: " ")
-            exec(to.ssh + [tty ? "-t" : "-T", "--", to.prefix + command])
+            let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
+            exec(to.ssh + [tty ? "-t" : "-T", "--", to.prefix + VMs.command(args.joined(separator: " "), session: session)])
         default: fail("usage: kelp " + vmUsage)
         }
     }
