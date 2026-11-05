@@ -18,6 +18,7 @@ import WorkbenchKit
         <button onclick="document.getElementById('out').textContent = 'saved ' + document.getElementById('email').value">Save</button>
         <div style="display: none"><button>Hidden</button></div>
         <a href="/docs">Docs</a><p id="out"></p><span role="link">Ghost</span>
+        <div style="cursor: pointer">Card <button>Buy</button></div>
         """, baseURL: URL(string: "http://localhost/"))
     _ = try await tab.browse("info", .object([:]))
     #expect(try await tab.browse("eval", .object(["js": .string("innerWidth > 0 && innerHeight > 0")])) == .bool(true))
@@ -29,6 +30,7 @@ import WorkbenchKit
     #expect(page.contains(#"- link "Docs" [ref=e3] -> /docs"#))
     #expect(!page.contains("Hidden"))
     #expect(page.contains(#"- link "Ghost" [ref=e4]"#) && !page.contains("Ghost\" [ref=e4] ->"))
+    #expect(page.contains("- clickable [ref=e5]") && page.contains(#"- button "Buy" [ref=e6]"#))   // what's inside a clickable
 
     _ = try await tab.browse("type", .object(["ref": .string("e1"), "text": .string("a@b.c")]))
     _ = try await tab.browse("click", .object(["ref": .string("e2")]))

@@ -188,6 +188,9 @@ extension BrowserTab {
     const LEAF = new Set(['link','button','textbox','searchbox','checkbox','radio','combobox','slider','switch','tab','menuitem',
       'option','spinbutton','img','heading','clickable']);
     const FIELD = new Set(['textbox','searchbox','combobox','slider','spinbutton']);
+    // One with buttons, links or fields inside (a card that's a link, a menu opened by hover) lists them, each with a ref.
+    const INNER = 'a[href],button,input,select,textarea,[role=button],[role=link],[role=menuitem],[role=checkbox],[role=tab]';
+    const leaf = (el, role) => LEAF.has(role) && (FIELD.has(role) || !el.querySelector(INNER));
     const clean = s => (typeof s === 'string' ? s : '').replace(/\s+/g, ' ').trim();
     const cut = s => (s = s || '').length > 100 ? s.slice(0, 100) + '…' : s;
     const SKIP = new Set(['script','style','noscript','template','head','svg','iframe']);
@@ -217,7 +220,7 @@ extension BrowserTab {
       if (el.localName === 'img') return clean(el.alt || el.getAttribute('title'));
       if (el.localName === 'input' && ['button', 'submit', 'reset'].includes(el.type)) return clean(el.value);
       if (FIELD.has(role)) return clean(el.placeholder || el.getAttribute('title'));
-      if (LEAF.has(role)) return clean(el.innerText || el.getAttribute('title'));
+      if (leaf(el, role)) return clean(el.innerText || el.getAttribute('title'));
       return clean(el.getAttribute('title'));
     };
     const shown = el => {
@@ -248,7 +251,7 @@ extension BrowserTab {
           if (v) line += ': ' + JSON.stringify(cut(v));
         }
         out.push(line);
-        if (!LEAF.has(role)) walk(kids(el), depth + 1);
+        if (!leaf(el, role)) walk(kids(el), depth + 1);
       }
     };
     walk(root ? [root] : [], 0);
