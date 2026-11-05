@@ -178,6 +178,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public static let inTabKey = "run.inTab"
     /// A conversation or a program of its own: not a terminal, nor a command on an agent's line.
     public var isChat: Bool { agent != "shell" && startedBy == nil }
+    /// An agent runs in it: not a terminal (`shell`) nor a plain command (`custom`: a dev server, a script).
+    public var isAgent: Bool { Self.isAgent(agent) }
+    public static func isAgent(_ id: String?) -> Bool { !["shell", "custom"].contains(id ?? "shell") }
     /// Its turn is over and it stays only to see that command end. Not while it asks, and not for a server: `awaiting`
     /// comes from a Stop.
     public var waitsForCommand: Bool { status == .working && awaiting != nil }

@@ -249,7 +249,7 @@ extension CommentSend: Handled {
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
-        guard let to = workspaces.sessions.existing(session)?.snapshot.agent, !["shell", "custom"].contains(to) else {
+        guard workspaces.sessions.existing(session)?.snapshot.isAgent == true else {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
         let wanted = only.map(Set.init)

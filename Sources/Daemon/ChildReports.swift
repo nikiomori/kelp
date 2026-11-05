@@ -86,13 +86,13 @@ extension Sessions {
     /// typed there, a report would be run as a command. A command it runs is its own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {
         guard let id, create.command == nil, create.tmux == nil, !["shell", nil].contains(create.agent),
-              let p = try store.session(id), !["shell", "custom"].contains(p.agent ?? "shell") else { return nil }
+              let p = try store.session(id), p.isAgent else { return nil }
         return p.id
     }
 
     /// The agent a command belongs to: `parent` on a command, which is no child (it hears nothing and outlives the agent).
     func starter(_ id: String?, of create: SessionCreate) throws -> String? {
-        guard let id, create.command != nil, let p = try store.session(id), !["shell", "custom"].contains(p.agent ?? "shell") else { return nil }
+        guard let id, create.command != nil, let p = try store.session(id), p.isAgent else { return nil }
         return p.id
     }
 

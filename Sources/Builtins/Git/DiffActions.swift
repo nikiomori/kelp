@@ -113,7 +113,7 @@ extension DiffViewController {
         let reviewers = Set(app.catalog.all.map { Self.reviewTitle($0.name) })
         let live = app.sessions.filter {   // agents only: a terminal would run the message's lines
             $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title)
-                && !["shell", "custom"].contains($0.agent ?? "shell")
+                && $0.isAgent
         }
         if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }

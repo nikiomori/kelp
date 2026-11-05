@@ -42,7 +42,7 @@ final class PaneView: NSView {
         self.app = app
         self.embedded = embedded
         attachedTo = app.connections
-        commands = CommandsBar(session: session.id, app: app, watch: !["shell", "custom"].contains(session.agent))
+        commands = CommandsBar(session: session.id, app: app, watch: session.isAgent)
         super.init(frame: .zero)
         wantsLayer = true
         commands.translatesAutoresizingMaskIntoConstraints = false; addSubview(commands)

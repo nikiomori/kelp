@@ -288,7 +288,7 @@ extension Workspaces {
         let top = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
         let others = sessions.live.all.filter { o in   // anywhere in the checkout, by any path to it
             let s = o.snapshot, at = URL(fileURLWithPath: o.turnDir ?? s.cwd).resolvingSymlinksInPath().path
-            return s.id != id && s.status != .exited && !["shell", "custom"].contains(s.agent ?? "custom") && (at == top || at.hasPrefix(top + "/"))
+            return s.id != id && s.status != .exited && s.isAgent && (at == top || at.hasPrefix(top + "/"))
         }
         guard others.isEmpty else { throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.") }
         guard try !Git.run(["rev-parse", "--verify", "-q", t.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: r).isEmpty else {
