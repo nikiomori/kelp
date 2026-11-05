@@ -97,3 +97,15 @@ private func desk(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Worktree {
     t.folded = ["box"]
     #expect(kinds(t.build()) == [.project("r1"), .host("box"), .host("pi"), .project("r4")])
 }
+
+/// A parked agent leaves its project for the "Parked" heading, which sits over the pinned row; none parked, no heading.
+@Test func parkedAgentsSitUnderTheirHeadingOverThePinnedRow() {
+    var t = tree([wt("w1", "r1", "main"), wt("w2", "r2", "main")], [agent("a1", in: "w1", .working), agent("a2", in: "w1", .done)])
+    t.pinnedLast = "r2"
+    #expect(!kinds(t.build()).contains(.parked))
+    t.parked = ["a2"]
+    let out = t.build()
+    #expect(kinds(out) == [.project("r1"), .parked, .project("r2")])
+    #expect(kinds(out[0].children.flatMap(\.children)) == [.agent("a1")])
+    #expect(kinds(out[1].children) == [.agent("a2")])
+}

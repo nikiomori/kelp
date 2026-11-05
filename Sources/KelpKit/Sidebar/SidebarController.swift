@@ -23,6 +23,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             case .workspace(let id): "w:" + id
             case .agent(let id): "a:" + id
             case .host(let h): "h:" + h
+            case .parked: "parked"
             }
         }
         /// What a dragged row reorders: a project's or a workspace's id.
@@ -116,6 +117,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.scripts.shown } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.order } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.parked } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.parkedBack } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
@@ -165,6 +168,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var tree = SidebarTree(projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
         tree.pinnedLast = m.repos.first(where: NoProject.holds)?.id
+        tree.parked = m.parkedIds
         tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in a }
         watchHosts(Set(tree.hosts.values))
         projectHosts = tree.hosts
@@ -271,6 +275,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         if case .host? = (item as? Node)?.kind { return false }
+        if case .parked? = (item as? Node)?.kind { return false }
         return !Self.isHeader(item) || (item as? Node)?.workspace != nil
     }
     // A project too: the outline doesn't fold an item without one. Its triangle isn't drawn (SidebarOutline), it has its own chevron.
@@ -297,7 +302,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     private func hasAsk(_ n: Node) -> Bool {
         guard case .agent(let id) = n.kind, let s = app.session(id) else { return false }
-        return SidebarCell.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions) != nil
+        return SidebarCell.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+                                back: app.parkedBack[id]) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
     private func pads(_ n: Node) -> (top: CGFloat, bottom: CGFloat) {
@@ -331,6 +337,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         case .workspace(let id)?: app.worktree(id)?.displayName
         case .agent(let id)?: app.session(id).map(app.catalog.displayName)
         case .host(let h)?: h
+        case .parked?: String(localized: "Parked")
         default: nil
         }
     }
@@ -345,6 +352,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let n = item as? Node else { return nil }
+        if case .parked = n.kind { return ParkedHeader(count: n.children.count) }
         if case .host(let h) = n.kind {
             let header = ServerHeader(host: h, owner: self)
             header.update()
@@ -396,12 +404,12 @@ extension SidebarController {
         guard !syncing, outline.selectedRowIndexes.count == 1, let node = outline.item(atRow: outline.selectedRow) as? Node else { return }
         switch node.kind {
         case .workspace(let id): app.workbench.show(workspace: id)
-        case .agent(let id): app.workbench.focus(session: id)
+        case .agent(let id): app.workbench.focus(session: id); app.parkedBack[id] = nil   // opened: its "Back:" line has been read
         case .project:
             guard let id = node.workspace else { break }
             // Already there: the pill stays with the tab.
             if id == app.workbench.workspaceId { syncSelection() } else { app.workbench.show(workspace: id) }
-        case .host: break
+        case .host, .parked: break
         }
     }
 }

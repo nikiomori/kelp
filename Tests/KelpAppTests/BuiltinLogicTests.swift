@@ -103,3 +103,18 @@ import Core
     mark.guessed = false
     #expect(mark.toolTip == AgentStatus.working.words)
 }
+
+/// A parked agent comes back by itself when it asks, saying why; until then its Done doesn't call.
+@Test @MainActor func aParkedAgentComesBackWhenItAsks() async throws {
+    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let m = rig.app
+    var s = Session(worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
+    m.upsert(s)
+    m.park(s.id, until: Mutes.forever)
+    #expect(m.isParked(s.id) && m.parkedIds == [s.id])
+    s.status = .waiting
+    m.followParked(s)
+    #expect(!m.isParked(s.id) && m.parkedBack[s.id] == "it asks you something")
+    m.park(s.id, until: Date().addingTimeInterval(-1))   // a time that passed counts no more
+    #expect(!m.isParked(s.id))
+}

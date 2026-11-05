@@ -7,7 +7,8 @@ import Core
 /// the line over the list (`Inbox`).
 public struct SidebarItem: Equatable, Sendable {
     /// `host`: a server's header, its projects after it on the same card (not under it: they keep their place in the outline).
-    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), host(String) }
+    /// `parked`: the heading over agents put out of the way, its children.
+    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), host(String), parked }
     public var kind: Kind
     public var children: [SidebarItem] = []
     /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
@@ -28,6 +29,8 @@ public struct SidebarTree {
     public var folded: Set<String> = []
     /// The project that stays last whatever the order (No Project: chats outside any project).
     public var pinnedLast: String?
+    /// Agents parked: out of their projects, under a "Parked" heading over the pinned row.
+    public var parked: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
         self.projects = projects; self.workspaces = workspaces; self.sessions = sessions
@@ -37,7 +40,7 @@ public struct SidebarTree {
         func workspace(_ w: Worktree) -> SidebarItem {
             // Agents only: terminals are tabs, not something to keep an eye on. One on another screen keeps a row there:
             // it's what that screen holds.
-            let agents = sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" }
+            let agents = sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" && !parked.contains($0.id) }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
             return SidebarItem(kind: .workspace(w.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })
         }
@@ -50,7 +53,8 @@ public struct SidebarTree {
         func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
         let all = sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
         func isPinned(_ i: SidebarItem) -> Bool { pinnedLast != nil && i.kind == .project(pinnedLast ?? "") }
-        return all.filter { !isPinned($0) } + all.filter(isPinned)
+        let away = sessions.filter { parked.contains($0.id) && $0.status != .exited }.map { SidebarItem(kind: .agent($0.id)) }
+        return all.filter { !isPinned($0) } + (away.isEmpty ? [] : [SidebarItem(kind: .parked, children: away)]) + all.filter(isPinned)
     }
 
     private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {

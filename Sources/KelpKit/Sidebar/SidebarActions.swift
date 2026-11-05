@@ -9,7 +9,7 @@ extension SidebarController.Node {
         switch kind {
         case .project(let id): [id] + (workspace.map { [$0] } ?? [])
         case .workspace(let id), .agent(let id): [id]
-        case .host: []
+        case .host, .parked: []
         }
     }
 }
@@ -129,10 +129,12 @@ extension SidebarController {
                 menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
             }
             muteItem(menu, n.muteIds)
+            parkItem(menu, sid)
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
         case .host(let h): serverMenu(menu, h)
+        case .parked: break
         }
     }
 
@@ -212,6 +214,15 @@ extension SidebarController {
         let times = NSMenu()
         for (title, until) in Mutes.choices() { times.add(title) { app.mute(Array(ids.prefix(1)), until: until) } }
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
+    }
+
+    /// Park ▸ for how long, or Unpark once it is.
+    private func parkItem(_ menu: NSMenu, _ sid: String) {
+        let app = self.app
+        if app.isParked(sid) { menu.add(String(localized: "Unpark")) { app.unpark(sid) }; return }
+        let times = NSMenu()
+        for (title, until) in Parking.choices() { times.add(title) { app.park(sid, until: until) } }
+        menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Park"), action: nil, keyEquivalent: ""))
     }
 
     /// A group's items on its heading.

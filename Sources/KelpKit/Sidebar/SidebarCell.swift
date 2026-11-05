@@ -134,7 +134,7 @@ final class SidebarCell: NSTableCellView {
             NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
                                          ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
                                          ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
-        case .host: break   // a ServerHeader
+        case .host, .parked: break   // a ServerHeader, a ParkedHeader
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
@@ -250,7 +250,7 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id): app.rowBadges.folder(project: id)
         case .workspace(let id): app.rowBadges.folder(workspace: id)
-        case .agent, .host: nil
+        case .agent, .host, .parked: nil
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
@@ -360,13 +360,15 @@ final class SidebarCell: NSTableCellView {
             let picked = NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path ? (s.cwd as NSString).lastPathComponent : ""
             // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
             let quiet = Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
-            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt) : quiet ?? picked
+            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt)
+                : m.parked[sid].flatMap { m.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
+            alphaValue = m.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
             showState(s)
             showAsk(s)
             speak(s)
-        case .host: break
+        case .host, .parked: break
         }
     }
 
@@ -388,7 +390,8 @@ final class SidebarCell: NSTableCellView {
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ s: Session) {
-        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions)
+        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+                             back: app.parkedBack[s.id])
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }

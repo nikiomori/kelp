@@ -174,9 +174,11 @@ extension SidebarCell {
     }
 
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
-    static func line(_ s: Session, mode: String, among all: [Session]) -> (prefix: (String, NSColor)?, text: String)? {
+    /// `back`: why a parked agent came back (`AppModel.parkedBack`), said when nothing more urgent is.
+    static func line(_ s: Session, mode: String, among all: [Session], back: String? = nil) -> (prefix: (String, NSColor)?, text: String)? {
         let own = askLine(s, mode: mode)
         guard own?.prefix == nil else { return own }
+        if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
         for k in all.children(of: s.id) {
             if let line = askLine(k, mode: mode), let color = line.prefix?.1 { return ((k.displayTitle + ":", color), line.text) }
         }

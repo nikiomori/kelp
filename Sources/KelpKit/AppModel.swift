@@ -98,6 +98,10 @@ package final class AppModel {
     var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }
     /// Rows told to keep quiet: id → until when (`Mutes`).
     var mutes: [String: Date] = [:] { didSet { uiState[Mutes.key] = Mutes.value(mutes) } }
+    /// Agents parked: id → until when (`Parking`).
+    var parked: [String: Date] = [:] { didSet { uiState[Parking.key] = Mutes.value(parked) } }
+    /// Why a parked agent came back, on its row until it's opened.
+    var parkedBack: [String: String] = [:]
     /// Each project's colour, by id.
     var projectColors: [String: ProjectColor] = [:] { didSet { uiState[ProjectColor.key] = ProjectColor.value(projectColors) } }
     /// What the dot under the pointer in a project's menu would make of it: shown, not kept.
@@ -211,6 +215,7 @@ package final class AppModel {
         await uiState.load()
         if uiState.strings("sidebar.order") != order { order = uiState.strings("sidebar.order") }
         if Mutes.read(uiState[Mutes.key]) != mutes { mutes = Mutes.read(uiState[Mutes.key]) }
+        if Mutes.read(uiState[Parking.key]) != parked { parked = Mutes.read(uiState[Parking.key]) }
         if ProjectColor.read(uiState[ProjectColor.key]) != projectColors { projectColors = ProjectColor.read(uiState[ProjectColor.key]) }
         await settings.load()
         await refresh()
@@ -418,7 +423,7 @@ package final class AppModel {
             if s.isOlder(than: old) { return }
             if old != s { upsert(s) }   // views follow `sessions`
             notifier?.statusChanged(s, old)
-            if old?.status != s.status { syncContextWatches() }
+            if old?.status != s.status { syncContextWatches(); followParked(s) }
         case let e as DevServerEvent:
             // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
             // it; the keys stay where they are: the page comes while you may be typing.

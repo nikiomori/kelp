@@ -48,7 +48,7 @@ extension AppModel {
         case let e as GitEvent: if git[e.worktree] != e { git[e.worktree] = e }
         case let e as PortsEvent: if ports[e.worktree] != e.ports { ports[e.worktree] = e.ports }
         case let e as ActivityEvent: if activity != e { activity = e }
-        case let e as CIEvent: if ci[e.worktree] != e { ci[e.worktree] = e }
+        case let e as CIEvent: if ci[e.worktree] != e { ci[e.worktree] = e; followParked(e) }
         case let e as PREvent: if prs[e.worktree] != e.pr { prs[e.worktree] = e.pr }
         case let e as LimitsEvent: if limits != e.usage { forecast.record(e.usage); limits = e.usage }
         case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
