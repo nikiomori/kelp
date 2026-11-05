@@ -117,6 +117,25 @@ import Core
     #expect(!FileManager.default.fileExists(atPath: marker))
 }
 
+/// A turn's snapshot is pinned under refs/kelp/turns: a new key or .env file, anywhere in the checkout, isn't written into
+/// it (nor into git's objects); a tracked one is, as it's already in git.
+@Test func aSnapshotLeavesNewSecretsOut() throws {
+    let repo = try tempRepo()
+    try FileManager.default.createDirectory(atPath: repo + "/sub/deep", withIntermediateDirectories: true)
+    try "tracked\n".write(toFile: repo + "/sub/old.pem", atomically: true, encoding: .utf8)
+    try Git.run(["add", "sub/old.pem"], cwd: repo); try Git.run(["commit", "-qm", "a cert"], cwd: repo)
+    for f in [".env", "sub/deep/id_rsa", "sub/server.pem", "sub/credentials.json"] {
+        try "SECRET-\(f)\n".write(toFile: repo + "/" + f, atomically: true, encoding: .utf8)
+    }
+    try "code\n".write(toFile: repo + "/sub/new.txt", atomically: true, encoding: .utf8)
+    let tree = try Git.snapshotTree(repo + "/sub")   // from a subfolder, as an agent working there
+    let files = try Git.run(["ls-tree", "-r", "--name-only", tree], cwd: repo).split(separator: "\n").map(String.init)
+    #expect(files.contains("sub/new.txt") && files.contains("sub/old.pem"), "\(files)")
+    #expect(!files.contains { ["id_rsa", "server.pem", "credentials.json", ".env"].contains(($0 as NSString).lastPathComponent) }, "\(files)")
+    let secret = try Git.run(["hash-object", "--stdin"], cwd: repo, stdin: "SECRET-.env\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    #expect(try Git.run(["cat-file", "--batch-check"], cwd: repo, stdin: secret + "\n").contains("missing"))
+}
+
 /// A submodule's own config can define a filter too (`git status` runs in the submodule): it's turned off as well.
 @Test func aSubmodulesFilterIsTurnedOffToo() throws {
     let repo = try tempRepo()

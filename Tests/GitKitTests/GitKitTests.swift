@@ -578,6 +578,6 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
 
 /// An undone turn leaves the user's secrets alone, and puts back a committed template and direnv's file like any code.
 @Test func onlySecretEnvFilesStayOutOfAnUndo() {
-    for n in [".env", ".env.local", ".env.production"] { #expect(Git.holdsSecrets(n), "\(n)") }
-    for n in [".env.example", ".env.sample", ".envrc", "env.ts", ".environment"] { #expect(!Git.holdsSecrets(n), "\(n)") }
+    for n in [".env", ".env.local", ".env.production", "id_rsa", "server.pem", "credentials.json"] { #expect(Git.holdsSecrets(n), "\(n)") }
+    for n in [".env.example", ".env.sample", ".envrc", "env.ts", ".environment", "id_rsa.pub", "keys.ts"] { #expect(!Git.holdsSecrets(n), "\(n)") }
 }

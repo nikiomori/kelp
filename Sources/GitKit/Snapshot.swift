@@ -19,7 +19,12 @@ extension Git {
         var env = ["GIT_INDEX_FILE": copy]
         env.merge(configEnv(RepoFilters.off(cwd), after: ProcessInfo.processInfo.environment)) { $1 }
         let quiet = ["-c", "core.hooksPath=/dev/null"]
-        try run(quiet + ["add", "-A"], cwd: cwd, env: env, remotes: remotes)
+        // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good, and
+        // `git push --mirror` send them.
+        let secrets = try run(["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes)
+            .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
+        try run(quiet + ["add", "-A"] + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 }),
+                cwd: cwd, env: env, remotes: remotes)
         return try run(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -37,7 +42,7 @@ extension Git {
 
 /// Putting a folder back as it was at a snapshot (an agent's turn undone).
 extension Git {
-    /// The files that differ now from snapshot `tree`, `.env` files left out (secrets the user put there stay), and the
+    /// The files that differ now from snapshot `tree`, secrets left out (`holdsSecrets`: what the user put there stays), and the
     /// snapshot of now, which `restore` is given back so nothing that changes meanwhile is written over.
     public static func changed(since tree: String, cwd: String, remotes: Remotes = .none) throws -> (files: [String], now: String) {
         let now = try snapshotTree(cwd, remotes: remotes)
@@ -45,10 +50,13 @@ extension Git {
         return (names.split(separator: "\0").map(String.init).filter { !holdsSecrets(($0 as NSString).lastPathComponent) }, now)
     }
 
-    /// `.env`, `.env.local`, `.env.production`: the user's secrets, never put back. A template committed for others
-    /// (`.env.example`) and direnv's `.envrc` are code like any other.
+    /// `.env`, `.env.local`, `.env.production`, private keys and certificates (`id_rsa`, `*.pem`, `*.p12`), a cloud
+    /// SDK's `credentials.json`: the user's secrets, never put back nor snapshotted when new. A template committed for
+    /// others (`.env.example`), direnv's `.envrc` and a public key (`id_rsa.pub`) are code like any other.
     static func holdsSecrets(_ name: String) -> Bool {
-        name == ".env" || name.hasPrefix(".env.") && !["example", "sample", "template", "dist", "defaults"].contains(name.dropFirst(5))
+        let ext = (name as NSString).pathExtension.lowercased()
+        return name == ".env" || name.hasPrefix(".env.") && !["example", "sample", "template", "dist", "defaults"].contains(name.dropFirst(5))
+            || ["id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "credentials.json"].contains(name) || ["pem", "key", "p12", "pfx"].contains(ext)
     }
 
     /// `files` (paths from the repository's top, `cwd`) as they were in `tree`, content and mode; a file the tree hasn't

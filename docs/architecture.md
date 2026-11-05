@@ -42,7 +42,7 @@ contributions, the command palette and settings.
   Each turn starts with a snapshot of its folder (a tree object, `Git.snapshotTree`), kept under `refs/kelp/turns/<turn>`
   while the turn is listed (the last 20), and the state before an Undo Turn under `refs/kelp/undone/<session>` (with its
   reflog), so `git gc` keeps them; they go with the session. They are trees, not commits: `git log --all` doesn't show
-  them, but `git push --mirror` would send them.
+  them, but `git push --mirror` would send them, so new files that look like secrets (`.env`, keys) stay out of them.
 - **Tab**: anything shown in the editor area, addressed by a URI:
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.
   Groups of tabs split right/down; drag tabs between groups or onto an edge to split.
