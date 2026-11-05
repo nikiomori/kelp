@@ -27,7 +27,9 @@ if pgrep -qf "$PWD/$APP/Contents/MacOS/KelpApp"; then echo "Quit $NAME first: âŒ
 # Finder names disks: with another of this name mounted, the DMG's window layout below would go to that one.
 if [ "$CH" != dev ] && [ -d "/Volumes/$NAME" ]; then echo "Eject the $NAME disk first: hdiutil detach '/Volumes/$NAME'"; exit 1; fi
 # The terminal renders with libghostty (universal static lib, built once into Vendor/).
-[ -d Vendor/GhosttyKit.xcframework ] || scripts/build-ghostty.sh
+# Built again when scripts/build-ghostty.sh or a patch of Ghostty's changed since (its kelp-stamp says from what).
+stamp=$(cat scripts/build-ghostty.sh scripts/ghostty-patches/*.patch(N) | shasum | cut -c1-40)
+[ "$(cat Vendor/GhosttyKit.xcframework/kelp-stamp 2>/dev/null)" = "$stamp" ] || scripts/build-ghostty.sh
 # SWIFT_FLAGS: more for swift build (CI: --build-system swiftbuild).
 swift build -c "$CONFIG" "${ARCHS[@]}" ${=SWIFT_FLAGS:-}
 BIN=$(swift build -c "$CONFIG" "${ARCHS[@]}" ${=SWIFT_FLAGS:-} --show-bin-path)

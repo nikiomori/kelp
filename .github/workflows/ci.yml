@@ -45,12 +45,12 @@ jobs:
       # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT).
       - id: ghostty
         uses: actions/cache/restore@v4
-        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
       - if: steps.ghostty.outputs.cache-hit != 'true'
         run: scripts/build-ghostty.sh
       - if: steps.ghostty.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
-        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh') }}" }
+        with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
       - uses: actions/cache/restore@v4
         with:
           path: .build

@@ -68,6 +68,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
 
     isolated deinit {
         if let o = occlusionObserver { NotificationCenter.default.removeObserver(o) }
+        keyObservers.forEach(NotificationCenter.default.removeObserver)
         if let surface { GhosttyRuntime.shared.retire(surface, link) }
     }
 
@@ -82,7 +83,8 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
 
     public override var acceptsFirstResponder: Bool { true }
     public override func becomeFirstResponder() -> Bool {
-        if let surface { ghostty_surface_set_focus(surface, true) }
+        // Focused only in the key window: another app in front, Ghostty draws this one at most 30 times a second.
+        if let surface { ghostty_surface_set_focus(surface, window?.isKeyWindow != false) }
         setVisible(true)   // AppKit can miss an occlusion change (Spaces, full screen): typing here means it's on screen
         onFocus?(); return true
     }
@@ -105,13 +107,17 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         super.viewDidMoveToWindow(); updateSize()
         placedAt = window == nil ? .distantFuture : Date()
         if let o = occlusionObserver { NotificationCenter.default.removeObserver(o); occlusionObserver = nil }
+        keyObservers.forEach(NotificationCenter.default.removeObserver); keyObservers = []
         updateOcclusion()
         guard let w = window else { return }
         let center = NotificationCenter.default
+        keyObservers = followKey(of: w)
         occlusionObserver = center.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: w, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.updateOcclusion() }
         }
     }
+
+    var keyObservers: [NSObjectProtocol] = []
 
     // A terminal nobody can see (other tab, hidden or minimized window) stops drawing; its process runs on.
     private var occlusionObserver: NSObjectProtocol?

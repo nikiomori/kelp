@@ -1,0 +1,73 @@
+--- a/src/renderer/Thread.zig
++++ b/src/renderer/Thread.zig
+@@ -19,6 +19,10 @@
+ 
+ const CURSOR_BLINK_INTERVAL = 600;
+ 
++/// While unfocused (a pane beside the one being typed in, or the app in the
++/// background), renders are coalesced to at most one per this many ms.
++const UNFOCUSED_RENDER_INTERVAL = 33;
++
+ /// Whether calls to `drawFrame` must be done from the app thread.
+ ///
+ /// The type used for sending messages to the IO thread. For now this is
+@@ -48,6 +52,10 @@
+ render_h: xev.Timer,
+ render_c: xev.Completion = .{},
+ render_c_cancel: xev.Completion = .{},
++
++/// The timer coalescing renders while unfocused (UNFOCUSED_RENDER_INTERVAL).
++unfocused_h: xev.Timer,
++unfocused_c: xev.Completion = .{},
+ 
+ /// The kind of work the currently scheduled animation wake needs,
+ /// stored when the timer is armed.
+@@ -135,6 +143,9 @@
+     // The primary timer for rendering.
+     var render_h = try xev.Timer.init();
+     errdefer render_h.deinit();
++
++    var unfocused_h = try xev.Timer.init();
++    errdefer unfocused_h.deinit();
+ 
+     // Draw now async, see comments.
+     var draw_now = try xev.Async.init();
+@@ -155,6 +166,7 @@
+         .wakeup = wakeup_h,
+         .stop = stop_h,
+         .render_h = render_h,
++        .unfocused_h = unfocused_h,
+         .draw_now = draw_now,
+         .cursor_h = cursor_timer,
+         .surface = surface,
+@@ -178,6 +190,7 @@
+     self.stop.deinit();
+     self.wakeup.deinit();
+     self.render_h.deinit();
++    self.unfocused_h.deinit();
+     self.draw_now.deinit();
+     self.cursor_h.deinit();
+     if (comptime terminalpkg.compression_enabled)
+@@ -489,8 +502,20 @@
+     t.drainMailbox() catch |err|
+         log.err("error draining mailbox err={}", .{err});
+ 
+-    // Render immediately
+-    _ = renderCallback(t, undefined, undefined, {});
++    // Render immediately when focused; unfocused, at most once per
++    // UNFOCUSED_RENDER_INTERVAL (what came meanwhile is in that frame).
++    if (t.flags.focused) {
++        _ = renderCallback(t, undefined, undefined, {});
++    } else if (t.unfocused_c.state() != .active) {
++        t.unfocused_h.run(
++            &t.loop,
++            &t.unfocused_c,
++            UNFOCUSED_RENDER_INTERVAL,
++            Thread,
++            t,
++            renderCallback,
++        );
++    }
+ 
+     // PageList mutations maintain their own compression dirty state. Checking
+     // it here covers output, resize, and viewport scrolling uniformly.
