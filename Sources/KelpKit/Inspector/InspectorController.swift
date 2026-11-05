@@ -100,7 +100,6 @@ final class InspectorController: NSViewController {
         }
         track(owner: self) { [app] in app.workbench.inspectorPanel } changed: { [weak self] _ in self?.showSelected() }
         track(owner: self) { [app] in app.workbench.workspaceId == nil } changed: { [weak self] _ in self?.showEmpty() }
-        track(owner: self) { [app] in app.extensions.all.panels.map { $0.available?() } } changed: { [weak self] _ in self?.fold() }
         track(owner: self) { [app] in app.extensions.all.panels.map { $0.badge?() } } changed: { [weak self] _ in self?.showCounts() }
         track(owner: self) { [app] in app.settings.string("workbench.inspectorIcons") } changed: { [weak self] in
             guard let self else { return }
@@ -178,9 +177,8 @@ final class InspectorController: NSViewController {
     private func fold() {
         let hidden = Set(ids(Self.hiddenKey))
         let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
-        // A panel with nothing to show here (CI without a forge remote) leaves the row, unless it's the one on screen.
         let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v } }
-            .filter { !hidden.contains(panels[$0].id) && (panels[$0].available?() != false || $0 == current) }
+            .filter { !hidden.contains(panels[$0].id) }
         let atTop = top.first?.isActive == true
         let room = view.bounds.width - Metrics.insetTrailing - (atTop ? Self.toggleRoom : Metrics.insetTrailing) - Metrics.iconGap
         let fits = max(1, Int(room / (Metrics.segment.width + Metrics.iconGap)))

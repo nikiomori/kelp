@@ -164,6 +164,7 @@ final class SidebarCell: NSTableCellView {
     /// The slot follows a moment later, and goes back at once. Reduce Motion: at once.
     private func showHoverControls(_ on: Bool) {
         hovering = on
+        showChanges()
         if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
         guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
@@ -263,8 +264,9 @@ final class SidebarCell: NSTableCellView {
         let w = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder, stats = w.flatMap { app.rowBadges.stats[$0.id] }
         let c = RowBadges.changes(stats)
         let p = w.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
+        counts = c
+        showChanges()
         if c != nil, let stats {
-            changes.attributedTitle = Self.dot
             changes.toolTip = String(localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
             changes.setAccessibilityLabel(changes.toolTip)
         }
@@ -277,6 +279,15 @@ final class SidebarCell: NSTableCellView {
         fitBadges()
     }
     private var hasBadge = (changes: false, pr: false, ci: false)
+    /// "+610 −23", shown in place of the dot while the pointer is on the row.
+    private var counts: NSAttributedString?
+    /// A quiet dot at rest; under the pointer the counts, on a pill as the PR's number is (bare they read as the name's).
+    private func showChanges() {
+        let full = hovering ? counts : nil, title = full ?? Self.dot
+        if changes.attributedTitle != title { changes.attributedTitle = title }
+        changes.padding = full == nil ? 3 : Metrics.gap
+        changes.restFill = full == nil ? nil : .fillRest
+    }
     private static var dot: NSAttributedString {
         NSAttributedString(string: "•", attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
     }

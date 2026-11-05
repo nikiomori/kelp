@@ -22,14 +22,13 @@ package struct IDEContext {
 package struct PanelSpec: Identifiable {
     package init(id: String, title: String, icon: String, extensionId: String,
                  badge: (@MainActor () -> PanelBadge?)? = nil, poll: (@MainActor () async -> Void)? = nil,
-                 available: (@MainActor () -> Bool)? = nil, make: @escaping @MainActor () -> NSViewController) {
+                 make: @escaping @MainActor () -> NSViewController) {
         self.id = id
         self.title = title
         self.icon = icon
         self.extensionId = extensionId
         self.badge = badge
         self.poll = poll
-        self.available = available
         self.make = make
     }
     package let id: String, title: String, icon: String, extensionId: String
@@ -37,9 +36,6 @@ package struct PanelSpec: Identifiable {
     var badge: (@MainActor () -> PanelBadge?)?
     /// Keeps `badge` current while the inspector lists the panel (an extension's badge command); cancelled on a rebuild.
     var poll: (@MainActor () async -> Void)?
-    /// Whether the panel has anything to show in the workspace on screen (nil: always); its icon leaves the row while
-    /// it hasn't. Read under observation, as `badge` is.
-    var available: (@MainActor () -> Bool)?
     let make: @MainActor () -> NSViewController
 }
 
