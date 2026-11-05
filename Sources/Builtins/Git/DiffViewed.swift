@@ -17,7 +17,7 @@ extension DiffViewController {
         b.controlSize = .small
         b.font = .ui(11)
         b.setContentHuggingPriority(.required, for: .horizontal)   // the path takes the room, not the box
-        b.state = ViewedFiles.viewed(diffs[row], in: viewed) ? .on : .off
+        b.state = ViewedFiles.viewed(diffs[row], in: viewed, printed: prints[diffs[row].path]) ? .on : .off
         return b
     }
 

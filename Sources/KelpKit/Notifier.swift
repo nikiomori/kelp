@@ -356,6 +356,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
         if s.status == .done, s.agent == "claude", app.settings.bool("agents.recap") != false, !Presence.here(), tells(s, turn: turn),
            let line = await app.quiet(SessionRecap(id: s.id)) ?? nil {
+            // Up to a minute and a half later: a turn begun meanwhile isn't done, and gets no "Done" banner.
+            guard app.session(s.id)?.status == .done else { return }
             s.summary = line
         } else if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {
             let line = Self.firstSentence(reply)

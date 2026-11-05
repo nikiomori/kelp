@@ -284,6 +284,7 @@ final class Sessions: Sendable {
             let pids = all.compactMap { live.remove($0.id) }.flatMap { ls in hangUpStreams(ls); return ls.discard() }
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for s in all {
+                dropTurnRefs(of: s.id)   // before the delete takes its turns' rows
                 do { try store.delete(s) } catch { Log.store.error("couldn't delete session \(s.id, privacy: .public): \(error)") }
                 for name in ["\(s.id).log", "\(s.id).trail"] {
                     let file = root.appendingPathComponent("history/\(name)")   // none when it never ran

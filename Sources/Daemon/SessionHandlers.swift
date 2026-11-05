@@ -294,7 +294,26 @@ extension Sessions {
             let dropped = try store.addTurn(t)
             guard remotes.of(t.folder) == nil else { return }   // no snapshots there
             try Git.run(["update-ref", "refs/kelp/turns/" + t.id, t.tree], cwd: t.folder, remotes: remotes)
-            for d in dropped { try Git.run(["update-ref", "-d", "refs/kelp/turns/" + d.id], cwd: d.folder, remotes: remotes) }
+            dropRefs(dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) })
+        }
+    }
+
+    /// A session going: its turns' snapshots and its last undone state needn't be kept any more.
+    func dropTurnRefs(of session: String) {
+        Log.store.attempt("dropping \(session)'s turn refs") {
+            let marks = try store.turns(session: session)
+            dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), $0.folder) })
+        }
+    }
+
+    /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,
+    /// stops none of the others.
+    private func dropRefs(_ refs: [(ref: String, folder: String)]) {
+        for (folder, group) in Dictionary(grouping: refs, by: \.folder)
+        where remotes.of(folder) == nil && FileManager.default.fileExists(atPath: folder) {
+            Log.store.attempt("dropping turn refs in \(folder)") {
+                _ = try Git.run(["update-ref", "--stdin"], cwd: folder, stdin: group.map { "delete \($0.ref)\n" }.joined(), remotes: remotes)
+            }
         }
     }
 }

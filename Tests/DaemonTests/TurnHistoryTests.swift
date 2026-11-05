@@ -74,6 +74,10 @@ import Agents
     #expect(try await waitFor(5) { w.d.sessions.existing(other.id)?.snapshot.status ?? .exited == .exited })
     try Git.run(["commit", "-q", "--allow-empty", "-m", "moved on"], cwd: wt.path)
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
+    // The session gone, its turns' snapshots and its undone state are no longer kept from git gc.
+    #expect(try !Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+    w.d.sessions.discard(try #require(try w.d.sessions.store.session(s.id)))
+    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
 }
 
 /// An agent that worked from a subfolder: its turn is undone across the checkout, paths counted from the top.
@@ -184,5 +188,5 @@ import Agents
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
     #expect(SessionRecap.prompt.contains("what is left"))
-    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(2) == ["--tools", ""])   // the fork can't act
+    #expect(SessionRecap.arguments("claude", conversation: "c").suffix(3) == ["--tools", "", "--strict-mcp-config"])   // the fork can't act
 }

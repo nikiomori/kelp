@@ -69,6 +69,7 @@ extension BrowserTab: WKDownloadDelegate {
     private func noteDownload(_ s: String) {
         noteLog("[download] " + s)
         downloads.append(s)
+        if downloads.count > Self.keep { downloads.removeFirst(downloads.count - Self.keep) }
     }
 
     /// `name` in `dir`, or as Safari names the next one when it's taken: `report-2.pdf`, `report-3.pdf`…

@@ -312,7 +312,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
 
     /// The PR's folder: on its own branch, or on `pr-<n>` when that name was taken by another branch (`Git.fetchPullRequest`).
     private func worktreeFor(branch: String, pr n: Int) -> Worktree? {
-        app.worktrees.first { ($0.branch == branch || $0.branch == "pr-\(n)") && !$0.archived }
+        // This project's, and never its main checkout: a fork's PR from `main` isn't your main.
+        let main = app.repo(repoId ?? "")?.path
+        return app.worktrees.first { $0.repoId == repoId && ($0.branch == branch || $0.branch == "pr-\(n)") && !$0.archived && $0.path != main }
     }
 
     private func prDetail(_ r: GitHub.PullRequest) {
