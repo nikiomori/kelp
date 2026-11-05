@@ -274,7 +274,11 @@ final class WindowBar: NSView {
 
     /// Pressed in (the selected fill) while the workspace puts its agents side by side; a click shows them as tabs in one
     /// pane, and back. Only with two agents or more; a right-click hides it (Settings › Window brings it back).
+    /// On: the filled symbol in the accent (the label colour with Graphite) on the chosen grey, as a toggled toolbar
+    /// button; off: its outline alone. The grey by itself read as the pointer's.
     private func showSideBySide(_ on: Bool) {
+        let image = NSImage.symbol(on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
+        sideBySide.image = on ? image.withSymbolConfiguration(.init(paletteColors: [.emphasis])) : image   // a recessed button ignores contentTintColor
         sideBySide.restFill = on ? .fillSelected : nil
         sideBySide.toolTip = on ? String(localized: "Agents side by side. Click to show them as tabs (⌃⌘T)")
                                 : String(localized: "Agents as tabs. Click to put them side by side (⌃⌘T)")
