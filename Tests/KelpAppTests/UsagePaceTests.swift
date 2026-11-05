@@ -51,3 +51,16 @@ import Core
     #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: now.addingTimeInterval(3600), window: 5 * 3600, now: now))     // a session
     #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: nil, window: week, now: now))
 }
+
+@Test func readingsNameCodexWindowsByTheirLengthAndKeepWhenTheyWereRead() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let u = UsageGet.Result(claude: [], codex: [.init(observedAt: now.timeIntervalSince1970 - 3600, primaryUsedPercent: 35,
+                                                      primaryResetsAt: now.timeIntervalSince1970 + 19 * 86400, secondaryUsedPercent: nil,
+                                                      secondaryResetsAt: nil, primaryWindowMinutes: 43200)],
+                            plans: ["grok": [.init(kind: "week", percent: 17, resets: "in 2d")]], plansReadAt: ["grok": now.timeIntervalSince1970])
+    let r = u.readings(now: now)
+    #expect(r.map(\.agent) == ["grok", "codex"])
+    #expect(r[1].limit.kind == "month" && r[1].window == 30 * 86400 && r[1].readAt == now.addingTimeInterval(-3600))
+    #expect(r[0].window == 7 * 86400 && r[0].resetAt == now.addingTimeInterval(2 * 86400) && r[0].readAt == now)
+    #expect(LimitAlerts.readings(u, now: now).count == 1)   // Codex's, an hour old, says nothing about now
+}

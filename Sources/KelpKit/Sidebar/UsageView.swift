@@ -244,10 +244,7 @@ struct UsageView: View {
             : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
     }
 
-    /// A window's length by its kind; a month is taken as 30 days (Codex's free plan says 43 200 minutes itself).
-    static func window(_ kind: String) -> TimeInterval? {
-        kind == "session" ? 5 * 3600 : kind.lowercased().contains("week") ? 7 * 86400 : kind.lowercased().contains("month") ? 30 * 86400 : nil
-    }
+    static func window(_ kind: String) -> TimeInterval? { UsageGet.window(kind) }
 
     /// Claude Code's /usage, or the percentages a session printed.
     private static func claude(_ u: UsageGet.Result) -> [Line] {

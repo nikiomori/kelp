@@ -119,6 +119,8 @@ enum AgentSkills {
         - It works in your folder, on your branch. For edits that may collide with yours, give it a branch of its own:
           `kelp worktree create <branch>`, then `--worktree <id>` on `kelp session new`. Reading and reviewing need none.
         - Children end when you do. `--outlive` starts one that isn't your child: it stays, and tells you nothing.
+        - `kelp usage` prints each agent's plan limits (percent used, when it resets). Before a long job, look at the
+          child's: one near full stops midway, so pick another agent or a cheaper `--model`.
 
         """
 

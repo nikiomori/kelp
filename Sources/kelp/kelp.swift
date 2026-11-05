@@ -27,6 +27,8 @@ usage: kelp <command>
   attach <session> [--detach]          make this terminal the session's terminal (detach: close it, or Ctrl+\\ with --detach)
   agents                               who runs and who needs you, live, for a narrow terminal: Enter opens one, Ctrl+\\ comes
                                        back, y/n answers a permission request. Printed once when it isn't a terminal
+  usage                                each agent's plan limits: percent used, when it resets, when it was read
+                                       (stale: over half an hour ago), as JSON
   hook <working|waiting|done>          (called by agent hooks inside a session)
   report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
                                        inside a session: what you're doing, on your row and tab
@@ -207,6 +209,7 @@ func plist() -> String {
         case "status", "repo", "worktree": try await projects(cmd, sub, c)
         case "session", "terminal", "wait", "why", "report": try await sessions(cmd, sub, c)
         case "agents": try await agents(c)
+        case "usage": try await usageLimits(c)
         case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, c)
         case "github", "linear": try await forge(cmd, sub, c)
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)

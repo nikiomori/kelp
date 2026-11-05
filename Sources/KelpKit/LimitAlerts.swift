@@ -14,24 +14,7 @@ struct LimitAlerts {
     /// Every limit the agents report now, as the sidebar's rings show them, with when it resets if that can be told.
     /// Not the ones the sidebar dims: a reading from more than half an hour ago says nothing about now.
     static func readings(_ u: UsageGet.Result, now: Date = Date()) -> [(agent: String, limit: UsageGet.Limit, resetAt: Date?)] {
-        let fresh = { (agent: String) in u.plansReadAt?[agent].map { now.timeIntervalSince1970 - $0 <= 1800 } ?? true }
-        var out: [(agent: String, limit: UsageGet.Limit, resetAt: Date?)] = []
-        func add(_ agent: String, _ ls: [UsageGet.Limit]) {
-            out += ls.map { (agent, $0, $0.resets.flatMap { ResetTime.parse($0, now: now) }) }
-        }
-        for (agent, ls) in u.plans ?? [:] where agent != "claude" && fresh(agent) { add(agent, ls) }
-        if fresh("claude") { add("claude", u.plans?["claude"] ?? u.claudeLimits ?? []) }
-        if let x = u.codex.first, now.timeIntervalSince1970 - x.observedAt <= 1800 {
-            let at = { (t: Double?) in t.map { Date(timeIntervalSince1970: $0) } }
-            let kind = UsageGet.Codex.kind
-            if let p = x.primaryUsedPercent {
-                out.append(("codex", .init(kind: kind(x.primaryWindowMinutes, true), percent: p, resets: nil), at(x.primaryResetsAt)))
-            }
-            if let p = x.secondaryUsedPercent {
-                out.append(("codex", .init(kind: kind(x.secondaryWindowMinutes, false), percent: p, resets: nil), at(x.secondaryResetsAt)))
-            }
-        }
-        return out
+        u.readings(now: now).filter { $0.readAt.map { now.timeIntervalSince($0) <= 1800 } ?? true }.map { ($0.agent, $0.limit, $0.resetAt) }
     }
 
     /// The first reading only sets the baseline: what was already full when Kelp opened isn't news.
