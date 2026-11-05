@@ -1,6 +1,116 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Older Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия раньше"
+          }
+        }
+      }
+    },
+    "Newer Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия позже"
+          }
+        }
+      }
+    },
+    "Show Latest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать последнюю"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить"
+          }
+        }
+      }
+    },
+    "As it is now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как сейчас"
+          }
+        }
+      }
+    },
+    "An older version, from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старая версия от %@"
+          }
+        }
+      }
+    },
+    "%@ is writing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ пишет"
+          }
+        }
+      }
+    },
+    "The chat that made it has ended": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чат, который её сделал, завершён"
+          }
+        }
+      }
+    },
+    "now writing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пишется сейчас"
+          }
+        }
+      }
+    },
+    "Kelp keeps the last %lld turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp хранит последние ходы: %lld"
+          }
+        }
+      }
+    },
+    "Print or Save as PDF…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напечатать или сохранить в PDF…"
+          }
+        }
+      }
+    },
     "Doc": {
       "localizations": {
         "ru": {

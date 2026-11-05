@@ -12,9 +12,13 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var file: String?
     /// The page on the agent's own service.
     public var url: String?
+    /// Its file as each turn of its agent left it, oldest first (`Artifacts.keepVersions`).
+    public var versions: [ArtifactVersion]?
 
-    public init(type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil) {
+    public init(type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
+                versions: [ArtifactVersion]? = nil) {
         self.type = type; self.title = title; self.created = created; self.session = session; self.file = file; self.url = url
+        self.versions = versions
     }
 }
 
@@ -30,6 +34,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     public var points: Int?, answered: Int?
     /// When its file was last saved; nil for a page on a service.
     public var modified: Double?
+    /// Its kept versions, oldest first; `changed`: the file differs from the last of them (written since, or none kept yet).
+    public var versions: [ArtifactVersion]?, changed: Bool?
 
     public init(slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil, target: String,
                 points: Int? = nil, answered: Int? = nil, modified: Double? = nil) {
@@ -100,10 +106,13 @@ public enum Artifacts {
             guard r.url == nil else { return item }
             var st = stat()
             if stat(target, &st) == 0 { item.modified = Double(st.st_mtimespec.tv_sec) }
-            if r.type == Kind.review.rawValue, let d = FileManager.default.contents(atPath: target) {
-                let points = Review(String(decoding: d, as: UTF8.self)).points
+            let text = FileManager.default.contents(atPath: target).map { String(decoding: $0, as: UTF8.self) }
+            if r.type == Kind.review.rawValue, let text {
+                let points = Review(text).points
                 item.points = points.count; item.answered = points.filter { $0.pick != nil }.count
             }
+            item.versions = r.versions
+            item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
             return item
         }
     }
@@ -202,9 +211,9 @@ public enum Artifacts {
 
     // MARK: files
 
-    private static let decoder: JSONDecoder = { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }()
+    static let decoder: JSONDecoder = { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }()
 
-    private static func save(_ r: ArtifactRecord, in folder: URL) throws {
+    static func save(_ r: ArtifactRecord, in folder: URL) throws {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try e.encode(r).write(to: folder.appendingPathComponent("artifact.json"))
     }

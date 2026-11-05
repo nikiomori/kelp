@@ -31,6 +31,8 @@ final class LiveSession: Sendable {
         var limits: (@Sendable ([ClaudeLimits.Reading]) -> Void)?
         /// A turn began: how its folder was, to keep (`SessionTurns`).
         var turnStarted: (@Sendable (SessionTurns.Mark) -> Void)?
+        /// A turn ended, started by this prompt: the pages its agent made keep a version (`Artifacts.keepVersions`).
+        var turnEnded: (@Sendable (String) -> Void)?
     }
 
     let pty: PTY
@@ -306,6 +308,7 @@ final class LiveSession: Sendable {
                     .map { Turn.File(path: $0.path, added: $0.added, removed: $0.removed) }
                 self?.state.withLock { $0.turnResult = Turn(files: files, seconds: Date().timeIntervalSince(start)) }
             }
+            if ending { self?.callbacks.turnEnded?(prompt) }
         }
     }
 

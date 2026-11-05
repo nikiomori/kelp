@@ -149,7 +149,7 @@ final class FileTab: SavableTab {
             md.startInPreview = path == Help.location.path || Review.isReview(path)   // the help is for reading, a review for answering
             md.onEditing = { [weak bar] in bar?.editing = $0 }
             md.saveFile = { [weak self] in await self?.save() ?? false }
-            markdown = md; box.pin(stacked(crumbs, md.view, bar))
+            markdown = md; box.pin(stacked(md.header(else: crumbs), md.view, bar))
         } else {
             box.pin(stacked(crumbs, e.view, bar))
         }

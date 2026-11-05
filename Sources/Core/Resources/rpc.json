@@ -154,6 +154,9 @@
           "answered" : {
             "type" : "integer"
           },
+          "changed" : {
+            "type" : "boolean"
+          },
           "created" : {
             "description" : "Seconds since 1970, as `modified`.",
             "type" : "number"
@@ -184,6 +187,13 @@
           },
           "url" : {
             "type" : "string"
+          },
+          "versions" : {
+            "description" : "Its kept versions, oldest first; `changed`: the file differs from the last of them (written since, or none kept yet).",
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactVersion"
+            },
+            "type" : "array"
           }
         },
         "required" : [
@@ -192,6 +202,27 @@
           "target",
           "title",
           "type"
+        ],
+        "type" : "object"
+      },
+      "ArtifactVersion" : {
+        "description" : "A page as one turn of its agent left it: `versions/<n>.md` beside it, named by the prompt that started the turn.",
+        "properties" : {
+          "at" : {
+            "description" : "Seconds since 1970.",
+            "type" : "number"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "n" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "at",
+          "label",
+          "n"
         ],
         "type" : "object"
       },

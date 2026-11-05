@@ -90,3 +90,30 @@ private func tempRoot() throws -> URL {
     #expect(items[1].points == 2 && items[1].answered == 1 && items[1].session == "s1" && items[1].created == 1)
     #expect(items[1].target == page.path && (items[1].modified ?? 0) > Date().timeIntervalSince1970 - 60)
 }
+
+/// A turn's end keeps a version of each page its chat made, only when the page changed, and the last 20 of them.
+@Test func artifactVersions() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.doc, title: "Plan", root: root.path, session: "s1")
+    _ = try Artifacts.create(.doc, title: "Other chat's", root: root.path, session: "s2")
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make a plan\nwith details") == 1)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "nothing changed") == 0)
+    var item = try #require(Artifacts.items(root: root.path).first { $0.title == "Plan" })
+    #expect(item.versions?.map(\.label) == ["make a plan"] && item.changed == false)
+    try "# Plan\n\nMore.\n".write(to: page, atomically: true, encoding: .utf8)
+    item = try #require(Artifacts.items(root: root.path).first { $0.title == "Plan" })
+    #expect(item.changed == true)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "") == 1)
+    #expect(try String(contentsOfFile: Artifacts.versionPath(target: page.path, 1), encoding: .utf8) == "# Plan\n\n")
+    #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.label == "Turn 2")
+    #expect(Artifacts.items(root: root.path).first { $0.title == "Other chat's" }?.versions == nil)
+
+    for i in 3...23 {
+        try "# Plan\n\n\(i)\n".write(to: page, atomically: true, encoding: .utf8)
+        try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn \(i)")
+    }
+    let versions = try #require(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions)
+    #expect(versions.count == 20 && versions.first?.n == 4 && versions.last?.n == 23)
+    #expect(!FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 3)))
+    #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 4)))
+}

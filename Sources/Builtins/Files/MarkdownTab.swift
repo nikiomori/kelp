@@ -38,6 +38,46 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var saveFile: (() async -> Bool)?
     /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
     private var isReview: Bool { Review.isReview(url.path) }
+    /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
+    private(set) var shownVersion: String?
+
+    private var artifactBar: ArtifactBar?
+
+    /// What goes over the tab: a page an agent made has its bar (what it is, its versions, its chat) where the path would be.
+    func header(else crumbs: NSView) -> NSView {
+        guard ArtifactBar.isPage(url.path) else { return crumbs }
+        let a = ArtifactBar(app: app, path: url.path, markdown: self)
+        artifactBar = a
+        return a.view
+    }
+
+    /// 0 edit, 1 split, 2 preview, as the bar's segments.
+    var modeSegment: Int {
+        get { mode.selectedSegment }
+        set { selectMode(newValue) }
+    }
+
+    func showVersion(_ text: String?) {
+        shownVersion = text
+        if text != nil, modeSegment != 2 { modeSegment = 2 }
+        mode.isEnabled = text == nil
+        rerender()
+    }
+
+    /// The file becomes `text` and is saved: an older version restored.
+    func restore(_ text: String) {
+        editor.apply(text: text, selection: NSRange(location: 0, length: 0))
+        Task { _ = await saveFile?() }
+    }
+
+    /// The page as the preview shows it, through the system's print panel (which saves a PDF too).
+    func printPage() {
+        guard let window = view.window else { return }
+        if web.isHidden { selectMode(2) }
+        let op = web.printOperation(with: NSPrintInfo.shared)
+        op.view?.frame = web.bounds
+        op.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+    }
 
     var currentMode: String {
         switch mode.selectedSegment {
@@ -102,7 +142,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         web.configuration.userContentController.add(WeakHandler(self), name: "kelpSync")
         split.addArrangedSubview(editor.view); split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
-        view = stacked(bar, split)
+        // An agent's page has its own bar, whose ⋯ holds the modes (and ⇧⌘V cycles them): one bar over it, not two.
+        view = artifactBar == nil ? stacked(bar, split) : stacked(split)
         view.addSubview(selectionBar)   // over the text, placed by frame
         editor.onSelection = { [weak self] in self?.placeSelectionBar() }
         if let clip = (editor.view as? NSScrollView)?.contentView {
@@ -134,6 +175,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// From the preview's page: scrolled to a line (the source follows), or double-clicked on one (the cursor goes there).
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
         if isReview, let body = m.body as? [String: Any], let kind = body["kind"] as? String, ["pick", "note", "send"].contains(kind) {
+            guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
             return answer(kind, point: body["point"] as? String ?? "", value: body[kind == "pick" ? "key" : "text"] as? String ?? "")
         }
         guard let body = m.body as? [String: Any], let line = (body["line"] as? NSNumber)?.intValue else { return }
@@ -178,7 +220,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         renderTask = Task {
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            let text = editor.text, base = url.deletingLastPathComponent(), dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let text = shownVersion ?? editor.text, base = url.deletingLastPathComponent()
+            let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 let p = CodeEditor.page
