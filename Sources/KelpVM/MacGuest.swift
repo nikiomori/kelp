@@ -10,7 +10,11 @@ enum MacGuest {
     /// 1280 × 800 points at 2×: sharp on a Retina screen, small enough for an agent's screenshots.
     static let display = (width: 2560, height: 1600, ppi: 220)
 
+    /// Virtualization runs macOS only on Apple silicon: an Intel Mac (a universal build's other half) says so.
+    static let needsAppleSilicon = VMError("macOS machines need a Mac with Apple silicon.")
+
     static func configure(_ c: VZVirtualMachineConfiguration, folder: URL) throws {
+        #if arch(arm64)
         func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
         let platform = VZMacPlatformConfiguration()
         guard let model = VZMacHardwareModel(dataRepresentation: try Data(contentsOf: file("hardware.bin"))), model.isSupported,
@@ -28,11 +32,15 @@ enum MacGuest {
         c.graphicsDevices = [graphics]
         c.keyboards = [VZMacKeyboardConfiguration()]
         c.pointingDevices = [VZMacTrackpadConfiguration(), VZUSBScreenCoordinatePointingDeviceConfiguration()]
+        #else
+        throw needsAppleSilicon
+        #endif
     }
 
     /// The restore image's hardware model, a new identity and auxiliary storage, a sparse disk: then macOS installed on it,
     /// `progress` 0…1 as it goes.
     static func install(_ m: VMMachine, folder: URL, ipsw: URL, progress: @escaping @MainActor @Sendable (Double) -> Void) async throws {
+        #if arch(arm64)
         func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
         let image = try await VZMacOSRestoreImage.image(from: ipsw)
         guard let needs = image.mostFeaturefulSupportedConfiguration else { throw VMError("This Mac can't run macOS \(image.buildVersion).") }
@@ -55,15 +63,23 @@ enum MacGuest {
         }
         defer { watching.invalidate() }
         try await installer.install()
+        #else
+        throw needsAppleSilicon
+        #endif
     }
 
     /// Apple's latest restore image this Mac can run: its address and build.
     static func latest() async throws -> (url: URL, build: String, version: String) {
+        #if arch(arm64)
         let image = try await VZMacOSRestoreImage.latestSupported
         let v = image.operatingSystemVersion
         return (image.url, image.buildVersion, "\(v.majorVersion).\(v.minorVersion)" + (v.patchVersion > 0 ? ".\(v.patchVersion)" : ""))
+        #else
+        throw needsAppleSilicon
+        #endif
     }
 
+    #if arch(arm64)
     /// The first boot sets the account up by itself, signs in and turns Remote Login on (macOS 27 hosts and guests).
     static func firstStart(_ m: VMMachine, password: String) throws -> VZMacOSVirtualMachineStartOptions {
         let options = VZMacOSVirtualMachineStartOptions()
@@ -78,6 +94,7 @@ enum MacGuest {
         }
         return options
     }
+    #endif
 
     /// Its address on the NAT network: the newest lease bootpd gave its MAC (`1,<mac>`, each byte without its leading zero).
     static func address(mac: String) -> String? {

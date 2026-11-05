@@ -49,11 +49,13 @@ extension Runtime {
                 .map { VZSingleDirectoryShare(directory: VZSharedDirectory(url: URL(fileURLWithPath: $0), readOnly: false)) }
             return fs
         }
+        #if arch(arm64)   // Rosetta for Linux is Apple silicon's: an Intel Mac runs x86 guests as they are
         if m.os == "linux", m.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
             let r = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
             r.share = try VZLinuxRosettaDirectoryShare()
             c.directorySharingDevices.append(r)
         }
+        #endif
         try c.validate()
         return c
     }

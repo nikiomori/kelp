@@ -226,6 +226,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         self.vm = vm
         (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
         guard FileManager.default.fileExists(atPath: saved.path) else {
+            #if arch(arm64)   // a macOS machine's configuration doesn't build on Intel (`MacGuest.needsAppleSilicon`)
             if machine.os == "macos", !FileManager.default.fileExists(atPath: file("booted").path) {
                 // The first boot: macOS sets the account up, signs in and turns Remote Login on by itself.
                 do {
@@ -234,8 +235,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                     return vm.start(options: options) { e in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: e) } }
                 } catch { return started(error) }
             }
+            #endif
             return vm.start { r in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) } }
         }
+        #if arch(arm64)
         vm.restoreMachineStateFrom(url: saved) { error in
             MainActor.assumeIsolated {
                 try? FileManager.default.removeItem(at: self.saved)   // a saved state restores once
@@ -250,6 +253,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 vm.resume { r in MainActor.assumeIsolated { self.awaitSSH(restored: true, error: r.failure) } }
             }
         }
+        #else
+        // Limit: Intel saves no machine state (Virtualization does on Apple silicon only), so a saved one can't be there.
+        try? FileManager.default.removeItem(at: saved)
+        vm.start { r in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) } }
+        #endif
     }
 
     /// Ready once sshd answers with its banner (on Linux systemd's sshd-vsock socket listens before sshd can answer; a
@@ -329,6 +337,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     private func sleep(_ done: @escaping (String?) -> Void) {
         guard let vm, state == .running || state == .paused else { return done(nil) }
+        #if !arch(arm64)
+        return done("Sleep needs a Mac with Apple silicon: an Intel Mac can't save a machine's state.")
+        #else
         let tmp = file("state.vzsave.part")
         let save = {
             vm.saveMachineStateTo(url: tmp) { error in
@@ -341,6 +352,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
         if state == .paused { return save() }
         vm.pause { r in MainActor.assumeIsolated { if let e = r.failure { return done(e.localizedDescription) }; save() } }
+        #endif
     }
 
     /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
