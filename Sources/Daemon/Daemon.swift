@@ -69,7 +69,6 @@ public final class Daemon: Sendable {
                 }
             }
         }
-        vms.resumeMaking()   // machines a kelpd before this one was making (it quit or was upgraded midway)
     }
 
     /// kelpd couldn't start: the reason goes to the log and to `Paths.daemonError(in:)`, where the app reads it for its
@@ -89,7 +88,8 @@ public final class Daemon: Sendable {
     static let binaryMTime = Upgrade.modified(executable)
 
     /// `handover`: what the kelpd this process ran before (an update, `daemon.upgrade`) left open for this one to take over.
-    public func start(adopting handover: Handover? = nil) throws {
+    /// `takingBack`: this process's own sessions, after an update's exec failed (its makings of machines still run here).
+    public func start(adopting handover: Handover? = nil, takingBack: Bool = false) throws {
         // One daemon per KELP_HOME: a second one (launchd's KeepAlive, a CLI that couldn't connect) would take the socket
         // over and mark the first one's running agents paused. A handover's lock is held already.
         let lockFD = handover?.lock ?? open(root.appendingPathComponent("kelpd.lock").path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
@@ -111,6 +111,9 @@ public final class Daemon: Sendable {
             }
         } catch { Log.store.error("couldn't mark the last run's sessions paused or ended: \(error)") }
         handover?.sessions.forEach(sessions.adopt)   // before the first connection: it finds them running
+        // Machines a kelpd before this one was making (it quit or was upgraded midway): only once this one holds the home,
+        // a second kelpd (launchd's, a CLI's) going away right after must not touch them, and on a thread of its own.
+        if !takingBack { let vms = self.vms; Thread.detachNewThread { vms.resumeMaking() } }
         _ = Self.binaryMTime   // read now: after an update the file on disk is already the new one
         DispatchQueue.global().async { _ = LoginPath.value }   // warm up so the first agent doesn't wait for the shell
         // The usage index reads gigabytes the first time: do it in the background now, not when Usage is opened.
@@ -257,7 +260,7 @@ public final class Daemon: Sendable {
         // Still here: this process takes the sessions back, as the new kelpd would have, and every agent goes on.
         do {
             let back = try Daemon(root: root, store: store)   // the same database: one writer, not two in one process
-            try back.start(adopting: h)
+            try back.start(adopting: h, takingBack: true)
             running.withLock { $0.successor = back }
             Log.start.notice("the update didn't run: this kelpd took its sessions back")
             return back

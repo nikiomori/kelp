@@ -75,6 +75,15 @@ import Testing
         #expect(VMService.helper(beside: kelpd) == inApp.path)
     }
 
+    /// A kelpd that won't get the home (another one runs it) doesn't touch a machine being made: only one that started
+    /// makes machines a kelpd before it left midway.
+    @Test func aKelpdThatDoesntStartLeavesMakingsAlone() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder(["creating": #"{"step":"downloading"}"#, "disk.img": "half"])
+        _ = try Daemon(root: home)
+        #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/disk.img").path))
+    }
+
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])

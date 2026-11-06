@@ -331,6 +331,10 @@ struct VMService: Sendable {
             do { m = try machine(name) } catch { continue }
             Log.vm.info("making \(name) again: a kelpd before this one stopped midway")
             quit(name)
+            // Its downloads and installer outlived that kelpd: ended, not left writing beside the new ones.
+            let leftover = NSRegularExpression.escapedPattern(for: folder(name).path)
+            do { _ = try Subprocess.run(["/usr/bin/pkill", "-TERM", "-f", "--", leftover], cwd: "/", env: [:], timeLimit: 10) }
+            catch { Log.vm.error("ending what made \(name) before: \(error)") }
             if let udid = text(name, "udid") {   // an iOS machine's simulator, made again too
                 do { try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)]) }
                 catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
@@ -373,8 +377,11 @@ struct VMService: Sendable {
             Log.vm.error("making \(m.name): \(error)")
             // A machine half made holds memory for nothing: shut down as the guest would (a power cut loses what was just
             // written into it, Kelp Guest's app included), then its kelp-vm gone.
-            if status(m.name) != nil { do { _ = try ask(m.name, .init(op: .stop), wait: 60) } catch { Log.vm.info("\(m.name) stop: \(error)") } }
-            quit(m.name)
+            let stop = { [self] in   // up to a minute: not on a thread of the shared pool
+                if status(m.name) != nil { do { _ = try ask(m.name, .init(op: .stop), wait: 60) } catch { Log.vm.info("\(m.name) stop: \(error)") } }
+                quit(m.name)
+            }
+            await withCheckedContinuation { c in Thread.detachNewThread { stop(); c.resume() } }
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             Log.vm.attempt("noting why \(m.name) failed") { try Data(why.utf8).write(to: file(m.name, "failed")) }
         }

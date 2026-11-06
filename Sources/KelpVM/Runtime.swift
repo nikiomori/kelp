@@ -57,7 +57,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             signal(sig, SIG_IGN)
             let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             // On the main queue: save it (what runs inside goes on at the next wake), then go.
-            s.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.sleep { _ in exit(0) } } }
+            s.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.leave() } }
             s.resume()
             signals.append(s)
         }
@@ -327,6 +327,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + (machine.os == "macos" ? 1 : 0.2)) {
             MainActor.assumeIsolated { self.awaitSSH(restored: restored, error: nil, since: since) }
         }
+    }
+
+    /// SIGTERM (an install, a logout): saved, then gone. One still booting is let finish first: ending now would cut its
+    /// power (a macOS first boot writes its account then).
+    private func leave() {
+        guard state != .starting else { return ready.append { [weak self] _ in self?.leave() } }
+        sleep { _ in exit(0) }
     }
 
     private func started(_ error: Error?) {
