@@ -1647,6 +1647,36 @@
         }
       }
     },
+    "From a File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из файла…"
+          }
+        }
+      }
+    },
+    "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS из образа восстановления (.ipsw), Linux из raw-диска облачного образа"
+          }
+        }
+      }
+    },
+    "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Образ восстановления macOS (.ipsw) или raw-диск облачного образа Linux (.raw, .img)"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

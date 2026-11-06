@@ -3,7 +3,7 @@ import Core
 
 extension Main {
     static let vmUsage = """
-    vm list [--json] | create <name> [--image debian-13] [--cpus 2] [--memory 2] [--disk 32]
+    vm list [--json] | create <name> [--image debian-13|macos|android|ios] [--file image.ipsw|disk.raw] [--cpus 2] [--memory 2] [--disk 32]
           | run <name> [--cwd dir | --home] [-- command…] | start|sleep|stop|show|delete <name>
           | screenshot <name> [file] | click <name> X Y [--right] [--double] | move|drag|scroll <name> … | type <name> TEXT
           | key <name> COMBO | ui <name> [--app NAME] | press <name> REF|TITLE   (macOS and Android machines: their screen)
@@ -19,9 +19,10 @@ extension Main {
             guard !all.isEmpty else { return print("No machines. `kelp vm create debian` makes one (Debian 13, about 0.2 GB to download).") }
             for v in all { print(line(v)) }
         case "create":
-            guard let name = args.first else { fail("vm create <name> [--image debian-13] [--cpus 2] [--memory 2] [--disk 32]") }
+            guard let name = args.first else { fail("vm create <name> [--image debian-13|macos|android|ios] [--file image.ipsw|disk.raw] [--cpus 2] [--memory 2] [--disk 32]") }
             let r = VMCreate(name: name, image: flag("--image"), cpus: flag("--cpus").flatMap(Int.init),
-                             memory: flag("--memory").flatMap(Int.init), disk: flag("--disk").flatMap(Int.init))
+                             memory: flag("--memory").flatMap(Int.init), disk: flag("--disk").flatMap(Int.init),
+                             file: flag("--file").map { URL(fileURLWithPath: $0).standardizedFileURL.path })
             var last = try await c.call(r).detail
             if let last { print(last) }
             while true {   // it answers at once; its progress is in the list

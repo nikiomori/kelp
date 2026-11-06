@@ -127,8 +127,11 @@ public struct VMCreate: RPCMethod {
     public var image: String?
     /// Memory in GiB, disk in GiB.
     public var cpus: Int?, memory: Int?, disk: Int?
-    public init(name: String, image: String? = nil, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
-        self.name = name; self.image = image; self.cpus = cpus; self.memory = memory; self.disk = disk
+    /// A file of the user's to make it from instead of downloading: macOS's restore image (.ipsw), or a Linux cloud image's
+    /// raw disk (cloud-init sets its account up, as Debian's).
+    public var file: String?
+    public init(name: String, image: String? = nil, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil, file: String? = nil) {
+        self.name = name; self.image = image; self.cpus = cpus; self.memory = memory; self.disk = disk; self.file = file
     }
 }
 
@@ -166,6 +169,7 @@ public struct VMImage: Sendable, Equatable {
         VMImage(id: "debian-13", title: "Debian 13",
                 url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
                 sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
+        VMImage(id: "linux", title: "Linux", url: "", sums: "", member: ""),   // from a raw disk of the user's (--file)
         VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos"),
         VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android"),
         VMImage(id: "ios", title: "iOS", url: "", sums: "", member: "", os: "ios")

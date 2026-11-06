@@ -264,9 +264,13 @@ struct VMService: Sendable {
         guard VMs.isName(r.name) else {
             throw RPCError.invalidParams("A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
         }
-        let id = r.image ?? "debian-13"
+        let given = r.file.map { URL(fileURLWithPath: $0).standardizedFileURL }
+        let id = r.image ?? (given.map { $0.pathExtension.lowercased() == "ipsw" ? "macos" : "linux" } ?? "debian-13")
         guard let image = VMImage.named(id) else {
             throw RPCError.invalidParams("No image \(id). There are: \(VMImage.all.map(\.id).joined(separator: ", ")).")
+        }
+        if let given { try Self.check(given, for: image) } else if id == "linux" {
+            throw RPCError.invalidParams("A Linux machine of your own is made from its disk: --file disk.raw (or --image debian-13).")
         }
         let cores = ProcessInfo.processInfo.activeProcessorCount, gib = Int(ProcessInfo.processInfo.physicalMemory >> 30)
         let mac = image.os == "macos"
@@ -287,10 +291,10 @@ struct VMService: Sendable {
         try JSONEncoder().encode(m).write(to: file(m.name, "machine.json"))
         Task.detached {
             switch image.os {
-            case "macos": await self.makeMac(m)
+            case "macos": await self.makeMac(m, ipsw: given)
             case "android": await self.makeAndroid(m)
             case "ios": await self.makeIOS(m)
-            default: await self.make(m, image)
+            default: await self.make(m, image, raw: given)
             }
         }
         return info(m)
@@ -300,9 +304,31 @@ struct VMService: Sendable {
         Log.vm.attempt("noting \(m.name)'s progress") { try Data(text.utf8).write(to: file(m.name, "creating"), options: .atomic) }
     }
 
-    private func make(_ m: VMMachine, _ image: VMImage) async {
+    /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
+    static func check(_ file: URL, for image: VMImage) throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { throw RPCError.invalidParams("No file \(file.path).") }
+        switch image.os {
+        case "macos":
+            guard file.pathExtension.lowercased() == "ipsw" else { throw RPCError.invalidParams("A macOS machine is made from a restore image (.ipsw).") }
+        case "linux":
+            let h = try FileHandle(forReadingFrom: file)
+            defer { h.closeFile() }
+            let head = try h.read(upToCount: 0x8006) ?? Data()
+            if head.prefix(4) == Data([0x51, 0x46, 0x49, 0xFB]) {
+                throw RPCError.invalidParams("That's a qcow2 image: Kelp runs raw disks. qemu-img convert -O raw \(file.lastPathComponent) disk.raw makes one.")
+            }
+            if head.count >= 0x8006, head[0x8001..<0x8006] == Data("CD001".utf8) {
+                throw RPCError.invalidParams("That's an installer ISO, which needs a screen: a Linux machine starts from a cloud image's raw disk.")
+            }
+        default:
+            throw RPCError.invalidParams("\(image.title) machines come from your SDK or Xcode: --file is for macOS (.ipsw) and Linux (a raw disk).")
+        }
+    }
+
+    private func make(_ m: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
         await making(m) {
-            let raw = try await self.image(image) { step(m, $0) }
+            let raw: URL
+            if let given { raw = given } else { raw = try await self.image(image) { step(m, $0) } }
             step(m, "Making its disk")
             try await blocking { try makeFolder(m, from: raw) }
             step(m, "Starting for the first time")

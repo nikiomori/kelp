@@ -6,21 +6,28 @@ extension VMService {
     /// Apple's latest macOS for this Mac, downloaded (and dropped once installed: it's 20 GB and more), installed, and set up
     /// by itself on its first boot: an account with a random password (in the Keychain, "vm.<name>"), signed in, Remote
     /// Login on. Then, over SSH with that password once: Kelp's key, sudo without a password, and a screen that never sleeps.
-    func makeMac(_ m: VMMachine) async {
+    /// `given`: the user's own restore image, installed as it is and left where it is.
+    func makeMac(_ m: VMMachine, ipsw given: URL? = nil) async {
         await making(m) {
-            step(m, "Asking Apple for the latest macOS")
-            let latest = try await blocking { try run([helper, "--latest"], limit: 120) }
-            struct Latest: Decodable { var url: String, build: String, version: String }
-            let l = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
-            try Paths.ensure(images)
-            let ipsw = images.appendingPathComponent("macos-\(l.build).ipsw")
-            if !FileManager.default.fileExists(atPath: ipsw.path) {
-                try await download(l.url, to: ipsw) { step(m, "Downloading macOS \(l.version): \($0)") }
+            var ipsw = given ?? images, version = given?.deletingPathExtension().lastPathComponent ?? ""
+            if given == nil {
+                step(m, "Asking Apple for the latest macOS")
+                let latest = try await blocking { try run([helper, "--latest"], limit: 120) }
+                struct Latest: Decodable { var url: String, build: String, version: String }
+                let l = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
+                try Paths.ensure(images)
+                ipsw = images.appendingPathComponent("macos-\(l.build).ipsw")
+                version = "macOS \(l.version)"
+                if !FileManager.default.fileExists(atPath: ipsw.path) {
+                    let title = version
+                    try await download(l.url, to: ipsw) { step(m, "Downloading \(title): \($0)") }
+                }
             }
             try await blocking { try makeMacFolder(m) }
-            step(m, "Installing macOS \(l.version)")
-            try await blocking { _ = try run([helper, "--install", folder(m.name).path, ipsw.path], limit: 3600) }
-            remove(ipsw)
+            step(m, "Installing \(version)")
+            let image = ipsw
+            try await blocking { _ = try run([helper, "--install", folder(m.name).path, image.path], limit: 3600) }
+            if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
             step(m, "Setting macOS up: its first boot takes a few minutes")
             try await blocking { try startHelper(m); try check(ask(m.name, .init(op: .start), wait: 1800)) }
             step(m, "Letting Kelp in")

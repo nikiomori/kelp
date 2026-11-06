@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import Core
 import DesignKit
 import WorkbenchKit
@@ -26,16 +27,31 @@ extension AppModel {
         item(String(localized: "Android"), "android", missing: sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image"))
         let xcode = FileManager.default.fileExists(atPath: "/Applications/Xcode.app") || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
         item(String(localized: "iOS"), "ios", missing: xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))
+        sub.addItem(.separator())
+        let file = sub.add(String(localized: "From a File…")) { [weak self] in self?.machineFromFile() }
+        file.toolTip = String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk")
+        file.isEnabled = silicon == nil
         let i = NSMenuItem(title: String(localized: "Virtual Machine"), action: nil, keyEquivalent: "")
         i.submenu = sub
         return i
     }
 
-    /// Makes one with the next free name ("debian", "debian2"…); it shows in the sidebar at once, and how far it got.
-    /// macOS asks first: it downloads over 20 GB.
-    func newMachine(_ image: String) {
+    /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
+    private func machineFromFile() {
         Task {
-            if image == "macos" {
+            let panel = NSOpenPanel()
+            panel.message = String(localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
+            panel.allowedContentTypes = ["ipsw", "raw", "img"].compactMap { UTType(filenameExtension: $0) }
+            guard await runSheet(panel) == .OK, let url = panel.url else { return }
+            newMachine(url.pathExtension.lowercased() == "ipsw" ? "macos" : "linux", file: url.path)
+        }
+    }
+
+    /// Makes one with the next free name ("debian", "debian2"…); it shows in the sidebar at once, and how far it got.
+    /// macOS asks first, unless it's from a file of the user's: it downloads over 20 GB.
+    func newMachine(_ image: String, file: String? = nil) {
+        Task {
+            if image == "macos", file == nil {
                 let a = NSAlert()
                 a.messageText = String(localized: "Make a macOS machine?")
                 a.informativeText = String(localized: """
@@ -46,10 +62,10 @@ extension AppModel {
                 a.addButton(withTitle: String(localized: "Cancel"))
                 guard await runSheet(a) == .alertFirstButtonReturn else { return }
             }
-            let base = ["debian-13": "debian", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
+            let base = ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
             var name = base, n = 2
             while machines.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
-            if let v = await call(VMCreate(name: name, image: image)), !machines.contains(where: { $0.id == v.id }) { machines.append(v) }
+            if let v = await call(VMCreate(name: name, image: image, file: file)), !machines.contains(where: { $0.id == v.id }) { machines.append(v) }
         }
     }
 

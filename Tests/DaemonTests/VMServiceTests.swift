@@ -79,3 +79,21 @@ import Testing
     let pick = try VMService.newestIPhone(json)
     #expect(pick.runtime == "iOS-27-0" && pick.device == "iPhone-17")
 }
+
+/// A file to make a machine from is looked at first: what can't run is refused, saying what to do.
+@Test func aMachinesFileIsCheckedFirst() throws {
+    let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kvmf-\(UUID().uuidString.prefix(6))")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let linux = try #require(VMImage.named("linux")), mac = try #require(VMImage.named("macos")), android = try #require(VMImage.named("android"))
+    let qcow = dir.appendingPathComponent("a.qcow2"), iso = dir.appendingPathComponent("a.iso"), raw = dir.appendingPathComponent("a.raw")
+    try Data([0x51, 0x46, 0x49, 0xFB, 0, 0, 0, 3]).write(to: qcow)
+    var isoBytes = Data(count: 0x8006); isoBytes.replaceSubrange(0x8001..<0x8006, with: Data("CD001".utf8)); try isoBytes.write(to: iso)
+    try Data(count: 4096).write(to: raw)
+    #expect(throws: RPCError.self) { try VMService.check(qcow, for: linux) }
+    #expect(throws: RPCError.self) { try VMService.check(iso, for: linux) }
+    #expect(throws: RPCError.self) { try VMService.check(raw, for: mac) }   // not an .ipsw
+    #expect(throws: RPCError.self) { try VMService.check(raw, for: android) }
+    #expect(throws: RPCError.self) { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
+    try VMService.check(raw, for: linux)
+}

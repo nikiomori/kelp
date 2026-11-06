@@ -10168,6 +10168,14 @@
           }
         },
         {
+          "description" : "A file of the user's to make it from instead of downloading: macOS's restore image (.ipsw), or a Linux cloud image's raw disk (cloud-init sets its account up, as Debian's).",
+          "name" : "file",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "image",
           "required" : false,
           "schema" : {
