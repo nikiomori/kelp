@@ -51,11 +51,44 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var diskMiB: Int?
     /// The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).
     public var sessions: [String]?
+    /// While it's being made: the step it's at, and how far that step got (0…1) when that's known. `detail` names what
+    /// it's made from then ("macOS 27.2").
+    public var step: VMStep?, progress: Double?
 
     public init(machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil, diskMiB: Int? = nil) {
         self.machine = machine; self.state = state; self.detail = detail; self.connections = connections
         self.memoryMiB = memoryMiB; self.diskMiB = diskMiB
     }
+}
+
+/// A step of making a machine, as its `creating` file says (`VMMaking`).
+public enum VMStep: String, Codable, Sendable, CaseIterable {
+    case asking, downloading, checking, unpacking, disk, installing, firstBoot, lettingIn, device, building, starting
+
+    /// In English, for the CLI and logs (the app says it in the user's language).
+    public func text(_ detail: String?) -> String {
+        let what = detail ?? ""
+        switch self {
+        case .asking: return "Asking Apple for the latest macOS"
+        case .downloading: return "Downloading \(what)"
+        case .checking: return "Checking \(what)"
+        case .unpacking: return "Unpacking \(what)"
+        case .disk: return "Making its disk"
+        case .installing: return "Installing \(what)"
+        case .firstBoot: return "Setting macOS up: its first boot takes a few minutes"
+        case .lettingIn: return "Letting Kelp in"
+        case .device: return "Making its device from \(what)"
+        case .building: return "Building Kelp's runner with Xcode"
+        case .starting: return "Starting for the first time"
+        }
+    }
+}
+
+/// What a machine's `creating` file holds while it's made: its step, how far, and what it's made from.
+public struct VMMaking: Codable, Sendable, Equatable {
+    public var step: VMStep, progress: Double?, detail: String?
+    public init(step: VMStep, progress: Double? = nil, detail: String? = nil) { self.step = step; self.progress = progress; self.detail = detail }
+    public var data: Data { do { return try JSONEncoder().encode(self) } catch { return Data() } }
 }
 
 /// What runs in a machine, read from inside (`VMs.detailScript`), with the folders shared with it.

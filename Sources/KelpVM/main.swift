@@ -30,7 +30,9 @@ case "--install" where args.count == 3:
     oneShot {
         let m = try JSONDecoder().decode(VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json")))
         try await MacGuest.install(m, folder: folder, ipsw: ipsw) { f in
-            try? Data("Installing macOS: \(Int(f * 100))%".utf8).write(to: folder.appendingPathComponent("creating"))
+            let at = VMMaking(step: .installing, progress: f, detail: (try? Data(contentsOf: folder.appendingPathComponent("creating")))
+                .flatMap { try? JSONDecoder().decode(VMMaking.self, from: $0) }?.detail)
+            try? at.data.write(to: folder.appendingPathComponent("creating"), options: .atomic)
         }
     }
 case .some(let path) where args.count == 1 && !path.hasPrefix("-"):

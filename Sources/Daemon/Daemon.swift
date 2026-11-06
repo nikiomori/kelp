@@ -69,6 +69,7 @@ public final class Daemon: Sendable {
                 }
             }
         }
+        vms.resumeMaking()   // machines a kelpd before this one was making (it quit or was upgraded midway)
     }
 
     /// kelpd couldn't start: the reason goes to the log and to `Paths.daemonError(in:)`, where the app reads it for its

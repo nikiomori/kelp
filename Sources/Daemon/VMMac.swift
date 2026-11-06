@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Core
 
 /// Making a macOS machine (`VMService.create` with the macos image).
@@ -11,7 +12,7 @@ extension VMService {
         await making(m) {
             var ipsw = given ?? images, version = given?.deletingPathExtension().lastPathComponent ?? ""
             if given == nil {
-                step(m, "Asking Apple for the latest macOS")
+                step(m, .asking)
                 let latest = try await blocking { try run([helper, "--latest"], limit: 120) }
                 struct Latest: Decodable { var url: String, build: String, version: String }
                 let l = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
@@ -20,17 +21,17 @@ extension VMService {
                 version = "macOS \(l.version)"
                 if !FileManager.default.fileExists(atPath: ipsw.path) {
                     let title = version
-                    try await download(l.url, to: ipsw) { step(m, "Downloading \(title): \($0)") }
+                    try await download(l.url, to: ipsw) { step(m, .downloading, title, progress: $0) }
                 }
             }
             try await blocking { try makeMacFolder(m) }
-            step(m, "Installing \(version)")
+            step(m, .installing, version)
             let image = ipsw
             try await blocking { _ = try run([helper, "--install", folder(m.name).path, image.path], limit: 3600) }
             if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
-            step(m, "Setting macOS up: its first boot takes a few minutes")
+            step(m, .firstBoot)
             try await blocking { try startHelper(m); try check(ask(m.name, .init(op: .start), wait: 1800)) }
-            step(m, "Letting Kelp in")
+            step(m, .lettingIn)
             try await blocking { try letKelpIn(m); try installGuest(m) }
         }
     }
@@ -102,24 +103,39 @@ extension VMService {
         guard started.status == 0 else { throw RPCError.internalError("starting Kelp Guest: " + String(decoding: started.stderr, as: UTF8.self)) }
     }
 
-    /// curl, which goes on where it stopped (`-C -`); how far, in GB, every few seconds.
-    private func download(_ url: String, to file: URL, progress: @escaping @Sendable (String) -> Void) async throws {
+    /// curl, which goes on where it stopped (`-C -`); how far (0…1), every few seconds, from a thread of its own. A file
+    /// still growing is another curl's (a kelpd before this one started it): waited for, not downloaded twice.
+    private func download(_ url: String, to file: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
         let part = file.appendingPathExtension("part")
         let head = try await blocking { try run(["/usr/bin/curl", "-fsIL", url], limit: 60) }
-        let total = head.split(separator: "\n").last { $0.lowercased().hasPrefix("content-length:") }
-            .flatMap { Double($0.split(separator: ":")[1].trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
-        let watch = Task {
-            while !Task.isCancelled {
-                var st = stat()
-                if stat(part.path, &st) == 0, total > 0 {
-                    progress(String(format: "%.1f of %.1f GB", Double(st.st_size) / 1e9, total / 1e9))
-                }
-                try await Task.sleep(nanoseconds: 3_000_000_000)
+        let total = Self.contentLength(head)
+        func size() -> Double { var st = stat(); return stat(part.path, &st) == 0 ? Double(st.st_size) : 0 }
+        while true {   // another curl's, still writing
+            let before = size()
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            if size() == before { break }
+            if total > 0 { progress(size() / total) }
+        }
+        let done = OSAllocatedUnfairLock(initialState: false)
+        Thread.detachNewThread {
+            while !done.withLock({ $0 }) {
+                if total > 0 { progress(min(1, size() / total)) }
+                Thread.sleep(forTimeInterval: 3)
             }
         }
-        defer { watch.cancel() }
-        let out = try await Subprocess.run(["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url], cwd: "/", env: [:], timeLimit: 6 * 3600)
-        guard out.status == 0 else { throw RPCError.internalError("Downloading macOS: " + String(decoding: out.stderr, as: UTF8.self)) }
+        defer { done.withLock { $0 = true } }
+        if total == 0 || size() < total {
+            let curl = ["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url]
+            let out = try await Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600)
+            guard out.status == 0 else { throw RPCError.internalError("Downloading macOS: " + String(decoding: out.stderr, as: UTF8.self)) }
+        }
         try FileManager.default.moveItem(at: part, to: file)
+    }
+
+    /// The last Content-Length of curl -I's headers (after redirects). Header lines end in CRLF, which Swift reads as one
+    /// Character: split on newlines, not on "\n".
+    static func contentLength(_ headers: String) -> Double {
+        let line = headers.components(separatedBy: .newlines).last { $0.lowercased().hasPrefix("content-length:") }
+        return line.flatMap { Double($0.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) } ?? 0
     }
 }

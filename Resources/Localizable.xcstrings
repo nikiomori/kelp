@@ -1687,6 +1687,116 @@
         }
       }
     },
+    "Asking Apple for the latest macOS": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Узнаёт у Apple последнюю macOS"
+          }
+        }
+      }
+    },
+    "Downloading %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачивает %@"
+          }
+        }
+      }
+    },
+    "Checking %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверяет %@"
+          }
+        }
+      }
+    },
+    "Unpacking %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковывает %@"
+          }
+        }
+      }
+    },
+    "Making its disk": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовит диск"
+          }
+        }
+      }
+    },
+    "Installing %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Устанавливает %@"
+          }
+        }
+      }
+    },
+    "Setting macOS up (a few minutes)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настраивает macOS (несколько минут)"
+          }
+        }
+      }
+    },
+    "Letting Kelp in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключает Kelp"
+          }
+        }
+      }
+    },
+    "Making its device from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создаёт устройство из %@"
+          }
+        }
+      }
+    },
+    "Building Kelp's runner": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собирает раннер Kelp"
+          }
+        }
+      }
+    },
+    "Starting for the first time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускается впервые"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

@@ -97,10 +97,30 @@ extension AppModel {
         }
     }
 
+    /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
+    package func stepText(_ v: VMInfo) -> String {
+        let what = v.detail ?? ""
+        let text: String = switch v.step {
+        case .asking: String(localized: "Asking Apple for the latest macOS")
+        case .downloading: String(localized: "Downloading \(what)")
+        case .checking: String(localized: "Checking \(what)")
+        case .unpacking: String(localized: "Unpacking \(what)")
+        case .disk: String(localized: "Making its disk")
+        case .installing: String(localized: "Installing \(what)")
+        case .firstBoot: String(localized: "Setting macOS up (a few minutes)")
+        case .lettingIn: String(localized: "Letting Kelp in")
+        case .device: String(localized: "Making its device from \(what)")
+        case .building: String(localized: "Building Kelp's runner")
+        case .starting, nil: String(localized: "Starting for the first time")
+        }
+        return text + (v.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
+    }
+
     /// The machine's second line: its memory and what runs, or why there's nothing to say.
     func machineLine(_ v: VMInfo) -> String {
         switch v.state {
-        case .creating, .error: return v.detail ?? ""
+        case .creating: return stepText(v)
+        case .error: return v.detail ?? ""
         case .sleeping: return v.machine.os == "linux" ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
         case .off: return String(localized: "Boots in a few seconds")
         default:

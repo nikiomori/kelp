@@ -99,7 +99,11 @@ struct MachineView: View {
             switch v.state {
             case .running, .paused, .starting: running(v).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             case .creating:
-                LoadingLine(v.detail ?? String(localized: "Making it…")).offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: Metrics.gapWide) {
+                    LoadingLine(app.stepText(v))
+                    if let p = v.progress { ProgressView(value: p).frame(width: 240) }
+                }
+                .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error:
                 ContentUnavailableView {
                     Label(String(localized: "\(name) wasn't made"), systemImage: "exclamationmark.triangle")

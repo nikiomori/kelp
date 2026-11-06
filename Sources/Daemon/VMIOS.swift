@@ -6,12 +6,12 @@ import Core
 extension VMService {
     func makeIOS(_ m: VMMachine) async {
         await making(m) {
-            step(m, "Choosing an iPhone and iOS")
+            step(m, .device)
             let json = try await blocking { try run(["/usr/bin/xcrun", "simctl", "list", "-j", "runtimes"], limit: 120) }
             let (runtime, device) = try Self.newestIPhone(json)
             let made = try await blocking { try run(["/usr/bin/xcrun", "simctl", "create", "Kelp \(m.name)", device, runtime], limit: 120) }
             try made.trimmingCharacters(in: .whitespacesAndNewlines).write(to: file(m.name, "udid"), atomically: true, encoding: .utf8)
-            step(m, "Building Kelp's runner with Xcode")
+            step(m, .building)
             let project = file(m.name, "runner")
             guard let files = IOSRunner.files else { throw RPCError.internalError("This build of Kelp lacks the iOS runner's files.") }
             for (path, text) in files {
@@ -24,7 +24,7 @@ extension VMService {
                          "-scheme", "KelpRunner", "-destination", "generic/platform=iOS Simulator", "-derivedDataPath", file(m.name, "dd").path,
                          "CODE_SIGNING_ALLOWED=NO", "-quiet"], limit: 1200)
             }
-            step(m, "Starting for the first time")
+            step(m, .starting)
             try await blocking { try startHelper(m); try check(ask(m.name, .init(op: .start), wait: 620)) }
         }
     }

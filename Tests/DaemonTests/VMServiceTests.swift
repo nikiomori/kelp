@@ -97,3 +97,10 @@ import Testing
     #expect(throws: RPCError.self) { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
     try VMService.check(raw, for: linux)
 }
+
+/// curl -I's header lines end in CRLF, one Character to Swift: the length is still found, the last one after redirects.
+@Test func aDownloadsLengthIsReadFromCRLFHeaders() {
+    let headers = "HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: x\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 25595669503\r\n\r\n"
+    #expect(VMService.contentLength(headers) == 25_595_669_503)
+    #expect(VMService.contentLength("HTTP/1.1 200 OK\r\n\r\n") == 0)
+}

@@ -23,14 +23,15 @@ extension Main {
             let r = VMCreate(name: name, image: flag("--image"), cpus: flag("--cpus").flatMap(Int.init),
                              memory: flag("--memory").flatMap(Int.init), disk: flag("--disk").flatMap(Int.init),
                              file: flag("--file").map { URL(fileURLWithPath: $0).standardizedFileURL.path })
-            var last = try await c.call(r).detail
+            func said(_ v: VMInfo) -> String? { v.step.map { $0.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? "") } }
+            var last = said(try await c.call(r))
             if let last { print(last) }
             while true {   // it answers at once; its progress is in the list
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 guard let v = try await c.call(VMList()).first(where: { $0.machine.name == name }) else { fail("\(name) is gone") }
                 if v.state == .error { fail("error: \(v.detail ?? "it failed")") }
                 if v.state != .creating { return print(line(v)) }
-                if v.detail != last, let d = v.detail { print(d); last = d }
+                if let s = said(v), s != last { print(s); last = s }
             }
         case "screenshot", "click", "move", "drag", "scroll", "type", "key", "ui", "press", "install", "launch", "open":
             try await screen(sub ?? "", c)
@@ -205,7 +206,8 @@ extension Main {
         if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
         if let n = v.connections, n > 0 { parts.append("\(n) open") }
         if v.state == .sleeping { parts.append(v.machine.os == "linux" ? "wakes in under a second" : "wakes in a few seconds") }
-        if let d = v.detail { parts.append(d) }
+        if let s = v.step { parts.append(s.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? "")) }
+        else if let d = v.detail { parts.append(d) }
         return parts.joined(separator: "  ")
     }
 

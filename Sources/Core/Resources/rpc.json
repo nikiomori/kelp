@@ -3970,6 +3970,9 @@
             "description" : "What it holds of the Mac's memory while it runs (its balloon's target), MiB.",
             "type" : "integer"
           },
+          "progress" : {
+            "type" : "number"
+          },
           "sessions" : {
             "description" : "The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).",
             "items" : {
@@ -3979,6 +3982,10 @@
           },
           "state" : {
             "$ref" : "#/components/schemas/VMState"
+          },
+          "step" : {
+            "$ref" : "#/components/schemas/VMStep",
+            "description" : "While it's being made: the step it's at, and how far that step got (0…1) when that's known. `detail` names what it's made from then (\"macOS 27.2\")."
           }
         },
         "required" : [
@@ -4044,6 +4051,23 @@
           "running",
           "paused",
           "error"
+        ],
+        "type" : "string"
+      },
+      "VMStep" : {
+        "description" : "A step of making a machine, as its `creating` file says (`VMMaking`).",
+        "enum" : [
+          "asking",
+          "downloading",
+          "checking",
+          "unpacking",
+          "disk",
+          "installing",
+          "firstBoot",
+          "lettingIn",
+          "device",
+          "building",
+          "starting"
         ],
         "type" : "string"
       },

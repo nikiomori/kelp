@@ -59,7 +59,11 @@ struct VMService: Sendable {
 
     private func info(_ m: VMMachine) -> VMInfo {
         if let failed = failure(m.name) { return VMInfo(machine: m, state: .error, detail: failed) }
-        if let step = making(m.name) { return VMInfo(machine: m, state: .creating, detail: step) }
+        if let at = making(m.name) {
+            var v = VMInfo(machine: m, state: .creating, detail: at.detail)
+            v.step = at.step; v.progress = at.progress
+            return v
+        }
         var st = stat()
         let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
         guard let r = status(m.name) else {
@@ -80,12 +84,15 @@ struct VMService: Sendable {
         return String(localized: "Making it stopped midway (Kelp restarted). Delete it and make it again.")
     }
 
-    /// What making it is at, unless that stopped (kelpd ended midway: nothing updated it for 45 minutes, longer than a
-    /// macOS first boot, its longest quiet step).
-    func making(_ name: String) -> String? {
+    /// What making it is at, unless that stopped (nothing updated it for 45 minutes, longer than a macOS first boot, its
+    /// longest quiet step; a kelpd that started meanwhile goes on with it: `resumeMaking`).
+    func making(_ name: String) -> VMMaking? {
         var st = stat()
-        guard let step = text(name, "creating"), stat(file(name, "creating").path, &st) == 0 else { return nil }
-        return Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700 ? step : nil
+        guard let data = FileManager.default.contents(atPath: file(name, "creating").path), stat(file(name, "creating").path, &st) == 0,
+              Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700 else { return nil }
+        do { return try JSONDecoder().decode(VMMaking.self, from: data) } catch {   // a kelpd before 2026-11-06 wrote words
+            return VMMaking(step: .starting, detail: String(decoding: data, as: UTF8.self))
+        }
     }
 
     // MARK: running
@@ -287,7 +294,8 @@ struct VMService: Sendable {
             throw RPCError.invalidParams("There's already a machine called \(m.name).")
         }
         chmod(f.path, 0o700)
-        step(m, "Getting \(image.title)")
+        step(m, image.os == "macos" && given == nil ? .asking : .starting)
+        if let given { try given.path.write(to: file(m.name, "source"), atomically: true, encoding: .utf8) }   // to go on after a restart
         try JSONEncoder().encode(m).write(to: file(m.name, "machine.json"))
         Task.detached {
             switch image.os {
@@ -300,8 +308,39 @@ struct VMService: Sendable {
         return info(m)
     }
 
-    func step(_ m: VMMachine, _ text: String) {
-        Log.vm.attempt("noting \(m.name)'s progress") { try Data(text.utf8).write(to: file(m.name, "creating"), options: .atomic) }
+    func step(_ m: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) {
+        let at = VMMaking(step: step, progress: progress, detail: detail)
+        Log.vm.attempt("noting \(m.name)'s progress") { try at.data.write(to: file(m.name, "creating"), options: .atomic) }
+    }
+
+    /// Machines a kelpd before this one was making (it quit or was upgraded midway): made again from the start, their
+    /// download going on where it stopped. Called once as kelpd starts.
+    func resumeMaking() {
+        let names: [String]
+        do { names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") } } catch { return }
+        for name in names where text(name, "creating") != nil && text(name, "failed") == nil {
+            let m: VMMachine
+            do { m = try machine(name) } catch { continue }
+            Log.vm.info("making \(name) again: a kelpd before this one stopped midway")
+            quit(name)
+            if let udid = text(name, "udid") {   // an iOS machine's simulator, made again too
+                do { try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)]) }
+                catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
+            }
+            let source = text(name, "source").map { URL(fileURLWithPath: $0) }
+            let keep: Set = ["machine.json", "creating", "source"]
+            let made = FileManager.default.enumerator(atPath: folder(name).path)?.compactMap { $0 as? String }.filter { !$0.contains("/") } ?? []
+            for f in made where !keep.contains(f) { remove(file(name, f)) }
+            step(m, .starting)
+            Task.detached {
+                switch m.os {
+                case "macos": await self.makeMac(m, ipsw: source)
+                case "android": await self.makeAndroid(m)
+                case "ios": await self.makeIOS(m)
+                default: if let image = VMImage.named(m.image) { await self.make(m, image, raw: source) }
+                }
+            }
+        }
     }
 
     /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
@@ -325,13 +364,13 @@ struct VMService: Sendable {
         }
     }
 
-    private func make(_ m: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
+    func make(_ m: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
         await making(m) {
             let raw: URL
-            if let given { raw = given } else { raw = try await self.image(image) { step(m, $0) } }
-            step(m, "Making its disk")
+            if let given { raw = given } else { raw = try await self.image(image) { step(m, $0, image.title, progress: $1) } }
+            step(m, .disk)
             try await blocking { try makeFolder(m, from: raw) }
-            step(m, "Starting for the first time")
+            step(m, .starting)
             try await blocking { try startHelper(m); try check(ask(m.name, .init(op: .start), wait: 620)) }
         }
     }
@@ -353,7 +392,7 @@ struct VMService: Sendable {
     }
 
     /// The image's raw disk, downloaded and checked the first time.
-    private func image(_ image: VMImage, progress: @escaping @Sendable (String) -> Void) async throws -> URL {
+    private func image(_ image: VMImage, progress: @escaping @Sendable (VMStep, Double?) -> Void) async throws -> URL {
         let raw = images.appendingPathComponent(image.id + ".raw")
         if FileManager.default.fileExists(atPath: raw.path) { return raw }
         try Paths.ensure(images)
@@ -362,14 +401,14 @@ struct VMService: Sendable {
         let name = url.lastPathComponent
         let line = String(decoding: sums, as: UTF8.self).split(separator: "\n").first { $0.hasSuffix("  " + name) }
         guard let want = line?.split(separator: " ").first else { throw RPCError.internalError("\(name) isn't in \(image.sums)") }
-        let watcher = DownloadProgress { progress("Downloading \(image.title): \(Int($0 * 100))%") }
+        let watcher = DownloadProgress { progress(.downloading, $0) }
         let (tmp, _) = try await URLSession.shared.download(from: url, delegate: watcher)
         defer { remove(tmp) }
-        progress("Checking \(image.title)")
+        progress(.checking, nil)
         guard try await blocking({ try Self.sha512(tmp) }) == want else {
             throw RPCError.internalError("\(name) doesn't match its published checksum: not used")
         }
-        progress("Unpacking \(image.title)")
+        progress(.unpacking, nil)
         let dir = images.appendingPathComponent(".unpack-\(image.id)-\(UUID().uuidString.prefix(8))")   // another make may unpack too
         try Paths.ensure(dir)
         defer { remove(dir) }
