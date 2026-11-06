@@ -49,6 +49,13 @@ extension Runtime {
                 .map { VZSingleDirectoryShare(directory: VZSharedDirectory(url: URL(fileURLWithPath: $0), readOnly: false)) }
             return fs
         }
+        // The exchange folder, beside the machine on the Mac: one device after the slots, so their numbers stay.
+        let files = folder.appendingPathComponent("files")
+        try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
+        let shared = VZSharedDirectory(url: files, readOnly: false)
+        let exchange = VZVirtioFileSystemDeviceConfiguration(tag: m.os == "macos" ? VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag : VMs.filesTag)
+        exchange.share = m.os == "macos" ? VZMultipleDirectoryShare(directories: ["Kelp": shared]) : VZSingleDirectoryShare(directory: shared)
+        c.directorySharingDevices.append(exchange)
         #if arch(arm64)   // Rosetta for Linux is Apple silicon's: an Intel Mac runs x86 guests as they are
         if m.os == "linux", m.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
             let r = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")

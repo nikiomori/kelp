@@ -9,6 +9,7 @@ extension Main {
           | key <name> COMBO | ui <name> [--app NAME] | press <name> REF|TITLE   (macOS and Android machines: their screen)
           | install <name> APP.apk|App.app | launch <name> BUNDLE-ID | open <name> URL   (Android, iOS)
           | password <name>   (macOS: types its password into its screen, for the dialogs that ask)
+          | set <name> [--cpus N] [--memory GB] [--disk GB]   (Linux, macOS; shut down; a disk only grows, Linux's)
     """
 
     /// `vm <action>`: Kelp's virtual machines (Core/VMs.swift).
@@ -36,6 +37,11 @@ extension Main {
             }
         case "screenshot", "click", "move", "drag", "scroll", "type", "key", "ui", "press", "install", "launch", "open":
             try await screen(sub ?? "", c)
+        case "set":
+            guard let name = args.first else { fail("vm set <name> [--cpus N] [--memory GB] [--disk GB]") }
+            let r = VMConfigure(name: name, cpus: flag("--cpus").flatMap(Int.init), memory: flag("--memory").flatMap(Int.init),
+                                disk: flag("--disk").flatMap(Int.init))
+            print(line(try await c.call(r)))
         case "password":
             guard let name = args.first else { fail("vm password <name>") }
             _ = try await c.call(VMType(name: name))

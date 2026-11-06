@@ -309,22 +309,16 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
     }
 
-    /// sshd answered (or not yet): ready, once a restored guest's clock is set (make and friends compare times).
+    /// sshd answered (or not yet): ready once its one command ran (a clock make and friends compare times by, ~/Kelp).
     private func answered(_ ok: Bool, _ restored: Bool, _ since: Date) {
         guard ok else { return retry(restored, since) }
         FileManager.default.createFile(atPath: file("booted").path, contents: nil)
-        guard restored else { return started(nil) }
-        Task { _ = try? await own(setClock()); started(nil) }
-    }
-
-    /// The command that sets the guest's clock to now.
-    private func setClock() -> String {
-        guard machine.os == "macos" else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
-        let f = DateFormatter()
-        f.dateFormat = "MMddHHmmyyyy.ss"
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return "sudo date -u \(f.string(from: Date())) >/dev/null"
+        // Restored: its clock set to now. Booted: its exchange folder made ~/Kelp (a restore keeps that).
+        let command = restored ? setClock() : VMs.filesSetup(os: machine.os)
+        Task {
+            do { _ = try await own(command) } catch { log("\(command): \(error.localizedDescription)") }
+            started(nil)
+        }
     }
 
     private func retry(_ restored: Bool, _ since: Date) {
@@ -491,4 +485,16 @@ struct VMError: LocalizedError {
 
 extension Result {
     var failure: Failure? { if case .failure(let e) = self { return e }; return nil }
+}
+
+extension Runtime {
+    /// The command that sets the guest's clock to now.
+    private func setClock() -> String {
+        guard machine.os == "macos" else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
+        let f = DateFormatter()
+        f.dateFormat = "MMddHHmmyyyy.ss"
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return "sudo date -u \(f.string(from: Date())) >/dev/null"
+    }
 }

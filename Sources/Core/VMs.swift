@@ -55,6 +55,8 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     /// While it's being made: the step it's at, and how far that step got (0…1) when that's known. `detail` names what
     /// it's made from then ("macOS 27.2").
     public var step: VMStep?, progress: Double?
+    /// A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).
+    public var files: String?
 
     public init(machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil, diskMiB: Int? = nil) {
         self.machine = machine; self.state = state; self.detail = detail; self.connections = connections
@@ -179,6 +181,16 @@ public struct VMControl: RPCMethod {
     public enum Action: String, Codable, Sendable, CaseIterable { case start, sleep, stop, show, delete }
     public var name: String, action: Action
     public init(name: String, action: Action) { self.name = name; self.action = action }
+}
+
+/// Changes a Linux or macOS machine's processors, memory (GB) and disk (GB, only larger: Linux grows into it as it
+/// boots) while it's shut down. The user's: what every chat's machine has, and the Mac's memory.
+public struct VMConfigure: RPCMethod {
+    public static let name = "vm.configure"; public typealias Result = VMInfo
+    public var name: String, cpus: Int?, memory: Int?, disk: Int?
+    public init(name: String, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
+        self.name = name; self.cpus = cpus; self.memory = memory; self.disk = disk
+    }
 }
 
 /// Types into a macOS machine's screen. `text` nil: the machine's password (from the Keychain), for a dialog inside
@@ -429,6 +441,14 @@ public enum VMs {
         let days = dayParts.count == 2 ? Int(dayParts[0]) ?? 0 : 0
         let clock = (dayParts.last ?? "").split(separator: ":").compactMap { Int($0) }
         return days * 86400 + clock.reduce(0) { $0 * 60 + $1 }
+    }
+
+    /// Its exchange folder's share: a macOS guest mounts it by itself under /Volumes/My Shared Files/Kelp, a Linux one
+    /// takes the tag; `filesSetup` makes it `~/Kelp` either way, as the machine boots.
+    public static let filesTag = "kelpfiles"
+    public static func filesSetup(os: String) -> String {
+        os == "macos" ? #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#
+            : "mountpoint -q ~/Kelp || { mkdir -p ~/Kelp && sudo mount -t virtiofs \(filesTag) ~/Kelp; }"
     }
 
     /// A character → its key code on a US keyboard and whether it takes Shift: what a machine's screen types from the Mac's

@@ -90,7 +90,8 @@ extension VMService {
         guard sudo.status == 0 else { throw RPCError.internalError("sudo: " + String(decoding: sudo.stderr, as: UTF8.self)) }
         // A screen that never locks: macOS locks it 5 minutes after the display sleeps, and then asks for this password. A
         // user's setting, so as the user (sysadminctl wants the password); then all of it written to the machine's disk.
-        let unlock = "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0 && sync"
+        let unlock = "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
+            + " && { \(VMs.filesSetup(os: "macos")); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
         let unlocked = try Subprocess.run(["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name, unlock],
                                           cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
         guard unlocked.status == 0 else { throw RPCError.internalError("screen lock: " + String(decoding: unlocked.stderr, as: UTF8.self)) }

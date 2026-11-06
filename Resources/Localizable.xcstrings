@@ -1827,6 +1827,46 @@
         }
       }
     },
+    "~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~/Kelp в ней — это эта папка на вашем Mac: кладите туда файлы для машины и забирайте то, что она оставит."
+          }
+        }
+      }
+    },
+    "Open in Finder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в Finder"
+          }
+        }
+      }
+    },
+    "Shut it down to change its processors, memory or disk.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключите машину, чтобы изменить процессоры, память или диск."
+          }
+        }
+      }
+    },
+    "Couldn't make %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось создать %@: %@"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {

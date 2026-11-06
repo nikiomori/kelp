@@ -3963,6 +3963,10 @@
             "description" : "Its disk's size on the Mac's disk, MiB.",
             "type" : "integer"
           },
+          "files" : {
+            "description" : "A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).",
+            "type" : "string"
+          },
           "machine" : {
             "$ref" : "#/components/schemas/VMMachine"
           },
@@ -3974,7 +3978,7 @@
             "type" : "number"
           },
           "sessions" : {
-            "description" : "The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).",
+            "description" : "The Kelp sessions working in it now: a command running there (`kelp vm run` from an agent or a terminal), or the turn of a macOS machine's screen.",
             "items" : {
               "type" : "string"
             },
@@ -10116,6 +10120,47 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "Changes a Linux or macOS machine's processors, memory (GB) and disk (GB, only larger: Linux grows into it as it boots) while it's shut down. The user's: what every chat's machine has, and the Mac's memory.",
+      "name" : "vm.configure",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cpus",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "disk",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "memory",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/VMInfo"
+        }
+      }
     },
     {
       "description" : "What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path); with no `cwd`, in its own home folder, nothing shared.",

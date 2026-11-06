@@ -147,6 +147,8 @@ enum AgentSkills {
           user's apps) on the Mac.
         - What you install there (`sudo apt-get install -y …`, no password) stays, for every chat: install what the task
           needs, nothing more.
+        - `~/Kelp` in a Linux or macOS machine is a folder the user sees on the Mac (the machine's tab › Files › Open in
+          Finder): leave files for the user there, and take the ones they put there for you.
         - A machine pauses after 2 minutes without a connection and sleeps after 10: a server keeps running only while a
           run holds it. Start one that should stay up as a Kelp session, so the user sees it:
           `kelp session new --cmd "kelp vm run <name> -- npm run dev"`.

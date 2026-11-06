@@ -111,7 +111,13 @@ struct MachineView: View {
                     Text(v.detail ?? "").font(.ui(11).monospaced()).textSelection(.enabled)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .sleeping, .off: asleep(v).frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .sleeping, .off:
+                ScrollView {   // what it is stays in view: its files, and its size to change while it's shut down
+                    VStack(spacing: 0) {
+                        asleep(v).frame(maxWidth: .infinity).padding(.vertical, 24)
+                        machine(v)
+                    }
+                }
             }
         } else {
             ContentUnavailableView(String(localized: "No machine called \(name)"), systemImage: "shippingbox",
@@ -157,8 +163,7 @@ struct MachineView: View {
                             .padding(.horizontal, 6).padding(.vertical, 3)
                     }
                 }
-                heading("Machine").padding(.top, 10)
-                facts(v)
+                machine(v)
             }
             .padding(.horizontal, Metrics.inset).padding(.bottom, Metrics.inset)
             .frame(maxWidth: 560, alignment: .leading)
@@ -223,25 +228,80 @@ struct MachineView: View {
         .padding(.horizontal, 6).padding(.vertical, 2)
     }
 
-    private func facts(_ v: VMInfo) -> some View {
-        let m = v.machine
-        let rows: [(String, String)] = [
-            (String(localized: "Image"), VMImage.named(m.image)?.title ?? m.image),
-            (String(localized: "Processors"), "\(m.cpus)"),
-            (String(localized: "Memory"), memory(v)),
-            (String(localized: "Disk"), String(format: String(localized: "%.1f GB of %d GB"), Double(v.diskMiB ?? 0) / 1024, m.diskGiB)),
-            (String(localized: "Account"), m.user),
-            (String(localized: "Intel programs"), m.rosetta ? String(localized: "Through Rosetta") : String(localized: "Off")),
-            (String(localized: "Address"), detail?.address ?? "—")
-        ].filter { m.os != "android" || [String(localized: "Image"), String(localized: "Processors"), String(localized: "Memory")].contains($0.0) }
-        return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
-            ForEach(rows, id: \.0) { r in
-                GridRow {
-                    Text(r.0).font(.ui(12)).foregroundStyle(.secondary)
-                    Text(r.1).font(.ui(12)).textSelection(.enabled)
-                }
+    /// Its files and what it is: the end of the running view, and below the asleep one.
+    private func machine(_ v: VMInfo) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let files = v.files { exchange(files) }
+            heading("Machine").padding(.top, 10)
+            facts(v)
+            if ["linux", "macos"].contains(v.machine.os), v.state != .off {
+                quiet("Shut it down to change its processors, memory or disk.")
             }
         }
+        .frame(maxWidth: 560, alignment: .leading)
+    }
+
+    /// Its exchange folder: `~/Kelp` inside, a folder beside the machine here.
+    private func exchange(_ files: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            heading("Files").padding(.top, 10)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
+                    .font(.ui(12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button(String(localized: "Open in Finder")) {   // the daemon made it with the list
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: files)
+                }
+                .controlSize(.small)
+            }
+            .padding(.horizontal, 6)
+        }
+    }
+
+    /// Changes its size: one of processors, memory (GB) or disk (GB) at a time, the list updated with the answer.
+    private func resize(cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
+        Task {
+            guard let new = await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)),
+                  let i = app.machines.firstIndex(where: { $0.id == new.id }) else { return }
+            app.machines[i] = new
+        }
+    }
+
+    /// What it is, a row each; processors, memory and a Linux disk as steppers while it's shut down (a disk only grows).
+    private func facts(_ v: VMInfo) -> some View {
+        let m = v.machine, cores = ProcessInfo.processInfo.activeProcessorCount
+        let gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2), least = m.os == "macos" ? 4 : 1
+        let editable = ["linux", "macos"].contains(m.os) && v.state == .off
+        let phone = m.os == "android"
+        func row(_ label: String, _ value: some View) -> some View {
+            GridRow {
+                Text(label).font(.ui(12)).foregroundStyle(.secondary)
+                value.font(.ui(12))
+            }
+        }
+        func text(_ s: String) -> some View { Text(s).textSelection(.enabled) }
+        return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+            row(String(localized: "Image"), text(VMImage.named(m.image)?.title ?? m.image))
+            if editable {
+                row(String(localized: "Processors"), Stepper("\(m.cpus)", value: Binding(get: { m.cpus }, set: { resize(cpus: $0) }), in: 1...cores))
+                row(String(localized: "Memory"), Stepper("\(m.memoryMiB >> 10) GB", value: Binding(get: { m.memoryMiB >> 10 }, set: { resize(memory: $0) }),
+                                                         in: least...max(least, gib)))
+            } else {
+                row(String(localized: "Processors"), text("\(m.cpus)"))
+                row(String(localized: "Memory"), text(memory(v)))
+            }
+            if !phone {
+                if editable && m.os == "linux" {
+                    row(String(localized: "Disk"), Stepper(String(format: String(localized: "%.1f GB of %d GB"), Double(v.diskMiB ?? 0) / 1024, m.diskGiB),
+                                                           value: Binding(get: { m.diskGiB }, set: { resize(disk: $0) }), in: m.diskGiB...2048, step: 8))
+                } else {
+                    row(String(localized: "Disk"), text(String(format: String(localized: "%.1f GB of %d GB"), Double(v.diskMiB ?? 0) / 1024, m.diskGiB)))
+                }
+                row(String(localized: "Account"), text(m.user))
+                row(String(localized: "Intel programs"), text(m.rosetta ? String(localized: "Through Rosetta") : String(localized: "Off")))
+                row(String(localized: "Address"), text(detail?.address ?? "—"))
+            }
+        }
+        .controlSize(.small)
         .padding(.horizontal, 6)
     }
 

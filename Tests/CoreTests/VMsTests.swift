@@ -117,3 +117,10 @@ import Testing
     #expect(VMs.usKey("\n")?.code == 36)
     #expect(VMs.usKey("ж") == nil && VMs.usKey("é") == nil)
 }
+
+/// ~/Kelp in a machine: a link to the folder macOS mounts by itself, a mount of the tag in Linux; both leave one there be.
+@Test func aMachinesExchangeFolderIsKelpInItsHome() {
+    #expect(VMs.filesSetup(os: "macos") == #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#)
+    #expect(VMs.filesSetup(os: "linux").hasPrefix("mountpoint -q ~/Kelp ||"))
+    #expect(VMs.filesSetup(os: "linux").contains("virtiofs \(VMs.filesTag) ~/Kelp"))
+}

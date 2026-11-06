@@ -61,7 +61,7 @@ struct VMService: Sendable {
         return d
     }
 
-    private func info(_ m: VMMachine) -> VMInfo {
+    func info(_ m: VMMachine) -> VMInfo {
         if let failed = failure(m.name) { return VMInfo(machine: m, state: .error, detail: failed) }
         if let at = making(m.name) {
             var v = VMInfo(machine: m, state: .creating, detail: at.detail)
@@ -72,9 +72,13 @@ struct VMService: Sendable {
         let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
         guard let r = status(m.name) else {
             let asleep = FileManager.default.fileExists(atPath: file(m.name, "state.vzsave").path)
-            return VMInfo(machine: m, state: asleep ? .sleeping : .off, diskMiB: disk)
+            var v = VMInfo(machine: m, state: asleep ? .sleeping : .off, diskMiB: disk)
+            v.files = filesFolder(m)
+            return v
         }
-        return VMInfo(machine: m, state: r.state, detail: r.error, connections: r.connections, memoryMiB: r.memoryMiB, diskMiB: disk)
+        var v = VMInfo(machine: m, state: r.state, detail: r.error, connections: r.connections, memoryMiB: r.memoryMiB, diskMiB: disk)
+        v.files = filesFolder(m)
+        return v
     }
 
     func text(_ name: String, _ f: String) -> String? {
@@ -347,27 +351,6 @@ struct VMService: Sendable {
         }
     }
 
-    /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
-    static func check(_ file: URL, for image: VMImage) throws {
-        guard FileManager.default.fileExists(atPath: file.path) else { throw RPCError.invalidParams("No file \(file.path).") }
-        switch image.os {
-        case "macos":
-            guard file.pathExtension.lowercased() == "ipsw" else { throw RPCError.invalidParams("A macOS machine is made from a restore image (.ipsw).") }
-        case "linux":
-            let h = try FileHandle(forReadingFrom: file)
-            defer { h.closeFile() }
-            let head = try h.read(upToCount: 0x8006) ?? Data()
-            if head.prefix(4) == Data([0x51, 0x46, 0x49, 0xFB]) {
-                throw RPCError.invalidParams("That's a qcow2 image: Kelp runs raw disks. qemu-img convert -O raw \(file.lastPathComponent) disk.raw makes one.")
-            }
-            if head.count >= 0x8006, head[0x8001..<0x8006] == Data("CD001".utf8) {
-                throw RPCError.invalidParams("That's an installer ISO, which needs a screen: a Linux machine starts from a cloud image's raw disk.")
-            }
-        default:
-            throw RPCError.invalidParams("\(image.title) machines come from your SDK or Xcode: --file is for macOS (.ipsw) and Linux (a raw disk).")
-        }
-    }
-
     func make(_ m: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
         await making(m) {
             let raw: URL
@@ -518,5 +501,6 @@ extension VMConnect: Handled {
 }
 
 extension Methods {
-    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self, VMScreen.self]
+    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self,
+                                                 VMScreen.self, VMConfigure.self]
 }
