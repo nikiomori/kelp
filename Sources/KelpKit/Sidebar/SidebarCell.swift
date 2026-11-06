@@ -225,7 +225,7 @@ final class SidebarCell: NSTableCellView {
         r.spacing = 6
         r.alignment = .centerY
         r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr || v === ci { r.setVisibilityPriority(.notVisible, for: v) }
+        for v in row where v === changes || v === pr || v === ci || v === stack { r.setVisibilityPriority(.notVisible, for: v) }
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
         // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
@@ -284,13 +284,17 @@ final class SidebarCell: NSTableCellView {
     /// squeezes the name instead: "kdrde…  +2 −1").
     private func fitBadges() {
         guard let r = changes.superview as? NSStackView else { return }
-        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && !$0.isHidden }
+        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
         var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
         for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
-            let need = b.intrinsicContentSize.width + r.spacing, show = has && room >= need
+            let need = b.intrinsicContentSize.width + (b === ci ? ciMark.overhang : 0) + r.spacing, show = has && room >= need
             if show { room -= need }
             r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)
         }
+        // The agents' logos take what's left: fewer of them, then none ("+N" counts the rest; the tooltip names all).
+        let fits = (0...stack.count).last { stack.width(showing: $0) + r.spacing <= room } ?? 0
+        stack.cap = fits
+        r.setVisibilityPriority(fits > 0 ? .mustHold : .notVisible, for: stack)
     }
     override func setFrameSize(_ s: NSSize) {
         let old = frame.width
@@ -327,6 +331,7 @@ final class SidebarCell: NSTableCellView {
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // folding, not a status change
             stack.show(folded ? AgentStack.chats(under: node, m) : [], m)
+            fitBadges()
             showFold()
         case .workspace(let id):
             guard let w = m.worktree(id) else { return }
@@ -345,6 +350,7 @@ final class SidebarCell: NSTableCellView {
             let lead = agents.filter { Self.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
             trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
             stack.show(collapsed ? AgentStack.chats(under: node, m) : [], m)
+            fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
         case .agent(let sid):
             guard let s = m.session(sid) else { return }

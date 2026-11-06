@@ -85,6 +85,9 @@ final class CIMark: NSView {
 
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 
+    /// How much wider than its 12 pt the mark is while it says "CI": the room a row must keep for it.
+    var overhang: CGFloat { spelled && state == .failed ? max(0, ceil(word.intrinsicContentSize.width) - 12) : 0 }
+
     private func update() {
         isHidden = state == nil
         word.isHidden = state != .failed || !spelled

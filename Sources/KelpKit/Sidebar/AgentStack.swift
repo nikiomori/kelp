@@ -10,6 +10,9 @@ final class AgentStack: NSView {
     private static let side: CGFloat = 14, step: CGFloat = 17, most = 4
     private let more = NSTextField(labelWithString: "")
     private var faces: [NSView] = []
+    private var total = 0
+    /// How many logos the row has room for (SidebarCell.fitBadges): the rest are counted in "+N".
+    var cap = 4 { didSet { if cap != oldValue { place() } } }
     /// What was drawn last: a status change re-reads the row, and the marks keep spinning rather than being made again.
     private var shown: [String] = []
 
@@ -39,10 +42,25 @@ final class AgentStack: NSView {
         guard now != shown else { return }
         shown = now
         faces.forEach { $0.removeFromSuperview() }
-        let first = Array(sorted.prefix(Self.most))
-        faces = first.map { face($0, app) }
+        total = sorted.count
+        faces = sorted.prefix(Self.most).map { face($0, app) }
         faces.forEach(addSubview)
-        more.stringValue = sorted.count > Self.most ? "+\(sorted.count - Self.most)" : ""
+        place()
+    }
+
+    /// The width it takes showing `k` logos, "+N" after them for the rest.
+    func width(showing k: Int) -> CGFloat {
+        let k = min(k, faces.count)
+        guard k > 0 else { return 0 }
+        let rest = total - k, label = rest > 0 ? NSAttributedString(string: "+\(rest)", attributes: [.font: more.font as Any]).size().width + 4 : 0
+        return Self.side + CGFloat(k - 1) * Self.step + 2 + ceil(label)
+    }
+    var count: Int { faces.count }
+
+    private func place() {
+        let shown = min(cap, faces.count)
+        for (i, f) in faces.enumerated() { f.isHidden = i >= shown }
+        more.stringValue = total > shown && shown > 0 ? "+\(total - shown)" : ""
         more.isHidden = more.stringValue.isEmpty
         invalidateIntrinsicContentSize()
         needsLayout = true
@@ -81,17 +99,13 @@ final class AgentStack: NSView {
         return v
     }
 
-    override var intrinsicContentSize: NSSize {
-        let n = CGFloat(faces.count)
-        let w = n == 0 ? 0 : Self.side + (n - 1) * Self.step + 2 + (more.isHidden ? 0 : 4 + more.intrinsicContentSize.width)
-        return NSSize(width: w, height: Self.side)
-    }
+    override var intrinsicContentSize: NSSize { NSSize(width: width(showing: cap), height: Self.side) }
 
     override func layout() {
         super.layout()
         let y = (bounds.height - Self.side) / 2
         for (i, f) in faces.enumerated() { f.setFrameOrigin(NSPoint(x: CGFloat(i) * Self.step, y: y)) }
-        let x = faces.isEmpty ? 0 : CGFloat(faces.count - 1) * Self.step + Self.side + 6
+        let x = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
         more.frame = NSRect(x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
                             height: more.intrinsicContentSize.height)
     }
