@@ -32,10 +32,11 @@ struct VMService: Sendable {
         do { names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") } } catch { return [] }
         return names.sorted().compactMap { n in
             var v: VMInfo
-            do { v = info(try machine(n)) } catch { return nil }
+            let st = status(n)   // asked once per machine and poll: a busy kelp-vm takes up to 2 s to each
+            do { v = info(try machine(n), status: st) } catch { return nil }
             if sessions, v.state == .running {
-                let runs = (v.connections ?? 0) > 0 ? detail(n)?.runs.compactMap(\.session) ?? [] : []
-                let screen = v.machine.os == "macos" ? status(n)?.screen.map { [$0] } ?? [] : []
+                let runs = (v.connections ?? 0) > 0 ? detail(n, status: st)?.runs.compactMap(\.session) ?? [] : []
+                let screen = v.machine.os == "macos" ? st?.screen.map { [$0] } ?? [] : []
                 v.sessions = Array(Set(runs + screen)).sorted()
             }
             return v
@@ -43,10 +44,11 @@ struct VMService: Sendable {
     }
 
     /// What runs in it, read over its own connection, which neither wakes it nor counts as use; nil unless it runs.
-    func detail(_ name: String) -> VMDetail? {
+    func detail(_ name: String, status known: VMHelper.Reply?? = nil) -> VMDetail? {
+        let st = known ?? status(name)
         // Android and iOS: none (no SSH inside them).
         let device = ["avd", "udid"].contains { FileManager.default.fileExists(atPath: file(name, $0).path) }
-        guard status(name)?.state == .running, !device else { return nil }
+        guard st?.state == .running, !device else { return nil }
         let out: Subprocess.Output
         do {
             out = try Subprocess.run(["/usr/bin/ssh", "-F", file(name, "ssh_config").path, "-T", "-o", "BatchMode=yes", name + "-own", "sh"],
@@ -54,14 +56,14 @@ struct VMService: Sendable {
         } catch { Log.vm.info("reading \(name): \(error)"); return nil }
         guard out.status == 0 else { return nil }
         var d = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
-        d.guest?.screen = status(name)?.screen   // whose turn the screen is: kelp-vm's to say now, not Kelp Guest's
+        d.guest?.screen = st?.screen   // whose turn the screen is: kelp-vm's to say now, not Kelp Guest's
         if let json = FileManager.default.contents(atPath: file(name, "shares.json").path) {
             do { d.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch { Log.vm.error("\(name)'s shares: \(error)") }
         }
         return d
     }
 
-    func info(_ m: VMMachine) -> VMInfo {
+    func info(_ m: VMMachine, status known: VMHelper.Reply?? = nil) -> VMInfo {
         if let failed = failure(m.name) { return VMInfo(machine: m, state: .error, detail: failed) }
         if let at = making(m.name) {
             var v = VMInfo(machine: m, state: .creating, detail: at.detail)
@@ -70,7 +72,7 @@ struct VMService: Sendable {
         }
         var st = stat()
         let disk = stat(file(m.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
-        guard let r = status(m.name) else {
+        guard let r = known ?? status(m.name) else {
             let asleep = FileManager.default.fileExists(atPath: file(m.name, "state.vzsave").path)
             var v = VMInfo(machine: m, state: asleep ? .sleeping : .off, diskMiB: disk)
             v.files = filesFolder(m)
@@ -109,13 +111,7 @@ struct VMService: Sendable {
         let m = [.stop, .delete].contains(action) ? try machine(name) : try ready(name)
         switch action {
         case .delete:
-            quit(name)
-            if let udid = text(name, "udid") {   // an iOS machine's simulator lives in Xcode's device set
-                do { try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)]) }
-                catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
-            }
-            try FileManager.default.removeItem(at: folder(name))
-            Keychain.delete("vm." + name)
+            try discard(name)
             var gone = VMInfo(machine: m, state: .off)
             gone.detail = String(localized: "Deleted")
             return gone
@@ -252,9 +248,30 @@ struct VMService: Sendable {
 
     /// Its kelp-vm gone, the machine off at once: before its folder is (deleted, or made again).
     func quit(_ name: String) {
-        guard status(name) != nil else { return }
+        guard alive(name) else { return }
         do { _ = try ask(name, .init(op: .quit), wait: 10) } catch { Log.vm.info("\(name) quit: \(error)") }   // it hangs up as it goes
-        for _ in 0..<50 where status(name) != nil { usleep(100_000) }
+        for _ in 0..<100 where alive(name) { usleep(100_000) }
+    }
+
+    /// The machine gone: its kelp-vm, an iOS one's simulator (it lives in Xcode's device set), its folder, its password.
+    func discard(_ name: String) throws {
+        quit(name)
+        guard !alive(name) else { throw RPCError.internalError("\(name) didn't stop: try again in a moment, or restart the Mac.") }
+        if let udid = text(name, "udid") {
+            do { try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)]) }
+            catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
+        }
+        try FileManager.default.removeItem(at: folder(name))
+        Keychain.delete("vm." + name)
+    }
+
+    /// Whether the machine's kelp-vm runs: it holds `kelp-vm.lock` while it does. Not "it answered", which a busy one
+    /// (its control socket is served on its main queue) may not do within a status's 2 s.
+    func alive(_ name: String) -> Bool {
+        let fd = open(file(name, "kelp-vm.lock").path, O_RDWR | O_CLOEXEC)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        return flock(fd, LOCK_EX | LOCK_NB) != 0   // ours for a moment if nobody holds it; closing lets it go
     }
 
     func check(_ r: VMHelper.Reply) throws {
@@ -296,7 +313,7 @@ struct VMService: Sendable {
         let m = VMMachine(name: r.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
                           user: VMs.user(NSUserName()), rosetta: image.os == "linux")
         let f = folder(m.name)
-        if failure(m.name) != nil { quit(m.name); try FileManager.default.removeItem(at: f) }   // an earlier try's remains
+        if failure(m.name) != nil { try discard(m.name) }   // an earlier try's remains, its simulator and password with it
         try Paths.ensure(root)
         do { try FileManager.default.createDirectory(at: f, withIntermediateDirectories: false) } catch CocoaError.fileWriteFileExists {
             throw RPCError.invalidParams("There's already a machine called \(m.name).")

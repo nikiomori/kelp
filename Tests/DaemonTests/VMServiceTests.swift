@@ -113,6 +113,21 @@ import Testing
         #expect(screens.count == 2 && screens.allSatisfy { $0.contains(#""session":"AGENT""#) })
     }
 
+    /// A kelp-vm runs while it holds its machine's lock, answering or not: a busy one isn't taken for gone (a delete
+    /// would take the folder from under it).
+    @Test func aKelpVMIsAliveByItsLockNotItsAnswer() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder([:])
+        #expect(!vms.alive("deb"))
+        let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
+        #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)
+        #expect(vms.alive("deb"))
+        #expect(throws: RPCError.self) { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
+        #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/machine.json").path))
+        close(lock)
+        #expect(!vms.alive("deb"))
+    }
+
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])

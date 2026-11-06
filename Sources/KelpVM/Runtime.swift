@@ -19,6 +19,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private var connections = 0
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = [], stopped: [() -> Void] = []
+    /// A save under way (`sleep`): who waits for it to end (another sleep), and what wakes it right after (a command came).
+    private var saving = false, saveDone: [(String?) -> Void] = [], afterSave: [(String?) -> Void] = []
+    /// When a save last failed: not tried again by itself for 10 minutes (a full disk would take gigabytes each 5 s).
+    private var saveFailed: Date?
     private var targetMiB: Int
     private var sockets: [Int: VZVirtioSocketConnection] = [:]
     private var nextSocket = 0
@@ -217,6 +221,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     // MARK: the machine
 
     private func wake(_ done: @escaping (String?) -> Void) {
+        if saving { return afterSave.append(done) }   // resumed under a save, it would run on as the save ends it
         switch state {
         case .running: done(nil)
         case .starting: ready.append(done)
@@ -329,13 +334,6 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
     }
 
-    /// SIGTERM (an install, a logout): saved, then gone. One still booting is let finish first: ending now would cut its
-    /// power (a macOS first boot writes its account then).
-    private func leave() {
-        guard state != .starting else { return ready.append { [weak self] _ in self?.leave() } }
-        sleep { _ in exit(0) }
-    }
-
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
@@ -347,40 +345,6 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         let waiting = ready; ready = []
         waiting.forEach { $0(error?.localizedDescription) }
         if error == nil { adjustMemory() }
-    }
-
-    private func sleep(_ done: @escaping (String?) -> Void) {
-        guard let vm, state == .running || state == .paused else { return done(nil) }
-        #if !arch(arm64)
-        return done("Sleep needs a Mac with Apple silicon: an Intel Mac can't save a machine's state.")
-        #else
-        let tmp = file("state.vzsave.part")
-        let save = {
-            vm.saveMachineStateTo(url: tmp) { error in
-                MainActor.assumeIsolated {
-                    if let error { log("save failed: \(error.localizedDescription)"); self.state = .paused; return done(error.localizedDescription) }
-                    guard rename(tmp.path, self.saved.path) == 0 else { self.state = .paused; return done(String(cString: strerror(errno))) }
-                    vm.stop { _ in MainActor.assumeIsolated { self.vm = nil; self.state = .sleeping; log("asleep"); done(nil) } }
-                }
-            }
-        }
-        if state == .paused { return save() }
-        vm.pause { r in MainActor.assumeIsolated { if let e = r.failure { return done(e.localizedDescription) }; save() } }
-        #endif
-    }
-
-    /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
-    private func stop(_ done: @escaping () -> Void) {
-        try? FileManager.default.removeItem(at: saved)
-        guard let vm else { state = .off; return done() }
-        stopped.append(done)
-        let request = {
-            do { try vm.requestStop() } catch { vm.stop { _ in MainActor.assumeIsolated { self.down() } } }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                MainActor.assumeIsolated { if self.vm === vm { vm.stop { _ in MainActor.assumeIsolated { self.down() } } } }
-            }
-        }
-        if vm.state == .paused { vm.resume { _ in MainActor.assumeIsolated { request() } } } else { request() }
     }
 
     private func down() {
@@ -404,7 +368,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, connections == 0, idle > Self.pauseAfter {
             vm?.pause { r in MainActor.assumeIsolated { if r.failure == nil, self.state == .running { self.state = .paused; log("paused") } } }
-        } else if state == .paused, connections == 0, idle > Self.sleepAfter {
+        } else if state == .paused, connections == 0, idle > Self.sleepAfter, Date().timeIntervalSince(saveFailed ?? .distantPast) > 600 {
             sleep { e in if e == nil, self.vm == nil { exit(0) } }   // as `.sleep` does
         } else if state == .running, ticks % 3 == 0 {
             adjustMemory()
@@ -483,6 +447,66 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             NSApp.setActivationPolicy(.accessory)
         }
         return false
+    }
+}
+
+// MARK: sleeping and stopping
+
+extension Runtime {
+    /// SIGTERM (an install, a logout): saved, then gone. One still booting is let finish first: ending now would cut its
+    /// power (a macOS first boot writes its account then).
+    private func leave() {
+        guard state != .starting else { return ready.append { [weak self] _ in self?.leave() } }
+        sleep { [weak self] e in   // not saved: shut down as the guest would, not a power cut
+            guard e != nil, let self else { exit(0) }
+            stop { exit(0) }
+        }
+    }
+
+    private func sleep(_ done: @escaping (String?) -> Void) {
+        if saving { return saveDone.append(done) }
+        guard let vm, state == .running || state == .paused else { return done(nil) }
+        #if !arch(arm64)
+        return done("Sleep needs a Mac with Apple silicon: an Intel Mac can't save a machine's state.")
+        #else
+        saving = true
+        // Whatever came meanwhile is woken first (so a kelp-vm about to end for the sleep stays), then told.
+        let end = { (error: String?) in
+            self.saving = false
+            if error != nil { self.saveFailed = Date() }
+            let waiting = self.saveDone, wanted = self.afterSave
+            self.saveDone = []; self.afterSave = []
+            if !wanted.isEmpty { self.wake { e in wanted.forEach { $0(e) } } }
+            waiting.forEach { $0(error) }
+            done(error)
+        }
+        let tmp = file("state.vzsave.part")
+        let save = {
+            vm.saveMachineStateTo(url: tmp) { error in
+                MainActor.assumeIsolated {
+                    if let error { log("save failed: \(error.localizedDescription)"); self.state = .paused; return end(error.localizedDescription) }
+                    guard rename(tmp.path, self.saved.path) == 0 else { self.state = .paused; return end(String(cString: strerror(errno))) }
+                    vm.stop { _ in MainActor.assumeIsolated { self.vm = nil; self.state = .sleeping; log("asleep"); end(nil) } }
+                }
+            }
+        }
+        if state == .paused { return save() }
+        vm.pause { r in MainActor.assumeIsolated { if let e = r.failure { return end(e.localizedDescription) }; save() } }
+        #endif
+    }
+
+    /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
+    private func stop(_ done: @escaping () -> Void) {
+        try? FileManager.default.removeItem(at: saved)
+        guard let vm else { state = .off; return done() }
+        stopped.append(done)
+        let request = {
+            do { try vm.requestStop() } catch { vm.stop { _ in MainActor.assumeIsolated { self.down() } } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                MainActor.assumeIsolated { if self.vm === vm { vm.stop { _ in MainActor.assumeIsolated { self.down() } } } }
+            }
+        }
+        if vm.state == .paused { vm.resume { _ in MainActor.assumeIsolated { request() } } } else { request() }
     }
 }
 

@@ -14,6 +14,8 @@ final class AndroidRuntime {
     private var windowed = false
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
+    /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
+    private var saving = false, afterSave: [(String?) -> Void] = []
     private var sources: [DispatchSourceProtocol] = []
 
     private var serial: String { "emulator-\(port)" }
@@ -79,7 +81,7 @@ final class AndroidRuntime {
         case .status: done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
-        case .stop: stop { done(nil) }
+        case .stop: stop { done(nil); exit(0) }   // off, nothing kept: the next start is the kelp-vm installed then
         case .share: done("An Android machine shares no folders: adb push and pull copy files.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
@@ -96,6 +98,7 @@ final class AndroidRuntime {
     // MARK: the emulator
 
     private func wake(_ done: @escaping (String?) -> Void) {
+        if saving { return afterSave.append(done) }
         switch state {
         case .running: done(nil)
         case .starting: ready.append(done)
@@ -167,14 +170,19 @@ final class AndroidRuntime {
 
     /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was.
     private func sleep(_ done: @escaping (String?) -> Void) {
-        guard let p = emulator, [.running, .paused].contains(state) else { return done(nil) }
+        guard !saving, let p = emulator, [.running, .paused].contains(state) else { return done(nil) }
+        saving = true
         Task {
             if state == .paused { _ = try? await adb(["emu", "avd", "start"]) }
-            state = .sleeping
             _ = try? await adb(["emu", "kill"])
             for _ in 0..<120 where p.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
             if p.isRunning { p.terminate() }
+            // Asleep once the emulator is gone: a wake before would have started a second one on the same AVD.
+            state = .sleeping
+            saving = false
             log("asleep")
+            let wanted = afterSave; afterSave = []
+            if !wanted.isEmpty { wake { e in wanted.forEach { $0(e) } } }
             done(nil)
         }
     }

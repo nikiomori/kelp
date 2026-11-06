@@ -72,7 +72,7 @@ final class IOSRuntime {
         switch r.op {
         case .status: done(nil)
         case .start: lastUse = Date(); wake(done)
-        case .sleep, .stop: stop { done(nil) }   // a simulator keeps no running state to save
+        case .sleep, .stop: stop { done(nil); exit(0) }   // a simulator keeps no running state to save; the next start is a new kelp-vm
         case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
