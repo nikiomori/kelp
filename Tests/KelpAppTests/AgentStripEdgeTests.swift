@@ -68,17 +68,16 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         defer { StripPlace.save(nil) }
         strip.start()
         rig.app.sessions = [session(rig.workspace.id, .working)]
-        for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
-        try await Task.sleep(for: .milliseconds(400))
+        try await settled(strip) { strip.isShowing }
         let area = try #require(NSScreen.main?.visibleFrame)
         strip.panelForTests?.setFrameOrigin(NSPoint(x: area.minX + 90, y: area.maxY - 160))
         strip.dropped()
-        try await Task.sleep(for: .milliseconds(600))
+        try await settled(strip)
         let tile = try #require(strip.frame)
         #expect(abs(tile.minX - (area.minX + 8)) < 1 && abs(tile.maxY - (area.maxY - 8)) < 1)
         #expect(StripPlace.load()?.corner == .topLeft)
         rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-        try await Task.sleep(for: .milliseconds(700))
+        try await settled(strip) { strip.frame != tile }
         let pill = try #require(strip.frame)
         #expect(abs(pill.minX - tile.minX) < 1 && abs(pill.maxY - tile.maxY) < 1)
     }
@@ -97,8 +96,7 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         defer { StripPlace.save(nil) }
         strip.start()
         rig.app.sessions = [session(rig.workspace.id, .working)]
-        for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
-        try await Task.sleep(for: .milliseconds(400))
+        try await settled(strip) { strip.isShowing }
         let screen = try #require(NSScreen.main)
         let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
         guard StripModel.outer(.right, of: screen.frame, among: others) else { return }   // a screen past it on this Mac
@@ -106,10 +104,22 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         let width = try #require(strip.frame).width
         strip.panelForTests?.setFrameOrigin(NSPoint(x: area.maxX - width / 2, y: area.minY + 300))
         strip.dropped()
-        try await Task.sleep(for: .milliseconds(600))
+        try await settled(strip)
         let hid = try #require(strip.frame)
         #expect(abs(hid.minX - (area.maxX - StripModel.sliver)) < 1)
         #expect(abs(hid.minY - (area.minY + 300)) < 1)
         #expect(StripPlace.load()?.edge == .right)
+    }
+
+    /// Once `first` holds, until the strip stops moving: its animation's end, not a guess at how long one takes (a loaded
+    /// machine runs them late). Gives up after 5 s, and the checks that follow say what's wrong.
+    private func settled(_ strip: AgentStrip, after first: () -> Bool = { true }) async throws {
+        let end = Date().addingTimeInterval(5)
+        while !first(), Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+        var last = strip.frame, still = 0
+        while still < 3, Date() < end {
+            try await Task.sleep(for: .milliseconds(50))
+            if strip.frame == last { still += 1 } else { still = 0; last = strip.frame }
+        }
     }
 }
