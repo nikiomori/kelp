@@ -2,11 +2,12 @@ import AppKit
 import Core
 import DesignKit
 
-/// A folded project's or group's chats on its row: one agent logo each, overlapping, the most pressing first, its state
-/// in the corner (none when it's only ready). Four at most, then "+N"; the tooltip names each and what it does.
+/// A folded project's or group's chats on its row: one agent logo each, side by side (logos on no tile ran together when
+/// they overlapped), the most pressing first, its state in a corner cut out of the logo (none when it's only ready), as
+/// macOS marks a person's status on their picture. Four at most, then "+N"; the tooltip names each and what it does.
 @MainActor
 final class AgentStack: NSView {
-    private static let side: CGFloat = 14, step: CGFloat = 12, most = 4
+    private static let side: CGFloat = 14, step: CGFloat = 17, most = 4
     private let more = NSTextField(labelWithString: "")
     private var faces: [NSView] = []
     /// What was drawn last: a status change re-reads the row, and the marks keep spinning rather than being made again.
@@ -40,7 +41,7 @@ final class AgentStack: NSView {
         faces.forEach { $0.removeFromSuperview() }
         let first = Array(sorted.prefix(Self.most))
         faces = first.map { face($0, app) }
-        for f in faces.reversed() { addSubview(f) }   // the first on top: its corner mark stays clear of the next
+        faces.forEach(addSubview)
         more.stringValue = sorted.count > Self.most ? "+\(sorted.count - Self.most)" : ""
         more.isHidden = more.stringValue.isEmpty
         invalidateIntrinsicContentSize()
@@ -61,21 +62,28 @@ final class AgentStack: NSView {
         logo.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
         v.addSubview(logo)
         if let st = Self.badge(s) {
-            let disc = Disc(frame: NSRect(x: Self.side - 6, y: -4, width: 10, height: 10))
             let mark = StatusMark(size: 8)
             mark.status = st
             mark.unread = true
             mark.announces = false
-            mark.frame = disc.bounds.insetBy(dx: 1, dy: 1)
-            disc.addSubview(mark)
-            v.addSubview(disc)
+            mark.frame = NSRect(x: Self.side - 6, y: -2, width: 8, height: 8)
+            // The logo gives way around the mark: a clear ring, whatever the sidebar's material shows through.
+            logo.wantsLayer = true
+            let cut = CAShapeLayer(), hole = CGPath(ellipseIn: mark.frame.insetBy(dx: -1.5, dy: -1.5), transform: nil)
+            let path = CGMutablePath()
+            path.addRect(logo.bounds)
+            path.addPath(hole)
+            cut.path = path
+            cut.fillRule = .evenOdd
+            logo.layer?.mask = cut
+            v.addSubview(mark)
         }
         return v
     }
 
     override var intrinsicContentSize: NSSize {
         let n = CGFloat(faces.count)
-        let w = n == 0 ? 0 : Self.side + (n - 1) * Self.step + 4 + (more.isHidden ? 0 : 3 + more.intrinsicContentSize.width)
+        let w = n == 0 ? 0 : Self.side + (n - 1) * Self.step + 2 + (more.isHidden ? 0 : 4 + more.intrinsicContentSize.width)
         return NSSize(width: w, height: Self.side)
     }
 
@@ -83,21 +91,8 @@ final class AgentStack: NSView {
         super.layout()
         let y = (bounds.height - Self.side) / 2
         for (i, f) in faces.enumerated() { f.setFrameOrigin(NSPoint(x: CGFloat(i) * Self.step, y: y)) }
-        let x = faces.isEmpty ? 0 : CGFloat(faces.count - 1) * Self.step + Self.side + 7
+        let x = faces.isEmpty ? 0 : CGFloat(faces.count - 1) * Self.step + Self.side + 6
         more.frame = NSRect(x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
                             height: more.intrinsicContentSize.height)
     }
-}
-
-/// The round backing a corner mark sits on, in the window's colour, so it reads over the logo under it.
-@MainActor
-private final class Disc: NSView {
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        wantsLayer = true
-        layer?.cornerRadius = frame.width / 2
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }   // follows the appearance
 }
