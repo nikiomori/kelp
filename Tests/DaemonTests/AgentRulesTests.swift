@@ -148,6 +148,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     struct Call { var top = "x"; var inner: [Inner]; var args: JSONValue }
     let found = try r.d.sessions.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
     #expect(found == [s.id])
+    #expect(throws: RPCError.self) { try r.d.sessions.named(by: [[[[[[[[s.id]]]]]]]]) }   // too deep to tell: refused
 }
 
 /// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.

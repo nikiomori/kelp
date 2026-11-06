@@ -195,6 +195,16 @@ else a `NotificationCenter` name.
   Language-server requests time out.
 - **Checked by** DaemonTests, which run against a real daemon with real PTYs and git, also under Thread Sanitizer in CI.
 
+## Machines
+`kelp vm` gives agents Linux, macOS, Android and iOS machines. Each runs in a `kelp-vm` process of its own (one per
+machine, by `kelp-vm.lock`), which kelpd starts detached and talks to over the machine folder's `ctl.sock`; in Kelp.app
+it's an app of its own, `Contents/Helpers/Kelp Machine.app`, as a macOS machine's screen is its window. Linux and macOS
+machines are Apple's Virtualization (`Sources/KelpVM`), Android the SDK's emulator, iOS a simulator driven by Kelp's
+XCUITest runner. A command runs inside over the machine's own SSH (`kelp vm run`, marked with its session); a macOS
+machine's screen is read and driven from the Mac's side, in turns by session. Idle, a machine pauses, then sleeps (its
+state saved, `kelp-vm` gone), and wakes on the next command. Making one (download, install, first boot) is kelpd's
+(`Sources/Daemon/VM*.swift`), its step in the folder's `creating`, taken up again by the next kelpd if one stopped midway.
+
 ## Updates
 An update replaces the app bundle while kelpd keeps running the old binary. The relaunched app sees that
 (`daemon.info`'s `binaryMTime`) and calls `daemon.upgrade`: kelpd stops serving, saves each running session's record,
@@ -217,16 +227,30 @@ sessions; the app asks first when any are running.
 
 ## What Kelp trusts (threat model)
 **Trusted: the user and every process running as the user.** The daemon's socket is the user's own (0600 in a 0700
-folder, the peer's uid checked); anything that reaches it — the app, the `kelp` CLI, an agent with `KELP_SOCKET`, a
-script — can do what the user can: start a session with any command, read terminals, write files. That is by design:
-agents run as the user and can run commands anyway. Kelp doesn't try to contain a hostile process of the same user
-(it could edit `~/.kelp`, drive the app with synthetic events, or skip Kelp entirely).
+folder, the peer's uid checked). Agents run as the user and can run commands anyway, so Kelp doesn't try to contain a
+hostile process of the same user (it could edit `~/.kelp`, drive the app with synthetic events, or skip Kelp entirely);
+what it does keep is an agent's reach through Kelp itself to its own work (below).
 
 What only Kelp's window may do — publish what's on screen (`ui.publish`), trust a project's commands (`scripts.trust`) or
 its language servers (`state.set` of `lsp.*`) — each method says itself (`Answered.onlyFromKelp`), and the dispatcher
 checks it for every call, by the program at the other end of the socket. A status report (hooks, `kelp report`, herdr's)
 from a program running inside a session is for that session only (`Answered.reportsFor`), so one agent can't mark another
-done or asking. Every other method is open to any client.
+done or asking.
+
+**An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Sessions.caller`, looked
+up as it connects): the session it runs in, by its process tree or its terminal; a program kelpd itself started (an
+extension's command or event, a repository's git hook, whatever they left running: kelpd leads its own process session)
+is `ownProgram`; one gone before it could be read is `unknown`. A program of an agent's, `ownProgram` and `unknown` (but
+for a status report) are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`:
+reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
+the ones they started (any session id a call names counts), work in their own workspaces, run only the app's commands
+that show something (`UICommand.forAgents`), and never answer a question. The user's own terminals, the window and a
+script from outside every session do what the user can. Limit: a program that leaves its tree and its terminal
+(`setsid`, a tmux server) counts as the user's; and an agent can still leave a file for the user to run.
+
+**Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
+asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the
+folder in `extensions.trusted`, which only the window writes), and kelpd checks the same before each command and event.
 
 **Not trusted: what came from someone else** — a cloned repository's files and branches, a pull request, an issue or
 review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the user:
