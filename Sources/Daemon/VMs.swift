@@ -166,7 +166,7 @@ struct VMService: Sendable {
         return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd, os: m.os))
     }
 
-    private func ready(_ name: String) throws -> VMMachine {
+    func ready(_ name: String) throws -> VMMachine {
         let m = try machine(name)
         if let failed = failure(name) { throw RPCError.invalidParams("\(name) wasn't made: \(failed)") }
         if making(name) != nil { throw RPCError.invalidParams("\(name) is still being made: `kelp vm list` shows how far.") }
@@ -183,7 +183,7 @@ struct VMService: Sendable {
     }
 
     /// Room in the memory budget (a quarter of the Mac's) for `m` to wake: idle machines are put to sleep for it, else no.
-    private func admit(_ m: VMMachine) throws {
+    func admit(_ m: VMMachine) throws {
         let up: Set<VMState> = [.running, .paused, .starting]
         if let me = status(m.name), up.contains(me.state) { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
@@ -483,6 +483,10 @@ extension VMList: Handled {
     func handle(_ vms: VMService) throws -> [VMInfo] { vms.list(sessions: true) }
 }
 
+extension VMType: Handled {
+    func handle(_ vms: VMService) throws -> Done { try vms.type(name, text); return Done() }
+}
+
 extension VMDetailRead: Handled {
     func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
@@ -506,5 +510,5 @@ extension VMConnect: Handled {
 }
 
 extension Methods {
-    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self]
+    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self]
 }

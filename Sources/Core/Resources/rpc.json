@@ -10267,6 +10267,33 @@
       }
     },
     {
+      "description" : "Types into a macOS machine's screen from the Mac's side, its window shown: what Kelp Guest can't type before it's allowed to. `text` nil: the machine's password (from the Keychain), which Privacy & Security asks for to allow it.",
+      "name" : "vm.type",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      }
+    },
+    {
       "description" : "Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching what this connection watches already reads it again now (after a push: the CI run it started shows within seconds).",
       "name" : "watch.start",
       "paramStructure" : "by-name",

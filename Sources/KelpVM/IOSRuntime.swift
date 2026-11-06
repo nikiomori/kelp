@@ -74,6 +74,7 @@ final class IOSRuntime {
         case .start: lastUse = Date(); wake(done)
         case .sleep, .stop: stop { done(nil) }   // a simulator keeps no running state to save
         case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")
+        case .type: done("Typing into the screen is a macOS machine's.")
         case .show:
             lastUse = Date()
             wake { error in

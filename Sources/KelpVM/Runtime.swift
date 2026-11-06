@@ -172,6 +172,15 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         case .sleep: sleep { done($0, nil) }
         case .stop: stop { done(nil, nil) }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
+        case .type:
+            guard machine.os == "macos", let text = r.text else { return done("Typing into the screen is a macOS machine's.", nil) }
+            lastUse = Date()
+            wake { error in
+                guard error == nil else { return done(error, nil) }
+                self.show()
+                guard let view = self.window?.contentView as? VZVirtualMachineView else { return done("No screen to type into.", nil) }
+                ScreenKeys.type(text, into: view) { done($0, nil) }
+            }
         case .quit:
             done(nil, nil)
             guard let vm else { exit(0) }
@@ -450,6 +459,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(window?.contentView)   // keys go to the machine at once, without a click into it first
     }
 
     nonisolated func windowShouldClose(_ sender: NSWindow) -> Bool {

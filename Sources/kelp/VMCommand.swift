@@ -8,6 +8,7 @@ extension Main {
           | screenshot <name> [file] | click <name> X Y [--right] [--double] | move|drag|scroll <name> … | type <name> TEXT
           | key <name> COMBO | ui <name> [--app NAME] | press <name> REF|TITLE   (macOS and Android machines: their screen)
           | install <name> APP.apk|App.app | launch <name> BUNDLE-ID | open <name> URL   (Android, iOS)
+          | password <name>   (macOS: types its password into its screen, for the dialogs that ask)
     """
 
     /// `vm <action>`: Kelp's virtual machines (Core/VMs.swift).
@@ -35,6 +36,9 @@ extension Main {
             }
         case "screenshot", "click", "move", "drag", "scroll", "type", "key", "ui", "press", "install", "launch", "open":
             try await screen(sub ?? "", c)
+        case "password":
+            guard let name = args.first else { fail("vm password <name>") }
+            _ = try await c.call(VMType(name: name))
         case "start", "sleep", "stop", "show", "delete":
             guard let name = args.first, let action = VMControl.Action(rawValue: sub ?? "") else { fail("vm \(sub ?? "") <name>") }
             print(line(try await c.call(VMControl(name: name, action: action))))

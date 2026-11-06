@@ -180,7 +180,12 @@ struct MachineView: View {
                     }
                     .font(.ui(12)).foregroundStyle(.secondary)
                 }
-                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }.controlSize(.small)
+                HStack {
+                    Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
+                    Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
+                        .help(String(localized: "Types this machine's password into the field that asks for it, in its window."))
+                }
+                .controlSize(.small)
             }
             .padding(.horizontal, 6).padding(.bottom, 10)
         } else {

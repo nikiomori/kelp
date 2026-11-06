@@ -81,6 +81,7 @@ final class AndroidRuntime {
         case .sleep: sleep(done)
         case .stop: stop { done(nil) }
         case .share: done("An Android machine shares no folders: adb push and pull copy files.")
+        case .type: done("Typing into the screen is a macOS machine's.")
         case .show:
             lastUse = Date()
             guard !windowed || emulator == nil else { return done(nil) }

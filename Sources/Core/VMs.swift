@@ -180,6 +180,14 @@ public struct VMControl: RPCMethod {
     public init(name: String, action: Action) { self.name = name; self.action = action }
 }
 
+/// Types into a macOS machine's screen from the Mac's side, its window shown: what Kelp Guest can't type before it's
+/// allowed to. `text` nil: the machine's password (from the Keychain), which Privacy & Security asks for to allow it.
+public struct VMType: RPCMethod {
+    public static let name = "vm.type"; public typealias Result = Done
+    public var name: String, text: String?
+    public init(name: String, text: String? = nil) { self.name = name; self.text = text }
+}
+
 /// What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path);
 /// with no `cwd`, in its own home folder, nothing shared.
 public struct VMConnect: RPCMethod {
@@ -214,11 +222,12 @@ public struct VMImage: Sendable, Equatable {
 public enum VMHelper {
     public struct Request: Codable, Sendable {
         /// `quit`: the machine off at once, and its kelp-vm gone (its folder is about to be).
-        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share, show, quit }
+        /// `type`: `text` typed into a macOS machine's screen from the Mac's side (`ScreenKeys`).
+        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share, show, quit, type }
         public var op: Operation
         /// `share`: the folder here; the answer's `slot` says which of the machine's shares holds it.
-        public var path: String?
-        public init(op: Operation, path: String? = nil) { self.op = op; self.path = path }
+        public var path: String?, text: String?
+        public init(op: Operation, path: String? = nil, text: String? = nil) { self.op = op; self.path = path; self.text = text }
     }
     public struct Reply: Codable, Sendable {
         public var state: VMState

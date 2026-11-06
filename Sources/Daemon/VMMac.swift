@@ -36,6 +36,16 @@ extension VMService {
         }
     }
 
+    /// Types into a macOS machine's screen from the Mac's side (its window shown); nil: its password, from the Keychain.
+    func type(_ name: String, _ given: String?) throws {
+        let m = try ready(name)
+        guard m.os == "macos" else { throw RPCError.invalidParams("Typing into the screen is a macOS machine's: kelp vm type works through Kelp Guest.") }
+        guard let text = given ?? Keychain.get("vm." + name) else { throw RPCError.internalError("No password for \(name) in the Keychain.") }
+        try admit(m)
+        try startHelper(m)
+        try check(ask(name, .init(op: .type, text: text), wait: 180))
+    }
+
     private func makeMacFolder(_ m: VMMachine) throws {
         let password = (0..<24).map { _ in "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement().map(String.init) ?? "x" }.joined()
         try Keychain.set(password, account: "vm." + m.name)

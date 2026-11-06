@@ -1797,6 +1797,26 @@
         }
       }
     },
+    "Type Password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввести пароль"
+          }
+        }
+      }
+    },
+    "Types this machine's password into the field that asks for it, in its window.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вводит пароль этой машины в поле, которое его спрашивает, в её окне."
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {
