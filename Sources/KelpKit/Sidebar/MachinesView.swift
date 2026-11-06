@@ -3,29 +3,51 @@ import SwiftUI
 import Core
 import DesignKit
 
-/// The sidebar's Machines block, over the plan limits: each machine with its state in a word and colour, its memory and
-/// what runs in it, and the agents with a command there. A click opens its tab; a right-click starts, sleeps or stops it.
-/// Nothing shows until there's a machine.
+/// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
+/// from a file), always there; under it each machine with its state in a word and colour, its memory and what runs in it,
+/// and the agents with a command there. A click opens its tab; a right-click starts, sleeps or stops it.
 struct MachinesView: View {
     let app: AppModel
     @State private var hovered: String?
+    /// What + offers, read once (it looks for an Android SDK and Xcode on disk), not at every redraw.
+    @State private var choices: [(title: String, image: String, missing: String?)] = []
 
     var body: some View {
         // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
         VStack(alignment: .leading, spacing: 0) {
-            if !app.machines.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Machines").sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom).padding(.leading, Metrics.gap)
-                    ForEach(app.machines) { row($0) }
+            Divider()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: Metrics.gap) {
+                    Text("Machines").sectionTitle()
+                    Spacer(minLength: Metrics.gap)
+                    add
                 }
-                .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gap)
+                .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
+                ForEach(app.machines) { row($0) }
             }
+            .padding(.horizontal, Metrics.gapWide).padding(.bottom, app.machines.isEmpty ? 0 : Metrics.gap)
         }
         .fontDesign(app.themes.chromeDesign)
         // Watched while shown: the daemon reads them every 5 s, every second while one starts.
-        .onAppear { app.watch(.machines) }
+        .onAppear { app.watch(.machines); choices = app.machineChoices }
         .onDisappear { app.unwatch(.machines) }
+    }
+
+    /// + : a new machine of each kind this Mac can run; what it lacks greys one out and says why.
+    private var add: some View {
+        Menu {
+            ForEach(choices, id: \.image) { c in
+                Button(c.title) { app.newMachine(c.image) }.disabled(c.missing != nil).help(c.missing ?? "")
+            }
+            Divider()
+            Button(String(localized: "From a File…")) { app.machineFromFile() }
+                .help(String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk"))
+        } label: {
+            Image(systemName: "plus").font(.symbol(Metrics.iconSmall))
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help(String(localized: "New Machine"))
+        .accessibilityLabel(String(localized: "New Machine"))
     }
 
     private func row(_ v: VMInfo) -> some View {

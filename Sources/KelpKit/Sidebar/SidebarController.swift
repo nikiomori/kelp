@@ -209,8 +209,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             let i = m.add(c.title) { app.extensions.run(id) }
             if let k = c.key.flatMap(KeySpec.init) { i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags }
         }
-        m.addItem(.separator())
-        m.addItem(app.machineMenuItem())   // a machine for agents' commands: Linux, macOS, Android, iOS
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
     }
 

@@ -6,38 +6,24 @@ import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
-    /// "Virtual Machine" in the sidebar's Add menu: one of each kind, a click away. What this Mac lacks for one (an Android
-    /// SDK, Xcode, Apple silicon) greys it out and says so.
-    func machineMenuItem() -> NSMenuItem {
-        let sub = NSMenu()
-        sub.autoenablesItems = false
-        func item(_ title: String, _ image: String, missing: String?) {
-            let i = sub.add(title) { [weak self] in self?.newMachine(image) }
-            i.isEnabled = missing == nil
-            i.toolTip = missing
-        }
+    /// The kinds of machine the sidebar's Machines + offers; `missing` says what this Mac lacks for one (Apple silicon, an
+    /// Android SDK, Xcode).
+    var machineChoices: [(title: String, image: String, missing: String?)] {
         #if arch(arm64)
         let silicon: String? = nil
         #else
         let silicon: String? = String(localized: "Needs a Mac with Apple silicon")
         #endif
-        item(String(localized: "Linux (Debian 13)"), "debian-13", missing: silicon)
-        item(String(localized: "macOS…"), "macos", missing: silicon)
         let sdk = AndroidSDK.avdmanager != nil && AndroidSDK.newestImage() != nil
-        item(String(localized: "Android"), "android", missing: sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image"))
         let xcode = FileManager.default.fileExists(atPath: "/Applications/Xcode.app") || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
-        item(String(localized: "iOS"), "ios", missing: xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))
-        sub.addItem(.separator())
-        let file = sub.add(String(localized: "From a File…")) { [weak self] in self?.machineFromFile() }
-        file.toolTip = String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk")
-        file.isEnabled = silicon == nil
-        let i = NSMenuItem(title: String(localized: "Virtual Machine"), action: nil, keyEquivalent: "")
-        i.submenu = sub
-        return i
+        return [(String(localized: "Linux (Debian 13)"), "debian-13", silicon),
+                (String(localized: "macOS…"), "macos", silicon),
+                (String(localized: "Android"), "android", sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image")),
+                (String(localized: "iOS"), "ios", xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))]
     }
 
     /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
-    private func machineFromFile() {
+    func machineFromFile() {
         Task {
             let panel = NSOpenPanel()
             panel.message = String(localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
