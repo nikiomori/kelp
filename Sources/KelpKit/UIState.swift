@@ -35,9 +35,9 @@ package final class UIState {
     /// Whether the daemon's state was read: until then a key that's missing may only not be known yet (`ExtensionTrust`).
     private(set) var loaded = false
 
-    /// A daemon too old for `state.*` leaves it empty (quiet: the window just opens as new).
+    /// Not read (a banner says why): extensions that run commands wait until it is, at the next connection.
     func load() async {
-        guard case .object(let all)? = await app.quiet(StateGet(prefix: "")) else { return }
+        guard case .object(let all)? = await app.call(StateGet(prefix: "")) else { return }
         values = all
         loaded = true
     }

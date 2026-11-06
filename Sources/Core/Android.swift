@@ -20,7 +20,9 @@ public enum AndroidSDK {
     /// The newest arm64 system image installed: "system-images;android-36.1;google_apis_playstore;arm64-v8a".
     public static func newestImage() -> String? {
         guard let dir = root?.appendingPathComponent("system-images") else { return nil }
-        func names(_ u: URL) -> [String] { (FileManager.default.enumerator(atPath: u.path)?.allObjects as? [String])?.filter { !$0.contains("/") } ?? [] }
+        func names(_ u: URL) -> [String] {   // one level, not the images' files
+            do { return try FileManager.default.contentsOfDirectory(atPath: u.path) } catch { return [] }
+        }
         let apis = names(dir)
         func api(_ s: String) -> Double { Double(s.replacingOccurrences(of: "android-", with: "")) ?? 0 }
         for a in apis.sorted(by: { api($0) > api($1) }) {

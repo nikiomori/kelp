@@ -264,7 +264,11 @@ package final class ExtensionRegistry {
     static func disabled(_ v: JSONValue?) -> Set<String> { v?.array.map { Set($0.compactMap(\.string)) } ?? offByDefault }
     var disabled: Set<String> { Self.disabled(app.settings.value("extensions.disabled")) }
 
+    /// Loaded before the daemon's state was read: what was allowed wasn't known, so all that runs commands waited.
+    private(set) var loadedWithoutState = false
+
     func reload() {
+        loadedWithoutState = !app.uiState.loaded
         var infos: [ExtensionInfo] = []
         var merged = Contributions()
         let off = disabled

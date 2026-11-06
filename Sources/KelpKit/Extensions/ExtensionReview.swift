@@ -45,8 +45,9 @@ enum ExtensionTrust {
     }
 
     /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or
-    /// isn't known yet with a daemon there (its state not read, or not readable). Without a daemon nothing of it can run,
-    /// and connecting reloads. Not once the window never recorded one (`adopt`).
+    /// isn't known yet with a daemon there (its state not read, or not readable). Without a daemon nothing of it can run
+    /// (the daemon checks too), and the first connection that reads the state reloads (`loadedWithoutState`). Not once
+    /// the window never recorded one (`adopt`).
     static func waits(_ folder: URL, _ app: AppModel) -> Bool {
         let (commands, pages) = IDE.commandsIn(manifest(folder))
         guard !commands.isEmpty || !pages.isEmpty else { return false }

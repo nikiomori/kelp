@@ -4,16 +4,24 @@ import Core
 import DesignKit
 
 /// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
-/// from a file), always there; under it each machine with its state in a word and colour, its memory and what runs in it,
-/// and the agents with a command there. A click opens its tab; a right-click starts, sleeps or stops it.
+/// from a file), there while the Machines extension is on; under it each machine with its state in a word and colour,
+/// its memory and what runs in it, and the agents with a command there. A click opens its tab; a right-click starts,
+/// sleeps or stops it.
 struct MachinesView: View {
     let app: AppModel
     @State private var hovered: String?
     /// What + offers, read once (it looks for an Android SDK and Xcode on disk), not at every redraw.
     @State private var choices: [(title: String, image: String, missing: String?)] = []
 
+    /// Off, nothing of it is drawn or watched (the daemon then asks no machine how it is).
+    private var on: Bool { app.extensions.extensions.contains { $0.id == "kelp.machines" && $0.enabled } }
+
     var body: some View {
-        // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
+        if on { block }
+    }
+
+    private var block: some View {
+        // The loader hangs off a container that always exists while it's on: on an EmptyView `.task` never runs.
         VStack(alignment: .leading, spacing: 0) {
             Divider()
             VStack(alignment: .leading, spacing: 0) {

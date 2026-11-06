@@ -59,8 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.extensions.watch()
         Task {
             await app.connect()
-            await app.noProject.ensure()
-            app.extensions.reload()   // settings (disabled extensions) are known now
+            await app.noProject.ensure()   // connecting reloaded the extensions: settings (disabled ones) and what was allowed are known
             app.availability.refresh(force: true)
             #if DEBUG
             let pick = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WORKTREE"].flatMap { b in
