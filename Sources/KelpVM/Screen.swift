@@ -21,7 +21,13 @@ enum Screen {
         func num(_ i: Int) -> Double? { args.count > i ? Double(args[i]) : nil }
         if op == "screenshot" {
             guard args.count > 1 else { return done("screenshot: a file to write") }
-            return done(screenshot(view, to: args[1]))
+            // A machine just woken or a view just made has no frame for a moment: looked for every 0.2 s, up to 5 s.
+            func shoot(_ tries: Int) {
+                let error = screenshot(view, to: args[1])
+                guard error != nil, tries > 0 else { return done(error) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { MainActor.assumeIsolated { shoot(tries - 1) } }   // the main queue
+            }
+            return shoot(25)
         }
         if let h = holder, h.session != session, h.until > Date() {
             return done("The screen is \(h.session)'s now (until 20 s after its last action); try again in a moment.")

@@ -95,7 +95,7 @@ extension Main {
             let to = try await c.call(VMConnect(name: name, cwd: nil))
             let copied = Process()
             copied.executableURL = URL(fileURLWithPath: to.ssh[0])
-            copied.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + "pbcopy"]
+            copied.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + "LANG=en_US.UTF-8 pbcopy"]   // without it, read as Mac Roman
             let input = Pipe()
             copied.standardInput = input
             try copied.run()
