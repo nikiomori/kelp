@@ -22,4 +22,10 @@ mv "$INSTALL" "$INSTALL.old"
 mv "$INSTALL.new" "$INSTALL" || { mv "$INSTALL.old" "$INSTALL"; exit 1; }
 rm -rf "$INSTALL.old"
 echo "installed $INSTALL"
-[ -z "$PID" ] || open "$INSTALL"
+[ -n "$PID" ] || exit 0
+# Opened again, and checked: once, right after an install, it didn't come back and the user saw Kelp gone.
+for _ in 1 2 3; do
+  open "$INSTALL" || true
+  for _ in {1..50}; do pgrep -f "^$INSTALL/Contents/MacOS/KelpApp" >/dev/null && { echo "Kelp is open again"; exit 0; }; sleep 0.2; done
+done
+echo "Kelp didn't open again: open it from /Applications"; exit 1
