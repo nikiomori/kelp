@@ -141,7 +141,7 @@ public final class Daemon: Sendable {
         }
         settingsEvents.watch()
         let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
-        t.schedule(deadline: .now() + 0.5, repeating: 0.5)
+        t.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
         t.setEventHandler { [self] in
             sessions.live.all.forEach { $0.tick() }
             sessions.applyKeepAwake()

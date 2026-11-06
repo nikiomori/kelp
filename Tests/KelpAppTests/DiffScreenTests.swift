@@ -160,7 +160,7 @@ extension AppOfItsOwn {
         vc.table.selectRowIndexes([at], byExtendingSelection: false)
         #expect(vc.flipSelectedComment())
         #expect(vc.picked.count == 1)
-        guard case .comment(let c) = vc.rows[at] else { return }
+        guard case .comment(let c) = vc.rows[at] else { Issue.record("row \(at) is no comment any more"); return }
         let box = try #require(buttons(in: vc.commentRow(c)).first { $0.title.isEmpty })
         #expect(box.state == .off)
     }

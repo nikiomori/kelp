@@ -375,6 +375,19 @@ private func codeOnly(_ s: String) -> String {
     #expect(try matches(#"var onlyFromKelp: String\? \{ (?!nil \}|get \})"#, in: ["Sources/Daemon"]).count == 5)
 }
 
+/// Who may call a method is said by properties a protocol extension gives defaults for (`Answered`, `Handled`,
+/// `RPCMethod`): one spelled with another type (`static let timeout: TimeInterval` for `TimeInterval?`) compiles as a
+/// property of its own, and the default answers instead, quietly. Each is spelled as its requirement is.
+@Test func gatePropertiesHaveTheirRequirementsTypes() throws {
+    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto"
+    var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|ends)\b"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bvar answersQuestion\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) (?:inOrder|quick)\b(?!: Bool \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) timeout\b(?!: TimeInterval\? \{)"#, in: ["Sources/Core", "Sources/Daemon"])
+    #expect(wrong.isEmpty, "spelled unlike their requirements: \(wrong)")
+}
+
 /// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it
 /// runs reads KELP_HOME's folders from the environment, keeps state in a static or opts out of the isolation checks. Two
 /// daemons in one process (tests) shared those, and the one set last won. And GitKit runs git on a remote project's host
