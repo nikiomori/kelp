@@ -57,6 +57,12 @@ final class SidebarCell: NSTableCellView {
         return badge
     }()
     private var add: NSButton?
+    /// A folded project's or group's: the agents in it, by their logos, the most used first.
+    private let faces: NSStackView = {
+        let s = NSStackView()
+        s.spacing = 3
+        return s
+    }()
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
     private let detail = NSTextField(labelWithString: "")
@@ -101,14 +107,16 @@ final class SidebarCell: NSTableCellView {
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [slot, title, muted, detail, summary, changes, pr, ci, trailing, b])
+            layout(row: [slot, title, muted, detail, faces, summary, changes, pr, ci, trailing, b])
+            addAsk()
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
             title.font = .ui(13, weight: .medium)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, changes, pr, ci, trailing, mark])
+            layout(row: [slot, title, detail, muted, faces, changes, pr, ci, trailing, mark])
+            addAsk()
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -116,20 +124,12 @@ final class SidebarCell: NSTableCellView {
                 NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: side), v.heightAnchor.constraint(equalToConstant: side)])
             }
             glyph.alphaValue = 0.75
-            ask.font = .ui(11.5)
-            ask.lineBreakMode = .byTruncatingTail
-            ask.usesSingleLineMode = true
-            ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            ask.isHidden = true
             chip.isHidden = true
             fillSlot(mark)
             action.image = .symbol("xmark", String(localized: "Close Chat"))
             action.toolTip = String(localized: "Close Chat")
             layout(row: [slot, icon, title, muted, glyph, chip, family, trailing])
-            ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
-            NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-                                         ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
-                                         ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
+            addAsk()
         case .host, .parked: break   // a ServerHeader, a ParkedHeader
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -234,7 +234,7 @@ final class SidebarCell: NSTableCellView {
         r.spacing = 6
         r.alignment = .centerY
         r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr || v === ci { r.setVisibilityPriority(.notVisible, for: v) }
+        for v in row where v === changes || v === pr || v === ci || v === faces { r.setVisibilityPriority(.notVisible, for: v) }
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
         // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
@@ -293,10 +293,11 @@ final class SidebarCell: NSTableCellView {
     /// squeezes the name instead: "kdrde…  +2 −1").
     private func fitBadges() {
         guard let r = changes.superview as? NSStackView else { return }
-        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && !$0.isHidden }
+        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== faces && !$0.isHidden }
         var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
-        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
-            let need = b.intrinsicContentSize.width + r.spacing, show = has && room >= need
+        // The agents' logos go first: the name, then what needs doing, is what the row is for.
+        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr), (faces, !faces.arrangedSubviews.isEmpty)] {
+            let need = b.fittingSize.width + r.spacing, show = has && room >= need
             if show { room -= need }
             r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)
         }
@@ -336,6 +337,7 @@ final class SidebarCell: NSTableCellView {
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
             showSummary(folded ? node : nil)
+            showFolded(folded)
             showFold()
         case .workspace(let id):
             guard let w = m.worktree(id) else { return }
@@ -354,6 +356,7 @@ final class SidebarCell: NSTableCellView {
             let lead = agents.filter { Self.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
             mark.status = collapsed ? top : nil; mark.unread = agents.contains { Self.shownStatus($0) == top && $0.unread }
             trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
+            showFolded(collapsed)
             toolTip = nil   // the hover card shows the workspace in full
         case .agent(let sid):
             guard let s = m.session(sid) else { return }
@@ -401,27 +404,6 @@ final class SidebarCell: NSTableCellView {
         glyph.setAccessibilityLabel(glyph.toolTip)
     }
 
-    /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
-    private func showAsk(_ s: Session) {
-        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
-                             back: app.parkedBack[s.id])
-        ask.isHidden = line == nil
-        rowY?.constant = line == nil ? 0 : -TextSize.of(8)
-        guard let line else { return }
-        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
-        let t = NSMutableAttributedString()
-        if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
-            t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))
-        }
-        t.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
-        // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
-        let tail = NSMutableParagraphStyle()
-        tail.lineBreakMode = .byTruncatingTail
-        t.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: t.length))
-        ask.attributedStringValue = t
-        ask.toolTip = line.text
-    }
-
     /// VoiceOver reads the row as one sentence: "Fix login, needs your input, Asks: may I run npm test?, Atlas, now",
     /// not its mark, name, line and time one by one.
     private func speak(_ s: Session) {
@@ -434,21 +416,6 @@ final class SidebarCell: NSTableCellView {
             .joined(separator: ", "))
         mark.announces = false
         for v in [title, ask, trailing] as [NSView] { v.setAccessibilityElement(false) }
-    }
-
-    /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
-    /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
-    /// line.
-    static func askLine(_ s: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
-        let st = shownStatus(s), text = s.summary.isEmpty ? st.words : s.summary
-        if mode != "never", let l = LimitStop.rowLine(s) { return ((l.word, .textOrange), l.text) }
-        switch (mode, st) {
-        case ("never", _): return nil
-        case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)
-        case (_, .error): return ((String(localized: "Failed:"), .textRed), text)
-        case ("always", _): return (nil, text)
-        default: return nil
-        }
     }
 
     /// One line, as Mail lists mailboxes: an agent asking for you or done unseen is bold (isNews) and its mark says which;
@@ -476,18 +443,6 @@ final class SidebarCell: NSTableCellView {
         chip.setAccessibilityLabel(chip.toolTip)
     }
 
-    /// Asks for you, failed, or finished and not looked at yet.
-    static func wantsYou(_ s: Session) -> Bool {
-        let st = shownStatus(s)
-        return s.isChat && (st == .waiting || st == .error || (st == .done && s.unread))
-    }
-
-    /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
-    static func shownStatus(_ s: Session) -> AgentStatus { s.status == .paused && s.unread ? .done : s.markStatus }
-
-    /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
-    static func isNews(_ s: Session) -> Bool { s.unread && [.done, .waiting, .error].contains(shownStatus(s)) }
-
     /// The workspace's name: its own row's title, or the grey name beside its project's; with `project` the project's own
     /// name, without the machine its row may add.
     func beginEditing(delegate: NSTextFieldDelegate, project: Bool = false) {
@@ -498,38 +453,6 @@ final class SidebarCell: NSTableCellView {
         title.delegate = delegate
         window?.makeFirstResponder(title)
         title.currentEditor()?.selectAll(nil)
-    }
-}
-
-/// What goes on beside an agent, after its name: a symbol, and how many from two on. No fill and no words: it takes the
-/// room of its symbol, on a row or a tab, and the tooltip says the rest.
-@MainActor
-final class Chip: NSView {
-    private let icon = NSImageView(), count = NSTextField(labelWithString: "")
-
-    init() {
-        super.init(frame: .zero)
-        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-        icon.contentTintColor = .secondaryLabelColor
-        count.font = .uiDigits(11, weight: .medium)
-        count.textColor = .secondaryLabelColor
-        let s = NSStackView(views: [icon, count])
-        s.spacing = 2
-        s.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(s)
-        NSLayoutConstraint.activate([s.leadingAnchor.constraint(equalTo: leadingAnchor), s.trailingAnchor.constraint(equalTo: trailingAnchor),
-                                     s.topAnchor.constraint(equalTo: topAnchor), s.bottomAnchor.constraint(equalTo: bottomAnchor)])
-        s.setHuggingPriority(.required, for: .horizontal)   // an NSStackView keeps to its views only so; a view around one has no size of its own
-        s.setClippingResistancePriority(.required, for: .horizontal)
-        setAccessibilityElement(true)
-        setAccessibilityRole(.staticText)   // read by its label: the tooltip, the whole list
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    func show(_ symbol: String, count n: Int = 1) {
-        icon.image = .symbol(symbol)
-        count.isHidden = n < 2
-        count.stringValue = "\(n)"
     }
 }
 
@@ -554,5 +477,66 @@ extension SidebarCell {
         detail.font = .ui(11); detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
+    }
+}
+
+/// The second line: what an agent asks, or what a folded project or group holds (FoldedLine).
+extension SidebarCell {
+    /// The second line, under the name: what an agent asks, or what a folded project or group holds.
+    private func addAsk() {
+        ask.font = .ui(11)
+        ask.lineBreakMode = .byTruncatingTail
+        ask.usesSingleLineMode = true
+        ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        ask.isHidden = true
+        ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
+        NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+                                     ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+                                     ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
+    }
+
+    /// Folded, a project or a group shows the agents in it by their logos and a second line on its chats (FoldedLine).
+    private func showFolded(_ folded: Bool) {
+        let ids = folded ? FoldedLine.agents(under: node, app) : []
+        if faces.arrangedSubviews.map(\.toolTip) != ids.map(app.catalog.name) {
+            faces.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            for id in ids {
+                let v = NSImageView(image: app.catalog.icon(id, size: 14) ?? NSImage())
+                v.imageScaling = .scaleProportionallyUpOrDown
+                NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: 14), v.heightAnchor.constraint(equalToConstant: 14)])
+                v.toolTip = app.catalog.name(id)
+                faces.addArrangedSubview(v)
+            }
+        }
+        fitBadges()
+        let line = folded ? FoldedLine.of(node, app) : nil
+        setAsk(line.map { ($0.prefix, $0.text) }, place: line?.place)
+    }
+
+    /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
+    private func showAsk(_ s: Session) {
+        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+                             back: app.parkedBack[s.id])
+        setAsk(line)
+    }
+
+    /// Shows `line` under the name, the name moved up to make room for it; nil: one line.
+    private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?, place: String? = nil) {
+        ask.isHidden = line == nil
+        rowY?.constant = line == nil ? 0 : -TextSize.of(8)
+        guard let line else { return }
+        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
+        let t = NSMutableAttributedString()
+        if let place { t.append(NSAttributedString(string: place + " › ", attributes: [.font: font, .foregroundColor: grey])) }
+        if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
+            t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))
+        }
+        t.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
+        // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
+        let tail = NSMutableParagraphStyle()
+        tail.lineBreakMode = .byTruncatingTail
+        t.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: t.length))
+        ask.attributedStringValue = t
+        ask.toolTip = line.text
     }
 }

@@ -208,3 +208,33 @@ extension AppModel {
         return s.parent.flatMap(session).map { catalog.displayName($0) + " › " + name } ?? name
     }
 }
+
+/// What an agent's row says of its state, for the sidebar and everyone who counts like it.
+extension SidebarCell {
+    /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
+    /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
+    /// line.
+    static func askLine(_ s: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
+        let st = shownStatus(s), text = s.summary.isEmpty ? st.words : s.summary
+        if mode != "never", let l = LimitStop.rowLine(s) { return ((l.word, .textOrange), l.text) }
+        switch (mode, st) {
+        case ("never", _): return nil
+        case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)
+        case (_, .error): return ((String(localized: "Failed:"), .textRed), text)
+        case ("always", _): return (nil, text)
+        default: return nil
+        }
+    }
+
+    /// Asks for you, failed, or finished and not looked at yet.
+    static func wantsYou(_ s: Session) -> Bool {
+        let st = shownStatus(s)
+        return s.isChat && (st == .waiting || st == .error || (st == .done && s.unread))
+    }
+
+    /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
+    static func shownStatus(_ s: Session) -> AgentStatus { s.status == .paused && s.unread ? .done : s.markStatus }
+
+    /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
+    static func isNews(_ s: Session) -> Bool { s.unread && [.done, .waiting, .error].contains(shownStatus(s)) }
+}
