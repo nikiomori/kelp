@@ -157,7 +157,8 @@ extension Git {
     /// Undo working-tree changes: tracked files go back to the index, untracked files are deleted. Answers the patch that
     /// puts them back (`putBack`); a change too big to keep that way is refused, nothing discarded.
     @discardableResult
-    public static func discard(_ path: String, files: [String], remotes: Remotes = .none) throws -> Data {
+    /// `keep` gets the patch before anything changes, and nothing does if it throws: what's thrown away is kept first.
+    public static func discard(_ path: String, files: [String], remotes: Remotes = .none, keep: (Data) throws -> Void = { _ in }) throws -> Data {
         let untracked = Set(try status(path, remotes: remotes).filter(\.untracked).map(\.path))
         let (u, t) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
         // Fixed prefixes, no colour: a user's diff.noprefix or color.diff=always would give a patch `git apply` can't take.
@@ -171,6 +172,7 @@ extension Git {
             throw GitError(args: ["diff"], status: 1, stderr: "This change is too big to keep for Undo, so Kelp left it as it is: "
                            + "discard it in a terminal (git restore) if you're sure.")
         }
+        try keep(back)
         // New files go to the Trash on this Mac: should Undo fail, they are still there to put back.
         if remotes.of(path) == nil {
             for f in u { try Trash.move(URL(fileURLWithPath: path).appendingPathComponent(f)) }

@@ -160,8 +160,9 @@ extension GitCommitDetails: Handled {
 extension GitDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
-        let back = try Git.discard(path, files: files ?? [], remotes: workspaces.remotes)
-        workspaces.keepDiscard(.init(patch: back, hunk: false), folder: path, name: undo)
+        _ = try Git.discard(path, files: files ?? [], remotes: workspaces.remotes) { back in
+            try workspaces.keepDiscard(.init(patch: back, hunk: false), folder: path, name: undo)
+        }
         return Done()
     }
 }

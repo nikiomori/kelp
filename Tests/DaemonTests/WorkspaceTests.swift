@@ -81,3 +81,14 @@ import Agents
     let trashed = (FileManager.default.enumerator(atPath: trash)?.allObjects as? [String] ?? []).filter { $0.hasSuffix("clean/.env") }
     #expect(!trashed.isEmpty)
 }
+
+/// What a discard throws away is kept for its Undo first: when it can't be (a full disk; here, a file where its folder
+/// goes), nothing is discarded.
+@Test func aDiscardThatCantKeepItsUndoChangesNothing() async throws {
+    let w = try await world(); defer { w.d.stop() }
+    let wt = try await workspace(w, "keep")
+    try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
+    try Data().write(to: w.d.workspaces.discards)
+    await #expect(throws: RPCError.self) { try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"])) }
+    #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
+}

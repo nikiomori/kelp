@@ -408,8 +408,8 @@ extension GitDiscardHunk: Handled {
               diff.hunks[hunk].header == header, fingerprint.map({ $0 == diff.hunks[hunk].fingerprint }) ?? true else {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }
+        try workspaces.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: w.path, name: undo)   // first: see Git.discard
         try Git.discardHunk(w.path, diff: diff, hunk: hunk, remotes: workspaces.remotes)
-        workspaces.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: w.path, name: undo)
         return Done()
     }
 }

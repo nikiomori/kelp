@@ -27,12 +27,13 @@ final class Workspaces: Sendable {
         discards.appendingPathComponent(Self.digest(folder + "\0" + (name ?? "")) + ".json")
     }
     /// Keeps `d` under `name` in `folder`, dropping what's past its minute.
-    func keepDiscard(_ d: Discarded, folder: String, name: String?) {
+    /// Kept for its Undo before the files change (`Git.discard`'s `keep`): one that can't be kept (a full disk) isn't made.
+    func keepDiscard(_ d: Discarded, folder: String, name: String?) throws {
         sweepDiscards()
-        Log.store.attempt("keeping a discard for its Undo") {
+        do {
             try FileManager.default.createDirectory(at: discards, withIntermediateDirectories: true)
             try JSONEncoder().encode(d).write(to: discardFile(folder: folder, name: name), options: .atomic)
-        }
+        } catch { throw RPCError.internalError("Nothing was discarded: its Undo couldn't be kept (\(error.localizedDescription)).") }
         // Gone after its minute even when nothing else is discarded: a patch can be large.
         DispatchQueue.global().asyncAfter(deadline: .now() + 61) { [weak self] in self?.sweepDiscards() }
     }

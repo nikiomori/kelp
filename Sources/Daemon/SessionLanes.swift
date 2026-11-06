@@ -63,8 +63,8 @@ extension SessionInput {
     }
 
     /// On the connection's reader thread: `done` with the reply's result, now or from the lane. `allowed` refuses a caller
-    /// the method doesn't take (`Daemon.allow`), as for every other method.
-    static func answerInOrder(_ p: JSONValue, _ sessions: Sessions, allowed: (any Answered) throws -> Void,
+    /// the method doesn't take (`Daemon.allow`), as for every other method, and again in the lane, once the session woke.
+    static func answerInOrder(_ p: JSONValue, _ sessions: Sessions, allowed: @escaping @Sendable (any Answered) throws -> Void,
                               done: @escaping @Sendable (Swift.Result<Data, Error>) -> Void) {
         do {
             let m = try decoded(p)
@@ -74,7 +74,10 @@ extension SessionInput {
             }
             try sessions.mustWake(m.id)
             guard !sessions.lanes.isFull(m.id) else { throw RPCError.internalError("Too much input waits for this session to wake.") }
-            sessions.lanes.run(m.id) { done(Swift.Result { try JSONEncoder().encode(sessions.withInput(m.id) { try m.apply(to: $0) }) }) }
+            // Asked again once it's awake: what it shows by then (a question) may refuse what was let through (`typesInto`).
+            sessions.lanes.run(m.id) {
+                done(Swift.Result { try allowed(m); return try JSONEncoder().encode(sessions.withInput(m.id) { try m.apply(to: $0) }) })
+            }
         } catch { done(.failure(error)) }
     }
 }
