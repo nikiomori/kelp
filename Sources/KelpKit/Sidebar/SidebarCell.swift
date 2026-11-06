@@ -57,12 +57,6 @@ final class SidebarCell: NSTableCellView {
         return badge
     }()
     private var add: NSButton?
-    /// A folded project's or group's: the agents in it, by their logos, the most used first.
-    private let faces: NSStackView = {
-        let s = NSStackView()
-        s.spacing = 3
-        return s
-    }()
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
     private let detail = NSTextField(labelWithString: "")
@@ -107,7 +101,7 @@ final class SidebarCell: NSTableCellView {
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [slot, title, muted, detail, faces, summary, changes, pr, ci, trailing, b])
+            layout(row: [slot, title, muted, detail, summary, changes, pr, ci, trailing, b])
             addAsk()
             detail.isHidden = true
         case .workspace:
@@ -115,7 +109,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(13, weight: .medium)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, faces, changes, pr, ci, trailing, mark])
+            layout(row: [slot, title, detail, muted, changes, pr, ci, trailing, mark])
             addAsk()
         case .agent:
             title.font = .ui(13)
@@ -234,7 +228,7 @@ final class SidebarCell: NSTableCellView {
         r.spacing = 6
         r.alignment = .centerY
         r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr || v === ci || v === faces { r.setVisibilityPriority(.notVisible, for: v) }
+        for v in row where v === changes || v === pr || v === ci { r.setVisibilityPriority(.notVisible, for: v) }
         r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
         // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
@@ -293,11 +287,10 @@ final class SidebarCell: NSTableCellView {
     /// squeezes the name instead: "kdrde…  +2 −1").
     private func fitBadges() {
         guard let r = changes.superview as? NSStackView else { return }
-        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== faces && !$0.isHidden }
+        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && !$0.isHidden }
         var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
-        // The agents' logos go first: the name, then what needs doing, is what the row is for.
-        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr), (faces, !faces.arrangedSubviews.isEmpty)] {
-            let need = b.fittingSize.width + r.spacing, show = has && room >= need
+        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
+            let need = b.intrinsicContentSize.width + r.spacing, show = has && room >= need
             if show { room -= need }
             r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)
         }
@@ -495,22 +488,10 @@ extension SidebarCell {
                                      ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
     }
 
-    /// Folded, a project or a group shows the agents in it by their logos and a second line on its chats (FoldedLine).
+    /// Folded, a project or a group says on a second line what its chats do, led by the agent it quotes (FoldedLine).
     private func showFolded(_ folded: Bool) {
-        let ids = folded ? FoldedLine.agents(under: node, app) : []
-        if faces.arrangedSubviews.map(\.toolTip) != ids.map(app.catalog.name) {
-            faces.arrangedSubviews.forEach { $0.removeFromSuperview() }
-            for id in ids {
-                let v = NSImageView(image: app.catalog.icon(id, size: 14) ?? NSImage())
-                v.imageScaling = .scaleProportionallyUpOrDown
-                NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: 14), v.heightAnchor.constraint(equalToConstant: 14)])
-                v.toolTip = app.catalog.name(id)
-                faces.addArrangedSubview(v)
-            }
-        }
-        fitBadges()
         let line = folded ? FoldedLine.of(node, app) : nil
-        setAsk(line.map { ($0.prefix, $0.text) }, place: line?.place)
+        setAsk(line.map { ($0.prefix, $0.text) }, place: line?.place, agent: line?.agent)
     }
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
@@ -521,12 +502,19 @@ extension SidebarCell {
     }
 
     /// Shows `line` under the name, the name moved up to make room for it; nil: one line.
-    private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?, place: String? = nil) {
+    private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?, place: String? = nil, agent: String? = nil) {
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
         let t = NSMutableAttributedString()
+        if let icon = agent.flatMap({ app.catalog.icon($0, size: 11) }) {   // whose words these are, as on its own row
+            let a = NSTextAttachment()
+            a.image = icon
+            a.bounds = CGRect(x: 0, y: font.descender + 0.5, width: 11, height: 11)
+            t.append(NSAttributedString(attachment: a))
+            t.append(NSAttributedString(string: " ", attributes: [.font: font]))
+        }
         if let place { t.append(NSAttributedString(string: place + " › ", attributes: [.font: font, .foregroundColor: grey])) }
         if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
             t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))

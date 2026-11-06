@@ -173,16 +173,19 @@ extension SidebarCell {
         summarized = now
         summary.arrangedSubviews.forEach { $0.removeFromSuperview() }
         var tip: [String] = []
+        // One mark, the most pressing, as a folded group shows: its count from two on. The rest is in the tooltip.
         for case let (status?, n) in groups where n > 0 {
+            tip.append("\(n) · \(status.words)")
+            guard summary.arrangedSubviews.isEmpty else { continue }
             let mark = StatusMark(size: 12)
             mark.status = status
             mark.unread = true
+            summary.addArrangedSubview(mark)
+            guard n > 1 else { continue }
             let count = NSTextField(labelWithString: "\(n)")
             count.font = .uiDigits(11, weight: .medium)
             count.textColor = .secondaryLabelColor
-            summary.addArrangedSubview(mark); summary.addArrangedSubview(count)
-            summary.setCustomSpacing(6, after: count)
-            tip.append("\(n) · \(status.words)")
+            summary.addArrangedSubview(count)
         }
         summary.isHidden = tip.isEmpty
         summary.toolTip = tip.joined(separator: ", "); summary.setAccessibilityLabel(summary.toolTip)

@@ -5,6 +5,8 @@ import Core
 /// group), else how many there are and the one that moved last. Follows Settings › Appearance › Second Line: Never, none.
 struct FoldedLine {
     var place: String?
+    /// The agent of the chat it speaks of: its logo leads the line.
+    var agent: String?
     var prefix: (String, NSColor)?
     var text: String
 
@@ -29,17 +31,13 @@ struct FoldedLine {
         if let (s, place) = all.first(where: { SidebarCell.askLine($0.session, mode: "needsYou")?.prefix != nil }),
             let line = SidebarCell.askLine(s, mode: "needsYou")
         {
-            return FoldedLine(place: named(place), prefix: line.prefix, text: line.text)
+            return FoldedLine(place: named(place), agent: agent(s), prefix: line.prefix, text: line.text)
         }
         guard let last = all.map(\.session).max(by: { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }) else { return nil }
         let name = app.catalog.displayName(last)
-        return FoldedLine(text: all.count == 1 ? name : String(localized: "\(all.count) chats") + " · " + name)
+        return FoldedLine(agent: agent(last), text: all.count == 1 ? name : String(localized: "\(all.count) chats") + " · " + name)
     }
 
-    /// The agents in it, the most used first, at most three.
-    @MainActor static func agents(under n: SidebarController.Node, _ app: AppModel) -> [String] {
-        let ids = chats(under: n, app).compactMap(\.session.agent).filter { $0 != "custom" && $0 != "shell" }  // a shell isn't an agent
-        let counts = Dictionary(ids.map { ($0, 1) }, uniquingKeysWith: +)
-        return Array(counts.keys.sorted { (counts[$0] ?? 0, $1) > (counts[$1] ?? 0, $0) }.prefix(3))
-    }
+    /// An agent's id for its logo; a plain shell has none.
+    private static func agent(_ s: Session) -> String? { s.agent == "custom" || s.agent == "shell" ? nil : s.agent }
 }

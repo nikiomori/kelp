@@ -141,7 +141,7 @@ extension OneAtATime {
         }
         try fold().performClick(nil)
         #expect(o.numberOfRows == 1)                            // the project alone
-        #expect(rows(of: o)[0].contains("1"))                   // and how many of its agents need you
+        #expect(rows(of: o)[0].contains { $0.contains("feat/login › Asks:") })   // and what its agent asks, and where
         #expect(vc.app.uiState.strings("sidebar.collapsed") == ["p:r1"])   // kept for the next launch
         try fold().performClick(nil)
         #expect(o.numberOfRows == 4)                            // its workspaces open as they were
