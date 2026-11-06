@@ -127,7 +127,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private var forecastTold = Set<String>()   // limits already warned about, until they stop filling faster than they reset
     private func limitsChanged(_ u: UsageGet.Result?) {
         guard let u else { return }
-        for a in limitAlerts.update(u, first: Int(app.settings.string("usage.alertAt") ?? "80")) {
+        for a in limitAlerts.update(u, first: app.settings.usageAlertAt) {
             let name = app.catalog.all.first { $0.id == a.agent }?.name ?? a.agent
             let c = UNMutableNotificationContent()
             c.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
@@ -183,7 +183,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func forecastChanged(_ u: UsageGet.Result) {
-        guard Int(app.settings.string("usage.alertAt") ?? "80") != nil else { return }
+        guard app.settings.usageAlertAt != nil else { return }
         var read = Set<String>()
         for (agent, l, resetAt) in LimitAlerts.readings(u) {
             let key = LimitForecast.key(agent, l.kind), window = UsageView.window(l.kind)

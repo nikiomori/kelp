@@ -276,6 +276,7 @@ private func codeOnly(_ s: String) -> String {
         "Builtins/Git/CommitCard.swift": "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
         "KelpKit/Extensions/DeclarativeExtension.swift": "an extension's own refresh interval for its panel's badge command",
+        "KelpKit/UIState.swift": "the daemon's state read once more, 10 s after a read that failed, while that daemon is still there",
         "Builtins/Browser/BrowserAutomation.swift": "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
     ]
     let all = try matches(#"repeats: true|Task\.sleep\("#, in: appDirs)
@@ -381,11 +382,41 @@ private func codeOnly(_ s: String) -> String {
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
     let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto"
     var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|saysOnlyAState|ends)\b"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bvar (?:answersQuestion|saysOnlyAState)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|ends)\b"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bvar (?:answersQuestion)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:inOrder|quick)\b(?!: Bool \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) timeout\b(?!: TimeInterval\? \{)"#, in: ["Sources/Core", "Sources/Daemon"])
     #expect(wrong.isEmpty, "spelled unlike their requirements: \(wrong)")
+}
+
+/// A gate misspelled (`var inWorkpace`) is a property of its own, and the protocol's default answers in its place: no
+/// property in the daemon is named one or two letters off a gate's name.
+@Test func noPropertyIsNamedNearlyLikeAGate() throws {
+    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto",
+                 "inOrder", "quick", "timeout"]
+    func distance(_ a: String, _ b: String) -> Int {
+        let a = Array(a.lowercased()), b = Array(b.lowercased())
+        var row = Array(0...b.count)
+        for i in 1...max(a.count, 1) where !a.isEmpty {
+            var next = [i] + Array(repeating: 0, count: b.count)
+            for j in 1...max(b.count, 1) where !b.isEmpty {
+                next[j] = min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            row = next
+        }
+        return row[b.count]
+    }
+    let re = try NSRegularExpression(pattern: #"\b(?:static )?var (\w+):"#)
+    var near: [String] = []
+    for f in sources(["Sources/Daemon", "Sources/Core"]) {
+        for m in re.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)) {
+            guard let r = Range(m.range(at: 1), in: f.text) else { continue }
+            let name = String(f.text[r])
+            let words: Set = ["action", "timedOut"]   // words of their own, a letter or two from a gate's name
+            if !gates.contains(name), !words.contains(name), let g = gates.first(where: { $0.count > 5 && distance($0, name) <= 2 }) { near.append("\(f.path): \(name) ~ \(g)") }
+        }
+    }
+    #expect(near == [])
 }
 
 /// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it

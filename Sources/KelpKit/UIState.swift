@@ -35,9 +35,19 @@ package final class UIState {
     /// Whether the daemon's state was read: until then a key that's missing may only not be known yet (`ExtensionTrust`).
     private(set) var loaded = false
 
-    /// Not read (a banner says why): extensions that run commands wait until it is, at the next connection.
+    /// Not read (a banner says why): read again in 10 s while the same daemon is there, and extensions that waited for
+    /// it (they run commands) load then; a new connection reads it anyway.
     func load() async {
-        guard case .object(let all)? = await app.call(StateGet(prefix: "")) else { return }
+        let c = app.client
+        guard case .object(let all)? = await app.call(StateGet(prefix: "")) else {
+            Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                guard let self, !loaded, let c, app.client === c else { return }
+                await load()
+                if loaded { app.extensions.reload() }
+            }
+            return
+        }
         values = all
         loaded = true
     }

@@ -59,6 +59,8 @@ package final class SettingsStore {
         return nil
     }
     package func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
+    /// The share of a plan limit that alerts (`usage.alertAt`, "80"); nil: never ("off"). One place for its default.
+    var usageAlertAt: Int? { Int(string("usage.alertAt") ?? "80") }
     package func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
     package func number(_ key: String, language: String? = nil) -> Double? {
         guard let n = value(key, language: language)?.number else { return nil }
