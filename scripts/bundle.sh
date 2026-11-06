@@ -41,7 +41,11 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Framewor
 cp "$BIN/KelpApp" "$APP/Contents/MacOS/KelpApp"
 # -p: kelpd keeps its build time, which the app compares with the running daemon's; an update that didn't rebuild
 # the daemon then doesn't offer to restart it (that ends the running agents). Signing below puts the time back.
-cp -p "$BIN/kelpd" "$BIN/kelp" "$BIN/kelp-vm" "$BIN/KelpGuest" "$APP/Contents/MacOS/"   # KelpGuest: copied into macOS machines
+cp -p "$BIN/kelpd" "$BIN/kelp" "$APP/Contents/MacOS/"
+# kelp-vm is an app of its own: a macOS machine's screen is its window, which needs its own name in the Dock and ⌘Tab (as a
+# bare binary inside Kelp.app it would be a second "Kelp"). KelpGuest, copied into macOS machines, sits beside it.
+VM="$APP/Contents/Helpers/Kelp Machine.app"; mkdir -p "$VM/Contents/MacOS"
+cp -p "$BIN/kelp-vm" "$BIN/KelpGuest" "$VM/Contents/MacOS/"; cp Resources/KelpMachine.plist "$VM/Contents/Info.plist"
 cp Resources/Info.plist "$APP/Contents/Info.plist"; P=(/usr/libexec/PlistBuddy "$APP/Contents/Info.plist")
 LA="$APP/Contents/Library/LaunchAgents"; mkdir -p "$LA"; cp Resources/dev.kelp.kelpd.plist "$LA/"   # BackgroundItem
 if [ -n "$CH" ]; then
@@ -49,6 +53,7 @@ if [ -n "$CH" ]; then
     -c "Add :KelpHome string .kelp-$CH" -c "Delete :CFBundleURLTypes"
   mv "$LA/dev.kelp.kelpd.plist" "$LA/dev.kelp.kelpd.$CH.plist"   # BackgroundItem.label follows the bundle id
   /usr/libexec/PlistBuddy -c "Set :Label dev.kelp.kelpd.$CH" "$LA/dev.kelp.kelpd.$CH.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier dev.kelp.app.$CH.machine" "$VM/Contents/Info.plist"
 fi
 [ "$CH" != dev ] || "${P[@]}" -c "Delete :SUFeedURL"   # updated by `make dev`
 if [ "$CH" = beta ]; then
@@ -84,14 +89,15 @@ if [ -n "${SIGN_ID:-}" ]; then
   fi
   "${SIGN[@]}" --entitlements Resources/Kelpd.entitlements "$APP/Contents/MacOS/kelpd"; touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
   "${SIGN[@]}" "$APP/Contents/MacOS/kelp"
-  "${SIGN[@]}" --entitlements Resources/KelpVM.entitlements "$APP/Contents/MacOS/kelp-vm"
-  "${SIGN[@]}" "$APP/Contents/MacOS/KelpGuest"
+  "${SIGN[@]}" "$VM/Contents/MacOS/KelpGuest"
+  "${SIGN[@]}" --entitlements Resources/KelpVM.entitlements "$VM"
   codesign --force --options runtime --timestamp --entitlements Resources/Kelp.entitlements --sign "$SIGN_ID" "$APP"
 fi
 if [ "$CH" = dev ]; then
   # Ad hoc, inside out; no entitlements, as a debug build runs from Xcode, but for kelp-vm's: without it no machine starts.
-  codesign --force --sign - --entitlements Resources/KelpVM.entitlements "$APP/Contents/MacOS/kelp-vm"
-  for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP/Contents/MacOS/KelpGuest" "$APP"; do codesign --force --sign - "$f"; done
+  codesign --force --sign - "$VM/Contents/MacOS/KelpGuest"
+  codesign --force --sign - --entitlements Resources/KelpVM.entitlements "$VM"
+  for f in "$APP/Contents/MacOS/kelpd" "$APP/Contents/MacOS/kelp" "$APP"; do codesign --force --sign - "$f"; done
   touch -r "$BIN/kelpd" "$APP/Contents/MacOS/kelpd"
   open "$APP"; echo "built $APP"; exit 0
 fi

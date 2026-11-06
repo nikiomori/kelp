@@ -464,13 +464,19 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     /// Its screen in a window of its own: full speed, the pointer and keys go to it. Closing it only hides it.
     private func show() {
         _ = screen()
+        // In the Dock and ⌘Tab while it's shown, like any window one works in; out of them again once it's closed.
+        NSApp.applicationIconImage = NSImage(named: NSImage.computerName)
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(window?.contentView)   // keys go to the machine at once, without a click into it first
     }
 
     nonisolated func windowShouldClose(_ sender: NSWindow) -> Bool {
-        MainActor.assumeIsolated { sender.orderOut(nil) }   // AppKit asks on the main thread
+        MainActor.assumeIsolated {   // AppKit asks on the main thread
+            sender.orderOut(nil)
+            NSApp.setActivationPolicy(.accessory)
+        }
         return false
     }
 }

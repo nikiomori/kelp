@@ -170,3 +170,13 @@ extension VMService {
         return line.flatMap { Double($0.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) } ?? 0
     }
 }
+
+extension VMService {
+    /// kelp-vm: in Kelp.app, an app of its own in Contents/Helpers (a machine's screen is its window, with its own name in
+    /// the Dock and ⌘Tab); in a build folder, beside kelpd. KelpGuest is beside it either way.
+    static func helper(beside kelpd: String) -> String {
+        let dir = URL(fileURLWithPath: kelpd).deletingLastPathComponent()
+        let app = dir.deletingLastPathComponent().appendingPathComponent("Helpers/Kelp Machine.app/Contents/MacOS/kelp-vm")
+        return FileManager.default.isExecutableFile(atPath: app.path) ? app.path : dir.appendingPathComponent("kelp-vm").path
+    }
+}

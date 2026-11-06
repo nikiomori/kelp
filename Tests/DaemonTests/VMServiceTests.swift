@@ -62,6 +62,19 @@ import Testing
         #expect(vms.list(sessions: true).first?.sessions == ["S1"])
     }
 
+    /// In Kelp.app kelp-vm is an app of its own (its window has its own name in the Dock and ⌘Tab); in a build folder it's
+    /// beside kelpd.
+    @Test func kelpVMIsItsOwnAppInKelpAndBesideKelpdInABuild() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let macOS = home.appendingPathComponent("Kelp.app/Contents/MacOS"), kelpd = macOS.appendingPathComponent("kelpd").path
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        #expect(VMService.helper(beside: kelpd) == macOS.appendingPathComponent("kelp-vm").path)
+        let inApp = home.appendingPathComponent("Kelp.app/Contents/Helpers/Kelp Machine.app/Contents/MacOS/kelp-vm")
+        try FileManager.default.createDirectory(at: inApp.deletingLastPathComponent(), withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: inApp.path, contents: Data(), attributes: [.posixPermissions: 0o755])
+        #expect(VMService.helper(beside: kelpd) == inApp.path)
+    }
+
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
