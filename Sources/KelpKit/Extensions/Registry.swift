@@ -304,7 +304,8 @@ package final class ExtensionRegistry {
     /// agent writing one saves it many times). "Not Now" leaves it in Settings › Extensions, with Allow there.
     private func askTrust(_ infos: [ExtensionInfo]) {
         let users = infos.compactMap { $0.builtin ? nil : $0.path }
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             if await ExtensionTrust.adopt(users, app) { reload(); return }
             let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter { asked.insert(IDE.extensionDigest($0)).inserted }
             guard !waiting.isEmpty else { return }
