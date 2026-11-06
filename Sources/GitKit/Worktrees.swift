@@ -9,8 +9,10 @@ extension Git {
 
     /// New branch from `base` in a fresh worktree; copies `copyFiles` present in the repo root. `existing`: a branch that is
     /// there already, checked out as it is (a remote one, "origin/x", gets a local "x" that follows it); `base` unused.
+    /// `copying`: the project's own files a worktree gets (`copyFiles`, `.worktreeinclude`'s: `.env` and the like), which
+    /// a pull request's code shouldn't have to read.
     public static func addWorktree(repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
-                                   remotes: Remotes = .none) throws -> String {
+                                   copying: Bool = true, remotes: Remotes = .none) throws -> String {
         // "feat/a" and "feat-a" make one slug: the second gets "-2" rather than a confusing "already exists" from git.
         var path = dir.appendingPathComponent(slug(branch)).path, n = 2
         while FileManager.default.fileExists(atPath: path) { path = dir.appendingPathComponent("\(slug(branch))-\(n)").path; n += 1 }
@@ -25,7 +27,7 @@ extension Git {
             else { try run(["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes) }
         }
         let fm = FileManager.default
-        for f in Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) {
+        for f in copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : [] {
             let src = (repo as NSString).appendingPathComponent(f), dst = (path as NSString).appendingPathComponent(f)
             guard fm.fileExists(atPath: src), !fm.fileExists(atPath: dst), staysInside(dst, path) else { continue }
             try? fm.createDirectory(atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
@@ -68,14 +70,24 @@ extension Git {
         }
     }
 
-    /// Whether `path`'s checkout holds a pull request's code that Kelp fetched (`fetchPullRequest`, or a `pr-*` branch),
-    /// which origin's branches don't: one merged and pushed is the project's own. Unknown (git failed): it does.
-    public static func holdsPullRequest(_ path: String, remotes: Remotes = .none) -> Bool {
+    /// Whether `rev` in `repo` holds a pull request's code that origin's branches don't (one merged and pushed is the
+    /// project's own): a head Kelp fetched (`fetchPullRequest`), a `pr-*` branch, or a branch that follows a PR's ref
+    /// (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is refs/pull/… or refs/merge-requests/…). A
+    /// fetched head found merged and pushed is dropped. Unknown (git failed): it does.
+    public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes = .none) -> Bool {
         do {
-            let heads = try run(["for-each-ref", "--merged", "HEAD", "--format=%(objectname)", "refs/kelp/pr/", "refs/heads/pr-*"],
-                                cwd: path, remotes: remotes).split(separator: "\n").map(String.init)
-            for h in Set(heads) where try !run(["rev-list", "-n1", h, "--not", "--remotes=origin"], cwd: path, remotes: remotes).isEmpty {
-                return true
+            let merges = try run(["config", "--get-regexp", #"^branch\..*\.merge$"#], cwd: repo, ok: [0, 1], remotes: remotes)
+            let following = merges.split(separator: "\n").compactMap { line -> String? in
+                let kv = line.split(separator: " ", maxSplits: 1)
+                guard kv.count == 2, kv[1].hasPrefix("refs/pull/") || kv[1].hasPrefix("refs/merge-requests/") else { return nil }
+                return "refs/heads/" + kv[0].dropFirst("branch.".count).dropLast(".merge".count)
+            }
+            let heads = try run(["for-each-ref", "--merged", rev, "--format=%(refname) %(objectname)", "refs/kelp/pr/", "refs/heads/pr-*"]
+                                + following, cwd: repo, remotes: remotes)
+            for line in heads.split(separator: "\n") {
+                let ref = String(line.prefix { $0 != " " }), sha = String(line.drop { $0 != " " }.dropFirst())
+                guard try run(["rev-list", "-n1", sha, "--not", "--remotes=origin"], cwd: repo, remotes: remotes).isEmpty else { return true }
+                if ref.hasPrefix("refs/kelp/pr/") { try run(["update-ref", "-d", ref], cwd: repo, remotes: remotes) }
             }
             return false
         } catch { return true }

@@ -33,6 +33,31 @@ import Testing
     try Git.run(["checkout", "-qb", "on-top", "pr-7"], cwd: repo)
     try Git.run(["branch", "-D", "pr-7"], cwd: repo)
     #expect(Git.holdsPullRequest(repo))
+    #expect(Git.holdsPullRequest(repo, at: "on-top") && !Git.holdsPullRequest(repo, at: "main"))
     try Git.run(["update-ref", "refs/remotes/origin/main", head], cwd: repo)
     #expect(!Git.holdsPullRequest(repo))
+    #expect(try Git.run(["for-each-ref", "refs/kelp/pr/"], cwd: repo).isEmpty)   // merged and pushed: dropped
+}
+
+/// A branch `gh pr checkout` made follows the PR's ref (its `branch.<name>.merge`), with no ref of Kelp's: told too.
+@Test func aBranchFollowingAPullRequestsRefIsTold() throws {
+    let repo = try tempRepo()
+    try Git.run(["checkout", "-qb", "fix-from-fork"], cwd: repo)
+    try "theirs\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+    try Git.run(["commit", "-qam", "pr"], cwd: repo)
+    try Git.run(["config", "branch.fix-from-fork.merge", "refs/pull/9/head"], cwd: repo)
+    #expect(Git.holdsPullRequest(repo))
+    try Git.run(["checkout", "-q", "main"], cwd: repo)
+    #expect(!Git.holdsPullRequest(repo))
+}
+
+/// An Undo that puts back some files and is refused for others says so, not that nothing was put back.
+@Test func anUndoPutBackInPartSaysHowMuch() throws {
+    let repo = try tempRepo()
+    try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+    try "new\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
+    let back = try Git.discard(repo, files: ["f.txt", "n.txt"])
+    try "later\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // changed since: refused
+    #expect(throws: Git.PartlyPutBack.self) { try Git.putBack(repo, patch: back, hunk: false) }
+    #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "new\n")
 }

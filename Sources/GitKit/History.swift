@@ -191,14 +191,22 @@ extension Git {
         do { try runData(apply, cwd: path, stdin: patch, remotes: remotes) } catch {
             let files = perFile(patch)
             guard !hunk, files.count > 1 else { throw error }
+            var back = 0, refused: Error?
             for f in files {
                 // Already as the patch leaves it (its undo applies): let be.
                 do { try runData(["apply", "--binary", "-R", "--check", "-"], cwd: path, stdin: f, remotes: remotes) } catch {
-                    try runData(apply, cwd: path, stdin: f, remotes: remotes)
+                    do { try runData(apply, cwd: path, stdin: f, remotes: remotes); back += 1 } catch { refused = refused ?? error }
                 }
+            }
+            if let refused {
+                guard back > 0 else { throw refused }
+                throw PartlyPutBack(back: back, of: files.count, why: (refused as? GitError)?.stderr ?? "\(refused)")
             }
         }
     }
+
+    /// Some of a discard's files put back, the rest refused (changed since): a try later puts back those once they're as they were.
+    public struct PartlyPutBack: Error { public let back: Int, of: Int, why: String }
 
     /// A patch cut at each file's `diff --git` line.
     static func perFile(_ patch: Data) -> [Data] {

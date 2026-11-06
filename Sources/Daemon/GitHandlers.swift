@@ -170,7 +170,10 @@ extension GitUndoDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
         let undone = try workspaces.undoDiscard(folder: path, name: undo) { d in
-            do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch {
+            do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch let p as Git.PartlyPutBack {
+                throw RPCError.invalidParams("\(p.back) of \(p.of) files were put back; the others changed since the discard "
+                    + "(\(p.why.trimmingCharacters(in: .whitespacesAndNewlines))).")
+            } catch {
                 let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
                 throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
             }

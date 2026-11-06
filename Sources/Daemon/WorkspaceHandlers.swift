@@ -121,8 +121,12 @@ extension WorktreeCreate: Handled {
         if let pr { branch = try Git.fetchPullRequest(repo: r.path, number: pr, wanted: self.branch == nil ? nil : branch, remotes: workspaces.remotes) }
         let base = try clientRef(base.flatMap { $0.isEmpty ? nil : $0 }) ?? r.baseBranch
         let into = Workspaces.worktreesDir(workspaces.root, r, chosen: workspaces.sessions.settings["worktrees.folder"]?.string)
+        // A pull request's code, fetched now or under what it starts from (`holdsPullRequest`): it gets none of the project's
+        // own files (.env), and nothing of .kelp.yaml runs on it until the user says so (below).
+        let checksOut = existing == true || pr != nil
+        let fromPR = pr != nil || Git.holdsPullRequest(r.path, at: checksOut ? branch : base, remotes: workspaces.remotes)
         let path = try Git.addWorktree(repo: r.path, branch: branch, base: base, into: into, copyFiles: r.copyFiles,
-                                       existing: existing == true || pr != nil, remotes: workspaces.remotes)
+                                       existing: checksOut, copying: !fromPR, remotes: workspaces.remotes)
         // "origin/x" checked out as the local "x" that follows it
         if existing == true, !Git.branchExists(r.path, branch, remotes: workspaces.remotes) {
             branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
@@ -134,8 +138,7 @@ extension WorktreeCreate: Handled {
         // Everything .kelp.yaml does waits for the user's trust in this version of the file, not only `setup`: `tabs`
         // starts agents and `shared` links folders, and a freshly cloned repository wrote that file, not the user.
         // Checked and used from one read. A pull request brings code the file's trust doesn't cover (an install script of
-        // its author's): nothing runs on it until the user says so, nor on a branch made on top of one (`holdsPullRequest`).
-        let fromPR = pr != nil || Git.holdsPullRequest(path, remotes: workspaces.remotes)
+        // its author's): nothing runs on it until the user says so, nor on a branch made on top of one (`fromPR`).
         let read = workspaces.configAndTrust(r.path), cfg = read.config, trusted = read.trusted && !fromPR
         if trusted {
             Git.linkShared(cfg.shared, repo: r.path, worktree: path)
