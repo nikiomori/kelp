@@ -44,8 +44,6 @@ protocol Answered: RPCMethod {
     var notForAgents: String? { get }
     /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
     var typesInto: String? { get }
-    /// It says a state and nothing in words, nor a folder (`Caller.unknown` may send only that).
-    var saysOnlyAState: Bool { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -59,7 +57,6 @@ extension Answered {
     var ends: Ending? { nil }
     var notForAgents: String? { nil }
     var typesInto: String? { nil }
-    var saysOnlyAState: Bool { false }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -162,11 +159,10 @@ extension Daemon {
     /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types
     /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
     /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook), one gone
-    /// before it was looked at and one that forked away from its terminal are held to the same with no session of their
-    /// own (`Caller`). The user's own terminals drive any. Limit: a program that left the tree into a terminal of its own
-    /// (`script`, a tmux server's pane) is taken for one outside every session, and an agent typed into a plain terminal
-    /// by hand counts as that terminal; macOS doesn't show another process's environment (its KELP_SESSION) to tell, and
-    /// an agent can still leave a program for the user to run (a file): the socket, and the files, are the user's.
+    /// before it was looked at and one Kelp can't tell for the user's (`Caller.detached`) are held to the same with no
+    /// session of their own. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md):
+    /// a program that has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run;
+    /// an agent typed into a plain terminal by hand counts as that terminal.
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ m: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
@@ -178,9 +174,8 @@ extension Daemon {
             guard try sessions.forAnAgent(own) else { return }
             try allowAgent(m, own: own)
         case .unknown:
-            // A hook reports and ends, sometimes before it's looked at: a state counts, of whichever session it names.
-            // Nothing in words (another agent is told a report's text), no folder, no wait on a question.
-            if m.reportsFor != nil, m.saysOnlyAState { return }
+            // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
+            // connection on, which is how a program would speak for a session not its own.
             try allowAgent(m, own: Sessions.unknown, or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
         case .kelpd:
             try allowAgent(m, own: Sessions.ownProgram,
@@ -502,7 +497,6 @@ extension RepoRemoveWorktrees: Handled {
 
 extension SessionReport: Handled {
     var reportsFor: String? { id }
-    var saysOnlyAState: Bool { message == nil }
     static var quick: Bool { true }   // `kelp report`: the agent waits for it
     func handle(_ sessions: Sessions) throws -> Done {
         guard ProgramStatus.states.contains(state) else { throw RPCError.invalidParams("state is one of idle, working, blocked, done, error, clear") }
@@ -517,7 +511,6 @@ extension SessionReport: Handled {
 /// herdr has no "done": idle after work is a finished turn (`StatusDetector.program`).
 extension PaneReportAgent: Handled {
     var reportsFor: String? { paneId }
-    var saysOnlyAState: Bool { true }
     static var quick: Bool { true }   // fx waits for the reply
     func handle(_ sessions: Sessions) throws -> Done {
         guard ["idle", "working", "blocked"].contains(state) else { throw RPCError.invalidParams("state is one of idle, working, blocked") }

@@ -73,17 +73,18 @@ final class ChildReports: Sendable {
 
 extension Sessions {
     /// `id` and the sessions that started it, theirs in turn, nearest first (`parent`, else `startedBy`, else `origin`).
+    /// It stops at a caller's mark (`Caller.marks`: started by kelpd's program or one Kelp couldn't place) or a session gone.
     func lineage(_ id: String) throws -> [Session] {
         var line: [Session] = [], next: String? = id
-        while let n = next, line.count < 32, !line.contains(where: { $0.id == n }), let s = try store.session(n) {
+        while let n = next, !Caller.marks.contains(n), line.count < 32, !line.contains(where: { $0.id == n }), let s = try store.session(n) {
             line.append(s)
             next = s.parent ?? s.startedBy ?? s.origin
         }
         return line
     }
 
-    /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (a session it
-    /// came from is gone, or is the daemon's own), which can't be told from an agent's.
+    /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (it stops at a
+    /// mark, `Caller.marks`, or at a session that's gone), which can't be told from an agent's.
     func forAnAgent(_ id: String) throws -> Bool {
         let line = try lineage(id)
         let cameFrom = line.last.flatMap { $0.parent ?? $0.startedBy ?? $0.origin }

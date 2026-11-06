@@ -91,8 +91,8 @@ extension RepoRemove: Handled {
 extension WorkspaceCreate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
-        let w = try workspaces.createWorkspace(in: r)
-        if let a = Sessions.asker { workspaces.sessions.made.withLock { $0[w.id] = a } }
+        var w = try workspaces.createWorkspace(in: r)
+        if let a = Sessions.asker { w.madeBy = a; try workspaces.store.save(w) }
         workspaces.sessions.workspaceAdded(w)
         return w
     }
@@ -131,9 +131,9 @@ extension WorktreeCreate: Handled {
         if existing == true, !Git.branchExists(r.path, branch, remotes: workspaces.remotes) {
             branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
         }
-        let w = Worktree(repoId: r.id, branch: branch, path: path, note: note ?? (self.branch == nil ? auto.name : ""), base: base)
+        var w = Worktree(repoId: r.id, branch: branch, path: path, note: note ?? (self.branch == nil ? auto.name : ""), base: base)
+        w.madeBy = Sessions.asker
         try workspaces.store.save(w)
-        if let a = Sessions.asker { workspaces.sessions.made.withLock { $0[w.id] = a } }
         var result = Result(worktree: w)
         // Everything .kelp.yaml does waits for the user's trust in this version of the file, not only `setup`: `tabs`
         // starts agents and `shared` links folders, and a freshly cloned repository wrote that file, not the user.

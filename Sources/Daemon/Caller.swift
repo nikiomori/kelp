@@ -10,13 +10,18 @@ enum Caller: Hashable, Sendable {
     /// one on a connection that hung up: whoever wrote it, it acts on no session and answers no question.
     case kelpd
     /// Gone before it could be looked at (it connected and ended at once, leaving the connection to a child): held to an
-    /// agent's rules, but for a state with no words (a hook may send one and end).
+    /// agent's rules, and speaks for no session.
     case unknown
-    /// One that left its parent and its terminal both (a double fork and `setsid`): held to an agent's rules.
+    /// None of the above and not the user's that Kelp can tell (`Sessions.session(running:)`): one that left every
+    /// terminal and app behind (a double fork with `setsid`, `script`, a tmux server nobody's attached to). Held to an
+    /// agent's rules.
     case detached
 
-    /// What a session it starts records as its origin (`Session.origin`): its session, or a mark whose line breaks off,
-    /// which `Sessions.forAnAgent` holds to an agent's rules.
+    /// The marks `origin` records for a caller with no session: never a session's id (a UUID), and where a line stops.
+    static let marks: Set<String> = [Sessions.ownProgram, Sessions.unknown, Sessions.detached]
+
+    /// What a session it starts records as its origin (`Session.origin`): its session, or a mark (`marks`) where its
+    /// line stops, which `Sessions.forAnAgent` holds to an agent's rules.
     var origin: String? {
         switch self {
         case .user: nil

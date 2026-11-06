@@ -6,33 +6,38 @@ enum AgentRules {
     /// The methods an agent's program, or one kelpd runs (an extension's, a git hook), may call at all; each still has its
     /// own rules (`actsOn`, `inWorkspace`, …). What agents use (their skills, hooks and `kelp` commands) and what reads.
     /// Everything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, routines, scripts, the
-    /// daemon itself): a new method is closed to agents until it's put here.
-    static let methods: Set<String> = [
+    /// daemon itself): a new method is closed to agents until it's put here. By type, so a renamed one stays named.
+    static let methods: Set<String> = Set(types.map { $0.name })
+    private static let types: [any RPCMethod.Type] = [
         // reading
-        "agents.versions", "ci.failures", "ci.fullLog", "ci.jobs", "ci.log", "ci.runs", "comment.list", "daemon.info", "ping",
-        "extension.library", "files.fetch", "files.ignored", "files.list", "files.read", "files.readRemote", "files.search",
-        "git.authorAvatar", "git.branches", "git.commitDetails", "git.commitFiles", "git.diff", "git.graph", "git.hunk",
-        "git.lineStats", "git.log", "git.remote", "git.status", "git.unsynced", "git.webPages", "git.webURL",
-        "github.branchPR", "github.checks", "github.failedLog", "github.forge", "github.issues", "github.projectItems",
-        "github.projects", "github.prs", "github.reviewComments", "github.status", "gitlab.status", "bitbucket.status",
-        "jira.issues", "jira.status", "jira.transitions", "linear.issues", "linear.states", "linear.status", "linear.teams",
-        "history.list", "host.stats", "ports.list", "process.which", "recipe.render", "remote.listFolders", "repo.icon",
-        "repo.list", "repo.worktreeSizes", "routine.list", "run.detect", "scripts.list", "session.busy", "session.commands",
-        "session.context", "session.contextParts", "session.contextWindow", "session.lastReply", "session.list",
-        "session.read", "session.subagentJournal", "session.subagentSteps", "session.trail", "session.turns",
-        "session.usage", "session.why", "settings.get", "skills.browser", "state.get", "tmux.list", "ui.state",
-        "usage.agents", "usage.get", "vm.detail", "vm.list", "worktree.dirty", "worktree.list", "worktree.unmerged",
-        "client.events", "watch.start", "watch.stop",
+        AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
+        CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
+        FilesList.self, FilesRead.self, FilesReadRemote.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
+        GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitHunk.self, GitLineStats.self,
+        GitLog.self, GitRemoteOp.self, GitStatus.self, GitUnsynced.self, GitWebPages.self, GitWebURL.self,
+        GitHubBranchPR.self, GitHubChecks.self, GitHubFailedLog.self, GitHubForge.self, GitHubIssues.self,
+        GitHubProjectItems.self, GitHubProjects.self, GitHubPRs.self, GitHubReviewComments.self, GitHubStatus.self,
+        GitLabStatus.self, BitbucketStatus.self, JiraIssues.self, JiraStatus.self, JiraTransitions.self,
+        LinearIssues.self, LinearStates.self, LinearStatus.self, LinearTeams.self, HistoryList.self,
+        HostStatsRead.self, PortsList.self, ProcessWhich.self, RecipeRender.self, RemoteListFolders.self,
+        RepoIcon.self, RepoList.self, RepoWorktreeSizes.self, RoutineList.self, RunDetect.self, ScriptsList.self,
+        SessionBusy.self, SessionCommands.self, SessionContext.self, SessionContextParts.self,
+        SessionContextWindow.self, SessionLastReply.self, SessionList.self, SessionRead.self,
+        SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self, SessionTurns.self,
+        SessionUsage.self, SessionWhy.self, SettingsGet.self, SkillsBrowser.self, StateGet.self, TmuxList.self,
+        UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self, VMList.self, WorktreeDirty.self,
+        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self,
         // its own sessions and those it started (`actsOn`, named ids), its hooks and reports
-        "session.attach", "session.detach", "session.resize", "session.create", "session.send", "session.write",
-        "session.kill", "session.restart", "session.rename", "session.markRead", "session.markUnread", "session.recap",
-        "session.handoff", "session.continueAt", "session.turn", "session.turnUndo", "session.turnRedo", "session.hook",
-        "session.report", "session.permissionWait", "pane.report_agent", "usage.report", "comment.add", "comment.send",
+        SessionAttach.self, SessionDetach.self, SessionResize.self, SessionCreate.self, SessionSend.self,
+        SessionWrite.self, SessionKill.self, SessionRestart.self, SessionRename.self, SessionMarkRead.self,
+        SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
+        SessionTurnUndo.self, SessionTurnRedo.self, SessionHook.self, SessionReport.self, SessionPermissionWait.self,
+        PaneReportAgent.self, UsageReport.self, CommentAdd.self, CommentSend.self,
         // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
         // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
-        "ui.open", "ui.command", "ui.browser", "ports.stop", "settings.set", "extension.fetch",
-        "workspace.create", "worktree.create", "worktree.note", "worktree.archive", "worktree.remove",
-        "vm.connect", "vm.screen", "vm.type", "vm.control"
+        UIOpen.self, UICommand.self, UIBrowser.self, PortsStop.self, SettingsSet.self, ExtensionFetch.self,
+        WorkspaceCreate.self, WorktreeCreate.self, WorktreeNote.self, WorktreeArchive.self, WorktreeRemove.self,
+        VMConnect.self, VMScreen.self, VMType.self, VMControl.self
     ]
 }
 
@@ -57,7 +62,7 @@ extension Sessions {
     func works(_ own: String, in w: String) throws -> Bool {
         let line = try lineage(own)
         if line.contains(where: { $0.worktreeId == w }) { return true }
-        if let maker = made.withLock({ $0[w] }), line.contains(where: { $0.id == maker }) { return true }
+        if let maker = try store.worktree(w)?.madeBy, line.contains(where: { $0.id == maker }) { return true }
         return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
     }
 

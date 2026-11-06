@@ -4130,6 +4130,10 @@
           "linearIssueId" : {
             "type" : "string"
           },
+          "madeBy" : {
+            "description" : "The session whose program made it (`Session.origin`'s kind): an agent works in a workspace it made, across a restart of the daemon too. nil: the user's.",
+            "type" : "string"
+          },
           "note" : {
             "type" : "string"
           },
@@ -4191,6 +4195,9 @@
             "type" : "string"
           },
           "linearIssueId" : {
+            "type" : "string"
+          },
+          "madeBy" : {
             "type" : "string"
           },
           "note" : {

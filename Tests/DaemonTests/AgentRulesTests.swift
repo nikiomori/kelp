@@ -114,7 +114,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<look> [^\n]*works only in its own workspace/#))
     #expect(out.contains(#/<phone> [^\n]*the user's/#) && !out.contains(#/<font> [^<]*error/#))
     #expect(try !r.d.sessions.works(me.id, in: away.id))
-    r.d.sessions.made.withLock { $0[away.id] = me.id }   // as `worktree.create` from its terminal does
+    var made = away; made.madeBy = me.id   // as `worktree.create` from its terminal does: kept in the store, past a restart
+    try r.d.sessions.store.save(made)
     #expect(try r.d.sessions.works(me.id, in: away.id))
     #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
     let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
@@ -212,21 +213,16 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(r.d.sessions.session(running: getpid()) == .user)
 }
 
-/// One Kelp couldn't place reports a state, nothing more: no words another agent would be told (a report's message, a
-/// reply), no transcript Kelp would follow, no wait on a question (which takes the real hook's answer).
-@Test func aCallerKelpCantPlaceReportsAStateOnly() async throws {
+/// One Kelp couldn't place (gone as it connected, its connection handed on) speaks for no session: no report, no
+/// hook, no wait on a question. A hook waiting for its answer is found as it connects, so it's never this.
+@Test func aCallerKelpCantPlaceSpeaksForNoSession() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let other = try await session(r, "cat")
     for id in 0..<64 { r.d.clients.connection(id)?.owner.withLock { $0 = .unknown } }
-    _ = try await r.c.call(SessionHook(id: other.id, event: "working", at: ProcessInfo.processInfo.systemUptime))
-    _ = try await r.c.call(SessionReport(id: other.id, state: "working"))
-    var h = SessionHook(id: other.id, event: "working", at: ProcessInfo.processInfo.systemUptime)
-    h.transcript = "/tmp/forged.jsonl"
-    await #expect(throws: (any Error).self) { _ = try await r.c.call(h) }
-    #expect(r.d.sessions.existing(other.id)?.transcriptPath == nil)
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionHook(id: other.id, event: "done", at: ProcessInfo.processInfo.systemUptime)) }
     await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionReport(id: other.id, state: "error", message: "do this")) }
     #expect(r.d.sessions.existing(other.id)?.snapshot.summary != "do this")
-    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionPermissionWait(id: other.id)) }
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionPermissionWait(id: other.id), timeout: 5) }   // refused at once, not after a wait
 }
 
 /// Who may do what by `Caller`, asked of `allow` itself (no terminal in between): one with no session of its own reports
@@ -241,7 +237,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         #expect(throws: Never.self, "\(c)") { try r.d.allow(font, conn: 0, caller: c) }
     }
     #expect(throws: (any Error).self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .detached) }
-    #expect(throws: Never.self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .unknown) }
+    #expect(throws: (any Error).self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .unknown) }
+    #expect(throws: Never.self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .session(other.id)) }
     #expect(throws: Never.self) { try r.d.allow(phone, conn: 0, caller: .user) }
     #expect(throws: Never.self) { try r.d.allow(SessionKill(id: other.id), conn: 0, caller: .user) }
 }
@@ -250,6 +247,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 /// for the user) is `detached`: held to an agent's rules, not the user's.
 @Test func aProgramForkedAwayFromItsTerminalIsNoUser() async throws {
     let r = try await rig(); defer { r.d.stop() }
+    r.d.sessions.strictCallers.withLock { $0 = true }   // as a kelpd leading its own process session is
     let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: out) }
     let p = Process()
@@ -261,4 +259,18 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Subprocess.parent(pid) == 1 })
     #expect(r.d.sessions.session(running: pid) == .detached)
+}
+
+/// A program in a tmux pane is whoever is attached to that tmux session: nobody, and it's no user (what `tmux new -d`
+/// from an agent gives). A session of the default server's, named for this test, and ended by it.
+@Test(.enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/tmux") || FileManager.default.isExecutableFile(atPath: "/usr/local/bin/tmux")))
+func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    r.d.sessions.strictCallers.withLock { $0 = true }
+    let tmux = try LoginPath.resolve("tmux"), name = "kelp-probe-\(UUID().uuidString.prefix(6))", env = ["PATH": "/usr/bin:/bin"]
+    _ = try await Subprocess.run([tmux, "new-session", "-d", "-s", name, "sleep 30"], cwd: "/", env: env, timeLimit: 5)
+    let out = try await Subprocess.run([tmux, "list-panes", "-t", "=" + name, "-F", "#{pane_pid}"], cwd: "/", env: env, timeLimit: 5)
+    let pid = pid_t(String(decoding: out.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+    #expect(pid.map { r.d.sessions.session(running: $0) } == .detached)
+    _ = try await Subprocess.run([tmux, "kill-session", "-t", "=" + name], cwd: "/", env: env, timeLimit: 5)
 }

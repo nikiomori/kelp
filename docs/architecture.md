@@ -237,16 +237,22 @@ checks it for every call, by the program at the other end of the socket. A statu
 from a program running inside a session is for that session only (`Answered.reportsFor`), so one agent can't mark another
 done or asking.
 
-**An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Sessions.caller`, looked
-up as it connects): the session it runs in, by its process tree or its terminal; a program kelpd itself started (an
-extension's command or event, a repository's git hook, whatever they left running: kelpd leads its own process session)
-is `ownProgram`; one gone before it could be read is `unknown`. A program of an agent's, `ownProgram` and `unknown` (but
-for a status report) are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`:
-reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
-the ones they started (any session id a call names counts), work in their own workspaces, run only the app's commands
-that show something (`UICommand.forAgents`), and never answer a question. The user's own terminals, the window and a
-script from outside every session do what the user can. Limit: a program that leaves its tree and its terminal
-(`setsid`, a tmux server) counts as the user's; and an agent can still leave a file for the user to run.
+**An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Sessions.caller`, a
+`Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or its
+terminal, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd itself started (an
+extension's command or event, a repository's git hook, whatever they left running: kelpd leads its own process session);
+`unknown` for one gone before it could be read. It's the user's only when Kelp can tell: Kelp's window, a terminal of
+Kelp's no agent is on the line of, or a program started under an app (Terminal, iTerm, an editor). Anything else is
+`detached`: what left every terminal and app behind (a double fork with `setsid`, `script`, `tmux new -d`, `screen -dm`).
+Agents, `kelpd`, `unknown` and `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use
+(`AgentRules.methods`, by type: reading, their own sessions and hooks, the IDE in their workspaces, what their skills
+use), act on their own session and the ones they started (any session id a call names counts), work in their own
+workspaces (and the ones they made, `Worktree.madeBy`), run only the app's commands that show something
+(`UICommand.forAgents`), set no setting of the user's own (`SettingsSet.usersOnly`), never answer a question; only a
+session speaks for itself. What this fences: an agent's mistakes, and words written to steer it (a page, an issue, a
+file it reads), however it shapes the command. What it doesn't, as agents run as the user's account: a program that
+starts an app for the user to watch run it (`open -a Terminal`, AppleScript), and files left for the user to run (a
+shell's startup file, an agent's manifest in ~/.kelp/agents). Isolating those takes a sandbox around the agent itself.
 
 **Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
 asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the

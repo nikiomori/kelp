@@ -41,6 +41,9 @@ public struct Worktree: Codable, Sendable, Equatable, Revised {
     public var prURL: String
     /// Branch this one was cut from; when it isn't the repo's base the worktree is part of a PR stack.
     public var base: String
+    /// The session whose program made it (`Session.origin`'s kind): an agent works in a workspace it made, across a
+    /// restart of the daemon too. nil: the user's.
+    public var madeBy: String?
     public init(id: String = UUID().uuidString, repoId: String, branch: String, path: String, note: String = "", archived: Bool = false,
                 createdAt: Date = Date(), issue: String = "", issueURL: String = "", linearIssueId: String = "",
                 prNumber: Int? = nil, prURL: String = "", base: String = "") {

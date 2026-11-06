@@ -20,6 +20,8 @@ extension Sessions.Launch {
 
 extension SessionCreate: Handled {
     var inWorkspace: String? { worktreeId }   // a session of its there would let an agent into that workspace (`works`)
+    /// A tmux session by name would attach to one of the user's (`new-session -A`), and type in it as the agent.
+    var notForAgents: String? { tmux == nil ? nil : "An agent's terminals aren't tmux sessions: tmux sessions are the user's to attach." }
     func handle(_ sessions: Sessions) throws -> Session {
         // cwd wins when both are given (e.g. an agent building an extension, shown in the current workspace).
         var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
@@ -144,11 +146,6 @@ extension Sessions {
 /// A late one (it was paused or ended since) wakes nothing.
 extension SessionHook: Handled {
     var reportsFor: String? { id }
-    /// Its event alone: no words (a reply, a question's text, a goal), no transcript to follow, no folder, no command.
-    var saysOnlyAState: Bool {
-        transcript == nil && cwd == nil && notification == nil && reply == nil && goal == nil && command == nil
-            && hookName != "PermissionRequest"
-    }
     static var quick: Bool { true }   // the agent waits for its hook
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else {

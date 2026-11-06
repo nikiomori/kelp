@@ -37,9 +37,9 @@ final class Sessions: Sendable {
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
-    /// Workspaces a session made (`worktree.create`, `workspace.create`), by id: it works there too (`works(_:in:)`).
-    /// Limit: kept until the daemon restarts; then one it already started a session in still counts, an empty one not.
-    let made = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
+    /// Whether a caller has to be known for the user's to count as theirs (`session(running:)`): when kelpd leads its own
+    /// process session, as it does run for real. A test's in-process daemon doesn't, and its test process calls as the user.
+    let strictCallers = OSAllocatedUnfairLock(initialState: getsid(0) == getpid())
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 
@@ -128,46 +128,6 @@ final class Sessions: Sendable {
             let c = UInt16(clamping: cols ?? 0), r = UInt16(clamping: rows ?? 0)
             return (c > 0 ? c : 120, r > 0 ? r : 32)
         }
-    }
-
-    /// What a session started by `Caller.kelpd` records as its origin, and so its line (`lineage`): one that breaks off.
-    static let ownProgram = "kelpd"
-    /// The same for `Caller.unknown`, and for `Caller.detached`.
-    static let unknown = "unknown", detached = "detached"
-
-    /// The live session whose program `pid` is, or runs under (its own child, a shell's job…); `kelpd` for one this
-    /// daemon started. One that left its tree (a double fork, `nohup … &`) still has its session's terminal as its own;
-    /// one of the daemon's that did is still in the daemon's process session (kelpd leads its own: kelpd/main.swift).
-    func session(running pid: pid_t) -> Caller {
-        guard pid == getpid() || Subprocess.parent(pid) != nil else { return .unknown }
-        let mine = Dictionary(live.all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
-        var p = pid
-        for _ in 0..<64 {
-            if let id = mine[p] { return .session(id) }
-            if Subprocess.isRunning(p) { return .kelpd }
-            guard let up = Subprocess.parent(p), up > 1, up != p else { break }
-            p = up
-        }
-        if let tty = Subprocess.terminal(pid), let s = live.all.first(where: { Subprocess.terminal($0.pty.pid) == tty }) {
-            return .session(s.snapshot.id)
-        }
-        let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
-        if daemon == getpid(), pid != getpid(), getsid(pid) == daemon { return .kelpd }
-        // Forked away from its parent and its terminal both (a double fork with `setsid`): what an agent does to pass for
-        // the user. Limit: one that opens a terminal of its own (`script`, a tmux server's pane) still passes.
-        return pid != getpid() && Subprocess.parent(pid) == 1 && Subprocess.terminal(pid) == nil ? .detached : .user
-    }
-
-    /// Who the program on `conn` is: its process tree, looked up once per connection (`Connection.owner`), as it connects
-    /// (Daemon.serve), while it's surely there. The daemon's own calls (`conn` -1) are the user's, and Kelp's window,
-    /// which launchd starts with no terminal; a connection gone already is `kelpd`'s, one whose program can't be read `unknown`.
-    func caller(_ conn: Int) -> Caller {
-        guard let c = clients.connection(conn) else { return conn < 0 ? .user : .kelpd }
-        if let known = c.owner.withLock({ $0 }) { return known }
-        let seen = c.peerPID.map { session(running: $0) } ?? .unknown   // not under the connection's lock: this takes the sessions'
-        let found: Caller = seen == .detached && c.peer == Clients.appExecutable ? .user : seen
-        c.owner.withLock { $0 = found }
-        return found
     }
 
     /// The session whose program the call being answered came from (`caller`, as `Caller.origin`), bound around each
