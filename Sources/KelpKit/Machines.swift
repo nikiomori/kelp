@@ -5,6 +5,54 @@ import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
+    /// "Virtual Machine" in the sidebar's Add menu: one of each kind, a click away. What this Mac lacks for one (an Android
+    /// SDK, Xcode, Apple silicon) greys it out and says so.
+    func machineMenuItem() -> NSMenuItem {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        func item(_ title: String, _ image: String, missing: String?) {
+            let i = sub.add(title) { [weak self] in self?.newMachine(image) }
+            i.isEnabled = missing == nil
+            i.toolTip = missing
+        }
+        #if arch(arm64)
+        let silicon: String? = nil
+        #else
+        let silicon: String? = String(localized: "Needs a Mac with Apple silicon")
+        #endif
+        item(String(localized: "Linux (Debian 13)"), "debian-13", missing: silicon)
+        item(String(localized: "macOS…"), "macos", missing: silicon)
+        let sdk = AndroidSDK.avdmanager != nil && AndroidSDK.newestImage() != nil
+        item(String(localized: "Android"), "android", missing: sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image"))
+        let xcode = FileManager.default.fileExists(atPath: "/Applications/Xcode.app") || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
+        item(String(localized: "iOS"), "ios", missing: xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))
+        let i = NSMenuItem(title: String(localized: "Virtual Machine"), action: nil, keyEquivalent: "")
+        i.submenu = sub
+        return i
+    }
+
+    /// Makes one with the next free name ("debian", "debian2"…); it shows in the sidebar at once, and how far it got.
+    /// macOS asks first: it downloads over 20 GB.
+    func newMachine(_ image: String) {
+        Task {
+            if image == "macos" {
+                let a = NSAlert()
+                a.messageText = String(localized: "Make a macOS machine?")
+                a.informativeText = String(localized: """
+                    Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. \
+                    It takes 6 GB of memory while it runs, none while it sleeps.
+                    """)
+                a.addButton(withTitle: String(localized: "Make It"))
+                a.addButton(withTitle: String(localized: "Cancel"))
+                guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            }
+            let base = ["debian-13": "debian", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
+            var name = base, n = 2
+            while machines.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
+            if let v = await call(VMCreate(name: name, image: image)), !machines.contains(where: { $0.id == v.id }) { machines.append(v) }
+        }
+    }
+
     /// The machine's tab, on the screen in front.
     func openMachine(_ name: String) {
         workbench.open(TabURI.machine(name), workspace: workbench.workspaceId ?? worktrees.first?.id)

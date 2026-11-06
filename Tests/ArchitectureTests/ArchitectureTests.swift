@@ -441,6 +441,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
+        "KelpKit/Machines.swift": (1, "whether this Mac has Xcode, for the Add menu's iOS machine"),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (2, "a local page, shown: it reloads as its folder changes; a page's screenshot"),
         "Builtins/Browser/BrowserDownloads.swift": (2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"),

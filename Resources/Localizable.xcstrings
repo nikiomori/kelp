@@ -1557,6 +1557,96 @@
         }
       }
     },
+    "Virtual Machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Виртуальная машина"
+          }
+        }
+      }
+    },
+    "Linux (Debian 13)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux (Debian 13)"
+          }
+        }
+      }
+    },
+    "macOS…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS…"
+          }
+        }
+      }
+    },
+    "Needs a Mac with Apple silicon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен Mac на Apple silicon"
+          }
+        }
+      }
+    },
+    "Needs Android Studio's SDK with an arm64 system image": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен SDK из Android Studio с системным образом arm64"
+          }
+        }
+      }
+    },
+    "Needs Xcode with an iOS simulator": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен Xcode с симулятором iOS"
+          }
+        }
+      }
+    },
+    "Make a macOS machine?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать машину с macOS?"
+          }
+        }
+      }
+    },
+    "Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. It takes 6 GB of memory while it runs, none while it sleeps.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp скачает macOS у Apple (больше 20 ГБ), установит и настроит её: около 20 минут. Пока машина работает, она занимает 6 ГБ памяти, пока спит — нисколько."
+          }
+        }
+      }
+    },
+    "Make It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать"
+          }
+        }
+      }
+    },
     "Make docs and reviews": {
       "localizations": {
         "ru": {
