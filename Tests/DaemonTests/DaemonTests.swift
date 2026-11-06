@@ -551,7 +551,7 @@ final class NoteBox: @unchecked Sendable {
     let entered = DispatchSemaphore(value: 0), gate = DispatchSemaphore(value: 0), answered = DispatchSemaphore(value: 0)
     let stuck = (0..<n).map { _ in Task { try await d.offload { entered.signal(); gate.wait() } } }
     let started = signals(entered, n, by: .now() + 20)   // generous: this proves the daemon answers, not how fast, and a loaded machine starts threads slowly
-    let ping = Task { let r = try await d.handle("ping", .null, conn: 0); answered.signal(); return r }
+    let ping = Task { let r = try await d.handle("ping", .null, conn: -1); answered.signal(); return r }
     let answeredInTime = signals(answered, 1, by: .now() + 20) == 1   // a daemon whose pool is held would never answer, so this still fails when it should
     for _ in 0..<n { gate.signal() }
     for t in stuck { try await t.value }
@@ -563,17 +563,17 @@ final class NoteBox: @unchecked Sendable {
 @Test func historyAndUsageFromAgentFolders() async throws {
     let d = try Daemon(root: tmp()), home = tmp()
     d.agentUsage.agentHomes.withLock { $0 = (home.appendingPathComponent("projects"), home.appendingPathComponent("sessions")) }
-    #expect(try await d.handle("history.list", .null, conn: 0) == .array([]))
+    #expect(try await d.handle("history.list", .null, conn: -1) == .array([]))
     let dir = home.appendingPathComponent("projects/-work-app"), now = ISO8601DateFormatter().string(from: Date())
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     try [#"{"type":"user","sessionId":"s1","cwd":"/work/app","timestamp":"\#(now)","message":{"role":"user","content":"Fix the parser"}}"#,
          #"{"type":"assistant","cwd":"/work/app","timestamp":"\#(now)","message":{"model":"m","usage":{"input_tokens":3,"output_tokens":5}}}"#]
         .joined(separator: "\n").appending("\n").write(to: dir.appendingPathComponent("s1.jsonl"), atomically: true, encoding: .utf8)
-    let list = try await d.handle("history.list", .obj(["cwd": "/work/app"]), conn: 0)
+    let list = try await d.handle("history.list", .obj(["cwd": "/work/app"]), conn: -1)
     #expect(list.array?.map { $0["title"]?.string } == ["Fix the parser"])
-    let report = try await d.handle("usage.report", .obj(["days": 1]), conn: 0)
+    let report = try await d.handle("usage.report", .obj(["days": 1]), conn: -1)
     #expect(report["models"]?.array?.first?["tokens"]?.int == 8)
-    await #expect(throws: RPCError.invalidParams("session required")) { try await d.handle("history.resume", .null, conn: 0) }
+    await #expect(throws: RPCError.invalidParams("session required")) { try await d.handle("history.resume", .null, conn: -1) }
 }
 
 /// A typed call and the same request written by hand (the CLI, an older app) get the same answer.

@@ -285,6 +285,7 @@ public final class Daemon: Sendable {
 
     private func serve(_ fd: Int32) {
         let client = clients.add(fd: fd)
+        _ = sessions.caller(client.id)   // who it is, looked up while its program is surely there
         // Accepted as this one stopped or handed over (its cancel doesn't stop an accept already running): added first,
         // then looked at, so either the stop's hang-up has it or it's hung up here (its reader then reads the end and
         // cleans up as for any other), and connects to the next one.

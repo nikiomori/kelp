@@ -190,3 +190,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try set(term.id) { $0.origin = UUID().uuidString }
     #expect(try await waitFor { try r.d.sessions.forAnAgent(term.id) })
 }
+
+/// A program gone before it was looked at (it connected and ended, a child keeping the connection) isn't taken for the
+/// user: `unknown`, held to an agent's rules but for a status report. The daemon's own process is the user's.
+@Test func aProgramGoneBeforeItsLookedAtIsNoUser() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+    try p.run(); p.waitUntilExit()
+    #expect(r.d.sessions.session(running: p.processIdentifier) == Sessions.unknown)
+    #expect(r.d.sessions.session(running: getpid()) == nil)
+}

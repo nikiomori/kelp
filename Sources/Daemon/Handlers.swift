@@ -167,17 +167,20 @@ extension Daemon {
     func allow(_ m: any Answered, conn: Int) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
         guard let own = sessions.caller(conn) else { return }
-        if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
-        guard own != Sessions.inside else {
+        if let id = m.reportsFor, own != id, own != Sessions.unknown { throw RPCError.invalidParams("A session speaks only for itself.") }
+        if own == Sessions.unknown, m.reportsFor != nil { return }   // a hook reports and ends, sometimes before it's looked at
+        guard own != Sessions.ownProgram, own != Sessions.unknown else {
             do { return try allowAgent(m, own: own) } catch {
-                throw RPCError.invalidParams("A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
+                throw RPCError.invalidParams(own == Sessions.unknown
+                    ? "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that."
+                    : "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
             }
         }
         guard try sessions.forAnAgent(own) else { return }
         try allowAgent(m, own: own)
     }
 
-    /// What a program of an agent's (or of the daemon's, `own` = `Sessions.inside`) may not do.
+    /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.
     private func allowAgent(_ m: any Answered, own: String) throws {
         if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {

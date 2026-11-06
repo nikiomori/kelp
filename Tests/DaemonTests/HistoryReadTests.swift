@@ -14,7 +14,7 @@ import Core
             .appending("\n").write(to: dir.appendingPathComponent(id + ".jsonl"), atomically: true, encoding: .utf8)
     }
     func titles(_ query: String) async throws -> [String?] {
-        try await d.handle("history.list", .obj(["query": .string(query)]), conn: 0).array?.map { $0["title"]?.string } ?? []
+        try await d.handle("history.list", .obj(["query": .string(query)]), conn: -1).array?.map { $0["title"]?.string } ?? []
     }
     try conversation("s1", "Fix the parser")
     #expect(try await titles("") == ["Fix the parser"])
