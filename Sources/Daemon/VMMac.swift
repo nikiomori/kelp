@@ -36,14 +36,19 @@ extension VMService {
         }
     }
 
-    /// Types into a macOS machine's screen from the Mac's side (its window shown); nil: its password, from the Keychain.
-    func type(_ name: String, _ given: String?) throws {
+    /// A macOS machine's screen, read or driven from the Mac's side by its kelp-vm (`VMScreen`), waking it first.
+    func screen(_ name: String, _ args: [String], session: String?) throws {
         let m = try ready(name)
-        guard m.os == "macos" else { throw RPCError.invalidParams("Typing into the screen is a macOS machine's: kelp vm type works through Kelp Guest.") }
-        guard let text = given ?? Keychain.get("vm." + name) else { throw RPCError.internalError("No password for \(name) in the Keychain.") }
+        guard m.os == "macos" else { throw RPCError.invalidParams("\(name) isn't a macOS machine: its screen goes through adb or the simulator.") }
         try admit(m)
         try startHelper(m)
-        try check(ask(name, .init(op: .type, text: text), wait: 180))
+        try check(ask(name, .init(op: .screen, args: args, session: session), wait: 110))
+    }
+
+    /// Types into a macOS machine's screen; nil: its password, from the Keychain.
+    func type(_ name: String, _ given: String?) throws {
+        guard let text = given ?? Keychain.get("vm." + name) else { throw RPCError.internalError("No password for \(name) in the Keychain.") }
+        try screen(name, ["type", text], session: nil)
     }
 
     private func makeMacFolder(_ m: VMMachine) throws {
@@ -89,8 +94,8 @@ extension VMService {
         remove(file(m.name, "password"))
     }
 
-    /// Kelp Guest, as an app in the machine's ~/Applications, started at login (a LaunchAgent in its GUI session). It asks
-    /// for Screen Recording and Accessibility there: the machine's window shows the switches.
+    /// Kelp Guest, as an app in the machine's ~/Applications, started at login (a LaunchAgent in its GUI session): its
+    /// apps' controls by name (`kelp vm ui`), with Accessibility, asked for the first time that runs. The screen needs it not.
     private func installGuest(_ m: VMMachine) throws {
         let bin = URL(fileURLWithPath: helper).deletingLastPathComponent().appendingPathComponent("KelpGuest")
         let work = file(m.name, ".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")

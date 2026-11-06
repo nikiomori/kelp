@@ -172,14 +172,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         case .sleep: sleep { done($0, nil) }
         case .stop: stop { done(nil, nil) }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
-        case .type:
-            guard machine.os == "macos", let text = r.text else { return done("Typing into the screen is a macOS machine's.", nil) }
+        case .screen:
+            guard machine.os == "macos" else { return done("Its screen is a macOS machine's.", nil) }
             lastUse = Date()
             wake { error in
                 guard error == nil else { return done(error, nil) }
-                self.show()
-                guard let view = self.window?.contentView as? VZVirtualMachineView else { return done("No screen to type into.", nil) }
-                ScreenKeys.type(text, into: view) { done($0, nil) }
+                guard let view = self.screen() else { return done("The machine has no screen yet.", nil) }
+                Screen.run(r.args ?? [], session: r.session ?? "-", view: view) { done($0, nil) }
             }
         case .quit:
             done(nil, nil)
@@ -205,7 +204,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
-        let r = VMHelper.Reply(state: state, connections: connections, memoryMiB: vm == nil ? nil : targetMiB, error: error, slot: slot)
+        var r = VMHelper.Reply(state: state, connections: connections, memoryMiB: vm == nil ? nil : targetMiB, error: error, slot: slot)
+        r.screen = Screen.turn
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
         close(fd)
     }
@@ -440,8 +440,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     // MARK: its screen
 
-    /// Its screen in a window of its own: full speed, the pointer and keys go to it. Closing it only hides it.
-    private func show() {
+    /// The machine's screen as a view in its window, not shown: what reads and drives it from the Mac's side (`Screen`).
+    private func screen() -> VZVirtualMachineView? {
         if window == nil {
             let view = VZVirtualMachineView()
             view.capturesSystemKeys = true
@@ -456,7 +456,14 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             w.center()
             window = w
         }
-        (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
+        let view = window?.contentView as? VZVirtualMachineView
+        if view?.virtualMachine !== vm { view?.virtualMachine = vm }
+        return view
+    }
+
+    /// Its screen in a window of its own: full speed, the pointer and keys go to it. Closing it only hides it.
+    private func show() {
+        _ = screen()
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(window?.contentView)   // keys go to the machine at once, without a click into it first

@@ -51,6 +51,7 @@ struct VMService: Sendable {
         } catch { Log.vm.info("reading \(name): \(error)"); return nil }
         guard out.status == 0 else { return nil }
         var d = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
+        d.guest?.screen = status(name)?.screen   // whose turn the screen is: kelp-vm's to say now, not Kelp Guest's
         if let json = FileManager.default.contents(atPath: file(name, "shares.json").path) {
             do { d.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch { Log.vm.error("\(name)'s shares: \(error)") }
         }
@@ -487,6 +488,10 @@ extension VMType: Handled {
     func handle(_ vms: VMService) throws -> Done { try vms.type(name, text); return Done() }
 }
 
+extension VMScreen: Handled {
+    func handle(_ vms: VMService) throws -> Done { try vms.screen(name, args, session: session); return Done() }
+}
+
 extension VMDetailRead: Handled {
     func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
@@ -510,5 +515,5 @@ extension VMConnect: Handled {
 }
 
 extension Methods {
-    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self]
+    static let vmMethods: [any Handled.Type] = [VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self, VMScreen.self]
 }

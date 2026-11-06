@@ -165,34 +165,22 @@ struct MachineView: View {
         }
     }
 
-    /// A macOS machine's screen: Kelp Guest's permissions until both are on, then whose turn it is.
+    /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, nothing to allow), and
+    /// the password for a dialog inside that asks for it.
     @ViewBuilder private func screen(_ g: VMDetail.Guest) -> some View {
         heading("Screen")
-        if !g.running || !(g.screenRecording && g.accessibility) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(g.running ? "Turn Kelp Guest on in the machine's System Settings › Privacy & Security: Screen Recording and Accessibility."
-                     : "Kelp Guest isn't running in it: sign in on its screen.")
-                    .font(.ui(12)).foregroundStyle(Color(nsColor: .textPurple)).fixedSize(horizontal: false, vertical: true)
-                if g.running {
-                    HStack(spacing: 12) {
-                        Label(String(localized: "Screen Recording"), systemImage: g.screenRecording ? "checkmark.circle.fill" : "circle")
-                        Label(String(localized: "Accessibility"), systemImage: g.accessibility ? "checkmark.circle.fill" : "circle")
-                    }
-                    .font(.ui(12)).foregroundStyle(.secondary)
-                }
-                HStack {
-                    Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
-                    Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
-                        .help(String(localized: "Types this machine's password into the field that asks for it, in its window."))
-                }
-                .controlSize(.small)
-            }
-            .padding(.horizontal, 6).padding(.bottom, 10)
-        } else {
+        VStack(alignment: .leading, spacing: 6) {
             let holder = g.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? g.screen
             Text(holder.map { String(localized: "In use by \($0)") } ?? String(localized: "Free: agents take turns on it"))
-                .font(.ui(12)).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.bottom, 10)
+                .font(.ui(12)).foregroundStyle(.secondary)
+            HStack {
+                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
+                Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
+                    .help(String(localized: "Types this machine's password into the field that asks for it, in its window."))
+            }
+            .controlSize(.small)
         }
+        .padding(.horizontal, 6).padding(.bottom, 10)
     }
 
     private func heading(_ text: LocalizedStringKey) -> some View {

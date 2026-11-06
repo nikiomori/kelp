@@ -158,16 +158,17 @@ enum AgentSkills {
         Pick it for a Mac app's UI, Safari, Xcode's simulator, anything macOS-only; Linux for the rest. Commands first:
         `kelp vm run` works there too, and costs nothing. Then the app's controls as text, then pixels last:
 
-        - `kelp vm ui <name> [--app Safari]` — the front app's controls, a line each: `- button "Sign in" [ref=e12] (640,412 80×24)`.
-        - `kelp vm press <name> e12` (or the title) — presses it without the pointer: it doesn't wait for the screen.
         - `kelp vm screenshot <name> [file]` — a PNG of its screen (prints the file); look at it with your image tool.
-          Coordinates are its screen points (1280 × 800), the same `click` takes.
+          Coordinates are its screen points (1280 × 800), the same `click` takes. Works at once, nothing to allow.
         - `kelp vm click <name> X Y [--right] [--double]`, `type <name> TEXT`, `key <name> cmd+space`, `scroll <name> -300 [X Y]`,
           `drag <name> X Y X2 Y2` — the pointer and keys. The screen is one: chats take turns (your turn lasts 20 s after
-          your last action); another chat's turn makes yours wait, up to a minute.
-        - Look again after each step that changes the screen. The user sees it live with `kelp vm show <name>`.
-        - "Kelp Guest isn't running" or a permission error: tell the user to open the machine's window (`kelp vm show <name>`)
-          and turn Kelp Guest on in Privacy & Security (Screen Recording and Accessibility). Don't work around it.
+          your last action); while another chat's turn lasts, yours says so: wait a moment and go on.
+        - Look again after each step that changes the screen; give Spotlight and app launches a second. The user sees it
+          live with `kelp vm show <name>`.
+        - A dialog in it asks for the password (an installer, Privacy & Security): `kelp vm password <name>` types it.
+        - `kelp vm ui <name> [--app Safari]` — the front app's controls as text: `- button "Sign in" [ref=e12] (640,412 80×24)`;
+          `kelp vm press <name> e12` presses one. It needs Accessibility for Kelp Guest inside, asked the first time: its
+          error says how (a click on the dialog, the switch, `kelp vm password`). Screenshots and clicks don't need it.
 
         ## An Android machine
 

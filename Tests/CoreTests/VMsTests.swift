@@ -108,3 +108,12 @@ import Testing
     #expect(ui.centers["e1"]! == (540, 1246))
     #expect(AndroidSDK.inputText("a b;$(x)") == #"a%sb\;\$\(x\)"#)
 }
+
+/// A macOS machine's screen types US keys from the Mac's side: letters, Shift for capitals and symbols, none for the rest.
+@Test func aCharacterIsItsUSKey() {
+    #expect(VMs.usKey("a")?.code == 0 && VMs.usKey("a")?.shift == false)
+    #expect(VMs.usKey("A")?.code == 0 && VMs.usKey("A")?.shift == true)
+    #expect(VMs.usKey("@")?.code == 19 && VMs.usKey("@")?.shift == true)
+    #expect(VMs.usKey("\n")?.code == 36)
+    #expect(VMs.usKey("ж") == nil && VMs.usKey("é") == nil)
+}

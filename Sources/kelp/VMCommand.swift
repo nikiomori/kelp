@@ -67,7 +67,8 @@ extension Main {
         }
     }
 
-    /// A macOS machine's screen, through Kelp Guest inside it: a screenshot to a file (its path printed), the rest as it says.
+    /// A machine's screen. macOS: read and driven from the Mac's side (`vm.screen`), a screenshot to a file (its path
+    /// printed); its controls by name through Kelp Guest inside.
     private static func screen(_ action: String, _ c: RPCClient) async throws {
         guard let name = args.first else { fail("vm \(action) <name> …") }
         args.removeFirst()
@@ -75,22 +76,37 @@ extension Main {
         guard v.machine.os != "linux" else { fail("\(name) is Linux: it has no screen. kelp vm run \(name) -- <command> runs commands in it.") }
         if v.machine.os == "android" { return try await android(action, adb: try await c.call(VMConnect(name: name, cwd: nil)).ssh) }
         if v.machine.os == "ios" { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
-        guard action != "install" else { fail("install is for Android machines: kelp vm run \(name) -- … installs on macOS.") }
-        let to = try await c.call(VMConnect(name: name, cwd: nil))
-        let session = ProcessInfo.processInfo.environment["KELP_SESSION"] ?? "-"
-        let file = action == "screenshot" ? args.popLast() : nil
-        let remote = VMs.guestProgram + " " + ([action] + args + ["--session", session]).map(VMs.shellQuoted).joined(separator: " ")
-        guard action == "screenshot" else { exec(to.ssh + ["-T", "--", to.prefix + remote]) }
-        let out = URL(fileURLWithPath: file ?? NSTemporaryDirectory() + "kelp-\(name)-\(Int(Date().timeIntervalSince1970)).png").standardizedFileURL
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: to.ssh[0])
-        p.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + remote]
-        guard FileManager.default.createFile(atPath: out.path, contents: nil) else { fail("can't write \(out.path)") }
-        p.standardOutput = try FileHandle(forWritingTo: out)
-        try p.run()
-        p.waitUntilExit()
-        guard p.terminationStatus == 0 else { exit(p.terminationStatus) }
-        print(out.path)
+        guard !["install", "launch", "open"].contains(action) else {
+            fail("\(action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
+        }
+        let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
+        if action == "ui" || action == "press" {   // the app's controls, through Kelp Guest's Accessibility inside
+            let to = try await c.call(VMConnect(name: name, cwd: nil))
+            let remote = VMs.guestProgram + " " + ([action] + args + ["--session", session ?? "-"]).map(VMs.shellQuoted).joined(separator: " ")
+            exec(to.ssh + ["-T", "--", to.prefix + remote])
+        }
+        if action == "screenshot" {
+            let out = URL(fileURLWithPath: args.first ?? NSTemporaryDirectory() + "kelp-\(name)-\(Int(Date().timeIntervalSince1970)).png").standardizedFileURL
+            _ = try await c.call(VMScreen(name: name, args: ["screenshot", out.path], session: session))
+            return print(out.path)
+        }
+        let text = args.joined(separator: " ")
+        if action == "type", text.contains(where: { VMs.usKey($0) == nil }) {   // no key for it: pasted instead
+            let to = try await c.call(VMConnect(name: name, cwd: nil))
+            let copied = Process()
+            copied.executableURL = URL(fileURLWithPath: to.ssh[0])
+            copied.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + "pbcopy"]
+            let input = Pipe()
+            copied.standardInput = input
+            try copied.run()
+            input.fileHandleForWriting.write(Data(text.utf8))
+            try input.fileHandleForWriting.close()
+            copied.waitUntilExit()
+            guard copied.terminationStatus == 0 else { fail("couldn't put the text on \(name)'s clipboard") }
+            _ = try await c.call(VMScreen(name: name, args: ["key", "cmd+v"], session: session))
+            return
+        }
+        _ = try await c.call(VMScreen(name: name, args: action == "type" ? ["type", text] : [action] + args, session: session))
     }
 
     /// An Android machine's screen through adb: pixels of its screen for screenshots and taps alike.

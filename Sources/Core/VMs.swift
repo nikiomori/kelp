@@ -98,8 +98,8 @@ public struct VMDetail: Codable, Sendable, Equatable {
     public var ports: [Int]
     public var runs: [Run]
     public var folders: [String]
-    /// A macOS machine's Kelp Guest: whether it may record the screen and act on it, and whose turn the screen is. Nil:
-    /// not a macOS machine, or Kelp Guest isn't in it.
+    /// A macOS machine's Kelp Guest: whether it may read controls (Accessibility), and whose turn the screen is (kelp-vm
+    /// says). Nil: not a macOS machine, or Kelp Guest isn't in it. `screenRecording` is no longer asked for: always false.
     public var guest: Guest?
 
     public init(address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = [], guest: Guest? = nil) {
@@ -180,12 +180,23 @@ public struct VMControl: RPCMethod {
     public init(name: String, action: Action) { self.name = name; self.action = action }
 }
 
-/// Types into a macOS machine's screen from the Mac's side, its window shown: what Kelp Guest can't type before it's
-/// allowed to. `text` nil: the machine's password (from the Keychain), which Privacy & Security asks for to allow it.
+/// Types into a macOS machine's screen. `text` nil: the machine's password (from the Keychain), for a dialog inside
+/// that asks for it (Privacy & Security, an installer).
 public struct VMType: RPCMethod {
     public static let name = "vm.type"; public typealias Result = Done
     public var name: String, text: String?
     public init(name: String, text: String? = nil) { self.name = name; self.text = text }
+}
+
+/// A macOS machine's screen, read and driven from the Mac's side (no permission inside it): `args` as `kelp vm` takes
+/// them, ["screenshot", "/abs/file.png"], ["click", "X", "Y", "--right"?, "--double"?], ["move", "X", "Y"],
+/// ["drag", "X", "Y", "X2", "Y2"], ["scroll", "DY", "X"?, "Y"?], ["type", "TEXT"], ["key", "cmd+space"]. Points of its
+/// 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.
+public struct VMScreen: RPCMethod {
+    public static let name = "vm.screen"; public typealias Result = Done
+    public static let timeout: TimeInterval = 120   // a sleeping machine wakes first; another session's turn is waited for
+    public var name: String, args: [String], session: String?
+    public init(name: String, args: [String], session: String? = nil) { self.name = name; self.args = args; self.session = session }
 }
 
 /// What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path);
@@ -222,12 +233,16 @@ public struct VMImage: Sendable, Equatable {
 public enum VMHelper {
     public struct Request: Codable, Sendable {
         /// `quit`: the machine off at once, and its kelp-vm gone (its folder is about to be).
-        /// `type`: `text` typed into a macOS machine's screen from the Mac's side (`ScreenKeys`).
-        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share, show, quit, type }
+        /// `screen`: a macOS machine's screen read or driven from the Mac's side, `args` as `kelp vm` takes them
+        /// (["click", "640", "400"], ["screenshot", "/path.png"]…), in `session`'s turn.
+        public enum Operation: String, Codable, Sendable { case status, start, sleep, stop, share, show, quit, screen }
         public var op: Operation
         /// `share`: the folder here; the answer's `slot` says which of the machine's shares holds it.
-        public var path: String?, text: String?
-        public init(op: Operation, path: String? = nil, text: String? = nil) { self.op = op; self.path = path; self.text = text }
+        public var path: String?
+        public var args: [String]?, session: String?
+        public init(op: Operation, path: String? = nil, args: [String]? = nil, session: String? = nil) {
+            self.op = op; self.path = path; self.args = args; self.session = session
+        }
     }
     public struct Reply: Codable, Sendable {
         public var state: VMState
@@ -239,6 +254,8 @@ public enum VMHelper {
         public var serial: String?
         /// An iOS machine's runner, on the Mac's loopback.
         public var port: Int?
+        /// A macOS machine's screen: the session whose turn it is, while it lasts.
+        public var screen: String?
         public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil, serial: String? = nil) {
             self.state = state; self.connections = connections; self.memoryMiB = memoryMiB; self.error = error; self.slot = slot
             self.serial = serial
@@ -413,7 +430,32 @@ public enum VMs {
         return days * 86400 + clock.reduce(0) { $0 * 60 + $1 }
     }
 
-    /// Kelp Guest's program inside a macOS machine (`kelp vm screenshot`, `click`…), run over SSH.
+    /// A character → its key code on a US keyboard and whether it takes Shift: what a machine's screen types from the Mac's
+    /// side. Nil: no key for it (`kelp vm type` pastes such text instead).
+    public static func usKey(_ c: Character) -> (code: UInt16, shift: Bool)? {
+        if let code = keyCodes[String(c)], c.isASCII, !c.isUppercase { return (code, false) }
+        if c.isUppercase, c.isASCII, let code = keyCodes[c.lowercased()] { return (code, true) }
+        if let base = shifted[c], let code = keyCodes[String(base)] { return (code, true) }
+        return nil
+    }
+
+    /// Key names and characters → US key codes (`kelp vm key cmd+shift+t`).
+    public static let keyCodes: [String: UInt16] = [
+        "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14,
+        "r": 15, "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27,
+        "8": 28, "0": 29, "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "\n": 36, "l": 37, "j": 38, "'": 39, "k": 40,
+        ";": 41, "\\": 42, ",": 43, "/": 44, "n": 45, "m": 46, ".": 47, "\t": 48, " ": 49, "`": 50,
+        "return": 36, "enter": 36, "tab": 48, "space": 49, "delete": 51, "backspace": 51, "escape": 53, "esc": 53,
+        "left": 123, "right": 124, "down": 125, "up": 126, "home": 115, "end": 119, "pageup": 116, "pagedown": 121,
+        "forwarddelete": 117, "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98, "f8": 100, "f9": 101,
+        "f10": 109, "f11": 103, "f12": 111
+    ]
+    static let shifted: [Character: Character] = [
+        "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=",
+        "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/", "~": "`"
+    ]
+
+    /// Kelp Guest's program inside a macOS machine (`kelp vm ui`, `press`), run over SSH.
     public static let guestProgram = "\"$HOME/Applications/KelpGuest.app/Contents/MacOS/KelpGuest\""
 
     public static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'" }

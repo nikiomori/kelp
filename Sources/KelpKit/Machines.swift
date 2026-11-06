@@ -81,12 +81,9 @@ extension AppModel {
     /// The machine the session runs a command in now, if any (`kelp vm run`).
     func machine(runningFor session: String) -> String? { machines.first { $0.sessions?.contains(session) == true }?.machine.name }
 
-    /// What a machine's state reads as, and in what colour; a macOS one whose Kelp Guest lacks a permission wants you.
+    /// What a machine's state reads as, and in what colour.
     package func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
-        if v.state == .running, let g = machineDetail[v.id]?.guest, !(g.screenRecording && g.accessibility) {
-            return (String(localized: "Needs permissions"), .textPurple)
-        }
-        return switch v.state {
+        switch v.state {
         case .running: (String(localized: "Running"), .textGreen)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
         case .paused: (String(localized: "Paused"), .secondaryLabelColor)

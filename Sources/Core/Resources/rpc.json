@@ -3880,7 +3880,7 @@
           },
           "guest" : {
             "$ref" : "#/components/schemas/VMDetail.Guest",
-            "description" : "A macOS machine's Kelp Guest: whether it may record the screen and act on it, and whose turn the screen is. Nil: not a macOS machine, or Kelp Guest isn't in it."
+            "description" : "A macOS machine's Kelp Guest: whether it may read controls (Accessibility), and whose turn the screen is (kelp-vm says). Nil: not a macOS machine, or Kelp Guest isn't in it. `screenRecording` is no longer asked for: always false."
           },
           "ports" : {
             "items" : {
@@ -10267,7 +10267,44 @@
       }
     },
     {
-      "description" : "Types into a macOS machine's screen from the Mac's side, its window shown: what Kelp Guest can't type before it's allowed to. `text` nil: the machine's password (from the Keychain), which Privacy & Security asks for to allow it.",
+      "description" : "A macOS machine's screen, read and driven from the Mac's side (no permission inside it): `args` as `kelp vm` takes them, [\"screenshot\", \"/abs/file.png\"], [\"click\", \"X\", \"Y\", \"--right\"?, \"--double\"?], [\"move\", \"X\", \"Y\"], [\"drag\", \"X\", \"Y\", \"X2\", \"Y2\"], [\"scroll\", \"DY\", \"X\"?, \"Y\"?], [\"type\", \"TEXT\"], [\"key\", \"cmd+space\"]. Points of its 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.",
+      "name" : "vm.screen",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "args",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      }
+    },
+    {
+      "description" : "Types into a macOS machine's screen. `text` nil: the machine's password (from the Keychain), for a dialog inside that asks for it (Privacy & Security, an installer).",
       "name" : "vm.type",
       "paramStructure" : "by-name",
       "params" : [
