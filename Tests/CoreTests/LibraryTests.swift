@@ -142,5 +142,12 @@ import Testing
     try Data("ref".utf8).write(to: dir.appendingPathComponent(".git/HEAD"))
     #expect(IDE.extensionDigest(dir) == first)
     try Data("rm -rf ~".utf8).write(to: dir.appendingPathComponent("bin/run.sh"))
-    #expect(IDE.extensionDigest(dir) != first)
+    let second = IDE.extensionDigest(dir)
+    #expect(second != first && IDE.extensionDigest(IDE.extensionFiles(dir)) == second)
+    // Same size, its old time put back: still read again (its ctime moved).
+    let script = dir.appendingPathComponent("bin/run.sh").path
+    let was = try FileManager.default.attributesOfItem(atPath: script)[.modificationDate] as? Date
+    try Data("rm -rf /".utf8).write(to: URL(fileURLWithPath: script))
+    try FileManager.default.setAttributes([.modificationDate: was ?? Date()], ofItemAtPath: script)
+    #expect(IDE.extensionDigest(dir) != second)
 }

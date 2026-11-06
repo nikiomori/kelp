@@ -1,4 +1,5 @@
 import CryptoKit
+import os
 import Foundation
 
 /// The extension library: github.com/nikiomori/kelp-extensions, a public repo of extensions reviewed before they're
@@ -153,31 +154,60 @@ extension IDE {
 
     /// The UI state key with the extensions the user allowed to run commands: folder name → `extensionDigest` of what
     /// was allowed. Only Kelp's window writes it (`state.set`); unset, nothing was ever asked (an older Kelp installed them).
-    public static let trustKey = "extensions.trusted"
+    public static let extensionTrustKey = "extensions.trusted"
 
-    /// What allowing an extension covers: every file in its folder (its manifest, scripts, pages; not a `.git`), so a
-    /// change to any of them is asked about again. Limit: read whole at each check (an extension's folder is small), and
-    /// a linked folder counts by where it points, not by what's in it.
-    public static func extensionDigest(_ folder: URL) -> String {
-        let root = folder.resolvingSymlinksInPath(), all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
-        var files: [(name: String, url: URL, link: Bool)] = []
-        while let u = all?.nextObject() as? URL {
-            if u.lastPathComponent == ".git" { all?.skipDescendants(); continue }
-            var st = stat()
-            guard lstat(u.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
-            files.append((String(u.path.dropFirst(root.path.count)), u, st.st_mode & S_IFMT == S_IFLNK))
+    /// Every file of an extension's folder (its manifest, scripts, pages; not a `.git`'s) by its path in the folder
+    /// ("/extension.json"), read once: what allowing it covers, and what the look before shows. A link counts by where it
+    /// points and what's there ("/lib → /target"). Limit: a linked folder counts by where it points, not by what's in it.
+    public static func extensionFiles(_ folder: URL) -> [String: Data] {
+        var files: [String: Data] = [:]
+        for e in extensionEntries(folder) {
+            let target = e.url.resolvingSymlinksInPath()
+            files[e.link ? e.name + " → " + target.path : e.name] = FileManager.default.contents(atPath: target.path) ?? Data()
         }
+        return files
+    }
+
+    /// The digest of `files`: what Kelp's window records when the user allows an extension (`extensionTrustKey`).
+    public static func extensionDigest(_ files: [String: Data]) -> String {
         var h = SHA256()
-        for f in files.sorted(by: { $0.name < $1.name }) {
-            // A link counts by where it points and what's there: its target can change without the folder changing.
-            let target = f.url.resolvingSymlinksInPath()
-            let body = FileManager.default.contents(atPath: target.path) ?? Data()
-            let size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
-            for part in [Data(f.name.utf8), Data((f.link ? target.path : "").utf8), size, body] {
+        for (key, body) in files.sorted(by: { $0.key < $1.key }) {
+            let name = key.components(separatedBy: " → "), size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
+            // As digests were recorded before this read the files once: the name, a link's target, the size, the bytes.
+            for part in [Data(name[0].utf8), Data((name.count > 1 ? name[1] : "").utf8), size, body] {
                 h.update(data: part); h.update(data: Data([0]))
             }
         }
         return h.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// `extensionDigest` of the folder as it is: read again only when a file's size, times or inode changed (ctime moves
+    /// with any write, and no one can set it back), so a check before every command reads no file that didn't change.
+    public static func extensionDigest(_ folder: URL) -> String {
+        let entries = extensionEntries(folder)
+        let mark = entries.map { e -> String in
+            var st = stat()
+            _ = stat(e.url.path, &st)   // a link's target's
+            return "\(e.name)|\(st.st_size)|\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)|\(st.st_ctimespec.tv_sec).\(st.st_ctimespec.tv_nsec)|\(st.st_ino)"
+                + (e.link ? "|" + e.url.resolvingSymlinksInPath().path : "")
+        }.joined(separator: "\n")
+        if let known = digests.withLock({ $0[folder.path] }), known.mark == mark { return known.digest }
+        let digest = extensionDigest(extensionFiles(folder))
+        digests.withLock { $0[folder.path] = (mark, digest) }
+        return digest
+    }
+    private static let digests = OSAllocatedUnfairLock<[String: (mark: String, digest: String)]>(initialState: [:])
+
+    private static func extensionEntries(_ folder: URL) -> [(name: String, url: URL, link: Bool)] {
+        let root = folder.resolvingSymlinksInPath(), all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+        var out: [(name: String, url: URL, link: Bool)] = []
+        while let u = all?.nextObject() as? URL {
+            if u.lastPathComponent == ".git" { all?.skipDescendants(); continue }
+            var st = stat()
+            guard lstat(u.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
+            out.append((String(u.path.dropFirst(root.path.count)), u, st.st_mode & S_IFMT == S_IFLNK))
+        }
+        return out.sorted { $0.name < $1.name }
     }
 
     /// What an extension's manifest can run, for a look before it's installed: the shell commands (every "command" with

@@ -449,11 +449,11 @@ extension Sessions {
         }
     }
 
-    /// Whether the user allowed the extension in folder `name` to run commands as its files are now (`IDE.trustKey`,
+    /// Whether the user allowed the extension in folder `name` to run commands as its files are now (`IDE.extensionTrustKey`,
     /// which only Kelp's window writes). Before the window recorded any, each is: it was installed when none was asked.
     func trustsExtension(_ name: String) -> Bool {
-        guard let state = Log.store.attempt("reading the allowed extensions", { try store.uiState(prefix: IDE.trustKey) }) else { return false }
-        guard let allowed = state[IDE.trustKey] else { return true }
+        guard let state = Log.store.attempt("reading the allowed extensions", { try store.uiState(prefix: IDE.extensionTrustKey) }) else { return false }
+        guard let allowed = state[IDE.extensionTrustKey] else { return true }
         return allowed[name]?.string == IDE.extensionDigest(root.appendingPathComponent("extensions").appendingPathComponent(name))
     }
 }

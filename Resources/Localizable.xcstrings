@@ -3804,6 +3804,16 @@
         }
       }
     },
+    "“%@” has no manifest Kelp can read: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У «%@» нет манифеста, который Kelp может прочитать: %@"
+          }
+        }
+      }
+    },
     "Allow": {
       "localizations": {
         "ru": {

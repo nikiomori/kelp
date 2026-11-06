@@ -154,6 +154,7 @@ import Core
 /// An extension.json broken while it's edited keeps the version that last loaded, its error beside it.
 @Test @MainActor func aBrokenManifestKeepsTheLastOneThatWorked() async throws {
     let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    await rig.app.uiState.load()   // as connecting does: what was allowed is known (`ExtensionTrust`)
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let file = dir.appendingPathComponent("extension.json")

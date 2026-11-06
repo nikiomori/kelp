@@ -307,6 +307,7 @@ package final class ExtensionRegistry {
         Task { [weak self] in
             guard let self else { return }
             if await ExtensionTrust.adopt(users, app) { reload(); return }
+            guard app.uiState.loaded else { return }   // nothing's asked before what was allowed is known
             let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter { asked.insert(IDE.extensionDigest($0)).inserted }
             guard !waiting.isEmpty else { return }
             trustAsk.after(3) { [weak self] in self?.ask(waiting) }

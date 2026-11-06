@@ -182,6 +182,9 @@ extension OneAtATime {
     rig.app.connected = true
     let d = try folder(["extension.json": #"{"id":"t.trust","name":"T","contributes":{"commands":[{"title":"Hi","run":"./hi.sh"}]}}"#,
                         "hi.sh": "echo hi"])
+    let adoptedUnknown = await ExtensionTrust.adopt([d], rig.app)
+    #expect(ExtensionTrust.waits(d, rig.app) && !adoptedUnknown)   // what was allowed isn't known yet
+    await rig.app.uiState.load()
     #expect(!ExtensionTrust.waits(d, rig.app))   // nothing recorded yet
     #expect(await ExtensionTrust.adopt([d], rig.app))
     #expect(!ExtensionTrust.waits(d, rig.app) && DeclarativeExtension.load(d, app: rig.app).contributions.commands.count == 1)

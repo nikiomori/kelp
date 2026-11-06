@@ -78,14 +78,14 @@ private func temporary() -> URL { FileManager.default.temporaryDirectory.appendi
     try install(w, id: "other", out: other)
     let dir = w.root.appendingPathComponent("extensions"), workspace = try await firstWorkspace(w).id
     let allowed = IDE.extensionDigest(dir.appendingPathComponent("other"))
-    try w.d.sessions.store.setUIState(IDE.trustKey, .obj(["hears": .string("what was there before"), "other": .string(allowed)]))
+    try w.d.sessions.store.setUIState(IDE.extensionTrustKey, .obj(["hears": .string("what was there before"), "other": .string(allowed)]))
     let before = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "before"))
     _ = try await w.c.call(SessionReport(id: before.id, state: "blocked"))
     await #expect(throws: RPCError.self) { try await w.c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "hears")) }
     // The other heard it, after "hears" would have: they run one after the other, in folder order.
     #expect(try await waitFor(10) { lines(other) == ["agent.waiting|before|"] })
     #expect(lines(out) == [])
-    try w.d.sessions.store.setUIState(IDE.trustKey, .obj(["hears": .string(IDE.extensionDigest(dir.appendingPathComponent("hears")))]))
+    try w.d.sessions.store.setUIState(IDE.extensionTrustKey, .obj(["hears": .string(IDE.extensionDigest(dir.appendingPathComponent("hears")))]))
     #expect(try await w.c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "hears")).stdout == "ran\n")
     let after = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "after"))
     _ = try await w.c.call(SessionReport(id: after.id, state: "blocked"))

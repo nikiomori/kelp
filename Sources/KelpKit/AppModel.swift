@@ -232,6 +232,8 @@ package final class AppModel {
         if connected {
             connections += 1
             watchLife(c)
+            // Again, as the daemon's state is read anew: an extension changed meanwhile waits to be allowed (`ExtensionTrust`).
+            if connections > 1 { extensions.reload() }
         }
         published = nil; publishRefused = false   // a new daemon knows nothing yet
         publishUIState()

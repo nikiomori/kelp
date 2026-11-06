@@ -90,7 +90,7 @@ extension StateSet: Handled {
     static var inOrder: Bool { true }
     /// Which projects may run their own code in language servers and formatters, and which extensions may run commands:
     /// the user's say, in Kelp's window (as `scripts.trust`); an agent's call or a repository's script can't record it.
-    var onlyFromKelp: String? { key == IDE.trustKey ? "Only Kelp's window allows an extension to run commands."
+    var onlyFromKelp: String? { key == IDE.extensionTrustKey ? "Only Kelp's window allows an extension to run commands."
         : key.hasPrefix("lsp.") ? "Only Kelp's window can trust a project for language servers." : nil }
     func handle(_ ui: UIStore) throws -> Done { try ui.store.setUIState(key, value); return Done() }
 }
