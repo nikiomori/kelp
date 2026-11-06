@@ -37,6 +37,10 @@ case "--install" where args.count == 3:
     }
 case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
     let folder = URL(fileURLWithPath: path)
+    // One kelp-vm per machine, holding this while it runs (kelpd tells a running one by it, `VMService.alive`), taken
+    // before the machine is read: a new size is written under it (`configure`), and is what this one starts with. Tried
+    // for half a second: a size being written, or kelpd's look at it, holds it a moment.
+    guard Lifecycle.hold(folder) != nil else { log("another kelp-vm runs \(folder.lastPathComponent)"); exit(0) }
     let machine: VMMachine
     do { machine = try JSONDecoder().decode(VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json"))) }
     catch { log("can't read the machine: \(error)"); exit(1) }

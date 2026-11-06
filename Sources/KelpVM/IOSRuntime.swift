@@ -21,8 +21,7 @@ final class IOSRuntime {
     init(folder: URL, machine: VMMachine) { self.folder = folder; self.machine = machine }
 
     func listen() {
-        let lock = open(folder.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
-        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { log("another kelp-vm runs \(machine.name)"); exit(0) }
+        // Its lock is held already (main.swift).
         let fd: Int32
         do { fd = try Unix.listen(folder.appendingPathComponent("ctl.sock").path) } catch { log("can't listen: \(error)"); exit(1) }
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)

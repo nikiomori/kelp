@@ -283,7 +283,8 @@ struct VMService: Sendable {
         let fd = open(file(name, "kelp-vm.lock").path, O_RDWR | O_CLOEXEC)
         guard fd >= 0 else { return false }
         defer { close(fd) }
-        return flock(fd, LOCK_EX | LOCK_NB) != 0   // ours for a moment if nobody holds it; closing lets it go
+        // Shared: two of kelpd's looks at once (a poll, a delete) don't take each other for a kelp-vm, which holds it whole.
+        return flock(fd, LOCK_SH | LOCK_NB) != 0
     }
 
     /// A sleep's answer: an error thrown, else whether it's down now (`sleep` leaves one that's starting as it is).
@@ -481,6 +482,8 @@ extension VMList: Handled {
 // Whose turn the screen is: the caller's session as its process says (`Sessions.asker`), what was sent only from outside
 // every session (the user's own terminal or window).
 extension VMType: Handled {
+    /// No text types the machine's password (Type Password): into whatever has its focus, which the user looks at first.
+    var notForAgents: String? { text == nil ? "Typing a machine's password is the user's: Type Password in its tab." : nil }
     func handle(_ vms: VMService) throws -> Done { try vms.type(name, text, session: Sessions.asker); return Done() }
 }
 

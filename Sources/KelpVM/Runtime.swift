@@ -51,12 +51,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     // MARK: sockets
 
     func listen() {
-        // One kelp-vm per machine: two starts at once would both launch one, and the second would take the sockets over.
-        // Tried for a moment: kelpd takes it for an instant to ask whether one runs (`VMService.alive`).
-        let lock = open(file("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
-        var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
-        for _ in 0..<10 where lock >= 0 && !held { usleep(50_000); held = flock(lock, LOCK_EX | LOCK_NB) == 0 }
-        guard held else { log("another kelp-vm runs \(machine.name)"); exit(0) }
+        // Its lock is held already (main.swift): two starts at once would both launch one, and the second would take the sockets over.
         listen("ssh.sock") { [weak self] fd in self?.connect(fd, counted: true) }
         listen("own.sock") { [weak self] fd in self?.connect(fd, counted: false) }
         listen("ctl.sock") { [weak self] fd in self?.control(fd) }
@@ -183,7 +178,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
         // then would cut its power.
         // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
-        case .sleep: sleep { e in done(e, nil); if e == nil, self.vm == nil, self.state != .starting { self.leaveSoon() } }
+        case .sleep: sleep { e in done(e, nil); if Lifecycle.endsAfterSleep(error: e, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() } }
         case .stop: stop { done(nil, nil); self.leaveSoon() }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
         case .screen:
@@ -197,7 +192,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         case .quit:
             // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
             // Starting with no VM for a moment is a boot tried again (`awaitSSH`): in use too.
-            if r.args == ["if-down"], vm != nil || state == .starting {
+            if Lifecycle.refusesQuit(r.args, hasVM: vm != nil, state: state) {
                 return done("\(machine.name) is in use again: shut it down, then change its size.", nil)
             }
             done(nil, nil)
@@ -384,7 +379,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         if state == .running, connections == 0, idle > Self.pauseAfter {
             vm?.pause { r in MainActor.assumeIsolated { if r.failure == nil, self.state == .running { self.state = .paused; log("paused") } } }
         } else if state == .paused, connections == 0, idle > Self.sleepAfter, Date().timeIntervalSince(saveFailed ?? .distantPast) > 600 {
-            sleep { e in if e == nil, self.vm == nil { self.leaveSoon() } }   // as `.sleep` does
+            sleep { e in if Lifecycle.endsAfterSleep(error: e, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() } }   // as `.sleep` does
         } else if state == .running, ticks % 3 == 0 {
             adjustMemory()
         }
