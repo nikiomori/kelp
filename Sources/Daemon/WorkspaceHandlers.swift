@@ -134,8 +134,9 @@ extension WorktreeCreate: Handled {
         // Everything .kelp.yaml does waits for the user's trust in this version of the file, not only `setup`: `tabs`
         // starts agents and `shared` links folders, and a freshly cloned repository wrote that file, not the user.
         // Checked and used from one read. A pull request brings code the file's trust doesn't cover (an install script of
-        // its author's): nothing runs on it until the user says so.
-        let read = workspaces.configAndTrust(r.path), cfg = read.config, trusted = read.trusted && pr == nil
+        // its author's): nothing runs on it until the user says so, nor on a branch made on top of one (`holdsPullRequest`).
+        let fromPR = pr != nil || Git.holdsPullRequest(path, remotes: workspaces.remotes)
+        let read = workspaces.configAndTrust(r.path), cfg = read.config, trusted = read.trusted && !fromPR
         if trusted {
             Git.linkShared(cfg.shared, repo: r.path, worktree: path)
             for why in Git.cloneShared(cfg.clone, repo: r.path, worktree: path) {

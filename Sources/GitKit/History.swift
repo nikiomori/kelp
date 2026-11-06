@@ -184,9 +184,32 @@ extension Git {
     }
 
     /// Applies what a discard threw away again: `discard`'s patch, or with `hunk` a hunk's own (`FileDiff.patch(hunk:)`).
-    /// git changes nothing when the files have moved on since, so a newer edit is never written over.
+    /// git changes nothing in a file that has moved on since, so a newer edit is never written over. A discard that failed
+    /// partway left some files as they were: those are let be, the rest put back, each file on its own.
     public static func putBack(_ path: String, patch: Data, hunk: Bool, remotes: Remotes = .none) throws {
-        try runData(["apply"] + (hunk ? ["--recount", "--unidiff-zero"] : ["--binary"]) + ["-"], cwd: path, stdin: patch, remotes: remotes)
+        let apply = ["apply"] + (hunk ? ["--recount", "--unidiff-zero"] : ["--binary"]) + ["-"]
+        do { try runData(apply, cwd: path, stdin: patch, remotes: remotes) } catch {
+            let files = perFile(patch)
+            guard !hunk, files.count > 1 else { throw error }
+            for f in files {
+                // Already as the patch leaves it (its undo applies): let be.
+                do { try runData(["apply", "--binary", "-R", "--check", "-"], cwd: path, stdin: f, remotes: remotes) } catch {
+                    try runData(apply, cwd: path, stdin: f, remotes: remotes)
+                }
+            }
+        }
+    }
+
+    /// A patch cut at each file's `diff --git` line.
+    static func perFile(_ patch: Data) -> [Data] {
+        let mark = Data("\ndiff --git ".utf8)
+        var parts: [Data] = [], start = patch.startIndex, from = patch.startIndex
+        while let r = patch.range(of: mark, in: from..<patch.endIndex) {
+            parts.append(patch[start...r.lowerBound])
+            start = r.lowerBound + 1; from = r.upperBound
+        }
+        parts.append(patch[start...])
+        return parts.filter { !$0.isEmpty }
     }
 
     public enum Remote: String, Sendable { case pull, push, fetch }

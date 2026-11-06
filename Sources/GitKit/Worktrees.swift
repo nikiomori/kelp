@@ -47,6 +47,8 @@ extension Git {
             try run(args, cwd: repo, ok: [0, 1], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
         }
         let head = try line(["rev-parse", "FETCH_HEAD"])
+        // Kept past its branch (`holdsPullRequest`): a workspace made later on top of it is the PR's code too.
+        try run(["update-ref", "refs/kelp/pr/\(number)", head], cwd: repo, remotes: remotes)
         func at(_ b: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + b]) }
         func openIn(_ b: String) throws -> String { try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + b]) }
         if let wanted, Git.isRevision(wanted), try at(wanted) == head, try openIn(wanted).isEmpty { return wanted }
@@ -64,6 +66,19 @@ extension Git {
             }
             mine = "pr-\(number)-\(k)"; k += 1
         }
+    }
+
+    /// Whether `path`'s checkout holds a pull request's code that Kelp fetched (`fetchPullRequest`, or a `pr-*` branch),
+    /// which origin's branches don't: one merged and pushed is the project's own. Unknown (git failed): it does.
+    public static func holdsPullRequest(_ path: String, remotes: Remotes = .none) -> Bool {
+        do {
+            let heads = try run(["for-each-ref", "--merged", "HEAD", "--format=%(objectname)", "refs/kelp/pr/", "refs/heads/pr-*"],
+                                cwd: path, remotes: remotes).split(separator: "\n").map(String.init)
+            for h in Set(heads) where try !run(["rev-list", "-n1", h, "--not", "--remotes=origin"], cwd: path, remotes: remotes).isEmpty {
+                return true
+            }
+            return false
+        } catch { return true }
     }
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.
