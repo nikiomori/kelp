@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 import Testing
 @testable import Daemon
 
@@ -82,6 +83,34 @@ import Testing
         try folder(["creating": #"{"step":"downloading"}"#, "disk.img": "half"])
         _ = try Daemon(root: home)
         #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/disk.img").path))
+    }
+
+    /// Whose turn a macOS machine's screen is goes by the session the caller's process is in, not by what it sends: an
+    /// agent can't click in another's turn by naming the user, or nobody.
+    @Test func theScreensTurnIsTheCallersSession() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let f = home.appendingPathComponent("vms/mac")
+        try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        let mac = VMMachine(name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
+        try JSONEncoder().encode(mac).write(to: f.appendingPathComponent("machine.json"))
+        let server = try Unix.listen(f.appendingPathComponent("ctl.sock").path)
+        defer { close(server) }
+        let heard = OSAllocatedUnfairLock(initialState: [String]())
+        Thread.detachNewThread {   // kelp-vm: running, and what it was asked
+            while case let fd = accept(server, nil, nil), fd >= 0 {
+                var b = [UInt8](repeating: 0, count: 4096)
+                let n = read(fd, &b, b.count)
+                let line = n > 0 ? String(decoding: b[0..<n], as: UTF8.self) : ""
+                heard.withLock { $0.append(line) }
+                _ = Unix.writeAll(fd, Data(#"{"state":"running","connections":0}"#.utf8 + [10]))
+                close(fd)
+            }
+        }
+        let vms = self.vms
+        try Sessions.$asker.withValue("AGENT") { _ = try VMScreen(name: "mac", args: ["click", "1", "1"], session: nil).handle(vms) }
+        try Sessions.$asker.withValue("AGENT") { _ = try VMType(name: "mac", text: "x").handle(vms) }
+        let screens = heard.withLock { $0 }.filter { $0.contains(#""op":"screen""#) }
+        #expect(screens.count == 2 && screens.allSatisfy { $0.contains(#""session":"AGENT""#) })
     }
 
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {

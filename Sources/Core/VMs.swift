@@ -207,7 +207,7 @@ public struct VMType: RPCMethod {
 /// 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.
 public struct VMScreen: RPCMethod {
     public static let name = "vm.screen"; public typealias Result = Done
-    public static let timeout: TimeInterval = 120   // a sleeping machine wakes first; another session's turn is waited for
+    public static var timeout: TimeInterval? { 120 }   // a sleeping machine wakes first; another session's turn is waited for
     public var name: String, args: [String], session: String?
     public init(name: String, args: [String], session: String? = nil) { self.name = name; self.args = args; self.session = session }
 }

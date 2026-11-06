@@ -477,12 +477,14 @@ extension VMList: Handled {
     func handle(_ vms: VMService) throws -> [VMInfo] { vms.list(sessions: true) }
 }
 
+// Whose turn the screen is: the caller's session as its process says (`Sessions.asker`), what was sent only from outside
+// every session (the user's own terminal or window).
 extension VMType: Handled {
-    func handle(_ vms: VMService) throws -> Done { try vms.type(name, text); return Done() }
+    func handle(_ vms: VMService) throws -> Done { try vms.type(name, text, session: Sessions.asker); return Done() }
 }
 
 extension VMScreen: Handled {
-    func handle(_ vms: VMService) throws -> Done { try vms.screen(name, args, session: session); return Done() }
+    func handle(_ vms: VMService) throws -> Done { try vms.screen(name, args, session: Sessions.asker ?? session); return Done() }
 }
 
 extension VMDetailRead: Handled {

@@ -46,12 +46,12 @@ extension VMService {
     }
 
     /// Types into a macOS machine's screen; nil: its password, from the Keychain.
-    func type(_ name: String, _ given: String?) throws {
+    func type(_ name: String, _ given: String?, session: String? = nil) throws {
         let text: String
         do { text = try given ?? Keychain.read("vm." + name) } catch {
             throw RPCError.internalError("\(name)'s password in the Keychain: \(error.localizedDescription)")
         }
-        try screen(name, ["type", text], session: nil)   // the user's: no turn to wait for
+        try screen(name, ["type", text], session: session)   // nil: the user's (Type Password), no turn to wait for
     }
 
     private func makeMacFolder(_ m: VMMachine) throws {
