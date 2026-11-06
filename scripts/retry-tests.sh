@@ -1,11 +1,16 @@
 #!/bin/bash
 # Runs a test command; on a shared runner load fails a few tests at random, so the ones that failed run once more, alone,
-# and the run says so. A data race, or a crash that names no test, fails at once.
+# and the run says so, only when each is listed in Tests/flaky.txt (with why). Any other failure fails the run, as do a
+# data race and a crash that names no test.
 log=$(mktemp)
 "$@" 2>&1 | tee "$log"
 [ "${PIPESTATUS[0]}" = 0 ] && exit 0
 grep -q 'WARNING: ThreadSanitizer' "$log" && exit 1
-failed=$(sed -nE 's/.*✘[^T]*Test ([^ (]+)\(.*failed after.*/\1/p' "$log" | sort -u | paste -sd'|' -)
+failed=$(sed -nE 's/.*✘[^T]*Test ([^ (]+)\(.*failed after.*/\1/p' "$log" | sort -u)
 [ -n "$failed" ] || exit 1
-echo "::warning::Failed, running these once more: $failed"
-"$@" --filter "$failed"
+known=$(sed -E 's/#.*//; s/[[:space:]]+//g; /^$/d' "$(dirname "$0")/../Tests/flaky.txt")
+unknown=$(comm -23 <(echo "$failed") <(echo "$known" | sort -u) | paste -sd' ' -)
+if [ -n "$unknown" ]; then echo "::error::Failed, and not known to be load-bound (Tests/flaky.txt): $unknown"; exit 1; fi
+list=$(echo "$failed" | paste -sd'|' -)
+echo "::warning::Failed, running these once more: $list"
+"$@" --filter "$list"

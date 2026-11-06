@@ -1,0 +1,15 @@
+# Tests CI may run once more, alone, when a shared runner's load fails them (scripts/retry-tests.sh). Any other test
+# that fails, fails the run: a new one goes here only with why it's load-bound, and comes off once it isn't.
+aDiffIsSearchedAndSteppedThrough           # a WebKit page's find, on a runner with no GPU to spare
+saveWritesTheEditButNeverOverAnAgentsChange   # file stamps a second apart under load
+undoDiscardWorksAfterTheDaemonRestarts     # a second daemon on the same home while the first lets go of it
+aRunningUsageProbeEndsWithTheDaemon        # a real child process's end, timed
+aDroppedHandedOverTerminalLeavesTheReapingToItsSuccessor   # two daemons and a hand-over, timed
+archivingEndsAJobInItsOwnProcessGroup      # process-group signals, timed
+archivingAWorkspaceEndsItsPlainProgramsForGood
+removingAProjectEndsItsPrograms
+stoppingTheDaemonEndsWholeTreesAndKeepsAgentsResumable
+aServerWithNoOpenFileStops                 # a language server's idle timer
+aHookDoesntHoldItsAgentAndALateOneChangesNothing   # hook order against a real PTY
+aFinishedTerminalClosesItsFdsOnce
+hibernateAndWake                           # a pause after ~2 s idle, then a wake
