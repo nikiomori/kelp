@@ -29,10 +29,12 @@ enum Screen {
             }
             return shoot(25)
         }
-        if let h = holder, h.session != session, h.until > Date() {
-            return done("The screen is \(h.session)'s now (until 20 s after its last action); try again in a moment.")
+        if session != "-" {   // "-": the user's (Type Password, a terminal outside Kelp): no turn
+            if let h = holder, h.session != session, h.until > Date() {
+                return done("The screen is \(h.session)'s now (until 20 s after its last action); try again in a moment.")
+            }
+            holder = (session, Date().addingTimeInterval(20))
         }
-        holder = (session, Date().addingTimeInterval(20))
         var events: [NSEvent] = []
         switch op {
         case "click":

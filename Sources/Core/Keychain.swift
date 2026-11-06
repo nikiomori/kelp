@@ -22,11 +22,20 @@ public enum Keychain {
     }
 
     public static func get(_ account: String) -> String? {
+        do { return try read(account) } catch { return nil }
+    }
+
+    /// The value, or the keychain's reason it can't be had (its OSStatus: -25300 not there, -25308 not allowed now…).
+    public static func read(_ account: String) throws -> String {
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account,
                                 kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
-        return String(data: d, encoding: .utf8)
+        let s = SecItemCopyMatching(q as CFDictionary, &out)
+        guard s == errSecSuccess, let d = out as? Data, let value = String(data: d, encoding: .utf8) else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(s), userInfo: [NSLocalizedDescriptionKey:
+                (SecCopyErrorMessageString(s, nil) as String? ?? "keychain error") + " (\(s))"])
+        }
+        return value
     }
 
     public static func delete(_ account: String) {
