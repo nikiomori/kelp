@@ -169,8 +169,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         switch r.op {
         case .status: done(nil, nil)
         case .start: lastUse = Date(); wake { done($0, nil) }
-        case .sleep: sleep { done($0, nil) }
-        case .stop: stop { done(nil, nil) }
+        // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
+        // then, an update's included. Its answer is written before (`reply` writes and closes).
+        case .sleep: sleep { e in done(e, nil); if e == nil { exit(0) } }
+        case .stop: stop { done(nil, nil); exit(0) }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
         case .screen:
             guard machine.os == "macos" else { return done("Its screen is a macOS machine's.", nil) }
@@ -400,7 +402,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         if state == .running, connections == 0, idle > Self.pauseAfter {
             vm?.pause { r in MainActor.assumeIsolated { if r.failure == nil, self.state == .running { self.state = .paused; log("paused") } } }
         } else if state == .paused, connections == 0, idle > Self.sleepAfter {
-            sleep { _ in }
+            sleep { e in if e == nil { exit(0) } }   // as `.sleep` does
         } else if state == .running, ticks % 3 == 0 {
             adjustMemory()
         }
