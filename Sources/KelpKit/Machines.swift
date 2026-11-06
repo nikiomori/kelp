@@ -124,7 +124,10 @@ extension AppModel {
             var parts: [String] = []
             if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
             let n = v.connections ?? 0
-            parts.append(n == 0 ? String(localized: "Nothing running") : String(localized: "\(n) running"))
+            if n > 0 { parts.append(String(localized: "\(n) running")) }
+            // Nothing runs, but an agent drives its screen (`VMInfo.sessions` names it then).
+            else if let s = v.sessions?.first { parts.append(String(localized: "\(catalog.name(session(s)?.agent)) is using the screen")) }
+            else { parts.append(String(localized: "Nothing running")) }
             return parts.joined(separator: " · ")
         }
     }

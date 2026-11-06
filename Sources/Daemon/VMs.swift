@@ -25,15 +25,18 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMMachine.self, from: d)
     }
 
-    /// `sessions`: who runs something in each busy one, read from inside (an SSH run each).
+    /// `sessions`: who works in each running one: what runs inside, read from inside (an SSH run each), and the session
+    /// whose turn a macOS machine's screen is (an agent driving it runs nothing there).
     func list(sessions: Bool = false) -> [VMInfo] {
         let names: [String]
         do { names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") } } catch { return [] }
         return names.sorted().compactMap { n in
             var v: VMInfo
             do { v = info(try machine(n)) } catch { return nil }
-            if sessions, v.state == .running, (v.connections ?? 0) > 0 {
-                v.sessions = Array(Set(detail(n)?.runs.compactMap(\.session) ?? [])).sorted()
+            if sessions, v.state == .running {
+                let runs = (v.connections ?? 0) > 0 ? detail(n)?.runs.compactMap(\.session) ?? [] : []
+                let screen = v.machine.os == "macos" ? status(n)?.screen.map { [$0] } ?? [] : []
+                v.sessions = Array(Set(runs + screen)).sorted()
             }
             return v
         }

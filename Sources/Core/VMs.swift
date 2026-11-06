@@ -49,7 +49,8 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var memoryMiB: Int?
     /// Its disk's size on the Mac's disk, MiB.
     public var diskMiB: Int?
-    /// The Kelp sessions with a command running in it now (`kelp vm run` from an agent or a terminal).
+    /// The Kelp sessions working in it now: a command running there (`kelp vm run` from an agent or a terminal), or the
+    /// turn of a macOS machine's screen.
     public var sessions: [String]?
     /// While it's being made: the step it's at, and how far that step got (0…1) when that's known. `detail` names what
     /// it's made from then ("macOS 27.2").

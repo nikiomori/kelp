@@ -40,6 +40,28 @@ import Testing
         #expect(vms.list().isEmpty)
     }
 
+    /// An agent driving a macOS machine's screen runs nothing in it, and still works with it: the session whose turn the
+    /// screen is counts (the sidebar names it).
+    @Test func whoseTurnTheScreenIsCountsAsWorkingInIt() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let f = home.appendingPathComponent("vms/mac")
+        try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        let mac = VMMachine(name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
+        try JSONEncoder().encode(mac).write(to: f.appendingPathComponent("machine.json"))
+        let server = try Unix.listen(f.appendingPathComponent("ctl.sock").path)
+        defer { close(server) }
+        Thread.detachNewThread {   // kelp-vm: a status, the screen's turn with "S1"
+            while case let fd = accept(server, nil, nil), fd >= 0 {
+                var b = [UInt8](repeating: 0, count: 4096)
+                _ = read(fd, &b, b.count)
+                _ = Unix.writeAll(fd, Data(#"{"state":"running","connections":0,"screen":"S1"}"#.utf8 + [10]))
+                close(fd)
+            }
+        }
+        #expect(vms.list().first?.sessions == nil)   // not asked for
+        #expect(vms.list(sessions: true).first?.sessions == ["S1"])
+    }
+
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])

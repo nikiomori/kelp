@@ -1277,6 +1277,16 @@
         }
       }
     },
+    "%@ is using the screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ работает с экраном"
+          }
+        }
+      }
+    },
     "Nothing running": {
       "localizations": {
         "ru": {
