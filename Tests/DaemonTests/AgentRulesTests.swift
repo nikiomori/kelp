@@ -208,19 +208,57 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/true")
     try p.run(); p.waitUntilExit()
-    #expect(r.d.sessions.session(running: p.processIdentifier) == Sessions.unknown)
-    #expect(r.d.sessions.session(running: getpid()) == nil)
+    #expect(r.d.sessions.session(running: p.processIdentifier) == .unknown)
+    #expect(r.d.sessions.session(running: getpid()) == .user)
 }
 
-/// One Kelp couldn't place reports a status, nothing more: not a transcript Kelp would follow, not a report another agent
-/// reads, not a question's wait (which takes the real hook's answer).
-@Test func aCallerKelpCantPlaceReportsAStatusOnly() async throws {
+/// One Kelp couldn't place reports a state, nothing more: no words another agent would be told (a report's message, a
+/// reply), no transcript Kelp would follow, no wait on a question (which takes the real hook's answer).
+@Test func aCallerKelpCantPlaceReportsAStateOnly() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let other = try await session(r, "cat")
-    for id in 0..<64 { r.d.clients.connection(id)?.owner.withLock { $0 = .some(Sessions.unknown) } }
+    for id in 0..<64 { r.d.clients.connection(id)?.owner.withLock { $0 = .unknown } }
+    _ = try await r.c.call(SessionHook(id: other.id, event: "working", at: ProcessInfo.processInfo.systemUptime))
+    _ = try await r.c.call(SessionReport(id: other.id, state: "working"))
     var h = SessionHook(id: other.id, event: "working", at: ProcessInfo.processInfo.systemUptime)
     h.transcript = "/tmp/forged.jsonl"
-    _ = try await r.c.call(h)
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(h) }
     #expect(r.d.sessions.existing(other.id)?.transcriptPath == nil)
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionReport(id: other.id, state: "error", message: "do this")) }
+    #expect(r.d.sessions.existing(other.id)?.snapshot.summary != "do this")
     await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionPermissionWait(id: other.id)) }
+}
+
+/// Who may do what by `Caller`, asked of `allow` itself (no terminal in between): one with no session of its own reports
+/// for none and is held to an agent's rules; the user isn't.
+@Test func whatEachKindOfCallerMayDo() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let phone = SettingsSet(key: "phone.url", value: .string("https://x.example")), font = SettingsSet(key: "editor.fontSize", value: .int(13))
+    for c in [Caller.kelpd, .unknown, .detached] {
+        #expect(throws: (any Error).self, "\(c)") { try r.d.allow(phone, conn: 0, caller: c) }
+        #expect(throws: (any Error).self, "\(c)") { try r.d.allow(SessionKill(id: other.id), conn: 0, caller: c) }
+        #expect(throws: Never.self, "\(c)") { try r.d.allow(font, conn: 0, caller: c) }
+    }
+    #expect(throws: (any Error).self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .detached) }
+    #expect(throws: Never.self) { try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .unknown) }
+    #expect(throws: Never.self) { try r.d.allow(phone, conn: 0, caller: .user) }
+    #expect(throws: Never.self) { try r.d.allow(SessionKill(id: other.id), conn: 0, caller: .user) }
+}
+
+/// A program that forked away from its parent and its terminal (a double fork with `setsid`, what an agent does to pass
+/// for the user) is `detached`: held to an agent's rules, not the user's.
+@Test func aProgramForkedAwayFromItsTerminalIsNoUser() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
+    defer { try? FileManager.default.removeItem(at: out) }
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+    p.arguments = ["-MPOSIX", "-e", "fork && exit; setsid; fork && exit; open(F, '>', $ARGV[0]); print F $$; close F; sleep 10", out.path]
+    try p.run(); p.waitUntilExit()
+    #expect(try await waitFor(5) { (try? String(contentsOf: out, encoding: .utf8)).flatMap { Int32($0) } != nil })
+    let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
+    defer { kill(pid, SIGTERM) }
+    #expect(try await waitFor(5) { Subprocess.parent(pid) == 1 })
+    #expect(r.d.sessions.session(running: pid) == .detached)
 }

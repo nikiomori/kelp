@@ -381,8 +381,8 @@ private func codeOnly(_ s: String) -> String {
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
     let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto"
     var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|ends)\b"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bvar answersQuestion\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|saysOnlyAState|ends)\b"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bvar (?:answersQuestion|saysOnlyAState)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:inOrder|quick)\b(?!: Bool \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) timeout\b(?!: TimeInterval\? \{)"#, in: ["Sources/Core", "Sources/Daemon"])
     #expect(wrong.isEmpty, "spelled unlike their requirements: \(wrong)")

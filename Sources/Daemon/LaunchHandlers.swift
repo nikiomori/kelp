@@ -144,16 +144,19 @@ extension Sessions {
 /// A late one (it was paused or ended since) wakes nothing.
 extension SessionHook: Handled {
     var reportsFor: String? { id }
+    /// Its event alone: no words (a reply, a question's text, a goal), no transcript to follow, no folder, no command.
+    var saysOnlyAState: Bool {
+        transcript == nil && cwd == nil && notification == nil && reply == nil && goal == nil && command == nil
+            && hookName != "PermissionRequest"
+    }
     static var quick: Bool { true }   // the agent waits for its hook
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else {
             try sessions.trail(id)?.add("\(trailLine): nothing runs here")
             return Done()
         }
-        // From a caller Kelp couldn't place (`Sessions.unknown`): its status only, not text another agent reads or a file Kelp follows.
-        let placed = Sessions.asker != Sessions.unknown
-        if placed, let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
-        if placed, let reply, ls.snapshot.parent != nil { sessions.reports.said(reply, by: id) }   // before the status its report goes out on
+        if let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
+        if let reply, ls.snapshot.parent != nil { sessions.reports.said(reply, by: id) }   // before the status its report goes out on
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) {
             ls.trail.add("\(trailLine): asks nothing")

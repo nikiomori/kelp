@@ -44,6 +44,8 @@ protocol Answered: RPCMethod {
     var notForAgents: String? { get }
     /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
     var typesInto: String? { get }
+    /// It says a state and nothing in words, nor a folder (`Caller.unknown` may send only that).
+    var saysOnlyAState: Bool { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -57,6 +59,7 @@ extension Answered {
     var ends: Ending? { nil }
     var notForAgents: String? { nil }
     var typesInto: String? { nil }
+    var saysOnlyAState: Bool { false }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -115,7 +118,7 @@ extension Handled {
 
     /// On the calling thread: an in-order method's, on the reader thread.
     static func answerNow(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Data {
-        try Sessions.$asker.withValue(d.sessions.caller(conn)) {
+        try Sessions.$asker.withValue(d.sessions.caller(conn).origin) {
             try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
         }
     }
@@ -135,7 +138,7 @@ extension AsyncHandled {
     func handle(_ s: Service, conn: Int) async throws -> Result { try await handle(s) }
 
     static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
-        try await Sessions.$asker.withValue(d.sessions.caller(conn)) {
+        try await Sessions.$asker.withValue(d.sessions.caller(conn).origin) {
             try JSONEncoder().encode(await checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
         }
     }
@@ -158,34 +161,42 @@ extension Daemon {
     /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
     /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types
     /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
-    /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook) is held
-    /// to the same with no session of its own. The user's own terminals drive any. Limit: a program that left the tree
-    /// and its terminal (`setsid`, a tmux server) is taken for one outside every session, and an agent typed into a
-    /// plain terminal by hand counts as that terminal; macOS doesn't show another process's environment (its
-    /// KELP_SESSION) to tell, and an agent can still leave a program for the user to run (a file): the socket, and the
-    /// files, are the user's.
+    /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook), one gone
+    /// before it was looked at and one that forked away from its terminal are held to the same with no session of their
+    /// own (`Caller`). The user's own terminals drive any. Limit: a program that left the tree into a terminal of its own
+    /// (`script`, a tmux server's pane) is taken for one outside every session, and an agent typed into a plain terminal
+    /// by hand counts as that terminal; macOS doesn't show another process's environment (its KELP_SESSION) to tell, and
+    /// an agent can still leave a program for the user to run (a file): the socket, and the files, are the user's.
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
-    func allow(_ m: any Answered, conn: Int, caller known: String?? = nil) throws {
+    func allow(_ m: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        guard let own = known ?? sessions.caller(conn) else { return }
-        if let id = m.reportsFor, own != id, own != Sessions.unknown { throw RPCError.invalidParams("A session speaks only for itself.") }
-        if own == Sessions.unknown, m.reportsFor != nil {
-            // A hook reports and ends, sometimes before it's looked at: its status counts. Not what another would be told
-            // (a report's text, read by the agent that started it: `SessionHook` leaves it out), waits on, or reads.
-            guard m is SessionHook || m is SessionReport || m is PaneReportAgent else {
-                throw RPCError.invalidParams("Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
-            }
-            return
+        let caller = known ?? sessions.caller(conn)
+        switch caller {
+        case .user: return
+        case .session(let own):
+            if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
+            guard try sessions.forAnAgent(own) else { return }
+            try allowAgent(m, own: own)
+        case .unknown:
+            // A hook reports and ends, sometimes before it's looked at: a state counts, of whichever session it names.
+            // Nothing in words (another agent is told a report's text), no folder, no wait on a question.
+            if m.reportsFor != nil, m.saysOnlyAState { return }
+            try allowAgent(m, own: Sessions.unknown, or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
+        case .kelpd:
+            try allowAgent(m, own: Sessions.ownProgram,
+                           or: "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
+        case .detached:
+            try allowAgent(m, own: Sessions.detached,
+                           or: "A program that left its terminal (a double fork, setsid) is held to an agent's rules: run it from a terminal of yours.")
         }
-        guard own != Sessions.ownProgram, own != Sessions.unknown else {
-            do { return try allowAgent(m, own: own) } catch {
-                throw RPCError.invalidParams(own == Sessions.unknown
-                    ? "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that."
-                    : "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
-            }
-        }
-        guard try sessions.forAnAgent(own) else { return }
-        try allowAgent(m, own: own)
+    }
+
+    /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules, refused in `why`'s words.
+    private func allowAgent(_ m: any Answered, own: String, or why: String) throws {
+        do {
+            if m.reportsFor != nil { throw RPCError.invalidParams(why) }
+            try allowAgent(m, own: own)
+        } catch { throw RPCError.invalidParams(why) }
     }
 
     /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.
@@ -491,6 +502,7 @@ extension RepoRemoveWorktrees: Handled {
 
 extension SessionReport: Handled {
     var reportsFor: String? { id }
+    var saysOnlyAState: Bool { message == nil }
     static var quick: Bool { true }   // `kelp report`: the agent waits for it
     func handle(_ sessions: Sessions) throws -> Done {
         guard ProgramStatus.states.contains(state) else { throw RPCError.invalidParams("state is one of idle, working, blocked, done, error, clear") }
@@ -505,6 +517,7 @@ extension SessionReport: Handled {
 /// herdr has no "done": idle after work is a finished turn (`StatusDetector.program`).
 extension PaneReportAgent: Handled {
     var reportsFor: String? { paneId }
+    var saysOnlyAState: Bool { true }
     static var quick: Bool { true }   // fx waits for the reply
     func handle(_ sessions: Sessions) throws -> Done {
         guard ["idle", "working", "blocked"].contains(state) else { throw RPCError.invalidParams("state is one of idle, working, blocked") }
