@@ -1,4 +1,5 @@
 import AppKit
+import Agents
 import Core
 import WorkbenchKit
 
@@ -209,55 +210,50 @@ extension EditorArea {
         return m
     }
 
-    /// "+" menu: agents, terminal, then whatever extensions offer (browser, chat, extension views…).
+    /// "+" menu, in the empty workspace's order (`NewTabChoices`): the agents, what opens, what runs, then Make.
     func newTabMenu(group: String?) -> NSMenu {
         let app = self.app
+        let focus: @MainActor () -> Void = { [weak self] in if let group { self?.layout.focused = group } }
         let m = NSMenu()
-        let agents = app.catalog.installed(app.catalog.all)
-        let notes = app.planNotes, column = ScriptsMenu.column(agents.map(\.name))
-        for a in agents {
-            let item = m.add(a.name) { [weak self] in
-                if let group { self?.layout.focused = group }
-                self?.newAgent(a.id)
+        let agents = NewTabChoices.agents(app), def = app.catalog.defaultAgent
+        m.addItem(.sectionHeader(title: String(localized: "Agents")))
+        let notes = app.planNotes
+        let shown = agents.prefix(NewTabChoices.shown), rest = agents.dropFirst(NewTabChoices.shown)
+        func agentItem(_ a: AgentManifest, in menu: NSMenu, column: CGFloat) {
+            let item = menu.add(a.name) { [weak self] in focus(); self?.newAgent(a.id) }
+            item.show(app.catalog.icon(a.id))
+            if let n = notes[a.id] {
+                item.attributedTitle = ScriptsMenu.title(a.name, note: n.text, column: column, noteColor: n.color)
             }
-            item.image = app.catalog.icon(a.id)
-            if let n = notes[a.id] { item.attributedTitle = ScriptsMenu.title(a.name, note: n.text, column: column, noteColor: n.color) }
+            if a.id == def, let k = NewTabChoices.defaultKey { item.keyEquivalent = k.key; item.keyEquivalentModifierMask = k.mods.flags }
         }
+        let column = ScriptsMenu.column(shown.map(\.name))
+        for a in shown { agentItem(a, in: m, column: column) }
         if agents.isEmpty { m.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "").isEnabled = false }
-        m.addItem(.separator())
-        m.add(String(localized: "Terminal"), symbol: "terminal") { [weak self] in if let group { self?.layout.focused = group }; self?.newTerminal() }
-        if app.catalog.hasTmux(app.worktree(workspaceId)) {
-            m.add(String(localized: "tmux Session…"), symbol: "rectangle.split.3x1") { [weak self] in
-                if let group { self?.layout.focused = group }
-                app.quickOpen.showTmux()
-            }
+        if !rest.isEmpty {
+            let sub = NSMenu(), column = ScriptsMenu.column(rest.map(\.name))
+            for a in rest { agentItem(a, in: sub, column: column) }
+            let item = m.addItem(withTitle: String(localized: "Other Agents"), action: nil, keyEquivalent: "")
+            item.show(.symbol("ellipsis.circle"))
+            item.submenu = sub
         }
-        // What the run chip runs, and its list: a run opens as a tab too.
-        if let o = app.scripts.offer(workspaceId) {
-            let wid = workspaceId
+        m.addItem(.separator())
+        m.addItem(.sectionHeader(title: String(localized: "Open")))
+        let open = NewTabChoices.open(app, app.worktree(workspaceId)) { [weak self] in self?.newTerminal() }
+        for a in open { m.add(a, before: focus) }
+        let run = NewTabChoices.run(app, workspace: workspaceId)
+        if !run.isEmpty {
             m.addItem(.separator())
-            let run = m.add(String(localized: "Run \(o.label)"), symbol: "play", key: o.guess ? "" : "r") {
-                Task { await app.scripts.start(choice: o.choice, in: wid) }
-            }
-            run.toolTip = o.command
-            m.add(String(localized: "Choose What to Run…"), symbol: "list.bullet", key: "r") { app.scripts.choose() }
-                .keyEquivalentModifierMask = [.control, .command]
+            m.addItem(.sectionHeader(title: String(localized: "Run")))
+            for a in run { m.add(a) }
         }
         if !agents.isEmpty {
             m.addItem(.separator())
-            Make.addItems(to: m) { [weak self] line in
-                if let group { self?.layout.focused = group }
-                self?.newAgent(prompt: line, draft: true)
-            }
-        }
-        let ctx = IDEContext.of(app)
-        let editors = app.extensions.all.editors
-        if !editors.isEmpty { m.addItem(.separator()) }
-        for e in editors {
-            m.add(e.label, symbol: e.icon) { [weak self] in
-                if let group { self?.layout.focused = group }
-                e.open(ctx, in: app)
-            }
+            let sub = NSMenu()
+            Make.addItems(to: sub, heading: false) { [weak self] line in focus(); self?.newAgent(prompt: line, draft: true) }
+            let item = m.addItem(withTitle: String(localized: "Make"), action: nil, keyEquivalent: "")
+            item.show(.symbol("doc.text"))
+            item.submenu = sub
         }
         return m
     }

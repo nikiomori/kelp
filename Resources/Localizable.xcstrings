@@ -897,6 +897,26 @@
         }
       }
     },
+    "%lld More": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё %lld"
+          }
+        }
+      }
+    },
+    "Other Agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие агенты"
+          }
+        }
+      }
+    },
     "%lld of %lld answered": {
       "localizations": {
         "ru": {
