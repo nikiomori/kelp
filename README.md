@@ -64,7 +64,7 @@ Each agent's state sits on its row in the sidebar: working, finished, or waiting
 Nothing to set up: Kelp knows it from the agent itself, and says so when it's only reading the screen.
 <kbd>⇧⌘U</kbd> goes to the next one that needs you. Allow a command or send a reply straight from the notification.
 
-<img src="docs/screenshots/agent-asks.png" alt="An agent waiting on a question; its row in the sidebar shows the question and the capsule counts who needs you" />
+<img src="docs/screenshots/agent-asks.png" alt="An agent waiting on a question, its choices in the terminal; its row in the sidebar shows the question" />
 
 ### 3. Read what they did
 
