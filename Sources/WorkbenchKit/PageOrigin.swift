@@ -11,15 +11,16 @@ public enum PageOrigin {
         let labels = host.split(separator: ".").map(String.init)
         let numeric = host.contains(":") || labels.allSatisfy { $0.allSatisfy(\.isNumber) }
         if numeric || labels.count < 2 { return "\(scheme)://\(host)" + (u.port.map { ":\($0)" } ?? "") }
-        let two = labels.suffix(2).joined(separator: ".")
         let country = labels.last?.count == 2 && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])
-        return "\(scheme)://" + labels.suffix(country || shared.contains(two) ? 3 : 2).joined(separator: ".")
+        // The longest shared suffix it ends in (`s3.amazonaws.com` before `amazonaws.com`), and one label more.
+        let suffix = (1..<labels.count).reversed().first { shared.contains(labels.suffix($0).joined(separator: ".")) } ?? (country ? 2 : 1)
+        return "\(scheme)://" + labels.suffix(suffix + 1).joined(separator: ".")
     }
 
     /// Hosts whose subdomains are different people's sites.
     static let shared: Set<String> = [
         "vercel.app", "netlify.app", "github.io", "gitlab.io", "pages.dev", "workers.dev", "web.app", "firebaseapp.com",
         "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "glitch.me", "repl.co", "ngrok.io", "ngrok-free.app",
-        "azurewebsites.net", "cloudfront.net", "amazonaws.com", "appspot.com", "blogspot.com", "surge.sh", "deno.dev"
+        "azurewebsites.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "appspot.com", "blogspot.com", "surge.sh", "deno.dev"
     ]
 }

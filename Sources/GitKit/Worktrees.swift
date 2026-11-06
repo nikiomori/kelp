@@ -70,8 +70,8 @@ extension Git {
         }
     }
 
-    /// Whether `rev` in `repo` holds a pull request's code that origin's branches don't (one merged and pushed is the
-    /// project's own): a head Kelp fetched (`fetchPullRequest`), a `pr-*` branch, or a branch that follows a PR's ref
+    /// Whether `rev` in `repo` holds a pull request's code that the project's branches don't (origin's and upstream's: one
+    /// merged and pushed is the project's own): a head Kelp fetched (`fetchPullRequest`), a `pr-*` branch, or a branch that follows a PR's ref
     /// (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is refs/pull/… or refs/merge-requests/…). A
     /// fetched head found merged and pushed is dropped. Unknown (git failed): it does.
     public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes = .none) -> Bool {
@@ -86,7 +86,9 @@ extension Git {
                                 + following, cwd: repo, remotes: remotes)
             for line in heads.split(separator: "\n") {
                 let ref = String(line.prefix { $0 != " " }), sha = String(line.drop { $0 != " " }.dropFirst())
-                guard try run(["rev-list", "-n1", sha, "--not", "--remotes=origin"], cwd: repo, remotes: remotes).isEmpty else { return true }
+                // The project's branches: origin's, and upstream's in a fork's checkout (where origin is the user's fork).
+                let own = ["--not", "--remotes=origin", "--remotes=upstream"]
+                guard try run(["rev-list", "-n1", sha] + own, cwd: repo, remotes: remotes).isEmpty else { return true }
                 if ref.hasPrefix("refs/kelp/pr/") { try run(["update-ref", "-d", ref], cwd: repo, remotes: remotes) }
             }
             return false

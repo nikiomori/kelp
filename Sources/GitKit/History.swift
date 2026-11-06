@@ -191,16 +191,17 @@ extension Git {
         do { try runData(apply, cwd: path, stdin: patch, remotes: remotes) } catch {
             let files = perFile(patch)
             guard !hunk, files.count > 1 else { throw error }
-            var back = 0, refused: Error?
+            var back = 0, gone = 0, refused: Error?
             for f in files {
-                // Already as the patch leaves it (its undo applies): let be.
+                // Already as the patch leaves it (its undo applies): let be, and not counted as one to put back.
                 do { try runData(["apply", "--binary", "-R", "--check", "-"], cwd: path, stdin: f, remotes: remotes) } catch {
+                    gone += 1
                     do { try runData(apply, cwd: path, stdin: f, remotes: remotes); back += 1 } catch { refused = refused ?? error }
                 }
             }
             if let refused {
                 guard back > 0 else { throw refused }
-                throw PartlyPutBack(back: back, of: files.count, why: (refused as? GitError)?.stderr ?? "\(refused)")
+                throw PartlyPutBack(back: back, of: gone, why: (refused as? GitError)?.stderr ?? "\(refused)")
             }
         }
     }
