@@ -384,7 +384,10 @@ struct VMService: Sendable {
     func making(_ m: VMMachine, _ steps: () async throws -> Void) async {
         do { try await steps() } catch {
             Log.vm.error("making \(m.name): \(error)")
-            quit(m.name)   // a machine half made holds memory and a disk for nothing
+            // A machine half made holds memory for nothing: shut down as the guest would (a power cut loses what was just
+            // written into it, Kelp Guest's app included), then its kelp-vm gone.
+            if status(m.name) != nil { do { _ = try ask(m.name, .init(op: .stop), wait: 60) } catch { Log.vm.info("\(m.name) stop: \(error)") } }
+            quit(m.name)
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             Log.vm.attempt("noting why \(m.name) failed") { try Data(why.utf8).write(to: file(m.name, "failed")) }
         }

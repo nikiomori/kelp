@@ -94,13 +94,20 @@ extension VMService {
         let plist = try PropertyListSerialization.data(fromPropertyList: agent, format: .xml, options: 0)
         let ssh = ["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name]
         let env = ProcessInfo.processInfo.environment
-        let unpack = "rm -rf ~/Applications/KelpGuest.app && mkdir -p ~/Applications ~/Library/LaunchAgents && tar -C ~/Applications -xf -"
+        let unpack = "rm -rf ~/Applications/KelpGuest.app && mkdir -p ~/Applications ~/Library/LaunchAgents && tar -C ~/Applications -xf - && sync"
         let copied = try Subprocess.run(ssh + [unpack], cwd: "/", env: env, stdin: tar.stdout, timeLimit: 120)
         guard copied.status == 0 else { throw RPCError.internalError("copying Kelp Guest: " + String(decoding: copied.stderr, as: UTF8.self)) }
-        let load = "cat > ~/Library/LaunchAgents/dev.kelp.guest.plist && launchctl bootout gui/$(id -u)/dev.kelp.guest 2>/dev/null; "
-            + "launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.kelp.guest.plist"
-        let started = try Subprocess.run(ssh + [load], cwd: "/", env: env, stdin: plist, timeLimit: 60)
-        guard started.status == 0 else { throw RPCError.internalError("starting Kelp Guest: " + String(decoding: started.stderr, as: UTF8.self)) }
+        let written = try Subprocess.run(ssh + ["cat > ~/Library/LaunchAgents/dev.kelp.guest.plist && sync"], cwd: "/", env: env, stdin: plist, timeLimit: 60)
+        guard written.status == 0 else { throw RPCError.internalError("Kelp Guest's login item: " + String(decoding: written.stderr, as: UTF8.self)) }
+        // Loaded now if the guest's login session is up; a first boot's may still be on its way (launchctl: "Domain does not
+        // support specified action"), and then it starts at that login by itself: tried for two minutes, never a failure.
+        let load = "launchctl bootout gui/$(id -u)/dev.kelp.guest 2>/dev/null; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.kelp.guest.plist"
+        for _ in 0..<24 {
+            let started = try Subprocess.run(ssh + [load], cwd: "/", env: env, timeLimit: 60)
+            if started.status == 0 { return }
+            Log.vm.info("\(m.name): Kelp Guest not loaded yet: \(String(decoding: started.stderr, as: UTF8.self))")
+            Thread.sleep(forTimeInterval: 5)
+        }
     }
 
     /// curl, which goes on where it stopped (`-C -`); how far (0…1), every few seconds, from a thread of its own. A file
