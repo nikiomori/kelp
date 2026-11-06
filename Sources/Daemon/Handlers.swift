@@ -183,6 +183,10 @@ extension Daemon {
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
         }
+        let name = type(of: m).name
+        guard AgentRules.methods.contains(name) else {
+            throw RPCError.invalidParams("“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
+        }
         if let id = m.typesInto, sessions.existing(id)?.snapshot.status == .waiting {
             throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
@@ -408,6 +412,7 @@ extension GitDiscardHunk: Handled {
 }
 
 extension WorktreeNote: Handled {
+    var inWorkspace: String? { id }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else { throw RPCError.invalidParams("no worktree") }
         workspaces.notify(ChangedEvent.worktree); return Done()
@@ -562,37 +567,5 @@ extension Data {
         let size = (try? h.seekToEnd()) ?? 0
         try? h.seek(toOffset: size > UInt64(bytes) ? size - UInt64(bytes) : 0)
         self = (try? h.readToEnd()) ?? Data()
-    }
-}
-
-extension Sessions {
-    /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them, a struct's or an
-    /// enum's in turn): what an agent's call may reach is decided by what it names, not by each method remembering to
-    /// say. Free-form JSON (`JSONValue`: a setting's value, a command's args) and bytes name none.
-    func named(by m: Any) throws -> [String] {
-        func strings(_ v: Any, depth: Int) -> [String] {
-            if let s = v as? String { return [s] }
-            guard depth < 6, !(v is JSONValue), !(v is Data) else { return [] }
-            return Mirror(reflecting: v).children.flatMap { strings($0.value, depth: depth + 1) }
-        }
-        return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }
-    }
-
-    /// Whether `w` is the workspace of `own` or of one that started it, one they made, or one a session it started works
-    /// in (which it could start there only for one of those): an agent works there only.
-    func works(_ own: String, in w: String) throws -> Bool {
-        let line = try lineage(own)
-        if line.contains(where: { $0.worktreeId == w }) { return true }
-        if let maker = made.withLock({ $0[w] }), line.contains(where: { $0.id == maker }) { return true }
-        return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
-    }
-
-    /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
-    func ending(_ e: Ending) throws -> [String] {
-        let ids: Set<String> = switch e {
-        case .workspace(let w): [w]
-        case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
-        }
-        return try store.sessions().filter { ids.contains($0.worktreeId ?? "") }.map(\.id)
     }
 }

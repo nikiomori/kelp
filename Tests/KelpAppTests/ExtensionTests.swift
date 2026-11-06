@@ -192,3 +192,13 @@ extension OneAtATime {
     #expect(!ExtensionTrust.waits(d, rig.app))
 }
 }
+
+/// The app's commands an agent may run (`UICommand.forAgents`) are commands the app has: a renamed one would leave a
+/// stale name behind and its new one closed. The window's picture and an extensions reload the app answers itself.
+@MainActor @Test func theCommandsAgentsMayRunExist() {
+    _ = testHome; _ = NSApplication.shared
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()
+    let have = Set(app.extensions.all.commands.map(\.id))
+    #expect(UICommand.forAgents.subtracting(have).subtracting(["window.shot", "extensions.reload"]) == [])
+}

@@ -30,6 +30,25 @@ public struct UICommand: InternalMethod {
     public static let name = "ui.command"; public typealias Result = Delivered
     public var id: String, args: JSONValue?
     public init(id: String, args: JSONValue? = nil) { self.id = id; self.args = args }
+
+    /// The app's commands an agent may run: what shows something or moves around (panes, tabs, panels, pages), the
+    /// window's picture (`kelp shot`) and an extensions reload (`kelp ext reload`). Each by its id: an extension names its
+    /// own commands, so a prefix would let one in.
+    public static let forAgents: Set<String> = [
+        "agents.history", "agents.nextNeedingYou", "agents.sideBySide", "agents.usage",
+        "editor.findReferences", "editor.fold", "editor.foldAll", "editor.goToLine", "editor.jumpToDefinition",
+        "editor.nextProblem", "editor.nextTab", "editor.previousProblem", "editor.previousTab", "editor.showHover",
+        "editor.unfold", "editor.unfoldAll",
+        "files.findByName", "files.findInWorkspace", "files.quickOpen", "files.showProblems",
+        "forge.openCI", "forge.openIssues", "forge.openPulls", "forge.openRepo",
+        "help.extensionGuide", "help.guide", "markdown.cycleView", "routines.show", "scripts.openPage",
+        "view.biggerText", "view.defaultTextSize", "view.equalizePanes", "view.maximizePane", "view.nextPane", "view.paneAbove",
+        "view.paneBelow", "view.paneLeft", "view.paneRight", "view.previousPane", "view.smallerText",
+        "workbench.commandPalette", "workbench.openExtensions", "workbench.openSettings", "workbench.showPanel",
+        "workbench.toggleFocusMode", "workbench.toggleInspector", "workbench.toggleSidebar",
+        "workspace.back", "workspace.forward", "workspace.next", "workspace.previous", "workspace.revealInFinder",
+        "workspace.switch", "window.shot", "extensions.reload"
+    ]
 }
 
 /// `kelp browser`: `action` (open, snapshot, click, type, eval, screenshot, wait) on the browser tab of workspace

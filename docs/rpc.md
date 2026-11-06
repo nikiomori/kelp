@@ -54,7 +54,9 @@ The API's version is `info.version` in the schema, now **1.0.0**.
 4. **What a session may do is limited by where it runs.** A program inside an agent's session reads, types into and stops only
    that agent and the sessions it started (any session a call names counts); what it starts is its own, as the daemon sees
    the caller's process, whatever `parent` says. An agent's question is answered only from outside every agent's session
-   (your terminal, the window). Of the app's commands (`ui.command`) an agent runs only those that show something. A
+   (your terminal, the window). An agent's program calls only the methods agents use (reading, its own sessions, the
+   IDE in its workspaces); commits, pushes, PRs, CI, trackers, projects, routines and the daemon are the user's. Of the
+   app's commands (`ui.command`) it runs only those that show something. A
    program Kelp itself runs (an extension's command or event, a repo's git hook) is held to the same, with no session of
    its own. See `docs/architecture.md`.
 

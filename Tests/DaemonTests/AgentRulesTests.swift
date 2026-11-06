@@ -1,0 +1,192 @@
+import Foundation
+import Testing
+import Core
+@testable import Daemon
+
+// What an agent's program may do (`Daemon.allow`): each test is a session whose script talks to the socket as an agent's
+// program would, marked an agent's.
+
+private struct Rig { let d: Daemon, c: RPCClient, repo: Repo, wt: Worktree }
+private func rig() async throws -> Rig {
+    let w = try await world()
+    return Rig(d: w.d, c: w.c, repo: w.repo, wt: try await workspace(w, "feat/x"))
+}
+private func session(_ r: Rig, _ command: String) async throws -> Session {
+    try await r.c.call("session.create", .obj(["worktreeId": .string(r.wt.id), "command": .string(command)]), as: Session.self)
+}
+private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("session.list", as: [Session].self) }
+
+/// A program an agent runs types into, stops and answers for only the sessions that agent started, and never answers an
+/// agent's question: one approved `kelp` call doesn't reach every other agent. The user's own terminals, and callers outside
+/// every session, drive any.
+@Test func anAgentActsOnlyOnTheSessionsItStarted() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"; "#
+        + #"read -u $REPLY line; print -r -- "$1 $line"; exec {REPLY}>&-; }"#
+    let send = #"r session.send "{\"id\":\"$1\",\"text\":\"hi\",\"enter\":false}""#
+    // `kelp attach`: the stream's line, then what it types.
+    let attach = #"a() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$1\"}}"; "#
+        + #"print -u $REPLY typed; read -t 3 -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
+    let script = "zmodload zsh/net/socket; \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
+        + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
+        + #"r comment.send "{\"id\":\"\#(r.wt.id)\",\"session\":\"\#(other.id)\"}"; "#
+        + #"r ui.browser "{\"action\":\"info\",\"worktreeId\":\"elsewhere\"}"; "#
+        + #"r comment.add "{\"id\":\"\#(r.wt.id)\",\"file\":\"a.txt\",\"text\":\"x\",\"session\":\"\#(other.id)\"}"; "#
+        + #"r session.continueAt "{\"id\":\"\#(other.id)\"}"; r ports.stop "{\"worktreeId\":\"elsewhere\",\"pid\":1}"; "#
+        + #"r worktree.remove "{\"id\":\"\#(r.wt.id)\"}"; r repo.remove "{\"id\":\"\#(r.wt.repoId)\"}"; "#
+        + #"r session.choose "{\"id\":\"$kid\",\"answer\":\"allow\"}"; cat"#
+    let me = try await session(r, "/bin/zsh -c '\(script)'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    let kid = try await r.c.call("session.create", .obj(["worktreeId": .string(r.wt.id), "command": "cat", "parent": .string(me.id)]), as: Session.self)
+    #expect(kid.startedBy == me.id)
+    _ = try await r.c.call(SessionWrite(id: me.id, text: kid.id + "\n"))   // this test process is in no session
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("user's to answer") })
+    let out = try await r.c.call(SessionRead(id: me.id))
+    #expect(out.contains("acts only on its own session"))
+    #expect(out.contains(#/session\.restart [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/comment\.send [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/comment\.add [^\n]*speaks only for itself/#))   // a comment signed as another agent
+    #expect(out.contains(#/session\.continueAt [^\n]*acts only on its own session/#))   // "continue" typed later
+    #expect(out.contains(#/ports\.stop [^\n]*only in its own workspace/#))
+    // Removing the workspace would end `other`, which this agent didn't start; a project is the user's to remove.
+    #expect(out.contains(#/worktree\.remove [^\n]*ends only its own sessions/#) && out.contains(#/repo\.remove [^\n]*Only the user removes a project/#))
+    #expect(out.contains(#/ui\.browser [^\n]*only in its own workspace/#))   // another workspace's tabs may carry a login   // comments typed, with Enter, into another agent
+    #expect(out.contains(#/stream kelp: An agent acts only/#))
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: kid.id)).contains("hi") })
+    let seen = try await r.c.call(SessionRead(id: other.id))
+    #expect(!seen.contains("hi") && !seen.contains("typed"))
+    #expect(try await sessions(r).first { $0.id == other.id }?.status != .exited)   // not restarted
+}
+
+/// What an agent starts is its own whatever it sends: the daemon takes the parent from the caller's process, so it can't
+/// name another agent as its child's parent (whose reports would reach that agent with Enter), and a session it starts
+/// with `--outlive` is still its own (`origin`), not a terminal free of every rule. Any session a call names counts, a read
+/// too; and what the app or a routine would start for nobody isn't an agent's to ask for.
+@Test func anAgentCantStartSessionsOutsideItsOwnLine() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let away = try await r.c.call(WorktreeCreate(repoId: r.repo.id, branch: "away", setup: false)).worktree
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let wt = r.wt.id, o = other.id
+    let script = "zmodload zsh/net/socket; \(call); read go; "
+        + #"r parent session.create "{\"worktreeId\":\"\#(wt)\",\"agent\":\"claude\",\"parent\":\"\#(o)\"}"; "#
+        + #"r outlive session.create "{\"worktreeId\":\"\#(wt)\",\"command\":\"cat\"}"; "#
+        + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
+        + #"r close ui.command "{\"id\":\"editor.closeTab\"}"; r term ui.open "{\"uri\":\"terminal:?cmd=true\"}"; "#
+        + #"r new ui.command "{\"id\":\"agents.new\",\"args\":{\"agent\":\"shell\"}}"; r pane ui.command "{\"id\":\"view.nextPane\"}"; "#
+        + #"r shot ui.command "{\"id\":\"window.shot\"}"; r fake ui.command "{\"id\":\"view.anExtensions\"}"; "#
+        + #"r routine routine.delete "{\"id\":\"x\"}"; r away session.create "{\"worktreeId\":\"\#(away.id)\",\"command\":\"cat\"}";"#
+        + #"r archive worktree.archive "{\"id\":\"\#(away.id)\"}"; r forget repo.remove "{\"id\":\"\#(r.repo.id)\"}"; "#
+        + #"r clear repo.removeWorktrees "{\"id\":\"\#(r.repo.id)\",\"paths\":[]}"; "#
+        + #"r commit git.commit "{\"id\":\"\#(wt)\",\"message\":\"x\"}"; r run run.start "{\"worktreeId\":\"\#(away.id)\",\"id\":\"x\"}"; "#
+        + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
+    let me = try await session(r, "/bin/zsh -c '\(script)'")
+    for id in [me.id, other.id] {
+        let ls = try #require(r.d.sessions.existing(id))
+        _ = ls.update { $0.agent = "claude" }
+        r.d.sessions.publish(ls)
+        #expect(try await waitFor { try r.d.sessions.store.session(id)?.agent == "claude" })
+    }
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<drop>") })
+    let out = try await r.c.call(SessionRead(id: me.id))
+    for refused in ["parent", "read", "markRead"] { #expect(out.contains(try Regex("<\(refused)> [^\n]*acts only on its own session")), "\(refused)") }
+    #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
+    #expect(out.contains(#/<new> [^\n]*is the user's to run/#) && !out.contains(#/<pane> [^<]*is the user's to run/#))
+    // `kelp shot` from the extensions skill goes through; an extension's command named like a view doesn't.
+    #expect(!out.contains(#/<shot> [^<]*is the user's to run/#) && out.contains(#/<fake> [^\n]*is the user's to run/#))
+    #expect(out.contains(#/<routine> [^\n]*routine is the user's/#) && out.contains(#/<drop> [^\n]*Only the user removes/#))
+    #expect(out.contains(#/<away> [^\n]*works only in its own workspace/#) && out.contains(#/<archive> [^\n]*works only in its own workspace/#))
+    #expect(out.contains(#/<forget> [^\n]*Only the user removes a project/#) && out.contains(#/<clear> [^\n]*Only the user clears/#))
+    #expect(out.contains(#/<commit> [^\n]*“git\.commit” is the user's/#) && out.contains(#/<run> [^\n]*“run\.start” is the user's/#))
+    #expect(try !r.d.sessions.works(me.id, in: away.id))
+    r.d.sessions.made.withLock { $0[away.id] = me.id }   // as `worktree.create` from its terminal does
+    #expect(try r.d.sessions.works(me.id, in: away.id))
+    #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
+    let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
+    #expect(outlived.parent == nil && outlived.startedBy == nil)   // still not its child, nor on its line
+    #expect(try r.d.sessions.lineage(outlived.id).contains { $0.id == me.id })
+}
+
+/// What the daemon runs itself (an extension's command or event, a git hook) answers no question, nor does a program an
+/// agent forked away from its tree: that one still has the agent's terminal.
+@Test func kelpdsOwnProgramsAndForkedAwayOnesAnswerNoQuestion() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let choose = #"session.choose "{\"id\":\"\#(other.id)\",\"answer\":\"allow\"}""#
+    let ran = try await r.c.call(ProcessRun(argv: ["/bin/zsh", "-c", "zmodload zsh/net/socket; \(call); r kelpd \(choose)"],
+                                            cwd: nil, stdin: nil, timeLimit: 20, extensionId: nil))
+    #expect(ran.stdout.contains(#/<kelpd> [^\n]*has no session to act for/#), "\(ran.stdout) \(ran.stderr)")
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); read go; ( sleep 0.3; r forked \(choose) & ); cat'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<forked>") })
+    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
+}
+
+/// What agents may call is a list of methods the daemon answers (a stale name would hide a renamed method's door).
+@Test func theAgentsListNamesMethodsThatExist() {
+    #expect(AgentRules.methods.subtracting(Daemon.methods.keys) == [])
+}
+
+/// The sessions a call names are found wherever they sit in its params (a struct, a list of them, an optional), and
+/// free-form JSON in it names none.
+@Test func aSessionNamedDeepInACallIsFound() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let s = try await session(r, "cat"), t = try await session(r, "cat")
+    struct Inner { var session: String?; var count = 3 }
+    struct Call { var top = "x"; var inner: [Inner]; var args: JSONValue }
+    let found = try r.d.sessions.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
+    #expect(found == [s.id])
+}
+
+/// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.
+@Test func anAgentDoesntTypeIntoAQuestion() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let call = #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
+        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
+    let write = #"r write session.write "{\"id\":\"$KELP_SESSION\",\"base64\":\"MQ0=\"}""#
+    let go = r.wt.path + "/go"   // not typed: a key from the user would end the question
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); until [[ -e \(go) ]]; do sleep 0.1; done; \(write); cat'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    _ = try await r.c.call(SessionReport(id: me.id, state: "blocked", message: "Allow rm?"))   // as its hook says: it stands
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.status == .waiting })
+    FileManager.default.createFile(atPath: go, contents: nil)
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<write>") })
+    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<write> [^\n]*asks a question/#))
+}
+
+/// A restart keeps what an agent started its own (its commands, what came from its terminal); a session whose line
+/// breaks off (the one it came from is gone) is held to an agent's rules.
+@Test func aRestartedAgentKeepsWhatItStarted() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let a = try await session(r, "cat"), cmd = try await session(r, "cat"), term = try await session(r, "cat")
+    func set(_ id: String, _ f: @escaping @Sendable (inout Session) -> Void) throws {
+        let ls = try #require(r.d.sessions.existing(id))
+        _ = ls.update(f)
+        r.d.sessions.publish(ls)
+    }
+    try set(cmd.id) { [a] in $0.startedBy = a.id }
+    try set(term.id) { [a] in $0.origin = a.id }
+    #expect(try await waitFor { try r.d.sessions.store.session(term.id)?.origin == a.id && r.d.sessions.store.session(cmd.id)?.startedBy == a.id })
+    let a2: Session = try await r.c.call("session.restart", .obj(["id": .string(a.id)]), as: Session.self)
+    #expect(try await waitFor { try r.d.sessions.store.session(cmd.id)?.startedBy == a2.id })
+    #expect(try await waitFor { try r.d.sessions.store.session(term.id)?.origin == a2.id })
+    #expect(try r.d.sessions.lineage(term.id).map(\.id) == [term.id, a2.id])
+    #expect(try !r.d.sessions.forAnAgent(term.id))
+    try set(term.id) { $0.origin = UUID().uuidString }
+    #expect(try await waitFor { try r.d.sessions.forAnAgent(term.id) })
+}
