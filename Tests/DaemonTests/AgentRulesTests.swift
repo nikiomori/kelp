@@ -114,7 +114,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 /// What the daemon runs itself (an extension's command or event, a git hook) answers no question, nor does a program an
-/// agent forked away from its tree: that one still has the agent's terminal.
+/// agent forked away from its tree (it asks only once launchd is its parent): that one still has the agent's terminal.
 @Test func kelpdsOwnProgramsAndForkedAwayOnesAnswerNoQuestion() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let other = try await session(r, "cat")
@@ -124,7 +124,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let ran = try await r.c.call(ProcessRun(argv: ["/bin/zsh", "-c", "zmodload zsh/net/socket; \(call); r kelpd \(choose)"],
                                             cwd: nil, stdin: nil, timeLimit: 20, extensionId: nil))
     #expect(ran.stdout.contains(#/<kelpd> [^\n]*has no session to act for/#), "\(ran.stdout) \(ran.stderr)")
-    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); read go; ( sleep 0.3; r forked \(choose) & ); cat'")
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket zsh/system; \(call); read go; ( { until (( sysparams[ppid] == 1 )); do sleep 0.05; done; r forked \(choose); } & ); cat'")
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
     r.d.sessions.publish(ls)

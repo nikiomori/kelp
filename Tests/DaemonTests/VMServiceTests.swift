@@ -33,6 +33,14 @@ import Testing
         #expect(throws: RPCError.self) { try vms.connect("deb", cwd: nil) }
     }
 
+    /// What `step()` writes now: a step and how far, read back as the machine's state.
+    @Test func aMakingsStepAndProgressAreReadBack() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder(["creating": String(decoding: VMMaking(step: .downloading, progress: 0.4).data, as: UTF8.self)])
+        let v = try #require(vms.list().first)
+        #expect(v.state == .creating && v.step == .downloading && v.progress == 0.4)
+    }
+
     @Test func aFailedOneSaysWhyAndCanBeDeleted() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder(["failed": "tar: broken"])
