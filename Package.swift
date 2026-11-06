@@ -48,7 +48,8 @@ let package = Package(
                                                  .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter")]),
         // The shell, and what an extension is given (`package` declarations): the window, the editor area, tabs, panels.
         .target(name: "KelpKit", dependencies: ["Core", "DesignKit", "Agents", "TerminalKit", "EditorKit", "Markdown", "WorkbenchKit",
-                                                .product(name: "Sparkle", package: "Sparkle")]),
+                                                .product(name: "Sparkle", package: "Sparkle")],
+                resources: [.process("Resources/AgentLogos")]),   // Lobe Icons 1.102.0, MIT (its LICENSE inside)
         // The built-in extensions: each sees only what KelpKit declares `package`, never the shell's own parts, nor another.
         .target(name: "BuiltinAgents", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "TerminalKit", "WorkbenchKit"], path: "Sources/Builtins/Agents"),
         .target(name: "BuiltinFiles", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "Markdown", "WorkbenchKit"], path: "Sources/Builtins/Files"),

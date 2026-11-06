@@ -2,9 +2,9 @@ import AppKit
 import Observation
 import Core
 
-/// Agents' real icons: the vendor's Mac app when it's installed (Claude.app…), else the icon its website serves,
-/// fetched once and kept in ~/.kelp/icons. Monochrome logos sit on a small tile so they show in light and dark.
-/// Until (or unless) one is found, the agent's SF Symbol stands in.
+/// Agents' icons: the logo Kelp ships (`logo`), else the vendor's Mac app when it's installed, else the icon its website
+/// serves, fetched once and kept in ~/.kelp/icons. Fetched monochrome logos sit on a small tile so they show in light and
+/// dark. Until (or unless) one is found, the agent's SF Symbol stands in.
 @MainActor
 @Observable
 final class AgentIcons {
@@ -41,6 +41,7 @@ final class AgentIcons {
     private var folder: URL { Paths.root.appendingPathComponent("icons") }
 
     private func load(_ id: String) {
+        if let logo = Self.logo(id) { images[id] = logo; return }
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         for name in Self.sources[id]?.apps ?? [] {
             for dir in ["/Applications", "\(home)/Applications"] where FileManager.default.fileExists(atPath: "\(dir)/\(name).app") {
@@ -93,6 +94,20 @@ final class AgentIcons {
     }
 
     // MARK: drawing
+
+    /// The logo Kelp ships for the agent (Resources/AgentLogos, from Lobe Icons): one mark everywhere, in its own colours
+    /// and on no tile. A one-colour logo (`<id>-mono.svg`) is drawn in the text's colour of the appearance it's drawn in.
+    static func logo(_ id: String) -> NSImage? {
+        let mono = Bundle.module.image(forResource: "\(id)-mono")
+        guard let svg = mono ?? Bundle.module.image(forResource: id) else { return nil }
+        let img = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { r in
+            svg.draw(in: r.insetBy(dx: 2, dy: 2))   // the marks fill their square; a tile's art doesn't
+            if mono != nil { NSColor.labelColor.set(); r.fill(using: .sourceAtop) }
+            return true
+        }
+        img.cacheMode = .never   // drawn for each appearance
+        return img
+    }
 
     /// App-like rounded icon, the same tile every agent shows as. A logo on transparency sits on a tile: of the opposite
     /// tone when it's monochrome, white when it's in colour; artwork that fills its square is clipped to the tile.
