@@ -74,12 +74,18 @@ extension VMService {
         guard keyed.status == 0 else { throw RPCError.internalError("ssh with the password: " + String(decoding: keyed.stderr, as: UTF8.self)) }
         let password = try String(contentsOf: file(m.name, "password"), encoding: .utf8)
         let rule = "\(m.user) ALL=(ALL) NOPASSWD: ALL"
-        let root = "echo \(VMs.shellQuoted(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0"
+        let root = "echo \(VMs.shellQuoted(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
             + " && systemsetup -settimezone \(VMs.shellQuoted(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
         let sudo = try Subprocess.run(["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name,
                                        "sudo -S -p '' sh -c \(VMs.shellQuoted(root))"],
                                       cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
         guard sudo.status == 0 else { throw RPCError.internalError("sudo: " + String(decoding: sudo.stderr, as: UTF8.self)) }
+        // A screen that never locks: macOS locks it 5 minutes after the display sleeps, and then asks for this password. A
+        // user's setting, so as the user (sysadminctl wants the password); then all of it written to the machine's disk.
+        let unlock = "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0 && sync"
+        let unlocked = try Subprocess.run(["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name, unlock],
+                                          cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
+        guard unlocked.status == 0 else { throw RPCError.internalError("screen lock: " + String(decoding: unlocked.stderr, as: UTF8.self)) }
         remove(file(m.name, "password"))
     }
 

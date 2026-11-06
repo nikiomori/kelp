@@ -35,8 +35,8 @@ enum ScreenKeys {
         let leftShift = NSEvent.ModifierFlags(rawValue: 0x20102), idle = NSEvent.ModifierFlags(rawValue: 0x100)
         func event(_ type: NSEvent.EventType, _ code: UInt16, _ c: Character, shift: Bool) -> NSEvent? {
             NSEvent.keyEvent(with: type, location: .zero, modifierFlags: shift ? leftShift : idle, timestamp: ProcessInfo.processInfo.systemUptime,
-                             windowNumber: window?.windowNumber ?? 0, context: nil, characters: String(c),
-                             charactersIgnoringModifiers: String(c).lowercased(), isARepeat: false, keyCode: code)
+                             windowNumber: window?.windowNumber ?? 0, context: nil, characters: c == "\n" ? "\r" : String(c),
+                             charactersIgnoringModifiers: c == "\n" ? "\r" : String(c).lowercased(), isARepeat: false, keyCode: code)
         }
         // One event every 15 ms, Shift as keys of its own around its letter: the machine's keyboard reads each as it comes,
         // and a Shift sent in the same moment as its letter didn't reach it (nor did a first key sent with the focus).
