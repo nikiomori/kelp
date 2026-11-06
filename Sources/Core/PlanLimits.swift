@@ -16,7 +16,7 @@ public enum ResetTime {
     public static func shown(_ d: Date, now: Date = Date()) -> String {
         let left = d.timeIntervalSince(now)
         return left < 12 * 3600 ? d.formatted(date: .omitted, time: .shortened)
-            : left < 6 * 86400 ? d.formatted(.dateTime.weekday(.wide).hour().minute())
+            : left < 6 * 86400 ? d.formatted(.dateTime.weekday(.abbreviated).hour().minute())
             : d.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
 
