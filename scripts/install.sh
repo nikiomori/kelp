@@ -16,6 +16,14 @@ if [ -n "$PID" ]; then
   for _ in {1..300}; do kill -0 "$PID" 2>/dev/null || break; sleep 0.2; done
   if kill -0 "$PID" 2>/dev/null; then echo "Kelp is still open: quit it, then make install"; exit 1; fi
 fi
+# A machine's kelp-vm from before Kelp Machine.app ran from Contents/MacOS, where macOS takes it for Kelp itself: opening
+# Kelp would bring up that machine's window instead. SIGTERM puts it to sleep (its state saved) and ends it; it wakes
+# as the new one. Not a macOS install still going (`kelp-vm --install`): only one with a machine folder.
+for vm in $(pgrep -f "^$INSTALL/Contents/MacOS/kelp-vm /" || true); do
+  echo "putting a machine to sleep for the update…"
+  kill -TERM "$vm" 2>/dev/null || continue
+  for _ in {1..300}; do kill -0 "$vm" 2>/dev/null || break; sleep 0.2; done
+done
 # Beside it, then renamed: files changed in place under a running kelpd break its code signature (killed on load).
 rm -rf "$INSTALL.new" "$INSTALL.old"; cp -Rp "$APP" "$INSTALL.new"
 mv "$INSTALL" "$INSTALL.old"
