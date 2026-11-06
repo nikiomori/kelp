@@ -141,7 +141,9 @@ extension OneAtATime {
         }
         try fold().performClick(nil)
         #expect(o.numberOfRows == 1)                            // the project alone
-        #expect(rows(of: o)[0].contains { $0.contains("feat/login › Asks:") })   // and what its agent asks, and where
+        let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
+        @MainActor func stack(_ v: NSView) -> AgentStack? { v as? AgentStack ?? v.subviews.lazy.compactMap(stack).first }
+        #expect(stack(cell)?.toolTip == "Fix login bug · Needs your input")   // and its agents, by what they do
         #expect(vc.app.uiState.strings("sidebar.collapsed") == ["p:r1"])   // kept for the next launch
         try fold().performClick(nil)
         #expect(o.numberOfRows == 4)                            // its workspaces open as they were

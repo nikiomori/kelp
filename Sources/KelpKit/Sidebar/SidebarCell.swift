@@ -60,8 +60,8 @@ final class SidebarCell: NSTableCellView {
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
     private let detail = NSTextField(labelWithString: "")
-    let summary = NSStackView()
-    var summarized: [String]?   // nil until the first pass, which also hides it when empty
+    /// Folded, a project's or a group's chats, by their agents' logos (AgentStack).
+    private let stack = AgentStack()
     /// What the chevron showed last: when that changes it turns rather than switches.
     private var shownFolded: Bool?
     private var hovering = false
@@ -99,18 +99,15 @@ final class SidebarCell: NSTableCellView {
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingTail
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
-            summary.spacing = 3
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [slot, title, muted, detail, summary, changes, pr, ci, trailing, b])
-            addAsk()
+            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, trailing, b])
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
             title.font = .ui(13, weight: .medium)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, changes, pr, ci, trailing, mark])
-            addAsk()
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, trailing])
         case .agent:
             title.font = .ui(13)
             for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
@@ -328,9 +325,8 @@ final class SidebarCell: NSTableCellView {
                 detail.isHidden = true
             }
             let folded = owner?.isCollapsed(node) == true
-            if let was = shownFolded, was != folded { summary.crossfade(Motion.base) }   // folding, not a status change
-            showSummary(folded ? node : nil)
-            showFolded(folded)
+            if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // folding, not a status change
+            stack.show(folded ? AgentStack.chats(under: node, m) : [], m)
             showFold()
         case .workspace(let id):
             guard let w = m.worktree(id) else { return }
@@ -347,9 +343,8 @@ final class SidebarCell: NSTableCellView {
             let collapsed = owner?.isCollapsed(node) ?? false
             let top = AgentStatus.mostUrgent(agents.map(Self.shownStatus))
             let lead = agents.filter { Self.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
-            mark.status = collapsed ? top : nil; mark.unread = agents.contains { Self.shownStatus($0) == top && $0.unread }
             trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
-            showFolded(collapsed)
+            stack.show(collapsed ? AgentStack.chats(under: node, m) : [], m)
             toolTip = nil   // the hover card shows the workspace in full
         case .agent(let sid):
             guard let s = m.session(sid) else { return }
@@ -473,9 +468,9 @@ extension SidebarCell {
     }
 }
 
-/// The second line: what an agent asks, or what a folded project or group holds (FoldedLine).
+/// The second line: what an agent asks, or what went wrong.
 extension SidebarCell {
-    /// The second line, under the name: what an agent asks, or what a folded project or group holds.
+    /// The second line, under the name: what an agent asks.
     private func addAsk() {
         ask.font = .ui(11)
         ask.lineBreakMode = .byTruncatingTail
@@ -488,12 +483,6 @@ extension SidebarCell {
                                      ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
     }
 
-    /// Folded, a project or a group says on a second line what its chats do, led by the agent it quotes (FoldedLine).
-    private func showFolded(_ folded: Bool) {
-        let line = folded ? FoldedLine.of(node, app) : nil
-        setAsk(line.map { ($0.prefix, $0.text) }, place: line?.place, agent: line?.agent)
-    }
-
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ s: Session) {
         let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
@@ -502,20 +491,12 @@ extension SidebarCell {
     }
 
     /// Shows `line` under the name, the name moved up to make room for it; nil: one line.
-    private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?, place: String? = nil, agent: String? = nil) {
+    private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?) {
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
         let t = NSMutableAttributedString()
-        if let icon = agent.flatMap({ app.catalog.icon($0, size: 11) }) {   // whose words these are, as on its own row
-            let a = NSTextAttachment()
-            a.image = icon
-            a.bounds = CGRect(x: 0, y: font.descender + 0.5, width: 11, height: 11)
-            t.append(NSAttributedString(attachment: a))
-            t.append(NSAttributedString(string: " ", attributes: [.font: font]))
-        }
-        if let place { t.append(NSAttributedString(string: place + " › ", attributes: [.font: font, .foregroundColor: grey])) }
         if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
             t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))
         }

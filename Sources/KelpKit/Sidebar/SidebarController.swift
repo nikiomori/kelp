@@ -338,7 +338,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
     }
     private func hasAsk(_ n: Node) -> Bool {
-        if case .agent = n.kind {} else { return isCollapsed(n) && FoldedLine.of(n, app) != nil }
         guard case .agent(let id) = n.kind, let s = app.session(id) else { return false }
         return SidebarCell.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
                                 back: app.parkedBack[id]) != nil
