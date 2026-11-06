@@ -124,12 +124,13 @@ struct VMService: Sendable {
             try admit(m)
             try startHelper(m)
             try check(ask(name, .init(op: .show), wait: 180))
+        // Running by its lock, not by a status within 2 s, which a busy one may not give.
         case .sleep:
-            if status(name) != nil, try !asleep(ask(name, .init(op: .sleep), wait: 60)) {
+            if alive(name), try !asleep(ask(name, .init(op: .sleep), wait: 60)) {
                 throw RPCError.invalidParams("\(name) is starting or being saved: put it to sleep in a moment.")
             }
         case .stop:
-            if status(name) != nil { try check(ask(name, .init(op: .stop), wait: 60)) } else { remove(file(name, "state.vzsave")) }
+            if alive(name) { try check(ask(name, .init(op: .stop), wait: 60)) } else { remove(file(name, "state.vzsave")) }
         }
         return info(m)
     }
@@ -233,7 +234,14 @@ struct VMService: Sendable {
 
     /// One request to the machine's kelp-vm; `wait` seconds for its answer.
     func ask(_ name: String, _ r: VMHelper.Request, wait: TimeInterval) throws -> VMHelper.Reply {
-        let fd = try Unix.connect(file(name, "ctl.sock").path)
+        // One that just took its lock may not listen yet: tried again for a second while it holds it.
+        var fd: Int32 = -1
+        for tries in 0... {
+            do { fd = try Unix.connect(file(name, "ctl.sock").path); break } catch {
+                guard tries < 10, alive(name) else { throw error }
+                usleep(100_000)
+            }
+        }
         defer { close(fd) }
         guard Unix.writeAll(fd, try Wire.line(r)) else { throw RPCError.internalError("\(name)'s kelp-vm hung up") }
         var line = Data(), byte: UInt8 = 0

@@ -181,8 +181,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
         // then would cut its power.
         // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
-        case .sleep: sleep { e in done(e, nil); if e == nil, self.vm == nil, self.state != .starting { exit(0) } }
-        case .stop: stop { done(nil, nil); exit(0) }
+        case .sleep: sleep { e in done(e, nil); if e == nil, self.vm == nil, self.state != .starting { self.leaveSoon() } }
+        case .stop: stop { done(nil, nil); self.leaveSoon() }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
         case .screen:
             guard machine.os == "macos" else { return done("Its screen is a macOS machine's.", nil) }
@@ -194,10 +194,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             }
         case .quit:
             // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
-            if r.args == ["if-down"], vm != nil { return done("\(machine.name) is in use again: shut it down, then change its size.", nil) }
+            // Starting with no VM for a moment is a boot tried again (`awaitSSH`): in use too.
+            if r.args == ["if-down"], vm != nil || state == .starting {
+                return done("\(machine.name) is in use again: shut it down, then change its size.", nil)
+            }
             done(nil, nil)
-            guard let vm else { exit(0) }
-            vm.stop { _ in exit(0) }
+            guard let vm else { return leaveSoon() }
+            vm.stop { _ in self.leaveSoon() }
         case .share:
             guard let path = r.path else { return done("share: a path", nil) }
             let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
@@ -216,6 +219,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             done(nil, slot)
         }
     }
+
+    /// Ends once what this turn of the main queue answers is written: a stop or a sleep that waited for a save is told
+    /// in the same turn as the sleep it waited for, after that one's reply.
+    nonisolated private func leaveSoon() { DispatchQueue.main.async { exit(0) } }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
         var r = VMHelper.Reply(state: state, connections: connections, memoryMiB: vm == nil ? nil : targetMiB, error: error, slot: slot)
@@ -375,7 +382,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         if state == .running, connections == 0, idle > Self.pauseAfter {
             vm?.pause { r in MainActor.assumeIsolated { if r.failure == nil, self.state == .running { self.state = .paused; log("paused") } } }
         } else if state == .paused, connections == 0, idle > Self.sleepAfter, Date().timeIntervalSince(saveFailed ?? .distantPast) > 600 {
-            sleep { e in if e == nil, self.vm == nil { exit(0) } }   // as `.sleep` does
+            sleep { e in if e == nil, self.vm == nil { self.leaveSoon() } }   // as `.sleep` does
         } else if state == .running, ticks % 3 == 0 {
             adjustMemory()
         }

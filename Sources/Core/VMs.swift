@@ -216,6 +216,8 @@ public struct VMScreen: RPCMethod {
 /// with no `cwd`, in its own home folder, nothing shared.
 public struct VMConnect: RPCMethod {
     public static let name = "vm.connect"; public typealias Result = VMConnection
+    /// As long as the daemon may take: idle machines put to sleep for room (60 s each), then a cold start (Android's, iOS's: 620 s).
+    public static var timeout: TimeInterval? { 900 }
     public var name: String, cwd: String?
     public init(name: String, cwd: String?) { self.name = name; self.cwd = cwd }
 }

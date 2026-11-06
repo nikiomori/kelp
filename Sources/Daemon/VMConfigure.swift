@@ -61,7 +61,13 @@ extension VMService {
             if let answer { try check(answer) }
             for _ in 0..<100 where alive(m.name) { usleep(100_000) }
         }
-        guard !alive(m.name) else { throw RPCError.invalidParams("\(m.name) is in use again: shut it down, then change its size.") }
+        // Held while the size changes: a kelp-vm a command starts meanwhile waits for it, then gives up, rather than boot
+        // with the old size on a disk that grows under it.
+        let lock = open(file(m.name, "kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        defer { if lock >= 0 { close(lock) } }
+        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else {
+            throw RPCError.invalidParams("\(m.name) is in use again: shut it down, then change its size.")
+        }
         if disk > m.diskGiB {
             guard m.os == "linux" else { throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.") }
             guard truncate(file(m.name, "disk.img").path, off_t(disk) << 30) == 0 else {
