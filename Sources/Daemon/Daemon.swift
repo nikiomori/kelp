@@ -370,8 +370,10 @@ public final class Daemon: Sendable {
         }
         // Input for a session answers once the session has it (`SessionInput`), maybe from its lane.
         if let input = handler as? any SessionInput.Type {
-            let conn = client.id
-            input.answerInOrder(req.params ?? .null, sessions, allowed: { [self] in try allow($0, conn: conn) }, done: reply)
+            // Asked again from the lane as the caller it was sent by: its connection may be gone by then, and a gone one
+            // can't be told apart (`Sessions.caller`), so the user's queued input would be refused.
+            let conn = client.id, own = sessions.caller(conn)
+            input.answerInOrder(req.params ?? .null, sessions, allowed: { [self] in try allow($0, conn: conn, caller: .some(own)) }, done: reply)
             return
         }
         let answered = Swift.Result { try answerNow(handler, req.params ?? .null, conn: client.id) }

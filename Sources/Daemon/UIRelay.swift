@@ -20,9 +20,18 @@ extension UIStateGet: Handled { func handle(_ clients: Clients) throws -> JSONVa
 
 extension UIOpen: Handled {
     /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.
+    /// Its scheme as the app reads it (`TabURI.scheme`: any case), not as it's spelled: `TERMINAL:` runs a command too.
+    private var scheme: String { uri.firstIndex(of: ":").map { uri[..<$0].lowercased() } ?? "file" }
     var notForAgents: String? {
-        ["terminal:", "agent:"].contains { uri.hasPrefix($0) } ? "An agent starts terminals and agents with `kelp session new`, which keeps them its own." : nil
+        ["terminal", "agent"].contains(scheme) ? "An agent starts terminals and agents with `kelp session new`, which keeps them its own." : nil
     }
+    /// A session's tab shows its screen, a subagent's its journal: an agent's own, or one it started (`named(by:)` sees
+    /// bare ids only).
+    var actsOn: String? {
+        guard ["session", "subagent"].contains(scheme) else { return nil }
+        return String(uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" })
+    }
+    var inWorkspace: String? { worktreeId }   // none named: the one on screen, where it shows a file or a page
     func handle(_ clients: Clients) throws -> Delivered {
         if let split, split != "right", split != "down" { throw RPCError.invalidParams("split must be \"right\" or \"down\"") }
         return try clients.relay(UIEvent(self))

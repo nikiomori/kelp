@@ -161,6 +161,39 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     #expect(try await waitFor(15) { try await w.c.call(SessionRead(id: s.id)).contains("hello-lane") })
 }
 
+/// Input queued for a paused agent is typed once it wakes though its sender hung up meanwhile (`kelp session send`
+/// past its deadline): checked again as the caller it came from, not as a connection that's gone (taken for a program
+/// of the daemon's, which may not type).
+@Test func inputQueuedByAGoneSenderIsStillTyped() async throws {
+    let w = try await world(agents: [AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "stty -echo; echo ready; exec cat"],
+                                                   resumeArgs: ["--resume"])]); defer { w.d.stop() }
+    let wt = try await workspace(w, "gone")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
+    try await hibernate(after: 0.03, w.c)   // ~2 s
+    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
+    try await hibernate(after: 0, w.c)
+    let held = OSAllocatedUnfairLock(initialState: false), release = DispatchSemaphore(value: 0)
+    Thread.detachNewThread {
+        w.d.sessions.wakeLocks.withLock(s.id) {
+            held.withLock { $0 = true }
+            _ = release.wait(timeout: .now() + 30)
+        }
+    }
+    #expect(try await waitFor(5) { held.withLock { $0 } })
+    // One ahead of it on the lane, which waits for the wake: what comes next is checked only once that one is through.
+    let first = Task { try await w.c.call(SessionSend(id: s.id, text: "first ")) }
+    #expect(try await waitFor(5) { !w.d.sessions.lanes.isClear(s.id) })
+    let before = w.d.clients.everyone().count
+    let fd = try Unix.connect(w.root.appendingPathComponent("kelp.sock").path)
+    Unix.writeAll(fd, try Wire.line(RPCRequest(id: 1, method: SessionSend.name, params: .obj(["id": .string(s.id), "text": "hello-gone"]))))
+    #expect(try await waitFor(5) { w.d.clients.everyone().count == before + 1 })
+    close(fd)
+    #expect(try await waitFor(5) { w.d.clients.everyone().count == before })   // its sender is gone
+    release.signal()
+    _ = try await first.value
+    #expect(try await waitFor(15) { try await w.c.call(SessionRead(id: s.id)).contains("hello-gone") })
+}
+
 /// Only a sync `Handled` is applied in order (the reader thread can't wait for an async one): an async method marked
 /// in-order would run on a task of its own, its order lost without a word.
 @Test func inOrderMethodsAreSyncHandlers() {

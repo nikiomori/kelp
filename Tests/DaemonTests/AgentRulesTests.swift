@@ -83,6 +83,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r routine routine.delete "{\"id\":\"x\"}"; r away session.create "{\"worktreeId\":\"\#(away.id)\",\"command\":\"cat\"}";"#
         + #"r archive worktree.archive "{\"id\":\"\#(away.id)\"}"; r forget repo.remove "{\"id\":\"\#(r.repo.id)\"}"; "#
         + #"r clear repo.removeWorktrees "{\"id\":\"\#(r.repo.id)\",\"paths\":[]}"; "#
+        + #"r upper ui.open "{\"uri\":\"TERMINAL:?cmd=true\"}"; r peek ui.open "{\"uri\":\"session:\#(o)\"}"; "#
+        + #"r look ui.open "{\"uri\":\"file:///tmp\",\"worktreeId\":\"\#(away.id)\"}"; "#
+        + #"r phone settings.set "{\"key\":\"phone.url\",\"value\":\"https://x.example\"}"; "#
+        + #"r font settings.set "{\"key\":\"editor.fontSize\",\"value\":13}"; "#
         + #"r commit git.commit "{\"id\":\"\#(wt)\",\"message\":\"x\"}"; r run run.start "{\"worktreeId\":\"\#(away.id)\",\"id\":\"x\"}"; "#
         + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
@@ -94,7 +98,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     }
     _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<drop>") })
-    let out = try await r.c.call(SessionRead(id: me.id))
+    // A line each: "\r\n" is one Character, which `[^\n]` would match, running one line's check into the next.
+    let out = try await r.c.call(SessionRead(id: me.id)).replacingOccurrences(of: "\r\n", with: "\n")
     for refused in ["parent", "read", "markRead"] { #expect(out.contains(try Regex("<\(refused)> [^\n]*acts only on its own session")), "\(refused)") }
     #expect(out.contains(#/<close> [^\n]*is the user's to run/#) && out.contains(#/<term> [^\n]*kelp session new/#))
     #expect(out.contains(#/<new> [^\n]*is the user's to run/#) && !out.contains(#/<pane> [^<]*is the user's to run/#))
@@ -104,6 +109,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<away> [^\n]*works only in its own workspace/#) && out.contains(#/<archive> [^\n]*works only in its own workspace/#))
     #expect(out.contains(#/<forget> [^\n]*Only the user removes a project/#) && out.contains(#/<clear> [^\n]*Only the user clears/#))
     #expect(out.contains(#/<commit> [^\n]*“git\.commit” is the user's/#) && out.contains(#/<run> [^\n]*“run\.start” is the user's/#))
+    // The app reads a scheme in any case; a session's tab is its screen; a file in another workspace switches there.
+    #expect(out.contains(#/<upper> [^\n]*kelp session new/#) && out.contains(#/<peek> [^\n]*acts only on its own session/#))
+    #expect(out.contains(#/<look> [^\n]*works only in its own workspace/#))
+    #expect(out.contains(#/<phone> [^\n]*the user's/#) && !out.contains(#/<font> [^<]*error/#))
     #expect(try !r.d.sessions.works(me.id, in: away.id))
     r.d.sessions.made.withLock { $0[away.id] = me.id }   // as `worktree.create` from its terminal does
     #expect(try r.d.sessions.works(me.id, in: away.id))
@@ -131,7 +140,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
     _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<forked>") })
-    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<forked> [^\n]*the user's to answer/#))
+    #expect(try await r.c.call(SessionRead(id: me.id)).replacingOccurrences(of: "\r\n", with: "\n").contains(#/<forked> [^\n]*the user's to answer/#))
 }
 
 /// What agents may call is a list of methods the daemon answers (a stale name would hide a renamed method's door).
@@ -167,7 +176,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.status == .waiting })
     FileManager.default.createFile(atPath: go, contents: nil)
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("<write>") })
-    #expect(try await r.c.call(SessionRead(id: me.id)).contains(#/<write> [^\n]*asks a question/#))
+    #expect(try await r.c.call(SessionRead(id: me.id)).replacingOccurrences(of: "\r\n", with: "\n").contains(#/<write> [^\n]*asks a question/#))
 }
 
 /// A restart keeps what an agent started its own (its commands, what came from its terminal); a session whose line
@@ -201,4 +210,17 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try p.run(); p.waitUntilExit()
     #expect(r.d.sessions.session(running: p.processIdentifier) == Sessions.unknown)
     #expect(r.d.sessions.session(running: getpid()) == nil)
+}
+
+/// One Kelp couldn't place reports a status, nothing more: not a transcript Kelp would follow, not a report another agent
+/// reads, not a question's wait (which takes the real hook's answer).
+@Test func aCallerKelpCantPlaceReportsAStatusOnly() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let other = try await session(r, "cat")
+    for id in 0..<64 { r.d.clients.connection(id)?.owner.withLock { $0 = .some(Sessions.unknown) } }
+    var h = SessionHook(id: other.id, event: "working", at: ProcessInfo.processInfo.systemUptime)
+    h.transcript = "/tmp/forged.jsonl"
+    _ = try await r.c.call(h)
+    #expect(r.d.sessions.existing(other.id)?.transcriptPath == nil)
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionPermissionWait(id: other.id)) }
 }

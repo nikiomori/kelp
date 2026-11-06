@@ -164,11 +164,19 @@ extension Daemon {
     /// plain terminal by hand counts as that terminal; macOS doesn't show another process's environment (its
     /// KELP_SESSION) to tell, and an agent can still leave a program for the user to run (a file): the socket, and the
     /// files, are the user's.
-    func allow(_ m: any Answered, conn: Int) throws {
+    /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
+    func allow(_ m: any Answered, conn: Int, caller known: String?? = nil) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        guard let own = sessions.caller(conn) else { return }
+        guard let own = known ?? sessions.caller(conn) else { return }
         if let id = m.reportsFor, own != id, own != Sessions.unknown { throw RPCError.invalidParams("A session speaks only for itself.") }
-        if own == Sessions.unknown, m.reportsFor != nil { return }   // a hook reports and ends, sometimes before it's looked at
+        if own == Sessions.unknown, m.reportsFor != nil {
+            // A hook reports and ends, sometimes before it's looked at: its status counts. Not what another would be told
+            // (a report's text, read by the agent that started it: `SessionHook` leaves it out), waits on, or reads.
+            guard m is SessionHook || m is SessionReport || m is PaneReportAgent else {
+                throw RPCError.invalidParams("Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
+            }
+            return
+        }
         guard own != Sessions.ownProgram, own != Sessions.unknown else {
             do { return try allowAgent(m, own: own) } catch {
                 throw RPCError.invalidParams(own == Sessions.unknown

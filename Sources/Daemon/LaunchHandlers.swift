@@ -150,8 +150,10 @@ extension SessionHook: Handled {
             try sessions.trail(id)?.add("\(trailLine): nothing runs here")
             return Done()
         }
-        if let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
-        if let reply, ls.snapshot.parent != nil { sessions.reports.said(reply, by: id) }   // before the status its report goes out on
+        // From a caller Kelp couldn't place (`Sessions.unknown`): its status only, not text another agent reads or a file Kelp follows.
+        let placed = Sessions.asker != Sessions.unknown
+        if placed, let transcript, !transcript.isEmpty { ls.transcriptPath = transcript; sessions.follow(ls, transcript: transcript) }
+        if placed, let reply, ls.snapshot.parent != nil { sessions.reports.said(reply, by: id) }   // before the status its report goes out on
         if let cwd, ls.workIn(cwd) != nil { sessions.publish(ls) }
         if let notification, Hooks.isInformational(notification) {
             ls.trail.add("\(trailLine): asks nothing")

@@ -142,6 +142,12 @@ extension SettingsGet: Handled { func handle(_ settings: SettingsStore) throws -
 extension SettingsSet: Handled {
     /// A colour dragged or a stepper held sends these quickly: the last one sent is the one that stays.
     static var inOrder: Bool { true }
+    /// What an agent may not set (`kelp settings set`, its settings skill): where Kelp sends what agents did off this Mac
+    /// (`phone.*`), whose accounts agents run as (`accounts.*`), and where extensions come from.
+    static let usersOnly = ["phone.", "accounts.", "extensions.library"]
+    var notForAgents: String? {
+        Self.usersOnly.contains { key.hasPrefix($0) } ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil
+    }
     func handle(_ settings: SettingsEvents) throws -> [String: JSONValue] {
         let all = try settings.store.set(key, value)
         settings.changedBeforeReply()

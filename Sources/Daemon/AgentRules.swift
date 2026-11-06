@@ -28,7 +28,8 @@ enum AgentRules {
         "session.kill", "session.restart", "session.rename", "session.markRead", "session.markUnread", "session.recap",
         "session.handoff", "session.continueAt", "session.turn", "session.turnUndo", "session.turnRedo", "session.hook",
         "session.report", "session.permissionWait", "pane.report_agent", "usage.report", "comment.add", "comment.send",
-        // the IDE, in its own workspaces (`inWorkspace`), and what its skills do
+        // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
+        // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
         "ui.open", "ui.command", "ui.browser", "ports.stop", "settings.set", "extension.fetch",
         "workspace.create", "worktree.create", "worktree.note", "worktree.archive", "worktree.remove",
         "vm.connect", "vm.screen", "vm.type", "vm.control"
