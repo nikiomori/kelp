@@ -77,7 +77,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     let windowParts = sources(["Sources/KelpKit/Sidebar", "Sources/KelpKit/Inspector"]).filter { !shared.contains(($0.path as NSString).lastPathComponent) }
         + sources(["Sources/KelpKit/Shell"]).filter { $0.path.hasSuffix("/MainWindow.swift") }
     #expect(windowParts.filter { codeOnly($0.text).contains("package ") }.map(\.path) == [])
-    // What the built-ins may reach of the shell: a ceiling that only goes down (one a built-in stopped using goes).
+    // What the built-ins may reach of the shell. It goes down when a built-in stops using one (that goes too), and up only
+    // with a built-in feature that needs the shell, said beside the number: what the feature does itself stays in its
+    // module, and the number counts what the shell had to open, not a goal it's kept under.
     let declared = sources(["Sources/KelpKit"]).map { f in
         codeOnly(f.text).split(separator: "\n").filter { $0.range(of: #"^\s*(@\w+(\([^)]*\))?\s+)*package\s"#, options: .regularExpression) != nil }.count
     }.reduce(0, +)
