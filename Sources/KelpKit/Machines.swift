@@ -113,15 +113,19 @@ extension AppModel {
         return text + (v.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
     }
 
-    /// The machine's second line: its memory and what runs, or why there's nothing to say.
+    /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
     func machineLine(_ v: VMInfo) -> String {
         switch v.state {
         case .creating: return stepText(v)
         case .error: return v.detail ?? ""
-        case .sleeping: return v.machine.os == "linux" ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
-        case .off: return String(localized: "Boots in a few seconds")
+        case .sleeping, .off:
+            let wake = v.state == .off ? String(localized: "Boots in a few seconds")
+                : v.machine.os == "linux" ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
+            guard let d = v.diskMiB else { return wake }
+            return String(localized: "\(String(format: "%.1f GB", Double(d) / 1024)) on disk") + " · " + wake
         default:
             var parts: [String] = []
+            if let c = v.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", c)) CPU")) }
             if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
             let n = v.connections ?? 0
             if n > 0 { parts.append(String(localized: "\(n) running")) }

@@ -79,7 +79,7 @@ struct VMService: Sendable {
             return v
         }
         var v = VMInfo(machine: m, state: r.state, detail: r.error, connections: r.connections, memoryMiB: r.memoryMiB, diskMiB: disk)
-        v.files = filesFolder(m)
+        v.files = filesFolder(m); v.cpu = r.cpu
         return v
     }
 

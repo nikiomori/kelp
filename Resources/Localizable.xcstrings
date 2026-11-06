@@ -1057,12 +1057,12 @@
         }
       }
     },
-    "%.1f GB of %.0f GB in use by it": {
+    "%.1f GB of the Mac's (%.0f GB given)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%.1f из %.0f ГБ занято ею"
+            "value": "%.1f ГБ памяти Mac (выделено %.0f ГБ)"
           }
         }
       }
@@ -1077,12 +1077,12 @@
         }
       }
     },
-    "%.1f of %.0f GB": {
+    "%.1f GB in use": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%.1f из %.0f ГБ"
+            "value": "%.1f ГБ занято"
           }
         }
       }
@@ -1573,6 +1573,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kelp Guest в ней не запущен: войдите в систему на её экране."
+          }
+        }
+      }
+    },
+    "%@ on disk": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ на диске"
+          }
+        }
+      }
+    },
+    "%@ CPU": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ЦП %@"
           }
         }
       }

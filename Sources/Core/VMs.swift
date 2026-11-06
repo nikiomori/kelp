@@ -45,8 +45,10 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var detail: String?
     /// Commands and shells open in it now.
     public var connections: Int?
-    /// What it holds of the Mac's memory while it runs (its balloon's target), MiB.
+    /// What it holds of the Mac's memory while it runs (its process's footprint, else its balloon's target), MiB.
     public var memoryMiB: Int?
+    /// While it runs: the Mac's CPU it took over the last 5 s, % of one core, as Activity Monitor counts it.
+    public var cpu: Double?
     /// Its disk's size on the Mac's disk, MiB.
     public var diskMiB: Int?
     /// The Kelp sessions working in it now: a command running there (`kelp vm run` from an agent or a terminal), or the
@@ -271,6 +273,8 @@ public enum VMHelper {
         public var port: Int?
         /// A macOS machine's screen: the session whose turn it is, while it lasts.
         public var screen: String?
+        /// While it runs: its CPU over the last 5 s, % of one core (`VMInfo.cpu`).
+        public var cpu: Double?
         public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil, serial: String? = nil) {
             self.state = state; self.connections = connections; self.memoryMiB = memoryMiB; self.error = error; self.slot = slot
             self.serial = serial

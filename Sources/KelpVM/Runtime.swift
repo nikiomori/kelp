@@ -27,6 +27,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private var sockets: [Int: VZVirtioSocketConnection] = [:]
     private var nextSocket = 0
     private var ticks = 0
+    /// What it cost the Mac at the last tick, while it runs (`Usage`).
+    private var usage: (cpu: Double?, memoryMiB: Int)?
     /// Starts tried in a row: a macOS machine's storage can stay locked a moment after its installer (or a stop) ends.
     private var tries = 0
     private var listeners: [DispatchSourceRead] = [], signals: [DispatchSourceSignal] = []
@@ -225,8 +227,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     nonisolated private func leaveSoon() { DispatchQueue.main.async { exit(0) } }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
-        var r = VMHelper.Reply(state: state, connections: connections, memoryMiB: vm == nil ? nil : targetMiB, error: error, slot: slot)
-        r.screen = Screen.turn
+        var r = VMHelper.Reply(state: state, connections: connections, memoryMiB: vm == nil ? nil : usage?.memoryMiB ?? targetMiB, error: error, slot: slot)
+        r.screen = Screen.turn; r.cpu = vm == nil ? nil : usage?.cpu
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
         close(fd)
     }
@@ -376,7 +378,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     /// Every 5 s: no connection for `pauseAfter`, and it pauses; for `sleepAfter`, it goes to disk. While it runs, its
     /// memory follows what the guest uses every 15 s.
     private func tick() {
-        ticks += 1
+        ticks += 1; usage = vm == nil ? nil : Usage.sample()
         if window?.isVisible == true { lastUse = Date() }   // someone watches its screen
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, connections == 0, idle > Self.pauseAfter {

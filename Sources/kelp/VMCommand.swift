@@ -229,7 +229,9 @@ extension Main {
         let image = VMImage.named(v.machine.image)?.title ?? v.machine.image
         var parts = [v.machine.name.padding(toLength: 10, withPad: " ", startingAt: 0), image.padding(toLength: 12, withPad: " ", startingAt: 0),
                      v.state.rawValue]
+        if let c = v.cpu { parts.append(String(format: "%.0f%% CPU", c)) }
         if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
+        if v.state == .sleeping || v.state == .off, let d = v.diskMiB { parts.append(String(format: "%.1f GB on disk", Double(d) / 1024)) }
         if let n = v.connections, n > 0 { parts.append("\(n) open") }
         if v.state == .sleeping { parts.append(v.machine.os == "linux" ? "wakes in under a second" : "wakes in a few seconds") }
         if let s = v.step { parts.append(s.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? "")) }

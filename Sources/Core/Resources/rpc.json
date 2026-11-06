@@ -3955,6 +3955,10 @@
             "description" : "Commands and shells open in it now.",
             "type" : "integer"
           },
+          "cpu" : {
+            "description" : "While it runs: the Mac's CPU it took over the last 5 s, % of one core, as Activity Monitor counts it.",
+            "type" : "number"
+          },
           "detail" : {
             "description" : "While creating, how far (\"Downloading Debian 13: 43%\"); after an error, what went wrong.",
             "type" : "string"
@@ -3971,7 +3975,7 @@
             "$ref" : "#/components/schemas/VMMachine"
           },
           "memoryMiB" : {
-            "description" : "What it holds of the Mac's memory while it runs (its balloon's target), MiB.",
+            "description" : "What it holds of the Mac's memory while it runs (its process's footprint, else its balloon's target), MiB.",
             "type" : "integer"
           },
           "progress" : {

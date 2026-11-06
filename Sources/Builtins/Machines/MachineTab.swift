@@ -83,12 +83,13 @@ struct MachineView: View {
         .frame(height: Metrics.contentBar)
     }
 
-    /// "Debian 13 · 2 CPUs · 1.2 of 2 GB · disk 3.1 GB".
+    /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · disk 3.1 GB".
     private func summary(_ v: VMInfo) -> String {
         let m = v.machine
         var parts = [VMImage.named(m.image)?.title ?? m.image, String(localized: "\(m.cpus) CPUs")]
+        if let c = v.cpu { parts[1] += String(format: " (%.0f%%)", c) }
         let total = Double(m.memoryMiB) / 1024
-        if let now = v.memoryMiB { parts.append(String(format: String(localized: "%.1f of %.0f GB"), Double(now) / 1024, total)) }
+        if let now = v.memoryMiB { parts.append(String(format: String(localized: "%.1f GB in use"), Double(now) / 1024)) }
         else { parts.append(String(format: "%.0f GB", total)) }
         if let d = v.diskMiB { parts.append(String(format: String(localized: "disk %.1f GB"), Double(d) / 1024)) }
         return parts.joined(separator: " · ")
@@ -308,7 +309,7 @@ struct MachineView: View {
     private func memory(_ v: VMInfo) -> String {
         let total = Double(v.machine.memoryMiB) / 1024
         guard let now = v.memoryMiB else { return String(format: "%.0f GB", total) }
-        return String(format: String(localized: "%.1f GB of %.0f GB in use by it"), Double(now) / 1024, total)
+        return String(format: String(localized: "%.1f GB of the Mac's (%.0f GB given)"), Double(now) / 1024, total)
     }
 
     /// 41 → "0:41", 4321 → "1:12:01".
