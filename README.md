@@ -45,7 +45,7 @@ the app. No Electron, no account, no cloud, no telemetry.
 </table>
 
 <p align="center"><sub>
-Claude Code · Codex · Antigravity · OpenCode · Cursor Agent · GitHub Copilot · Grok · Amp · Aider · Goose ·
+Claude Code · Codex · Gemini CLI · Antigravity · OpenCode · Cursor Agent · GitHub Copilot · Grok · Amp · Aider · Goose ·
 Droid · Kilo Code · Qwen Code · Kimi · Pi · oh-my-pi · Crush · Hermes · Augment · Kiro · fx
 </sub></p>
 
@@ -91,7 +91,8 @@ Language servers, several cursors, VS Code's editing commands, Markdown and note
 </td>
 <td width="33%" valign="top">
 <b>Browser</b><br/>
-A tab beside your code. A blank one lists the ports your agents and terminals are serving.
+A tab beside your code. A blank one lists the ports your agents and terminals are serving. Agents open, read and click
+pages in it too, while you watch.
 </td>
 <td width="33%" valign="top">
 <b>Run</b><br/>
@@ -116,8 +117,9 @@ one, or by itself at the reset.
 </tr>
 <tr>
 <td valign="top">
-<b>Hand Off</b><br/>
-Pass a job to another agent, briefed with the first one's transcript.
+<b>Agents together</b><br/>
+An agent can start another beside it, say a review by a different model, and its result comes back by itself.
+<b>Hand Off</b> passes a job on, briefed with the transcript.
 </td>
 <td valign="top">
 <b>Open over SSH</b><br/>
@@ -127,6 +129,23 @@ Work in a project on another machine. With tmux on the host, a dropped connectio
 <b>Extensions</b><br/>
 Panels, commands, settings, themes and agents. A JSON file is enough, and the
 <a href="https://github.com/nikiomori/kelp-extensions">library</a> has ready ones.
+</td>
+</tr>
+<tr>
+<td valign="top">
+<b>Machines</b><br/>
+Linux and macOS machines on Apple Virtualization, Android emulators, iOS simulators. Agents run commands there, in the
+project's folder at the same path, and tap the app on its screen.
+</td>
+<td valign="top">
+<b>Artifacts</b><br/>
+Docs, reviews, slides, designs and dashboards an agent makes for you, in a tab with their versions. Select text on one to
+ask the agent about it.
+</td>
+<td valign="top">
+<b>Dock</b><br/>
+Kelp's Dock icon shows the agents or the plan; right-click it to allow a command. A strip in a corner of the screen says who
+needs you while you're in another app.
 </td>
 </tr>
 </table>
@@ -172,7 +191,7 @@ Agents go on with Kelp's window closed, and `kelp agents` shows them in any term
 3. Connect with any SSH app, then run `kelp agents`. [Tailscale](https://tailscale.com) reaches the Mac from outside your
    network without opening a port.
 
-**Kelp Beta** is what's coming, ahead of a release (Routines, for one): [`Kelp-Beta.dmg`](https://github.com/nikiomori/kelp/releases/download/beta/Kelp-Beta.dmg).
+**Kelp Beta** is what's coming, ahead of a release: [`Kelp-Beta.dmg`](https://github.com/nikiomori/kelp/releases/download/beta/Kelp-Beta.dmg).
 It installs beside Kelp as an app of its own (its settings, projects and agents in `~/.kelp-beta`) and updates itself
 with each new beta. It can break; Kelp is unaffected.
 
@@ -187,6 +206,10 @@ kelp session new --cmd "npm test" --wait               # on your line; exits wit
 kelp open Sources/App.swift:42 --split right           # a tab in the app
 kelp worktree create feat/login | list | current | note "half done"
 kelp terminal list | read <id> | send <id> "run the tests" | context <id>
+kelp wait --children all                               # inside an agent: until the agents it started are done
+kelp browser open http://localhost:3000 | snapshot | click e12  # a page in a tab beside you
+kelp vm run linux -- make test                         # in a machine, in this project's folder
+kelp artifact new doc "Release plan"                   # a page in .kelp/artifacts, opened beside you
 kelp diff | commit "msg" | merge | push
 kelp ext search | install <id>                         # the extension library
 kelp install                                           # run the daemon as a LaunchAgent
