@@ -23,6 +23,23 @@ import Testing
 
     @Test func noFolderNoMachines() { #expect(vms.list().isEmpty) }
 
+    /// What made `dev` before a restart is found by its folder, not what runs in `dev2` beside it.
+    @Test func leftoversAreFoundByTheWholeFolder() throws {
+        let r = try NSRegularExpression(pattern: VMService.inFolder("/k/vms/dev"))
+        func hits(_ line: String) -> Bool { r.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil }
+        #expect(hits("curl -o /k/vms/dev/disk.img.part https://x") && hits("installer /k/vms/dev") && hits("x /k/vms/dev y"))
+        #expect(!hits("kelp-vm /k/vms/dev2") && !hits("ssh -F /k/vms/dev2/ssh_config dev2"))
+    }
+
+    /// A sleep counts as memory freed only once the machine says it's down.
+    @Test func aSleepFreesOnlyAMachineThatsDown() throws {
+        #expect(try vms.asleep(VMHelper.Reply(state: .sleeping, connections: 0)))
+        #expect(try vms.asleep(VMHelper.Reply(state: .off, connections: 0)))
+        #expect(try !vms.asleep(VMHelper.Reply(state: .starting, connections: 0)))
+        #expect(try !vms.asleep(VMHelper.Reply(state: .running, connections: 0)))
+        #expect(throws: (any Error).self) { try vms.asleep(VMHelper.Reply(state: .paused, connections: 0, error: "save failed")) }
+    }
+
     @Test func aMachineBeingMadeSaysHowFarAndAStaleOneReadsAsFailed() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder(["creating": "Downloading Debian 13: 40%"])
@@ -102,7 +119,9 @@ import Testing
         let mac = VMMachine(name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
         try JSONEncoder().encode(mac).write(to: f.appendingPathComponent("machine.json"))
         let server = try Unix.listen(f.appendingPathComponent("ctl.sock").path)
-        defer { close(server) }
+        let lock = open(f.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)   // as a kelp-vm holds it while it runs (`VMService.alive`)
+        defer { close(server); close(lock) }
         let heard = OSAllocatedUnfairLock(initialState: [String]())
         Thread.detachNewThread {   // kelp-vm: running, and what it was asked
             while case let fd = accept(server, nil, nil), fd >= 0 {

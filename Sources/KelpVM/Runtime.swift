@@ -50,8 +50,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     func listen() {
         // One kelp-vm per machine: two starts at once would both launch one, and the second would take the sockets over.
+        // Tried for a moment: kelpd takes it for an instant to ask whether one runs (`VMService.alive`).
         let lock = open(file("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
-        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { log("another kelp-vm runs \(machine.name)"); exit(0) }
+        var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
+        for _ in 0..<10 where lock >= 0 && !held { usleep(50_000); held = flock(lock, LOCK_EX | LOCK_NB) == 0 }
+        guard held else { log("another kelp-vm runs \(machine.name)"); exit(0) }
         listen("ssh.sock") { [weak self] fd in self?.connect(fd, counted: true) }
         listen("own.sock") { [weak self] fd in self?.connect(fd, counted: false) }
         listen("ctl.sock") { [weak self] fd in self?.control(fd) }
@@ -177,7 +180,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         // then, an update's included. Its answer is written before (`reply` writes and closes).
         // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
         // then would cut its power.
-        case .sleep: sleep { e in done(e, nil); if e == nil, self.vm == nil { exit(0) } }
+        // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
+        case .sleep: sleep { e in done(e, nil); if e == nil, self.vm == nil, self.state != .starting { exit(0) } }
         case .stop: stop { done(nil, nil); exit(0) }
         case .show: lastUse = Date(); wake { error in if error == nil { self.show() }; done(error, nil) }
         case .screen:
@@ -189,6 +193,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 Screen.run(r.args ?? [], session: r.session ?? "-", view: view) { done($0, nil) }
             }
         case .quit:
+            // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
+            if r.args == ["if-down"], vm != nil { return done("\(machine.name) is in use again: shut it down, then change its size.", nil) }
             done(nil, nil)
             guard let vm else { exit(0) }
             vm.stop { _ in exit(0) }
@@ -497,6 +503,7 @@ extension Runtime {
 
     /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
     private func stop(_ done: @escaping () -> Void) {
+        if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }   // resumed under the save, it would fail it
         try? FileManager.default.removeItem(at: saved)
         guard let vm else { state = .off; return done() }
         stopped.append(done)

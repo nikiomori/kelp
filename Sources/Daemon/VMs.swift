@@ -124,9 +124,12 @@ struct VMService: Sendable {
             try admit(m)
             try startHelper(m)
             try check(ask(name, .init(op: .show), wait: 180))
-        case .sleep, .stop:
-            if status(name) != nil { try check(ask(name, .init(op: action == .sleep ? .sleep : .stop), wait: 60)) }
-            else if action == .stop { remove(file(name, "state.vzsave")) }
+        case .sleep:
+            if status(name) != nil, try !asleep(ask(name, .init(op: .sleep), wait: 60)) {
+                throw RPCError.invalidParams("\(name) is starting or being saved: put it to sleep in a moment.")
+            }
+        case .stop:
+            if status(name) != nil { try check(ask(name, .init(op: .stop), wait: 60)) } else { remove(file(name, "state.vzsave")) }
         }
         return info(m)
     }
@@ -195,7 +198,8 @@ struct VMService: Sendable {
         func used() -> Int { awake.reduce(m.memoryMiB) { $0 + ($1.memoryMiB ?? $1.machine.memoryMiB) } }
         let idle = awake.filter { $0.connections == 0 }.sorted { ($0.memoryMiB ?? 0) > ($1.memoryMiB ?? 0) }
         for other in idle where used() > budget {
-            do { _ = try ask(other.machine.name, .init(op: .sleep), wait: 60) } catch { continue }
+            // Freed only once it says it's asleep: one still starting, a failed save or an Intel Mac keeps its memory.
+            do { guard try asleep(ask(other.machine.name, .init(op: .sleep), wait: 60)) else { continue } } catch { continue }
             awake.removeAll { $0.machine.name == other.machine.name }
         }
         guard used() <= budget else {
@@ -207,7 +211,7 @@ struct VMService: Sendable {
 
     /// Starts the machine's `kelp-vm` unless it runs.
     func startHelper(_ m: VMMachine) throws {
-        if status(m.name) != nil { return }
+        if alive(m.name) { return }   // not "it answered": a busy one may not within 2 s, and a second would only end
         let log = file(m.name, "helper.log").path
         guard FileManager.default.isExecutableFile(atPath: helper) else {
             throw RPCError.internalError("This build of Kelp has no kelp-vm beside kelpd (\(helper)).")
@@ -274,6 +278,12 @@ struct VMService: Sendable {
         return flock(fd, LOCK_EX | LOCK_NB) != 0   // ours for a moment if nobody holds it; closing lets it go
     }
 
+    /// A sleep's answer: an error thrown, else whether it's down now (`sleep` leaves one that's starting as it is).
+    func asleep(_ r: VMHelper.Reply) throws -> Bool {
+        try check(r)
+        return ![.running, .paused, .starting].contains(r.state)
+    }
+
     func check(_ r: VMHelper.Reply) throws {
         guard let e = r.error else { return }
         guard e.contains("entitlement") else { throw RPCError.internalError(e) }
@@ -336,40 +346,6 @@ struct VMService: Sendable {
     func step(_ m: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) {
         let at = VMMaking(step: step, progress: progress, detail: detail)
         Log.vm.attempt("noting \(m.name)'s progress") { try at.data.write(to: file(m.name, "creating"), options: .atomic) }
-    }
-
-    /// Machines a kelpd before this one was making (it quit or was upgraded midway): made again from the start, their
-    /// download going on where it stopped. Called once as kelpd starts.
-    func resumeMaking() {
-        let names: [String]
-        do { names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") } } catch { return }
-        for name in names where text(name, "creating") != nil && text(name, "failed") == nil {
-            let m: VMMachine
-            do { m = try machine(name) } catch { continue }
-            Log.vm.info("making \(name) again: a kelpd before this one stopped midway")
-            quit(name)
-            // Its downloads and installer outlived that kelpd: ended, not left writing beside the new ones.
-            let leftover = NSRegularExpression.escapedPattern(for: folder(name).path)
-            do { _ = try Subprocess.run(["/usr/bin/pkill", "-TERM", "-f", "--", leftover], cwd: "/", env: [:], timeLimit: 10) }
-            catch { Log.vm.error("ending what made \(name) before: \(error)") }
-            if let udid = text(name, "udid") {   // an iOS machine's simulator, made again too
-                do { try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)]) }
-                catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
-            }
-            let source = text(name, "source").map { URL(fileURLWithPath: $0) }
-            let keep: Set = ["machine.json", "creating", "source"]
-            let made = FileManager.default.enumerator(atPath: folder(name).path)?.compactMap { $0 as? String }.filter { !$0.contains("/") } ?? []
-            for f in made where !keep.contains(f) { remove(file(name, f)) }
-            step(m, .starting)
-            Task.detached {
-                switch m.os {
-                case "macos": await self.makeMac(m, ipsw: source)
-                case "android": await self.makeAndroid(m)
-                case "ios": await self.makeIOS(m)
-                default: if let image = VMImage.named(m.image) { await self.make(m, image, raw: source) }
-                }
-            }
-        }
     }
 
     func make(_ m: VMMachine, _ image: VMImage, raw given: URL? = nil) async {

@@ -53,7 +53,14 @@ extension VMService {
             let most = max(least, gib)
             throw RPCError.invalidParams("Processors 1–\(cores), memory \(least)–\(most) GB, disk \(m.diskGiB)–2048 GB (a disk only grows).")
         }
-        quit(m.name)   // first: a kelp-vm left running with it off read the old size, and a command could wake it meanwhile
+        // First: a kelp-vm left running with it off read the old size. Only if it's still down: a command could have woken
+        // it since, and a quit then would cut its power.
+        if alive(m.name) {
+            let answer: VMHelper.Reply?
+            do { answer = try ask(m.name, .init(op: .quit, args: ["if-down"]), wait: 10) } catch { answer = nil }   // it hangs up as it goes
+            if let answer { try check(answer) }
+            for _ in 0..<100 where alive(m.name) { usleep(100_000) }
+        }
         guard !alive(m.name) else { throw RPCError.invalidParams("\(m.name) is in use again: shut it down, then change its size.") }
         if disk > m.diskGiB {
             guard m.os == "linux" else { throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.") }
