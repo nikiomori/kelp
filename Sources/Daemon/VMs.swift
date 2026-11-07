@@ -191,7 +191,13 @@ struct VMService: Sendable {
         let fd = open(root.appendingPathComponent(".waking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))") }
         defer { close(fd) }
-        guard flock(fd, LOCK_EX) == 0 else { throw RPCError.internalError("Can't take the machines' wake lock.") }   // seconds, on this offload thread
+        if alive(m.name) { return }   // up already: nothing to make room for, nor to wait behind
+        // Waited for 90 s at most (one wake puts others to sleep, a minute each at worst), on this offload thread.
+        let end = Date().addingTimeInterval(90)
+        while flock(fd, LOCK_EX | LOCK_NB) != 0 {
+            guard Date() < end else { throw RPCError.internalError("Another machine is still waking: try \(m.name) again in a moment.") }
+            usleep(100_000)
+        }
         try admit(m)
         try startHelper(m)
     }
@@ -202,7 +208,8 @@ struct VMService: Sendable {
         let up: Set<VMState> = [.running, .paused, .starting]
         if let me = status(m.name), up.contains(me.state) { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
-        var awake = list().filter { $0.machine.name != m.name && up.contains($0.state) }
+        // And one whose kelp-vm runs while it's still down: a wake just started, not booting yet (it is once it's asked).
+        var awake = list().filter { $0.machine.name != m.name && (up.contains($0.state) || $0.state != .creating && alive($0.machine.name)) }
         // By the size each is given, not what it holds now (`memoryMiB`, its footprint): a guest just booted grows to it.
         func used() -> Int { awake.reduce(m.memoryMiB) { $0 + $1.machine.memoryMiB } }
         let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }

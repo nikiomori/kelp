@@ -31,25 +31,8 @@ final class AndroidRuntime {
 
     func listen() {
         // Its lock is held already (main.swift).
-        let fd: Int32
-        do { fd = try Unix.listen(folder.appendingPathComponent("ctl.sock").path) } catch { log("can't listen: \(error)"); exit(1) }
-        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
-        src.setEventHandler { [weak self] in
-            let c = accept(fd, nil, nil)
-            guard c >= 0 else { return }
-            MainActor.assumeIsolated { self?.control(c) }   // a read source on the main queue
-        }
-        src.resume()
-        sources.append(src)
-        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.tick() } }   // main run loop
-        RunLoop.main.add(timer, forMode: .common)
-        for sig in [SIGTERM, SIGINT] {
-            signal(sig, SIG_IGN)
-            let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-            s.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.sleep { _ in exit(0) } } }   // the main queue
-            s.resume()
-            sources.append(s)
-        }
+        sources.append(Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
+        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.sleep { _ in exit(0) } })
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 

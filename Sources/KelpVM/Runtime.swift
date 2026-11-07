@@ -52,34 +52,12 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     func listen() {
         // Its lock is held already (main.swift): two starts at once would both launch one, and the second would take the sockets over.
-        listen("ssh.sock") { [weak self] fd in self?.connect(fd, counted: true) }
-        listen("own.sock") { [weak self] fd in self?.connect(fd, counted: false) }
-        listen("ctl.sock") { [weak self] fd in self?.control(fd) }
-        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.tick() } }   // main run loop
-        RunLoop.main.add(timer, forMode: .common)
-        for sig in [SIGTERM, SIGINT] {
-            signal(sig, SIG_IGN)
-            let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-            // On the main queue: save it (what runs inside goes on at the next wake), then go.
-            s.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.leave() } }
-            s.resume()
-            signals.append(s)
-        }
+        listeners.append(Control.listen(file("ssh.sock").path) { [weak self] fd in self?.connect(fd, counted: true) })
+        listeners.append(Control.listen(file("own.sock").path) { [weak self] fd in self?.connect(fd, counted: false) })
+        listeners.append(Control.listen(file("ctl.sock").path) { [weak self] fd in self?.control(fd) })
+        // A signal: saved (what runs inside goes on at the next wake), then gone.
+        signals = Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
         log("ready: \(machine.name), \(state.rawValue)")
-    }
-
-    private func listen(_ name: String, _ accepted: @escaping @MainActor (Int32) -> Void) {
-        let fd: Int32
-        do { fd = try Unix.listen(file(name).path) } catch { log("can't listen on \(name): \(error)"); exit(1) }
-        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
-        src.setEventHandler {
-            let c = accept(fd, nil, nil)
-            guard c >= 0 else { return }
-            Unix.noSigPipe(c)
-            MainActor.assumeIsolated { accepted(c) }   // a read source on the main queue
-        }
-        src.resume()
-        listeners.append(src)
     }
 
     /// An SSH connection: wakes the machine, then joins the client to the guest's sshd (vsock port 22 on Linux; on macOS,

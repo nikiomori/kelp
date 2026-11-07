@@ -48,3 +48,37 @@ enum Control {
         }
     }
 }
+
+extension Control {
+    /// A socket at `path`, each connection it accepts handed to `accepted` on the main actor; the source is the caller's to
+    /// keep. Can't listen: kelp-vm ends (kelpd starts another).
+    @MainActor
+    static func listen(_ path: String, _ accepted: @escaping @MainActor (Int32) -> Void) -> any DispatchSourceRead {
+        let fd: Int32
+        do { fd = try Unix.listen(path) } catch { log("can't listen on \(path): \(error)"); exit(1) }
+        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
+        src.setEventHandler {
+            let c = accept(fd, nil, nil)
+            guard c >= 0 else { return }
+            Unix.noSigPipe(c)
+            MainActor.assumeIsolated { accepted(c) }   // a read source on the main queue
+        }
+        src.resume()
+        return src
+    }
+
+    /// `tick` every 5 s, and `leave` on SIGTERM or SIGINT (an install, a logout), both on the main actor; the signal
+    /// sources are the caller's to keep.
+    @MainActor
+    static func run(tick: @escaping @MainActor () -> Void, leave: @escaping @MainActor () -> Void) -> [any DispatchSourceSignal] {
+        let timer = Timer(timeInterval: 5, repeats: true) { _ in MainActor.assumeIsolated { tick() } }   // main run loop
+        RunLoop.main.add(timer, forMode: .common)
+        return [SIGTERM, SIGINT].map { sig in
+            signal(sig, SIG_IGN)
+            let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            s.setEventHandler { MainActor.assumeIsolated { leave() } }   // the main queue
+            s.resume()
+            return s
+        }
+    }
+}

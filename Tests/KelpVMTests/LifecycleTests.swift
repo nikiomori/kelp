@@ -38,3 +38,23 @@ import Testing
     let second = try #require(Lifecycle.hold(folder))   // …which its tries outlast
     close(second)
 }
+
+/// A request read off the control socket whole, however its line arrives (in pieces, with more after it), and none
+/// from a line that isn't one.
+@Test func aControlRequestIsReadByItsLine() async throws {
+    func read(_ chunks: [String]) async -> VMHelper.Request? {
+        var fds: [Int32] = [0, 0]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &fds) == 0 else { return nil }
+        let (mine, theirs) = (fds[0], fds[1])
+        let got = await withCheckedContinuation { (c: CheckedContinuation<VMHelper.Request?, Never>) in
+            Control.read(theirs) { c.resume(returning: $0) }
+            for part in chunks { _ = part.withCString { Darwin.write(mine, $0, strlen($0)) }; usleep(20_000) }
+            shutdown(mine, SHUT_WR)
+        }
+        close(mine); close(theirs)
+        return got
+    }
+    #expect(await read(["{\"op\":", "\"sleep\"}\n{\"op\":\"stop\"}\n"])?.op == .sleep)
+    #expect(await read(["{\"op\":\"status\"}"])?.op == .status)   // its end is its line's end
+    #expect(await read(["not json\n"]) == nil)
+}
