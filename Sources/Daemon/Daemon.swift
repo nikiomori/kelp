@@ -412,10 +412,15 @@ public final class Daemon: Sendable {
     private func stream(_ client: Connection, session: String, size: JSONValue?, leftover: Data) {
         // Before waking: its status events must not land in the byte stream. It stays raw until `hungUp` removes it.
         clients.setRaw(client.id, true)
-        // What it writes is typing, so it may type where session.write may: an agent's program only into its own sessions.
-        do { try allow(SessionWrite(id: session), conn: client.id) } catch {
-            client.send(Data("kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8)); return
+        // What it writes is typing, so it may type where session.write may: an agent's program only into its own sessions,
+        // and never while one asks a question. Asked again as each key comes (who it is, once): a question comes later.
+        let caller = sessions.callers.caller(client.id)
+        func mayType(_ line: String = "") -> Bool {   // `line`: what puts the refusal on a line of its own mid-stream
+            do { try allow(SessionWrite(id: session), conn: client.id, caller: caller); return true } catch {
+                client.send(Data("\(line)kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8)); return false
+            }
         }
+        guard mayType() else { return }
         if sessions.existing(session) == nil, (try? store.session(session))?.status == .exited {
             client.send(TerminalReplies.withoutQueries((try? sessions.liveSessionOrLog(session, bytes: LiveSession.ringLimit)) ?? Data())); return
         }
@@ -431,12 +436,18 @@ public final class Daemon: Sendable {
         // Queued under the session's lock: no live output gets ahead of it. One paused at this moment ends the attach,
         // as the pause does for those already attached (`letGo`).
         guard ls.attach(client.id, send: { client.send($0) }) != nil else { return }
-        if !leftover.isEmpty { ls.userInput(leftover) }
+        let type = { (d: Data) -> Bool in
+            // The terminal answering its program (DA, kitty keyboard) isn't typing; the user's keys are let through at once.
+            guard caller == .user || TerminalReplies.isReply(d) || mayType("\r\n") else { return false }
+            ls.userInput(d)
+            return true
+        }
         var buf = [UInt8](repeating: 0, count: 65536)
-        while true {
-            let n = read(client.fd, &buf, buf.count)
-            if n <= 0 { break }
-            ls.userInput(Data(buf[0..<n]))
+        if leftover.isEmpty || type(leftover) {
+            while true {
+                let n = read(client.fd, &buf, buf.count)
+                if n <= 0 || !type(Data(buf[0..<n])) { break }
+            }
         }
         ls.detach(client.id)
     }

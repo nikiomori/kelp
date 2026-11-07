@@ -126,6 +126,6 @@ extension Clients {
         let peer = peer(conn)
         guard peer != Self.appExecutable else { return }
         Log.rpc.notice("refused \(refusal, privacy: .public): \(peer ?? "an unknown program", privacy: .public) isn't \(Self.appExecutable, privacy: .public)")
-        throw RPCError.invalidParams(refusal)
+        throw RPCError.refused(refusal)
     }
 }

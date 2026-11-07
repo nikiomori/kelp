@@ -51,7 +51,7 @@ extension Sessions {
             guard !(v is JSONValue), !(v is Data) else { return [] }
             let parts = Mirror(reflecting: v).children
             // Deeper than any method's params go: refused, not taken for naming nobody.
-            guard depth < 6 || parts.isEmpty else { throw RPCError.invalidParams("Kelp can't tell which sessions this call names.") }
+            guard depth < 6 || parts.isEmpty else { throw RPCError.refused("Kelp can't tell which sessions this call names.") }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
         return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }

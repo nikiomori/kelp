@@ -21,7 +21,7 @@ extension Sessions {
 /// Who calls (`Caller`), by the process on each connection: the daemon's one place that tells, apart from the sessions
 /// it reads from (their programs, their terminals).
 final class Callers: Sendable {
-    private let live: SessionTable, clients: Clients
+    private let live: SessionTable, clients: Clients, store: Store
     /// Whether a caller has to be known for the user's to count as theirs: kelpd says so as it starts (`Daemon.strict`).
     /// A test's in-process daemon doesn't, and its test process calls as the user.
     let strict = OSAllocatedUnfairLock(initialState: false)
@@ -29,7 +29,11 @@ final class Callers: Sendable {
     private let tmuxAnswers = OSAllocatedUnfairLock<[String: (pane: TmuxPane?, at: Date)]>(initialState: [:])
     struct TmuxPane: Sendable { let attached: [Caller], shown: Bool }
 
-    init(live: SessionTable, clients: Clients) { self.live = live; self.clients = clients }
+    init(live: SessionTable, clients: Clients, store: Store) {
+        self.live = live
+        self.clients = clients
+        self.store = store
+    }
 
     /// The live session whose program `pid` is, or runs under (its own child, a shell's job…), or whose terminal it or
     /// one of its parents has (a double fork, `nohup`, `script`); `kelpd` for one this daemon started (kelpd leads its
@@ -163,12 +167,12 @@ final class Callers: Sendable {
         return found
     }
 
-    /// A session held to an agent's rules whatever it runs: an agent's, or one an agent or Kelp's program started (its
-    /// origin, parent or starter), not a terminal the user opened.
-    private func heldAsAgent(_ id: String) -> Bool {
-        live.all.first { $0.snapshot.id == id }.map { s in
-            s.snapshot.isAgent || s.snapshot.origin != nil || s.snapshot.parent != nil || s.snapshot.startedBy != nil
-        } ?? false
+    /// A session held to an agent's rules, as `Daemon.allow` holds it (`forAnAgent`); one that can't be read, too.
+    func heldAsAgent(_ id: String) -> Bool {
+        do { return try store.forAnAgent(id) } catch {
+            Log.session.error("reading who started \(id): \(error)")
+            return true
+        }
     }
 
     /// A pane's caller from who's attached: an agent's session (or a typed agent) outweighs any other client, any pane; a

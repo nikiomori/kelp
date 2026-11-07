@@ -52,7 +52,7 @@ final class Sessions: Sendable {
         self.settings = settings
         self.agentUsage = agentUsage
         self.clients = clients
-        callers = Callers(live: live, clients: clients)
+        callers = Callers(live: live, clients: clients, store: store)
         self.watches = watches
         self.offloads = offloads
     }

@@ -438,6 +438,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     try r.d.sessions.store.save(made)
     try r.d.sessions.store.save(userMade)
     let typed = Caller.typedAgent(term.id)
+    // Who counts as an agent's in a tmux pane is who `allow` holds to an agent's rules: the same table.
+    #expect(!r.d.sessions.callers.heldAsAgent(term.id) && !r.d.sessions.callers.heldAsAgent(theirs.id))
+    #expect(r.d.sessions.callers.heldAsAgent(mine.id))
     let table: [(Caller, any Answered, Bool, String)] = [
         (.user, SessionKill(id: term.id), true, "the user ends any"),
         (.user, phone, true, "the user sets their own settings"),
@@ -473,4 +476,25 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         }
         #expect(refused != allowed, "\(why): \(caller), \(type(of: m).name)")
     }
+}
+
+/// `kelp attach` from an agent's program types where `session send` may, key by key: a session it started that asks a
+/// question meanwhile gets none of it (a `(sleep 60; printf 1) | kelp attach` would answer it).
+@Test func anAgentsAttachStopsTypingOnceTheSessionAsks() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let attach = #"zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$kid\"}}"; "#
+        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 3 -u $REPLY line; do print -r -- "stream $line"; done; cat"#
+    let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; read kid; \(attach)'")
+    let ls = try #require(r.d.sessions.existing(me.id))
+    _ = ls.update { $0.agent = "claude" }
+    r.d.sessions.publish(ls)
+    #expect(try await waitFor { try r.d.sessions.store.session(me.id)?.agent == "claude" })
+    let kid = try await r.c.call("session.create", .obj(["worktreeId": .string(r.wt.id), "command": "cat", "parent": .string(me.id)]), as: Session.self)
+    _ = try await r.c.call(SessionWrite(id: me.id, text: kid.id + "\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: kid.id)).contains("first") })   // its own child: typed
+    let child = try #require(r.d.sessions.existing(kid.id))
+    _ = child.update { $0.status = .waiting }
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("stream kelp: That session asks a question") })
+    #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("second"))
 }
