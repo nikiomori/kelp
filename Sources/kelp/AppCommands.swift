@@ -36,14 +36,14 @@ extension Main {
         switch (cmd, sub) {
         case ("settings", nil): show(.object(try await c.call(SettingsGet())))
         case ("settings", "get"):
-            guard let k = args.first else { fail("settings get <key>") }
-            show(try await c.call(SettingsGet())[k] ?? .null)
+            guard let key = args.first else { fail("settings get <key>") }
+            show(try await c.call(SettingsGet())[key] ?? .null)
         case ("settings", "set"):
             guard args.count >= 2 else { fail("settings set <key> <value>") }
             _ = try await c.call(SettingsSet(key: args[0], value: jsonOrText(args.dropFirst().joined(separator: " "))))
         case ("settings", "unset"):
-            guard let k = args.first else { fail("settings unset <key>") }
-            _ = try await c.call(SettingsSet(key: k, value: nil))
+            guard let key = args.first else { fail("settings unset <key>") }
+            _ = try await c.call(SettingsSet(key: key, value: nil))
         case ("ui", "state"): show(try await c.call(UIStateGet()))
         case ("run", let id?):
             show(

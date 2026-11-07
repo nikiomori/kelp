@@ -11,10 +11,10 @@ public enum PortBlocks {
     /// The first port of `folder`'s block, among `folders` (every project folder Kelp knows).
     public static func port(for folder: String, among folders: [String]) -> Int {
         var taken = Set<Int>()
-        for f in Set(folders + [folder]).sorted() {
-            var slot = start(f)
+        for other in Set(folders + [folder]).sorted() {
+            var slot = start(other)
             while taken.contains(slot) { slot = (slot + 1) % count }
-            if f == folder { return first + slot * size }
+            if other == folder { return first + slot * size }
             taken.insert(slot)
         }
         return first + start(folder) * size
@@ -22,8 +22,8 @@ public enum PortBlocks {
 
     /// FNV-1a of the path: Swift's own hash changes from run to run.
     private static func start(_ path: String) -> Int {
-        var h: UInt64 = 0xcbf29ce484222325
-        for b in path.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
-        return Int(h % UInt64(count))
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in path.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        return Int(hash % UInt64(count))
     }
 }

@@ -94,10 +94,12 @@ public struct HostStats: Codable, Sendable, Equatable {
     /// What wants you now (the app says "Disk 92%"), nil while all's well: a disk or memory over 90 %, or every core busy for
     /// about a minute (the CPU now and the minute's load both high), worst first.
     public var alert: (Strain, percent: Int)? {
-        if let d = Self.percent(disk, diskTotal), d >= 90 { return (.disk, d) }
-        if let m = Self.percent(memory, memoryTotal), m >= 90 { return (.memory, m) }
-        if let c = cpu, c >= 90, let l = load?.first, let n = cores, l >= Double(n) * 0.9 {
-            return (.cpu, Int(c.rounded()))
+        if let diskPercent = Self.percent(disk, diskTotal), diskPercent >= 90 { return (.disk, diskPercent) }
+        if let memoryPercent = Self.percent(memory, memoryTotal), memoryPercent >= 90 {
+            return (.memory, memoryPercent)
+        }
+        if let cpu, cpu >= 90, let minuteLoad = load?.first, let cores, minuteLoad >= Double(cores) * 0.9 {
+            return (.cpu, Int(cpu.rounded()))
         }
         return nil
     }

@@ -6,72 +6,72 @@ public enum JSONValue: Codable, Sendable, Equatable {
     case array([JSONValue]), object([String: JSONValue])
 
     public init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         // Most common first: every miss throws (and builds) a DecodingError. Int stays before Double, so 3 stays an int.
-        if c.decodeNil() {
+        if container.decodeNil() {
             self = .null
-        } else if let v = try? c.decode(String.self) {
-            self = .string(v)
-        } else if let v = try? c.decode([String: JSONValue].self) {
-            self = .object(v)
-        } else if let v = try? c.decode(Int.self) {
-            self = .int(v)
-        } else if let v = try? c.decode(Double.self) {
-            self = .double(v)
-        } else if let v = try? c.decode(Bool.self) {
-            self = .bool(v)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([String: JSONValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode(Int.self) {
+            self = .int(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .double(value)
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
         } else {
-            self = .array(try c.decode([JSONValue].self))
+            self = .array(try container.decode([JSONValue].self))
         }
     }
 
     public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
+        var container = encoder.singleValueContainer()
         switch self {
-        case .null: try c.encodeNil()
-        case .bool(let v): try c.encode(v)
-        case .int(let v): try c.encode(v)
-        case .double(let v): try c.encode(v)
-        case .string(let v): try c.encode(v)
-        case .array(let v): try c.encode(v)
-        case .object(let v): try c.encode(v)
+        case .null: try container.encodeNil()
+        case .bool(let value): try container.encode(value)
+        case .int(let value): try container.encode(value)
+        case .double(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
         }
     }
 
     public subscript(key: String) -> JSONValue? {
-        if case .object(let o) = self { return o[key] }
+        if case .object(let fields) = self { return fields[key] }
         return nil
     }
     public var string: String? {
-        if case .string(let s) = self { return s }
+        if case .string(let value) = self { return value }
         return nil
     }
     public var int: Int? {
-        if case .int(let i) = self { return i }
+        if case .int(let value) = self { return value }
         return nil
     }
     public var bool: Bool? {
-        if case .bool(let b) = self { return b }
+        if case .bool(let value) = self { return value }
         return nil
     }
     public var array: [JSONValue]? {
-        if case .array(let a) = self { return a }
+        if case .array(let value) = self { return value }
         return nil
     }
     /// An int or a double (JSON doesn't tell 3 from 3.0).
     public var number: Double? {
         switch self {
-        case .int(let i): Double(i)
-        case .double(let d): d
+        case .int(let value): Double(value)
+        case .double(let value): value
         default: nil
         }
     }
 
     /// Encode any Encodable into a JSONValue.
-    public static func from<T: Encodable>(_ v: T) throws -> JSONValue {
-        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(v))
+    public static func from<T: Encodable>(_ value: T) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
     }
-    public func decode<T: Decodable>(_ t: T.Type = T.self) throws -> T {
+    public func decode<T: Decodable>(_ type: T.Type = T.self) throws -> T {
         try JSONDecoder().decode(T.self, from: JSONEncoder().encode(self))
     }
 }

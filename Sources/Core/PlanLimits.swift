@@ -9,26 +9,27 @@ public enum ResetTime {
     /// One way of saying it, whichever agent said it (each CLI has its own): the time within half a day, the weekday and
     /// time within the week, else the date and time. Text it can't read stays as the agent wrote it.
     public static func shown(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> String {
-        guard let r = read(text, now: now, calendar: calendar) else { return text }
-        return r.timed ? shown(r.date, now: now) : r.date.formatted(.dateTime.month(.abbreviated).day())
+        guard let reading = read(text, now: now, calendar: calendar) else { return text }
+        return reading.timed
+            ? shown(reading.date, now: now) : reading.date.formatted(.dateTime.month(.abbreviated).day())
     }
 
-    public static func shown(_ d: Date, now: Date = Date()) -> String {
-        let left = d.timeIntervalSince(now)
+    public static func shown(_ date: Date, now: Date = Date()) -> String {
+        let left = date.timeIntervalSince(now)
         return left < 12 * 3600
-            ? d.formatted(date: .omitted, time: .shortened)
+            ? date.formatted(date: .omitted, time: .shortened)
             : left < 6 * 86400
-                ? d.formatted(.dateTime.weekday(.abbreviated).hour().minute())
-                : d.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+                ? date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+                : date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
 
     /// `timed`: it said a time of day as well as a date.
     private static func read(_ text: String, now: Date, calendar: Calendar) -> (date: Date, timed: Bool)? {
-        let t = text.trimmingCharacters(in: .whitespaces).lowercased()
-        if t.hasPrefix("in ") {
+        let lowered = text.trimmingCharacters(in: .whitespaces).lowercased()
+        if lowered.hasPrefix("in ") {
             var secs = 0.0
-            for m in t.matches(of: /(\d+)\s*(d|h|m)\b/) {
-                secs += (Double(m.1) ?? 0) * (m.2 == "d" ? 86400 : m.2 == "h" ? 3600 : 60)
+            for match in lowered.matches(of: /(\d+)\s*(d|h|m)\b/) {
+                secs += (Double(match.1) ?? 0) * (match.2 == "d" ? 86400 : match.2 == "h" ? 3600 : 60)
             }
             return secs > 0 ? (now.addingTimeInterval(secs), true) : nil
         }
@@ -37,40 +38,44 @@ public enum ResetTime {
             (?: (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) [a-z]* \s+ (\d{1,2}) (?: ,\s+\d{4}\s+ | ,\s+ | \s+at\s+ | $ ) )?
             (?: (\d{1,2}) (?: :(\d{2}) )? \s* (am|pm)? )?
             /#
-        guard let m = t.wholeMatch(of: clock), m.1 != nil || m.3 != nil else { return nil }   // a date, a time, or both
+        // a date, a time, or both
+        guard let match = lowered.wholeMatch(of: clock), match.1 != nil || match.3 != nil else { return nil }
         var hour = 0
-        if let h = m.3.flatMap({ Int($0) }) {
-            if m.5 == nil {   // "19:36": a 24-hour clock has its minutes
-                guard m.4 != nil, (0...23).contains(h) else { return nil }
-                hour = h
+        if let clockHour = match.3.flatMap({ Int($0) }) {
+            if match.5 == nil {   // "19:36": a 24-hour clock has its minutes
+                guard match.4 != nil, (0...23).contains(clockHour) else { return nil }
+                hour = clockHour
             } else {
-                guard (1...12).contains(h) else { return nil }
-                hour = h % 12 + (m.5 == "pm" ? 12 : 0)
+                guard (1...12).contains(clockHour) else { return nil }
+                hour = clockHour % 12 + (match.5 == "pm" ? 12 : 0)
             }
         }
-        var c = calendar.dateComponents([.year, .month, .day], from: now)
-        c.hour = hour
-        c.minute = m.4.flatMap { Int($0) } ?? 0
-        c.second = 0
-        if let mon = m.1, let day = m.2.flatMap({ Int($0) }),
-            let i = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].firstIndex(
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = match.4.flatMap { Int($0) } ?? 0
+        components.second = 0
+        if let mon = match.1, let day = match.2.flatMap({ Int($0) }),
+            let month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].firstIndex(
                 of: String(mon))
         {
-            c.month = i + 1
-            c.day = day
-            guard let d = calendar.date(from: c) else { return nil }
-            return (d >= now ? d : calendar.date(byAdding: .year, value: 1, to: d)).map { ($0, m.3 != nil) }
+            components.month = month + 1
+            components.day = day
+            guard let date = calendar.date(from: components) else { return nil }
+            return (date >= now ? date : calendar.date(byAdding: .year, value: 1, to: date)).map {
+                ($0, match.3 != nil)
+            }
         }
-        guard let d = calendar.date(from: c) else { return nil }
-        return (d >= now ? d : calendar.date(byAdding: .day, value: 1, to: d)).map { ($0, true) }
+        guard let date = calendar.date(from: components) else { return nil }
+        return (date >= now ? date : calendar.date(byAdding: .day, value: 1, to: date)).map { ($0, true) }
     }
 }
 
 extension UsageGet {
     /// A window's length by its kind; a month is taken as 30 days (Codex's free plan says 43 200 minutes itself).
     public static func window(_ kind: String) -> TimeInterval? {
-        let k = kind.lowercased()
-        return kind == "session" ? 5 * 3600 : k.contains("week") ? 7 * 86400 : k.contains("month") ? 30 * 86400 : nil
+        let lowered = kind.lowercased()
+        return kind == "session"
+            ? 5 * 3600 : lowered.contains("week") ? 7 * 86400 : lowered.contains("month") ? 30 * 86400 : nil
     }
 }
 
@@ -97,18 +102,18 @@ extension UsageGet.Result {
         }
         for (agent, ls) in plans ?? [:] where agent != "claude" { add(agent, ls) }
         add("claude", plans?["claude"] ?? claudeLimits ?? [])
-        if let x = codex.first {
-            let at = { (t: Double?) in t.map { Date(timeIntervalSince1970: $0) } },
-                read = Date(timeIntervalSince1970: x.observedAt)
-            for (p, reset, minutes, primary) in [
-                (x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
-                (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)
+        if let latest = codex.first {
+            let at = { (seconds: Double?) in seconds.map { Date(timeIntervalSince1970: $0) } },
+                read = Date(timeIntervalSince1970: latest.observedAt)
+            for (percent, reset, minutes, primary) in [
+                (latest.primaryUsedPercent, latest.primaryResetsAt, latest.primaryWindowMinutes, true),
+                (latest.secondaryUsedPercent, latest.secondaryResetsAt, latest.secondaryWindowMinutes, false)
             ] {
-                guard let p else { continue }
+                guard let percent else { continue }
                 let kind = UsageGet.Codex.kind(minutes: minutes, primary: primary)
                 out.append(
                     Reading(
-                        agent: "codex", limit: .init(kind: kind, percent: p, resets: nil), resetAt: at(reset),
+                        agent: "codex", limit: .init(kind: kind, percent: percent, resets: nil), resetAt: at(reset),
                         window: minutes.map { $0 * 60 } ?? UsageGet.window(kind), readAt: read))
             }
         }

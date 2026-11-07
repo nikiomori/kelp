@@ -28,28 +28,28 @@ public enum IOSRunnerClient {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
-        var a = sockaddr_in()
-        a.sin_family = sa_family_t(AF_INET)
-        a.sin_port = UInt16(port).bigEndian
-        a.sin_addr.s_addr = inet_addr("127.0.0.1")
-        let r = withUnsafePointer(to: &a) {
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = UInt16(port).bigEndian
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let result = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
         var line: Data
         do { line = try JSONSerialization.data(withJSONObject: request) } catch { return nil }
-        guard r == 0 else { return nil }
+        guard result == 0 else { return nil }
         line.append(0x0A)
         Unix.noSigPipe(fd)
         guard Unix.writeAll(fd, line) else { return nil }
         var reply = Data(), buf = [UInt8](repeating: 0, count: 1 << 16)
         while true {
-            var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
-            guard poll(&p, 1, wait) > 0 else { return nil }
-            let n = read(fd, &buf, buf.count)
-            if n <= 0 { break }
-            reply.append(contentsOf: buf[0..<n])
+            var ready = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+            guard poll(&ready, 1, wait) > 0 else { return nil }
+            let count = read(fd, &buf, buf.count)
+            if count <= 0 { break }
+            reply.append(contentsOf: buf[0..<count])
         }
         do { return try JSONSerialization.jsonObject(with: reply) as? [String: Any] } catch { return nil }
     }

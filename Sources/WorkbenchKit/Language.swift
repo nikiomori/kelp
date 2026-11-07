@@ -42,9 +42,11 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
     public static func word(in text: String, line: Int, column: Int) -> String {
         let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)   // CRLF files too
         guard lines.indices.contains(line - 1) else { return "" }
-        let s = lines[line - 1], at = s.utf16.index(s.startIndex, offsetBy: min(max(column - 1, 0), s.utf16.count))
-        let isWord = { (c: Character) in c.isLetter || c.isNumber || c == "_" }
-        return String(s[..<at].reversed().prefix(while: isWord).reversed()) + s[at...].prefix(while: isWord)
+        let lineText = lines[line - 1],
+            at = lineText.utf16.index(lineText.startIndex, offsetBy: min(max(column - 1, 0), lineText.utf16.count))
+        let isWord = { (character: Character) in character.isLetter || character.isNumber || character == "_" }
+        return String(lineText[..<at].reversed().prefix(while: isWord).reversed())
+            + lineText[at...].prefix(while: isWord)
     }
 
     /// The language of `path`: the last of `specs` naming its file or extension (case-insensitive). A spec whose `id`

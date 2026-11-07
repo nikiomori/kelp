@@ -17,14 +17,14 @@ public enum ShellTemplate {
         while let open = rest.range(of: "${"), let close = rest[open.upperBound...].firstIndex(of: "}") {
             out += rest[..<open.lowerBound]
             quotes.read(rest[..<open.lowerBound])
-            if let v = value(String(rest[open.upperBound..<close])),
-                let remote = quotes.remoteLiteral(v) ?? quotes.bareRemoteLiteral(v)
+            if let filled = value(String(rest[open.upperBound..<close])),
+                let remote = quotes.remoteLiteral(filled) ?? quotes.bareRemoteLiteral(filled)
             {
                 out += remote
                 quotes.inserted()   // for a shell on another machine: the value, quoted for that shell
-            } else if let v = value(String(rest[open.upperBound..<close])) {
+            } else if let filled = value(String(rest[open.upperBound..<close])) {
                 let name = "KELP_V\(assign.count + 1)"
-                assign.append("\(name)=\(IDE.shellWord(v))")
+                assign.append("\(name)=\(IDE.shellWord(filled))")
                 out += quotes.reference(name)
                 quotes.inserted()
             } else {
@@ -71,16 +71,16 @@ struct ShellQuotes {
     mutating func read(_ s: Substring) {
         var escaped = false, i = s.startIndex
         while i < s.endIndex {
-            let c = s[i]
+            let character = s[i]
             defer {
-                last = c
+                last = character
                 i = s.index(after: i)
             }
-            if c == "\n" {
-                if let d = inDoc, line.trimmingCharacters(in: .whitespaces) == d.word {
+            if character == "\n" {
+                if let doc = inDoc, line.trimmingCharacters(in: .whitespaces) == doc.word {
                     inDoc = nil
-                } else if inDoc == nil, let p = pendingDoc {
-                    inDoc = p
+                } else if inDoc == nil, let pending = pendingDoc {
+                    inDoc = pending
                     pendingDoc = nil
                 }
                 inComment = false
@@ -88,44 +88,45 @@ struct ShellQuotes {
                 escaped = false
                 continue
             }
-            line.append(c)
+            line.append(character)
             if inDoc != nil || inComment { continue }
             if escaped {
                 escaped = false
                 continue
             }
-            if c == "\\", !inSingle {
+            if character == "\\", !inSingle {
                 escaped = true
                 continue
             }
-            if c == "#", !inSingle, !inDouble, last == " " || last == "\t" || last == "\n" || last == ";" {
+            if character == "#", !inSingle, !inDouble, last == " " || last == "\t" || last == "\n" || last == ";" {
                 inComment = true
                 continue
             }
-            if c == "$", !inSingle, s[i...].dropFirst().first == "(" {   // $(…) starts unquoted, whatever is around it
+            // $(…) starts unquoted, whatever is around it
+            if character == "$", !inSingle, s[i...].dropFirst().first == "(" {
                 outer.append((inSingle, inDouble))
                 inDouble = false
                 i = s.index(after: i)
                 continue
             }
-            if c == ")", !inSingle, !inDouble, let o = outer.popLast() {
-                (inSingle, inDouble) = o
+            if character == ")", !inSingle, !inDouble, let saved = outer.popLast() {
+                (inSingle, inDouble) = saved
                 continue
             }
-            if c == "'", !inDouble {
+            if character == "'", !inDouble {
                 inSingle.toggle()
                 if inSingle {
                     codeQuote = Self.runsCode(line.dropLast())
                     remoteQuote = Self.runsRemotely(line.dropLast())
                 }
-            } else if c == "\"", !inSingle {
+            } else if character == "\"", !inSingle {
                 inDouble.toggle()
                 if inDouble {
                     codeQuote = Self.runsCode(line.dropLast())
                     remoteQuote = Self.runsRemotely(line.dropLast())
                 }
             }
-            if c == "<", !inSingle, !inDouble, s[i...].hasPrefix("<<"), !s[i...].hasPrefix("<<<") {
+            if character == "<", !inSingle, !inDouble, s[i...].hasPrefix("<<"), !s[i...].hasPrefix("<<<") {
                 var rest = s[s.index(i, offsetBy: 2)...].drop { $0 == "-" || $0 == " " }
                 let quoted = rest.first == "'" || rest.first == "\""
                 if quoted { rest = rest.dropFirst() }
@@ -141,7 +142,8 @@ struct ShellQuotes {
     /// `name`'s value as this spot needs it: bare it gets quotes, in '…' they close around it, in "…" or a here-document
     /// it goes in as is.
     func reference(_ name: String) -> String {
-        if let d = inDoc, d.code, d.expands { return "\"\\${\(name)}\"" }   // the shell it's fed to expands it, as data
+        // the shell it's fed to expands it, as data
+        if let doc = inDoc, doc.code, doc.expands { return "\"\\${\(name)}\"" }
         if inDoc != nil || inComment { return "${\(name)}" }
         if inDouble && codeQuote { return "\\\"\\${\(name)}\\\"" }   // \"\${KELP_V1}\": left for the inner shell, quoted
         if inDouble { return "${\(name)}" }

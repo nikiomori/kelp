@@ -6,15 +6,16 @@ import Foundation
 public enum ExtBridge {
     /// The bridge, with what the page's `ext:` link carried as `kelp.props`.
     public static func script(props: [String: String]) -> String {
-        var p = "{}"
-        do { p = String(decoding: try JSONEncoder().encode(props), as: UTF8.self) } catch {}   // strings always encode
+        var propsJSON = "{}"
+        // strings always encode
+        do { propsJSON = String(decoding: try JSONEncoder().encode(props), as: UTF8.self) } catch {}
         return """
             (() => {
               let n = 0; const pending = {}; const listeners = {settings: [], workspace: [], sessions: []};
               const call = (op, arg, extra) => new Promise(res => { const id = ++n; pending[id] = res;
                 window.webkit.messageHandlers.kelp.postMessage(Object.assign({op, arg, id}, extra || {})); });
               window.kelp = {
-                workspace: {}, sessions: [], props: \(p),
+                workspace: {}, sessions: [], props: \(propsJSON),
                 exec: c => Array.isArray(c) ? call('exec', '', {argv: JSON.stringify(c)}) : call('exec', c),
                 terminal: (c, o) => call('terminal', c, {title: o && o.title}),
                 open: u => call('open', u), agent: p => call('agent', p), badge: v => call('badge', v == null ? '' : String(v)),
@@ -70,19 +71,19 @@ public enum ExtBridge {
 
     /// `json` from a page as a `T`; nil for what doesn't parse (a page's own mistake, nothing to report).
     public static func decode<T: Decodable>(_ json: Any?, as: T.Type) -> T? {
-        guard let s = json as? String, let d = s.data(using: .utf8) else { return nil }
-        do { return try JSONDecoder().decode(T.self, from: d) } catch { return nil }
+        guard let text = json as? String, let data = text.data(using: .utf8) else { return nil }
+        do { return try JSONDecoder().decode(T.self, from: data) } catch { return nil }
     }
 
-    /// `v` as JSON for a page's script; "null" in the one case it can't be (it always can).
-    public static func json(_ v: JSONValue) -> String {
-        do { return String(decoding: try JSONEncoder().encode(v), as: UTF8.self) } catch { return "null" }
+    /// `value` as JSON for a page's script; "null" in the one case it can't be (it always can).
+    public static func json(_ value: JSONValue) -> String {
+        do { return String(decoding: try JSONEncoder().encode(value), as: UTF8.self) } catch { return "null" }
     }
 
     /// `ext:<extension>/<view>?a=1&b=2` → ("<extension>/<view>", ["a": "1", "b": "2"]).
     public static func split(_ body: String) -> (view: String, props: [String: String]) {
-        guard let q = body.firstIndex(of: "?") else { return (body, [:]) }
-        let items = URLComponents(string: "x:?" + body[body.index(after: q)...])?.queryItems ?? []
-        return (String(body[..<q]), Dictionary(items.compactMap { i in i.value.map { (i.name, $0) } }) { _, b in b })
+        guard let mark = body.firstIndex(of: "?") else { return (body, [:]) }
+        let items = URLComponents(string: "x:?" + body[body.index(after: mark)...])?.queryItems ?? []
+        return (String(body[..<mark]), Dictionary(items.compactMap { i in i.value.map { (i.name, $0) } }) { _, b in b })
     }
 }

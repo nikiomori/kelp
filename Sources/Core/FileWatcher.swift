@@ -16,10 +16,10 @@ public final class FileWatcher: @unchecked Sendable {   // holds an FSEventStrea
     /// the stream's queue, where `queue.sync` traps.
     private final class Sink: Sendable {
         let roots: [String], deliver: DispatchQueue, handler: @Sendable ([String]) -> Void
-        init(_ r: [String], _ q: DispatchQueue, _ h: @escaping @Sendable ([String]) -> Void) {
-            roots = r
-            deliver = q
-            handler = h
+        init(_ roots: [String], _ deliver: DispatchQueue, _ handler: @escaping @Sendable ([String]) -> Void) {
+            self.roots = roots
+            self.deliver = deliver
+            self.handler = handler
         }
     }
     private let sink: Sink
@@ -43,15 +43,15 @@ public final class FileWatcher: @unchecked Sendable {   // holds an FSEventStrea
             sink.deliver.async { handler(kept) }
         }
         guard
-            let s = FSEventStreamCreate(
+            let created = FSEventStreamCreate(
                 nil, cb, &ctx, [root] as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), latency,
                 FSEventStreamCreateFlags(
                     kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes
                         | kFSEventStreamCreateFlagNoDefer))
         else { return nil }
-        stream = s
-        FSEventStreamSetDispatchQueue(s, queue)
-        FSEventStreamStart(s)
+        stream = created
+        FSEventStreamSetDispatchQueue(created, queue)
+        FSEventStreamStart(created)
     }
 
     public static func isBuildOutput(_ path: String, under roots: [String]) -> Bool {
@@ -62,11 +62,11 @@ public final class FileWatcher: @unchecked Sendable {   // holds an FSEventStrea
     deinit {
         // On the stream's queue (never this one: only a Sink is seen there): once it returns no callback runs or can
         // start, so the sink isn't read after it's gone.
-        if let s = stream {
+        if let stream {
             queue.sync {
-                FSEventStreamStop(s)
-                FSEventStreamInvalidate(s)
-                FSEventStreamRelease(s)
+                FSEventStreamStop(stream)
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
             }
         }
     }

@@ -50,17 +50,17 @@ public struct ServedPage: Equatable, Sendable {
         async -> ServedPage?
     {
         guard host != nil, !forwarded || offline else { return self }
-        guard let f = await call(PortsForward(worktreeId: wid, port: remotePort)) else { return nil }
+        guard let forward = await call(PortsForward(worktreeId: wid, port: remotePort)) else { return nil }
         var here = self
-        here.moved(to: f.port)
+        here.moved(to: forward.port)
         return here
     }
 
     /// Brought to port `here` on this Mac.
     public mutating func moved(to here: Int) {
-        if var u = URLComponents(string: url) {
-            u.port = here
-            url = u.string ?? url
+        if var components = URLComponents(string: url) {
+            components.port = here
+            url = components.string ?? url
         }
         port = here
         forwarded = true

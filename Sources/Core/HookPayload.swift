@@ -14,21 +14,21 @@ extension SessionHook {
         let end = Date().addingTimeInterval(seconds)
         while true {
             do {
-                let c = try RPCClient(socket: socket, patience: 2)
-                defer { c.close() }
-                _ = try await c.call(self, timeout: Self.replyWait)
+                let client = try RPCClient(socket: socket, patience: 2)
+                defer { client.close() }
+                _ = try await client.call(self, timeout: Self.replyWait)
                 return
-            } catch let e as RPCError where e == .noReply(Self.name, in: Self.replyWait) {
+            } catch let error as RPCError where error == .noReply(Self.name, in: Self.replyWait) {
                 return
-            } catch let e as RPCError where (e == .updating || e == .connectionClosed) && Date() < end {
+            } catch let error as RPCError where (error == .updating || error == .connectionClosed) && Date() < end {
                 try await Task.sleep(for: .milliseconds(100))
             }
         }
     }
 
     /// What a prompt sets as a /goal. `/goal` alone shows the one set and `/goal clear` ends it.
-    public static func goal(of v: JSONValue) -> String? {
-        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string,
+    public static func goal(of payload: JSONValue) -> String? {
+        guard payload["hook_event_name"]?.string == "UserPromptSubmit", let prompt = payload["prompt"]?.string,
             prompt.hasPrefix("/goal ")
         else { return nil }
         let condition = prompt.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,26 +37,28 @@ extension SessionHook {
 
     /// The ids in a prompt that says background work ended: Claude Code wakes the agent with a `<task-notification>`, whether
     /// it sits at its prompt or works on. The only sign of a background shell's end: no hook says so.
-    public static func endedTasks(of v: JSONValue) -> [String]? {
-        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string,
+    public static func endedTasks(of payload: JSONValue) -> [String]? {
+        guard payload["hook_event_name"]?.string == "UserPromptSubmit", let prompt = payload["prompt"]?.string,
             prompt.hasPrefix("<task-notification>")
         else { return nil }
         return prompt.matches(of: /<(?:task|tool-use)-id>([^<]+)</).map { String($0.1) }
     }
 
     /// What a Claude Code hook's JSON says beyond its event, for the row or for how the turn ended.
-    public static func notification(of v: JSONValue) -> JSONValue? {
-        switch v["hook_event_name"]?.string {
+    public static func notification(of payload: JSONValue) -> JSONValue? {
+        switch payload["hook_event_name"]?.string {
         case "PermissionRequest":   // the dialog: what it would run says more than any notice
             .obj([
-                "notification_type": "permission_request", "tool_name": v["tool_name"] ?? .null,
-                "tool_input": v["tool_input"] ?? .null, "cwd": v["cwd"] ?? .null
+                "notification_type": "permission_request", "tool_name": payload["tool_name"] ?? .null,
+                "tool_input": payload["tool_input"] ?? .null, "cwd": payload["cwd"] ?? .null
             ])
         case "StopFailure":   // the turn died on an API error: its text says which
-            .obj(["notification_type": "stop_failure", "message": v["last_assistant_message"] ?? .null])
+            .obj(["notification_type": "stop_failure", "message": payload["last_assistant_message"] ?? .null])
         default:
-            v["notification_type"] != nil || v["message"] != nil
-                ? .obj(["notification_type": v["notification_type"] ?? .null, "message": v["message"] ?? .null]) : nil
+            payload["notification_type"] != nil || payload["message"] != nil
+                ? .obj([
+                    "notification_type": payload["notification_type"] ?? .null, "message": payload["message"] ?? .null
+                ]) : nil
         }
     }
 }

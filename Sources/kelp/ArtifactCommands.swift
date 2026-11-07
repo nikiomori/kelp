@@ -43,14 +43,16 @@ extension Main {
                 print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t"))
             }
         case "open":
-            guard let name = args.first, let a = Artifacts.list(root: root).first(where: { $0.slug == name }) else {
+            guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name })
+            else {
                 fail("artifact open <name> (names: kelp artifact list)")
             }
-            if let url = a.record.url {
+            if let url = artifact.record.url {
                 openInBrowser(url)
             }   // Kelp's tabs aren't signed in to the service
             else {
-                _ = try await IDE.open(Artifacts.target(a.slug, a.record, root: root), split: nil, cwd: cwd, client: c)
+                _ = try await IDE.open(
+                    Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
             }
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
@@ -82,9 +84,9 @@ extension Main {
 
     /// The user's default browser, which is signed in to the service the page is on.
     static func openInBrowser(_ url: String) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        p.arguments = [url]
-        do { try p.run() } catch { fail("couldn't open \(url): \(error.localizedDescription)") }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = [url]
+        do { try process.run() } catch { fail("couldn't open \(url): \(error.localizedDescription)") }
     }
 }

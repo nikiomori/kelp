@@ -10,23 +10,24 @@ public enum Indentation: Equatable, Sendable {
     public static func detect(_ text: String) -> Indentation? {
         var tabs = 0, indented = 0, lines = 0, last = 0, steps: [Int: Int] = [:]
         // Bytes, stopping at the 2000th line: splitting all of a 5 MB file into Characters took 80 ms of main thread.
-        let b = text.utf8
-        var i = b.startIndex
-        while i < b.endIndex, lines < 2000 {
-            let end = b[i...].firstIndex { (10...13).contains($0) } ?? b.endIndex   // \n, \r (\r\n leaves an empty line), VT, FF
-            let line = b[i..<end]
-            i = end < b.endIndex ? b.index(after: end) : end
+        let bytes = text.utf8
+        var index = bytes.startIndex
+        while index < bytes.endIndex, lines < 2000 {
+            // \n, \r (\r\n leaves an empty line), VT, FF
+            let end = bytes[index...].firstIndex { (10...13).contains($0) } ?? bytes.endIndex
+            let line = bytes[index..<end]
+            index = end < bytes.endIndex ? bytes.index(after: end) : end
             guard !line.isEmpty else { continue }
             lines += 1
             if line.first == 9 {
                 tabs += 1
                 continue
             }
-            let n = line.prefix { $0 == 32 }.count
-            guard n < line.count else { continue }   // only spaces: says nothing
-            if n > 0 { indented += 1 }
-            if [2, 3, 4, 8].contains(abs(n - last)) { steps[abs(n - last), default: 0] += 1 }
-            last = n
+            let spaces = line.prefix { $0 == 32 }.count
+            guard spaces < line.count else { continue }   // only spaces: says nothing
+            if spaces > 0 { indented += 1 }
+            if [2, 3, 4, 8].contains(abs(spaces - last)) { steps[abs(spaces - last), default: 0] += 1 }
+            last = spaces
         }
         if tabs > indented { return .tabs }
         guard indented > 0 else { return nil }
@@ -56,11 +57,11 @@ public enum Indentation: Equatable, Sendable {
             !trim
             ? text
             : text.components(separatedBy: "\n").map { line -> String in
-                var l = Substring(line)
-                let cr = l.last == "\r"
-                if cr { l = l.dropLast() }
-                while l.last == " " || l.last == "\t" { l = l.dropLast() }
-                return cr ? l + "\r" : String(l)
+                var trimmed = Substring(line)
+                let cr = trimmed.last == "\r"
+                if cr { trimmed = trimmed.dropLast() }
+                while trimmed.last == " " || trimmed.last == "\t" { trimmed = trimmed.dropLast() }
+                return cr ? trimmed + "\r" : String(trimmed)
             }.joined(separator: "\n")
         if finalNewline, !out.isEmpty, !out.hasSuffix("\n") { out += "\n" }
         return out

@@ -262,17 +262,17 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         let now = Date()
         var runs = subagentRuns ?? []
         for (id, kind) in subagents ?? [:] {
-            guard let i = runs.firstIndex(where: { $0.id == id }) else {
+            guard let index = runs.firstIndex(where: { $0.id == id }) else {
                 runs.append(Subagent(id: id, kind: kind, task: subagentTasks?[id], started: now))
                 continue
             }
-            runs[i].kind = kind
-            runs[i].ended = nil
-            if let task = subagentTasks?[id] { runs[i].task = task }
+            runs[index].kind = kind
+            runs[index].ended = nil
+            if let task = subagentTasks?[id] { runs[index].task = task }
         }
-        for i in runs.indices where runs[i].ended == nil && subagents?[runs[i].id] == nil {
-            runs[i].ended = now
-            runs[i].asks = nil
+        for index in runs.indices where runs[index].ended == nil && subagents?[runs[index].id] == nil {
+            runs[index].ended = now
+            runs[index].asks = nil
         }
         var over = runs.count { $0.ended != nil } - Self.finishedKept
         runs.removeAll { run in
@@ -285,7 +285,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// Whose permission dialogs are open, by agent id.
     public mutating func subagentsAsk(_ ids: some Collection<String>) {
         guard var runs = subagentRuns else { return }
-        for i in runs.indices { runs[i].asks = runs[i].ended == nil && ids.contains(runs[i].id) ? true : nil }
+        for index in runs.indices {
+            runs[index].asks = runs[index].ended == nil && ids.contains(runs[index].id) ? true : nil
+        }
         if runs != subagentRuns { subagentRuns = runs }
     }
     /// The folder the agent works in now.
@@ -297,11 +299,11 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 
 extension [Session] {
     /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went elsewhere.
-    public func owner(of s: Session) -> Session? {
-        guard let id = s.startedBy, let a = first(where: { $0.id == id }), a.status != .exited,
-            a.worktreeId == s.worktreeId
+    public func owner(of session: Session) -> Session? {
+        guard let id = session.startedBy, let agent = first(where: { $0.id == id }), agent.status != .exited,
+            agent.worktreeId == session.worktreeId
         else { return nil }
-        return a
+        return agent
     }
 
     /// The agents `id` started that haven't ended, and those they started.
@@ -311,8 +313,10 @@ extension [Session] {
 
     /// For a question about ending `ids`: the agents they started end with them. Empty when there are none.
     public func childrenWords(of ids: [String]) -> String {
-        let n = filter { $0.parent.map(ids.contains) == true && $0.status != .exited && !ids.contains($0.id) }.count
-        return n == 0 ? "" : " " + String(localized: "\(n) agents they started end too.")
+        let startedCount = filter {
+            $0.parent.map(ids.contains) == true && $0.status != .exited && !ids.contains($0.id)
+        }.count
+        return startedCount == 0 ? "" : " " + String(localized: "\(startedCount) agents they started end too.")
     }
 }
 

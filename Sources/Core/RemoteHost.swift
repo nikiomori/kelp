@@ -20,9 +20,10 @@ public struct RemoteHost: Codable, Sendable, Equatable {
 
     /// What may follow `ssh`: not an option, nothing a shell would split.
     /// Also a folder name under remote/: "." / ".." or a "/" would put it somewhere else.
-    public static func isHost(_ h: String) -> Bool {
-        !h.isEmpty && !h.hasPrefix("-") && !h.contains(where: \.isWhitespace) && !h.contains("/") && h != "."
-            && h != ".."
+    public static func isHost(_ host: String) -> Bool {
+        !host.isEmpty && !host.hasPrefix("-") && !host.contains(where: \.isWhitespace) && !host.contains("/")
+            && host != "."
+            && host != ".."
     }
 
     /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them. A host gone
@@ -110,20 +111,20 @@ public struct Remotes: Sendable, Equatable {
 
     /// `path` on `host`, reached through this home's shared connections.
     public func host(_ host: String, path: String) -> RemoteHost {
-        var r = RemoteHost(host: host, path: path)
-        r.controlDir = controlDir
-        r.ssh = ssh
-        return r
+        var remote = RemoteHost(host: host, path: path)
+        remote.controlDir = controlDir
+        remote.ssh = ssh
+        return remote
     }
 
     /// The remote a project folder stands for (its own folder only: a workspace is that folder).
     public func of(_ dir: String) -> RemoteHost? {
         let path = URL(fileURLWithPath: dir).standardizedFileURL.path
         guard let folder, path.hasPrefix(folder + "/"),
-            let d = FileManager.default.contents(atPath: path + "/" + RemoteHost.marker),
-            let r = try? JSONDecoder().decode(RemoteHost.self, from: d), RemoteHost.isHost(r.host)
+            let data = FileManager.default.contents(atPath: path + "/" + RemoteHost.marker),
+            let remote = try? JSONDecoder().decode(RemoteHost.self, from: data), RemoteHost.isHost(remote.host)
         else { return nil }
-        return host(r.host, path: r.path)
+        return host(remote.host, path: remote.path)
     }
 
     /// For a path inside a remote project's folder: the folder, its remote, and the path on the host.
@@ -131,7 +132,7 @@ public struct Remotes: Sendable, Equatable {
         let path = URL(fileURLWithPath: path).standardizedFileURL.path   // "x/../../y" can't reach past the project
         var dir = (path as NSString).deletingLastPathComponent
         while dir.count > 1 {
-            if let r = of(dir) { return (dir, r, r.path + String(path.dropFirst(dir.count))) }
+            if let remote = of(dir) { return (dir, remote, remote.path + String(path.dropFirst(dir.count))) }
             dir = (dir as NSString).deletingLastPathComponent
         }
         return nil

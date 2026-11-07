@@ -5,17 +5,19 @@ import Foundation
 extension WorkspaceLayout {
     /// The tab `offset` steps from the selected one in the focused group, wrapping around (⌃Tab).
     public func tab(cycling offset: Int) -> String? {
-        guard let g = focusedGroup, let cur = g.selectedTab, let i = g.tabs.firstIndex(of: cur), !g.tabs.isEmpty else {
+        guard let focused = focusedGroup, let cur = focused.selectedTab, let index = focused.tabs.firstIndex(of: cur),
+            !focused.tabs.isEmpty
+        else {
             return nil
         }
-        return g.tabs[(i + offset % g.tabs.count + g.tabs.count) % g.tabs.count].id
+        return focused.tabs[(index + offset % focused.tabs.count + focused.tabs.count) % focused.tabs.count].id
     }
 
     /// The selected tab of the pane `offset` steps from the focused one, wrapping around; nil with a single pane.
     public func tabInGroup(cycling offset: Int) -> String? {
-        guard let ids = root?.sessions, let cur = focusedGroup?.id, let i = ids.firstIndex(of: cur), ids.count > 1
+        guard let ids = root?.sessions, let cur = focusedGroup?.id, let index = ids.firstIndex(of: cur), ids.count > 1
         else { return nil }
-        return groups[ids[(i + offset % ids.count + ids.count) % ids.count]]?.selectedTab?.id
+        return groups[ids[(index + offset % ids.count + ids.count) % ids.count]]?.selectedTab?.id
     }
 
     /// An open tab on the same file as `uri`, whatever line it was opened at.
@@ -31,14 +33,14 @@ extension WorkspaceLayout {
     public func pageTab(for uri: String) -> TabRef? {
         guard ["http", "https"].contains(TabURI.scheme(uri)) else { return nil }
         if let exact = tab(uri: uri) { return exact }
-        guard let u = URLComponents(string: uri), ["", "/"].contains(u.path),
-            ["localhost", "127.0.0.1"].contains(u.host ?? "")
+        guard let address = URLComponents(string: uri), ["", "/"].contains(address.path),
+            ["localhost", "127.0.0.1"].contains(address.host ?? "")
         else { return nil }
-        return allTabs.first { t in
-            guard ["http", "https"].contains(TabURI.scheme(t.uri)), let o = URLComponents(string: t.uri) else {
+        return allTabs.first { tab in
+            guard ["http", "https"].contains(TabURI.scheme(tab.uri)), let other = URLComponents(string: tab.uri) else {
                 return false
             }
-            return o.host == u.host && o.port == u.port
+            return other.host == address.host && other.port == address.port
         }
     }
 
@@ -72,9 +74,9 @@ public struct WorkspaceHistory: Equatable, Sendable {
 
     /// Where Back (-1) / Forward (1) goes: past workspaces that are gone and the one on screen; nil when nothing is that way.
     public func target(_ step: Int, current: String?, exists: (String) -> Bool) -> Int? {
-        var i = at + step
-        while visits.indices.contains(i), !exists(visits[i]) || visits[i] == current { i += step }
-        return visits.indices.contains(i) ? i : nil
+        var index = at + step
+        while visits.indices.contains(index), !exists(visits[index]) || visits[index] == current { index += step }
+        return visits.indices.contains(index) ? index : nil
     }
 
     /// Goes there (from `target`) and says which workspace that is.
@@ -108,7 +110,7 @@ public struct WorkspaceClosing: Equatable, Sendable {
     public init(picked: [Worktree], open: [Worktree], repos: [Repo]) {
         var kept = Set<String>()
         for (repo, mine) in Dictionary(grouping: picked, by: \.repoId) {
-            if let r = repos.first(where: { $0.id == repo }), let own = mainWorkspace(of: r, among: open) {
+            if let project = repos.first(where: { $0.id == repo }), let own = mainWorkspace(of: project, among: open) {
                 if mine.contains(own) { kept.insert(own.id) }
             } else if mine.count >= open.filter({ $0.repoId == repo }).count,
                 let oldest = mine.min(by: { $0.createdAt < $1.createdAt })
@@ -130,9 +132,10 @@ public struct WorkspaceClosing: Equatable, Sendable {
     /// under it or else the one over it. Nil: it stays, being the project's own screen.
     /// `rows`: the project's open workspaces, as the sidebar lists them.
     public static func afterLastTab(of w: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
-        guard let r = repos.first(where: { $0.id == w.repoId }), w.id != mainWorkspace(of: r, among: rows)?.id,
-            let i = rows.firstIndex(where: { $0.id == w.id })
+        guard let project = repos.first(where: { $0.id == w.repoId }),
+            w.id != mainWorkspace(of: project, among: rows)?.id,
+            let index = rows.firstIndex(where: { $0.id == w.id })
         else { return nil }
-        return rows.dropFirst(i + 1).first ?? rows[..<i].last
+        return rows.dropFirst(index + 1).first ?? rows[..<index].last
     }
 }

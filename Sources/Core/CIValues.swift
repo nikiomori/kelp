@@ -90,9 +90,9 @@ public enum CIRuns {
     }
 
     public static func date(_ iso: String) -> Date? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
     }
 
     /// From `from` to `to`, or to now for what is still going.
@@ -110,7 +110,7 @@ public enum CIRuns {
     /// A branch's CI in one mark, least to most pressing: of two sources (its runs, its PR's checks) the greater wins.
     public enum State: Int, Sendable, Comparable {
         case passed, running, waiting, failed
-        public static func < (a: State, b: State) -> Bool { a.rawValue < b.rawValue }
+        public static func < (lhs: State, rhs: State) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     /// From the newest run of each workflow: one failed; else one waiting for someone's approval (a deploy to a protected
     /// environment, a fork's first run); else one not finished; else one that succeeded. Nil: no runs, or only skipped or
@@ -125,8 +125,8 @@ public enum CIRuns {
         return now.contains { $0.conclusion == "success" } ? .passed : nil
     }
     /// A pull request's checks, which also count what runs outside the forge's CI (a deploy preview, a review bot).
-    public static func state(_ c: GitHub.PullRequest.Checks) -> State? {
-        c.failed > 0 ? .failed : c.pending > 0 ? .running : c.passed > 0 ? .passed : nil
+    public static func state(_ checks: GitHub.PullRequest.Checks) -> State? {
+        checks.failed > 0 ? .failed : checks.pending > 0 ? .running : checks.passed > 0 ? .passed : nil
     }
     /// A workflow you can start by hand (`on: workflow_dispatch`), with the inputs its form asks for.
     public struct Workflow: Codable, Sendable, Equatable {
@@ -185,8 +185,8 @@ extension CIRuns {
         case one(Step), passed([Step]), skipped([Step]), upcoming([Step])
         public var steps: [Step] {
             switch self {
-            case .one(let s): [s]
-            case .passed(let s), .skipped(let s), .upcoming(let s): s
+            case .one(let step): [step]
+            case .passed(let steps), .skipped(let steps), .upcoming(let steps): steps
             }
         }
     }
@@ -197,7 +197,9 @@ extension CIRuns {
         let skipped = done.filter { ["skipped", "cancelled"].contains($0.conclusion) }
         let passed = done.filter { !["skipped", "cancelled"].contains($0.conclusion) }
         let ones = steps.filter { $0.failed || $0.status == "in_progress" }
-        func fold(_ s: [Step], _ row: ([Step]) -> StepRow) -> [StepRow] { s.count > 1 ? [row(s)] : s.map(StepRow.one) }
+        func fold(_ steps: [Step], _ row: ([Step]) -> StepRow) -> [StepRow] {
+            steps.count > 1 ? [row(steps)] : steps.map(StepRow.one)
+        }
         return fold(passed, StepRow.passed) + ones.map(StepRow.one) + fold(skipped, StepRow.skipped)
             + fold(upcoming, StepRow.upcoming)
     }
@@ -235,9 +237,9 @@ extension CIRuns {
 extension CIRuns.Report {
     /// Whether an earlier try broke the same way: then it's the code, not a fluke of the runner.
     public func failsLike(_ other: CIRuns.Report) -> Bool {
-        func names(_ r: CIRuns.Report) -> Set<String> {
+        func names(_ report: CIRuns.Report) -> Set<String> {
             Set(
-                r.failures.map {
+                report.failures.map {
                     [$0.suite, $0.test, $0.test == nil ? $0.place : nil].compactMap { $0 }.joined(separator: ".")
                 })
         }

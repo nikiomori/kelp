@@ -8,16 +8,16 @@ public enum ViewedFiles {
 
     /// A short print of the file's changes as shown, the same on every run (FNV-1a over its hunks).
     public static func print(_ d: FileDiff) -> String {
-        var h: UInt64 = 0xcbf29ce484222325
-        for b in d.hunks.map(\.fingerprint).joined(separator: "\n").utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
-        return String(h, radix: 36)
+        var hash: UInt64 = 0xcbf29ce484222325
+        for b in d.hunks.map(\.fingerprint).joined(separator: "\n").utf8 { hash = (hash ^ UInt64(b)) &* 0x100000001b3 }
+        return String(hash, radix: 36)
     }
 
     public static func read(_ entries: [String]) -> [String: String] {
         Dictionary(
-            entries.compactMap { e in
-                let p = e.split(separator: "\t", maxSplits: 1)
-                return p.count == 2 ? (String(p[0]), String(p[1])) : nil
+            entries.compactMap { entry in
+                let parts = entry.split(separator: "\t", maxSplits: 1)
+                return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
             }, uniquingKeysWith: { _, b in b })
     }
 
@@ -28,14 +28,14 @@ public enum ViewedFiles {
     /// read), until there are more than `kept`: then only the files `diffs` holds keep theirs.
     public static func marking(_ d: FileDiff, _ on: Bool, in marks: [String: String], diffs: [FileDiff]) -> [String] {
         let here = Set(diffs.map(\.path))
-        var m = marks.count < kept ? marks : marks.filter { here.contains($0.key) }
-        m[d.path] = on ? print(d) : nil
-        return m.map { "\($0.key)\t\($0.value)" }.sorted()
+        var updated = marks.count < kept ? marks : marks.filter { here.contains($0.key) }
+        updated[d.path] = on ? print(d) : nil
+        return updated.map { "\($0.key)\t\($0.value)" }.sorted()
     }
 
     /// `printed`: the file's print worked out already (off the main thread, with its rows); a file not marked needs none.
     public static func viewed(_ d: FileDiff, in marks: [String: String], printed: String? = nil) -> Bool {
-        guard let m = marks[d.path] else { return false }
-        return m == (printed ?? print(d))
+        guard let mark = marks[d.path] else { return false }
+        return mark == (printed ?? print(d))
     }
 }

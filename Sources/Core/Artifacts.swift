@@ -87,9 +87,9 @@ public enum Artifacts {
             title.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false)
             ?? title
         let words = latin.lowercased().split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }
-        var s = ""
-        for w in words where s.count + w.count + 1 <= 48 { s += (s.isEmpty ? "" : "-") + w }
-        return s.isEmpty ? "artifact" : s
+        var joined = ""
+        for word in words where joined.count + word.count + 1 <= 48 { joined += (joined.isEmpty ? "" : "-") + word }
+        return joined.isEmpty ? "artifact" : joined
     }
 
     /// A new page of `kind` in `root`'s artifacts: its folder, its first lines and its record. Returns the page's file.
@@ -107,21 +107,21 @@ public enum Artifacts {
 
     /// A page of HTML's first lines: its title, and the system's font in the app's light or dark.
     static func htmlStart(_ title: String) -> String {
-        let t = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+        let escaped = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
         return """
             <!doctype html>
             <html>
             <head>
             <meta charset="utf-8">
-            <title>\(t)</title>
+            <title>\(escaped)</title>
             <style>
             :root { color-scheme: light dark; }
             body { margin: 0; padding: 32px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
             </style>
             </head>
             <body>
-            <h1>\(t)</h1>
+            <h1>\(escaped)</h1>
             </body>
             </html>
 
@@ -179,17 +179,19 @@ public enum Artifacts {
     /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written). A repository can
     /// commit one, so it holds only what Kelp writes: a link to a web page, a file in its own folder.
     public static func record(in folder: URL) -> ArtifactRecord? {
-        guard let d = small(folder.appendingPathComponent("artifact.json").path, limit: 1 << 20),
-            let r = try? decoder.decode(ArtifactRecord.self, from: d)
+        guard let data = small(folder.appendingPathComponent("artifact.json").path, limit: 1 << 20),
+            let record = try? decoder.decode(ArtifactRecord.self, from: data)
         else { return nil }
-        if let url = r.url, !url.hasPrefix("https://") { return nil }
-        if let f = r.file, f.isEmpty || f.contains("/") || f.hasPrefix(".") { return nil }
-        return r
+        if let url = record.url, !url.hasPrefix("https://") { return nil }
+        if let file = record.file, file.isEmpty || file.contains("/") || file.hasPrefix(".") { return nil }
+        return record
     }
 
     struct FileStat {
         var size: off_t, mtime: timespec
-        func newer(than o: FileStat) -> Bool { (mtime.tv_sec, mtime.tv_nsec) > (o.mtime.tv_sec, o.mtime.tv_nsec) }
+        func newer(than other: FileStat) -> Bool {
+            (mtime.tv_sec, mtime.tv_nsec) > (other.mtime.tv_sec, other.mtime.tv_nsec)
+        }
     }
     /// A regular file's size and time of its last write; nil for anything else.
     static func fileStat(_ path: String) -> FileStat? {
@@ -211,8 +213,8 @@ public enum Artifacts {
     }
 
     /// What opens it: its file, or its page on the service.
-    public static func target(_ slug: String, _ r: ArtifactRecord, root: String) -> String {
-        r.url ?? dir(root: root).appendingPathComponent(slug).appendingPathComponent(r.file ?? "").path
+    public static func target(_ slug: String, _ record: ArtifactRecord, root: String) -> String {
+        record.url ?? dir(root: root).appendingPathComponent(slug).appendingPathComponent(record.file ?? "").path
     }
 
     // MARK: pages agents publish themselves
@@ -220,18 +222,19 @@ public enum Artifacts {
     /// A page an agent's own tool published (claude-artifacts, Claude Docs), from a PostToolUse hook's payload:
     /// its link, and the title the tool was given. nil for any other tool or event: tools that only read or list
     /// (list_types, list_artifacts, read_artifact) name pages too, the types' own and other people's.
-    public static func published(hook v: JSONValue) -> (url: String, title: String, type: String)? {
-        guard v["hook_event_name"]?.string == "PostToolUse", let tool = v["tool_name"]?.string, tool.hasPrefix("mcp__"),
-            publishers.contains(where: tool.hasSuffix), let response = v["tool_response"]
+    public static func published(hook payload: JSONValue) -> (url: String, title: String, type: String)? {
+        guard payload["hook_event_name"]?.string == "PostToolUse", let tool = payload["tool_name"]?.string,
+            tool.hasPrefix("mcp__"),
+            publishers.contains(where: tool.hasSuffix), let response = payload["tool_response"]
         else { return nil }
         let unescaped = strings(in: response).joined(separator: "\n")
         guard let url = unescaped.firstMatch(of: nativePage).map({ String($0.output) }) else { return nil }
-        let input = v["tool_input"]
+        let input = payload["tool_input"]
         let title =
             input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
         // Which of claude.ai's types it is, the answer doesn't say; a doc is the Docs connector's.
-        let type = v["tool_name"]?.string?.contains("Claude_Docs") == true ? "doc" : "page"
+        let type = payload["tool_name"]?.string?.contains("Claude_Docs") == true ? "doc" : "page"
         return (url, title, type)
     }
 
@@ -242,11 +245,11 @@ public enum Artifacts {
     ]
 
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
-    private static func strings(in v: JSONValue) -> [String] {
-        switch v {
-        case .string(let s): return [s]
-        case .array(let a): return a.flatMap(strings)
-        case .object(let o): return o.values.flatMap(strings)
+    private static func strings(in value: JSONValue) -> [String] {
+        switch value {
+        case .string(let text): return [text]
+        case .array(let array): return array.flatMap(strings)
+        case .object(let fields): return fields.values.flatMap(strings)
         default: return []
         }
     }
@@ -321,27 +324,27 @@ public enum Artifacts {
     // MARK: files
 
     static let decoder: JSONDecoder = {
-        let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
-        return d
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }()
 
-    static func save(_ r: ArtifactRecord, in folder: URL) throws {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .iso8601
-        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try e.encode(r).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
+    static func save(_ record: ArtifactRecord, in folder: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 
     /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git.
     private static func newFolder(_ title: String, root: String) throws -> URL {
         let base = dir(root: root), fm = FileManager.default
         if !fm.fileExists(atPath: base.path) { try excludeFromGit(root: root) }
-        let s = slug(title)
-        var name = s, n = 2
+        let stem = slug(title)
+        var name = stem, suffix = 2
         while fm.fileExists(atPath: base.appendingPathComponent(name).path) {
-            name = "\(s)-\(n)"
-            n += 1
+            name = "\(stem)-\(suffix)"
+            suffix += 1
         }
         let folder = base.appendingPathComponent(name)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -356,8 +359,8 @@ public enum Artifacts {
         var common = dotGit
         if !isDir.boolValue {   // a worktree: "gitdir: <repo>/.git/worktrees/<name>"; exclude lives in <repo>/.git
             let line = fm.contents(atPath: dotGit.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
-            guard let m = line.firstMatch(of: /gitdir:\s*(.+)/) else { return }
-            let gitdir = String(m.1).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let match = line.firstMatch(of: /gitdir:\s*(.+)/) else { return }
+            let gitdir = String(match.1).trimmingCharacters(in: .whitespacesAndNewlines)
             common = URL(fileURLWithPath: gitdir, relativeTo: URL(fileURLWithPath: root, isDirectory: true))
                 .standardizedFileURL.deletingLastPathComponent().deletingLastPathComponent()
         }

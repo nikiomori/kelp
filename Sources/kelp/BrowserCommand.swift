@@ -13,71 +13,71 @@ extension Main {
     /// `browser <action>`: a page tab in the app, beside the agent's terminal, driven from here (`UIBrowser`).
     static func browser(_ sub: String?, _ c: RPCClient) async throws {
         guard let action = sub else { fail("usage: kelp " + browserUsage) }
-        var a: [String: JSONValue] = [:]
+        var params: [String: JSONValue] = [:]
         switch action {
         case "open":
-            a["shared"] = .bool(has("--shared"))
-            guard let u = args.first else { fail("browser open <url> [--shared]") }
-            a["url"] = .string(address(u))
+            params["shared"] = .bool(has("--shared"))
+            guard let url = args.first else { fail("browser open <url> [--shared]") }
+            params["url"] = .string(address(url))
         case "click", "hover":
-            guard let r = args.first else { fail("browser \(action) <ref>") }
-            a["ref"] = .string(r)
+            guard let ref = args.first else { fail("browser \(action) <ref>") }
+            params["ref"] = .string(ref)
         case "press":
-            guard let k = args.first else {
+            guard let key = args.first else {
                 fail("browser press <key> [ref]  (Enter, Escape, Tab, Shift+Tab, ArrowDown, a…)")
             }
-            a["key"] = .string(k)
-            if args.count > 1 { a["ref"] = .string(args[1]) }
-        case "scroll": a["to"] = .string(args.first ?? "down")
+            params["key"] = .string(key)
+            if args.count > 1 { params["ref"] = .string(args[1]) }
+        case "scroll": params["to"] = .string(args.first ?? "down")
         case "type":
-            a["submit"] = .bool(has("--submit"))
+            params["submit"] = .bool(has("--submit"))
             guard args.count >= 2 else { fail("browser type <ref> <text> [--submit]") }
-            a["ref"] = .string(args[0])
-            a["text"] = .string(args.dropFirst().joined(separator: " "))
+            params["ref"] = .string(args[0])
+            params["text"] = .string(args.dropFirst().joined(separator: " "))
         case "eval":
             guard !args.isEmpty else { fail("browser eval <js>") }
-            a["js"] = .string(args.joined(separator: " "))
+            params["js"] = .string(args.joined(separator: " "))
         case "screenshot":
-            if let f = args.first { a["path"] = .string(URL(fileURLWithPath: f).standardizedFileURL.path) }
+            if let file = args.first { params["path"] = .string(URL(fileURLWithPath: file).standardizedFileURL.path) }
         case "wait":
-            if let t = flag("--text") { a["text"] = .string(t) }
-            if let s = flag("--selector") { a["selector"] = .string(s) }
-            if let t = flag("--timeout").flatMap(Double.init) { a["timeout"] = .double(t) }
-        case "console", "network": a["clear"] = .bool(has("--clear"))
+            if let text = flag("--text") { params["text"] = .string(text) }
+            if let selector = flag("--selector") { params["selector"] = .string(selector) }
+            if let timeout = flag("--timeout").flatMap(Double.init) { params["timeout"] = .double(timeout) }
+        case "console", "network": params["clear"] = .bool(has("--clear"))
         case "snapshot":
-            if let f = flag("--find") { a["find"] = .string(f) }
-            if let r = args.first { a["ref"] = .string(r) }
+            if let find = flag("--find") { params["find"] = .string(find) }
+            if let ref = args.first { params["ref"] = .string(ref) }
         case "upload":
             guard args.count >= 2 else { fail("browser upload <ref> <file>…") }
-            a["ref"] = .string(args[0])
-            a["files"] = .array(args.dropFirst().map(uploaded))
+            params["ref"] = .string(args[0])
+            params["files"] = .array(args.dropFirst().map(uploaded))
         case "dialog":
             guard let answer = args.first, ["accept", "dismiss"].contains(answer) else {
                 fail("browser dialog accept [text] | dismiss")
             }
-            a["answer"] = .string(answer)
-            if args.count > 1 { a["text"] = .string(args.dropFirst().joined(separator: " ")) }
+            params["answer"] = .string(answer)
+            if args.count > 1 { params["text"] = .string(args.dropFirst().joined(separator: " ")) }
         case "viewport":
             guard let size = args.first else {
                 fail("browser viewport <width>x<height> | reset  (390x844, 768x1024, 1440x900)")
             }
-            a["size"] = .string(size)
+            params["size"] = .string(size)
         case "info", "back", "reload": break
         default: fail("usage: kelp " + browserUsage)
         }
-        let w = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)
-        show(try await c.call(UIBrowser(action: action, args: .object(a), worktreeId: w?.id)))
+        let workspace = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)
+        show(try await c.call(UIBrowser(action: action, args: .object(params), worktreeId: workspace?.id)))
     }
 
     /// A file for `browser upload`: its name, type and bytes in base64, read here, where the agent's files are.
     /// Up to 10 MB: it crosses the socket and into the page as text.
     static func uploaded(_ path: String) -> JSONValue {
-        let u = URL(fileURLWithPath: path).standardizedFileURL
-        guard let data = FileManager.default.contents(atPath: u.path) else { fail("Can't read \(path)") }
-        guard data.count <= 10_000_000 else { fail("\(u.lastPathComponent) is over 10 MB") }
-        let type = UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard let data = FileManager.default.contents(atPath: url.path) else { fail("Can't read \(path)") }
+        guard data.count <= 10_000_000 else { fail("\(url.lastPathComponent) is over 10 MB") }
+        let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         return .object([
-            "name": .string(u.lastPathComponent), "type": .string(type), "data": .string(data.base64EncodedString())
+            "name": .string(url.lastPathComponent), "type": .string(type), "data": .string(data.base64EncodedString())
         ])
     }
 

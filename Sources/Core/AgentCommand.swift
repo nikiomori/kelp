@@ -46,44 +46,47 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
 
     /// From a Claude Code hook's payload: PreToolUse starts it, PostToolUse / PostToolUseFailure end it. nil for any other
     /// tool or event.
-    public init?(hook v: JSONValue, now: Date = Date()) {
-        guard ["Bash", "Execute"].contains(v["tool_name"]?.string) else { return nil }
-        guard let id = v["tool_use_id"]?.string, let command = v["tool_input"]?["command"]?.string else { return nil }
-        self.init(id: id, command: command, description: v["tool_input"]?["description"]?.string, started: now)
-        switch v["hook_event_name"]?.string {
+    public init?(hook payload: JSONValue, now: Date = Date()) {
+        guard ["Bash", "Execute"].contains(payload["tool_name"]?.string) else { return nil }
+        guard let id = payload["tool_use_id"]?.string, let command = payload["tool_input"]?["command"]?.string else {
+            return nil
+        }
+        self.init(id: id, command: command, description: payload["tool_input"]?["description"]?.string, started: now)
+        switch payload["hook_event_name"]?.string {
         case "PreToolUse": return
         case "PostToolUse":
-            let r = v["tool_response"]
-            if r?["backgroundTaskId"]?.string != nil {
+            let response = payload["tool_response"]
+            if response?["backgroundTaskId"]?.string != nil {
                 outcome = .background
             } else {
-                outcome = r?["interrupted"]?.bool == true ? .stopped : .ok
+                outcome = response?["interrupted"]?.bool == true ? .stopped : .ok
                 exitCode = outcome == .ok ? 0 : nil
             }
             output = Self.tail(
-                [r?["stdout"]?.string, r?["stderr"]?.string].compactMap { $0 }.filter { !$0.isEmpty }.joined(
-                    separator: "\n"))
+                [response?["stdout"]?.string, response?["stderr"]?.string].compactMap { $0 }.filter { !$0.isEmpty }
+                    .joined(
+                        separator: "\n"))
         case "PostToolUseFailure":
             // "Exit code 1\n<what it printed>"; anything else (a refusal, a timeout) is the reason itself.
-            let error = v["error"]?.string ?? ""
-            if v["is_interrupt"]?.bool == true { outcome = .stopped } else { outcome = .failed }
-            if let m = error.prefixMatch(of: /Exit code (\d+)\n?/) {
-                exitCode = Int(m.1)
-                output = Self.tail(String(error[m.range.upperBound...]))
+            let error = payload["error"]?.string ?? ""
+            if payload["is_interrupt"]?.bool == true { outcome = .stopped } else { outcome = .failed }
+            if let match = error.prefixMatch(of: /Exit code (\d+)\n?/) {
+                exitCode = Int(match.1)
+                output = Self.tail(String(error[match.range.upperBound...]))
             } else {
                 output = Self.tail(error)
             }
         default: return nil
         }
         ended = now
-        if let ms = v["duration_ms"]?.number { started = now.addingTimeInterval(-ms / 1000) }
+        if let ms = payload["duration_ms"]?.number { started = now.addingTimeInterval(-ms / 1000) }
     }
 
     /// The end of what it printed, at most `outputLimit` bytes; nil for nothing.
-    static func tail(_ s: String) -> String? {
-        guard !s.isEmpty else { return nil }
-        guard s.utf8.count > outputLimit else { return s }
-        return String(decoding: s.utf8.suffix(outputLimit), as: UTF8.self)
+    static func tail(_ text: String) -> String? {
+        guard !text.isEmpty else { return nil }
+        guard text.utf8.count > outputLimit else { return text }
+        return String(decoding: text.utf8.suffix(outputLimit), as: UTF8.self)
     }
 
     /// What it runs, in a line: its first step that does something — past the variables an agent's script sets first
@@ -105,36 +108,36 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
     static func steps(_ command: String) -> [String] {
         var steps: [String] = [], step = "", quote: Character?, depth = 0, escaped = false
         var chars = command.makeIterator(), next = chars.next()
-        while let c = next {
+        while let char = next {
             next = chars.next()
             if escaped {
-                step.append(c)
+                step.append(char)
                 escaped = false
                 continue
             }
-            if c == "\\" && quote != "'" {
-                step.append(c)
+            if char == "\\" && quote != "'" {
+                step.append(char)
                 escaped = true
                 continue
             }
-            if let q = quote {
-                step.append(c)
-                if c == q { quote = nil }
+            if let closing = quote {
+                step.append(char)
+                if char == closing { quote = nil }
                 continue
             }
-            if c == "'" || c == "\"" {
-                quote = c
-            } else if c == "(" {
+            if char == "'" || char == "\"" {
+                quote = char
+            } else if char == "(" {
                 depth += 1
-            } else if c == ")" {
+            } else if char == ")" {
                 depth = max(0, depth - 1)
             }
-            let ends = depth == 0 && (c == ";" || c == "\n" || (c == "&" || c == "|") && next == c)
+            let ends = depth == 0 && (char == ";" || char == "\n" || (char == "&" || char == "|") && next == char)
             guard ends else {
-                step.append(c)
+                step.append(char)
                 continue
             }
-            if c != ";" && c != "\n" { next = chars.next() }   // the second & or |
+            if char != ";" && char != "\n" { next = chars.next() }   // the second & or |
             steps.append(step)
             step = ""
         }

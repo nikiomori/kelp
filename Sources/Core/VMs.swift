@@ -370,9 +370,9 @@ public enum VMHelper {
 
 public enum VMs {
     /// A host name, a folder name and part of socket paths: short, lowercase, no dots.
-    public static func isName(_ s: String) -> Bool {
-        (1...20).contains(s.count) && s.first?.isLetter == true
-            && s.allSatisfy { ("a"..."z").contains(String($0)) || $0.isNumber || $0 == "-" }
+    public static func isName(_ name: String) -> Bool {
+        (1...20).contains(name.count) && name.first?.isLetter == true
+            && name.allSatisfy { ("a"..."z").contains(String($0)) || $0.isNumber || $0 == "-" }
     }
 
     /// A Linux account name for the Mac user's, else "kelp".
@@ -388,22 +388,22 @@ public enum VMs {
         #":rosetta:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/mnt/rosetta/rosetta:CF"#
 
     /// cloud-init's user-data for the first boot: the account with its key, the shared folders' mount, Rosetta.
-    public static func userData(_ m: VMMachine, publicKey: String, timeZone: String) -> String {
-        var s = """
+    public static func userData(_ machine: VMMachine, publicKey: String, timeZone: String) -> String {
+        var config = """
             #cloud-config
-            hostname: \(m.name)
+            hostname: \(machine.name)
             timezone: \(timeZone)
             ssh_pwauth: false
             users:
-              - name: \(m.user)
+              - name: \(machine.user)
                 sudo: ALL=(ALL) NOPASSWD:ALL
                 shell: /bin/bash
                 ssh_authorized_keys:
                   - \(publicKey.trimmingCharacters(in: .whitespacesAndNewlines))
 
             """
-        if m.rosetta {
-            s += """
+        if machine.rosetta {
+            config += """
                 mounts:
                   - [rosetta, /mnt/rosetta, virtiofs, "defaults,nofail", "0", "0"]
                 write_files:
@@ -415,17 +415,17 @@ public enum VMs {
 
                 """
         }
-        return s
+        return config
     }
 
     /// The machine's ssh_config (`ssh -F` it, so the user's own config plays no part): `<name>` for agents and people, a
     /// connection each, counted as use; `<name>-own` for kelp-vm's own reads (the clock, memory), not counted.
-    public static func sshConfig(_ m: VMMachine, folder: URL) -> String {
+    public static func sshConfig(_ machine: VMMachine, folder: URL) -> String {
         func host(_ alias: String, _ socket: String) -> String {
             """
             Host \(alias)
-              HostName \(m.name)
-              User \(m.user)
+              HostName \(machine.name)
+              User \(machine.user)
               IdentityFile "\(folder.appendingPathComponent("id_ed25519").path)"
               IdentitiesOnly yes
               UserKnownHostsFile "\(folder.appendingPathComponent("known_hosts").path)"
@@ -443,7 +443,7 @@ public enum VMs {
               ControlPersist 60
 
             """
-        return host(m.name, "ssh.sock") + host(m.name + "-own", "own.sock") + reuse
+        return host(machine.name, "ssh.sock") + host(machine.name + "-own", "own.sock") + reuse
     }
 
     /// Folders shared at once: a virtio-fs device each (tag `kelp<n>`), since giving one device a new set of folders
@@ -453,14 +453,15 @@ public enum VMs {
     /// The command line run inside: `folder` mounted at its own path from its slot (again when that path holds another
     /// slot, or went stale), then `cwd`, then the command.
     public static func prefix(slot: Int, folder: String, cwd: String, os: String = "linux") -> String {
-        let f = shellQuoted(folder), tag = "kelp\(slot)", cd = "cd \(shellQuoted(cwd)) || exit 1; "
+        let dir = shellQuoted(folder), tag = "kelp\(slot)", cd = "cd \(shellQuoted(cwd)) || exit 1; "
         guard os == "macos" else {
-            return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(f))\" = \(tag) ] && ls \(f) >/dev/null 2>&1; } "
-                + "|| { sudo umount -l \(f) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(f); } || exit 1; " + cd
+            return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(dir))\" = \(tag) ] && ls \(dir) >/dev/null 2>&1; } "
+                + "|| { sudo umount -l \(dir) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(dir); } || exit 1; "
+                + cd
         }
         // macOS: mount(8) lists it as "kelp3 on /path (virtiofs, …)"; mount_virtiofs needs the folder there first.
-        return "{ mount | grep -qF \(shellQuoted("\(tag) on \(folder) (")) && ls \(f) >/dev/null 2>&1; } "
-            + "|| { sudo umount -f \(f) 2>/dev/null; sudo mkdir -p \(f) && sudo mount_virtiofs \(tag) \(f); } || exit 1; "
+        return "{ mount | grep -qF \(shellQuoted("\(tag) on \(folder) (")) && ls \(dir) >/dev/null 2>&1; } "
+            + "|| { sudo umount -f \(dir) 2>/dev/null; sudo mkdir -p \(dir) && sudo mount_virtiofs \(tag) \(dir); } || exit 1; "
             + cd
     }
 
@@ -506,33 +507,34 @@ public enum VMs {
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             if line == "@" { parts.append([]) } else if !line.isEmpty { parts[parts.count - 1].append(String(line)) }
         }
-        let lines = { (i: Int) in parts.count > i ? parts[i] : [] }
-        var d = VMDetail(address: lines(0).first.flatMap { $0.isEmpty ? nil : $0 })
-        d.ports = lines(1).compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-        d.runs = lines(2).compactMap(run)
+        let lines = { (index: Int) in parts.count > index ? parts[index] : [] }
+        var detail = VMDetail(address: lines(0).first.flatMap { $0.isEmpty ? nil : $0 })
+        detail.ports = lines(1).compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        detail.runs = lines(2).compactMap(run)
         if parts.count > 3 {
-            let g = lines(3)
-            func on(_ key: String) -> Bool { g.contains("\(key): on") }
-            let screen = g.first { $0.hasPrefix("screen: ") }.map { String($0.dropFirst("screen: ".count)) }
-            d.guest = .init(
-                running: !g.contains("not running") && !g.isEmpty, screenRecording: on("screen recording"),
+            let guest = lines(3)
+            func on(_ key: String) -> Bool { guest.contains("\(key): on") }
+            let screen = guest.first { $0.hasPrefix("screen: ") }.map { String($0.dropFirst("screen: ".count)) }
+            detail.guest = .init(
+                running: !guest.contains("not running") && !guest.isEmpty, screenRecording: on("screen recording"),
                 accessibility: on("accessibility"), screen: screen == "free" ? nil : screen)
         }
-        return d
+        return detail
     }
 
     /// "  812     01:02:41 kelp-vm-run:abc -l -c npm test" → pid, seconds, session, command.
     static func run(_ line: String) -> VMDetail.Run? {
-        let f = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true).map(String.init)
-        guard f.count == 3, let pid = Int(f[0]), f[2].hasPrefix("kelp-vm-run:") else { return nil }
-        let argv = f[2].dropFirst("kelp-vm-run:".count)
+        let fields = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true).map(String.init)
+        guard fields.count == 3, let pid = Int(fields[0]), fields[2].hasPrefix("kelp-vm-run:") else { return nil }
+        let argv = fields[2].dropFirst("kelp-vm-run:".count)
         let session = String(argv.prefix { $0 != " " })
         var command = argv.dropFirst(session.count).trimmingCharacters(in: .whitespaces)
         for flags in ["-l -c " + trapped, "-l -c ", "-l"] where command.hasPrefix(flags) {
             command = String(command.dropFirst(flags.count))
             break
         }
-        return VMDetail.Run(pid: pid, seconds: seconds(f[1]), session: session == "-" ? nil : session, command: command)
+        return VMDetail.Run(
+            pid: pid, seconds: seconds(fields[1]), session: session == "-" ? nil : session, command: command)
     }
 
     /// ps's elapsed time, "[[dd-]hh:]mm:ss", in seconds.
@@ -554,10 +556,10 @@ public enum VMs {
 
     /// A character → its key code on a US keyboard and whether it takes Shift: what a machine's screen types from the Mac's
     /// side. Nil: no key for it (`kelp vm type` pastes such text instead).
-    public static func usKey(_ c: Character) -> (code: UInt16, shift: Bool)? {
-        if let code = keyCodes[String(c)], c.isASCII, !c.isUppercase { return (code, false) }
-        if c.isUppercase, c.isASCII, let code = keyCodes[c.lowercased()] { return (code, true) }
-        if let base = shifted[c], let code = keyCodes[String(base)] { return (code, true) }
+    public static func usKey(_ char: Character) -> (code: UInt16, shift: Bool)? {
+        if let code = keyCodes[String(char)], char.isASCII, !char.isUppercase { return (code, false) }
+        if char.isUppercase, char.isASCII, let code = keyCodes[char.lowercased()] { return (code, true) }
+        if let base = shifted[char], let code = keyCodes[String(base)] { return (code, true) }
         return nil
     }
 
@@ -585,17 +587,17 @@ public enum VMs {
     /// Kelp Guest's program inside a macOS machine (`kelp vm ui`, `press`), run over SSH.
     public static let guestProgram = "\"$HOME/Applications/KelpGuest.app/Contents/MacOS/KelpGuest\""
 
-    public static func shellQuoted(_ s: String) -> String {
-        "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
+    public static func shellQuoted(_ text: String) -> String {
+        "'" + text.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
     }
 
     /// Whether `path` may be shared with a machine: a folder below the home folder, not the home folder itself or above.
     public static func mayShare(_ path: String) -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
-        func inside(_ p: String) -> Bool {
-            p.hasPrefix(home + "/")
+        func inside(_ candidate: String) -> Bool {
+            candidate.hasPrefix(home + "/")
                 && ![".ssh", ".kelp", "Library"].contains(
-                    p.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
+                    candidate.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
         }
         // Where it really is too: a link in a project to ~/.ssh shares ~/.ssh.
         return inside(URL(fileURLWithPath: path).standardizedFileURL.path) && Paths.real(path).map(inside) != false

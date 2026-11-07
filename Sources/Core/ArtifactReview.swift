@@ -28,31 +28,32 @@ public struct Review: Equatable, Sendable {
         points = []
         var introLines: [String] = []
         for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
-            if title.isEmpty, points.isEmpty, let m = line.wholeMatch(of: /#\s+(.+)/) {
-                title = String(m.1)
+            if title.isEmpty, points.isEmpty, let match = line.wholeMatch(of: /#\s+(.+)/) {
+                title = String(match.1)
                 continue
             }
-            if let m = line.wholeMatch(of: Self.pointLine) {
-                points.append(Point(number: String(m.1), question: String(m.2), options: [], note: ""))
+            if let match = line.wholeMatch(of: Self.pointLine) {
+                points.append(Point(number: String(match.1), question: String(match.2), options: [], note: ""))
                 continue
             }
             guard !points.isEmpty else {
                 introLines.append(line)
                 continue
             }
-            let i = points.count - 1
-            if let m = line.wholeMatch(of: Self.optionLine) {
-                var text = String(m.3)
+            let last = points.count - 1
+            if let match = line.wholeMatch(of: Self.optionLine) {
+                var text = String(match.3)
                 let recommended = text.contains("*recommended*")
                 text = text.replacingOccurrences(of: "*recommended*", with: "").trimmingCharacters(in: .whitespaces)
-                points[i].options.append(
-                    Option(key: String(m.2), text: text, detail: "", recommended: recommended, picked: m.1 != " "))
-            } else if let m = line.wholeMatch(of: Self.noteLine) {
-                points[i].note = String(m.1)
-            } else if line.hasPrefix("  "), !points[i].options.isEmpty {
-                let o = points[i].options.count - 1
-                let d = line.trimmingCharacters(in: .whitespaces)
-                points[i].options[o].detail += (points[i].options[o].detail.isEmpty ? "" : " ") + d
+                points[last].options.append(
+                    Option(
+                        key: String(match.2), text: text, detail: "", recommended: recommended, picked: match.1 != " "))
+            } else if let match = line.wholeMatch(of: Self.noteLine) {
+                points[last].note = String(match.1)
+            } else if line.hasPrefix("  "), !points[last].options.isEmpty {
+                let option = points[last].options.count - 1
+                let detail = line.trimmingCharacters(in: .whitespaces)
+                points[last].options[option].detail += (points[last].options[option].detail.isEmpty ? "" : " ") + detail
             }
         }
         intro = introLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,9 +62,9 @@ public struct Review: Equatable, Sendable {
     /// `text` with `key` picked in point `number` (and its other options not).
     public static func pick(_ text: String, point number: String, option key: String) -> String {
         edit(text, point: number) { lines, range in
-            for i in range {
-                if let m = lines[i].wholeMatch(of: optionLine) {
-                    lines[i] = "- [\(m.2 == key ? "x" : " ")] \(m.2). \(m.3)"
+            for index in range {
+                if let match = lines[index].wholeMatch(of: optionLine) {
+                    lines[index] = "- [\(match.2 == key ? "x" : " ")] \(match.2). \(match.3)"
                 }
             }
         }
@@ -81,9 +82,11 @@ public struct Review: Equatable, Sendable {
             guard !one.isEmpty else { return }
             // After the point's last option (and its detail), before any blank line that ends the point.
             var at = range.lowerBound + 1
-            for i in range
-            where lines[i].wholeMatch(of: optionLine) != nil || (lines[i].hasPrefix("  ") && i > range.lowerBound) {
-                at = i + 1
+            for index in range
+            where lines[index].wholeMatch(of: optionLine) != nil
+                || (lines[index].hasPrefix("  ") && index > range.lowerBound)
+            {
+                at = index + 1
             }
             lines.insert("> Note: \(one)", at: at)
         }

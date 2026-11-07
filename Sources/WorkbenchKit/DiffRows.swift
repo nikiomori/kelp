@@ -18,21 +18,21 @@ public enum DiffRows {
     /// Pair deletions with the additions that follow them; context lines appear on both sides.
     public static func pairs(_ lines: [DiffLine]) -> [(DiffLine?, DiffLine?)] {
         var out: [(DiffLine?, DiffLine?)] = []
-        var i = 0
-        while i < lines.count {
-            if lines[i].kind == .context {
-                out.append((lines[i], lines[i]))
-                i += 1
+        var index = 0
+        while index < lines.count {
+            if lines[index].kind == .context {
+                out.append((lines[index], lines[index]))
+                index += 1
                 continue
             }
             var dels: [DiffLine] = [], adds: [DiffLine] = []
-            while i < lines.count, lines[i].kind == .del {
-                dels.append(lines[i])
-                i += 1
+            while index < lines.count, lines[index].kind == .del {
+                dels.append(lines[index])
+                index += 1
             }
-            while i < lines.count, lines[i].kind == .add {
-                adds.append(lines[i])
-                i += 1
+            while index < lines.count, lines[index].kind == .add {
+                adds.append(lines[index])
+                index += 1
             }
             for k in 0..<max(dels.count, adds.count) {
                 out.append((k < dels.count ? dels[k] : nil, k < adds.count ? adds[k] : nil))
@@ -46,8 +46,10 @@ public enum DiffRows {
 
     /// The text after a hunk header's "@@ … @@": the function or type git found above it ("" when none).
     public static func context(_ header: String) -> String {
-        guard let r = header.range(of: "@@", options: .backwards), r.lowerBound > header.startIndex else { return "" }
-        return header[r.upperBound...].trimmingCharacters(in: .whitespaces)
+        guard let range = header.range(of: "@@", options: .backwards), range.lowerBound > header.startIndex else {
+            return ""
+        }
+        return header[range.upperBound...].trimmingCharacters(in: .whitespaces)
     }
 
     /// `opened`: the unchanged lines of gaps the user opened, by `gapKey`, shown in their place.
@@ -65,11 +67,12 @@ public enum DiffRows {
             }
             var prevEnd: Int?
             for (hi, h) in f.hunks.enumerated() {
-                if let p = prevEnd, h.newStart > p {
-                    if let shown = opened[gapKey(f.path, p)] {
+                if let gapStart = prevEnd, h.newStart > gapStart {
+                    if let shown = opened[gapKey(f.path, gapStart)] {
                         rows += shown.map { sideBySide ? .pair(file: fi, left: $0, right: $0) : .line(file: fi, $0) }
                     } else {
-                        rows.append(.gap(file: fi, from: p, lines: h.newStart - p, context: context(h.header)))
+                        rows.append(
+                            .gap(file: fi, from: gapStart, lines: h.newStart - gapStart, context: context(h.header)))
                     }
                 }
                 rows.append(.hunk(file: fi, index: hi, header: h.header))
@@ -97,12 +100,17 @@ extension DiffRows {
     /// The part of two versions of a line that differs: what's left after the common start and end (UTF-16 ranges).
     /// Limit: one range per line, not a word-by-word diff; enough to spot the edit, as VS Code's first pass does.
     public static func changedRanges(_ a: String, _ b: String) -> (NSRange, NSRange) {
-        let x = Array(a.utf16), y = Array(b.utf16)
-        var p = 0
-        while p < min(x.count, y.count), x[p] == y[p] { p += 1 }
-        var s = 0
-        while s < min(x.count, y.count) - p, x[x.count - 1 - s] == y[y.count - 1 - s] { s += 1 }
-        return (NSRange(location: p, length: x.count - p - s), NSRange(location: p, length: y.count - p - s))
+        let old = Array(a.utf16), new = Array(b.utf16)
+        var prefix = 0
+        while prefix < min(old.count, new.count), old[prefix] == new[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < min(old.count, new.count) - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] {
+            suffix += 1
+        }
+        return (
+            NSRange(location: prefix, length: old.count - prefix - suffix),
+            NSRange(location: prefix, length: new.count - prefix - suffix)
+        )
     }
 
     /// Changed range of every line that has a counterpart on the other side, by "file:d:oldLine" / "file:a:newLine".
@@ -110,13 +118,15 @@ extension DiffRows {
         var out: [String: NSRange] = [:]
         for (fi, f) in diffs.enumerated() {
             for h in f.hunks {
-                for (l, r) in pairs(h.lines) {
-                    guard let l, let r, l.kind == .del, r.kind == .add, let o = l.oldLine, let n = r.newLine else {
+                for (left, right) in pairs(h.lines) {
+                    guard let left, let right, left.kind == .del, right.kind == .add, let oldLine = left.oldLine,
+                        let newLine = right.newLine
+                    else {
                         continue
                     }
-                    let (a, b) = changedRanges(l.text, r.text)
-                    out["\(fi):d:\(o)"] = a
-                    out["\(fi):a:\(n)"] = b
+                    let (a, b) = changedRanges(left.text, right.text)
+                    out["\(fi):d:\(oldLine)"] = a
+                    out["\(fi):a:\(newLine)"] = b
                 }
             }
         }
@@ -133,14 +143,16 @@ extension DiffRows {
     ) -> [ReviewRow] {
         var newLines = Set<String>()
         for (fi, f) in diffs.enumerated() {
-            for h in f.hunks { for l in h.lines { if let n = l.newLine { newLines.insert("\(fi):\(n)") } } }
+            for h in f.hunks { for l in h.lines { if let newLine = l.newLine { newLines.insert("\(fi):\(newLine)") } } }
         }
         func under(_ fi: Int, _ l: DiffLine) -> [ReviewRow] {
             let here = comments.filter { $0.file == diffs[fi].path && $0.state != .resolved }
-            if let n = l.newLine { return here.filter { $0.side != "old" && $0.endLine == n }.map { .comment($0) } }
-            guard let o = l.oldLine else { return [] }
-            let unsided = !newLines.contains("\(fi):\(o)")
-            return here.filter { $0.endLine == o && ($0.side == "old" || ($0.side == nil && unsided)) }.map {
+            if let newLine = l.newLine {
+                return here.filter { $0.side != "old" && $0.endLine == newLine }.map { .comment($0) }
+            }
+            guard let oldLine = l.oldLine else { return [] }
+            let unsided = !newLines.contains("\(fi):\(oldLine)")
+            return here.filter { $0.endLine == oldLine && ($0.side == "old" || ($0.side == nil && unsided)) }.map {
                 .comment($0)
             }
         }
@@ -149,10 +161,11 @@ extension DiffRows {
             if hideFileRows, case .file = r { continue }
             out.append(.diff(r))
             switch r {
-            case .line(let f, let l): out += under(f, l)
-            case .pair(let f, let l, let right):
-                if let x = right ?? l { out += under(f, x) }
-                if let l, right != nil, l.kind == .del { out += under(f, l) }   // the removed line beside an added one
+            case .line(let file, let line): out += under(file, line)
+            case .pair(let file, let left, let right):
+                if let line = right ?? left { out += under(file, line) }
+                // the removed line beside an added one
+                if let left, right != nil, left.kind == .del { out += under(file, left) }
             default: break
             }
         }

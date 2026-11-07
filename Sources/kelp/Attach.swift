@@ -34,8 +34,8 @@ enum Attach {
         }
         func restore() {
             if isTTY {
-                var s = saved
-                tcsetattr(0, TCSANOW, &s)
+                var attributes = saved
+                tcsetattr(0, TCSANOW, &attributes)
             }
         }
 
@@ -66,12 +66,12 @@ enum Attach {
         Thread.detachNewThread {   // keyboard → session
             var buf = [UInt8](repeating: 0, count: 16384)
             while true {
-                let n = read(0, &buf, buf.count)
-                if n <= 0 { break }
-                let keys = Data(buf[0..<n])
+                let bytesRead = read(0, &buf, buf.count)
+                if bytesRead <= 0 { break }
+                let keys = Data(buf[0..<bytesRead])
                 if detachKey, keys.contains(0x1C) || keys.range(of: Data("\u{1B}[92;5".utf8)) != nil {
-                    var s = original
-                    if isTTY { tcsetattr(0, TCSANOW, &s) }
+                    var attributes = original
+                    if isTTY { tcsetattr(0, TCSANOW, &attributes) }
                     exit(0)
                 }
                 if !Unix.writeAll(fd, keys) { break }
@@ -80,9 +80,9 @@ enum Attach {
         var buf = [UInt8](repeating: 0, count: 65536)   // session → screen
         var sized = false
         while true {
-            let n = read(fd, &buf, buf.count)
-            if n <= 0 { break }
-            _ = buf.withUnsafeBytes { p in p.baseAddress.map { Darwin.write(1, $0, n) } }
+            let bytesRead = read(fd, &buf, buf.count)
+            if bytesRead <= 0 { break }
+            _ = buf.withUnsafeBytes { p in p.baseAddress.map { Darwin.write(1, $0, bytesRead) } }
             // The first bytes come once the session runs. A size sent while a paused one was still waking went nowhere
             // (a size never wakes one), and it woke at the size read above, before this terminal was laid out.
             if !sized {

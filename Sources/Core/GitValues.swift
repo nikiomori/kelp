@@ -7,9 +7,9 @@ public enum Git {
     /// Whether file events can change what `git status` says: anything outside `.git/`, and inside it only what moves the
     /// index, HEAD or a branch (lock and object files churn during every git command, a status of ours included).
     public static func touchesStatus(_ paths: [String]) -> Bool {
-        paths.contains { p in
-            guard let r = p.range(of: "/.git/") else { return true }
-            let rest = p[r.upperBound...]
+        paths.contains { path in
+            guard let range = path.range(of: "/.git/") else { return true }
+            let rest = path[range.upperBound...]
             return rest == "index" || rest == "HEAD" || rest == "MERGE_HEAD" || rest == "packed-refs"
                 || rest.hasPrefix("refs/")
         }
@@ -19,9 +19,9 @@ public enum Git {
     /// outside .git; in it, only the index (`git rm --cached`, staging) and HEAD (a checkout). git's own churn otherwise
     /// would list the files again several times a second.
     public static func touchesFileList(_ paths: [String]) -> Bool {
-        paths.contains { p in
-            guard let r = p.range(of: "/.git/") else { return !p.hasSuffix("/.git") }
-            let rest = p[r.upperBound...]
+        paths.contains { path in
+            guard let range = path.range(of: "/.git/") else { return !path.hasSuffix("/.git") }
+            let rest = path[range.upperBound...]
             return rest == "index" || rest == "HEAD"
         }
     }
@@ -31,11 +31,11 @@ public enum Git {
     public static func unpushed(_ commits: [GraphCommit], remotes: Set<String>) -> Set<String> {
         guard !remotes.isEmpty else { return [] }
         var pushed = Set<String>(), out = Set<String>()
-        for c in commits {
-            if pushed.contains(c.hash) || c.refs.contains(where: remotes.contains) {
-                pushed.formUnion(c.parents)
+        for commit in commits {
+            if pushed.contains(commit.hash) || commit.refs.contains(where: remotes.contains) {
+                pushed.formUnion(commit.parents)
             } else {
-                out.insert(c.hash)
+                out.insert(commit.hash)
             }
         }
         return out
@@ -157,13 +157,14 @@ public struct FileDiff: Codable, Sendable, Equatable {
     public var deletions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .del }.count } }
 
     /// Patch containing only the given hunk, for `git apply --cached [-R]`, in the file's own bytes.
-    public func patch(hunk i: Int) -> Data {
-        var s = header + "\n" + hunks[i].header + "\n"
-        for l in hunks[i].lines {
-            s += (l.kind == .add ? "+" : l.kind == .del ? "-" : " ") + l.text + "\n"
-            if l.noNewline == true { s += "\\ No newline at end of file\n" }
+    public func patch(hunk index: Int) -> Data {
+        var patch = header + "\n" + hunks[index].header + "\n"
+        for line in hunks[index].lines {
+            patch += (line.kind == .add ? "+" : line.kind == .del ? "-" : " ") + line.text + "\n"
+            if line.noNewline == true { patch += "\\ No newline at end of file\n" }
         }
-        return latin1 == true ? Data(s.unicodeScalars.map { UInt8(truncatingIfNeeded: $0.value) }) : Data(s.utf8)
+        return latin1 == true
+            ? Data(patch.unicodeScalars.map { UInt8(truncatingIfNeeded: $0.value) }) : Data(patch.utf8)
     }
 }
 
@@ -272,19 +273,20 @@ public struct LineStats: Codable, Sendable, Equatable {
 
     /// Lock files, build output and codegen count as generated; test folders and `*.test.*` / `*Tests.swift` as tests.
     public static func kind(_ path: String) -> Kind {
-        let p = path.lowercased(), name = (p as NSString).lastPathComponent
+        let lowered = path.lowercased(), name = (lowered as NSString).lastPathComponent
         let locks: Set<String> = [
             "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "bun.lock", "cargo.lock", "podfile.lock",
             "package.resolved", "go.sum", "poetry.lock", "composer.lock", "gemfile.lock", "uv.lock", "flake.lock"
         ]
-        if locks.contains(name) || p.hasPrefix("dist/") || p.hasPrefix("build/") || p.contains("/__generated__/")
-            || p.contains("/generated/")
+        if locks.contains(name) || lowered.hasPrefix("dist/") || lowered.hasPrefix("build/")
+            || lowered.contains("/__generated__/")
+            || lowered.contains("/generated/")
             || name.contains(".min.") || name.contains(".generated.") || name.hasSuffix(".pb.go")
             || name.hasSuffix(".g.dart") || name.hasSuffix(".snap")
         {
             return .generated
         }
-        let dirs = p.split(separator: "/").dropLast()
+        let dirs = lowered.split(separator: "/").dropLast()
         if dirs.contains(where: {
             ["test", "tests", "spec", "specs", "__tests__", "testing"].contains($0) || $0.hasSuffix("tests")
         })
@@ -328,29 +330,29 @@ public enum ProjectFiles {
         }
     }
     /// The query (or a path) as fuzzyScore compares it.
-    public static func fuzzyQuery(_ q: String) -> [Unicode.Scalar] {
-        Array(q.precomposedStringWithCanonicalMapping.lowercased().unicodeScalars)
+    public static func fuzzyQuery(_ query: String) -> [Unicode.Scalar] {
+        Array(query.precomposedStringWithCanonicalMapping.lowercased().unicodeScalars)
     }
 
     /// Fuzzy subsequence score for quick open (higher is better, nil = no match). Matches inside the file name win.
-    public static func fuzzyScore(_ c: FuzzyPath, _ q: [Unicode.Scalar]) -> Int? {
-        if q.isEmpty { return 0 }
-        let full = subsequenceScore(c.scalars[...], q),
-            inName = subsequenceScore(c.scalars[c.name...], q).map { $0 + 100 }
+    public static func fuzzyScore(_ path: FuzzyPath, _ query: [Unicode.Scalar]) -> Int? {
+        if query.isEmpty { return 0 }
+        let full = subsequenceScore(path.scalars[...], query),
+            inName = subsequenceScore(path.scalars[path.name...], query).map { $0 + 100 }
         guard let best = [full, inName].compactMap({ $0 }).max() else { return nil }
-        return best - c.length / 4
+        return best - path.length / 4
     }
 
     private static let wordStarts = Set("/._- ".unicodeScalars)
-    static func subsequenceScore(_ c: ArraySlice<Unicode.Scalar>, _ q: [Unicode.Scalar]) -> Int? {
-        var ci = c.startIndex, score = 0, streak = 0, last = -2
-        for ch in q {
-            guard ci < c.endIndex, let i = c[ci...].firstIndex(of: ch) else { return nil }
-            streak = (i == last + 1) ? streak + 1 : 0
+    static func subsequenceScore(_ path: ArraySlice<Unicode.Scalar>, _ query: [Unicode.Scalar]) -> Int? {
+        var ci = path.startIndex, score = 0, streak = 0, last = -2
+        for ch in query {
+            guard ci < path.endIndex, let found = path[ci...].firstIndex(of: ch) else { return nil }
+            streak = (found == last + 1) ? streak + 1 : 0
             score += 10 + streak * 5
-            if i == c.startIndex || wordStarts.contains(c[i - 1]) { score += 15 }   // word start
-            last = i
-            ci = i + 1
+            if found == path.startIndex || wordStarts.contains(path[found - 1]) { score += 15 }   // word start
+            last = found
+            ci = found + 1
         }
         return score
     }

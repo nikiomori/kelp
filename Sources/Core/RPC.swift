@@ -23,10 +23,12 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
         self.message = message
         self.data = data
     }
-    public static func invalidParams(_ m: String) -> RPCError { .init(code: -32602, message: m) }
-    public static func internalError(_ m: String) -> RPCError { .init(code: -32603, message: m) }
+    public static func invalidParams(_ message: String) -> RPCError { .init(code: -32602, message: message) }
+    public static func internalError(_ message: String) -> RPCError { .init(code: -32603, message: message) }
     /// Not the caller's to do (`Daemon.allow`): told apart from a bad call by `data` "refused", for tests and tools.
-    public static func refused(_ m: String) -> RPCError { .init(code: -32602, message: m, data: .string("refused")) }
+    public static func refused(_ message: String) -> RPCError {
+        .init(code: -32602, message: message, data: .string("refused"))
+    }
     public var isRefusal: Bool { data == .string("refused") }
     public static let methodNotFound = RPCError(code: -32601, message: "method not found")
     /// From a kelpd that is being replaced: the next one will answer.
@@ -57,8 +59,8 @@ extension RPCMethod {
 extension RPCMethod {
     /// The request's params: the fields, or none for a method without any (as hand-written calls send it).
     public func params() throws -> JSONValue? {
-        let p = try JSONValue.from(self)
-        return p == .object([:]) ? nil : p
+        let fields = try JSONValue.from(self)
+        return fields == .object([:]) ? nil : fields
     }
 }
 
@@ -71,16 +73,16 @@ public struct Done: Codable, Sendable {
     public init() {}
     public init(from decoder: Decoder) {}
     public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        try c.encodeNil()
+        var container = encoder.singleValueContainer()
+        try container.encodeNil()
     }
 }
 
 public enum Wire {
-    public static func line<T: Encodable>(_ v: T) throws -> Data {
-        var d = try JSONEncoder().encode(v)
-        d.append(0x0A)
-        return d
+    public static func line<T: Encodable>(_ value: T) throws -> Data {
+        var data = try JSONEncoder().encode(value)
+        data.append(0x0A)
+        return data
     }
 }
 
@@ -91,26 +93,26 @@ public struct LineBuffer: Sendable {
     /// Only the new bytes are searched and the consumed lines dropped once: a multi-MB reply arrives in 8 KB reads,
     /// and rescanning (and shifting) the whole buffer on each one was quadratic. Searched with memchr: `firstIndex(of:)`
     /// went byte by byte through Data's indices, 36 ms for a 5 MB line in a debug build.
-    public mutating func append(_ d: Data) -> [Data] {
+    public mutating func append(_ data: Data) -> [Data] {
         let from = buf.count   // the bytes already here hold no newline
-        buf.append(d)
+        buf.append(data)
         var ends: [Int] = []
-        buf.withUnsafeBytes { (p: UnsafeRawBufferPointer) in
-            guard let base = p.baseAddress else { return }
+        buf.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+            guard let base = bytes.baseAddress else { return }
             var at = from
-            while at < p.count, let hit = memchr(base + at, 0x0A, p.count - at) {
+            while at < bytes.count, let hit = memchr(base + at, 0x0A, bytes.count - at) {
                 at = base.distance(to: UnsafeRawPointer(hit)) + 1
                 ends.append(at - 1)
             }
         }
         guard !ends.isEmpty else { return [] }
-        let s = buf.startIndex
+        let origin = buf.startIndex
         var out: [Data] = [], start = 0
-        for e in ends {
-            out.append(buf[(s + start)..<(s + e)])
-            start = e + 1
+        for end in ends {
+            out.append(buf[(origin + start)..<(origin + end)])
+            start = end + 1
         }
-        buf = Data(buf[(s + start)...])
+        buf = Data(buf[(origin + start)...])
         return out
     }
     /// Bytes waiting for their line's end.

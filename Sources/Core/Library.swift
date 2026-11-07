@@ -13,12 +13,14 @@ extension IDE {
 
     /// A GitHub folder: `https://github.com/o/r`, `github.com/o/r/tree/<ref>/<folder…>` or `o/r`; nil for anything else.
     /// Limit: the ref is one path component, so a branch with "/" in its name is given by its commit instead.
-    public static func librarySource(_ s: String) -> (repo: String, ref: String, path: String)? {
-        var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        for p in ["https://", "http://", "github.com/"] where t.hasPrefix(p) { t.removeFirst(p.count) }
-        while t.hasSuffix("/") { t.removeLast() }
-        if t.hasSuffix(".git") { t.removeLast(4) }
-        let parts = t.split(separator: "/").map(String.init)
+    public static func librarySource(_ text: String) -> (repo: String, ref: String, path: String)? {
+        var rest = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["https://", "http://", "github.com/"] where rest.hasPrefix(prefix) {
+            rest.removeFirst(prefix.count)
+        }
+        while rest.hasSuffix("/") { rest.removeLast() }
+        if rest.hasSuffix(".git") { rest.removeLast(4) }
+        let parts = rest.split(separator: "/").map(String.init)
         guard parts.count >= 2,
             parts.allSatisfy({ $0.wholeMatch(of: /[A-Za-z0-9_.-]+/) != nil && $0 != "." && $0 != ".." })
         else { return nil }
@@ -29,9 +31,10 @@ extension IDE {
     }
 
     /// One spelling per source, for `sourceFile` and comparing with the library's.
-    static func sourceURL(_ s: (repo: String, ref: String, path: String)) -> String {
-        "https://github.com/\(s.repo)"
-            + (s.ref == "HEAD" && s.path.isEmpty ? "" : "/tree/\(s.ref)" + (s.path.isEmpty ? "" : "/\(s.path)"))
+    static func sourceURL(_ source: (repo: String, ref: String, path: String)) -> String {
+        "https://github.com/\(source.repo)"
+            + (source.ref == "HEAD" && source.path.isEmpty
+                ? "" : "/tree/\(source.ref)" + (source.path.isEmpty ? "" : "/\(source.path)"))
     }
 
     /// The library's index; `index` is an https URL, or a file URL for a local one.
@@ -40,9 +43,9 @@ extension IDE {
             throw RPCError.invalidParams("The library's index must be an https URL: \(index)")
         }
         let reviewed: [ExtensionLibrary.Entry]
-        do { reviewed = try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) } catch let e
+        do { reviewed = try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) } catch let error
             as RPCError
-        { throw e } catch {
+        { throw error } catch {
             throw RPCError.internalError("The extension library's index isn't readable: \(error.localizedDescription)")
         }
         return reviewed + community(beside: index).filter { c in !reviewed.contains { $0.id == c.id } }
@@ -55,9 +58,9 @@ extension IDE {
         let url = String(index.dropLast("index.json".count)) + "community.json"
         do {
             return try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(url)).map {
-                var e = $0
-                e.reviewed = false
-                return e
+                var entry = $0
+                entry.reviewed = false
+                return entry
             }
         } catch { return [] }
     }
@@ -65,7 +68,7 @@ extension IDE {
     /// A GitHub folder (`librarySource`) downloaded into a new temporary folder named by the extension's id, with
     /// `sourceFile` in it. Limit: the repo's whole archive comes down for one folder; fine while repos are small.
     public static func fetchExtension(_ source: String, files: [String: String]? = nil) throws -> URL {
-        guard let s = librarySource(source) else {
+        guard let found = librarySource(source) else {
             throw RPCError.invalidParams(
                 "Not a GitHub folder: \(source). Use https://github.com/owner/repo or https://github.com/owner/repo/tree/<branch>/<folder>."
             )
@@ -75,8 +78,8 @@ extension IDE {
         try Paths.ensure(work)
         defer { try? fm.removeItem(at: work) }
         let archive = work.appendingPathComponent("archive.tar.gz")
-        _ = try download("https://codeload.github.com/\(s.repo)/tar.gz/\(s.ref)", to: archive)
-        let folder = try unpackExtension(archive, path: s.path, source: sourceURL(s), work: work)
+        _ = try download("https://codeload.github.com/\(found.repo)/tar.gz/\(found.ref)", to: archive)
+        let folder = try unpackExtension(archive, path: found.path, source: sourceURL(found), work: work)
         if let files, let wrong = differing(folder, from: files) {
             do { try fm.removeItem(at: folder.deletingLastPathComponent()) } catch {}   // a temporary folder: the system clears it anyway
             throw RPCError.invalidParams(
@@ -90,12 +93,12 @@ extension IDE {
         let fm = FileManager.default, root = folder.resolvingSymlinksInPath().path
         var seen = Set<String>()
         let all = fm.enumerator(at: folder, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? []
-        for u in all {
+        for url in all {
             var dir: ObjCBool = false
-            guard fm.fileExists(atPath: u.path, isDirectory: &dir), !dir.boolValue else { continue }
-            let path = String(u.resolvingSymlinksInPath().path.dropFirst(root.count + 1))
+            guard fm.fileExists(atPath: url.path, isDirectory: &dir), !dir.boolValue else { continue }
+            let path = String(url.resolvingSymlinksInPath().path.dropFirst(root.count + 1))
             if path == sourceFile { continue }   // Kelp's own, written after the download
-            guard let data = fm.contents(atPath: u.path), files[path] == sha256(data) else { return path }
+            guard let data = fm.contents(atPath: url.path), files[path] == sha256(data) else { return path }
             seen.insert(path)
         }
         return files.keys.sorted().first { !seen.contains($0) }
@@ -107,21 +110,21 @@ extension IDE {
 
     /// `archive` is a GitHub tarball (one top folder); the extension at `path` in it ends up in a temporary folder of its own.
     static func unpackExtension(_ archive: URL, path: String, source: String, work: URL) throws -> URL {
-        let fm = FileManager.default, x = work.appendingPathComponent("x")
-        try Paths.ensure(x)
+        let fm = FileManager.default, unpacked = work.appendingPathComponent("x")
+        try Paths.ensure(unpacked)
         // bsdtar leaves out absolute paths and "..".
-        let r = try Subprocess.run(
-            ["/usr/bin/tar", "-xzf", archive.path, "-C", x.path], cwd: work.path, env: [:], timeLimit: 60)
-        guard r.status == 0 else {
-            throw RPCError.internalError("Couldn't unpack \(source): \(String(decoding: r.stderr, as: UTF8.self))")
+        let result = try Subprocess.run(
+            ["/usr/bin/tar", "-xzf", archive.path, "-C", unpacked.path], cwd: work.path, env: [:], timeLimit: 60)
+        guard result.status == 0 else {
+            throw RPCError.internalError("Couldn't unpack \(source): \(String(decoding: result.stderr, as: UTF8.self))")
         }
-        let top = try fm.contentsOfDirectory(at: x, includingPropertiesForKeys: nil).filter {
+        let top = try fm.contentsOfDirectory(at: unpacked, includingPropertiesForKeys: nil).filter {
             !$0.lastPathComponent.hasPrefix(".")
         }
         guard top.count == 1 else { throw RPCError.internalError("\(source) didn't download as a GitHub archive.") }
         let folder = path.isEmpty ? top[0] : top[0].appendingPathComponent(path)
         // A symlink in the archive must not lead out of it.
-        guard let real = Paths.real(folder.path), let inside = Paths.real(x.path), real.hasPrefix(inside + "/"),
+        guard let real = Paths.real(folder.path), let inside = Paths.real(unpacked.path), real.hasPrefix(inside + "/"),
             let data = fm.contents(atPath: folder.appendingPathComponent("extension.json").path)
         else {
             throw RPCError.invalidParams("\(source) has no extension.json.")
@@ -135,28 +138,28 @@ extension IDE {
             .appendingPathComponent(id)
         try Paths.ensure(dest.deletingLastPathComponent())
         try fm.moveItem(at: folder, to: dest)
-        let e = JSONEncoder()
-        e.outputFormatting = .withoutEscapingSlashes
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
         // Replaced, not written through: an archive can ship this name as a symlink, and nothing has reviewed it yet.
-        try e.encode(["source": source]).write(to: dest.appendingPathComponent(sourceFile), options: .atomic)
+        try encoder.encode(["source": source]).write(to: dest.appendingPathComponent(sourceFile), options: .atomic)
         return dest
     }
 
     /// curl, which every Mac has: redirects followed, an HTTP error is an error, two minutes at most. Into `file`, else returned.
     static func download(_ url: String, to file: URL? = nil) throws -> Data {
-        let r = try Subprocess.run(
+        let result = try Subprocess.run(
             ["/usr/bin/curl", "-fsSL", "--max-time", "120"] + (file.map { ["-o", $0.path] } ?? []) + [url],
             cwd: NSTemporaryDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 130)
-        guard r.status == 0 else {
+        guard result.status == 0 else {
             throw RPCError.internalError(
-                "Couldn't download \(url): \(String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))"
+                "Couldn't download \(url): \(String(decoding: result.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))"
             )
         }
-        guard !r.truncated else {
+        guard !result.truncated else {
             throw RPCError.internalError(
                 "Couldn't download \(url): it's larger than \(Subprocess.outputLimit >> 20) MB.")
         }
-        return r.stdout
+        return result.stdout
     }
 
     /// Where the extension in `folder` was installed from (`sourceFile`), when it came from GitHub.
@@ -193,9 +196,9 @@ extension IDE {
     /// points and what's there ("/lib → /target"). Limit: a linked folder counts by where it points, not by what's in it.
     public static func extensionFiles(_ folder: URL) -> [String: Data] {
         var files: [String: Data] = [:]
-        for e in extensionEntries(folder) {
-            let target = e.url.resolvingSymlinksInPath()
-            files[e.link ? e.name + " → " + target.path : e.name] =
+        for entry in extensionEntries(folder) {
+            let target = entry.url.resolvingSymlinksInPath()
+            files[entry.link ? entry.name + " → " + target.path : entry.name] =
                 FileManager.default.contents(atPath: target.path) ?? Data()
         }
         return files
@@ -203,29 +206,29 @@ extension IDE {
 
     /// The digest of `files`: what Kelp's window records when the user allows an extension (`extensionTrustKey`).
     public static func extensionDigest(_ files: [String: Data]) -> String {
-        var h = SHA256()
+        var hasher = SHA256()
         for (key, body) in files.sorted(by: { $0.key < $1.key }) {
             let name = key.components(separatedBy: " → "),
                 size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
             // As digests were recorded before this read the files once: the name, a link's target, the size, the bytes.
             for part in [Data(name[0].utf8), Data((name.count > 1 ? name[1] : "").utf8), size, body] {
-                h.update(data: part)
-                h.update(data: Data([0]))
+                hasher.update(data: part)
+                hasher.update(data: Data([0]))
             }
         }
-        return h.finalize().map { String(format: "%02x", $0) }.joined()
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     /// `extensionDigest` of the folder as it is: read again only when a file's size, times or inode changed (ctime moves
     /// with any write, and no one can set it back), so a check before every command reads no file that didn't change.
     public static func extensionDigest(_ folder: URL) -> String {
         let entries = extensionEntries(folder)
-        let mark = entries.map { e -> String in
+        let mark = entries.map { entry -> String in
             var st = stat()
-            _ = stat(e.url.path, &st)   // a link's target's
+            _ = stat(entry.url.path, &st)   // a link's target's
             return
-                "\(e.name)|\(st.st_size)|\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)|\(st.st_ctimespec.tv_sec).\(st.st_ctimespec.tv_nsec)|\(st.st_ino)"
-                + (e.link ? "|" + e.url.resolvingSymlinksInPath().path : "")
+                "\(entry.name)|\(st.st_size)|\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)|\(st.st_ctimespec.tv_sec).\(st.st_ctimespec.tv_nsec)|\(st.st_ino)"
+                + (entry.link ? "|" + entry.url.resolvingSymlinksInPath().path : "")
         }.joined(separator: "\n")
         if let known = digests.withLock({ $0[folder.path] }), known.mark == mark { return known.digest }
         let digest = extensionDigest(extensionFiles(folder))
@@ -238,14 +241,14 @@ extension IDE {
         let root = folder.resolvingSymlinksInPath(),
             all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
         var out: [(name: String, url: URL, link: Bool)] = []
-        while let u = all?.nextObject() as? URL {
-            if u.lastPathComponent == ".git" {
+        while let url = all?.nextObject() as? URL {
+            if url.lastPathComponent == ".git" {
                 all?.skipDescendants()
                 continue
             }
             var st = stat()
-            guard lstat(u.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
-            out.append((String(u.path.dropFirst(root.path.count)), u, st.st_mode & S_IFMT == S_IFLNK))
+            guard lstat(url.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
+            out.append((String(url.path.dropFirst(root.path.count)), url, st.st_mode & S_IFMT == S_IFLNK))
         }
         return out.sorted { $0.name < $1.name }
     }
@@ -255,22 +258,22 @@ extension IDE {
     /// web pages, which can run any.
     public static func commandsIn(_ manifest: JSONValue) -> (commands: [String], pages: [String]) {
         var commands: [String] = [], pages: [String] = []
-        func walk(_ v: JSONValue) {
-            if let a = v.array { a.forEach(walk) }
-            guard case .object(let o) = v else { return }
-            for (k, x) in o.sorted(by: { $0.key < $1.key }) {
-                guard let s = x.string else {
-                    walk(x)
+        func walk(_ value: JSONValue) {
+            if let array = value.array { array.forEach(walk) }
+            guard case .object(let fields) = value else { return }
+            for (key, child) in fields.sorted(by: { $0.key < $1.key }) {
+                guard let text = child.string else {
+                    walk(child)
                     continue
                 }
                 var run: String?
-                if ["command", "terminal", "run", "test", "format", "install"].contains(k) { run = s }
-                if k == "command", let args = o["args"]?.array?.compactMap(\.string), !args.isEmpty {
-                    run = ([s] + args).joined(separator: " ")
+                if ["command", "terminal", "run", "test", "format", "install"].contains(key) { run = text }
+                if key == "command", let args = fields["args"]?.array?.compactMap(\.string), !args.isEmpty {
+                    run = ([text] + args).joined(separator: " ")
                 }
-                if k == "open", s.hasPrefix("terminal:") || s.hasPrefix("agent:") { run = s }
+                if key == "open", text.hasPrefix("terminal:") || text.hasPrefix("agent:") { run = text }
                 if let run, !commands.contains(run) { commands.append(run) }
-                if k == "web", !pages.contains(s) { pages.append(s) }
+                if key == "web", !pages.contains(text) { pages.append(text) }
             }
         }
         walk(manifest)

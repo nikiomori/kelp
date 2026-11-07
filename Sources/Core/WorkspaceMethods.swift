@@ -98,17 +98,17 @@ public struct WorktreeCreate: RPCMethod {
             self.setupSession = setupSession
         }
         private enum Extra: String, CodingKey { case setupNeedsTrust, setupSession }
-        public init(from d: Decoder) throws {
-            worktree = try Worktree(from: d)
-            let c = try d.container(keyedBy: Extra.self)
-            setupNeedsTrust = try c.decodeIfPresent(Bool.self, forKey: .setupNeedsTrust)
-            setupSession = try c.decodeIfPresent(String.self, forKey: .setupSession)
+        public init(from decoder: Decoder) throws {
+            worktree = try Worktree(from: decoder)
+            let container = try decoder.container(keyedBy: Extra.self)
+            setupNeedsTrust = try container.decodeIfPresent(Bool.self, forKey: .setupNeedsTrust)
+            setupSession = try container.decodeIfPresent(String.self, forKey: .setupSession)
         }
-        public func encode(to e: Encoder) throws {
-            try worktree.encode(to: e)
-            var c = e.container(keyedBy: Extra.self)
-            try c.encodeIfPresent(setupNeedsTrust, forKey: .setupNeedsTrust)
-            try c.encodeIfPresent(setupSession, forKey: .setupSession)
+        public func encode(to encoder: Encoder) throws {
+            try worktree.encode(to: encoder)
+            var container = encoder.container(keyedBy: Extra.self)
+            try container.encodeIfPresent(setupNeedsTrust, forKey: .setupNeedsTrust)
+            try container.encodeIfPresent(setupSession, forKey: .setupSession)
         }
     }
 }
@@ -541,11 +541,11 @@ public struct RepoClone: RPCMethod {
 
     /// "git@github.com:me/app.git", "https://gitlab.com/me/app" → "app".
     public static func folderName(_ url: String) -> String {
-        var n =
+        var name =
             url.trimmingCharacters(in: .whitespacesAndNewlines).split(whereSeparator: { "/:".contains($0) }).last.map(
                 String.init) ?? ""
-        if n.hasSuffix(".git") { n = String(n.dropLast(4)) }
-        return n
+        if name.hasSuffix(".git") { name = String(name.dropLast(4)) }
+        return name
     }
 }
 /// Stops clone `id` (its half-made folder is removed).

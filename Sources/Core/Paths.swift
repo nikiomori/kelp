@@ -5,10 +5,10 @@ public enum Paths {
         // KELP_HOME picks another (tests, snapshots), but never Kelp's own for a build with its own home: one started from a
         // Kelp terminal inherits it (`open` passes the shell's on), and would restart that kelpd, ending its agents.
         // getenv: ProcessInfo copies the whole environment on each read, and this is read everywhere.
-        if let e = getenv("KELP_HOME").map({ URL(fileURLWithPath: String(cString: $0)) }),
-            own == nil || e.standardizedFileURL.path != stable.path
+        if let home = getenv("KELP_HOME").map({ URL(fileURLWithPath: String(cString: $0)) }),
+            own == nil || home.standardizedFileURL.path != stable.path
         {
-            return e
+            return home
         }
         return own ?? stable
     }
@@ -34,16 +34,16 @@ public enum Paths {
     /// Why kelpd last failed to start (written by kelpd, gone once one starts): what the app's banner says.
     public static func daemonError(in root: URL) -> URL { root.appendingPathComponent("kelpd.err") }
 
-    public static func ensure(_ u: URL) throws {
-        try FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
+    public static func ensure(_ folder: URL) throws {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
 
     /// `path` with its symlinks resolved, "/private" kept (/tmp → /private/tmp; resolvingSymlinksInPath strips it).
     /// Nil when it isn't there.
     public static func real(_ path: String) -> String? {
-        realpath(path, nil).map { p in
-            defer { free(p) }
-            return String(cString: p)
+        realpath(path, nil).map { resolved in
+            defer { free(resolved) }
+            return String(cString: resolved)
         }
     }
 }

@@ -6,13 +6,13 @@ import Foundation
 /// `b.vercel.app` are two sites. An IP address or a one-label host (`localhost`) is itself, with its port. Limit: no full
 /// public suffix list; a shared host missing from `shared` is one site.
 public enum PageOrigin {
-    public static func of(_ u: URL?) -> String? {
-        guard let u, let scheme = u.scheme?.lowercased(), let host = u.host?.lowercased(), !host.isEmpty else {
+    public static func of(_ url: URL?) -> String? {
+        guard let url, let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
             return nil
         }
         let labels = host.split(separator: ".").map(String.init)
         let numeric = host.contains(":") || labels.allSatisfy { $0.allSatisfy(\.isNumber) }
-        if numeric || labels.count < 2 { return "\(scheme)://\(host)" + (u.port.map { ":\($0)" } ?? "") }
+        if numeric || labels.count < 2 { return "\(scheme)://\(host)" + (url.port.map { ":\($0)" } ?? "") }
         let country =
             labels.last?.count == 2
             && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])

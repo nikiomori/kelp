@@ -11,18 +11,20 @@ public enum AgentBoard {
 
     public static func rows(_ sessions: [Session], worktrees: [Worktree], repos: [Repo]) -> [Row] {
         let byId = Dictionary(sessions.map { ($0.id, $0) }) { a, _ in a }
-        func project(_ s: Session) -> String? {
-            let repo = worktrees.first { $0.id == s.worktreeId }?.repoId
+        func project(_ session: Session) -> String? {
+            let repo = worktrees.first { $0.id == session.worktreeId }?.repoId
             return repos.first { $0.id == repo }?.name
         }
-        func rank(_ s: Session) -> Int { order.firstIndex(of: s.status) ?? order.count }
+        func rank(_ session: Session) -> Int { order.firstIndex(of: session.status) ?? order.count }
         let running = sessions.filter { isAgent($0) && order.contains($0.status) }
-        return running.sorted { (rank($0), $0.createdAt, $0.id) < (rank($1), $1.createdAt, $1.id) }.map { s in
-            let title = (s.parent.flatMap { byId[$0] }.map { $0.displayTitle + " › " } ?? "") + s.displayTitle
-            let asks = [.waiting, .error].contains(s.status) && !s.summary.isEmpty   // once it goes on, the question is over
-            let detail = [s.status.label, project(s), asks ? s.summary : nil].compactMap(\.self).joined(
-                separator: " · ")
-            return Row(id: s.id, status: s.status, title: plain(title), detail: plain(detail))
+        return running.sorted { (rank($0), $0.createdAt, $0.id) < (rank($1), $1.createdAt, $1.id) }.map { session in
+            let title =
+                (session.parent.flatMap { byId[$0] }.map { $0.displayTitle + " › " } ?? "") + session.displayTitle
+            let asks = [.waiting, .error].contains(session.status) && !session.summary.isEmpty   // once it goes on, the question is over
+            let detail = [session.status.label, project(session), asks ? session.summary : nil].compactMap(\.self)
+                .joined(
+                    separator: " · ")
+            return Row(id: session.id, status: session.status, title: plain(title), detail: plain(detail))
         }
     }
 
@@ -31,11 +33,14 @@ public enum AgentBoard {
         sessions.filter { isAgent($0) && $0.status == .paused }.count
     }
 
-    private static func isAgent(_ s: Session) -> Bool { s.agent != nil && s.agent != "shell" && s.agent != "custom" }
+    private static func isAgent(_ session: Session) -> Bool {
+        session.agent != nil && session.agent != "shell" && session.agent != "custom"
+    }
 
     /// Titles and summaries come from what agents print: on a real terminal an escape in them would be obeyed.
-    static func plain(_ s: String) -> String {
+    static func plain(_ text: String) -> String {
         String(
-            String.UnicodeScalarView(s.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : $0 }))
+            String.UnicodeScalarView(text.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : $0 })
+        )
     }
 }

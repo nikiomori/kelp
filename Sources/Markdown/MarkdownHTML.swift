@@ -6,10 +6,10 @@ public enum MarkdownHTML {
     /// `marking`: each top-level block goes after an invisible mark of its source line, for `scrollSync` to go by.
     public static func render(_ md: String, marking: Bool = false) -> String {
         let src = md.replacingOccurrences(of: "\r\n", with: "\n")
-        let lines = src.split(separator: "\n", omittingEmptySubsequences: false).map { Line(s: detab(String($0))) }
-        let r = Renderer()
-        r.collectRefs(lines)
-        return r.blocks(lines, marking: marking) + r.footnotes()
+        let lines = src.split(separator: "\n", omittingEmptySubsequences: false).map { Line(text: detab(String($0))) }
+        let renderer = Renderer()
+        renderer.collectRefs(lines)
+        return renderer.blocks(lines, marking: marking) + renderer.footnotes()
     }
 
     /// Keeps a preview with its source: `kelpToLine(n)` scrolls to source line `n`, between the marks around it; scrolling
@@ -136,44 +136,44 @@ public enum MarkdownHTML {
         """
 
     /// Safe in text and in double-quoted attributes (the only kind Kelp's pages write).
-    static func esc(_ s: String) -> String {
-        var o = ""
-        for c in s {
-            switch c {
-            case "&": o += "&amp;"
-            case "<": o += "&lt;"
-            case ">": o += "&gt;"
-            case "\"": o += "&quot;"
-            default: o.append(c)
+    static func esc(_ text: String) -> String {
+        var out = ""
+        for char in text {
+            switch char {
+            case "&": out += "&amp;"
+            case "<": out += "&lt;"
+            case ">": out += "&gt;"
+            case "\"": out += "&quot;"
+            default: out.append(char)
             }
         }
-        return o
+        return out
     }
 
     /// Expands leading tabs to 4-column stops; tabs elsewhere are kept.
-    static func detab(_ s: String) -> String {
-        guard s.contains("\t") else { return s }
-        var o = "", col = 0, leading = true
-        for c in s {
-            if leading, c == "\t" {
-                let n = 4 - col % 4
-                o += String(repeating: " ", count: n)
-                col += n
+    static func detab(_ line: String) -> String {
+        guard line.contains("\t") else { return line }
+        var out = "", col = 0, leading = true
+        for char in line {
+            if leading, char == "\t" {
+                let spaces = 4 - col % 4
+                out += String(repeating: " ", count: spaces)
+                col += spaces
                 continue
             }
-            if c != " " { leading = false }
-            o.append(c)
+            if char != " " { leading = false }
+            out.append(char)
             col += 1
         }
-        return o
+        return out
     }
 }
 
 struct Line {
-    var s: String
-    var blank: Bool { s.allSatisfy(\.isWhitespace) }
-    var indent: Int { s.prefix { $0 == " " }.count }
-    func dropping(_ k: Int) -> Line { Line(s: String(s.dropFirst(min(k, indent)))) }
+    var text: String
+    var blank: Bool { text.allSatisfy(\.isWhitespace) }
+    var indent: Int { text.prefix { $0 == " " }.count }
+    func dropping(_ count: Int) -> Line { Line(text: String(text.dropFirst(min(count, indent)))) }
 }
 
 struct Marker {
@@ -199,14 +199,18 @@ final class Renderer {
 
     func collectRefs(_ ls: [Line]) {
         var fenceCh: Character?
-        for (i, l) in ls.enumerated() {
-            let s = String(l.s.drop { $0 == " " || $0 == ">" })
-            if let f = fence(s) {
-                if fenceCh == nil { fenceCh = f.ch } else if f.ch == fenceCh, f.info.isEmpty { fenceCh = nil }
-            } else if fenceCh == nil, l.indent < 4, footnote(s) != nil {
+        for (i, line) in ls.enumerated() {
+            let text = String(line.text.drop { $0 == " " || $0 == ">" })
+            if let opening = fence(text) {
+                if fenceCh == nil {
+                    fenceCh = opening.ch
+                } else if opening.ch == fenceCh, opening.info.isEmpty {
+                    fenceCh = nil
+                }
+            } else if fenceCh == nil, line.indent < 4, footnote(text) != nil {
                 collectFootnote(ls, i)
-            } else if fenceCh == nil, let d = def(s), refs[d.label] == nil {
-                refs[d.label] = (d.url, d.title)
+            } else if fenceCh == nil, let ref = def(text), refs[ref.label] == nil {
+                refs[ref.label] = (ref.url, ref.title)
             }
         }
     }
@@ -214,34 +218,34 @@ final class Renderer {
     func blocks(_ ls: [Line], tight: Bool = false, marking: Bool = false) -> String {
         var out: [String] = [], i = 0
         while i < ls.count {
-            let l = ls[i], ind = l.indent
-            if l.blank {
+            let line = ls[i], ind = line.indent
+            if line.blank {
                 i += 1
                 continue
             }
-            let s = String(l.s.dropFirst(ind))
+            let text = String(line.text.dropFirst(ind))
             let block: (html: String?, end: Int)
             if ind >= 4 {
                 block = indentedCode(ls, i)
-            } else if let f = fence(s) {
-                block = fencedCode(ls, i, f)
-            } else if let h = atx(s) {
-                block = (heading(h.0, h.1), i + 1)
-            } else if isHR(s) {
+            } else if let opening = fence(text) {
+                block = fencedCode(ls, i, opening)
+            } else if let atxHeading = atx(text) {
+                block = (heading(atxHeading.0, atxHeading.1), i + 1)
+            } else if isHR(text) {
                 block = ("<hr>", i + 1)
-            } else if s.hasPrefix(">") {
+            } else if text.hasPrefix(">") {
                 block = blockquote(ls, i)
-            } else if let m = marker(l.s) {
-                block = list(ls, i, m)
+            } else if let listMarker = marker(line.text) {
+                block = list(ls, i, listMarker)
             } else if isTable(ls, i) {
                 block = table(ls, i)
-            } else if footnote(s) != nil {
+            } else if footnote(text) != nil {
                 block = (nil, footnoteEnd(ls, i))
             }   // read already: shown at the end
-            else if def(s) != nil {
+            else if def(text) != nil {
                 block = (nil, i + 1)
             }   // a link reference definition: read already, shows nothing
-            else if startsHTML(s) {
+            else if startsHTML(text) {
                 block = htmlBlock(ls, i)
             } else {
                 block = paragraph(ls, i, tight: tight)
@@ -259,29 +263,31 @@ final class Renderer {
     private func indentedCode(_ ls: [Line], _ i: Int) -> (String?, Int) {
         var body: [String] = [], j = i
         while j < ls.count, ls[j].blank || ls[j].indent >= 4 {
-            body.append(String(ls[j].s.dropFirst(4)))
+            body.append(String(ls[j].text.dropFirst(4)))
             j += 1
         }
         while body.last?.allSatisfy(\.isWhitespace) == true { body.removeLast() }
         return ("<pre><code>\(MarkdownHTML.esc(body.joined(separator: "\n")))\n</code></pre>", j)
     }
 
-    private func fencedCode(_ ls: [Line], _ i: Int, _ f: (ch: Character, len: Int, info: String)) -> (String?, Int) {
+    private func fencedCode(
+        _ ls: [Line], _ i: Int, _ opening: (ch: Character, len: Int, info: String)
+    ) -> (String?, Int) {
         let ind = ls[i].indent
         var body: [String] = [], j = i + 1
         while j < ls.count {
-            let x = ls[j]
-            if x.indent < 4, let c = fence(String(x.s.dropFirst(x.indent))), c.ch == f.ch, c.len >= f.len,
-                c.info.isEmpty
+            let line = ls[j]
+            if line.indent < 4, let closing = fence(String(line.text.dropFirst(line.indent))),
+                closing.ch == opening.ch, closing.len >= opening.len, closing.info.isEmpty
             {
                 j += 1
                 break
             }
-            body.append(x.dropping(ind).s)
+            body.append(line.dropping(ind).text)
             j += 1
         }
         let lang =
-            f.info.split(separator: " ").first.map { " class=\"language-\(MarkdownHTML.esc(String($0)))\"" } ?? ""
+            opening.info.split(separator: " ").first.map { " class=\"language-\(MarkdownHTML.esc(String($0)))\"" } ?? ""
         let code = body.isEmpty ? "" : MarkdownHTML.esc(body.joined(separator: "\n")) + "\n"
         return ("<pre><code\(lang)>\(code)</code></pre>", j)
     }
@@ -289,13 +295,13 @@ final class Renderer {
     private func blockquote(_ ls: [Line], _ i: Int) -> (String?, Int) {
         var inner: [Line] = [], j = i
         while j < ls.count {
-            let x = ls[j], xs = x.s.dropFirst(min(x.indent, 3))
-            if x.indent < 4, xs.hasPrefix(">") {
-                var rest = xs.dropFirst()
+            let line = ls[j], quoted = line.text.dropFirst(min(line.indent, 3))
+            if line.indent < 4, quoted.hasPrefix(">") {
+                var rest = quoted.dropFirst()
                 if rest.first == " " { rest = rest.dropFirst() }
-                inner.append(Line(s: String(rest)))
-            } else if !x.blank, inner.last?.blank == false, !interrupts(x.s) {
-                inner.append(x)   // lazy continuation
+                inner.append(Line(text: String(rest)))
+            } else if !line.blank, inner.last?.blank == false, !interrupts(line.text) {
+                inner.append(line)   // lazy continuation
             } else {
                 break
             }
@@ -308,18 +314,20 @@ final class Renderer {
     private func paragraph(_ ls: [Line], _ i: Int, tight: Bool) -> (String?, Int) {
         var text: [String] = [], j = i, setext = 0
         while j < ls.count {
-            let x = ls[j]
-            if x.blank { break }
+            let line = ls[j]
+            if line.blank { break }
             if j > i {
-                let t = x.s.trimmingCharacters(in: .whitespaces)
-                if x.indent < 4, let c = t.first, c == "=" || c == "-", t.allSatisfy({ $0 == c }) {
-                    setext = c == "=" ? 1 : 2
+                let trimmed = line.text.trimmingCharacters(in: .whitespaces)
+                if line.indent < 4, let mark = trimmed.first, mark == "=" || mark == "-",
+                    trimmed.allSatisfy({ $0 == mark })
+                {
+                    setext = mark == "=" ? 1 : 2
                     j += 1
                     break
                 }
-                if interrupts(x.s) || isTable(ls, j) { break }
+                if interrupts(line.text) || isTable(ls, j) { break }
             }
-            text.append(String(x.s.drop { $0 == " " }))
+            text.append(String(line.text.drop { $0 == " " }))
             j += 1
         }
         let raw = text.joined(separator: "\n").replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
@@ -334,25 +342,25 @@ final class Renderer {
         for c in stripTags(html).replacing(/&#?\w+;/, with: "").lowercased() {
             if c.isLetter || c.isNumber || c == "-" || c == "_" { base.append(c) } else if c == " " { base.append("-") }
         }
-        let k = slugs[base, default: 0]
-        slugs[base] = k + 1
-        let id = k == 0 ? base : "\(base)-\(k)"
+        let seen = slugs[base, default: 0]
+        slugs[base] = seen + 1
+        let id = seen == 0 ? base : "\(base)-\(seen)"
         return "<h\(level) id=\"\(MarkdownHTML.esc(id))\">\(html)</h\(level)>"
     }
 
     private func list(_ ls: [Line], _ i: Int, _ m0: Marker) -> (String, Int) {
         var items: [[Line]] = [], j = i, cur = m0, loose = false
         while true {
-            var body = [Line(s: cur.rest)]
+            var body = [Line(text: cur.rest)]
             j += 1
             while j < ls.count {
-                let x = ls[j]
-                if x.blank {
-                    body.append(Line(s: ""))
-                } else if x.indent >= cur.content {
-                    body.append(x.dropping(cur.content))
-                } else if marker(x.s) == nil, body.last?.blank == false, !interrupts(x.s) {
-                    body.append(x)
+                let line = ls[j]
+                if line.blank {
+                    body.append(Line(text: ""))
+                } else if line.indent >= cur.content {
+                    body.append(line.dropping(cur.content))
+                } else if marker(line.text) == nil, body.last?.blank == false, !interrupts(line.text) {
+                    body.append(line)
                 }   // lazy
                 else {
                     break
@@ -367,8 +375,8 @@ final class Renderer {
             // Limit: blank line followed by an unindented line inside an item counts as loose; fenced code with blank lines can false-positive.
             if zip(body, body.dropFirst()).contains(where: { $0.blank && !$1.blank && $1.indent == 0 }) { loose = true }
             items.append(body)
-            guard j < ls.count, let nm = marker(ls[j].s), nm.kind == m0.kind,
-                !isHR(String(ls[j].s.dropFirst(ls[j].indent)))
+            guard j < ls.count, let nm = marker(ls[j].text), nm.kind == m0.kind,
+                !isHR(String(ls[j].text.dropFirst(ls[j].indent)))
             else { break }
             if trailing > 0 { loose = true }
             cur = nm
@@ -378,12 +386,12 @@ final class Renderer {
         var html = "<\(tag)\(start)>\n"
         for var body in items {
             var box = ""
-            let first = body[0].s
+            let first = body[0].text
             if first.hasPrefix("[ ]") || first.hasPrefix("[x]") || first.hasPrefix("[X]"),
                 first.count == 3 || first.dropFirst(3).first == " "
             {
                 box = "<input type=\"checkbox\" disabled\(first.hasPrefix("[ ]") ? "" : " checked")> "
-                body[0].s = String(first.dropFirst(4))
+                body[0].text = String(first.dropFirst(4))
             }
             var inner = blocks(body, tight: !loose)
             if !box.isEmpty {
@@ -398,143 +406,153 @@ final class Renderer {
         return (html + "</\(tag)>", j)
     }
 
-    private func cells(_ s: String) -> [String] {
-        var t = s.trimmingCharacters(in: .whitespaces)
-        if t.hasPrefix("|") { t.removeFirst() }
-        if t.hasSuffix("|"), !t.hasSuffix("\\|") { t.removeLast() }
+    private func cells(_ row: String) -> [String] {
+        var trimmed = row.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("|") { trimmed.removeFirst() }
+        if trimmed.hasSuffix("|"), !trimmed.hasSuffix("\\|") { trimmed.removeLast() }
         var out: [String] = [], cur = "", prev: Character = " "
-        for c in t {
-            if c == "|", prev != "\\" {
+        for char in trimmed {
+            if char == "|", prev != "\\" {
                 out.append(cur)
                 cur = ""
-            } else if c == "|" {
+            } else if char == "|" {
                 cur.removeLast()
-                cur.append(c)
+                cur.append(char)
             } else {
-                cur.append(c)
+                cur.append(char)
             }
-            prev = c
+            prev = char
         }
         out.append(cur)
         return out.map { $0.trimmingCharacters(in: .whitespaces) }
     }
 
-    private func aligns(_ s: String) -> [String]? {
-        guard s.contains("|") else { return nil }
+    private func aligns(_ row: String) -> [String]? {
+        guard row.contains("|") else { return nil }
         var out: [String] = []
-        for c in cells(s) {
-            var d = Substring(c)
-            if d.first == ":" { d = d.dropFirst() }
-            if d.last == ":" { d = d.dropLast() }
-            guard !d.isEmpty, d.allSatisfy({ $0 == "-" }) else { return nil }
+        for cell in cells(row) {
+            var dashes = Substring(cell)
+            if dashes.first == ":" { dashes = dashes.dropFirst() }
+            if dashes.last == ":" { dashes = dashes.dropLast() }
+            guard !dashes.isEmpty, dashes.allSatisfy({ $0 == "-" }) else { return nil }
             out.append(
-                c.hasPrefix(":") && c.hasSuffix(":")
-                    ? "center" : c.hasSuffix(":") ? "right" : c.hasPrefix(":") ? "left" : "")
+                cell.hasPrefix(":") && cell.hasSuffix(":")
+                    ? "center" : cell.hasSuffix(":") ? "right" : cell.hasPrefix(":") ? "left" : "")
         }
         return out
     }
 
     private func isTable(_ ls: [Line], _ i: Int) -> Bool {
-        guard i + 1 < ls.count, ls[i].indent < 4, ls[i].s.contains("|"), let a = aligns(ls[i + 1].s) else {
+        guard i + 1 < ls.count, ls[i].indent < 4, ls[i].text.contains("|"),
+            let alignments = aligns(ls[i + 1].text)
+        else {
             return false
         }
-        return a.count == cells(ls[i].s).count
+        return alignments.count == cells(ls[i].text).count
     }
 
     private func table(_ ls: [Line], _ i: Int) -> (String, Int) {
-        let al = aligns(ls[i + 1].s) ?? []
-        func row(_ l: Line, _ tag: String) -> String {
-            let cs = cells(l.s)
-            let tds = al.indices.map { k in
-                let style = al[k].isEmpty ? "" : " style=\"text-align:\(al[k])\""
-                return "<\(tag)\(style)>\(k < cs.count ? inline(cs[k]) : "")</\(tag)>"
+        let al = aligns(ls[i + 1].text) ?? []
+        func row(_ line: Line, _ tag: String) -> String {
+            let cs = cells(line.text)
+            let tds = al.indices.map { column in
+                let style = al[column].isEmpty ? "" : " style=\"text-align:\(al[column])\""
+                return "<\(tag)\(style)>\(column < cs.count ? inline(cs[column]) : "")</\(tag)>"
             }
             return "<tr>\(tds.joined())</tr>"
         }
         var html = "<table>\n<thead>\n\(row(ls[i], "th"))\n</thead>\n"
-        var j = i + 2, body: [String] = []
-        while j < ls.count, !ls[j].blank, ls[j].s.contains("|"), !interrupts(ls[j].s) {
-            body.append(row(ls[j], "td"))
-            j += 1
+        var next = i + 2, body: [String] = []
+        while next < ls.count, !ls[next].blank, ls[next].text.contains("|"), !interrupts(ls[next].text) {
+            body.append(row(ls[next], "td"))
+            next += 1
         }
         if !body.isEmpty { html += "<tbody>\n\(body.joined(separator: "\n"))\n</tbody>\n" }
-        return (html + "</table>", j)
+        return (html + "</table>", next)
     }
 
-    private func fence(_ s: String) -> (ch: Character, len: Int, info: String)? {
-        guard let c = s.first, c == "`" || c == "~" else { return nil }
-        let len = s.prefix { $0 == c }.count
-        let info = s.dropFirst(len).trimmingCharacters(in: .whitespaces)
-        guard len >= 3, c == "~" || !info.contains("`") else { return nil }
-        return (c, len, info)
+    private func fence(_ text: String) -> (ch: Character, len: Int, info: String)? {
+        guard let mark = text.first, mark == "`" || mark == "~" else { return nil }
+        let len = text.prefix { $0 == mark }.count
+        let info = text.dropFirst(len).trimmingCharacters(in: .whitespaces)
+        guard len >= 3, mark == "~" || !info.contains("`") else { return nil }
+        return (mark, len, info)
     }
 
-    private func atx(_ s: String) -> (Int, String)? {
-        let level = s.prefix { $0 == "#" }.count
-        let rest = s.dropFirst(level)
+    private func atx(_ text: String) -> (Int, String)? {
+        let level = text.prefix { $0 == "#" }.count
+        let rest = text.dropFirst(level)
         guard (1...6).contains(level), rest.isEmpty || rest.first == " " else { return nil }
-        var t = rest.trimmingCharacters(in: .whitespaces)
-        if let k = t.lastIndex(where: { $0 != "#" }) {
-            if t[k] == " " { t = String(t[...k]).trimmingCharacters(in: .whitespaces) }
+        var title = rest.trimmingCharacters(in: .whitespaces)
+        if let last = title.lastIndex(where: { $0 != "#" }) {
+            if title[last] == " " { title = String(title[...last]).trimmingCharacters(in: .whitespaces) }
         } else {
-            t = ""
+            title = ""
         }
-        return (level, t)
+        return (level, title)
     }
 
-    private func isHR(_ s: String) -> Bool {
-        guard let c = s.first, "-*_".contains(c) else { return false }
-        return s.allSatisfy { $0 == c || $0 == " " || $0 == "\t" } && s.filter { $0 == c }.count >= 3
+    private func isHR(_ text: String) -> Bool {
+        guard let mark = text.first, "-*_".contains(mark) else { return false }
+        return text.allSatisfy { $0 == mark || $0 == " " || $0 == "\t" } && text.filter { $0 == mark }.count >= 3
     }
 
-    private func marker(_ t: String) -> Marker? {
-        let ind = t.prefix { $0 == " " }.count
+    private func marker(_ line: String) -> Marker? {
+        let ind = line.prefix { $0 == " " }.count
         guard ind < 4 else { return nil }
-        let s = Array(t.dropFirst(ind))
-        var k = 0, ordered = false, start = 0
-        guard let c0 = s.first else { return nil }
+        let chars = Array(line.dropFirst(ind))
+        var end = 0, ordered = false, start = 0
+        guard let c0 = chars.first else { return nil }
         var kind = c0
         if "-*+".contains(c0) {
-            k = 1
+            end = 1
         } else {
-            while k < s.count, k < 9, s[k].isASCII, s[k].isNumber { k += 1 }
-            guard k > 0, k < s.count, s[k] == "." || s[k] == ")", let v = Int(String(s[0..<k])) else { return nil }
-            kind = s[k]
-            start = v
+            while end < chars.count, end < 9, chars[end].isASCII, chars[end].isNumber { end += 1 }
+            guard end > 0, end < chars.count, chars[end] == "." || chars[end] == ")",
+                let number = Int(String(chars[0..<end]))
+            else { return nil }
+            kind = chars[end]
+            start = number
             ordered = true
-            k += 1
+            end += 1
         }
-        guard k == s.count || s[k] == " " else { return nil }
-        let sp = s[k...].prefix { $0 == " " }.count
-        let rest = String(s[(k + sp)...])
+        guard end == chars.count || chars[end] == " " else { return nil }
+        let sp = chars[end...].prefix { $0 == " " }.count
+        let rest = String(chars[(end + sp)...])
         if rest.isEmpty || sp > 4 {
             return Marker(
-                indent: ind, kind: kind, ordered: ordered, start: start, content: ind + k + 1,
-                rest: rest.isEmpty ? "" : String(s[min(k + 1, s.count)...]))
+                indent: ind, kind: kind, ordered: ordered, start: start, content: ind + end + 1,
+                rest: rest.isEmpty ? "" : String(chars[min(end + 1, chars.count)...]))
         }
-        return Marker(indent: ind, kind: kind, ordered: ordered, start: start, content: ind + k + sp, rest: rest)
+        return Marker(indent: ind, kind: kind, ordered: ordered, start: start, content: ind + end + sp, rest: rest)
     }
 
     /// Lines that end a paragraph (and so can't be lazy continuations).
-    private func interrupts(_ t: String) -> Bool {
-        let ind = t.prefix { $0 == " " }.count
+    private func interrupts(_ line: String) -> Bool {
+        let ind = line.prefix { $0 == " " }.count
         guard ind < 4 else { return false }
-        let s = String(t.dropFirst(ind))
-        if fence(s) != nil || atx(s) != nil || isHR(s) || s.hasPrefix(">") || startsHTML(s, interrupting: true) {
+        let text = String(line.dropFirst(ind))
+        if fence(text) != nil || atx(text) != nil || isHR(text) || text.hasPrefix(">")
+            || startsHTML(text, interrupting: true)
+        {
             return true
         }
-        if let m = marker(t), !m.rest.isEmpty, !m.ordered || m.start == 1 { return true }
+        if let listMarker = marker(line), !listMarker.rest.isEmpty, !listMarker.ordered || listMarker.start == 1 {
+            return true
+        }
         return false
     }
 
-    private func def(_ s: String) -> (label: String, url: String, title: String?)? {
-        guard s.hasPrefix("["), s.contains("]:"),
-            let m = s.wholeMatch(of: /\[([^\]]+)\]:\s*<?([^\s>]+)>?(?:\s+["'(](.*)["')])?\s*/)
+    private func def(_ text: String) -> (label: String, url: String, title: String?)? {
+        guard text.hasPrefix("["), text.contains("]:"),
+            let match = text.wholeMatch(of: /\[([^\]]+)\]:\s*<?([^\s>]+)>?(?:\s+["'(](.*)["')])?\s*/)
         else { return nil }
-        return (norm(String(m.1)), String(m.2), m.3.map(String.init))
+        return (norm(String(match.1)), String(match.2), match.3.map(String.init))
     }
 
-    func norm(_ s: String) -> String { s.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+    func norm(_ label: String) -> String {
+        label.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
 
     // MARK: inline
 

@@ -82,17 +82,17 @@ public struct UIEvent: RPCEvent {
     public var action: String
     public var uri: String?, split: String?, focus: Bool?, worktreeId: String?   // open
     public var id: String?, args: JSONValue?   // command
-    public init(_ o: UIOpen) {
+    public init(_ method: UIOpen) {
         action = "open"
-        uri = o.uri
-        split = o.split
-        focus = o.focus
-        worktreeId = o.worktreeId
+        uri = method.uri
+        split = method.split
+        focus = method.focus
+        worktreeId = method.worktreeId
     }
-    public init(_ c: UICommand) {
+    public init(_ method: UICommand) {
         action = "command"
-        id = c.id
-        args = c.args
+        id = method.id
+        args = method.args
     }
 }
 
@@ -100,11 +100,11 @@ public struct UIEvent: RPCEvent {
 public struct UIBrowserEvent: RPCEvent {
     public static let name = "event.ui.browser"
     public var request: String, action: String, args: JSONValue?, worktreeId: String?
-    public init(_ b: UIBrowser, request: String) {
+    public init(_ method: UIBrowser, request: String) {
         self.request = request
-        action = b.action
-        args = b.args
-        worktreeId = b.worktreeId
+        action = method.action
+        args = method.args
+        worktreeId = method.worktreeId
     }
 }
 
@@ -113,5 +113,5 @@ public struct RPCNotification<E: RPCEvent>: Encodable {
     public var jsonrpc = "2.0"
     public let method = E.name
     public let params: E
-    public init(_ e: E) { params = e }
+    public init(_ event: E) { params = event }
 }

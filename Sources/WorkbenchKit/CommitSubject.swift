@@ -14,13 +14,13 @@ public struct CommitSubject: Equatable, Sendable {
 
     public init(_ subject: String) {
         text = subject
-        guard let m = subject.wholeMatch(of: /(\w+)(?:\(([^()]+)\))?(!)?:\s+(.+)/),
-            Self.types.contains(m.1.lowercased())
+        guard let match = subject.wholeMatch(of: /(\w+)(?:\(([^()]+)\))?(!)?:\s+(.+)/),
+            Self.types.contains(match.1.lowercased())
         else { return }
-        type = m.1.lowercased()
-        scope = m.2.map(String.init)
-        breaking = m.3 != nil
-        text = Self.capitalized(String(m.4))
+        type = match.1.lowercased()
+        scope = match.2.map(String.init)
+        breaking = match.3 != nil
+        text = Self.capitalized(String(match.4))
     }
 
     /// A message body as a card shows it: git's hard wraps (at about 72 columns) joined back into paragraphs. Blank

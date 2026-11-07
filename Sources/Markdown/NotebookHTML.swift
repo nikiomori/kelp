@@ -21,16 +21,16 @@ public enum NotebookHTML {
         else { return nil }
         let lang = MarkdownHTML.esc(language(nb).filter { $0.isLetter || $0.isNumber || "+#._-".contains($0) })   // a class name
         var html = ""
-        for c in cells {
-            let src = text(c["source"])
-            switch c["cell_type"] as? String {
+        for cell in cells {
+            let src = text(cell["source"])
+            switch cell["cell_type"] as? String {
             case "markdown":
                 html += "<div class=\"nb-md\">\(MarkdownHTML.render(src))</div>\n"
             case "code":
-                let n = (c["execution_count"] as? Int).map(String.init) ?? " "
-                html += "<div class=\"nb-cell\"><div class=\"nb-in\">In [\(n)]:</div>"
+                let count = (cell["execution_count"] as? Int).map(String.init) ?? " "
+                html += "<div class=\"nb-cell\"><div class=\"nb-in\">In [\(count)]:</div>"
                 html += "<pre><code class=\"language-\(lang)\">\(MarkdownHTML.esc(src))</code></pre>"
-                for o in c["outputs"] as? [[String: Any]] ?? [] { html += output(o) }
+                for out in cell["outputs"] as? [[String: Any]] ?? [] { html += output(out) }
                 html += "</div>\n"
             default:
                 html += "<pre>\(MarkdownHTML.esc(src))</pre>\n"
@@ -39,30 +39,30 @@ public enum NotebookHTML {
         return html + style
     }
 
-    static func output(_ o: [String: Any]) -> String {
-        switch o["output_type"] as? String {
+    static func output(_ out: [String: Any]) -> String {
+        switch out["output_type"] as? String {
         case "stream":
             return
-                "<pre class=\"nb-out\(o["name"] as? String == "stderr" ? " nb-err" : "")\">\(MarkdownHTML.esc(text(o["text"])))</pre>"
+                "<pre class=\"nb-out\(out["name"] as? String == "stderr" ? " nb-err" : "")\">\(MarkdownHTML.esc(text(out["text"])))</pre>"
         case "error":
-            let tb = (o["traceback"] as? [String] ?? []).joined(separator: "\n")
+            let tb = (out["traceback"] as? [String] ?? []).joined(separator: "\n")
             return
-                "<pre class=\"nb-out nb-err\">\(MarkdownHTML.esc(stripANSI(tb.isEmpty ? "\(o["ename"] ?? ""): \(o["evalue"] ?? "")" : tb)))</pre>"
+                "<pre class=\"nb-out nb-err\">\(MarkdownHTML.esc(stripANSI(tb.isEmpty ? "\(out["ename"] ?? ""): \(out["evalue"] ?? "")" : tb)))</pre>"
         case "execute_result", "display_data":
-            let d = o["data"] as? [String: Any] ?? [:]
+            let data = out["data"] as? [String: Any] ?? [:]
             for (mime, tag) in [("image/png", "png"), ("image/jpeg", "jpeg")] {
                 // Decoded and encoded again: only base64 reaches the attribute, whatever the file holds.
-                if let b = d[mime] {
+                if let encoded = data[mime] {
                     return
-                        "<img class=\"nb-img\" src=\"data:image/\(tag);base64,\(Data(base64Encoded: text(b), options: .ignoreUnknownCharacters)?.base64EncodedString() ?? "")\">"
+                        "<img class=\"nb-img\" src=\"data:image/\(tag);base64,\(Data(base64Encoded: text(encoded), options: .ignoreUnknownCharacters)?.base64EncodedString() ?? "")\">"
                 }
             }
-            if let svg = d["image/svg+xml"] {   // inline SVG would run scripts; show it as an image instead
+            if let svg = data["image/svg+xml"] {   // inline SVG would run scripts; show it as an image instead
                 let b64 = Data(text(svg).utf8).base64EncodedString()
                 return "<img class=\"nb-img\" src=\"data:image/svg+xml;base64,\(b64)\">"
             }
-            if let md = d["text/markdown"] { return "<div class=\"nb-md\">\(MarkdownHTML.render(text(md)))</div>" }
-            if let t = d["text/plain"] { return "<pre class=\"nb-out\">\(MarkdownHTML.esc(text(t)))</pre>" }
+            if let md = data["text/markdown"] { return "<div class=\"nb-md\">\(MarkdownHTML.render(text(md)))</div>" }
+            if let plain = data["text/plain"] { return "<pre class=\"nb-out\">\(MarkdownHTML.esc(text(plain)))</pre>" }
             return ""
         default: return ""
         }
@@ -75,14 +75,14 @@ public enum NotebookHTML {
     }
 
     /// nbformat stores text either as a string or as a list of lines.
-    static func text(_ v: Any?) -> String {
-        if let s = v as? String { return s }
-        if let a = v as? [String] { return a.joined() }
+    static func text(_ value: Any?) -> String {
+        if let string = value as? String { return string }
+        if let lines = value as? [String] { return lines.joined() }
         return ""
     }
 
-    static func stripANSI(_ s: String) -> String {
-        s.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression)
+    static func stripANSI(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression)
     }
 
     static let style = """

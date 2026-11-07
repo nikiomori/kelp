@@ -27,9 +27,9 @@ public enum Subprocess {
     /// (`Handled.quick`), which takes no turn behind slow programs: no program runs there. `run` refuses inside `body`, and
     /// the call fails instead of stalling.
     public static func quickOnly<T>(_ body: () throws -> T) rethrows -> T {
-        let d = Thread.current.threadDictionary
-        d[quickOnlyKey] = true
-        defer { d[quickOnlyKey] = nil }
+        let threadState = Thread.current.threadDictionary
+        threadState[quickOnlyKey] = true
+        defer { threadState[quickOnlyKey] = nil }
         return try body()
     }
     private static let quickOnlyKey = "dev.kelp.subprocess.quickOnly"
@@ -37,9 +37,9 @@ public enum Subprocess {
     /// `body` may start programs although it runs in a quick or in-order call: only for a caller that has to answer
     /// after one and holds up nobody else meanwhile (daemon.upgrade's check of the new kelpd, which the app waits for).
     public static func allowingPrograms<T>(_ body: () throws -> T) rethrows -> T {
-        let d = Thread.current.threadDictionary, was = d[quickOnlyKey]
-        d[quickOnlyKey] = nil
-        defer { d[quickOnlyKey] = was }
+        let threadState = Thread.current.threadDictionary, was = threadState[quickOnlyKey]
+        threadState[quickOnlyKey] = nil
+        defer { threadState[quickOnlyKey] = was }
         return try body()
     }
 
@@ -54,44 +54,45 @@ public enum Subprocess {
             let name = argv.first.map { ($0 as NSString).lastPathComponent } ?? "A program"
             throw RPCError.internalError("\(name) can't run from a quick or in-order call: it would hold up others.")
         }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: argv.first ?? "/usr/bin/false")
-        p.arguments = Array(argv.dropFirst())
-        p.currentDirectoryURL = URL(fileURLWithPath: cwd)
-        p.environment = env
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: argv.first ?? "/usr/bin/false")
+        process.arguments = Array(argv.dropFirst())
+        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+        process.environment = env
         let out = Reader(limit), err = Reader(limit), inp = stdin.map { _ in Pipe() }
-        p.standardOutput = out.pipe
-        p.standardError = err.pipe
-        p.standardInput = inp ?? FileHandle.nullDevice
+        process.standardOutput = out.pipe
+        process.standardError = err.pipe
+        process.standardInput = inp ?? FileHandle.nullDevice
         let exited = DispatchSemaphore(value: 0)
-        p.terminationHandler = { _ in exited.signal() }   // set before it starts: one that exits at once isn't missed
-        try p.run()
-        let pid = p.processIdentifier
+        // set before it starts: one that exits at once isn't missed
+        process.terminationHandler = { _ in exited.signal() }
+        try process.run()
+        let pid = process.processIdentifier
         running.withLock { _ = $0.insert(pid) }
         defer { running.withLock { _ = $0.remove(pid) } }
         out.start()
         err.start()
         if let inp, let stdin {
-            let w = inp.fileHandleForWriting
-            _ = fcntl(w.fileDescriptor, F_SETNOSIGPIPE, 1)
+            let writer = inp.fileHandleForWriting
+            _ = fcntl(writer.fileDescriptor, F_SETNOSIGPIPE, 1)
             Thread.detachNewThread {
-                try? w.write(contentsOf: stdin)
-                try? w.close()
+                try? writer.write(contentsOf: stdin)
+                try? writer.close()
             }
         }
         var timedOut = false, ended = true
         if exited.wait(timeout: .now() + timeLimit) == .timedOut {
             timedOut = true
-            stopTree(p.processIdentifier)
+            stopTree(process.processIdentifier)
             // SIGKILL comes 2 s after SIGTERM; one stuck in the kernel (a hung network mount) may outlast even that.
             ended = exited.wait(timeout: .now() + 5) == .success
         }
         // What's still in the pipes arrives at once; only a child holding them open would make this wait run out. Then
         // they're let go, or a reader thread and a pipe would stay as long as that child (an ssh master, a daemon).
-        for r in [out, err] where r.done.wait(timeout: .now() + 2) == .timedOut { r.abandon() }
+        for reader in [out, err] where reader.done.wait(timeout: .now() + 2) == .timedOut { reader.abandon() }
         // Its status only once it has exited: asking a Process still running raises, and would take the daemon down.
         return Output(
-            status: ended ? p.terminationStatus : -1, stdout: out.data, stderr: err.data, timedOut: timedOut,
+            status: ended ? process.terminationStatus : -1, stdout: out.data, stderr: err.data, timedOut: timedOut,
             truncated: out.truncated || err.truncated)
     }
 
@@ -100,9 +101,9 @@ public enum Subprocess {
         _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
         limit: Int = outputLimit
     ) async throws -> Output {
-        try await withCheckedThrowingContinuation { c in
+        try await withCheckedThrowingContinuation { continuation in
             Thread.detachNewThread {
-                c.resume(
+                continuation.resume(
                     with: Result { try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit) }
                 )
             }
@@ -118,7 +119,7 @@ public enum Subprocess {
     /// then SIGKILL to whatever is left after 2 s: one that ignores SIGTERM would hold the pipes for good.
     public static func stopTree(_ pid: pid_t) {
         let all = tree(pid)
-        for p in all.reversed() { kill(p, SIGTERM) }
+        for child in all.reversed() { kill(child, SIGTERM) }
         killLater(all, after: 2)
     }
 
@@ -126,18 +127,18 @@ public enum Subprocess {
     /// For a process about to exec or exit, which a later SIGKILL (`killLater`) would never come from.
     public static func stopTreeNow(_ pid: pid_t, grace: TimeInterval = 2) {
         let born = tree(pid).map { ($0, started($0)) }
-        for (p, _) in born.reversed() { kill(p, SIGTERM) }
+        for (child, _) in born.reversed() { kill(child, SIGTERM) }
         // One on its way out no longer reads its start time, but still answers kill(0) until it's a zombie: not gone yet.
         func left() -> [pid_t] {
-            born.compactMap { p, t in
-                guard t != nil, !isZombie(p) else { return nil }
-                let now = started(p)
-                return now == t || (now == nil && kill(p, 0) == 0) ? p : nil
+            born.compactMap { child, start in
+                guard start != nil, !isZombie(child) else { return nil }
+                let now = started(child)
+                return now == start || (now == nil && kill(child, 0) == 0) ? child : nil
             }
         }
         let end = Date().addingTimeInterval(grace)
         while !left().isEmpty, Date() < end { usleep(50_000) }
-        for p in left() { kill(p, SIGKILL) }
+        for child in left() { kill(child, SIGKILL) }
         let killed = Date().addingTimeInterval(1)   // SIGKILL lands a moment later
         while !left().isEmpty, Date() < killed { usleep(10_000) }
     }
@@ -147,7 +148,7 @@ public enum Subprocess {
     public static func killLater(_ pids: [pid_t], after delay: TimeInterval) {
         let born = pids.map { ($0, started($0)) }
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
-            for (p, t) in born where t != nil && started(p) == t { kill(p, SIGKILL) }
+            for (child, start) in born where start != nil && started(child) == start { kill(child, SIGKILL) }
         }
     }
 
@@ -199,15 +200,15 @@ public enum Subprocess {
         guard size > 4 else { return nil }
         let argc = Int(buf.withUnsafeBytes { $0.load(as: Int32.self) })
         // argc, then the program's path, NULs, then argv: argc strings, NUL-ended.
-        var i = 4
-        while i < size, buf[i] != 0 { i += 1 }
-        while i < size, buf[i] == 0 { i += 1 }
+        var index = 4
+        while index < size, buf[index] != 0 { index += 1 }
+        while index < size, buf[index] == 0 { index += 1 }
         var args: [String] = []
-        while args.count < argc, i < size {
-            let start = i
-            while i < size, buf[i] != 0 { i += 1 }
-            args.append(String(decoding: buf[start..<i], as: UTF8.self))
-            i += 1
+        while args.count < argc, index < size {
+            let start = index
+            while index < size, buf[index] != 0 { index += 1 }
+            args.append(String(decoding: buf[start..<index], as: UTF8.self))
+            index += 1
         }
         return args
     }
@@ -222,8 +223,8 @@ public enum Subprocess {
     /// `pid` and its descendants, parents before children.
     public static func tree(_ pid: pid_t) -> [pid_t] {
         var kids = [pid_t](repeating: 0, count: 256)
-        let n = Int(proc_listchildpids(pid, &kids, Int32(kids.count * MemoryLayout<pid_t>.size)))
-        return [pid] + kids.prefix(max(0, n)).filter { $0 > 0 }.flatMap(tree)
+        let count = Int(proc_listchildpids(pid, &kids, Int32(kids.count * MemoryLayout<pid_t>.size)))
+        return [pid] + kids.prefix(max(0, count)).filter { $0 > 0 }.flatMap(tree)
     }
 
     /// One pipe, read to its end on a thread of its own; its first `limit` bytes kept.
@@ -247,25 +248,25 @@ public enum Subprocess {
                 var buf = [UInt8](repeating: 0, count: 1 << 16), room = limit
                 var ready = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
                 while true {
-                    let r = poll(&ready, 1, 500)
+                    let polled = poll(&ready, 1, 500)
                     // Closed here, after the last read: the Process holds the pipe too, so it wouldn't close with this.
                     // Checked on every turn: a child that keeps writing would otherwise keep the thread for its life.
                     if abandoned.withLock({ $0 }) {
                         try? pipe.fileHandleForReading.close()
                         break
                     }
-                    if r == 0 || (r < 0 && errno == EINTR) { continue }
-                    let n = read(fd, &buf, buf.count)
-                    if n > 0 {
+                    if polled == 0 || (polled < 0 && errno == EINTR) { continue }
+                    let count = read(fd, &buf, buf.count)
+                    if count > 0 {
                         // Past the limit it's still read (a full pipe would stop the program) and dropped.
-                        let keep = min(n, room)
+                        let keep = min(count, room)
                         room -= keep
                         if keep > 0 {
                             let chunk = Data(buf[0..<keep])
                             kept.withLock { $0.data.append(chunk) }
                         }
-                        if keep < n { kept.withLock { $0.truncated = true } }
-                    } else if n < 0, errno == EINTR {
+                        if keep < count { kept.withLock { $0.truncated = true } }
+                    } else if count < 0, errno == EINTR {
                         continue
                     } else {
                         break

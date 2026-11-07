@@ -10,9 +10,9 @@ extension WorkspaceLayout {
         let picked = all.filter { tabs.contains($0.id) }, rest = all.filter { !tabs.contains($0.id) }
         var used = Set<String>()
         func cell(_ t: [TabRef], showing shown: TabRef) -> GroupModel {
-            var g = GroupModel(tabs: t, selected: shown.id)
-            if let id = group(of: shown.id), used.insert(id).inserted { g.id = id }
-            return g
+            var model = GroupModel(tabs: t, selected: shown.id)
+            if let id = group(of: shown.id), used.insert(id).inserted { model.id = id }
+            return model
         }
         var cells = picked.map { cell([$0], showing: $0) }
         if !rest.isEmpty {
@@ -23,10 +23,10 @@ extension WorkspaceLayout {
         }
         let rows = (cells.count + 2) / 3
         var next = 0
-        let lines: [LayoutNode] = (0..<rows).map { r in
-            let n = cells.count / rows + (r < cells.count % rows ? 1 : 0)
-            defer { next += n }
-            let row = cells[next..<next + n].map { LayoutNode.pane($0.id) }
+        let lines: [LayoutNode] = (0..<rows).map { rowIndex in
+            let size = cells.count / rows + (rowIndex < cells.count % rows ? 1 : 0)
+            defer { next += size }
+            let row = cells[next..<next + size].map { LayoutNode.pane($0.id) }
             return row.count == 1 ? row[0] : .split(vertical: true, children: row)
         }
         groups = Dictionary(uniqueKeysWithValues: cells.map { ($0.id, $0) })

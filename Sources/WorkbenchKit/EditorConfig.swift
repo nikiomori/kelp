@@ -7,12 +7,12 @@ public struct EditorRules: Equatable, Sendable {
 
     /// `self` from a nearer file, `other` from one further up: the nearer one's say stands.
     public func over(_ other: EditorRules) -> EditorRules {
-        var r = self
-        r.tabSize = tabSize ?? other.tabSize
-        r.insertSpaces = insertSpaces ?? other.insertSpaces
-        r.trimTrailingWhitespace = trimTrailingWhitespace ?? other.trimTrailingWhitespace
-        r.insertFinalNewline = insertFinalNewline ?? other.insertFinalNewline
-        return r
+        var merged = self
+        merged.tabSize = tabSize ?? other.tabSize
+        merged.insertSpaces = insertSpaces ?? other.insertSpaces
+        merged.trimTrailingWhitespace = trimTrailingWhitespace ?? other.trimTrailingWhitespace
+        merged.insertFinalNewline = insertFinalNewline ?? other.insertFinalNewline
+        return merged
     }
 }
 
@@ -41,7 +41,7 @@ public enum EditorConfig {
     private static func apply(_ key: String, _ value: String, to r: inout EditorRules) {
         switch key {
         case "indent_style": r.insertSpaces = value == "space" ? true : value == "tab" ? false : nil
-        case "indent_size", "tab_width": if let n = Int(value), n > 0 { r.tabSize = n }
+        case "indent_size", "tab_width": if let size = Int(value), size > 0 { r.tabSize = size }
         case "trim_trailing_whitespace":
             r.trimTrailingWhitespace = value == "true" ? true : value == "false" ? false : nil
         case "insert_final_newline": r.insertFinalNewline = value == "true" ? true : value == "false" ? false : nil
@@ -53,15 +53,15 @@ public enum EditorConfig {
     static func matches(_ glob: String, _ file: String) -> Bool {
         let name = glob.contains("/") ? file : (file as NSString).lastPathComponent
         let bare = glob.hasPrefix("/") ? String(glob.dropFirst()) : glob
-        guard let r = try? NSRegularExpression(pattern: "^" + regex(bare) + "$") else { return false }
-        return r.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
+        guard let pattern = try? NSRegularExpression(pattern: "^" + regex(bare) + "$") else { return false }
+        return pattern.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
     }
 
     private static func regex(_ glob: String) -> String {
         var out = "", braces = 0, i = glob.startIndex
         while i < glob.endIndex {
-            let c = glob[i], next = glob.index(after: i)
-            switch c {
+            let character = glob[i], next = glob.index(after: i)
+            switch character {
             case "*":
                 if next < glob.endIndex, glob[next] == "*" {
                     out += ".*"
@@ -77,7 +77,7 @@ public enum EditorConfig {
                 braces -= 1
                 out += ")"
             case "," where braces > 0: out += "|"
-            default: out += NSRegularExpression.escapedPattern(for: String(c))
+            default: out += NSRegularExpression.escapedPattern(for: String(character))
             }
             i = next
         }

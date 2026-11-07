@@ -5,7 +5,7 @@ public enum SocketError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .path: "the socket's path is longer than macOS allows (104 bytes): set KELP_HOME to a shorter folder"
-        case .socket(let e), .connect(let e), .bind(let e): String(cString: strerror(e))
+        case .socket(let code), .connect(let code), .bind(let code): String(cString: strerror(code))
         case .inUse: "another program answers on Kelp's socket"
         }
     }
@@ -13,14 +13,14 @@ public enum SocketError: Error, CustomStringConvertible {
 
 public enum Unix {
     static func addr(_ path: String) throws -> sockaddr_un {
-        var a = sockaddr_un()
-        a.sun_family = sa_family_t(AF_UNIX)
-        let cap = MemoryLayout.size(ofValue: a.sun_path)
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let cap = MemoryLayout.size(ofValue: address.sun_path)
         guard path.utf8.count < cap else { throw SocketError.path }
-        withUnsafeMutableBytes(of: &a.sun_path) { b in
-            for (i, c) in path.utf8.enumerated() { b[i] = c }
+        withUnsafeMutableBytes(of: &address.sun_path) { bytes in
+            for (index, byte) in path.utf8.enumerated() { bytes[index] = byte }
         }
-        return a
+        return address
     }
 
     /// `patience`: how long a full queue (a burst of clients while a new kelpd takes over, ECONNREFUSED / EAGAIN) is
@@ -28,8 +28,8 @@ public enum Unix {
     public static func connect(_ path: String, patience: TimeInterval) throws -> Int32 {
         let end = Date().addingTimeInterval(patience)
         while true {
-            do { return try connect(path) } catch SocketError.connect(let e)
-                where (e == ECONNREFUSED || e == EAGAIN) && Date() < end
+            do { return try connect(path) } catch SocketError.connect(let code)
+                where (code == ECONNREFUSED || code == EAGAIN) && Date() < end
             {
                 usleep(50_000)
             }
@@ -39,16 +39,16 @@ public enum Unix {
     public static func connect(_ path: String) throws -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.socket(errno) }
-        var a = try addr(path)
-        let r = withUnsafePointer(to: &a) {
+        var address = try addr(path)
+        let result = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        guard r == 0 else {
-            let e = errno
+        guard result == 0 else {
+            let code = errno
             close(fd)
-            throw SocketError.connect(e)
+            throw SocketError.connect(code)
         }
         noSigPipe(fd)
         return fd
@@ -70,17 +70,17 @@ public enum Unix {
         unlink(path)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.socket(errno) }
-        var a = try addr(path)
+        var address = try addr(path)
         closeOffDirectory((path as NSString).deletingLastPathComponent)
-        let r = withUnsafePointer(to: &a) {
+        let result = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        guard r == 0, Darwin.listen(fd, SOMAXCONN) == 0 else {
-            let e = errno
+        guard result == 0, Darwin.listen(fd, SOMAXCONN) == 0 else {
+            let code = errno
             close(fd)
-            throw SocketError.bind(e)
+            throw SocketError.bind(code)
         }
         chmod(path, 0o600)   // the socket is the auth boundary locally
         return fd
@@ -124,19 +124,19 @@ public enum Unix {
     /// Write all bytes, retrying on partial writes. Returns false if the peer is gone.
     @discardableResult
     public static func writeAll(_ fd: Int32, _ data: Data) -> Bool {
-        data.withUnsafeBytes { (p: UnsafeRawBufferPointer) in
-            guard let base = p.baseAddress else { return true }   // nothing to write
+        data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+            guard let base = bytes.baseAddress else { return true }   // nothing to write
             var off = 0
-            while off < p.count {
-                let n = Darwin.write(fd, base + off, p.count - off)
-                if n < 0, errno == EINTR { continue }
-                if n < 0, errno == EAGAIN {   // full: wait until it can take more, rather than spin
+            while off < bytes.count {
+                let written = Darwin.write(fd, base + off, bytes.count - off)
+                if written < 0, errno == EINTR { continue }
+                if written < 0, errno == EAGAIN {   // full: wait until it can take more, rather than spin
                     var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
                     if poll(&pfd, 1, 5000) <= 0 { return false }   // nobody reading for 5 s: gone
                     continue
                 }
-                if n < 0 { return false }
-                off += n
+                if written < 0 { return false }
+                off += written
             }
             return true
         }

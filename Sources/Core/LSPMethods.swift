@@ -112,14 +112,14 @@ public enum LSPRefusal: Codable, Sendable, Equatable {
         let message =
             switch self {
             case .untrusted: "This project isn't trusted to run its language servers."
-            case .notInstalled(let c): "Language server \(c) isn't installed."
+            case .notInstalled(let command): "Language server \(command) isn't installed."
             }
         return RPCError(code: -32002, message: message, data: try? JSONValue.from(self))
     }
     /// The refusal a daemon's error carries, when it's this kind of error.
     public init?(_ error: Error) {
-        guard let d = (error as? RPCError)?.data, let r = try? d.decode(LSPRefusal.self) else { return nil }
-        self = r
+        guard let data = (error as? RPCError)?.data, let refusal = try? data.decode(LSPRefusal.self) else { return nil }
+        self = refusal
     }
 }
 

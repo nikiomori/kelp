@@ -113,10 +113,10 @@ extension Main {
 
     /// Waits a second for a key, so the list keeps up meanwhile. A terminal that's gone reads as quit.
     private static func readKey() -> Key? {
-        var p = pollfd(fd: 0, events: Int16(POLLIN), revents: 0), buf = [UInt8](repeating: 0, count: 16)
-        guard poll(&p, 1, 1000) > 0 else { return nil }
-        let n = read(0, &buf, buf.count)
-        return n <= 0 ? .quit : keys[Array(buf[0..<n])]
+        var pollFD = pollfd(fd: 0, events: Int16(POLLIN), revents: 0), buf = [UInt8](repeating: 0, count: 16)
+        guard poll(&pollFD, 1, 1000) > 0 else { return nil }
+        let bytesRead = read(0, &buf, buf.count)
+        return bytesRead <= 0 ? .quit : keys[Array(buf[0..<bytesRead])]
     }
 
     private static func runAttach(_ id: String) {

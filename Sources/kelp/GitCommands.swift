@@ -50,9 +50,9 @@ extension Main {
                 print("#\(x.number)  \(x.title)  \(x.url)")
             }
         case ("github", "checks"):
-            let w = try await currentWorktree(c)
-            let pr = args.first.flatMap(Int.init) ?? w.prNumber ?? 0
-            for x in try await c.call(GitHubChecks(worktreeId: w.id, pr: pr)) {
+            let worktree = try await currentWorktree(c)
+            let pr = args.first.flatMap(Int.init) ?? worktree.prNumber ?? 0
+            for x in try await c.call(GitHubChecks(worktreeId: worktree.id, pr: pr)) {
                 print("\(x.bucket)\t\(x.name)\t\(x.link)")
             }
         case ("github", "pr-create"):
@@ -68,42 +68,42 @@ extension Main {
         case ("github", "issue"), ("linear", "start"):   // kelp github issue 123 | kelp linear start ENG-123
             let repo = try await currentRepoID(c)
             guard let ref = args.first else { fail("issue number / identifier required") }
-            var p: [String: JSONValue] = ["repoId": .string(repo), "agent": .string(flag("--agent") ?? "claude")]
+            var params: [String: JSONValue] = ["repoId": .string(repo), "agent": .string(flag("--agent") ?? "claude")]
             if cmd == "github" {
-                let n = Int(ref.trimmingCharacters(in: CharacterSet(charactersIn: "#"))) ?? 0
+                let number = Int(ref.trimmingCharacters(in: CharacterSet(charactersIn: "#"))) ?? 0
                 let open = try await c.call(GitHubIssues(repoId: repo))
-                guard let i = open.first(where: { $0.number == n }) else {
-                    fail("issue #\(n) not found among open issues")
+                guard let issue = open.first(where: { $0.number == number }) else {
+                    fail("issue #\(number) not found among open issues")
                 }
-                p["ref"] = .string("#\(n)")
-                p["title"] = .string(i.title)
-                p["body"] = .string(i.body)
-                p["url"] = .string(i.url)
+                params["ref"] = .string("#\(number)")
+                params["title"] = .string(issue.title)
+                params["body"] = .string(issue.body)
+                params["url"] = .string(issue.url)
             } else {
                 let mine = try await c.call(LinearIssues())
-                guard let i = mine.first(where: { $0.identifier.lowercased() == ref.lowercased() }) else {
+                guard let issue = mine.first(where: { $0.identifier.lowercased() == ref.lowercased() }) else {
                     fail("\(ref) not found in your Linear issues")
                 }
-                p["ref"] = .string(i.identifier)
-                p["title"] = .string(i.title)
-                p["body"] = .string(i.description ?? "")
-                p["url"] = .string(i.url)
-                p["linearId"] = .string(i.id)
+                params["ref"] = .string(issue.identifier)
+                params["title"] = .string(issue.title)
+                params["body"] = .string(issue.description ?? "")
+                params["url"] = .string(issue.url)
+                params["linearId"] = .string(issue.id)
             }
-            if has("--send") { p["draft"] = false }
-            let r = try await c.call(try JSONValue.object(p).decode(TaskFromIssue.self))
-            print("\(r.worktree.branch)  \(r.worktree.path)")
+            if has("--send") { params["draft"] = false }
+            let task = try await c.call(try JSONValue.object(params).decode(TaskFromIssue.self))
+            print("\(task.worktree.branch)  \(task.worktree.path)")
             if !has("--send") {
                 print("The issue's text is typed into the agent, not sent: look it over in Kelp and press Return.")
             }
-            if r.setupNeedsTrust {
+            if task.setupNeedsTrust {
                 print("Its setup didn't run: open the project in Kelp to look at its commands and trust them.")
             }
         case ("linear", "tasks"):
             for x in try await c.call(LinearIssues()) { print("\(x.identifier)  [\(x.state.name)]  \(x.title)") }
         case ("linear", "login"):
-            guard let k = args.first else { fail("linear login <api-key>") }
-            show(try .from(try await c.call(LinearSetKey(key: k))))
+            guard let key = args.first else { fail("linear login <api-key>") }
+            show(try .from(try await c.call(LinearSetKey(key: key))))
         default: print(usage)
         }
     }

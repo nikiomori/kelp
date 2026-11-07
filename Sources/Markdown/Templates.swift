@@ -5,11 +5,11 @@ public enum Templates {
     /// Built-ins `date` (yyyy-MM-dd), `time` (HH:mm), `datetime`; `vars` (branch, title, repo, …) override them.
     /// Unknown placeholders are left untouched.
     public static func expand(_ text: String, vars: [String: String], now: Date = Date()) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        func fmt(_ p: String) -> String {
-            f.dateFormat = p
-            return f.string(from: now)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        func fmt(_ pattern: String) -> String {
+            formatter.dateFormat = pattern
+            return formatter.string(from: now)
         }
         let all = ["date": fmt("yyyy-MM-dd"), "time": fmt("HH:mm"), "datetime": fmt("yyyy-MM-dd HH:mm")].merging(vars) {
             $1

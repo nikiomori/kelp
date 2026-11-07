@@ -7,30 +7,30 @@ extension Main {
         switch (cmd, sub) {
         case ("session", "new"):
             let wait = has("--wait"), split = flag("--split"), outlive = has("--outlive")
-            var p = SessionCreate(
+            var request = SessionCreate(
                 agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"),
                 title: flag("--title"))
             // Inside an agent, an agent it starts is its child and a command goes on its line, split or not: agents keep
             // asking for a split out of habit, and a pane is what the line is there to spare. The daemon ignores this for anything else.
-            if !outlive { p.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
+            if !outlive { request.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
-            if let w = flag("--worktree") {
-                p.worktreeId = try await resolve(c, w, "worktree.list")
-            } else if let w = try? await currentWorktree(c) {
-                p.worktreeId = w.id
+            if let ref = flag("--worktree") {
+                request.worktreeId = try await resolve(c, ref, "worktree.list")
+            } else if let worktree = try? await currentWorktree(c) {
+                request.worktreeId = worktree.id
             } else {
                 fail(
                     "not inside a Kelp project: run it in a project's folder or pass --worktree <id> (see `kelp status`)"
                 )
             }
-            let s = try await c.call(p), id = s.id
+            let session = try await c.call(request), id = session.id
             // Its tab beside yours; without the app it runs all the same (its row shows once the app opens).
-            if let split, s.startedBy == nil {
+            if let split, session.startedBy == nil {
                 _ = try? await IDE.open(
                     "session:\(id)", split: split, cwd: FileManager.default.currentDirectoryPath, client: c)
             }
             guard wait else {
-                show(try .from(s))
+                show(try .from(session))
                 return
             }
             print(id)   // for `kelp terminal read`, once it ends
@@ -41,11 +41,11 @@ extension Main {
                 timeout = flag("--timeout").map(duration)
             let id = try await resolve(c, target, "session.list")
             guard
-                let s = try await waitFor(
+                let session = try await waitFor(
                     c, id, timeout: timeout, until: { want?.contains($0.status.rawValue) ?? ($0.status != .working) })
             else { fail("timed out") }
-            print(s.status.rawValue)
-            if s.status == .exited { exit(Int32(s.exitCode ?? 0)) }   // its command's exit code
+            print(session.status.rawValue)
+            if session.status == .exited { exit(Int32(session.exitCode ?? 0)) }   // its command's exit code
         case ("wait", nil):
             guard let how = flag("--children"), ["all", "any"].contains(how),
                 let me = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -107,10 +107,10 @@ extension Main {
     {
         let end = timeout.map { Date().addingTimeInterval($0) }
         while true {
-            guard let s = try await c.call(SessionList()).first(where: { $0.id == id }) else {
+            guard let session = try await c.call(SessionList()).first(where: { $0.id == id }) else {
                 fail("no session \(id)")
             }
-            if done(s) || s.status == .exited || s.status == .paused { return s }
+            if done(session) || session.status == .exited || session.status == .paused { return session }
             if let end, Date() > end { return nil }
             try await Task.sleep(for: .milliseconds(500))
         }
@@ -137,9 +137,9 @@ extension Main {
     /// "90", "30s", "10m", "1h" → seconds.
     static func duration(_ s: String) -> TimeInterval {
         let unit = ["s": 1.0, "m": 60, "h": 3600][String(s.suffix(1))]
-        guard let n = Double(unit == nil ? s : String(s.dropLast())) else {
+        guard let amount = Double(unit == nil ? s : String(s.dropLast())) else {
             fail("bad duration \(s): use 30s, 10m or 1h")
         }
-        return n * (unit ?? 1)
+        return amount * (unit ?? 1)
     }
 }

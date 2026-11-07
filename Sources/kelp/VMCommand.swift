@@ -28,35 +28,35 @@ extension Main {
                     "vm create <name> [--image debian-13|macos|android|ios] [--file image.ipsw|disk.raw] [--cpus 2] [--memory 2] [--disk 32]"
                 )
             }
-            let r = VMCreate(
+            let request = VMCreate(
                 name: name, image: flag("--image"), cpus: flag("--cpus").flatMap(Int.init),
                 memory: flag("--memory").flatMap(Int.init), disk: flag("--disk").flatMap(Int.init),
                 file: flag("--file").map { URL(fileURLWithPath: $0).standardizedFileURL.path })
             func said(_ v: VMInfo) -> String? {
                 v.step.map { $0.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? "") }
             }
-            var last = said(try await c.call(r))
+            var last = said(try await c.call(request))
             if let last { print(last) }
             while true {   // it answers at once; its progress is in the list
                 try await Task.sleep(nanoseconds: 1_000_000_000)
-                guard let v = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
+                guard let info = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
                     fail("\(name) is gone")
                 }
-                if v.state == .error { fail("error: \(v.detail ?? "it failed")") }
-                if v.state != .creating { return print(line(v)) }
-                if let s = said(v), s != last {
-                    print(s)
-                    last = s
+                if info.state == .error { fail("error: \(info.detail ?? "it failed")") }
+                if info.state != .creating { return print(line(info)) }
+                if let status = said(info), status != last {
+                    print(status)
+                    last = status
                 }
             }
         case "screenshot", "click", "move", "drag", "scroll", "type", "key", "ui", "press", "install", "launch", "open":
             try await screen(sub ?? "", c)
         case "set":
             guard let name = args.first else { fail("vm set <name> [--cpus N] [--memory GB] [--disk GB]") }
-            let r = VMConfigure(
+            let request = VMConfigure(
                 name: name, cpus: flag("--cpus").flatMap(Int.init), memory: flag("--memory").flatMap(Int.init),
                 disk: flag("--disk").flatMap(Int.init))
-            print(line(try await c.call(r)))
+            print(line(try await c.call(request)))
         case "password":
             guard let name = args.first else { fail("vm password <name>") }
             _ = try await c.call(VMType(name: name))
@@ -102,16 +102,16 @@ extension Main {
     private static func screen(_ action: String, _ c: RPCClient) async throws {
         guard let name = args.first else { fail("vm \(action) <name> …") }
         args.removeFirst()
-        guard let v = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
+        guard let info = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
             fail("No machine called \(name).")
         }
-        guard v.machine.os != "linux" else {
+        guard info.machine.os != "linux" else {
             fail("\(name) is Linux: it has no screen. kelp vm run \(name) -- <command> runs commands in it.")
         }
-        if v.machine.os == "android" {
+        if info.machine.os == "android" {
             return try await android(action, adb: try await c.call(VMConnect(name: name, cwd: nil)).ssh)
         }
-        if v.machine.os == "ios" { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
+        if info.machine.os == "ios" { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
         guard !["install", "launch", "open"].contains(action) else {
             fail("\(action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
         }
@@ -154,14 +154,14 @@ extension Main {
     /// An Android machine's screen through adb: pixels of its screen for screenshots and taps alike.
     private static func android(_ action: String, adb: [String]) async throws {
         func run(_ a: [String]) -> Data {
-            let p = Process(), out = Pipe()
-            p.executableURL = URL(fileURLWithPath: adb[0])
-            p.arguments = Array(adb.dropFirst()) + a
-            p.standardOutput = out
-            do { try p.run() } catch { fail("adb: \(error)") }
+            let process = Process(), out = Pipe()
+            process.executableURL = URL(fileURLWithPath: adb[0])
+            process.arguments = Array(adb.dropFirst()) + a
+            process.standardOutput = out
+            do { try process.run() } catch { fail("adb: \(error)") }
             let data = out.fileHandleForReading.readDataToEndOfFile()
-            p.waitUntilExit()
-            if p.terminationStatus != 0 { exit(p.terminationStatus) }
+            process.waitUntilExit()
+            if process.terminationStatus != 0 { exit(process.terminationStatus) }
             return data
         }
         func int(_ i: Int) -> String {
@@ -208,10 +208,10 @@ extension Main {
                 screen.centers[target] != nil
                 ? target
                 : named.flatMap { l in l.range(of: "[ref=").map { String(l[$0.upperBound...].prefix { $0 != "]" }) } }
-            guard let ref, let c = screen.centers[ref] else {
+            guard let ref, let center = screen.centers[ref] else {
                 fail("No \(target) on its screen: kelp vm ui shows what's there.")
             }
-            _ = run(["shell", "input", "tap", "\(c.x)", "\(c.y)"])
+            _ = run(["shell", "input", "tap", "\(center.x)", "\(center.y)"])
             print("pressed")
         case "launch":
             guard let id = args.first else { fail("vm launch <name> PACKAGE") }
@@ -237,11 +237,11 @@ extension Main {
         func runner(_ op: String, _ a: [String] = []) -> [String: Any] {
             var request: [String: Any] = ["op": op, "args": a]
             if let app = flag("--app") { request["app"] = app }
-            guard let r = IOSRunnerClient.ask(port: port, request) else {
+            guard let reply = IOSRunnerClient.ask(port: port, request) else {
                 fail("Kelp's runner didn't answer: kelp vm stop and start the machine.")
             }
-            if let e = r["error"] as? String { fail(e) }
-            return r
+            if let message = reply["error"] as? String { fail(message) }
+            return reply
         }
         func text(_ op: String, _ a: [String] = []) { print(runner(op, a)["text"] as? String ?? "") }
         switch action {
@@ -250,12 +250,12 @@ extension Main {
             simctl(["install", udid, URL(fileURLWithPath: app).standardizedFileURL.path])
         case "launch":
             guard let id = args.first else { fail("vm launch <name> BUNDLE-ID") }
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: to.ssh[0])
-            p.arguments = Array(to.ssh.dropFirst()) + ["launch", udid, id]
-            try p.run()
-            p.waitUntilExit()
-            guard p.terminationStatus == 0 else { exit(p.terminationStatus) }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: to.ssh[0])
+            process.arguments = Array(to.ssh.dropFirst()) + ["launch", udid, id]
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { exit(process.terminationStatus) }
             _ = IOSRunnerClient.ask(port: port, ["op": "app", "app": id])   // ui, type and press act on it from now on
         case "open":
             guard let url = args.first else { fail("vm open <name> URL") }
@@ -271,8 +271,9 @@ extension Main {
             try png.write(to: out)
             print(out.path)
         case "click":
-            let a = Array(args.prefix(2)) + (has("--double") ? ["--double"] : []) + (has("--right") ? ["--long"] : [])
-            text("tap", a)
+            let tapArgs =
+                Array(args.prefix(2)) + (has("--double") ? ["--double"] : []) + (has("--right") ? ["--long"] : [])
+            text("tap", tapArgs)
         case "drag": text("swipe", Array(args.prefix(4)))
         case "scroll":
             let dy = Double(args.first ?? "") ?? 0, x = args.count > 2 ? args[1] : "196",
@@ -296,26 +297,26 @@ extension Main {
             image.padding(toLength: 12, withPad: " ", startingAt: 0),
             v.state.rawValue
         ]
-        if let c = v.cpu { parts.append(String(format: "%.0f%% CPU", c)) }
-        if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
-        if v.state == .sleeping || v.state == .off, let d = v.diskMiB {
-            parts.append(String(format: "%.1f GB on disk", Double(d) / 1024))
+        if let cpu = v.cpu { parts.append(String(format: "%.0f%% CPU", cpu)) }
+        if let memory = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(memory) / 1024)) }
+        if v.state == .sleeping || v.state == .off, let disk = v.diskMiB {
+            parts.append(String(format: "%.1f GB on disk", Double(disk) / 1024))
         }
-        if let n = v.connections, n > 0 { parts.append("\(n) open") }
+        if let connections = v.connections, connections > 0 { parts.append("\(connections) open") }
         if v.state == .sleeping {
             parts.append(v.machine.os == "linux" ? "wakes in under a second" : "wakes in a few seconds")
         }
-        if let s = v.step {
-            parts.append(s.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? ""))
-        } else if let d = v.detail {
-            parts.append(d)
+        if let step = v.step {
+            parts.append(step.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? ""))
+        } else if let detail = v.detail {
+            parts.append(detail)
         }
         return parts.joined(separator: "  ")
     }
 
     private static func exec(_ argv: [String]) -> Never {
-        let c = argv.map { strdup($0) } + [nil]
-        execv(argv[0], c)
+        let cArgs = argv.map { strdup($0) } + [nil]
+        execv(argv[0], cArgs)
         fail("kelp: \(argv[0]): \(String(cString: strerror(errno)))")
     }
 }

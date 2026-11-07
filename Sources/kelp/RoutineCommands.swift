@@ -5,10 +5,12 @@ extension Main {
     /// `routine add|list|run|rm`.
     static func routines(_ sub: String?, _ c: RPCClient) async throws {
         func id() async throws -> String {
-            let p = args.first ?? "",
-                found = try await c.call(RoutineList()).routines.map(\.id).filter { !p.isEmpty && $0.hasPrefix(p) }
+            let prefix = args.first ?? "",
+                found = try await c.call(RoutineList()).routines.map(\.id).filter {
+                    !prefix.isEmpty && $0.hasPrefix(prefix)
+                }
             guard found.count == 1 else {
-                fail(found.isEmpty ? "no routine \(p) (see `kelp routine list`)" : "ambiguous: \(p)")
+                fail(found.isEmpty ? "no routine \(prefix) (see `kelp routine list`)" : "ambiguous: \(prefix)")
             }
             return found[0]
         }

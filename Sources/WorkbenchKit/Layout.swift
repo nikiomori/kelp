@@ -7,43 +7,44 @@ public indirect enum LayoutNode: Codable, Equatable {
 
     public var sessions: [String] {
         switch self {
-        case .pane(let s): [s]
-        case .split(_, let c): c.flatMap(\.sessions)
+        case .pane(let session): [session]
+        case .split(_, let children): children.flatMap(\.sessions)
         }
     }
 
     public func removing(_ id: String) -> LayoutNode? {
         switch self {
-        case .pane(let s): return s == id ? nil : self
-        case .split(let v, let c):
-            let k = c.compactMap { $0.removing(id) }
-            if k.isEmpty { return nil }
-            return k.count == 1 ? k[0] : .split(vertical: v, children: k)
+        case .pane(let session): return session == id ? nil : self
+        case .split(let vertical, let children):
+            let kept = children.compactMap { $0.removing(id) }
+            if kept.isEmpty { return nil }
+            return kept.count == 1 ? kept[0] : .split(vertical: vertical, children: kept)
         }
     }
 
     /// Put `new` next to `target`. `vertical` = side-by-side; `before` places it left/top.
     public func inserting(_ new: String, beside target: String, vertical: Bool, before: Bool) -> LayoutNode {
         switch self {
-        case .pane(let s):
-            guard s == target else { return self }
+        case .pane(let session):
+            guard session == target else { return self }
             let pair: [LayoutNode] = before ? [.pane(new), self] : [self, .pane(new)]
             return .split(vertical: vertical, children: pair)
-        case .split(let v, let c):
-            if v == vertical, let i = c.firstIndex(of: .pane(target)) {
-                var k = c
-                k.insert(.pane(new), at: before ? i : i + 1)
-                return .split(vertical: v, children: k)
+        case .split(let splitVertical, let children):
+            if splitVertical == vertical, let index = children.firstIndex(of: .pane(target)) {
+                var newChildren = children
+                newChildren.insert(.pane(new), at: before ? index : index + 1)
+                return .split(vertical: splitVertical, children: newChildren)
             }
             return .split(
-                vertical: v, children: c.map { $0.inserting(new, beside: target, vertical: vertical, before: before) })
+                vertical: splitVertical,
+                children: children.map { $0.inserting(new, beside: target, vertical: vertical, before: before) })
         }
     }
 
     /// One key per split: its children's first panes (where the UI keeps divider positions).
     public var splitKeys: Set<String> {
-        guard case .split(_, let c) = self else { return [] }
-        return c.reduce(into: [Self.splitKey(c)]) { $0.formUnion($1.splitKeys) }
+        guard case .split(_, let children) = self else { return [] }
+        return children.reduce(into: [Self.splitKey(children)]) { $0.formUnion($1.splitKeys) }
     }
     public static func splitKey(_ children: [LayoutNode]) -> String {
         children.compactMap(\.sessions.first).joined(separator: ",")

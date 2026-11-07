@@ -92,22 +92,24 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
     public func next(after date: Date, calendar: Calendar = .current) -> Date? {
         let at = DateComponents(
             hour: every == .hourly ? nil : time / 60, minute: time % 60, weekday: every == .weekly ? weekday : nil)
-        var d = date
+        var cursor = date
         for _ in 0..<7 {   // weekdays: past a Saturday and a Sunday at most
-            guard let n = calendar.nextDate(after: d, matching: at, matchingPolicy: .nextTime) else { return nil }
-            let day = calendar.component(.weekday, from: n)
-            if every != .weekdays || (day != 1 && day != 7) { return n }
-            d = n
+            guard let due = calendar.nextDate(after: cursor, matching: at, matchingPolicy: .nextTime) else {
+                return nil
+            }
+            let day = calendar.component(.weekday, from: due)
+            if every != .weekdays || (day != 1 && day != 7) { return due }
+            cursor = due
         }
         return nil
     }
 
     /// The due times after `from`, up to and including `to`.
     public func times(after from: Date, through to: Date, calendar: Calendar = .current) -> [Date] {
-        var out: [Date] = [], d = from
-        while out.count < 400, let n = next(after: d, calendar: calendar), n <= to {
-            out.append(n)
-            d = n
+        var out: [Date] = [], cursor = from
+        while out.count < 400, let due = next(after: cursor, calendar: calendar), due <= to {
+            out.append(due)
+            cursor = due
         }
         return out
     }

@@ -198,8 +198,8 @@ private func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 514, "lines over 120: \(over120)")
-    #expect(over120 >= 514, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 513, "lines over 120: \(over120)")
+    #expect(over120 >= 513, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// Three statements on one line (`a; b; c`) are read as one: the daemon's code has one or two a line. String and regex

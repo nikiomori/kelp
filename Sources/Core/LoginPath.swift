@@ -65,17 +65,17 @@ public enum LoginPath {
     /// fails or takes over 8 s (a slow or prompting profile must not hold up agents). nil when it couldn't start here (an
     /// in-order call, `Subprocess.quickOnly`): not an answer to keep.
     static func shellPath(shell: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh") -> String? {
-        let r: Subprocess.Output
+        let result: Subprocess.Output
         do {
-            r = try Subprocess.run(
+            result = try Subprocess.run(
                 [shell, "-ilc", "printf '__KELP__%s__KELP__' \"$PATH\""], cwd: NSHomeDirectory(),
                 env: ProcessInfo.processInfo.environment, timeLimit: 8)
         } catch is RPCError { return nil } catch { return "" }   // refused here; no such shell
-        let s = String(decoding: r.stdout, as: UTF8.self)
-        guard !r.timedOut, let a = s.range(of: "__KELP__"),
-            let b = s.range(of: "__KELP__", range: a.upperBound..<s.endIndex)
+        let output = String(decoding: result.stdout, as: UTF8.self)
+        guard !result.timedOut, let start = output.range(of: "__KELP__"),
+            let end = output.range(of: "__KELP__", range: start.upperBound..<output.endIndex)
         else { return "" }
-        return String(s[a.upperBound..<b.lowerBound])
+        return String(output[start.upperBound..<end.lowerBound])
     }
 
     /// A value read once, by the first caller that needs it; the callers meanwhile wait for that read, except through
@@ -88,16 +88,16 @@ public enum LoginPath {
 
         var ifRead: String? { known.withLock { $0 } }
 
-        func replace(_ v: String) { known.withLock { $0 = v } }
+        func replace(_ path: String) { known.withLock { $0 = path } }
 
         var value: String {
-            if let v = ifRead { return v }
+            if let found = ifRead { return found }
             reading.lock()
             defer { reading.unlock() }
-            if let v = ifRead { return v }   // read by the caller this one waited for
-            guard let v = read() else { return LoginPath.path("") }
-            known.withLock { $0 = v }
-            return v
+            if let found = ifRead { return found }   // read by the caller this one waited for
+            guard let found = read() else { return LoginPath.path("") }
+            known.withLock { $0 = found }
+            return found
         }
     }
 }

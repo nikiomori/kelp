@@ -8,26 +8,26 @@ public struct LSPFramer: Sendable {
     static let maxBody = 256 << 20
     public init() {}
     public static func frame(_ body: Data) -> Data { Data("Content-Length: \(body.count)\r\n\r\n".utf8) + body }
-    public mutating func append(_ d: Data) -> [Data] {
-        buf.append(d)
+    public mutating func append(_ chunk: Data) -> [Data] {
+        buf.append(chunk)
         var out: [Data] = []
         let sep = Data("\r\n\r\n".utf8)
-        while let r = buf.range(of: sep) {
-            let header = String(decoding: buf[buf.startIndex..<r.lowerBound], as: UTF8.self)
+        while let headerEnd = buf.range(of: sep) {
+            let header = String(decoding: buf[buf.startIndex..<headerEnd.lowerBound], as: UTF8.self)
             // A missing, negative or absurd length is a broken header: skip it rather than trap or wait forever.
             guard
-                let len = header.split(separator: "\r\n").compactMap({ l -> Int? in
-                    let p = l.split(separator: ":", maxSplits: 1)
-                    return p.count == 2 && p[0].lowercased() == "content-length"
-                        ? Int(p[1].trimmingCharacters(in: .whitespaces)) : nil
+                let len = header.split(separator: "\r\n").compactMap({ line -> Int? in
+                    let parts = line.split(separator: ":", maxSplits: 1)
+                    return parts.count == 2 && parts[0].lowercased() == "content-length"
+                        ? Int(parts[1].trimmingCharacters(in: .whitespaces)) : nil
                 }).first, (0...Self.maxBody).contains(len)
             else {
-                buf.removeSubrange(buf.startIndex..<r.upperBound)
+                buf.removeSubrange(buf.startIndex..<headerEnd.upperBound)
                 continue
             }
-            guard buf.distance(from: r.upperBound, to: buf.endIndex) >= len else { break }
-            let end = buf.index(r.upperBound, offsetBy: len)
-            out.append(Data(buf[r.upperBound..<end]))
+            guard buf.distance(from: headerEnd.upperBound, to: buf.endIndex) >= len else { break }
+            let end = buf.index(headerEnd.upperBound, offsetBy: len)
+            out.append(Data(buf[headerEnd.upperBound..<end]))
             buf.removeSubrange(buf.startIndex..<end)
         }
         return out
@@ -91,9 +91,11 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         Thread.detachNewThread { [weak self] in
             var framer = LSPFramer(), buf = [UInt8](repeating: 0, count: 1 << 16)
             withExtendedLifetime(reading) {
-                while case let n = read(reading.fileDescriptor, &buf, buf.count), n > 0 || (n < 0 && errno == EINTR) {
-                    guard n > 0 else { continue }
-                    for body in framer.append(Data(buf[0..<n])) { self?.handle(body) }
+                while case let count = read(reading.fileDescriptor, &buf, buf.count),
+                    count > 0 || (count < 0 && errno == EINTR)
+                {
+                    guard count > 0 else { continue }
+                    for body in framer.append(Data(buf[0..<count])) { self?.handle(body) }
                 }
             }
             self?.fail(RPCError.internalError("language server exited"))
@@ -117,71 +119,73 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     static let timeoutsToGiveUp = 3
     public var isRunning: Bool { state.withLock { !$0.exited } }
 
-    private func fail(_ e: RPCError) {
-        let all = state.withLock { s in
-            defer { s.pending = [:] }
-            s.exited = true
-            return s.pending
+    private func fail(_ error: RPCError) {
+        let all = state.withLock { locked in
+            defer { locked.pending = [:] }
+            locked.exited = true
+            return locked.pending
         }
-        all.values.forEach { $0.resume(throwing: e) }
+        all.values.forEach { $0.resume(throwing: error) }
     }
 
     /// Decoded as plain JSON: ids may be numbers or strings.
     private func handle(_ body: Data) {
-        guard let m = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
-        let id = m["id"].flatMap { $0 == .null ? nil : $0 }
-        if let method = m["method"]?.string {   // a request (workspace/configuration) gets null; of the notifications, only diagnostics count
+        guard let message = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
+        let id = message["id"].flatMap { $0 == .null ? nil : $0 }
+        if let method = message["method"]?.string {   // a request (workspace/configuration) gets null; of the notifications, only diagnostics count
             if let id { send(["jsonrpc": "2.0", "id": id, "result": .null]) }
-            if method == "textDocument/publishDiagnostics", let p = m["params"], let (path, found) = Self.problems(p) {
-                state.withLock { $0.diagnostics[path] = p["diagnostics"]?.array }
+            if method == "textDocument/publishDiagnostics", let params = message["params"],
+                let (path, found) = Self.problems(params)
+            {
+                state.withLock { $0.diagnostics[path] = params["diagnostics"]?.array }
                 onProblems?(path, found)
             }
             return
         }
         guard let id = id?.int else { return }
-        let c = state.withLock { s in
-            s.timeouts = 0
-            return s.pending.removeValue(forKey: id)
+        let waiting = state.withLock { locked in
+            locked.timeouts = 0
+            return locked.pending.removeValue(forKey: id)
         }
-        if let e = m["error"], e != .null {
-            c?.resume(
+        if let error = message["error"], error != .null {
+            waiting?.resume(
                 throwing: RPCError(
-                    code: e["code"]?.int ?? -32603, message: e["message"]?.string ?? "language server error"))
+                    code: error["code"]?.int ?? -32603, message: error["message"]?.string ?? "language server error"))
         } else {
-            c?.resume(returning: m["result"] ?? .null)
+            waiting?.resume(returning: message["result"] ?? .null)
         }
     }
 
     /// Encoded on the write queue too: didChange sends the whole document, and the caller is usually the main thread.
-    private func send(_ o: [String: JSONValue]) {
-        let h = input.fileHandleForWriting   // not self: a blocked write must not keep the client alive
+    private func send(_ message: [String: JSONValue]) {
+        let handle = input.fileHandleForWriting   // not self: a blocked write must not keep the client alive
         writes.async {
-            guard let d = try? JSONEncoder().encode(JSONValue.object(o)) else { return }
-            try? h.write(contentsOf: LSPFramer.frame(d))
+            guard let data = try? JSONEncoder().encode(JSONValue.object(message)) else { return }
+            try? handle.write(contentsOf: LSPFramer.frame(data))
         }
     }
 
     public func request(_ method: String, _ params: JSONValue, timeout: TimeInterval = 30) async throws -> JSONValue {
-        try await withCheckedThrowingContinuation { c in
-            let id = state.withLock { s -> Int? in
-                guard !s.exited else { return nil }
-                defer { s.nextID += 1 }
-                s.pending[s.nextID] = c
-                return s.nextID
+        try await withCheckedThrowingContinuation { continuation in
+            let id = state.withLock { locked -> Int? in
+                guard !locked.exited else { return nil }
+                defer { locked.nextID += 1 }
+                locked.pending[locked.nextID] = continuation
+                return locked.nextID
             }
             guard let id else {
-                c.resume(throwing: RPCError.internalError("language server exited"))
+                continuation.resume(throwing: RPCError.internalError("language server exited"))
                 return
             }
             send(["jsonrpc": "2.0", "id": .int(id), "method": .string(method), "params": params])
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
                 guard let self else { return }
-                let (c, hung) = state.withLock { s in
-                    let c = s.pending.removeValue(forKey: id)
-                    if c != nil { s.timeouts += 1 }
-                    return (c, s.timeouts >= Self.timeoutsToGiveUp)
+                let (waiting, hung) = state.withLock { locked in
+                    let waiting = locked.pending.removeValue(forKey: id)
+                    if waiting != nil { locked.timeouts += 1 }
+                    return (waiting, locked.timeouts >= Self.timeoutsToGiveUp)
                 }
-                c?.resume(
+                waiting?.resume(
                     throwing: RPCError.internalError(
                         "no answer to \(method) from the language server in \(Int(timeout)) s"))
                 if hung {
@@ -237,14 +241,17 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// `publishDiagnostics`' params: errors and warnings, not the hints a server has for every other line.
     static func problems(_ params: JSONValue) -> (path: String, found: [CodeProblem])? {
         guard let uri = params["uri"]?.string, let path = URL(string: uri)?.path else { return nil }
-        let found = (params["diagnostics"]?.array ?? []).compactMap { d -> CodeProblem? in
-            guard let start = d["range"]?["start"], let end = d["range"]?["end"], let l = start["line"]?.int,
-                let c = start["character"]?.int,
-                let el = end["line"]?.int, let ec = end["character"]?.int, let message = d["message"]?.string
+        let found = (params["diagnostics"]?.array ?? []).compactMap { diagnostic -> CodeProblem? in
+            guard let start = diagnostic["range"]?["start"], let end = diagnostic["range"]?["end"],
+                let line = start["line"]?.int, let column = start["character"]?.int,
+                let endLine = end["line"]?.int, let endColumn = end["character"]?.int,
+                let message = diagnostic["message"]?.string
             else { return nil }
-            let severity = d["severity"]?.int ?? 1
+            let severity = diagnostic["severity"]?.int ?? 1
             return severity <= 2
-                ? CodeProblem(line: l, column: c, endLine: el, endColumn: ec, isError: severity == 1, message: message)
+                ? CodeProblem(
+                    line: line, column: column, endLine: endLine, endColumn: endColumn, isError: severity == 1,
+                    message: message)
                 : nil
         }
         return (path, found)
@@ -258,13 +265,13 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// One server can serve several languages (typescript, javascriptreact…), so each file says which it is.
     /// Two tabs of one file share the document: didOpen goes out for the first, didClose after the last.
     public func open(_ path: String, text: String, languageId: String) {
-        let n = state.withLock { s in
-            let n = s.opened[path, default: 0]
-            s.opened[path] = n + 1
-            if n == 0 { s.versions[path] = 1 }
-            return n
+        let tabs = state.withLock { locked in
+            let tabs = locked.opened[path, default: 0]
+            locked.opened[path] = tabs + 1
+            if tabs == 0 { locked.versions[path] = 1 }
+            return tabs
         }
-        guard n == 0 else { return }
+        guard tabs == 0 else { return }
         notify(
             "textDocument/didOpen",
             .obj([
@@ -274,51 +281,51 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
             ]))
     }
     public func change(_ path: String, text: String) {
-        let v = state.withLock { s in
-            let v = s.versions[path].map { $0 + 1 }
-            if let v { s.versions[path] = v }
-            return v
+        let version = state.withLock { locked in
+            let version = locked.versions[path].map { $0 + 1 }
+            if let version { locked.versions[path] = version }
+            return version
         }
-        guard let v else { return }   // not open here (a server started after the tab)
+        guard let version else { return }   // not open here (a server started after the tab)
         let params = JSONValue.obj([
-            "textDocument": .obj(["uri": Self.uri(path), "version": .int(v)]),
+            "textDocument": .obj(["uri": Self.uri(path), "version": .int(version)]),
             "contentChanges": .array([.obj(["text": .string(text)])])
         ])
-        let write = state.withLock { s -> Int? in
-            if let w = s.changes[path]?.write {
-                s.changes[path] = (w, params)
+        let write = state.withLock { locked -> Int? in
+            if let queued = locked.changes[path]?.write {
+                locked.changes[path] = (queued, params)
                 return nil
             }   // the queued write sends this, in its place
-            s.nextWrite += 1
-            s.changes[path] = (s.nextWrite, params)
-            return s.nextWrite
+            locked.nextWrite += 1
+            locked.changes[path] = (locked.nextWrite, params)
+            return locked.nextWrite
         }
         guard let write else { return }
-        let h = input.fileHandleForWriting
+        let handle = input.fileHandleForWriting
         writes.async { [weak self] in
             guard
-                let p = self?.state.withLock({ s -> JSONValue? in
-                    guard let c = s.changes[path], c.write == write else { return nil }
-                    s.changes[path] = nil
-                    return c.params
+                let latest = self?.state.withLock({ locked -> JSONValue? in
+                    guard let change = locked.changes[path], change.write == write else { return nil }
+                    locked.changes[path] = nil
+                    return change.params
                 }),
-                let d = try? JSONEncoder().encode(
-                    JSONValue.obj(["jsonrpc": "2.0", "method": "textDocument/didChange", "params": p]))
+                let data = try? JSONEncoder().encode(
+                    JSONValue.obj(["jsonrpc": "2.0", "method": "textDocument/didChange", "params": latest]))
             else { return }
-            try? h.write(contentsOf: LSPFramer.frame(d))
+            try? handle.write(contentsOf: LSPFramer.frame(data))
         }
     }
     public func close(_ path: String) {
-        let (n, idle) = state.withLock { s in
-            let n = s.opened[path] ?? 0
-            s.opened[path] = n > 1 ? n - 1 : nil
-            if n == 1 {
-                s.versions[path] = nil
-                s.changes[path] = nil
+        let (tabs, idle) = state.withLock { locked in
+            let tabs = locked.opened[path] ?? 0
+            locked.opened[path] = tabs > 1 ? tabs - 1 : nil
+            if tabs == 1 {
+                locked.versions[path] = nil
+                locked.changes[path] = nil
             }   // its queued write sends nothing now
-            return (n, s.opened.isEmpty ? s.onIdle : nil)
+            return (tabs, locked.opened.isEmpty ? locked.onIdle : nil)
         }
-        guard n == 1 else { return }
+        guard tabs == 1 else { return }
         notify("textDocument/didClose", .obj(["textDocument": .obj(["uri": Self.uri(path)])]))
         idle?()
     }
@@ -328,13 +335,13 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     }
 
     public func definition(_ path: String, line: Int, column: Int) async throws -> CodeLocation? {
-        let r = try await request("textDocument/definition", at(path, line, column))
-        guard let l = r.array?.first ?? (r == .null ? nil : r) else { return nil }
-        let uri = l["uri"]?.string ?? l["targetUri"]?.string
-        let range = l["range"] ?? l["targetSelectionRange"]
-        guard let uri, let p = URL(string: uri)?.path else { return nil }
+        let result = try await request("textDocument/definition", at(path, line, column))
+        guard let location = result.array?.first ?? (result == .null ? nil : result) else { return nil }
+        let uri = location["uri"]?.string ?? location["targetUri"]?.string
+        let range = location["range"] ?? location["targetSelectionRange"]
+        guard let uri, let target = URL(string: uri)?.path else { return nil }
         return CodeLocation(
-            path: p, line: (range?["start"]?["line"]?.int ?? 0) + 1,
+            path: target, line: (range?["start"]?["line"]?.int ?? 0) + 1,
             column: (range?["start"]?["character"]?.int ?? 0) + 1)
     }
 
@@ -349,25 +356,27 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     ]
 
     static func completions(_ result: JSONValue) -> [CodeCompletion] {
-        func edit(_ e: JSONValue, text: String? = nil) -> CodeEdit? {
-            guard let r = e["range"] ?? e["replace"], let a = r["start"]?["line"]?.int,
-                let b = r["start"]?["character"]?.int,
-                let c = r["end"]?["line"]?.int, let d = r["end"]?["character"]?.int,
-                let t = text ?? e["newText"]?.string
+        func edit(_ textEdit: JSONValue, text: String? = nil) -> CodeEdit? {
+            guard let range = textEdit["range"] ?? textEdit["replace"], let line = range["start"]?["line"]?.int,
+                let column = range["start"]?["character"]?.int,
+                let endLine = range["end"]?["line"]?.int, let endColumn = range["end"]?["character"]?.int,
+                let newText = text ?? textEdit["newText"]?.string
             else { return nil }
-            return CodeEdit(line: a, column: b, endLine: c, endColumn: d, text: t)
+            return CodeEdit(line: line, column: column, endLine: endLine, endColumn: endColumn, text: newText)
         }
         let items = (result.array ?? result["items"]?.array ?? []).sorted {
             ($0["sortText"]?.string ?? "") < ($1["sortText"]?.string ?? "")
         }
-        return items.prefix(200).map { i in
-            let more = (i["additionalTextEdits"]?.array ?? []).compactMap { edit($0) }
-            let doc = i["documentation"]
+        return items.prefix(200).map { item in
+            let more = (item["additionalTextEdits"]?.array ?? []).compactMap { edit($0) }
+            let doc = item["documentation"]
             return CodeCompletion(
-                label: i["label"]?.string ?? "", detail: i["detail"]?.string,
-                insert: i["textEdit"]?["newText"]?.string ?? i["insertText"]?.string ?? i["label"]?.string ?? "",
-                kind: completionKinds[i["kind"]?.int ?? 0], documentation: doc?.string ?? doc?["value"]?.string,
-                snippet: i["insertTextFormat"]?.int == 2 ? true : nil, edit: i["textEdit"].flatMap { edit($0) },
+                label: item["label"]?.string ?? "", detail: item["detail"]?.string,
+                insert: item["textEdit"]?["newText"]?.string ?? item["insertText"]?.string
+                    ?? item["label"]?.string ?? "",
+                kind: completionKinds[item["kind"]?.int ?? 0], documentation: doc?.string ?? doc?["value"]?.string,
+                snippet: item["insertTextFormat"]?.int == 2 ? true : nil,
+                edit: item["textEdit"].flatMap { edit($0) },
                 more: more.isEmpty ? nil : more)
         }
     }
@@ -383,24 +392,26 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// range wins; on a tie the later one (a child is visited after its parent).
     public func references(_ path: String, line: Int, column: Int) async throws -> [CodeLocation] {
         var params = at(path, line, column)
-        if case .object(var o) = params {
-            o["context"] = .obj(["includeDeclaration": true])
-            params = .object(o)
+        if case .object(var object) = params {
+            object["context"] = .obj(["includeDeclaration": true])
+            params = .object(object)
         }
-        return (try await request("textDocument/references", params).array ?? []).compactMap { l in
-            guard let p = l["uri"]?.string.flatMap({ URL(string: $0)?.path }), let start = l["range"]?["start"] else {
+        return (try await request("textDocument/references", params).array ?? []).compactMap { location in
+            guard let file = location["uri"]?.string.flatMap({ URL(string: $0)?.path }),
+                let start = location["range"]?["start"]
+            else {
                 return nil
             }
             return CodeLocation(
-                path: p, line: (start["line"]?.int ?? 0) + 1, column: (start["character"]?.int ?? 0) + 1)
+                path: file, line: (start["line"]?.int ?? 0) + 1, column: (start["character"]?.int ?? 0) + 1)
         }
     }
 
     public func rename(_ path: String, line: Int, column: Int, to name: String) async throws -> [CodeFileEdit] {
         var params = at(path, line, column)
-        if case .object(var o) = params {
-            o["newName"] = .string(name)
-            params = .object(o)
+        if case .object(var object) = params {
+            object["newName"] = .string(name)
+            params = .object(object)
         }
         return Self.fileEdits(try await request("textDocument/rename", params))
     }
@@ -409,11 +420,13 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     public func actions(_ path: String, line: Int, column: Int) async throws -> [CodeAction] {
         let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
         let all: [JSONValue] = state.withLock { $0.diagnostics[real] ?? $0.diagnostics[path] ?? [] }
-        let here = all.filter { (d: JSONValue) -> Bool in
-            guard let a = d["range"]?["start"]?["line"]?.int, let b = d["range"]?["end"]?["line"]?.int else {
+        let here = all.filter { (diagnostic: JSONValue) -> Bool in
+            guard let start = diagnostic["range"]?["start"]?["line"]?.int,
+                let end = diagnostic["range"]?["end"]?["line"]?.int
+            else {
                 return false
             }
-            return a <= line - 1 && line - 1 <= b
+            return start <= line - 1 && line - 1 <= end
         }
         let point: JSONValue = .obj(["line": .int(line - 1), "character": .int(column - 1)])
         let found = try await request(
@@ -422,8 +435,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
                 "textDocument": .obj(["uri": Self.uri(path)]), "range": .obj(["start": point, "end": point]),
                 "context": .obj(["diagnostics": .array(here)])
             ]))
-        return (found.array ?? []).compactMap { a in
-            guard let title = a["title"]?.string, let edit = a["edit"] else { return nil }   // a command to run: the server's, no use here
+        return (found.array ?? []).compactMap { action in
+            guard let title = action["title"]?.string, let edit = action["edit"] else { return nil }   // a command to run: the server's, no use here
             let files = Self.fileEdits(edit)
             return files.isEmpty ? nil : CodeAction(title: title, files: files)
         }
@@ -432,23 +445,24 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// A WorkspaceEdit, in either of its shapes.
     static func fileEdits(_ edit: JSONValue) -> [CodeFileEdit] {
         func edits(_ list: JSONValue?) -> [CodeEdit] {
-            (list?.array ?? []).compactMap { e in
-                guard let a = e["range"]?["start"], let b = e["range"]?["end"], let l = a["line"]?.int,
-                    let c = a["character"]?.int,
-                    let el = b["line"]?.int, let ec = b["character"]?.int, let t = e["newText"]?.string
+            (list?.array ?? []).compactMap { textEdit in
+                guard let start = textEdit["range"]?["start"], let end = textEdit["range"]?["end"],
+                    let line = start["line"]?.int, let column = start["character"]?.int,
+                    let endLine = end["line"]?.int, let endColumn = end["character"]?.int,
+                    let text = textEdit["newText"]?.string
                 else { return nil }
-                return CodeEdit(line: l, column: c, endLine: el, endColumn: ec, text: t)
+                return CodeEdit(line: line, column: column, endLine: endLine, endColumn: endColumn, text: text)
             }
         }
         var out: [CodeFileEdit] = []
-        for d in edit["documentChanges"]?.array ?? [] {
-            if let p = d["textDocument"]?["uri"]?.string.flatMap({ URL(string: $0)?.path }) {
-                out.append(CodeFileEdit(path: p, edits: edits(d["edits"])))
+        for change in edit["documentChanges"]?.array ?? [] {
+            if let path = change["textDocument"]?["uri"]?.string.flatMap({ URL(string: $0)?.path }) {
+                out.append(CodeFileEdit(path: path, edits: edits(change["edits"])))
             }
         }
         if case .object(let changes)? = edit["changes"] {
             for (uri, list) in changes.sorted(by: { $0.key < $1.key }) {
-                if let p = URL(string: uri)?.path { out.append(CodeFileEdit(path: p, edits: edits(list))) }
+                if let path = URL(string: uri)?.path { out.append(CodeFileEdit(path: path, edits: edits(list))) }
             }
         }
         return out.filter { !$0.edits.isEmpty }
@@ -464,30 +478,33 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// `contents` comes in all three of the protocol's shapes: a MarkupContent, a MarkedString, a list of them.
     static func hoverText(_ result: JSONValue) -> String? {
-        func text(_ c: JSONValue) -> String? {
-            if let s = c.string { return s }
-            guard let v = c["value"]?.string else { return nil }
-            return c["language"]?.string.map { "```\($0)\n\(v)\n```" } ?? v
+        func text(_ content: JSONValue) -> String? {
+            if let plain = content.string { return plain }
+            guard let value = content["value"]?.string else { return nil }
+            return content["language"]?.string.map { "```\($0)\n\(value)\n```" } ?? value
         }
-        guard let c = result["contents"] else { return nil }
-        let t = (c.array?.compactMap(text).joined(separator: "\n\n") ?? text(c))?.trimmingCharacters(
-            in: .whitespacesAndNewlines)
-        return t?.isEmpty == false ? t : nil
+        guard let contents = result["contents"] else { return nil }
+        let joined = (contents.array?.compactMap(text).joined(separator: "\n\n") ?? text(contents))?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return joined?.isEmpty == false ? joined : nil
     }
 
     /// A parameter's label is its text, or its offsets in the signature's.
     static func signature(_ result: JSONValue) -> CodeSignature? {
         let all = result["signatures"]?.array ?? []
         guard !all.isEmpty else { return nil }
-        let s = all[min(result["activeSignature"]?.int ?? 0, all.count - 1)]
-        guard let label = s["label"]?.string else { return nil }
-        let params = s["parameters"]?.array ?? [], n = s["activeParameter"]?.int ?? result["activeParameter"]?.int ?? 0
-        guard params.indices.contains(n), let p = params[n]["label"] else { return CodeSignature(label: label) }
-        if let name = p.string, let r = label.range(of: name) {
-            let start = label.utf16.distance(from: label.startIndex, to: r.lowerBound)
+        let active = all[min(result["activeSignature"]?.int ?? 0, all.count - 1)]
+        guard let label = active["label"]?.string else { return nil }
+        let params = active["parameters"]?.array ?? []
+        let index = active["activeParameter"]?.int ?? result["activeParameter"]?.int ?? 0
+        guard params.indices.contains(index), let param = params[index]["label"] else {
+            return CodeSignature(label: label)
+        }
+        if let name = param.string, let range = label.range(of: name) {
+            let start = label.utf16.distance(from: label.startIndex, to: range.lowerBound)
             return CodeSignature(label: label, activeStart: start, activeEnd: start + name.utf16.count)
         }
-        return CodeSignature(label: label, activeStart: p.array?.first?.int, activeEnd: p.array?.last?.int)
+        return CodeSignature(label: label, activeStart: param.array?.first?.int, activeEnd: param.array?.last?.int)
     }
 
     /// The file's symbols, nested ones in with the rest, top to bottom.
@@ -508,22 +525,24 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// SymbolInformation or WorkspaceSymbol (which may leave the range out: the file's top).
     static func workspaceSymbols(_ result: JSONValue) -> [CodeSymbol] {
-        (result.array ?? []).compactMap { s in
-            let path = s["location"]?["uri"]?.string.flatMap { URL(string: $0)?.path }
-            guard let name = s["name"]?.string, let path else { return nil }
-            let line = (s["location"]?["range"]?["start"]?["line"]?.int ?? 0) + 1
-            return CodeSymbol(name: name, kind: symbolKinds[s["kind"]?.int ?? 0] ?? "symbol", line: line, path: path)
+        (result.array ?? []).compactMap { symbol in
+            let path = symbol["location"]?["uri"]?.string.flatMap { URL(string: $0)?.path }
+            guard let name = symbol["name"]?.string, let path else { return nil }
+            let line = (symbol["location"]?["range"]?["start"]?["line"]?.int ?? 0) + 1
+            return CodeSymbol(
+                name: name, kind: symbolKinds[symbol["kind"]?.int ?? 0] ?? "symbol", line: line, path: path)
         }
     }
 
     static func symbols(_ result: JSONValue) -> [CodeSymbol] {
         var out: [CodeSymbol] = []
-        func visit(_ s: JSONValue) {
-            let r = s["selectionRange"] ?? s["range"] ?? s["location"]?["range"]
-            if let name = s["name"]?.string, let line = r?["start"]?["line"]?.int {
-                out.append(CodeSymbol(name: name, kind: symbolKinds[s["kind"]?.int ?? 0] ?? "symbol", line: line + 1))
+        func visit(_ node: JSONValue) {
+            let range = node["selectionRange"] ?? node["range"] ?? node["location"]?["range"]
+            if let name = node["name"]?.string, let line = range?["start"]?["line"]?.int {
+                out.append(
+                    CodeSymbol(name: name, kind: symbolKinds[node["kind"]?.int ?? 0] ?? "symbol", line: line + 1))
             }
-            s["children"]?.array?.forEach(visit)
+            node["children"]?.array?.forEach(visit)
         }
         result.array?.forEach(visit)
         return out.sorted { $0.line < $1.line }
@@ -531,15 +550,15 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     static func enclosingSymbol(_ result: JSONValue, line: Int) -> String? {
         var best: (name: String, span: Int)?
-        func visit(_ s: JSONValue) {
-            let r = s["range"] ?? s["location"]?["range"]
-            if let name = s["name"]?.string, [2, 3, 5, 6, 12, 23].contains(s["kind"]?.int ?? 0),   // module, namespace, class, method, function, struct
-                let a = r?["start"]?["line"]?.int, let b = r?["end"]?["line"]?.int, a < line, line - 1 <= b,
-                b - a <= best?.span ?? .max
+        func visit(_ node: JSONValue) {
+            let range = node["range"] ?? node["location"]?["range"]
+            if let name = node["name"]?.string, [2, 3, 5, 6, 12, 23].contains(node["kind"]?.int ?? 0),   // module, namespace, class, method, function, struct
+                let start = range?["start"]?["line"]?.int, let end = range?["end"]?["line"]?.int, start < line,
+                line - 1 <= end, end - start <= best?.span ?? .max
             {
-                best = (name, b - a)
+                best = (name, end - start)
             }
-            s["children"]?.array?.forEach(visit)
+            node["children"]?.array?.forEach(visit)
         }
         result.array?.forEach(visit)
         return best?.name

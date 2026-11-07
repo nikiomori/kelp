@@ -24,12 +24,12 @@ extension Main {
             show(try await c.call(RepoAdd(path: args.first ?? FileManager.default.currentDirectoryPath, init: git)))
         case ("repo", "list"): show(try await c.call(RepoList()))
         case ("worktree", "create"):
-            guard let b = args.first, !b.hasPrefix("-") else { fail("worktree create <branch>") }
+            guard let branch = args.first, !branch.hasPrefix("-") else { fail("worktree create <branch>") }
             args.removeFirst()
             let base = flag("--base"), setup: Bool? = has("--no-setup") ? false : nil
             show(
                 try await c.call(
-                    WorktreeCreate(repoId: try await currentRepoID(c), branch: b, base: base, setup: setup)))
+                    WorktreeCreate(repoId: try await currentRepoID(c), branch: branch, base: base, setup: setup)))
         case ("worktree", "list"): show(try await c.call(WorktreeList(archived: has("--all") ? true : nil)))
         case ("worktree", "current"): show(try await currentWorktree(c))
         case ("worktree", "note"):

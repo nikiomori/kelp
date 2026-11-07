@@ -37,13 +37,14 @@ extension Main {
             } else if what.contains("/") {
                 installed(try await fetch(what, as: nil, c, review: !args.contains("--yes")))
             } else {
-                guard let e = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
+                guard let entry = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
                     fail("no \(what) in the library (kelp ext search)")
                 }
                 // Found by its topic, never reviewed: shown first, as any repository is.
                 installed(
                     try await fetch(
-                        e.source, as: nil, c, review: e.reviewed == false && !args.contains("--yes"), files: e.files))
+                        entry.source, as: nil, c, review: entry.reviewed == false && !args.contains("--yes"),
+                        files: entry.files))
             }
         case "update":
             let library = try await c.call(ExtensionLibrary())
@@ -116,8 +117,9 @@ extension Main {
 
     /// What was installed and what it can run: the CLI's version of the app's look before installing.
     static func installed(_ dest: URL) {
-        let m = manifest(dest), (commands, pages) = IDE.commandsIn(m)
-        print("installed \(m["id"]?.string ?? dest.lastPathComponent) \(m["version"]?.string ?? "") → \(dest.path)")
+        let info = manifest(dest), (commands, pages) = IDE.commandsIn(info)
+        print(
+            "installed \(info["id"]?.string ?? dest.lastPathComponent) \(info["version"]?.string ?? "") → \(dest.path)")
         if !commands.isEmpty || !pages.isEmpty { print("it can run:") }
         for x in commands { print("  \(x)") }
         for p in pages { print("  \(p) (a web page, which can run any command)") }

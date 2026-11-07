@@ -24,9 +24,11 @@ public enum Tmux {
     }
 
     /// A name tmux keeps as it is: it turns ":" and "." into "_" itself, and the tab has to find the session by that name.
-    public static func name(_ s: String) -> String {
+    public static func name(_ name: String) -> String {
         String(
-            s.trimmingCharacters(in: .whitespacesAndNewlines).map { $0 == ":" || $0 == "." || $0.isNewline ? "_" : $0 })
+            name.trimmingCharacters(in: .whitespacesAndNewlines).map {
+                $0 == ":" || $0 == "." || $0.isNewline ? "_" : $0
+            })
     }
 
     /// Sessions Kelp starts for terminals of its own (the `terminal.tmux` setting) are named so ("kelp-tab-" and 8 hex
@@ -45,12 +47,14 @@ public enum Tmux {
     /// What that prints, the last used first. Lines that aren't sessions (a host's shell greeting) are skipped.
     public static func parse(_ out: String) -> [Session] {
         out.split(whereSeparator: \.isNewline).compactMap { line -> Session? in
-            let f = line.split(separator: ":", omittingEmptySubsequences: false)
-            guard f.count >= 4, let w = Int(f[f.count - 3]), let a = Int(f[f.count - 2]), let t = Double(f[f.count - 1])
+            let fields = line.split(separator: ":", omittingEmptySubsequences: false)
+            guard fields.count >= 4, let windows = Int(fields[fields.count - 3]),
+                let attached = Int(fields[fields.count - 2]), let activity = Double(fields[fields.count - 1])
             else { return nil }
-            let name = f.dropLast(3).joined(separator: ":")   // the numbers are the last three, whatever a host's tmux allows in a name
+            let name = fields.dropLast(3).joined(separator: ":")   // the numbers are the last three, whatever a host's tmux allows in a name
             guard !name.isEmpty else { return nil }
-            return Session(name: name, windows: w, attached: a, activity: Date(timeIntervalSince1970: t))
+            return Session(
+                name: name, windows: windows, attached: attached, activity: Date(timeIntervalSince1970: activity))
         }.sorted { $0.activity > $1.activity }
     }
 

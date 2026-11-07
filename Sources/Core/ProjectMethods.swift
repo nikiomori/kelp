@@ -164,15 +164,15 @@ public enum Unopenable: Codable, Sendable, Equatable {
         let message =
             switch self {
             case .special: "Not a regular file (a pipe or a device)."
-            case .tooBig(let n): "Too big to open (\(n) bytes)."
+            case .tooBig(let bytes): "Too big to open (\(bytes) bytes)."
             case .binary: "Not UTF-8 text (binary, or another encoding)."
             }
         return RPCError(code: -32001, message: message, data: try? JSONValue.from(self))
     }
     /// The reason a daemon's error carries, when it's this kind of error.
     public init?(_ error: Error) {
-        guard let d = (error as? RPCError)?.data, let u = try? d.decode(Unopenable.self) else { return nil }
-        self = u
+        guard let data = (error as? RPCError)?.data, let reason = try? data.decode(Unopenable.self) else { return nil }
+        self = reason
     }
 }
 
@@ -281,8 +281,8 @@ public struct UsageGet: InternalMethod {
         }
         /// The kind of limit a window is, as the other agents name theirs: "session" (5 hours), "week" or "month" (the free plan's one window).
         public static func kind(minutes: Double?, primary: Bool) -> String {
-            guard let m = minutes else { return primary ? "session" : "week" }
-            return m <= 24 * 60 ? "session" : m <= 8 * 24 * 60 ? "week" : "month"
+            guard let minutes else { return primary ? "session" : "week" }
+            return minutes <= 24 * 60 ? "session" : minutes <= 8 * 24 * 60 ? "week" : "month"
         }
     }
     /// One limit as an agent shows it: kind ("session", "week", "week · Fable"…), percent used, when it resets.

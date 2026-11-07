@@ -4,12 +4,12 @@ import Foundation
 /// URI helpers: "session:ID", "file:///abs#L12", "diff:path", "https://…", "ext:id/view".
 public enum TabURI {
     public static func scheme(_ uri: String) -> String {
-        guard let i = uri.firstIndex(of: ":") else { return "file" }
-        return uri[..<i].lowercased()
+        guard let colon = uri.firstIndex(of: ":") else { return "file" }
+        return uri[..<colon].lowercased()
     }
     public static func body(_ uri: String) -> String {
-        guard let i = uri.firstIndex(of: ":") else { return uri }
-        return String(uri[uri.index(after: i)...])
+        guard let colon = uri.firstIndex(of: ":") else { return uri }
+        return String(uri[uri.index(after: colon)...])
     }
     /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
     public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
@@ -37,32 +37,33 @@ public enum TabURI {
     public static func diff(_ worktree: String, file: String? = nil, source: String? = nil, commit: String? = nil)
         -> String
     {
-        var c = URLComponents()
-        c.queryItems = [("file", file), ("source", source), ("commit", commit)].compactMap { n, v in
-            v.map { URLQueryItem(name: n, value: $0) }
+        var components = URLComponents()
+        components.queryItems = [("file", file), ("source", source), ("commit", commit)].compactMap { name, value in
+            value.map { URLQueryItem(name: name, value: $0) }
         }
-        return "diff:\(worktree)" + (c.queryItems?.isEmpty == false ? "?" + (c.percentEncodedQuery ?? "") : "")
+        return "diff:\(worktree)"
+            + (components.queryItems?.isEmpty == false ? "?" + (components.percentEncodedQuery ?? "") : "")
     }
     /// Absolute path and line of a file URI (also accepts a bare path).
     public static func filePath(_ uri: String) -> (path: String, line: Int?) {
-        var s = uri.hasPrefix("file://") ? String(uri.dropFirst(7)) : uri
+        var path = uri.hasPrefix("file://") ? String(uri.dropFirst(7)) : uri
         var line: Int?
-        if let h = s.range(of: "#L") {
-            line = Int(s[h.upperBound...])
-            s = String(s[..<h.lowerBound])
+        if let anchor = path.range(of: "#L") {
+            line = Int(path[anchor.upperBound...])
+            path = String(path[..<anchor.lowerBound])
         }
-        return (s.removingPercentEncoding ?? s, line)
+        return (path.removingPercentEncoding ?? path, line)
     }
     /// What the user typed or an agent sent: path, path:line, URL.
     public static func normalize(_ s: String, cwd: String?) -> String {
         if s.contains("://") || ["session:", "ext:", "diff:"].contains(where: s.hasPrefix) { return s }
         if s.hasPrefix("localhost") || s.hasPrefix("127.0.0.1") { return "http://" + s }
-        var p = s, line: Int?
-        if let r = s.range(of: #":(\d+)$"#, options: .regularExpression) {
-            line = Int(s[r].dropFirst())
-            p = String(s[..<r.lowerBound])
+        var path = s, line: Int?
+        if let match = s.range(of: #":(\d+)$"#, options: .regularExpression) {
+            line = Int(s[match].dropFirst())
+            path = String(s[..<match.lowerBound])
         }
-        if !p.hasPrefix("/"), let cwd { p = (cwd as NSString).appendingPathComponent(p) }
-        return file(p, line: line)
+        if !path.hasPrefix("/"), let cwd { path = (cwd as NSString).appendingPathComponent(path) }
+        return file(path, line: line)
     }
 }

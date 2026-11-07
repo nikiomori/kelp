@@ -37,7 +37,7 @@ public enum IconSearch {
                 let dir = repo + "/" + base + p
                 return list(dir).map { (dir, $0) }
             }
-            for n in names { if let (dir, _) = dirs.first(where: { $0.1.contains(n) }) { return dir + n } }
+            for name in names { if let (dir, _) = dirs.first(where: { $0.1.contains(name) }) { return dir + name } }
             for (dir, files) in dirs {
                 if let icns = files.sorted().first(where: { $0.hasSuffix(".icns") }) { return dir + icns }
             }
@@ -53,7 +53,7 @@ public enum IconSearch {
             // A site's favicon under its own name (`pretype-icon.svg`), never another brand's (`github-icon.svg`).
             for kind in ["icon", "logo"] {
                 for (dir, files) in dirs {
-                    if let f = files.sorted().first(where: { ownImage($0, kind, words) }) { return dir + f }
+                    if let file = files.sorted().first(where: { ownImage($0, kind, words) }) { return dir + file }
                 }
             }
         }
@@ -61,8 +61,8 @@ public enum IconSearch {
     }
 
     private static func ownImage(_ file: String, _ kind: String, _ words: [String]) -> Bool {
-        let f = file.lowercased()
-        return f.contains(kind) && imageTypes.contains((f as NSString).pathExtension)
-            && words.contains { f.contains($0) }
+        let name = file.lowercased()
+        return name.contains(kind) && imageTypes.contains((name as NSString).pathExtension)
+            && words.contains { name.contains($0) }
     }
 }

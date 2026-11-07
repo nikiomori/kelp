@@ -82,15 +82,15 @@ func fail(_ m: String) -> Never {
 }
 
 nonisolated(unsafe) var args = Array(CommandLine.arguments.dropFirst())
-func flag(_ n: String) -> String? {
-    guard let i = args.firstIndex(of: n), i + 1 < args.count else { return nil }
-    let v = args[i + 1]
-    args.removeSubrange(i...i + 1)
-    return v
+func flag(_ name: String) -> String? {
+    guard let index = args.firstIndex(of: name), index + 1 < args.count else { return nil }
+    let value = args[index + 1]
+    args.removeSubrange(index...index + 1)
+    return value
 }
-func has(_ n: String) -> Bool {
-    if let i = args.firstIndex(of: n) {
-        args.remove(at: i)
+func has(_ name: String) -> Bool {
+    if let index = args.firstIndex(of: name) {
+        args.remove(at: index)
         return true
     }
     return false
@@ -102,27 +102,27 @@ func daemonBinary() -> String {
 }
 
 func connect() throws -> RPCClient {
-    if let c = try? RPCClient(socket: Paths.socket.path) { return c }
+    if let client = try? RPCClient(socket: Paths.socket.path) { return client }
     // Start the daemon on demand.
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: daemonBinary())
-    p.standardOutput = FileHandle.nullDevice
-    p.standardError = FileHandle.nullDevice
-    try? p.run()
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: daemonBinary())
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    try? process.run()
     for _ in 0..<50 {
         usleep(100_000)
-        if let c = try? RPCClient(socket: Paths.socket.path) { return c }
+        if let client = try? RPCClient(socket: Paths.socket.path) { return client }
     }
     throw RPCError.internalError("cannot reach the Kelp daemon at \(Paths.socket.path)")
 }
 
 func show(_ v: JSONValue) {
-    let e = JSONEncoder()
-    e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-    if case .string(let s) = v {
-        print(s)
-    } else if v != .null, let d = try? e.encode(v), let s = String(bytes: d, encoding: .utf8) {
-        print(s)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    if case .string(let text) = v {
+        print(text)
+    } else if v != .null, let data = try? encoder.encode(v), let text = String(bytes: data, encoding: .utf8) {
+        print(text)
     }
 }
 /// A typed result, printed as the JSON it came as.
@@ -135,14 +135,14 @@ func jsonOrText(_ s: String) -> JSONValue {
 
 /// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.
 func currentWorktree(_ c: RPCClient) async throws -> Worktree {
-    guard let w = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c) else {
+    guard let worktree = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c) else {
         throw RPCError.invalidParams("not inside a kelp worktree")   // throws: callers use try? to fall back
     }
-    return w
+    return worktree
 }
 func currentWorktreeID(_ c: RPCClient) async throws -> String { try await currentWorktree(c).id }
 func currentRepoID(_ c: RPCClient) async throws -> String {
-    if let r = flag("--repo") { return r }
+    if let repo = flag("--repo") { return repo }
     let cwd = FileManager.default.currentDirectoryPath
     // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
     if let id = try await c.call(RepoList()).filter({ IDE.inside(cwd, $0.path) }).max(by: {
@@ -178,16 +178,16 @@ func plist() -> String {
         do {
             switch cmd {
             case "install":
-                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
                     "Library/LaunchAgents/dev.kelp.daemon.plist")
-                try plist().write(to: u, atomically: true, encoding: .utf8)
-                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["load", u.path])
-                print("installed \(u.path)")
+                try plist().write(to: plistURL, atomically: true, encoding: .utf8)
+                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["load", plistURL.path])
+                print("installed \(plistURL.path)")
             case "uninstall":
-                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
                     "Library/LaunchAgents/dev.kelp.daemon.plist")
-                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["unload", u.path])
-                try? FileManager.default.removeItem(at: u)
+                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["unload", plistURL.path])
+                try? FileManager.default.removeItem(at: plistURL)
             case "attach":
                 let detachKey = has("--detach")
                 guard let id = args.first else { fail("kelp attach <session>") }
@@ -215,31 +215,32 @@ func plist() -> String {
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else {
                     fail("hook: needs KELP_SESSION and an event")
                 }
-                var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)
+                var hook = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)
                 var hookPayload: JSONValue?
                 // Claude Code hooks pass a JSON payload on stdin (session id, transcript path).
-                if isatty(0) == 0, let d = try? FileHandle.standardInput.readToEnd(),
-                    let v = try? JSONDecoder().decode(JSONValue.self, from: d)
+                if isatty(0) == 0, let data = try? FileHandle.standardInput.readToEnd(),
+                    let payload = try? JSONDecoder().decode(JSONValue.self, from: data)
                 {
-                    hookPayload = v
-                    h.hookName = v["hook_event_name"]?.string
-                    h.agentId = v["agent_id"]?.string
-                    h.agentType = v["agent_type"]?.string
-                    h.transcript = v["transcript_path"]?.string
-                    h.cwd = v["cwd"]?.string   // where it works now: its own worktree, maybe
-                    h.trigger = v["trigger"]?.string   // PreCompact: manual (/compact) or auto
-                    h.backgroundTasks = v["background_tasks"]?.array   // Stop: subagents still running
-                    h.sessionCrons = v["session_crons"]?.array   // Stop: timers that will wake it
-                    if ev == "command" { h.command = AgentCommand(hook: v) }   // a Bash command started or ended
-                    h.notification = SessionHook.notification(of: v)
-                    h.goal = SessionHook.goal(of: v)
-                    h.endedTasks = SessionHook.endedTasks(of: v)
-                    if h.hookName == "Stop" { h.reply = v["last_assistant_message"]?.string }
+                    hookPayload = payload
+                    hook.hookName = payload["hook_event_name"]?.string
+                    hook.agentId = payload["agent_id"]?.string
+                    hook.agentType = payload["agent_type"]?.string
+                    hook.transcript = payload["transcript_path"]?.string
+                    hook.cwd = payload["cwd"]?.string   // where it works now: its own worktree, maybe
+                    hook.trigger = payload["trigger"]?.string   // PreCompact: manual (/compact) or auto
+                    hook.backgroundTasks = payload["background_tasks"]?.array   // Stop: subagents still running
+                    hook.sessionCrons = payload["session_crons"]?.array   // Stop: timers that will wake it
+                    // a Bash command started or ended
+                    if ev == "command" { hook.command = AgentCommand(hook: payload) }
+                    hook.notification = SessionHook.notification(of: payload)
+                    hook.goal = SessionHook.goal(of: payload)
+                    hook.endedTasks = SessionHook.endedTasks(of: payload)
+                    if hook.hookName == "Stop" { hook.reply = payload["last_assistant_message"]?.string }
                 }
-                try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
+                try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
                 // A permission question: Allow or Deny given in Kelp comes back as this hook's decision, not as keys typed
                 // into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
-                if h.hookName == "PermissionRequest",
+                if hook.hookName == "PermissionRequest",
                     let answer = try await connect().call(SessionPermissionWait(id: id))
                 {
                     let decision =
@@ -247,15 +248,15 @@ func plist() -> String {
                         ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
                     print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":"# + decision + "}}")
                 }
-                if ev == "command", let v = hookPayload, let page = Artifacts.published(hook: v) {
+                if ev == "command", let payload = hookPayload, let page = Artifacts.published(hook: payload) {
                     await notePublished(
-                        page, cwd: v["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                        page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
                 }
             default:
-                let c = try connect()
-                try await run(cmd, c)
+                let client = try connect()
+                try await run(cmd, client)
             }
-        } catch let e as RPCError { fail("error: \(e.message)") } catch { fail("error: \(error)") }
+        } catch let rpcError as RPCError { fail("error: \(rpcError.message)") } catch { fail("error: \(error)") }
     }
 
     static func run(_ cmd: String, _ c: RPCClient) async throws {

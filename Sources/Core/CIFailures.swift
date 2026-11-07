@@ -50,10 +50,10 @@ extension CIRuns {
         public var forAgent: String { summary.isEmpty ? log : summary + "\n\n" + log }
 
         public static func text(of failures: [Failure], more: Int = 0) -> String {
-            let lines = failures.map { f in
-                let name = [f.suite, f.test].compactMap { $0 }.joined(separator: ".")
-                let head = [f.place, name.isEmpty ? nil : name].compactMap { $0 }.joined(separator: " ")
-                return ([head] + f.messages.map { "  " + $0 }).joined(separator: "\n")
+            let lines = failures.map { failure in
+                let name = [failure.suite, failure.test].compactMap { $0 }.joined(separator: ".")
+                let head = [failure.place, name.isEmpty ? nil : name].compactMap { $0 }.joined(separator: " ")
+                return ([head] + failure.messages.map { "  " + $0 }).joined(separator: "\n")
             }
             return (lines + (more > 0 ? ["+\(more)"] : [])).joined(separator: "\n")
         }

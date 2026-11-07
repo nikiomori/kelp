@@ -6,23 +6,25 @@ public enum IDE {
     /// Claude strips only one pair of quotes, so the POSIX `'…'\''…'` form leaks into the path (Ghostty does the same).
     public static func escapedPath(_ path: String) -> String {
         var out = ""
-        for c in path {
-            if "\\ ()[]{}<>\"'`!#$&;|*?\t".contains(c) { out.append("\\") }
-            out.append(c)
+        for char in path {
+            if "\\ ()[]{}<>\"'`!#$&;|*?\t".contains(char) { out.append("\\") }
+            out.append(char)
         }
         return out
     }
 
     /// One shell word, single-quoted (`'…'\''…'`): commands Kelp writes itself. The shell expands nothing inside.
-    public static func shellWord(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+    public static func shellWord(_ word: String) -> String {
+        "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
 
     // MARK: open
 
     /// What `ui.open` gets for a CLI/agent target: http(s) and tab URIs as is, `path:12` → `file:///abs/path#L12`, other paths made absolute.
     public static func uri(for target: String, cwd: String) -> String {
         if target.hasPrefix("http://") || target.hasPrefix("https://") { return target }
-        if let m = target.wholeMatch(of: /(.+):(\d+)/) {
-            return URL(fileURLWithPath: absolute(String(m.1), cwd: cwd)).absoluteString + "#L\(m.2)"
+        if let match = target.wholeMatch(of: /(.+):(\d+)/) {
+            return URL(fileURLWithPath: absolute(String(match.1), cwd: cwd)).absoluteString + "#L\(match.2)"
         }
         let path = absolute(target, cwd: cwd)
         if target.wholeMatch(of: /[a-z][a-z0-9+.-]*:.*/) != nil, !FileManager.default.fileExists(atPath: path) {
@@ -33,21 +35,21 @@ public enum IDE {
 
     /// Opens `target` in the editor area of the workspace that contains `cwd` (when there is one).
     /// `focus`: bring Kelp to the front and switch to that workspace (otherwise the tab waits there quietly).
-    public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client c: RPCClient)
+    public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client: RPCClient)
         async throws -> Delivered
     {
-        let w = try? await workspace(cwd: cwd, client: c)
-        return try await c.call(
-            UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: w?.id))
+        let found = try? await workspace(cwd: cwd, client: client)
+        return try await client.call(
+            UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: found?.id))
     }
 
     /// The workspace a command run in `cwd` means (`workspace(cwd:among:own:)`), from the daemon's lists.
     public static func workspace(
         cwd: String, session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"],
-        client c: RPCClient
+        client: RPCClient
     ) async throws -> Worktree? {
-        let all = try await c.call(WorktreeList())
-        let own = session == nil ? nil : (try? await c.call(SessionList()))?.first { $0.id == session }?.worktreeId
+        let all = try await client.call(WorktreeList())
+        let own = session == nil ? nil : (try? await client.call(SessionList()))?.first { $0.id == session }?.worktreeId
         return workspace(cwd: cwd, among: all, own: own)
     }
 
@@ -63,11 +65,11 @@ public enum IDE {
     }
 
     public static func inside(_ dir: String, _ root: String) -> Bool {
-        let (d, r) = (
+        let (resolvedDir, resolvedRoot) = (
             URL(fileURLWithPath: dir).resolvingSymlinksInPath().path,
             URL(fileURLWithPath: root).resolvingSymlinksInPath().path
         )
-        return d == r || d.hasPrefix(r + "/")
+        return resolvedDir == resolvedRoot || resolvedDir.hasPrefix(resolvedRoot + "/")
     }
 
     // MARK: extensions
@@ -75,32 +77,34 @@ public enum IDE {
     public static func isValidExtensionID(_ id: String) -> Bool { id.wholeMatch(of: /[a-z0-9][a-z0-9.-]*/) != nil }
 
     /// What the app shows (`ui.state`) when it runs, else the folders in `dir`.
-    public static func extensions(client c: RPCClient, dir: URL) async throws -> JSONValue {
-        if let shown = try await c.call(UIStateGet())["extensions"] { return shown }
-        let disabled = try await disabledExtensions(client: c)
+    public static func extensions(client: RPCClient, dir: URL) async throws -> JSONValue {
+        if let shown = try await client.call(UIStateGet())["extensions"] { return shown }
+        let disabled = try await disabledExtensions(client: client)
         let folders = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
         return .array(
-            folders.sorted { $0.path < $1.path }.compactMap { f in
-                guard let d = try? Data(contentsOf: f.appendingPathComponent("extension.json")) else { return nil }
-                let id = f.lastPathComponent
-                let name = (try? JSONDecoder().decode(JSONValue.self, from: d))?["name"] ?? .string(id)
+            folders.sorted { $0.path < $1.path }.compactMap { folder in
+                guard let data = try? Data(contentsOf: folder.appendingPathComponent("extension.json")) else {
+                    return nil
+                }
+                let id = folder.lastPathComponent
+                let name = (try? JSONDecoder().decode(JSONValue.self, from: data))?["name"] ?? .string(id)
                 return .obj([
                     "id": .string(id), "name": name, "enabled": .bool(!disabled.contains(id)), "builtin": false,
-                    "path": .string(f.path)
+                    "path": .string(folder.path)
                 ])
             })
     }
 
     /// Enabling/disabling is the `extensions.disabled` setting; the app applies it.
-    public static func setExtension(_ id: String, enabled: Bool, client c: RPCClient) async throws {
+    public static func setExtension(_ id: String, enabled: Bool, client: RPCClient) async throws {
         guard isValidExtensionID(id) else { throw invalidID(id) }
-        let rest = try await disabledExtensions(client: c).filter { $0 != id }
+        let rest = try await disabledExtensions(client: client).filter { $0 != id }
         let list = enabled ? rest : rest + [id]
-        _ = try await c.call(SettingsSet(key: "extensions.disabled", value: .array(list.map { .string($0) })))
+        _ = try await client.call(SettingsSet(key: "extensions.disabled", value: .array(list.map { .string($0) })))
     }
 
-    static func disabledExtensions(client c: RPCClient) async throws -> [String] {
-        (try await c.call(SettingsGet())["extensions.disabled"]?.array ?? []).compactMap(\.string)
+    static func disabledExtensions(client: RPCClient) async throws -> [String] {
+        (try await client.call(SettingsGet())["extensions.disabled"]?.array ?? []).compactMap(\.string)
     }
 
     static func invalidID(_ id: String) -> RPCError {
@@ -144,16 +148,18 @@ public enum IDE {
 
     /// EXTENSIONS.md, rewritten when missing or older than this build's guide.
     public static func writeGuide(in dir: URL) throws {
-        let u = dir.appendingPathComponent("EXTENSIONS.md")
-        guard !extensionGuide.isEmpty, (try? String(contentsOf: u, encoding: .utf8)) != extensionGuide else { return }
+        let guide = dir.appendingPathComponent("EXTENSIONS.md")
+        guard !extensionGuide.isEmpty, (try? String(contentsOf: guide, encoding: .utf8)) != extensionGuide else {
+            return
+        }
         try Paths.ensure(dir)
-        try extensionGuide.write(to: u, atomically: true, encoding: .utf8)
+        try extensionGuide.write(to: guide, atomically: true, encoding: .utf8)
     }
 
-    static func jsonString(_ s: String) -> String {
-        let e = JSONEncoder()
-        e.outputFormatting = .withoutEscapingSlashes
-        return (try? e.encode(s)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "\"\""
+    static func jsonString(_ text: String) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        return (try? encoder.encode(text)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "\"\""
     }
 
     /// A list panel of the workspace's top-level files; the command prints JSON lines with nothing but find + stat.
