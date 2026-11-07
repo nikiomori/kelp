@@ -46,7 +46,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             // Nothing is selected while search fills the pane; picking a section ends the search.
-            List(selection: Binding(get: { query.isEmpty ? selection : nil }, set: { if let s = $0 { open(s) } })) {
+            List(selection: Binding(get: { query.isEmpty ? current : nil }, set: { if let s = $0 { open(s) } })) {
                 Section {
                     ForEach(sections) { s in
                         Label { Text(loc(s.title)) } icon: { SettingsIcon(symbol: s.icon, id: s.id) }.tag(Optional(s.id))
@@ -61,8 +61,8 @@ struct SettingsView: View {
         } detail: {
             Group {
                 if !query.isEmpty { SearchResults(query: query, open: open) }
-                else if selection == "extensions" { ExtensionsSettings() }
-                else if let s = registry.all.settings.first(where: { $0.id == selection }) {
+                else if current == "extensions" { ExtensionsSettings() }
+                else if let s = registry.all.settings.first(where: { $0.id == current }) {
                     if s.fillsPane { s.custom?() } else { SectionForm(section: s) }
                 }
                 else { ContentUnavailableView("Pick a section", systemImage: "gearshape") }
@@ -80,10 +80,14 @@ struct SettingsView: View {
     }
 
     private var sections: [SettingsSection] { registry.all.settings.sorted { $0.order < $1.order } }
+    /// The section remembered, or the first when it's gone (its extension turned off, an old name): never a blank pane.
+    private var current: String {
+        selection == "extensions" || sections.contains { $0.id == selection } ? selection : sections.first?.id ?? selection
+    }
 
     private var title: String {
         if !query.isEmpty { return String(localized: "Search") }
-        return loc(registry.all.settings.first { $0.id == selection }?.title ?? (selection == "extensions" ? "Extensions" : "Settings"))
+        return loc(registry.all.settings.first { $0.id == current }?.title ?? (current == "extensions" ? "Extensions" : "Settings"))
     }
 
     private func open(_ section: String) { selection = section; query = "" }

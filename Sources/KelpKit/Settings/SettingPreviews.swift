@@ -89,12 +89,11 @@ private struct EditorSample: NSViewRepresentable {
 }
 
 /// The sidebar's foot as it is, with this Mac's real readings: the rows below change it as they're switched. Without the
-/// line over it, which is the sidebar's edge, not the foot's; as wide as the row, as the terminal and editor samples are.
+/// line over it, which is the sidebar's edge, not the foot's; as wide as the row, and on the card as its rows are: a grey
+/// plate of its own read as a box inside the box.
 private struct LimitsSample: View {
     @Environment(AppModel.self) private var app
     var body: some View {
-        UsageView(app: app, ruled: false)
-            .frame(maxWidth: .infinity)
-            .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        UsageView(app: app, ruled: false).frame(maxWidth: .infinity)
     }
 }

@@ -62,12 +62,18 @@ struct AgentsSettings: View {
     private var list: some View {
         let have = show == .available ? [] : agents.filter(installed)
         let rest = show == .installed ? [] : agents.filter { !installed($0) }
-        return Form {
-            // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install.
-            Section {
-                Segments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
-                               selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
-            }
+        // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install. Over the list, not in a
+        // card of its own: a box around one control.
+        return VStack(alignment: .leading, spacing: 0) {
+            Segments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                     selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
+                .padding([.horizontal, .top], Metrics.sheetInset)   // the grouped form's own margin
+            catalogForm(have: have, rest: rest)
+        }
+    }
+
+    private func catalogForm(have: [AgentManifest], rest: [AgentManifest]) -> some View {
+        Form {
             if !have.isEmpty {
                 Section {
                     ForEach(have, id: \.id) { row($0) }
