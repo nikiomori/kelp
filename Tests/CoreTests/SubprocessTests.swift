@@ -43,9 +43,9 @@ private let env = ProcessInfo.processInfo.environment
 @Test func aSubprocessLetsGoOfPipesAChildStillHolds() throws {
     let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
     defer { try? FileManager.default.removeItem(atPath: mark) }
-    let r = try Subprocess.run(["/bin/bash", "-c", "echo hi; (sleep 5; echo late && touch \(mark)) &"], cwd: "/tmp", env: env, timeLimit: 30)
-    #expect(String(decoding: r.stdout, as: UTF8.self) == "hi\n")
-    Thread.sleep(forTimeInterval: 4)
+    let r = try Subprocess.run(["/bin/bash", "-c", "echo hi; (sleep 3; echo late && touch \(mark)) &"], cwd: "/tmp", env: env, timeLimit: 30)
+    #expect(String(decoding: r.stdout, as: UTF8.self) == "hi\n")   // back after the pipes' 2 s, before the child writes
+    Thread.sleep(forTimeInterval: 2.5)   // past the child's write at 3 s: it failed (nobody reads), so no mark
     #expect(!FileManager.default.fileExists(atPath: mark))
 }
 
@@ -53,9 +53,9 @@ private let env = ProcessInfo.processInfo.environment
 @Test func aSubprocessLetsGoOfAChildThatKeepsWriting() throws {
     let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
     defer { try? FileManager.default.removeItem(atPath: mark) }
-    let child = "(for i in $(seq 60); do echo x || exit; sleep 0.1; done; touch \(mark)) &"
-    _ = try Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)
-    Thread.sleep(forTimeInterval: 5)
+    let child = "(for i in $(seq 40); do echo x || exit; sleep 0.1; done; touch \(mark)) &"
+    _ = try Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)   // back after 2 s
+    Thread.sleep(forTimeInterval: 3)   // past the loop's 4 s: a write after the pipes went failed and it left, so no mark
     #expect(!FileManager.default.fileExists(atPath: mark))
 }
 
