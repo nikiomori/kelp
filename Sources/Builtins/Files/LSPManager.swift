@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import Observation
 import os
 import WorkbenchKit
 import KelpKit
@@ -7,10 +8,10 @@ import KelpKit
 /// The app's side of language servers, which run in the daemon (one per project and server command, shared by every
 /// client, stopped once no file is open for it). Which server a file gets comes from the extensions' `languages`; whether
 /// a project may run one is the user's say, asked here once per project and checked again by the daemon.
-@MainActor
+@MainActor @Observable
 final class LSPManager {
     /// Server commands already reported missing this launch.
-    private var reported: Set<String> = []
+    @ObservationIgnored private var reported: Set<String> = []
     func enabled(_ app: AppModel) -> Bool { app.settings.bool("editor.lsp") != false }
 
     func language(_ app: AppModel, _ path: String) -> LanguageSpec? { LanguageSpec.find(path, in: app.extensions.all.languages) }
@@ -30,25 +31,26 @@ final class LSPManager {
         return (lang.server != nil && enabled(app) || lang.format != nil) && !trusted(app, root)
     }
     /// Roots asked about this run, and what starts once the user trusts them (the tabs that wanted a server).
-    private var waiting: [String: [@MainActor () -> Void]] = [:]
+    @ObservationIgnored private var waiting: [String: [@MainActor () -> Void]] = [:]
+    /// Projects whose question the user put off (Not Now) until Kelp starts again: their tabs say "Restricted" only.
+    private(set) var putOff: Set<String> = []
+    func notNow(_ root: String) { putOff.insert(root) }
+    /// A code tab's bar asks (`TrustBar`): the project isn't trusted for `language`, and the question wasn't put off.
+    func asks(_ app: AppModel, _ root: String, _ language: LanguageSpec?) -> Bool {
+        restricts(app, root, language) && !putOff.contains(root)
+    }
 
     /// Language servers on, and `root` trusted; else `start` runs once the user trusts it (`askTrust`).
     func whenTrusted(_ app: AppModel, _ root: String, _ start: @escaping @MainActor () -> Void) -> Bool {
         enabled(app) && askTrust(app, root, start)
     }
 
-    /// True when `root` is trusted to run its own code; else `then` runs once the user trusts it, asked once per project
-    /// per run (a banner with Trust).
-    func askTrust(_ app: AppModel, _ root: String, _ then: @escaping @MainActor () -> Void) -> Bool {
+    /// True when `root` is trusted to run its own code; else `then` runs once the user trusts it. The question is the
+    /// tab's bar (`asks`); `again` (the user asked for it: Format) brings it back after Not Now.
+    func askTrust(_ app: AppModel, _ root: String, again: Bool = false, _ then: @escaping @MainActor () -> Void) -> Bool {
         if trusted(app, root) { return true }
-        let start = then
-        let first = waiting[root] == nil
-        waiting[root, default: []].append(start)
-        if first {
-            let name = (root as NSString).lastPathComponent
-            Banner.show(String(localized: "Language servers and formatters can run code from “\(name)” (its build scripts, plugins, toolchain). Trust this project?"),
-                        action: (String(localized: "Trust"), { Task { await app.lsp.trust(app, root) } }))
-        }
+        waiting[root, default: []].append(then)
+        if again { putOff.remove(root) }
         return false
     }
 

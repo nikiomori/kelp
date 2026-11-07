@@ -143,7 +143,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                              b("checklist", String(localized: "Task list"), #selector(tasks)),
                              b("tablecells", String(localized: "Table"), #selector(table))], in: .leading)
         formatting.spacing = Metrics.iconGap
-        let bar = Bar.content([formatting], [mode])
+        let bar = Bar.content([formatting])
+        formattingBar = bar
         split.isVertical = true; split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
@@ -151,7 +152,19 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.addArrangedSubview(editor.view); split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
         // An agent's page has its own bar, whose ⋯ holds the modes (and ⇧⌘V cycles them): one bar over it, not two.
-        view = artifactBar == nil ? stacked(bar, split) : stacked(split)
+        // Elsewhere the formatting bar goes in the preview (nothing to format there), and the modes sit in the status bar.
+        if artifactBar == nil {
+            let column = NSStackView(views: [bar, split])
+            column.orientation = .vertical
+            column.spacing = 0
+            column.distribution = .fill
+            column.detachesHiddenViews = true
+            split.setContentHuggingPriority(.init(1), for: .vertical)
+            for v in [bar, split] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+            view = column
+        } else {
+            view = stacked(split)
+        }
         view.addSubview(selectionBar)   // over the text, placed by frame
         editor.onSelection = { [weak self] in self?.placeSelectionBar() }
         if let clip = (editor.view as? NSScrollView)?.contentView {
@@ -163,6 +176,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     private let formatting = NSStackView()
+    private var formattingBar: Bar?
+    /// The file's status bar: told whether the source is on screen, and given Edit, Split, Preview (an agent's page has
+    /// them in its own bar's ⋯). After `header`, which says whether it's such a page.
+    func attach(_ bar: EditorStatusBar) {
+        onEditing = { [weak bar] in bar?.editing = $0 }
+        bar.editing = mode.selectedSegment != 2
+        if artifactBar == nil { bar.show(modes: mode) }
+    }
     private lazy var selectionBar = MarkdownSelectionBar(target: self, items: [
         ("bold", String(localized: "Bold (⌘B)"), #selector(bold)), ("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
         ("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)), ("link", String(localized: "Link (⌘K)"), #selector(link))
@@ -320,7 +341,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private func applyMode() {
         let m = mode.selectedSegment
         editor.view.isHidden = m == 2; web.isHidden = m == 0 || (m == 1 && narrow)
-        formatting.isHidden = m == 2   // nothing to format in the preview
+        formattingBar?.isHidden = m == 2   // nothing to format in the preview
         onEditing?(m != 2)
         placeSelectionBar()
         split.adjustSubviews()

@@ -1,0 +1,35 @@
+import AppKit
+import DesignKit
+import KelpKit
+
+/// What a file tab shows besides its text: the trust question over code, and the way out when the file is gone.
+extension FileTab {
+    /// The breadcrumbs with the trust question under them (`TrustBar`), hidden while it doesn't ask.
+    func withTrustBar(_ crumbs: NSView) -> NSView {
+        guard !remote else { return crumbs }   // a host's file: no language server here
+        let app = self.app
+        let trust = TrustBar.make(project: (root as NSString).lastPathComponent,
+                             notNow: { [weak self] in self.map { app.lsp.notNow($0.root) } },
+                             trust: { [weak self] in guard let root = self?.root else { return }; Task { await app.lsp.trust(app, root) } })
+        trust.isHidden = true
+        track(owner: self) { [weak self] in self.map { app.lsp.asks(app, $0.root, $0.language) } ?? false }
+            changed: { [weak trust] in trust?.isHidden = !$0 }
+        let column = NSStackView(views: [crumbs, trust])
+        column.orientation = .vertical
+        column.spacing = 0
+        column.detachesHiddenViews = true
+        for v in [crumbs, trust] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+        return column
+    }
+
+    /// Moved or deleted: a way out of the tab, and to where the file was.
+    func missing() -> NSView {
+        let app = self.app, uri = self.uri
+        let close = ClosureButton(title: String(localized: "Close Tab")) { app.workbench.closeTab(uri: uri) }
+        let files = ClosureButton(title: String(localized: "Show in Files")) { app.workbench.showPanel("files") }
+        let v = NSView(), e = EmptyStateView()
+        e.place(in: v)
+        e.showError(String(localized: "File not found — it was moved or deleted."), text: nil, buttons: [close, files])
+        return v
+    }
+}

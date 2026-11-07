@@ -657,6 +657,16 @@
         }
       }
     },
+    "Show in Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в «Файлах»"
+          }
+        }
+      }
+    },
     "Show Latest": {
       "localizations": {
         "ru": {

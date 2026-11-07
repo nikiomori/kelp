@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Testing
 import Core
+import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
 @testable import BuiltinAgents
@@ -24,6 +25,12 @@ extension OneAtATime {
         #expect(!lsp.whenTrusted(app, root) { started += 1 })        // a second tab of it waits too (asked once)
         #expect(await !lsp.open(app, root: root, path: root + "/main.rs", text: "", retry: {}))   // no server is given the file
         #expect(started == 0 && !lsp.trusted(app, root))
+        let rust: LanguageSpec? = LanguageSpec(id: "rust", extensions: ["rs"], server: .init(command: "rust-analyzer"))
+        #expect(lsp.asks(app, root, rust))                            // its code tabs show the question
+        lsp.notNow(root)
+        #expect(!lsp.asks(app, root, rust) && lsp.restricts(app, root, rust))   // put off: "Restricted" alone says it
+        #expect(!lsp.askTrust(app, root, again: true) {})             // Format asks again
+        #expect(lsp.asks(app, root, rust))
         await lsp.trust(app, root)                                    // the banner's "Trust and Start"
         #expect(started == 2 && lsp.trusted(app, root))
         #expect(lsp.whenTrusted(app, root) { started += 1 } && started == 2)   // trusted from now on: no waiting

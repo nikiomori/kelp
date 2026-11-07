@@ -15,6 +15,7 @@ final class EditorStatusBar: NSView {
     /// "Restricted" while the project isn't trusted to run its language server or formatter, as VS Code's Restricted Mode
     /// says: the banner that asked is long gone, this stays. A click offers Trust.
     private let restricted = PointerButton()
+    private let row = NSStackView()
     var onTrust: (() -> Void)?
     /// How many problems the file has: a click lists those of every open file.
     private let problems = PointerButton()
@@ -72,7 +73,7 @@ final class EditorStatusBar: NSView {
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        let row = NSStackView(views: [kind, place, problems, problem, NSView(), restricted, wrap, indentButton]); row.spacing = 16
+        row.setViews([kind, place, problems, problem, NSView(), restricted, wrap, indentButton], in: .leading); row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox(); line.boxType = .separator
         pin(row)
@@ -92,6 +93,12 @@ final class EditorStatusBar: NSView {
     }
 
     func show(restricted on: Bool) { restricted.isHidden = !on }
+    /// A Markdown file's Edit, Split, Preview, last in the bar.
+    func show(modes: NSControl) {
+        modes.controlSize = .mini
+        modes.font = .ui(11)   // the bar's own size, as "Markdown" beside it
+        row.addArrangedSubview(modes)
+    }
 
     private func offerTrust() {
         let m = NSMenu()

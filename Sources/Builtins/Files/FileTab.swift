@@ -43,7 +43,7 @@ final class FileTab: SavableTab {
     /// Its project's folder (the file's own folder outside every project); followed as the workspaces change.
     private(set) var root: String
     /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
-    private let remote: Bool
+    let remote: Bool
     /// A remote image's or PDF's preview, once its copy is here.
     private var preview: NSView?
     private var pendingLine: Int?
@@ -115,7 +115,7 @@ final class FileTab: SavableTab {
             case .success(let f): loaded(f, in: box)
             // Moved or deleted (often by an agent) since the tab was opened: say so, never an empty buffer ⌘S would write.
             case .failure(let e as RPCError) where e.code == RPCError.invalidParams("").code && Unopenable(e) == nil:
-                box.pin(Self.message(String(localized: "File not found — it was moved or deleted.")))
+                box.pin(missing())
             case .failure(let e): box.pin(Self.message(Unopenable(e).map(Self.reason) ?? AppModel.message(e)))
             }
         }
@@ -153,11 +153,11 @@ final class FileTab: SavableTab {
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) || ArtifactBar.isPage(path) {   // an agent's page of HTML too
             let md = MarkdownTab(editor: e, url: url, app: app)
             md.startInPreview = path == Help.location.path || ArtifactBar.isPage(path)   // the help and agents' pages are for reading
-            md.onEditing = { [weak bar] in bar?.editing = $0 }
             md.saveFile = { [weak self] in await self?.save() ?? false }; md.onPageTitle = { [weak self] in self?.pageTitle = $0 }
             markdown = md; box.pin(stacked(md.header(else: crumbs), md.view, bar))
+            md.attach(bar)
         } else {
-            box.pin(stacked(crumbs, e.view, bar))
+            box.pin(stacked(withTrustBar(crumbs), e.view, bar))
         }
         let before = e.onSelection   // Markdown's selection bar follows the selection too
         e.onSelection = { [weak bar, weak e] in
@@ -449,7 +449,7 @@ final class FileTab: SavableTab {
     func format() async {
         guard !remote else { NSSound.beep(); return }   // its formatter would run here, not on the host
         guard let cmd = await command("format"), let e = editor else { return }
-        guard app.lsp.askTrust(app, root, { [weak self] in Task { await self?.format() } }) else { return }   // its toolchain may be the repo's
+        guard app.lsp.askTrust(app, root, again: true, { [weak self] in Task { await self?.format() } }) else { return }   // its toolchain may be the repo's
         let text = e.text, line = e.cursor?.line ?? 1
         let r = await Shell.run(app, cmd, cwd: url.deletingLastPathComponent().path, input: text, timeout: 20)
         guard r.code == 0 else {
@@ -485,6 +485,7 @@ final class FileTab: SavableTab {
     }
 
     /// What the tab shows instead of the file: the empty state, a warning when it couldn't be opened.
+
     private static func message(_ s: String, failed: Bool = true) -> NSView {
         let v = NSView(), e = EmptyStateView()
         e.place(in: v)
