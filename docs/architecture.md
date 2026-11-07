@@ -268,7 +268,9 @@ assistant) is that app's, and so the user's. Agents, `kelpd`, `unknown` and
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
 `Worktree.madeBy`), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
-user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question; only a session speaks for itself.
+user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, or "trust this
+folder?" or a numbered menu on screen: `LiveSession.asksSomething`; a question Kelp can't read on screen it can't keep
+an agent's keys from); only a session speaks for itself.
 
 What this is for: an agent's mistakes, and an agent steered by words it read (a page, an issue, a file) into asking Kelp
 for what's the user's. It isn't a boundary against an agent set on getting around it: agents run as the user's account,

@@ -479,12 +479,12 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 }
 
 /// `kelp attach` from an agent's program types where `session send` may, key by key: a session it started that asks a
-/// question meanwhile gets none of it (a `(sleep 60; printf 1) | kelp attach` would answer it).
+/// question meanwhile gets none of it (a `(sleep 60; printf 1) | kelp attach` would answer it), and the attach ends.
 @Test func anAgentsAttachStopsTypingOnceTheSessionAsks() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let attach = #"zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$kid\"}}"; "#
-        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 3 -u $REPLY line; do print -r -- "stream $line"; done; "#
-        + #"read more; print -u $REPLY $more; cat"#
+        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 1 -u $REPLY line; do print -r -- "stream $line"; done; "#
+        + #"read more; trap "" PIPE; print -u $REPLY $more 2>/dev/null; print sent; cat"#
     let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; read kid; \(attach)'")
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
@@ -498,7 +498,24 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("stream kelp: That session asks a question") })
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("second"))
-    _ = child.update { $0.status = .working }   // answered: what it types next goes in again, the attach still open
+    // The attach is over: what it would type after the answer doesn't join what it typed before.
+    _ = child.update { $0.status = .working }
     _ = try await r.c.call(SessionWrite(id: me.id, text: "third\n"))
-    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: kid.id)).contains("third") })
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("sent") })   // it tried
+    try await Task.sleep(nanoseconds: 300_000_000)
+    #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("third"))
+}
+
+/// A question on screen that no hook said ("trust this folder?", a numbered menu) is one too: an agent's keys don't go
+/// into it, whatever its status says. Trusting a folder turns its hooks and servers on: the user's answer.
+@Test func anAgentDoesntTypeIntoAMenuOnScreen() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let menu = try await session(r, "/bin/sh -c 'printf \"Do you trust this folder?\\r\\n\\xe2\\x9d\\xaf 1. Yes, proceed\\r\\n  2. No, exit\\r\\n\"; cat'")
+    #expect(try await waitFor(10) { try r.d.sessions.existing(menu.id)?.asksSomething == true })
+    #expect(try r.d.sessions.existing(menu.id)?.snapshot.status != .waiting)   // asked by no hook
+    var refusal = ""
+    do { try r.d.allow(SessionWrite(id: menu.id, text: "\r"), conn: 0, caller: .detached) } catch let e as RPCError where e.isRefusal {
+        refusal = e.message
+    }
+    #expect(refusal.contains("asks a question"))
 }

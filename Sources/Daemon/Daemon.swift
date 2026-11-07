@@ -441,23 +441,19 @@ public final class Daemon: Sendable {
         // Queued under the session's lock: no live output gets ahead of it. One paused at this moment ends the attach,
         // as the pause does for those already attached (`letGo`).
         guard ls.attach(client.id, send: { client.send($0) }) != nil else { return }
-        var told = false
-        let type = { (d: Data) in
-            // Dropped, all of it (a terminal reply's payload can carry a Return), while the session asks: told once a question.
-            if held, self.sessions.existing(session)?.snapshot.status == .waiting {
-                if !told { client.send(Data("\r\nkelp: That session asks a question, the user's to answer.\r\n".utf8)) }
-                told = true
-                return
-            }
-            told = false
-            ls.userInput(d)
+        let type = { (d: Data) -> Bool in
+            // While the session asks, an agent's attach ends there, the chunk unsent (a terminal reply's payload can carry a
+            // Return): dropped and going on, what it types around the question would join into one line.
+            guard held, ls.asksSomething else { ls.userInput(d); return true }
+            client.send(Data("\r\nkelp: That session asks a question, the user's to answer.\r\n".utf8))
+            return false
         }
-        if !leftover.isEmpty { type(leftover) }
         var buf = [UInt8](repeating: 0, count: 65536)
-        while true {
-            let n = read(client.fd, &buf, buf.count)
-            if n <= 0 { break }
-            type(Data(buf[0..<n]))
+        if leftover.isEmpty || type(leftover) {
+            while true {
+                let n = read(client.fd, &buf, buf.count)
+                if n <= 0 || !type(Data(buf[0..<n])) { break }
+            }
         }
         ls.detach(client.id)
     }

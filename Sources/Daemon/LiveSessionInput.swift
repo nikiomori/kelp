@@ -4,6 +4,14 @@ import Agents
 
 /// Typing into a session: what holds text back (a trust question, a startup menu, text queued before it), answering an
 /// agent's menu, and sending text as text.
+extension LiveSession {
+    /// Asks the user something an agent's keys would answer: a question it said it asks (`.waiting`), "trust this folder?"
+    /// or a numbered menu on screen, said or not. What an agent may not type into (`typesInto`, an agent's attach).
+    var asksSomething: Bool {
+        state.withLock { $0.record.status == .waiting || $0.trustQuestionOpen() || $0.menuOpen() }
+    }
+}
+
 extension LiveSession.State {
     func trustQuestionOpen() -> Bool { !dialogSettled && StartupQuestion.trustAsked(screen(4000)) }
 
