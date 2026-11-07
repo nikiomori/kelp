@@ -27,14 +27,22 @@ extension EditorArea {
         else { run(command: value("cmd"), title: value("title"), split: split, focus: focus) }
     }
 
+    /// A path as the disk has it (/tmp/x is /private/tmp/x), so one file has one tab however it was reached; what isn't
+    /// there (yet) as given.
+    static func realPath(_ path: String) -> String {
+        guard let real = realpath(path, nil) else { return path }
+        defer { free(real) }
+        return String(cString: real)
+    }
+
     /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it. Only shows:
     /// callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…` starts nothing.
     func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
         guard !TabURI.runs(uri) else { return }
         // A page already open stays where it is, even when asked for beside you: a second click must not move it.
         if let t = layout.pageTab(for: uri) { select(t.id, focus: focus); return }
-        // A file already open (at another line): that tab, moved to the line asked for.
-        if layout.tab(uri: uri) == nil, let t = layout.fileTab(sameFileAs: uri) {
+        // A file already open (at another line, or by another path to it): that tab, moved to the line asked for.
+        if layout.tab(uri: uri) == nil, let t = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
             select(t.id, focus: focus)
             if let l = TabURI.filePath(uri).line { contents[t.id]?.goTo(line: l) }
             return

@@ -16,10 +16,11 @@ extension WorkspaceLayout {
     }
 
     /// An open tab on the same file as `uri`, whatever line it was opened at.
-    public func fileTab(sameFileAs uri: String) -> TabRef? {
+    /// `real` names a path as the disk has it (the app passes realpath: /tmp/x is /private/tmp/x).
+    public func fileTab(sameFileAs uri: String, real: (String) -> String = { $0 }) -> TabRef? {
         guard TabURI.scheme(uri) == "file" else { return nil }
-        let path = TabURI.filePath(uri).path
-        return allTabs.first { TabURI.scheme($0.uri) == "file" && TabURI.filePath($0.uri).path == path }
+        let path = real(TabURI.filePath(uri).path)
+        return allTabs.first { TabURI.scheme($0.uri) == "file" && real(TabURI.filePath($0.uri).path) == path }
     }
 
     /// The open tab of a web page: that address, or for a local server's bare address any page of that server, since a

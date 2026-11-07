@@ -28,6 +28,8 @@ final class TabStrip: NSView {
         var run: NSColor?
         /// An agent's tab: the sidebar's card for it ("a:<session>") under the pointer, in place of the tooltip.
         var card: String?
+        /// Its title ends with what tells it from a namesake ("README.md — docs"): it gives way in the middle, so that stays.
+        var keepsEnd = false
     }
 
     var onSelect: ((String) -> Void)?

@@ -93,6 +93,7 @@ final class TabButton: NSControl, NSDraggingSource {
         self.selected = selected
         self.groupFocused = groupFocused
         title.stringValue = it.title
+        title.lineBreakMode = it.keepsEnd ? .byTruncatingMiddle : .byTruncatingTail
         if icon.image !== it.icon { icon.image = it.icon }
         mark.status = it.status
         mark.unread = it.unread

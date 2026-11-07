@@ -311,3 +311,18 @@ extension AppOfItsOwn {
     #expect(all[1].insert.contains("\n") && all[1].snippet && all[1].documentation == "A test" && all[1].detail == "Test")
     #expect(throws: (any Error).self) { try Snippets.read("{", path: "/p/a.swift") }
 }
+
+/// A file reached through a symlink (/tmp is /private/tmp) is the file it leads to: opened again either way, it's the
+/// tab already open. What isn't there stays as asked.
+@Test @MainActor func aFileReachedThroughASymlinkIsTheSameFile() throws {
+    let dir = "/tmp/kelp-real-\(UUID().uuidString.prefix(6))"
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    FileManager.default.createFile(atPath: dir + "/a.txt", contents: Data())
+    #expect(EditorArea.realPath(dir + "/a.txt") == "/private" + dir + "/a.txt")
+    #expect(EditorArea.realPath("/nowhere/x.txt") == "/nowhere/x.txt")
+    var layout = WorkspaceLayout()
+    _ = layout.add(TabURI.file(dir + "/a.txt"), to: nil)
+    #expect(layout.fileTab(sameFileAs: TabURI.file("/private" + dir + "/a.txt", line: 2)) == nil)   // by name alone: another
+    #expect(layout.fileTab(sameFileAs: TabURI.file("/private" + dir + "/a.txt", line: 2), real: EditorArea.realPath) != nil)
+}

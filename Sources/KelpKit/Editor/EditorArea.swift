@@ -282,6 +282,7 @@ package final class EditorArea: NSViewController {
             guard let path, names.filter({ $0 == path.lastPathComponent }).count > 1 else { return item }
             var item = item
             item.title = path.lastPathComponent + " — " + (path.deletingLastPathComponent as NSString).lastPathComponent
+            item.keepsEnd = true
             return item
         }
     }
