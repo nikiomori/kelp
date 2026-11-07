@@ -32,6 +32,7 @@ enum ProjectIcon {
     /// The Icon style's mark: the project's colour glows around its icon, whatever colours that has itself.
     private static func halo(on view: NSImageView, _ color: ProjectColor?) {
         view.wantsLayer = true
+        guard view.shadow?.shadowColor != color?.glow else { return }   // the same glow: a new shadow redraws the blur
         view.shadow = color.map {
             let glow = NSShadow()
             glow.shadowColor = $0.glow
