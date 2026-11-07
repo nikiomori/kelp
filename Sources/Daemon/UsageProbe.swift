@@ -78,9 +78,35 @@ extension AgentUsage {
     /// Settings › Show plan limits.
     var readsPlans: Bool { (settings["usage.readPlans"] ?? settings["usage.readClaudePlan"])?.bool != false }
 
+    /// How long after its last session an agent's limits are still read: a probe is a whole run of the agent (one installed
+    /// but unused cost a launch every half hour, up to a GB at once with the others).
+    static let probeLately: TimeInterval = 14 * 86400
+
+    /// The agents with a session in the last `probeLately`. The store forgets an ended session a week after its end, so
+    /// `probe/<agent>.used` keeps the date (its modification time, moved at most once a day).
+    func usedLately(now: Date = Date()) -> Set<String> {
+        guard let dir = probeDir.map(URL.init(fileURLWithPath:)) else { return [] }
+        do {
+            let inStore = Set(try store.sessions().compactMap(\.agent)), fm = FileManager.default
+            return Set(try Self.planProbes.map(\.agent).filter { agent in
+                let mark = dir.appendingPathComponent("\(agent).used")
+                var at = fm.fileExists(atPath: mark.path) ? try fm.attributesOfItem(atPath: mark.path)[.modificationDate] as? Date : nil
+                if inStore.contains(agent), at.map({ $0 < now - 86400 }) ?? true {
+                    fm.createFile(atPath: mark.path, contents: nil, attributes: [.modificationDate: now])
+                    at = now
+                }
+                return at.map { $0 > now - Self.probeLately } ?? false
+            })
+        } catch {
+            Log.session.error("couldn't tell which agents ran lately: \(error)")
+            return []
+        }
+    }
+
     func refreshPlansIfStale() {
         guard readsPlans else { return }
-        for probe in Self.planProbes {
+        let used = usedLately()
+        for probe in Self.planProbes where used.contains(probe.agent) {
             let start: Bool = plans.withLock { plans in
                 let s = plans[probe.agent] ?? PlanState()
                 guard !s.running, Date().timeIntervalSince(s.at ?? .distantPast) > probe.every else { return false }

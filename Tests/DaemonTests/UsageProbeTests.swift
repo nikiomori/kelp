@@ -67,3 +67,17 @@ import Agents
     Sessions.waitGone(open.endAll())
     #expect(kill(pid, 0) != 0)
 }
+
+/// Only agents with a session lately have their limits read: an installed one never used isn't launched every half hour,
+/// and one used stays read for two weeks after the store forgot its session.
+@Test func onlyAgentsUsedLatelyAreProbed() throws {
+    let (d, _, _) = try daemon(); defer { d.stop() }
+    let u = d.agentUsage
+    #expect(u.usedLately().isEmpty)
+    let s = Session(cwd: "/tmp", command: "grok", agent: "grok", status: .exited)
+    try d.store.save(s)
+    #expect(u.usedLately() == ["grok"])
+    try d.store.delete(s)   // pruned: the mark remembers it
+    #expect(u.usedLately() == ["grok"])
+    #expect(u.usedLately(now: Date() + AgentUsage.probeLately + 3600).isEmpty)
+}
