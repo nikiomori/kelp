@@ -258,7 +258,9 @@ was run as, or the script an interpreter runs: `node …/codex`) is that agent's
 hand is held to an agent's rules as its terminal's session (`Caller.typedAgent`), reaching only what it starts there
 (`typed:` on its line) and never typing into that terminal itself; and a job left in a Kelp terminal (its line cut at
 launchd) is held so too, as who left it can't be told. Agents are known by name only (Kelp's presets): one run under
-another name, or by a wrapper that doesn't keep it in its command line, is taken for what runs it. Agents, `kelpd`, `unknown` and
+another name, or by a wrapper that doesn't keep it in its command line, is taken for what runs it. An agent may switch
+the window to another workspace and take its picture (`kelp shot`, which the extensions skill uses to look at what it
+built): what another session's terminal shows there, it sees. Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,

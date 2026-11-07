@@ -90,9 +90,13 @@ final class Callers: Sendable {
         func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
         guard let argv = Subprocess.arguments(pid), let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent }) else { return false }
         guard interpreter(first) else { return agents.contains(first) }
-        // Any of its words naming one (`node --require x …/codex`, `python -m aider`): which is the script can't be told
-        // from here (a path is the caller's, relative to its folder), and one more refusal is the safer miss.
-        return argv.dropFirst().contains { !$0.hasPrefix("-") && agents.contains(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent) }
+        // Its script: the first word that isn't an option, a path to one anywhere (`node --require x …/codex`), or the
+        // module after `-m` (`python -m aider`); not any word (`python3 bench.py --agent claude` is the user's).
+        let words = Array(argv.dropFirst())
+        func names(_ w: String) -> Bool { agents.contains(URL(fileURLWithPath: w).deletingPathExtension().lastPathComponent) }
+        if let first = words.first(where: { !$0.hasPrefix("-") }), names(first) { return true }
+        if let m = words.firstIndex(of: "-m"), m + 1 < words.count, names(words[m + 1]) { return true }
+        return words.contains { $0.contains("/") && !$0.hasPrefix("-") && names($0) }
     }
 
     /// An ancestor that only the user's own login or an app starts: Kelp's window (its terminals' `kelp attach`), one of
@@ -154,15 +158,20 @@ final class Callers: Sendable {
         }
         let shown = pane[1] == "1" && pane[2] == "1"
         let clients = lines(["list-clients", "-t", "=" + pane[3], "-F", "#{client_pid}"]).compactMap { $0.first.flatMap { pid_t($0) } }
-        let found = Self.tmuxDecision(clients.map { session(running: $0, throughTmux: false) }, shown: shown)
+        let agents = Set(live.all.filter { $0.snapshot.isAgent }.map(\.snapshot.id))
+        let found = Self.tmuxDecision(clients.map { session(running: $0, throughTmux: false) }, shown: shown) { agents.contains($0) }
         tmuxAnswers.withLock { $0[tty] = (found, Date()) }
         return found
     }
 
-    /// A pane's caller from who's attached: a Kelp terminal's session (agent rules and all) outweighs any other client;
-    /// else the user's, for the pane shown to them only; else nobody's.
-    static func tmuxDecision(_ attached: [Caller], shown: Bool) -> Caller? {
-        attached.first { if case .session = $0 { true } else { false } } ?? (shown && attached.contains(.user) ? .user : nil)
+    /// A pane's caller from who's attached: an agent's Kelp session (its rules and all) outweighs any other client, any
+    /// pane; a terminal of the user's, Kelp's or another app's, counts for the pane shown there only (not a window an
+    /// agent added out of sight); else nobody's.
+    static func tmuxDecision(_ attached: [Caller], shown: Bool, isAgent: (String) -> Bool = { _ in false }) -> Caller? {
+        let sessions = attached.compactMap { if case .session(let id) = $0 { id } else { nil } }
+        if let agent = sessions.first(where: isAgent) { return .session(agent) }
+        guard shown else { return nil }
+        return sessions.first.map(Caller.session) ?? (attached.contains(.user) ? .user : nil)
     }
 
     /// The `-L name` or `-S path` a tmux server was started with, for asking that server: among tmux's own options, before

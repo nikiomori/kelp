@@ -217,8 +217,10 @@ extension Daemon {
         if let id = m.typesInto, sessions.existing(id)?.snapshot.status == .waiting {
             throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
-        // A typed agent's own session is the user's terminal it was typed into, not its own: it reaches only what it started.
-        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where typed || id != own {
+        // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
+        // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
+        let mine: (String) -> Bool = { id in id == own && !(typed && (id == m.typesInto || id == m.actsOn)) }
+        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where !mine(id) {
             guard try reaches(id) else {
                 throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
             }

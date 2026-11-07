@@ -295,7 +295,8 @@ struct KelpLinks {
         case "workspace" where app.worktree(id) != nil: app.workbench.show(workspace: id)
         case "session" where app.session(id) != nil: app.workbench.focus(session: id)
         case "open":
-            guard let path = q.first(where: { $0.name == "path" })?.value.map({ ($0 as NSString).expandingTildeInPath }),
+            // Standardized (`..` resolved) before it's compared with the projects': `proj/../../x` is no project of theirs.
+            guard let path = q.first(where: { $0.name == "path" })?.value.map({ (($0 as NSString).expandingTildeInPath as NSString).standardizingPath }),
                   FileManager.default.fileExists(atPath: path) else {
                 Banner.show(String(localized: "Kelp can't find the file in that link."), style: .error)
                 return
