@@ -363,7 +363,7 @@ final class SyncPopover: NSViewController {
                 said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))"
             ) { [weak self] in
                 guard let self else { return }
-                app.openCI(folder)
+                RowMarks.of(app).openCI(folder)
                 popover?.performClose(nil)
             }
             line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")

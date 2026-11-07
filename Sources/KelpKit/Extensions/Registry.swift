@@ -40,7 +40,7 @@ package struct PanelSpec: Identifiable {
         self.make = make
     }
     package let id: String, title: String, icon: String, extensionId: String
-    let role: PanelRole?
+    package let role: PanelRole?
     /// What the panel's icon says (nil: nothing). Read under observation, so it must not build the panel.
     var badge: (@MainActor () -> PanelBadge?)?
     /// Keeps `badge` current while the inspector lists the panel (an extension's badge command); cancelled on a rebuild.
@@ -236,19 +236,50 @@ package struct TabProvider {
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
 /// What the window bar's branch chip does, from the built-in that knows git (Git): what runs on a workspace's branch now
-/// ("Pushing…"), the popover a click opens, and a pull or push the shell may ask for (a merged PR's "pull the base").
+/// ("Pushing…"), the popover a click opens, and the items at the top of a project's menu for its folder's branch (a
+/// merged PR's "Switch to main and Pull").
 package struct BranchActions {
     package let running: @MainActor (_ worktree: String) -> String?
     package let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
-    package let sync: @MainActor (_ worktree: String, _ ops: [String]) async -> String?
+    package let folderMenu: @MainActor (_ folder: Worktree, _ menu: NSMenu) -> Void
     package init(
         running: @escaping @MainActor (String) -> String?,
         popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
-        sync: @escaping @MainActor (String, [String]) async -> String?
+        folderMenu: @escaping @MainActor (Worktree, NSMenu) -> Void
     ) {
         self.running = running
         self.popover = popover
-        self.sync = sync
+        self.folderMenu = folderMenu
+    }
+}
+
+/// A folder's CI in one mark, from the built-in that watches it (Git): beside the folder's sidebar row and in the ⌃Tab
+/// switcher, on the branch chip, what it says, where a click on it goes, and the chip menu's CI items. Read under
+/// observation: they must not do work.
+package struct FolderCI {
+    /// Every folder's mark beside its row: the rows follow this, not each CI read.
+    package let rows: @MainActor () -> [String: CIRuns.State]
+    package let row: @MainActor (_ folder: String) -> CIRuns.State?
+    /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
+    package let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
+    /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
+    package let line: @MainActor (_ folder: String) -> String?
+    package let open: @MainActor (_ folder: String) -> Void
+    package let menu: @MainActor (NSMenu) -> Void
+    package init(
+        rows: @escaping @MainActor () -> [String: CIRuns.State],
+        row: @escaping @MainActor (String) -> CIRuns.State?,
+        chip: @escaping @MainActor (String) -> (state: CIRuns.State, atEnd: Bool)?,
+        line: @escaping @MainActor (String) -> String?,
+        open: @escaping @MainActor (String) -> Void,
+        menu: @escaping @MainActor (NSMenu) -> Void
+    ) {
+        self.rows = rows
+        self.row = row
+        self.chip = chip
+        self.line = line
+        self.open = open
+        self.menu = menu
     }
 }
 
@@ -288,6 +319,8 @@ package struct Contributions {
     package var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
     /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
     package var branch: BranchActions?
+    /// The CI mark on folders' rows and the branch chip: one built-in's (the first that has it); none, and no CI shows.
+    package var ci: FolderCI?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -371,6 +404,7 @@ package final class ExtensionRegistry {
             merged.sidebarSections += c.sidebarSections
             merged.sessionMarks += c.sessionMarks
             merged.branch = merged.branch ?? c.branch
+            merged.ci = merged.ci ?? c.ci
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))

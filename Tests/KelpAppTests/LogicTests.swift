@@ -661,7 +661,7 @@ extension OneAtATime {
             createdAt: "")
         m.land(CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: [])))
     }
-    let b = m.rowBadges
+    let b = RowMarks.of(m)
     m.workbench.workspaceId = "w2"   // its own worktree: not w1's folder
     ci("in_progress")
     #expect(try await waitFor(5) { b.sidebarCI("w1") == .running })

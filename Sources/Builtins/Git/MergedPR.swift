@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import KelpKit
 
 /// A folder left on a branch whose PR merged: the next agent would start on finished work. Said once, as it happens (one
 /// already merged when Kelp opened is no news), and at the top of the project's menu for as long as it's so.
@@ -25,7 +26,8 @@ struct MergedPR {
 
     /// Nil unless `worktree`'s folder still stands on a merged PR's branch and isn't on the base branch already.
     func next(_ worktree: Worktree) -> (pr: GitHub.PullRequest, next: Next)? {
-        guard let pr = app.rowBadges.prs[worktree.id], pr.state == "MERGED", pr.headRefName == worktree.branch,
+        guard let pr = app.latest(PREvent.self, worktree.id)?.pr, pr.state == "MERGED",
+            pr.headRefName == worktree.branch,
             let base = app.repo(worktree.repoId)?.baseBranch,
             base != worktree.branch
         else { return nil }
@@ -82,7 +84,7 @@ struct MergedPR {
         }
         Task { [app] in
             guard await app.call(GitSwitch(id: worktree.id, branch: base)) != nil else { return }
-            if let error = await app.extensions.all.branch?.sync(worktree.id, ["pull"]) {
+            if let error = await GitSync.run(app, worktree.id, ["pull"]) {
                 Banner.show(error, style: .error)
             }
         }

@@ -43,10 +43,10 @@ final class WindowBar: NSView {
     private lazy var ciAtEnd = ciMark.centerXAnchor.constraint(
         equalTo: branch.trailingAnchor, constant: -(Self.chipPadding + 12 / 2))
     private static let chipPadding: CGFloat = 6
-    private var ciPlace: String { app.settings.string("workbench.ci.branchChip") ?? "icon" }
-    private var ci: CIRuns.State? { ciPlace == "off" ? nil : badgeFolder.flatMap { app.rowBadges.chipCI($0.id) } }
+    /// The mark and its place, from the built-in that has CI (`FolderCI`); none, and the chip shows no CI.
+    private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
-    private var ciLine: String? { badgeFolder.flatMap { app.rowBadges.ciLine($0.id) } }
+    private var ciLine: String? { badgeFolder.flatMap { app.extensions.all.ci?.line($0.id) } }
 
     init(app: AppModel) {
         self.app = app
@@ -193,7 +193,7 @@ final class WindowBar: NSView {
             self?.update()
         }
         track(owner: self) { [weak self] in
-            self.map { [$0.ciPlace, "\($0.ci?.rawValue ?? -1)", $0.ciLine ?? ""] } ?? []
+            self.map { ["\($0.ci?.state.rawValue ?? -1)", "\($0.ci?.atEnd ?? false)", $0.ciLine ?? ""] } ?? []
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -294,7 +294,7 @@ final class WindowBar: NSView {
                 NSAttributedString(
                     string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor]))
         }
-        let running = syncing, ci = self.ci, atEnd = ci != nil && ciPlace == "end",
+        let running = syncing, ci = self.ci?.state, atEnd = self.ci?.atEnd == true,
             inPlace = ci != nil && !atEnd && running == nil
         if atEnd {
             let room = NSTextAttachment()
@@ -450,11 +450,9 @@ extension WindowBar: NSMenuDelegate {
         if let worktree, app.rowBadges.prs[badgeFolder?.id ?? ""] == nil {
             menu.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: worktree.id) }
         }
+        guard let ci = app.extensions.all.ci else { return }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        menu.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
-        menu.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
-        menu.addItem(.separator())
-        menu.addSettingsLink(String(localized: "CI Settings…"), section: "git", group: "CI", app)
+        ci.menu(menu)
     }
 
     /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.

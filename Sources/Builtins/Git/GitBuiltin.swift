@@ -47,7 +47,7 @@ extension Builtins {
                         help:
                             "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
                         placeholder: "~/worktrees"),
-                    // Where a branch's CI shows (RowBadges keeps it; gh / glab are asked only for what one of these shows).
+                    // Where a branch's CI shows (RowMarks keeps it; gh / glab are asked only for what one of these shows).
                     s(
                         "workbench.ci.branchChip", "CI on the branch chip", "enum", "icon",
                         "A ring while it runs, a red dot when it fails.",
@@ -90,7 +90,7 @@ extension Builtins {
                 remote(app, panel, "fetch", String(localized: "Fetched")) { $0.fetchPressed() }
             }
         ]
-        // The window bar's branch chip: what runs, its popover, and a pull a merged PR asks for.
+        // The window bar's branch chip: what runs, its popover; a merged PR's switch in the project's menu.
         contributions.branch = BranchActions(
             running: { GitSync.state(app).running[$0] },
             popover: { worktree, popover in
@@ -98,7 +98,15 @@ extension Builtins {
                 controller.popover = popover
                 return controller
             },
-            sync: { await GitSync.run(app, $0, $1) })
+            folderMenu: { MergedPR(app: app).addItems(to: $1, $0) })
+        // The CI mark beside folders and on the branch chip.
+        contributions.ci = FolderCI(
+            rows: { RowMarks.of(app).sidebarMarks },
+            row: { RowMarks.of(app).sidebarCI($0) },
+            chip: { RowMarks.of(app).chip($0) },
+            line: { RowMarks.of(app).ciLine($0) },
+            open: { RowMarks.of(app).openCI($0) },
+            menu: { RowMarks.of(app).menuItems($0) })
         return contributions
     }
 }

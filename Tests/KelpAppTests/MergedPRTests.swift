@@ -1,7 +1,7 @@
 import Core
 import Testing
 
-@testable import KelpKit
+@testable import BuiltinGit
 
 private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     GitHub.PullRequest(

@@ -236,7 +236,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateVisibleCells()
         }
         track(owner: self) { [app] in
-            app.rowBadges.sidebarMarks
+            app.extensions.all.ci?.rows() ?? [:]
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }

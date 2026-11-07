@@ -75,7 +75,8 @@ final class SidebarCell: NSTableCellView {
     /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
-    /// for rows that stand for a folder (RowBadges); the dot goes first when the row is short of room, the CI mark last.
+    /// for rows that stand for a folder (RowBadges; the CI from FolderCI); the dot goes first when the row is short of
+    /// room, the CI mark last.
     private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero),
         ci = PointerButton(frame: .zero)
     private let ciMark = CIMark()
@@ -286,7 +287,7 @@ final class SidebarCell: NSTableCellView {
     @objc private func openPR() {
         if let folder, let url = app.rowBadges.prs[folder.id]?.url { app.workbench.open(url, workspace: folder.id) }
     }
-    @objc private func openCI() { if let folder { app.rowBadges.openCI(folder.id) } }
+    @objc private func openCI() { if let folder { app.extensions.all.ci?.open(folder.id) } }
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
@@ -305,9 +306,9 @@ final class SidebarCell: NSTableCellView {
             pr.attributedTitle = prBadge.0
             pr.toolTip = prBadge.1
         }
-        let state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
+        let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state
-        ci.toolTip = folder.flatMap { app.rowBadges.ciLine($0.id) }.map {
+        ci.toolTip = folder.flatMap { app.extensions.all.ci?.line($0.id) }.map {
             $0 + "\n" + String(localized: "Click to open CI Runs")
         }
         ci.setAccessibilityLabel(ci.toolTip)

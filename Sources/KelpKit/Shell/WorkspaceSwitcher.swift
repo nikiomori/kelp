@@ -259,7 +259,7 @@ final class WorkspaceSwitcher {
         let gap = NSView()
         gap.setContentHuggingPriority(.init(1), for: .horizontal)
         let ci = CIMark()
-        ci.state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
+        ci.state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         let top1 = NSStackView(views: [name, place, gap, changes, pr, ci, when])
         top1.distribution = .fill   // the gap takes the slack: the badges sit at the right edge
         top1.spacing = 6

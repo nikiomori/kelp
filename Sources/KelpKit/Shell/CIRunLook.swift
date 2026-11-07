@@ -43,16 +43,6 @@ package enum CIRunLook {
         }
     }
 
-    /// A branch's CI in one word, for tooltips and VoiceOver.
-    static func words(_ state: CIRuns.State) -> String {
-        switch state {
-        case .passed: String(localized: "Succeeded")
-        case .running: String(localized: "Running")
-        case .waiting: String(localized: "Waiting for approval")
-        case .failed: String(localized: "Failed")
-        }
-    }
-
     package static func ago(_ iso: String) -> String {
         guard let date = CIRuns.date(iso) else { return "" }
         // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)

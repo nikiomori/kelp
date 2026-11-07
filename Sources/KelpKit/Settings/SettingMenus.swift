@@ -7,7 +7,7 @@ import Core
 @MainActor
 extension NSMenu {
     /// The choices in place, under `heading`.
-    func addChoices(_ key: String, _ app: AppModel, heading: String, tryOn: Bool = true) {
+    package func addChoices(_ key: String, _ app: AppModel, heading: String, tryOn: Bool = true) {
         addItem(.sectionHeader(title: heading))
         addChoiceItems(key, app, tryOn: tryOn)
     }

@@ -4,7 +4,7 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings — and, until they move into built-ins of their own, a few features
-that still live in the shell (KelpKit): the plan limits and usage, the CI marks on rows, the server
+that still live in the shell (KelpKit): the plan limits and usage, the server
 cards and the agent strip. The review rubric (`docs/review-rubric.md`,
 Architecture 5) counts them.
 
@@ -78,10 +78,11 @@ Architecture 5) counts them.
 | tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on |
 | sessionMarks (built-ins only) | a mark on an agent's row for where it runs something of the built-in's (a machine) |
-| branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync) |
+| branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
+| ci (built-ins only) | a folder's CI mark beside its sidebar row, in ⌃Tab and on the branch chip: what it says, where a click goes, the chip menu's CI items (Git's) |
 
-A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell asks for "the changes" or "the
-checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
+A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
+or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
 (`Builtin(offByDefault:)`). The shell names no built-in, panel or command of one (`theShellNamesNoBuiltinByString`),
 the menu bar's layout by command id aside.
 

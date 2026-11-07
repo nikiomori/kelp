@@ -105,8 +105,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     }.reduce(0, +)
     // Counted whole since 2026-11-08 (334; the line-start count said 286). Raised only with a reason beside it: +8 for
     // the branch chip's actions (`BranchActions`) and the folder and CI a workspace shows, so Git's sync popover is Git's.
-    #expect(declared <= 342, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 342, "fewer now (\(declared)): lower the ceiling")
+    // +11 for the CI mark on rows and the chip (`FolderCI`, the folders, a page, a panel's role, the menu's choices), so
+    // the CI marks are Git's.
+    #expect(declared <= 353, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 353, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -347,7 +349,7 @@ private func codeOnly(_ s: String) -> String {
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift":
             "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
-        "KelpKit/Sidebar/RowBadges.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
+        "Builtins/Git/RowMarks.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
         "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
         "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
