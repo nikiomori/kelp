@@ -503,8 +503,9 @@ extension SidebarCell {
         guard let line else { return }
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
         let t = NSMutableAttributedString()
-        if let (word, color) = line.prefix {   // on the pill the word goes grey too: orange there is 3:1, the mark keeps the colour
-            t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: selected ? grey : color]))
+        // On the pill too: the text shades hold 4.5:1 on it (light 5.5, dark 4.9), and the row it marks is the one you're on.
+        if let (word, color) = line.prefix {
+            t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: color]))
         }
         t.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
         // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
