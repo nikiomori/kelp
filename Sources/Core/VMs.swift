@@ -177,8 +177,10 @@ public struct VMCreate: RPCMethod {
 /// shuts it down (what ran inside ends); `delete` stops it and removes it, its disk and all. Stop and delete are the user's.
 public struct VMControl: RPCMethod {
     public static let name = "vm.control"; public typealias Result = VMInfo
-    /// A start can boot: up to a few minutes, more than a call's usual deadline.
-    public static var timeout: TimeInterval? { 900 }
+    /// A start can boot: up to a few minutes, more than a call's usual deadline. Show can be two boots (`showWait`).
+    public static var timeout: TimeInterval? { 1200 }
+    /// What kelpd waits for a Show (a headless first boot an agent began, then the windowed one): within `timeout`.
+    public static let showWait: TimeInterval = 1100
     /// `show`: its screen in a window of its own (a macOS machine's), woken first.
     public enum Action: String, Codable, Sendable, CaseIterable { case start, sleep, stop, show, delete }
     public var name: String, action: Action

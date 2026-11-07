@@ -119,6 +119,7 @@ final class AndroidRuntime {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
                     self.emulator = nil
+                    self.windowed = false   // its window went with it (closed, or quit): the next start is headless again
                     if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
                     if self.state != .sleeping { self.state = .off }
                 }

@@ -121,7 +121,7 @@ struct VMService: Sendable {
         case .show:
             guard m.os != "linux" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
             try wake(m, show: true)   // begun with its window (Android's emulator starts headless otherwise)
-            try check(ask(name, .init(op: .show), wait: 840))   // a first boot, then one with its window: the call has 900 s
+            try check(ask(name, .init(op: .show), wait: VMControl.showWait))
         // Running by its lock, not by a status within 2 s, which a busy one may not give.
         case .sleep:
             if alive(name), try !asleep(ask(name, .init(op: .sleep), wait: 60)) {
