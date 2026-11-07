@@ -417,6 +417,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         guard editedMask.contains(.editedCharacters) else { return }
         MainActor.assumeIsolated {   // the text view's and load's edits, both on the main thread
             lineIndex.invalidate(from: editedRange.location)
+            (textView.textContainer as? WrappingContainer)?.edited()
             if !described && !loading { lineCount = LineIndex.breaks(in: textView.string as NSString) + 1 }
             if !loading { shiftChangeMarks(from: editedRange.location) }
             highlighter?.parse(textView.string as NSString, described: described)

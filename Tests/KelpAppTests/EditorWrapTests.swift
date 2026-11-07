@@ -44,4 +44,30 @@ extension OneAtATime {
         #expect(same > 20)
         #expect(more > same)
     }
+
+    /// The container keeps where the line being laid out starts; an edit before it moves that start, and its rows still
+    /// go on at its own indentation.
+    @Test func wrappedRowsKeepTheirIndentationAfterAnEditAbove() throws {
+        _ = NSApplication.shared
+        CodeEditor.wrapLines = true
+        defer { CodeEditor.wrapLines = false }
+        let e = CodeEditor(text: "xx\n        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
+        window.contentView = e.view
+        e.view.layoutSubtreeIfNeeded()
+        let lm = try #require(e.textView.layoutManager), tc = try #require(e.textView.textContainer)
+        func secondRowOfLine2() -> CGFloat {
+            lm.ensureLayout(for: tc)
+            let start = (e.textView.string as NSString).range(of: "        ").location
+            let first = lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil)
+            return lm.lineFragmentRect(forGlyphAt: lm.glyphIndex(for: NSPoint(x: 5, y: first.maxY + 2), in: tc), effectiveRange: nil).minX
+        }
+        #expect(secondRowOfLine2() > 20)
+        e.textView.textStorage?.replaceCharacters(in: NSRange(location: 0, length: 0), with: "abc")
+        // Then a key in that line, which lays it out again (the edit above only moved it).
+        e.textView.textStorage?.replaceCharacters(in: NSRange(location: e.textView.string.utf16.count, length: 0), with: " more")
+        lm.ensureLayout(for: tc)
+        let end = e.textView.string.utf16.count - 1   // the row laid out again
+        #expect(lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: end), effectiveRange: nil).minX > 20)
+    }
 }
