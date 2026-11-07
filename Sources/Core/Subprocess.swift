@@ -168,6 +168,27 @@ public enum Subprocess {
     /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
     public static func owner(_ pid: pid_t) -> uid_t? { kinfo(pid).map { $0.kp_eproc.e_ucred.cr_uid } }
 
+    /// Its arguments (argv, its program first), of a process of the same user; nil for another's, or none.
+    public static func arguments(_ pid: pid_t) -> [String]? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid], size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return nil }
+        var buf = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0, size > 4 else { return nil }
+        let argc = Int(buf.withUnsafeBytes { $0.load(as: Int32.self) })
+        // argc, then the program's path, NULs, then argv: argc strings, NUL-ended.
+        var i = 4
+        while i < size, buf[i] != 0 { i += 1 }
+        while i < size, buf[i] == 0 { i += 1 }
+        var args: [String] = []
+        while args.count < argc, i < size {
+            let start = i
+            while i < size, buf[i] != 0 { i += 1 }
+            args.append(String(decoding: buf[start..<i], as: UTF8.self))
+            i += 1
+        }
+        return args
+    }
+
     /// Ended, not reaped yet: nothing left to stop.
     public static func isZombie(_ pid: pid_t) -> Bool {
         var info = proc_bsdinfo()

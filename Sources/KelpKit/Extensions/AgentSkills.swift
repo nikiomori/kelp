@@ -16,7 +16,7 @@ enum AgentSkills {
             body: extensionsSteps(ExtensionRegistry.userDir.path) + IDE.extensionGuide)
         put("kelp-settings", on: s.bool("agents.skills.settings") != false,
             description: "Use when the user wants to see or change how Kelp, the IDE this session runs in, is set up: theme, fonts, editor, "
-                + "terminal, agents, turning extensions on or off. Done with the kelp CLI (kelp settings set …), not Claude Code's own settings.",
+                + "terminal, agents. Done with the kelp CLI (kelp settings set …), not Claude Code's own settings.",
             body: settingsGuide(app))
         put("kelp-terminals", on: s.bool("agents.skills.terminals") != false,
             description: "Use when you run tests, a build or a dev server, or work through a long multi-step task, in Kelp, the IDE this session runs "
@@ -275,7 +275,7 @@ enum AgentSkills {
         - `kelp settings get <key>`
         - `kelp settings set <key> <value>` — the value is JSON when it parses (`true`, `14`, `["a"]`), else text
         - `kelp settings unset <key>` — back to the default
-        - `kelp ext list` / `kelp ext enable <id>` / `kelp ext disable <id>` — turn extensions on or off
+        - `kelp ext list` — the extensions and which are on; turning one on or off is the user's (Settings › Extensions)
 
         Keyboard shortcuts are the `keys` object, laid over Kelp's defaults: command id → key, e.g.
         `{"editor.saveAll": "opt+cmd+s", "terminal.new": ""}` (`""` = no shortcut; macOS's own items such as Copy go by

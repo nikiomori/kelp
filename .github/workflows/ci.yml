@@ -42,6 +42,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
+      # The tmux tests (Kelp's tmux terminals, a pane's caller) skip without it.
+      - run: command -v tmux || brew install tmux
       # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT).
       - id: ghostty
         uses: actions/cache/restore@v4

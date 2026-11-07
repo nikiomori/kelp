@@ -182,7 +182,8 @@ extension Daemon {
                            or: "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
         case .detached:
             try allowAgent(m, own: Sessions.detached,
-                           or: "A program that left its terminal (a double fork, setsid) is held to an agent's rules: run it from a terminal of yours.")
+                           or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
+                               + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours.")
         }
     }
 

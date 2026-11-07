@@ -87,6 +87,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         + #"r look ui.open "{\"uri\":\"file:///tmp\",\"worktreeId\":\"\#(away.id)\"}"; "#
         + #"r phone settings.set "{\"key\":\"phone.url\",\"value\":\"https://x.example\"}"; "#
         + #"r font settings.set "{\"key\":\"editor.fontSize\",\"value\":13}"; "#
+        + #"r pull git.remote "{\"id\":\"\#(wt)\",\"op\":\"pull\"}"; r folder settings.set "{\"key\":\"worktrees.folder\",\"value\":\"/tmp\"}"; "#
         + #"r commit git.commit "{\"id\":\"\#(wt)\",\"message\":\"x\"}"; r run run.start "{\"worktreeId\":\"\#(away.id)\",\"id\":\"x\"}"; "#
         + #"r drop worktree.remove "{\"id\":\"\#(wt)\",\"dropCommits\":true}"; cat"#
     let me = try await session(r, "/bin/zsh -c '\(script)'")
@@ -113,6 +114,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<upper> [^\n]*kelp session new/#) && out.contains(#/<peek> [^\n]*acts only on its own session/#))
     #expect(out.contains(#/<look> [^\n]*works only in its own workspace/#))
     #expect(out.contains(#/<phone> [^\n]*the user's/#) && !out.contains(#/<font> [^<]*error/#))
+    #expect(out.contains(#/<pull> [^\n]*pull is the user's/#) && out.contains(#/<folder> [^\n]*the user's to set/#))
     #expect(try !r.d.sessions.works(me.id, in: away.id))
     var made = away; made.madeBy = me.id   // as `worktree.create` from its terminal does: kept in the store, past a restart
     try r.d.sessions.store.save(made)
@@ -281,7 +283,12 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let root = try Subprocess.run(["/usr/bin/pgrep", "-U", "0", "-x", "syslogd"], cwd: "/", env: [:], timeLimit: 5)
     let pid = try #require(pid_t(String(decoding: root.stdout, as: UTF8.self).split(separator: "\n").first ?? ""))
     #expect(Sessions.cameFromTheUser(pid))   // another account's
-    #expect(!Sessions.cameFromTheUser(getpid()))   // this test: the user's own plain program
+    let plain = Process()
+    plain.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    plain.arguments = ["5"]
+    try plain.run()
+    defer { plain.terminate() }
+    #expect(!Sessions.cameFromTheUser(plain.processIdentifier))   // the user's own plain program
 }
 
 /// A program that forked away and is itself in a bundle (as `kelp` is, in Kelp.app) is no app the user started: only
@@ -312,4 +319,25 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Unix.executable(pid)?.contains(".app/Contents/MacOS/") == true })
     #expect(r.d.sessions.session(running: pid) == .detached)
+}
+
+/// A tmux pane's caller from who's attached: a Kelp terminal's session outweighs the user's own client; the user's
+/// counts for the pane they're shown only; nobody attached is nobody's.
+@Test func aTmuxPanesCallerIsWhoIsAttached() {
+    #expect(Sessions.tmuxDecision([.user, .session("A")], shown: true) == .session("A"))
+    #expect(Sessions.tmuxDecision([.user], shown: true) == .user)
+    #expect(Sessions.tmuxDecision([.user], shown: false) == nil)
+    #expect(Sessions.tmuxDecision([], shown: true) == nil)
+    #expect(Sessions.tmuxSocket(["tmux", "-L", "work", "new", "-s", "x"]) == ["-L", "work"])
+    #expect(Sessions.tmuxSocket(["tmux", "new"]) == [])
+}
+
+/// A process's own arguments, read back as it was started (what a tmux server's socket is told by).
+@Test func aProcessesArgumentsAreReadBack() throws {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    p.arguments = ["7"]
+    try p.run()
+    defer { p.terminate() }
+    #expect(Subprocess.arguments(p.processIdentifier) == ["/bin/sleep", "7"])
 }

@@ -184,7 +184,11 @@ extension GitUndoDiscard: Handled {
 }
 
 extension GitRemoteOp: Handled {
-    var inWorkspace: String? { id }   // a pull merges into the tree it's run in: an agent's own
+    var inWorkspace: String? { id }   // a fetch, in an agent's own workspace
+    /// A pull merges into a tree and a push publishes a branch: the user's, as commits are (`AgentRules`).
+    var notForAgents: String? {
+        op == "fetch" ? nil : "A \(op) is the user's: an agent fetches; it pulls and pushes with git in its own terminal, which the user sees."
+    }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let o = Git.Remote(rawValue: op) else { throw RPCError.invalidParams("op: pull, push or fetch") }
         try Git.remote(workspaces.folder(id), o, remotes: workspaces.remotes)

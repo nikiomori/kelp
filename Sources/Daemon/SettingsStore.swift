@@ -143,9 +143,11 @@ extension SettingsSet: Handled {
     /// A colour dragged or a stepper held sends these quickly: the last one sent is the one that stays.
     static var inOrder: Bool { true }
     /// What an agent may not set (`kelp settings set`, its settings skill): where Kelp sends what agents did off this Mac
-    /// (`phone.*`), whose accounts agents run as (`accounts.*`), where extensions come from, whether terminals are tmux
-    /// sessions (whose panes are told apart only by who's attached), and whether agents hear from those they start.
-    static let usersOnly = ["phone.", "accounts.", "extensions.library", "terminal.tmux", "agents.childReports"]
+    /// (`phone.*`), whose accounts agents run as (`accounts.*`), where extensions come from and which are on (one the user
+    /// turned off stays off), whether terminals are tmux sessions (whose panes are told apart only by who's attached),
+    /// whether agents hear from those they start, and where every workspace's folder goes.
+    static let usersOnly = ["phone.", "accounts.", "extensions.library", "extensions.disabled", "terminal.tmux", "agents.childReports",
+                            "worktrees.folder"]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil
     }

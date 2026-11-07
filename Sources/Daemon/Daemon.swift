@@ -38,6 +38,10 @@ public final class Daemon: Sendable {
 
     public convenience init(root: URL, store: Store? = nil) throws { try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60)) }
 
+    /// kelpd's own: a caller is the user's only when Kelp can tell (`Sessions.session(running:)`); anything else, its own
+    /// programs' leftovers included, is held to an agent's rules. Not in a test's daemon, whose process is the test's.
+    public func strict() { sessions.strictCallers.withLock { $0 = true } }
+
     /// `lspDelays`: how soon a broken language server is started again, and how long one with no open file keeps running
     /// (tests shorten them).
     init(root: URL, store: Store?, lspDelays: (retry: TimeInterval, idle: TimeInterval)) throws {
