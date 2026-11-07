@@ -6,6 +6,13 @@ import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
+    /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it).
+    private static var xcodeInstalled: Bool {
+        do { return try FileManager.default.contentsOfDirectory(atPath: "/Applications").contains { $0.hasPrefix("Xcode") && $0.hasSuffix(".app") } } catch {
+            return false   // no /Applications to read: no Xcode there
+        }
+    }
+
     /// The kinds of machine the sidebar's Machines + offers; `missing` says what this Mac lacks for one (Apple silicon, an
     /// Android SDK, Xcode).
     var machineChoices: [(title: String, image: String, missing: String?)] {
@@ -15,7 +22,7 @@ extension AppModel {
         let silicon: String? = String(localized: "Needs a Mac with Apple silicon")
         #endif
         let sdk = AndroidSDK.avdmanager != nil && AndroidSDK.newestImage() != nil
-        let xcode = FileManager.default.fileExists(atPath: "/Applications/Xcode.app") || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
+        let xcode = Self.xcodeInstalled || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
         return [(String(localized: "Linux (Debian 13)"), "debian-13", silicon),
                 (String(localized: "macOS…"), "macos", silicon),
                 (String(localized: "Android"), "android", sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image")),

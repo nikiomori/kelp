@@ -3,7 +3,7 @@ import Core
 import WorkbenchKit
 import Agents
 
-/// UI-side mirror of daemon state (observable: SwiftUI views update only what changed).
+/// UI-side mirror of daemon state (observable: views follow what they read with `track`, and redraw only on its change).
 /// The app talks to the daemon only through JSON-RPC.
 @MainActor
 @Observable
