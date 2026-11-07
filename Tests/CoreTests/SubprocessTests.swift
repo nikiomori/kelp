@@ -116,3 +116,15 @@ private let env = ProcessInfo.processInfo.environment
     defer { p.terminate() }
     #expect(Subprocess.arguments(p.processIdentifier) == ["/bin/sleep", "5", long])
 }
+
+/// A child that has ended and isn't reaped is a zombie, and stops being one once its parent reaps it.
+@Test func anEndedChildIsAZombieUntilReaped() async throws {
+    var pid: pid_t = 0
+    var args: [UnsafeMutablePointer<CChar>?] = [strdup("/usr/bin/true"), nil]
+    defer { args.forEach { free($0) } }
+    #expect(posix_spawn(&pid, "/usr/bin/true", nil, nil, &args, nil) == 0)
+    #expect(try await waitFor { Subprocess.isZombie(pid) })
+    var status: Int32 = 0
+    #expect(waitpid(pid, &status, 0) == pid)
+    #expect(!Subprocess.isZombie(pid))
+}

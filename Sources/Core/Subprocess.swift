@@ -213,11 +213,13 @@ public enum Subprocess {
         return args
     }
 
-    /// Ended, not reaped yet: nothing left to stop.
+    /// Ended, not reaped yet: nothing left to stop. Asked of sysctl: `proc_pidinfo` has no answer for a zombie, so it
+    /// never said yes, and `stopTreeNow` waited out its grace for one.
     public static func isZombie(_ pid: pid_t) -> Bool {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size && info.pbi_status == UInt32(SZOMB)
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        return sysctl(&mib, 4, &info, &size, nil, 0) == 0 && size > 0 && info.kp_proc.p_stat == SZOMB
     }
 
     /// `pid` and its descendants, parents before children.

@@ -254,7 +254,9 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     _ = try await c2.call(SessionWrite(id: s.id, text: "x\n"))
     #expect(try await waitFor { try await c2.call(SessionRead(id: s.id)).contains("got-x") })
     #expect(
-        try await waitFor(5) { children(of: p.processIdentifier).allSatisfy { name($0) != "sleep" && !isZombie($0) } })
+        try await waitFor(5) {
+            children(of: p.processIdentifier).allSatisfy { name($0) != "sleep" && !Subprocess.isZombie($0) }
+        })
     _ = try await c2.call(DaemonShutdown())
     #expect(try await waitFor { !p.isRunning && kill(s.pid, 0) != 0 })
 }
@@ -264,13 +266,6 @@ private func children(of pid: pid_t) -> [pid_t] {
     var pids = [pid_t](repeating: 0, count: 256)
     let n = Int(proc_listchildpids(pid, &pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
     return Array(pids.prefix(max(0, n)))
-}
-
-/// Ended, and not reaped by its parent.
-private func isZombie(_ pid: pid_t) -> Bool {
-    var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.size
-    var mib = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
-    return sysctl(&mib, 4, &info, &size, nil, 0) == 0 && size > 0 && info.kp_proc.p_stat == SZOMB
 }
 
 /// Its program's name while it runs ("" once it has ended).
