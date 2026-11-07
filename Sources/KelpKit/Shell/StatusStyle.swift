@@ -56,16 +56,23 @@ package func shortAgo(_ d: Date?, now: Date = Date()) -> String {
 }
 
 /// "4m", "1d 3h": a span in Kelp's language, `units` parts at most (the last one rounded), down to `smallest`.
+/// One formatter per kind, kept: every row on every sidebar pass and every clock tick made a new one.
 package func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.Unit = .minute) -> String {
-    let f = DateComponentsFormatter()
-    f.unitsStyle = .abbreviated
-    f.maximumUnitCount = units
-    f.allowedUnits = [.day, .hour, .minute, smallest]
-    var c = Calendar.current
-    c.locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-    f.calendar = c
+    let language = Bundle.main.preferredLocalizations.first ?? "en", key = "\(units) \(smallest.rawValue) \(language)" as NSString
+    let f = spanFormatters.object(forKey: key) ?? {
+        let f = DateComponentsFormatter()
+        f.unitsStyle = .abbreviated
+        f.maximumUnitCount = units
+        f.allowedUnits = [.day, .hour, .minute, smallest]
+        var c = Calendar.current
+        c.locale = Locale(identifier: language)
+        f.calendar = c
+        spanFormatters.setObject(f, forKey: key)
+        return f
+    }()
     return f.string(from: max(0, seconds)) ?? ""
 }
+nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
 
 /// A status mark for AppKit. Ready agents show none.
 @MainActor

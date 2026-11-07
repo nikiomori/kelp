@@ -515,6 +515,7 @@ final class AgentStrip {
         let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
         let frame = behind ?? StripModel.frame(size, in: area, at: corner)
         guard appearing else {
+            guard p.frame != frame || p.alphaValue != 1 else { return }   // nothing moved: no animation to run
             NSAnimationContext.runAnimationGroup { c in
                 c.duration = Motion.duration(Motion.appear)
                 p.animator().setFrame(frame, display: true)
