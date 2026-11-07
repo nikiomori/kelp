@@ -245,6 +245,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
                 MainActor.assumeIsolated { self?.tick() }
             }
         } else if !running { clock?.invalidate(); clock = nil }
+        // Out of sight (another window over it, Kelp hidden): no tails asked, nothing redrawn; the clock goes on for when it's back.
+        guard window?.occlusionState.contains(.visible) == true else { return }
         readTails()
         let now = Date()
         showHeader(now)
