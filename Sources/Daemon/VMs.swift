@@ -191,7 +191,8 @@ struct VMService: Sendable {
         let fd = open(root.appendingPathComponent(".waking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))") }
         defer { close(fd) }
-        if alive(m.name) { return }   // up already: nothing to make room for, nor to wait behind
+        let up: Set<VMState> = [.running, .paused, .starting]
+        if let st = status(m.name), up.contains(st.state) { return }   // up already: nothing to make room for, nor to wait behind
         // Waited for 90 s at most (one wake puts others to sleep, a minute each at worst), on this offload thread.
         let end = Date().addingTimeInterval(90)
         while flock(fd, LOCK_EX | LOCK_NB) != 0 {
@@ -200,6 +201,8 @@ struct VMService: Sendable {
         }
         try admit(m)
         try startHelper(m)
+        // Starting before the lock is let go (answered at once, `begin`): the next wake counts it, as it's `.starting` now.
+        do { try check(ask(m.name, .init(op: .start, args: ["begin"]), wait: 10)) } catch { Log.vm.info("\(m.name) begin: \(error)") }
     }
 
     /// Room in the memory budget (a quarter of the Mac's) for `m` to wake: idle machines are put to sleep for it, else no.
@@ -208,8 +211,7 @@ struct VMService: Sendable {
         let up: Set<VMState> = [.running, .paused, .starting]
         if let me = status(m.name), up.contains(me.state) { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
-        // And one whose kelp-vm runs while it's still down: a wake just started, not booting yet (it is once it's asked).
-        var awake = list().filter { $0.machine.name != m.name && (up.contains($0.state) || $0.state != .creating && alive($0.machine.name)) }
+        var awake = list().filter { $0.machine.name != m.name && up.contains($0.state) }
         // By the size each is given, not what it holds now (`memoryMiB`, its footprint): a guest just booted grows to it.
         func used() -> Int { awake.reduce(m.memoryMiB) { $0 + $1.machine.memoryMiB } }
         let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }

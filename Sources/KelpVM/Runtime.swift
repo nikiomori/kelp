@@ -143,6 +143,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private func handle(_ r: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         switch r.op {
         case .status: done(nil, nil)
+        // `begin` (kelpd's wake, holding its lock): starting is answered at once, the boot goes on.
+        case .start where r.args == ["begin"]: lastUse = Date(); wake { _ in }; done(nil, nil)
         case .start: lastUse = Date(); wake { done($0, nil) }
         // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
         // then, an update's included. Its answer is written before (`reply` writes and closes).

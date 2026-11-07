@@ -46,6 +46,7 @@ final class IOSRuntime {
     private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         switch r.op {
         case .status: done(nil)
+        case .start where r.args == ["begin"]: lastUse = Date(); wake { _ in }; done(nil)   // kelpd's wake: answered as it starts
         case .start: lastUse = Date(); wake(done)
         case .sleep, .stop: stop { done(nil); exit(0) }   // a simulator keeps no running state to save; the next start is a new kelp-vm
         case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")

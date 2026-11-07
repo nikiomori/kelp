@@ -54,6 +54,7 @@ final class AndroidRuntime {
     private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         switch r.op {
         case .status: done(nil)
+        case .start where r.args == ["begin"]: lastUse = Date(); wake { _ in }; done(nil)   // kelpd's wake: answered as it starts
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
         case .stop: stop { done(nil); exit(0) }   // off, nothing kept: the next start is the kelp-vm installed then
