@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import TestSupport
 import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
@@ -27,9 +28,6 @@ extension AppOfItsOwn {
         await tab.loading?.value
         return tab
     }
-    private func until(_ ok: () -> Bool) async throws {
-        for _ in 0..<200 where !ok() { try await Task.sleep(for: .milliseconds(25)) }
-    }
 
     /// The close sheet says Save writes a deleted file at its old place again, and it does: it used to leave the tab open with
     /// no word. A plain save still doesn't write over what it hasn't seen.
@@ -52,13 +50,13 @@ extension AppOfItsOwn {
         let tab = await opened(p, in: rig), kept = UnsavedBackup(app: rig.app, uri: tab.uri)
         tab.editor?.setText("mine\n")
         tab.editor?.onChange?("mine\n")
-        try await until { kept.text != nil }
+        #expect(try await waitFor(5) { kept.text != nil })
         let next = await opened(p, in: rig)
         #expect(next.editor?.text == "mine\n")
-        try await until { next.isEdited }
+        #expect(try await waitFor(5) { next.isEdited })
         #expect(next.isEdited)
         #expect(await next.save())
-        try await until { kept.text == nil }
+        #expect(try await waitFor(5) { kept.text == nil })
         #expect(kept.text == nil)
     }
 
@@ -68,11 +66,11 @@ extension AppOfItsOwn {
         let tab = UntitledTab(uri: "untitled:1", app: rig.app), kept = UnsavedBackup(app: rig.app, uri: "untitled:1")
         tab.editor.setText("draft")
         tab.editor.onChange?("draft")
-        try await until { kept.text != nil }
+        #expect(try await waitFor(5) { kept.text != nil })
         let next = UntitledTab(uri: "untitled:1", app: rig.app)
         #expect(next.editor.text == "draft" && next.isEdited)
         next.discard()
-        try await until { kept.text == nil }
+        #expect(try await waitFor(5) { kept.text == nil })
         #expect(kept.text == nil)
     }
 
@@ -105,7 +103,7 @@ extension AppOfItsOwn {
         tab?.editor?.setText("mine\n")
         tab?.editor?.onChange?("mine\n")
         tab = nil
-        try await until { kept.text != nil }
+        #expect(try await waitFor(5) { kept.text != nil })
         #expect(kept.text == "mine\n")
         let inRepo = rig.workspace.path + "/kept.txt", uri = TabURI.file(inRepo)
         rig.app.uiState["backup.gone.\(uri)"] = .array([.string(uri), "gone", "typed"])
@@ -121,7 +119,7 @@ extension AppOfItsOwn {
         let tab = await opened(p, in: rig)
         #expect(tab.editor?.text == "one\n")
         try "two\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent
-        for _ in 0..<100 where tab.editor?.text != "two\n" { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(tab.editor?.text != "two\n") })
         #expect(tab.editor?.text == "two\n")
     }
 
@@ -147,7 +145,7 @@ extension AppOfItsOwn {
         tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
         let was = rig.app.fileVersions[p]?.stamp
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
-        try await until { rig.app.fileVersions[p]?.stamp != was }
+        #expect(try await waitFor(5) { rig.app.fileVersions[p]?.stamp != was })
         try await Task.sleep(for: .milliseconds(200))   // its text read meanwhile
         #expect(tab.editor?.text == "mine\n" && tab.isEdited)
         #expect(!tab.gone)   // failed once on CI by saving over the file: this and `now` say which way it got there
@@ -169,7 +167,7 @@ extension AppOfItsOwn {
         tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
         let was = rig.app.fileVersions[p]?.stamp
         try touch(5)
-        try await until { rig.app.fileVersions[p]?.stamp != was }
+        #expect(try await waitFor(5) { rig.app.fileVersions[p]?.stamp != was })
         #expect(await tab.save())
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
         tab.editor?.setText("mine again\n"); tab.editor?.onChange?("mine again\n")
@@ -237,7 +235,7 @@ extension AppOfItsOwn {
         tv.replace([NSRange(location: end, length: 1)], with: ["y"])   // the saved length, other text
         #expect(tab.isEdited)
         tv.replace([NSRange(location: end, length: 1)], with: [was])   // the saved text again
-        for _ in 0..<100 where tab.isEdited { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(2) { !(tab.isEdited) })
         #expect(!tab.isEdited)
     }
 
@@ -271,7 +269,7 @@ extension AppOfItsOwn {
         try await Task.sleep(for: .seconds(1))   // the events of both arrive meanwhile
         #expect(tab.editor?.text == "aaaa\n")
         try "cccc\n".write(toFile: p, atomically: true, encoding: .utf8)   // a real change still shows
-        for _ in 0..<100 where tab.editor?.text != "cccc\n" { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(tab.editor?.text != "cccc\n") })
         #expect(tab.editor?.text == "cccc\n")
     }
 }

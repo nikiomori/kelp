@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import TestSupport
 @testable import EditorKit
 
 @MainActor private func opened(_ text: String, _ name: String) -> CodeEditor {
@@ -69,7 +70,7 @@ import Testing
     e.snippetSource = { [snippet] }
     e.textView.setSelectedRange(NSRange(location: 6, length: 0))
     e.showCompletions()
-    for _ in 0..<100 where e.completing == nil { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(try await waitFor(1) { !(e.completing == nil) })
     #expect(e.completing?.items == [snippet])
     e.accept(snippet)
     #expect(e.text == "    func a() {\n        \n    }")

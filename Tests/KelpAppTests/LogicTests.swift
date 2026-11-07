@@ -350,7 +350,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     let w = FileWatcher(root: dir.path, latency: 0.05) { paths in MainActor.assumeIsolated { seen += paths } }
     try Data("a".utf8).write(to: dir.appendingPathComponent("node_modules/x/a.js"))
     try Data("b".utf8).write(to: dir.appendingPathComponent("b.swift"))
-    for _ in 0..<60 where !seen.contains(where: { $0.hasSuffix("/b.swift") }) { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(3) { seen.contains(where: { $0.hasSuffix("/b.swift") }) })
     #expect(w != nil && seen.contains { $0.hasSuffix("/b.swift") })
     #expect(!seen.contains { $0.contains("/node_modules/") })
 }
@@ -417,12 +417,12 @@ extension OneAtATime {
     // A control scheduled after the burst, with a longer delay: once it ran, any other call of the burst would have too.
     let after = Debounce(); var settled = false
     after.after(0.1) { settled = true }
-    for _ in 0..<100 where !settled { try await Task.sleep(for: .milliseconds(50)) }   // however busy the Mac
+    #expect(try await waitFor(5) { settled })   // however busy the Mac
     #expect(ran == [3])
     d.after(0.05) { ran.append(4) }; d.cancel()
     let later = Debounce(); var control = false
     later.after(0.1) { control = true }   // scheduled after the cancelled one, with a longer delay: once it ran, the other would have
-    for _ in 0..<100 where !control { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { control })
     #expect(control && ran == [3])
 }
 
@@ -472,7 +472,7 @@ extension OneAtATime {
     await AppModel.stop(other.processIdentifier)
     #expect(other.isRunning)
     await AppModel.stop(d.processIdentifier)
-    for _ in 0..<50 where d.isRunning { try await Task.sleep(for: .milliseconds(100)) }
+    #expect(try await waitFor(5) { !(d.isRunning) })
     #expect(!d.isRunning && d.terminationReason == .uncaughtSignal)
 }
 
@@ -567,21 +567,20 @@ extension OneAtATime {
         let run = CIRuns.Run(id: 1, title: "", workflow: "CI", status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
         m.ci["w1"] = CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: []))
     }
-    func until(_ ok: () -> Bool) async throws { for _ in 0..<100 where !ok() { try await Task.sleep(for: .milliseconds(20)) } }
     let b = m.rowBadges
     m.workbench.workspaceId = "w2"   // its own worktree: not w1's folder
     ci("in_progress")
-    try await until { b.sidebarCI("w1") == .running }
+    #expect(try await waitFor(5) { b.sidebarCI("w1") == .running })
     #expect(b.sidebarCI("w1") == .running && b.chipCI("w1") == .running)
     try await Task.sleep(for: .milliseconds(100))   // the badges see it run before it passes, as with reads seconds apart
     ci("completed", "success")
-    try await until { b.sidebarCI("w1") == .passed }
+    #expect(try await waitFor(5) { b.sidebarCI("w1") == .passed })
     #expect(b.sidebarCI("w1") == .passed)
     m.workbench.workspaceId = "w1"
-    try await until { b.sidebarCI("w1") == nil }
+    #expect(try await waitFor(5) { b.sidebarCI("w1") == nil })
     #expect(b.sidebarCI("w1") == nil && b.chipCI("w1") == .passed)   // seen: off the sidebar, on the chip for a minute
     ci("completed", "failure")
-    try await until { b.chipCI("w1") == .failed }
+    #expect(try await waitFor(5) { b.chipCI("w1") == .failed })
     #expect(b.sidebarCI("w1") == .failed && b.ciLine("w1") == "CI: Failed · CI")
 }
 

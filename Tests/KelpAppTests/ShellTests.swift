@@ -3,6 +3,7 @@ import Core
 import DesignKit
 import Foundation
 import Testing
+import TestSupport
 import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
@@ -22,7 +23,7 @@ import WorkbenchKit
     let view = NSImageView(), app = AppModel(builtins: Builtins.all)
     ProjectIcon.show(dir, in: view, app: app)
     let initial = try #require(view.image)
-    for _ in 0..<100 where view.image === initial { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { !(view.image === initial) })
     #expect(view.image !== initial && view.image?.size == NSSize(width: 32, height: 32))
     #expect(ProjectIcon.image(for: dir, app: app) === view.image)   // found once
 }
@@ -34,13 +35,13 @@ import WorkbenchKit
     rig.show(vc, 200, 200)
     let card = HoverCard(app: rig.app)
     card.hover("p:" + rig.project.id, rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
-    for _ in 0..<100 where card.shownKey == nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { !(card.shownKey == nil) })
     #expect(card.shownKey != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())   // another window's: not its
     try await Task.sleep(for: .milliseconds(20))
     #expect(card.shownKey != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
-    for _ in 0..<50 where card.shownKey != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(1) { !(card.shownKey != nil) })
     #expect(card.shownKey == nil)
 }
 
@@ -160,7 +161,7 @@ import WorkbenchKit
     var looks: [TabLook] = []
     track(owner: tab, now: false) { TabLook(tab) } changed: { looks.append($0) }
     tab.editor.setText("x"); tab.editor.onChange?("x")   // as typing does
-    for _ in 0..<50 where looks.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(try await waitFor(1) { !(looks.isEmpty) })
     #expect(looks.map(\.isEdited) == [true])
 }
 

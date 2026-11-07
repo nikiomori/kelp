@@ -48,12 +48,12 @@ final class Box: @unchecked Sendable {
     p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
     p.start()
     // Wait for the child rather than a fixed time: a busy machine (parallel builds) starts it late.
-    for _ in 0..<50 where !box.text.contains("ready") { try await Task.sleep(for: .milliseconds(100)) }
+    #expect(try await waitFor(5) { box.text.contains("ready") })
     #expect(box.text.contains("ready"))
     #expect(!box.text.contains("tty=??"), "no controlling terminal: \(box.text.debugDescription)")
     #expect(box.text.contains("size=30 100"), "initial size lost: \(box.text.debugDescription)")
     p.resize(cols: 50, rows: 20)
-    for _ in 0..<100 where !box.text.contains("20 50") { try await Task.sleep(for: .milliseconds(50)) }   // a busy machine is slow, not wrong
+    #expect(try await waitFor(5) { box.text.contains("20 50") })   // a busy machine is slow, not wrong
     #expect(box.text.contains("20 50"), "\(box.text.debugDescription)")
     p.kill()
 }
@@ -113,11 +113,11 @@ final class Box: @unchecked Sendable {
                         cwd: "/tmp", env: [:], trampoline: kelp)
         p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
         p.start()
-        for _ in 0..<50 where !box.text.contains("ready") { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(try await waitFor(5) { box.text.contains("ready") })
         pid = p.pid
         p.terminate()
     }
-    for _ in 0..<50 where kill(pid, 0) == 0 { try await Task.sleep(for: .milliseconds(100)) }
+    #expect(try await waitFor(5) { !(kill(pid, 0) == 0) })
     #expect(kill(pid, 0) != 0, "still there: stuck exiting on a terminal nobody reads")
 }
 
@@ -127,7 +127,7 @@ final class Box: @unchecked Sendable {
     let p = try PTY(argv: ["/bin/sh", "-c", "exit 0"], cwd: "/tmp", env: [:])
     p.onExit = { box.exit($0) }
     p.start()
-    for _ in 0..<50 where box.code == nil { try await Task.sleep(for: .milliseconds(100)) }
+    #expect(try await waitFor(5) { !(box.code == nil) })
     #expect(box.code != nil)
     // The freed fd number goes to whatever opens next: socket pairs, so anything written to one end shows at the other.
     var pairs: [[Int32]] = []

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import TestSupport
 import Core
 @testable import KelpApp
 @testable import KelpKit
@@ -23,24 +24,23 @@ extension AppOfItsOwn {
         rig.show(panel, 300, 500)
         let undo = try #require(panel.undoManager)
         func there(_ p: String) -> Bool { FileManager.default.fileExists(atPath: p) }
-        func until(_ ok: () -> Bool) async throws { for _ in 0..<200 where !ok() { try await Task.sleep(for: .milliseconds(20)) } }
         #expect(await panel.move({ [FileMove(from: a, to: b)] }, undo: "Move").value.count == 1)
         #expect(there(b) && !there(a))
         undo.undo()
-        try await until { there(a) }
+        #expect(try await waitFor(5) { there(a) })
         #expect(there(a) && !there(b))
         undo.redo()
-        try await until { there(b) }
+        #expect(try await waitFor(5) { there(b) })
         #expect(there(b) && !there(a))
 
         #expect(await panel.trash({ [b] }, undo: "Move to Trash").value.count == 1)
         #expect(!there(b))
         undo.undo()
-        try await until { there(b) }
+        #expect(try await waitFor(5) { there(b) })
         #expect(there(b))
 
         _ = await panel.move({ [FileMove(from: rig.repo + "/none.txt", to: rig.repo + "/other.txt")] }, undo: "Nothing").value
-        try await until { undo.undoActionName != "Nothing" }
+        #expect(try await waitFor(5) { undo.undoActionName != "Nothing" })
         #expect(undo.undoActionName == "Move")   // it failed: ⌘Z undoes the step before it
     }
 
@@ -59,7 +59,7 @@ extension AppOfItsOwn {
         _ = await renamed.value
         _ = await panel.trash({ [rig.repo + "/c.txt"] }, undo: "Move to Trash").value
         undo.undo()
-        for _ in 0..<200 where !there("c.txt") { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { there("c.txt") })
         try await Task.sleep(for: .milliseconds(200))
         #expect(there("c.txt") && there("b.txt") && !there("a.txt"))
         #expect(undo.undoActionName == "Rename")
@@ -76,10 +76,10 @@ extension AppOfItsOwn {
         try "from Finder\n".write(toFile: outside, atomically: true, encoding: .utf8)
         panel.copy([outside], into: rig.repo, undo: "Copy")
         let copy = rig.repo + "/f copy.txt"
-        for _ in 0..<200 where !FileManager.default.fileExists(atPath: copy) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { FileManager.default.fileExists(atPath: copy) })
         #expect(try String(contentsOfFile: copy, encoding: .utf8) == "from Finder\n")
         undo.undo()
-        for _ in 0..<200 where FileManager.default.fileExists(atPath: copy) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { !(FileManager.default.fileExists(atPath: copy)) })
         #expect(!FileManager.default.fileExists(atPath: copy) && FileManager.default.fileExists(atPath: rig.repo + "/f.txt"))
         #expect(await panel.create(in: rig.repo, undo: "New File").value == rig.repo + "/untitled")
         #expect(await panel.create(in: rig.repo, undo: "New File").value == rig.repo + "/untitled 2")
@@ -92,10 +92,10 @@ extension AppOfItsOwn {
         rig.show(panel, 300, 500)
         panel.viewWillAppear()   // the window is never on screen: as if it were
         @MainActor func names() -> [String] { (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name } }
-        for _ in 0..<200 where names() != ["f.txt"] { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { !(names() != ["f.txt"]) })
         #expect(names() == ["f.txt"])
         try rig.write("g.txt", "new\n")
-        for _ in 0..<250 where names() != ["f.txt", "g.txt"] { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(5) { !(names() != ["f.txt", "g.txt"]) })
         #expect(names() == ["f.txt", "g.txt"])
         panel.viewDidDisappear()
     }
@@ -110,16 +110,15 @@ extension AppOfItsOwn {
         rig.show(panel, 300, 500)
         panel.viewWillAppear()
         @MainActor func names() -> [String] { (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name } }
-        func until(_ ok: () -> Bool) async throws { for _ in 0..<250 where !ok() { try await Task.sleep(for: .milliseconds(20)) } }
-        try await until { names() == ["build", ".gitignore", "f.txt"] }
+        #expect(try await waitFor(5) { names() == ["build", ".gitignore", "f.txt"] })
         let build = try #require(panel.outline.item(atRow: 0) as? FileNode)
         #expect(build.ignored && build.children?.isEmpty == true)
         panel.outline.expandItem(build)
-        try await until { names().contains("a.o") }
+        #expect(try await waitFor(5) { names().contains("a.o") })
         #expect(names() == ["build", "a.o", ".gitignore", "f.txt"])
         #expect(await panel.create(in: rig.repo + "/build", undo: "New File").value == rig.repo + "/build/untitled")
         panel.reloadTree()
-        try await until { names().contains("untitled") }
+        #expect(try await waitFor(5) { names().contains("untitled") })
         #expect(names() == ["build", "a.o", "untitled", ".gitignore", "f.txt"])
         panel.viewDidDisappear()
     }
@@ -136,7 +135,7 @@ extension AppOfItsOwn {
         rig.show(panel, 300, 500)
         panel.worktree = rig.workspace
         panel.reloadTree()
-        for _ in 0..<200 where panel.outline.numberOfRows == 0 { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { !(panel.outline.numberOfRows == 0) })
         panel.outline.expandItem(nil, expandChildren: true)
         let file = (0..<panel.outline.numberOfRows).first { (panel.outline.item(atRow: $0) as? FileNode)?.path == "sub/a.txt" }
         panel.outline.selectRowIndexes([try #require(file)], byExtendingSelection: false)
@@ -156,7 +155,7 @@ extension AppOfItsOwn {
 
         let new = try #require(onNothing.items.first { $0.title == "New File" })
         onNothing.performActionForItem(at: onNothing.index(of: new))
-        for _ in 0..<200 where !FileManager.default.fileExists(atPath: rig.repo + "/untitled") { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { FileManager.default.fileExists(atPath: rig.repo + "/untitled") })
         #expect(FileManager.default.fileExists(atPath: rig.repo + "/untitled"))
         #expect(!FileManager.default.fileExists(atPath: rig.repo + "/sub/untitled"))
     }

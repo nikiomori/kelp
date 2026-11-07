@@ -3,6 +3,7 @@ import Foundation
 import JavaScriptCore
 import os
 import Testing
+import TestSupport
 import Core
 import WorkbenchKit
 @testable import KelpKit
@@ -184,7 +185,7 @@ import WorkbenchKit
     let m = AppModel()
     m.park("s1", until: Date().addingTimeInterval(0.3))
     #expect(m.parked["s1"] != nil)
-    for _ in 0..<40 where m.parked["s1"] != nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(2) { !(m.parked["s1"] != nil) })
     #expect(m.parked["s1"] == nil)
 }
 

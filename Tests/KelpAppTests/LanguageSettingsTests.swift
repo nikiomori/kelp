@@ -3,6 +3,7 @@ import EditorKit
 import WorkbenchKit
 @testable import BuiltinFiles
 import Testing
+import TestSupport
 @testable import KelpKit
 
 /// One at a time: applying settings sets what every editor reads (`CodeEditor.wrapLines`).
@@ -58,7 +59,7 @@ extension AppOfItsOwn {
         let tab = FileTab(uri: TabURI.file(rig.workspace.path + "/a.txt"), app: rig.app)
         await tab.loading?.value
         let e = try #require(tab.editor)
-        for _ in 0..<200 where e.tabWidth != 8 { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(try await waitFor(2) { !(e.tabWidth != 8) })
         #expect(e.tabWidth == 8)
     }
 }

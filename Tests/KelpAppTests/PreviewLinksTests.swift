@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 import Core
 import PDFKit
 @testable import KelpApp
@@ -124,7 +125,7 @@ import PDFKit
     try await Task.sleep(for: .seconds(1))
     #expect(try await rig.app.get(SessionList()).isEmpty)
     area.runURI("terminal:?cmd=echo%20hi")
-    for _ in 0..<100 where try await rig.app.get(SessionList()).isEmpty { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { !(try await rig.app.get(SessionList()).isEmpty) })
     #expect(try await rig.app.get(SessionList()).count == 1)
 }
 

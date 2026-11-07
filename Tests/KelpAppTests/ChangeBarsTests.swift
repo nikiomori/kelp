@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Foundation
 import Testing
+import TestSupport
 @testable import EditorKit
 import WorkbenchKit
 @testable import KelpKit
@@ -18,7 +19,7 @@ extension OneAtATime {
         let tab = FileTab(uri: TabURI.file(path), app: rig.app)
         await tab.loading?.value
         let e = try #require(tab.editor)
-        for _ in 0..<200 where e.changeMarks.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(4) { !(e.changeMarks.isEmpty) })
         #expect(e.changeMarks.map(\.kind) == [.changed, .added, .removed])
         #expect(e.changeMarks.map(\.line) == [1, 3, 5])
     }

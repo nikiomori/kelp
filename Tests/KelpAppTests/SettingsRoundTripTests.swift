@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import TestSupport
 import Core
 import Daemon
 import EditorKit
@@ -32,11 +33,11 @@ extension OneAtATime {
         s.set("editor.autoSave", .bool(true))   // in the app
         let file = root.appendingPathComponent("settings.json")
         func onDisk() -> JSONValue? { (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } }
-        for _ in 0..<100 where onDisk()?["editor.autoSave"]?.bool != true { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(onDisk()?["editor.autoSave"]?.bool != true) })
         #expect(onDisk()?["editor.autoSave"]?.bool == true)
 
         _ = try await cli.call("settings.set", .obj(["key": "editor.lsp", "value": false]))   // elsewhere
-        for _ in 0..<100 where s.bool("editor.lsp") != false { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(s.bool("editor.lsp") != false) })
         #expect(s.bool("editor.lsp") == false && s.bool("editor.autoSave") == true)
     }
 
@@ -70,7 +71,7 @@ extension OneAtATime {
         s.set("markdown.defaultMode", .string("split"))   // in the app
         let file = root.appendingPathComponent("settings.json")
         func onDisk() -> JSONValue? { (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } }
-        for _ in 0..<100 where onDisk()?["markdown.defaultMode"]?.string != "split" { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(onDisk()?["markdown.defaultMode"]?.string != "split") })
         #expect(onDisk()?["markdown.defaultMode"]?.string == "split")
 
         let tabSplit = MarkdownTab(editor: editor, url: testURL, app: m)
@@ -78,7 +79,7 @@ extension OneAtATime {
         #expect(tabSplit.currentMode == "split")
 
         _ = try await cli.call("settings.set", .obj(["key": "markdown.defaultMode", "value": "edit"]))   // elsewhere
-        for _ in 0..<100 where s.string("markdown.defaultMode") != "edit" { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try await waitFor(5) { !(s.string("markdown.defaultMode") != "edit") })
         #expect(s.string("markdown.defaultMode") == "edit")
 
         let tabEdit = MarkdownTab(editor: editor, url: testURL, app: m)
@@ -107,7 +108,7 @@ extension OneAtATime {
     let c = try RPCClient(socket: path), m = AppModel(builtins: [])
     m.listen(c)
     c.onEvent?(Repo(id: "r1", name: "one", path: "/one"))
-    for _ in 0..<100 where m.repos.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(try await waitFor(1) { !(m.repos.isEmpty) })
     m.stopHearing(c)
     c.onEvent?(Repo(id: "r2", name: "two", path: "/two"))
     try await Task.sleep(for: .milliseconds(100))

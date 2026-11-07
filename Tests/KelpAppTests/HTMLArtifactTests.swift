@@ -2,6 +2,7 @@ import AppKit
 import WebKit
 import Foundation
 import Testing
+import TestSupport
 import Markdown
 @testable import KelpApp
 @testable import KelpKit
@@ -21,9 +22,9 @@ import Markdown
     let base = FileManager.default.temporaryDirectory
     links.load(page, baseURL: base, scripts: ["document.body.dataset.kelp = 'yes'; webkit.messageHandlers.kelpSync.postMessage('kelp')"], world: MarkdownTab.world, in: web)
     func js(_ s: String) async -> String? { (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String }
-    for _ in 0..<100 where await js("document.readyState") != "complete" { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { !(await js("document.readyState") != "complete") })
     // The refresh is tried, and refused, rather than waited out.
-    for _ in 0..<200 where !decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(10) { decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) })
     #expect(decided.refused.contains { $0.hasPrefix("https://example.com") })
     #expect(await js("document.title") == "t")
     #expect(await js("document.body.dataset.kelp") == "yes")

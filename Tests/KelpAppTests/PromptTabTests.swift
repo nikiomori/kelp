@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Foundation
 import Testing
+import TestSupport
 import WorkbenchKit
 @testable import KelpKit
 @testable import BuiltinFiles
@@ -23,7 +24,7 @@ extension AppOfItsOwn {
     @Test func closingAPromptWritesItsTextAndSaysItsDone() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        for _ in 0..<200 where tab.typed == nil { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(try await waitFor(2) { !(tab.typed == nil) })
         tab.type("long prompt\n")
         #expect(await tab.close())
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "long prompt\n")

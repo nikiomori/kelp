@@ -1,4 +1,5 @@
 import Testing
+import TestSupport
 import Foundation
 import AppKit
 import Core
@@ -50,7 +51,7 @@ extension OneAtATime {
         _ = await area.closeTabAsking(try #require(area.layout.tab(uri: uri)?.id))
         let closed = try #require(rig.app.workbench.closedTabs.all.first)
         area.reopen(closed)
-        for _ in 0..<250 where area.layout.tab(uri: uri) != nil { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(5) { !(area.layout.tab(uri: uri) != nil) })
         #expect(area.layout.allTabs.count == 1)
         let now = try #require(area.layout.allTabs.first)
         let new = try #require(rig.app.session(TabURI.body(now.uri)))

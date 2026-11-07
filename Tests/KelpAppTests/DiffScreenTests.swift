@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import TestSupport
 import Core
 import GitKit
 import Daemon
@@ -85,7 +86,7 @@ extension AppOfItsOwn {
         box.state = .on
         box.performClick(nil); box.performClick(nil)   // a click flips it: off, then on again
         #expect(vc.status.stringValue.contains("1 of 2 left"))
-        for _ in 0..<250 where rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(5) { !(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty) })
         #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
@@ -104,7 +105,7 @@ extension AppOfItsOwn {
         }
         let button = try #require(vc.gapRow(file: f, from: from, lines: n, context: "").subviews.first as? NSButton)
         button.performClick(nil)
-        for _ in 0..<100 where vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(2) { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
         #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
@@ -139,7 +140,7 @@ extension AppOfItsOwn {
         #expect(vc.rows[at + 1] == .draft && vc.draft?.field.stringValue == "why upper case?")
         let save = try #require(buttons(in: vc.draftCard()).first { $0.keyEquivalent == "\r" })
         save.performClick(nil)
-        for _ in 0..<100 where !vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try await waitFor(2) { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
         #expect(vc.draft == nil && !vc.rows.contains(.draft))
         let line = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })   // read again: found again
         #expect(vc.rows[line + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
@@ -248,7 +249,7 @@ extension AppOfItsOwn {
         #expect(vc.reads == reads)
         var edited = fetched; edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
         rig.app.git[wid] = edited; vc.gitChanged(edited)
-        for _ in 0..<250 where vc.reads == reads { try await Task.sleep(for: .milliseconds(20)) }   // a busy runner took over 300 ms
+        #expect(try await waitFor(5) { !(vc.reads == reads) })   // a busy runner took over 300 ms
         #expect(vc.reads == reads + 1)
     }
 

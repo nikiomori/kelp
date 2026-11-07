@@ -2,6 +2,7 @@ import AppKit
 import WebKit
 import Foundation
 import Testing
+import TestSupport
 import Core
 import WorkbenchKit
 @testable import KelpKit
@@ -142,7 +143,7 @@ import WorkbenchKit
     let page = ExtWebController(page: folder.appendingPathComponent("index.html"), folder: folder, app: AppModel())
     _ = page.view
     let web = try #require(page.web)
-    for _ in 0..<100 where try await web.evaluateJavaScript("window.own === 1") as? Bool != true { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { !(try await web.evaluateJavaScript("window.own === 1") as? Bool != true) })
     try await Task.sleep(for: .milliseconds(300))
     #expect(try await web.evaluateJavaScript("window.own === 1 && window.fromFile === 1 && !!window.kelp") as? Bool == true)
     #expect(try await web.evaluateJavaScript("window.pwned === undefined") as? Bool == true)
@@ -227,7 +228,7 @@ import WorkbenchKit
 @MainActor @Test(.timeLimit(.minutes(1))) func aSharedTabOnAnotherSiteIsntDriven() async throws {
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     tab.web.loadHTMLString("<p>mail</p>", baseURL: URL(string: "https://mail.other.com/"))
-    for _ in 0..<100 where tab.web.url?.host != "mail.other.com" { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { !(tab.web.url?.host != "mail.other.com") })
     await #expect(throws: RPCError.self) { try await tab.browse("snapshot", .object([:])) }
 }
 

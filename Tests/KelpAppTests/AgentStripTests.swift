@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Testing
+import TestSupport
 @testable import KelpKit
 
 private let places: [(id: String, name: String, repo: String?)] = [("a", "kelp", nil), ("b", "site", nil), ("c", "docs", nil)]
@@ -91,7 +92,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     strip.start()
     #expect(!strip.isShowing)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { strip.isShowing })
     #expect(strip.isShowing)
     let f = try #require(strip.frame), area = try #require(NSScreen.main?.visibleFrame)
     #expect(f.height == StripButton.stripHeight)
@@ -101,17 +102,17 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
     #expect(strip.hiddenUntil != nil)
     strip.hide(until: nil)
-    for _ in 0..<100 where !(strip.isShowing && strip.frame?.height == StripButton.stripHeight) { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
     strip.later(asked.id)   // put off: it stops calling
-    for _ in 0..<100 where strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { !(strip.isShowing) })
     #expect(!strip.isShowing)
     var again = asked
     again.statusAt = Date()   // the agent asks something else
     rig.app.sessions = [again]
-    for _ in 0..<100 where !strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { strip.isShowing })
     #expect(strip.isShowing)
     rig.app.sessions = []
-    for _ in 0..<100 where strip.isShowing { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(2) { !(strip.isShowing) })
     #expect(!strip.isShowing)
 }
 

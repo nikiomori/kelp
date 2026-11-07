@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import TestSupport
 import Core
 import GitKit
 import Daemon
@@ -38,7 +39,7 @@ extension AppOfItsOwn {
     vc.followWatches()                           // now that it is in a window: watches the workspace, the daemon pushes its git
     let outline = try #require(outlines(in: vc.view).first)
     func rows() -> [String] { (0..<outline.numberOfRows).flatMap { (outline.view(atColumn: 0, row: $0, makeIfNecessary: true)).map(texts) ?? [] } }
-    for _ in 0..<100 where !rows().contains("staged.txt") { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { rows().contains("staged.txt") })
     let shown = rows()
     #expect(shown.contains("staged.txt") && shown.contains("kept.txt"), "\(shown)")
     #expect(shown.contains { $0.localizedCaseInsensitiveContains("Staged") })   // its section header
@@ -113,7 +114,7 @@ extension AppOfItsOwn {
     rig.show(vc, 320, 800)
     vc.followWatches()
     let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
-    for _ in 0..<100 where outline.numberOfRows < 2 || graph.numberOfRows < 1 { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { !(outline.numberOfRows < 2 || graph.numberOfRows < 1) })
     vc.view.window?.setContentSize(NSSize(width: 320, height: 800))   // the window took the panel's fitting size
     vc.view.layoutSubtreeIfNeeded()
     let changes = try #require(outline.enclosingScrollView), rows = outline.rect(ofRow: outline.numberOfRows - 1).maxY
@@ -130,7 +131,7 @@ extension AppOfItsOwn {
     let vc = SourceControlController(app: rig.app)
     rig.show(vc, 260, 700)
     vc.followWatches()
-    for _ in 0..<100 where !texts(vc.view).contains(where: { $0.hasPrefix("Message") }) { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
     vc.view.layoutSubtreeIfNeeded()
     #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
 }

@@ -44,12 +44,6 @@ func makeRepo() throws -> String {
     return d
 }
 
-func waitFor(_ timeout: Double = 8, _ cond: () async throws -> Bool) async throws -> Bool {
-    let end = Date().addingTimeInterval(timeout)
-    while Date() < end { if try await cond() { return true }; try await Task.sleep(for: .milliseconds(100)) }
-    return false
-}
-
 /// Another client of the daemon whose home is `root` (a "restarted UI").
 func client(_ root: URL) throws -> RPCClient { try RPCClient(socket: root.appendingPathComponent("kelp.sock").path) }
 

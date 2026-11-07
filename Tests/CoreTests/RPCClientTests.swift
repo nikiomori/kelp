@@ -35,7 +35,7 @@ import TestSupport
     client.onClose = { closed.set() }
     client.notify("big", .string(String(repeating: "x", count: 8 << 20)))
     // A partial write after the 10 s send timeout, another 10 s, then the 5 s poll: about 25 s.
-    for _ in 0..<400 where !closed.value { try await Task.sleep(for: .milliseconds(100)) }
+    #expect(try await waitFor(40) { closed.value })
     #expect(closed.value)
 }
 
