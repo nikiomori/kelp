@@ -32,6 +32,9 @@ extension AppDelegate {
         }
     }
 
+    // A debug build's only, not just uncalled in a release: the input it drives (KELP_TYPE, KELP_CLICK) would let any
+    // program start the real app and press its own Allow and Trust.
+    #if DEBUG
     func snapshotLater(_ path: String) {
         let env = ProcessInfo.processInfo.environment
         if env["KELP_SNAPSHOT_DARK"] == nil { NSApp.appearance = NSAppearance(named: .aqua) }   // cacheDisplay mixes appearances otherwise
@@ -171,7 +174,9 @@ extension AppDelegate {
             }
         }
     }
+    #endif
 }
+#if DEBUG
 
 extension AppDelegate {
     static var hovered = false
@@ -270,6 +275,8 @@ extension AppDelegate {
     }
 }
 
+#endif
+
 extension AppDelegate {
     static func menuItem(_ key: String, _ mods: NSEvent.ModifierFlags, in menu: NSMenu? = NSApp.mainMenu) -> NSMenuItem? {
         for i in menu?.items ?? [] {
@@ -316,6 +323,7 @@ extension AppDelegate {
         try? png.write(to: URL(fileURLWithPath: path), options: .atomic)
     }
 
+    #if DEBUG
     /// A visible label's text, or "@x,y": a point in the window, from its top-left corner (SwiftUI content has no labels).
     /// "2:" first double-clicks (a row's rename in place).
     func click(text spec: String) {
@@ -345,6 +353,7 @@ extension AppDelegate {
         }
         print("CLICK \(text) → workspace \(app.worktree(app.workbench.workspaceId)?.displayName ?? "-")")
     }
+    #endif
 }
 
 extension NSView {

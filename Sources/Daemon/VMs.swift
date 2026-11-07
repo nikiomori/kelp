@@ -120,7 +120,7 @@ struct VMService: Sendable {
             try check(ask(name, .init(op: .start), wait: 620))
         case .show:
             guard m.os != "linux" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
-            try wake(m)
+            try wake(m, begin: false)   // `show` boots it with its window (Android's emulator starts headless otherwise)
             try check(ask(name, .init(op: .show), wait: 180))
         // Running by its lock, not by a status within 2 s, which a busy one may not give.
         case .sleep:
@@ -186,7 +186,8 @@ struct VMService: Sendable {
 
     /// Room made for `m` (`admit`), then its kelp-vm started, one machine at a time (vms/.waking): two woken at once would
     /// both find room that's there for one, the other's kelp-vm not up yet to count.
-    func wake(_ m: VMMachine) throws {
+    /// `begin`: ask it to start before the lock goes; not for `show`, whose own start is the one with a window.
+    func wake(_ m: VMMachine, begin: Bool = true) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let fd = open(root.appendingPathComponent(".waking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))") }
@@ -202,7 +203,8 @@ struct VMService: Sendable {
         try admit(m)
         try startHelper(m)
         // Starting before the lock is let go (answered at once, `begin`): the next wake counts it, as it's `.starting` now.
-        do { try check(ask(m.name, .init(op: .start, args: ["begin"]), wait: 10)) } catch { Log.vm.info("\(m.name) begin: \(error)") }
+        guard begin else { return }
+        do { try check(ask(m.name, .init(op: .start, args: ["begin"]), wait: 10)) } catch { Log.vm.error("\(m.name) didn't begin starting: \(error)") }
     }
 
     /// Room in the memory budget (a quarter of the Mac's) for `m` to wake: idle machines are put to sleep for it, else no.

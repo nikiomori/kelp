@@ -6,10 +6,10 @@ undoDiscardWorksAfterTheDaemonRestarts     # a second daemon on the same home wh
 aRunningUsageProbeEndsWithTheDaemon        # a real child process's end, timed
 aDroppedHandedOverTerminalLeavesTheReapingToItsSuccessor   # two daemons and a hand-over, timed
 archivingEndsAJobInItsOwnProcessGroup      # process-group signals, timed
-archivingAWorkspaceEndsItsPlainProgramsForGood
-removingAProjectEndsItsPrograms
-stoppingTheDaemonEndsWholeTreesAndKeepsAgentsResumable
+archivingAWorkspaceEndsItsPlainProgramsForGood   # process-group signals, timed
+removingAProjectEndsItsPrograms             # process-group signals, timed
+stoppingTheDaemonEndsWholeTreesAndKeepsAgentsResumable   # a whole tree's end, timed
 aServerWithNoOpenFileStops                 # a language server's idle timer
 aHookDoesntHoldItsAgentAndALateOneChangesNothing   # hook order against a real PTY
-aFinishedTerminalClosesItsFdsOnce
+aFinishedTerminalClosesItsFdsOnce           # a PTY's end, timed
 hibernateAndWake                           # a pause after ~2 s idle, then a wake
