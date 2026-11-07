@@ -14,6 +14,8 @@ if getrlimit(RLIMIT_NOFILE, &files) == 0, files.rlim_cur < rlim_t(OPEN_MAX) {
     files.rlim_cur = min(files.rlim_max, rlim_t(OPEN_MAX)); setrlimit(RLIMIT_NOFILE, &files)
 }
 nonisolated(unsafe) var signalSources: [DispatchSourceSignal] = []   // must outlive this scope or the handlers vanish
+nonisolated(unsafe) var homeWatch: DispatchSourceFileSystemObject?   // the same
+nonisolated(unsafe) var testWatch: DispatchSourceProcess?   // the same
 do {
     // An update's exec in place (`daemon.upgrade`): what the kelpd before this one handed over, and the rest it ran reaped.
     let handover = CommandLine.arguments.firstIndex(of: "--adopt").flatMap { i in CommandLine.arguments.dropFirst(i + 1).first }.flatMap(Handover.take)
@@ -27,6 +29,23 @@ do {
         src.setEventHandler { @Sendable in d.stop(); exit(0) }
         src.resume()
         signalSources.append(src)
+    }
+    // Its home deleted or moved away (a test's or a snapshot's temp folder): nobody can reach its socket any more, and an
+    // idle daemon has no other reason to end, so it stayed for good (90 of them once, 600 MB).
+    let home = open(Paths.root.path, O_EVTONLY)
+    if home >= 0 {
+        let gone = DispatchSource.makeFileSystemObjectSource(fileDescriptor: home, eventMask: [.delete, .rename], queue: .main)
+        gone.setEventHandler { @Sendable in d.stop(); exit(0) }
+        gone.resume()
+        homeWatch = gone
+    }
+    // Started by a test process (KELP_TEST_PID, from the tests' isolation): ends with it.
+    if let pid = ProcessInfo.processInfo.environment["KELP_TEST_PID"].flatMap(Int32.init) {
+        let ended = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
+        ended.setEventHandler { @Sendable in d.stop(); exit(0) }
+        ended.resume()
+        testWatch = ended
+        if kill(pid, 0) != 0, errno == ESRCH { d.stop(); exit(0) }   // gone before the watch began
     }
     dispatchMain()
 } catch {

@@ -40,6 +40,11 @@ __attribute__((constructor)) static void kelp_isolate(void) {
     setenv("GIT_AUTHOR_NAME", "t", 1); setenv("GIT_AUTHOR_EMAIL", "t@t", 1);
     setenv("GIT_COMMITTER_NAME", "t", 1); setenv("GIT_COMMITTER_EMAIL", "t@t", 1);
     setenv("KELP_TEST_ISOLATED", "1", 1);
+    // A kelpd a test starts ends with this process (kelpd/main.swift): a test killed midway skips the atexit that
+    // removes the folder, and the daemon in it stayed for good.
+    char pid[16];
+    snprintf(pid, sizeof pid, "%d", (int)getpid());
+    setenv("KELP_TEST_PID", pid, 1);
     // In-process daemons take this test process for Kelp's window (only it may trust a project's commands).
     char exe[PATH_MAX], real[PATH_MAX];
     uint32_t size = sizeof exe;
