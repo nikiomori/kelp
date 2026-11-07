@@ -439,6 +439,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     try r.d.sessions.store.save(userMade)
     let elsewhere = Worktree(repoId: r.repo.id, branch: "o", path: "/tmp/o")   // nobody's of theirs
     try r.d.sessions.store.save(elsewhere)
+    let otherProject = Repo(name: "o", path: "/tmp/other-project")   // a project of the user's it doesn't work in
+    try r.d.sessions.store.save(otherProject)
+    try r.d.sessions.store.save(Worktree(repoId: otherProject.id, branch: "main", path: "/tmp/other-project"))
     let typed = Caller.typedAgent(term.id)
     // The workspaces a call names are found in any field, as its sessions are: no method has to remember to say.
     #expect(try r.d.sessions.workspaces(namedBy: SessionCreate(worktreeId: elsewhere.id, command: "cat", parent: mine.id)) == [elsewhere.id])
@@ -476,7 +479,10 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (.session(mine.id), WorktreeNote(id: elsewhere.id, note: "x"), false, "what acts is held to its own workspaces"),
         (.session(mine.id), GitStatus(id: elsewhere.id), true, "what only reads may look at any"),
         (.session(mine.id), WorktreeCreate(repoId: r.repo.id, branch: "n"), true, "a workspace in its own project"),
-        (.session(mine.id), WorktreeCreate(repoId: "another", branch: "n"), false, "not in another project"),
+        (.session(mine.id), WorktreeCreate(repoId: otherProject.id, branch: "n"), false, "not in another project"),
+        (.session(mine.id), WorkspaceCreate(repoId: otherProject.id), false, "nor a group there"),
+        (.session(mine.id), WorkspaceCreate(repoId: r.repo.id), true, "a group in its own"),
+        (.detached, WorktreeCreate(repoId: r.repo.id, branch: "n"), false, "what works in no workspace makes none (a git hook, a launchd job)"),
         (.detached, font, true, "a detached caller is held to an agent's rules: a look it may set"),
         (.detached, phone, false, "the user's settings it may not"),
         (.detached, SessionKill(id: term.id), false, "nor end the user's terminal"),

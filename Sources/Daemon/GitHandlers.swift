@@ -289,7 +289,15 @@ extension CommentSend: Handled {
         }
         guard !open.isEmpty else { return 0 }
         do { _ = try SessionSend(id: session, text: Self.message(branch: w.branch, comments: open)).handle(workspaces.sessions) } catch {
-            try workspaces.store.db.write { db in for c in open { try c.update(db) } }   // open, as they were
+            // Open again, those still sent (not one set otherwise meanwhile, nor one gone with its workspace); the send's
+            // error is what's told, whatever this does.
+            let ids = open.map(\.id)
+            Log.store.attempt("putting back comments that weren't sent") {
+                _ = try workspaces.store.db.write { db in
+                    try DiffComment.filter(ids.contains(Column("id")) && Column("state") == DiffComment.State.sent.rawValue)
+                        .updateAll(db, Column("state").set(to: DiffComment.State.open.rawValue))
+                }
+            }
             throw error
         }
         return open.count

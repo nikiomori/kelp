@@ -376,6 +376,8 @@ struct UIRequests {
             guard let id = e.id else { return }
             if id == "extensions.reload" { app.extensions.reload(); return }
             if id == "window.shot", let w = app.workbench.window?.window, let path = e.args?["path"]?.string {
+                // A picture, by its name: `kelp shot` (an agent's too) writes a .png, never over a source file it was told.
+                guard path.lowercased().hasSuffix(".png") else { return Banner.show(String(localized: "A window's picture is a .png file."), style: .error) }
                 AppDelegate.snap(w, to: path); return
             }
             guard let c = app.extensions.command(id) else { Banner.show(String(localized: "Unknown command \(id)"), style: .error); return }

@@ -120,7 +120,8 @@ func currentWorktreeID(_ c: RPCClient) async throws -> String { try await curren
 func currentRepoID(_ c: RPCClient) async throws -> String {
     if let r = flag("--repo") { return r }
     let cwd = FileManager.default.currentDirectoryPath
-    if let id = try await c.call(RepoList()).first(where: { IDE.inside(cwd, $0.path) })?.id { return id }
+    // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
+    if let id = try await c.call(RepoList()).filter({ IDE.inside(cwd, $0.path) }).max(by: { $0.path.count < $1.path.count })?.id { return id }
     if let id = (try? await currentWorktree(c))?.repoId { return id }
     fail("no repo here; pass --repo <id> or run `kelp repo add`")
 }
