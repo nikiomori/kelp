@@ -99,6 +99,9 @@ package enum Builtins {
         s("workbench.sidebar.projectColor", "Project color", "enum", "icon",
           nil, help: "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
           options: ["icon", "card"], group: "Sidebar"),
+        s("workbench.sidebar.serverLook", "Servers", "enum", "stripes",
+          nil, help: "How a server's card shows that its projects run on another machine.",
+          options: ["stripes", "sparse", "fade", "icon"], group: "Sidebar"),
         s("workbench.sidebar.order", "Project order", "enum", "manual", "Agents First moves rows as agents start and stop.",
           options: ["manual", "active"], group: "Sidebar")
     ]

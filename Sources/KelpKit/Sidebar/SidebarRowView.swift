@@ -193,11 +193,11 @@ final class SidebarRowView: NSTableRowView {
 @MainActor
 final class ProjectCard: NSView {
     /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;
-    /// `remote`, a project on a host: hatched over that, so it reads as elsewhere whatever its colour.
+    /// `remote`, a server's card: marked as elsewhere the way Settings › Appearance › Servers says.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
-        var remote = false
+        var remote: ServerLook?
     }
     var look = Look(color: nil, plain: false) {
         didSet {
@@ -208,12 +208,21 @@ final class ProjectCard: NSView {
     }
     private var fill: NSColor? {
         let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
-        return look.remote ? Self.stripes(over: base) : base
+        switch look.remote {
+        case .stripes?: return Self.stripes(over: base)
+        case .sparse?: return Self.stripes(over: base, side: 9)
+        // Stripes of their own that fade (`fading`), or only under the server's icon: a quiet card holds the rest together.
+        case .fade?, .icon?: return .fillRest
+        case nil: return base
+        }
     }
+    /// ServerLook.fade: the stripes by the server's icon, gone before the names and meters.
+    private var fading: CAShapeLayer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
+        layer?.masksToBounds = true   // the fading stripes keep to its corners
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -221,14 +230,62 @@ final class ProjectCard: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = Metrics.radiusLG
         layer?.backgroundColor = fill?.cgColor
+        layer?.borderWidth = look.remote == .sparse ? 1 : 0
+        layer?.borderColor = NSColor.separatorColor.cgColor
+        showFading()
+    }
+
+    private func showFading() {
+        guard look.remote == .fade else {
+            fading?.removeFromSuperlayer()
+            fading = nil
+            return
+        }
+        // Lines, not the pattern colour: a pattern drew nothing in a layer of its own.
+        let l = fading ?? CAShapeLayer()
+        l.frame = bounds
+        l.path = Self.lines(in: bounds)
+        l.strokeColor = Self.stripe.cgColor
+        l.lineWidth = 1.5
+        if l.mask == nil {
+            let m = CAGradientLayer()
+            m.startPoint = CGPoint(x: 0, y: 0.5)
+            m.endPoint = CGPoint(x: 1, y: 0.5)
+            m.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+            // Full over the icon's column, gone by the middle, where the names end and the meters start.
+            m.locations = [0, 0.12, 0.5]
+            l.mask = m
+        }
+        l.mask?.frame = l.bounds   // a mask doesn't follow its layer's size: set again as the card grows (setFrameSize)
+        if fading == nil { layer?.insertSublayer(l, at: 0); fading = l }
+    }
+    override func setFrameSize(_ s: NSSize) {
+        super.setFrameSize(s)
+        guard let fading else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fading.frame = bounds
+        fading.path = Self.lines(in: bounds)
+        fading.mask?.frame = fading.bounds
+        CATransaction.commit()
+    }
+    /// The stripes' lines across `r`, as the pattern draws them.
+    private static func lines(in r: CGRect, side: CGFloat = 6) -> CGPath {
+        let p = CGMutablePath()
+        var x = -r.height
+        while x < r.width {
+            p.move(to: CGPoint(x: x, y: 0))
+            p.addLine(to: CGPoint(x: x + r.height, y: r.height))
+            x += side
+        }
+        return p
     }
 
     /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
     /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
     /// height of a row that was still arriving).
     private static let stripe = NSColor.dynamic(light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
-    private static func stripes(over base: NSColor?) -> NSColor {
-        let side: CGFloat = 6
+    static func stripes(over base: NSColor?, side: CGFloat = 6) -> NSColor {
         let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
             if let base {
                 base.setFill()

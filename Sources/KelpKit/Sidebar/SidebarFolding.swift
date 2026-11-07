@@ -123,7 +123,7 @@ extension SidebarController {
             // 2 pt around the rows' pills, from under the header's gap.
             var r = SidebarRowView.band(s.rows, 4).insetBy(dx: 0, dy: -1)
             r.origin.y += Self.serverGap; r.size.height -= Self.serverGap
-            put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: true))
+            put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
             server = nil
         }
         for p in roots {

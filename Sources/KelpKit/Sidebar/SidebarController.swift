@@ -151,6 +151,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.settings.bool("workbench.sidebar.gitBadges") } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.settings.string("workbench.sidebar.order") } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in ServerLook.of(app) } changed: { [weak self] _ in
+            self?.placeCards()
+            self?.updateHeaders()
+        }
         // "now" becomes "1m": the times on the right move on their own (a clock: nothing is asked of the daemon).
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in   // main run loop
             MainActor.assumeIsolated { if self?.view.window?.occlusionState.contains(.visible) == true { self?.updateVisibleCells() } }
@@ -321,7 +325,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
     func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let n = item as? Node else { return TextSize.of(rowBase) }
-        if case .host = n.kind { return TextSize.of(Metrics.rowTwoLine) + Self.serverGap }
+        if case .host = n.kind { return TextSize.of(rowBase) + Self.serverGap }
         if underFold(n) { return 0.01 }   // the outline takes no 0
         let pad = pads(n)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
@@ -349,9 +353,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         p.top += serverGap(n)
         return p
     }
-    /// The gap over a server's header, which starts that server's card.
+    /// The gap over a server's header, which starts that server's card, and over No Project's row at the end, which
+    /// would read as one more project (or one more of the last server's) without it.
     func serverGap(_ n: Node) -> CGFloat {
-        if case .host = n.kind { Self.serverGap } else { 0 }
+        switch n.kind {
+        case .host: Self.serverGap
+        case .project(let id) where app.repo(id).map(NoProject.holds) == true: Self.serverGap
+        default: 0
+        }
     }
     /// Where this row is in its project's card: nil for a project with nothing under it, which is a plain row.
     private func group(_ n: Node) -> (first: Bool, last: Bool)? {

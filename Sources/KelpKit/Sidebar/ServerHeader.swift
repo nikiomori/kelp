@@ -2,20 +2,32 @@ import AppKit
 import Core
 import DesignKit
 
-/// The first row of a server's hatched card: the machine and how it's doing. Its name, and a word only when something's
-/// wrong; under it CPU, memory and disk, each a symbol and a share (orange from 90 %), the rest in the tooltip. A click
-/// opens the server's tab; the chevron under the pointer folds its projects away.
+/// How a server's card says its projects run on another machine (Settings › Appearance › Servers): stripes under the
+/// whole card, sparser ones in an outline, stripes by the server's icon that fade before the text, or only a striped plate
+/// under the icon.
+enum ServerLook: String {
+    case stripes, sparse, fade, icon
+    static let key = "workbench.sidebar.serverLook"
+    @MainActor static func of(_ app: AppModel) -> ServerLook { app.settings.string(key).flatMap(ServerLook.init) ?? .stripes }
+}
+
+/// The first row of a server's card, one line as tall as a project's: the machine, a word only when something's wrong,
+/// and at the right CPU, memory and disk, each a symbol and a share (orange from 90 %), the rest in the tooltip. A click
+/// opens the server's tab; under the pointer its icon turns into the chevron that folds its projects away, as a project's.
 @MainActor
 final class ServerHeader: NSTableCellView {
     let host: String
     private weak var owner: SidebarController?
     private let title = NSTextField(labelWithString: "")
     private let word = NSTextField(labelWithString: "")
-    /// Line two: the meters, or why there are none.
+    /// At the right: the meters, or why there are none.
     private let meters = NSStackView()
     private let note = NSTextField(labelWithString: "")
     private let cpu = Meter("cpu", String(localized: "CPU")), ram = Meter("memorychip", String(localized: "Memory"))
     private let disk = Meter("internaldrive", String(localized: "Disk"))
+    private let glyph = NSImageView(image: .symbol("server.rack"))
+    /// The striped plate under the icon, when that is all the card shows of being elsewhere (ServerLook.icon).
+    private let plate = NSView()
     private lazy var fold = IconButton(.symbol("chevron.down"), tip: String(localized: "Collapse")) { [weak self] in
         guard let self else { return }
         self.owner?.foldHost(self.host)
@@ -25,33 +37,43 @@ final class ServerHeader: NSTableCellView {
         self.host = host
         self.owner = owner
         super.init(frame: .zero)
-        let glyph = NSImageView(image: .symbol("server.rack"))
         glyph.symbolConfiguration = .chrome()
         glyph.contentTintColor = .secondaryLabelColor
-        glyph.setContentHuggingPriority(.required, for: .horizontal)
-        title.font = .ui(12, weight: .semibold)
+        plate.wantsLayer = true
+        plate.layer?.cornerRadius = Metrics.radiusSM
+        plate.layer?.borderWidth = 1
+        title.font = .ui(13, weight: .medium)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.setContentHuggingPriority(.init(2), for: .horizontal)
         word.font = .uiDigits(11)
         fold.symbolConfiguration = .chrome(Metrics.iconTiny)
         fold.isHidden = true
-        let top = NSStackView(views: [glyph, title, word, fold])
-        top.spacing = Metrics.gap
-        top.detachesHiddenViews = true
         note.font = .ui(11)
         note.textColor = .secondaryLabelColor
+        note.lineBreakMode = .byTruncatingTail
+        note.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the server's name
         meters.setViews([cpu, ram, disk, note], in: .leading)
-        meters.spacing = 10
+        meters.spacing = Metrics.gapWide
         meters.detachesHiddenViews = true
-        for v in [top, meters] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        let slot = NSView()
+        for v in [plate, glyph, fold] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(v)
+            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+        }
+        let row = NSStackView(views: [slot, title, word, meters])
+        row.spacing = Metrics.gap
+        row.detachesHiddenViews = true
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
         NSLayoutConstraint.activate([
-            top.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2), top.trailingAnchor.constraint(equalTo: trailingAnchor),
-            top.topAnchor.constraint(equalTo: topAnchor, constant: 1), top.heightAnchor.constraint(equalToConstant: 18),
-            // Under the name, past the server's symbol.
-            meters.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            meters.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
-            meters.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 1)
+            slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16),
+            plate.widthAnchor.constraint(equalToConstant: 20), plate.heightAnchor.constraint(equalToConstant: 20),
+            fold.widthAnchor.constraint(equalToConstant: 16), fold.heightAnchor.constraint(equalToConstant: 16),
+            // The same columns as a project's row (SidebarCell): the icon under theirs, the name under their names.
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2), row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
@@ -59,8 +81,30 @@ final class ServerHeader: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) { fold.isHidden = false }
-    override func mouseExited(with e: NSEvent) { fold.isHidden = true }
+    override func setFrameSize(_ s: NSSize) {
+        let old = frame.width
+        super.setFrameSize(s)
+        if s.width != old { fitMeters() }
+    }
+    /// The meters step aside before the server's name is cut: the disk first, then memory, then the CPU (all are in the
+    /// tooltip and on the server's tab).
+    private func fitMeters() {
+        let taken = [title, word].filter { !$0.isHidden }.reduce(2 + 16 + Metrics.gap) { $0 + $1.intrinsicContentSize.width + Metrics.gap }
+        var room = bounds.width - taken
+        for m in [cpu, ram, disk] {
+            let need = m.fittingSize.width + Metrics.gapWide, fits = m.has && room >= need
+            if fits { room -= need }
+            m.isHidden = !fits
+        }
+    }
+
+    override func mouseEntered(with e: NSEvent) { showFold(true) }
+    override func mouseExited(with e: NSEvent) { showFold(false) }
+    private func showFold(_ on: Bool) {
+        fold.isHidden = !on
+        glyph.alphaValue = on ? 0 : 1
+        plate.alphaValue = on ? 0 : 1
+    }
 
     func update() {
         guard let app = owner?.app else { return }
@@ -68,7 +112,7 @@ final class ServerHeader: NSTableCellView {
         title.stringValue = host
         let said = app.serverWord(host)
         let up = s?.connected == true
-        // Off: the word goes to line two, where the meters would be.
+        // Off: the word goes to the right, where the meters would be.
         word.stringValue = up ? said?.text ?? "" : ""
         word.textColor = said?.color ?? .secondaryLabelColor
         word.isHidden = word.stringValue.isEmpty
@@ -78,6 +122,13 @@ final class ServerHeader: NSTableCellView {
         cpu.show(up ? s?.cpu.map { Int($0.rounded()) } : nil)
         ram.show(up ? HostStats.percent(s?.memory, s?.memoryTotal) : nil)
         disk.show(up ? HostStats.percent(s?.disk, s?.diskTotal) : nil)
+        fitMeters()
+        let look = ServerLook.of(app)
+        plate.isHidden = look != .icon
+        if look == .icon {   // the appearance is current while the row updates
+            plate.layer?.backgroundColor = ProjectCard.stripes(over: .fillRest).cgColor
+            plate.layer?.borderColor = NSColor.separatorColor.cgColor
+        }
         let folded = owner?.hostFolded(host) == true
         fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
         fold.toolTip = fold.image?.accessibilityDescription
@@ -109,16 +160,18 @@ private final class Meter: NSStackView {
     init(_ symbol: String, _ name: String) {
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(symbol, name))
-        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
+        icon.symbolConfiguration = .chrome(Metrics.iconTiny)
         icon.contentTintColor = .secondaryLabelColor
         value.font = .uiDigits(11)
         setViews([icon, value], in: .leading)
-        spacing = 3
+        spacing = Metrics.lineGap
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// It has a share to show; whether it fits beside the name is the header's to say.
+    private(set) var has = false
     func show(_ percent: Int?) {
-        isHidden = percent == nil
+        has = percent != nil
         guard let percent else { return }
         value.stringValue = "\(percent)%"
         value.textColor = percent >= 90 ? .textOrange : .secondaryLabelColor
@@ -160,6 +213,8 @@ extension SidebarController {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(host, forType: .string)
         }
+        menu.addItem(.separator())
+        menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
     }
 
     /// A remote project's: its server's tab and htop there.

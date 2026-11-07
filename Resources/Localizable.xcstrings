@@ -21033,6 +21033,72 @@
           }
         }
       }
+    },
+    "Servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверы"
+          }
+        }
+      }
+    },
+    "How a server's card shows that its projects run on another machine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как карточка сервера показывает, что его проекты работают на другой машине."
+          }
+        }
+      }
+    },
+    "Stripes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Штриховка"
+          }
+        }
+      }
+    },
+    "Sparse Stripes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редкая штриховка"
+          }
+        }
+      }
+    },
+    "Stripes by the Icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Штриховка у значка"
+          }
+        }
+      }
+    },
+    "Under the Icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Под значком"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -6,7 +6,8 @@ import Core
 /// instead of its name in a menu. The value written is the option, as from the menu.
 enum SettingPictures {
     static let keys: Set<String> = ["workbench.textSize", "workbench.sidebar.rowHeight", "workbench.sidebar.agentDetail",
-                                    "workbench.sidebar.projectColor", "agents.dockIcon", "agents.dockStrip", "terminal.cursorStyle"]
+                                    "workbench.sidebar.projectColor", "workbench.sidebar.serverLook", "agents.dockIcon", "agents.dockStrip",
+                                    "terminal.cursorStyle"]
 }
 
 /// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
@@ -87,6 +88,7 @@ private struct PictureArt: View {
         case "workbench.sidebar.rowHeight": rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
         case "workbench.sidebar.agentDetail": agentRow
         case "workbench.sidebar.projectColor": projectRow
+        case "workbench.sidebar.serverLook": serverRow
         case "agents.dockIcon": dockIcon
         case "agents.dockStrip": dockStrip
         case "terminal.cursorStyle": cursor
@@ -162,6 +164,30 @@ private struct PictureArt: View {
                 }
             }
         }
+        .padding(.horizontal, 12)
+    }
+
+    /// A server's row as its card marks it: stripes under it all, sparser in an outline, by the icon only, or on its plate.
+    private var serverRow: some View {
+        let stripes = Stripes(side: option == "sparse" ? 7 : 5)
+        let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous)
+        return row(height: 20, fill: option == "stripes" || option == "sparse" ? .clear : Color.primary.opacity(0.05)) {
+            Image(systemName: "server.rack").font(Self.drawn(8, weight: .medium)).foregroundStyle(.secondary).frame(width: 12, height: 12)
+                .background { if option == "icon" { stripes.frame(width: 15, height: 15).overlay(shape.stroke(Color.primary.opacity(0.15))) } }
+            line(30)
+            Spacer(minLength: 0)
+            line(14, Color.primary.opacity(0.25))
+        }
+        .background {
+            switch option {
+            case "stripes", "sparse": stripes.clipShape(shape)
+            case "fade": stripes.clipShape(shape)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0.12), .init(color: .clear, location: 0.5)],
+                                     startPoint: .leading, endPoint: .trailing))
+            default: EmptyView()
+            }
+        }
+        .overlay { if option == "sparse" { shape.stroke(Color.primary.opacity(0.15)) } }
         .padding(.horizontal, 12)
     }
 
@@ -259,5 +285,22 @@ struct InspectorPanelsRow: View {
             }
         }
         .padding(.vertical, Metrics.lineGap)
+    }
+}
+
+/// Thin diagonal lines `side` apart, as a server's card draws them (ProjectCard.stripes).
+private struct Stripes: View {
+    let side: CGFloat
+    var body: some View {
+        Canvas { c, size in
+            var p = Path()
+            var x = -size.height
+            while x < size.width {
+                p.move(to: CGPoint(x: x, y: size.height))
+                p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += side
+            }
+            c.stroke(p, with: .color(.primary.opacity(0.18)), lineWidth: 1)
+        }
     }
 }

@@ -344,6 +344,10 @@ struct SettingRow: View {
         case "workbench.sidebar.agentIcons" where v == "others": return String(localized: "Other Agents Only")
         case "workbench.sidebar.projectColor":
             return v == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
+        case "workbench.sidebar.serverLook":
+            let said = ["stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
+                        "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")]
+            return said[v] ?? v
         case "workbench.ci.branchChip":
             let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
             return said[v] ?? v
