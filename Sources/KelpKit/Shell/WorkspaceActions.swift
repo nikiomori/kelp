@@ -22,7 +22,9 @@ package struct WorkspaceActions {
     ]
 
     static var installedEditors: [(name: String, bundle: String, app: URL)] {
-        editors.compactMap { n, b in NSWorkspace.shared.urlForApplication(withBundleIdentifier: b).map { (n, b, $0) } }
+        editors.compactMap { name, bundle in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle).map { (name, bundle, $0) }
+        }
     }
 
     static func open(_ path: String, in bundle: String) {
@@ -30,27 +32,29 @@ package struct WorkspaceActions {
             NSSound.beep()
             return
         }
-        var p = path, dir: ObjCBool = false
-        if folderOnly.contains(bundle), FileManager.default.fileExists(atPath: p, isDirectory: &dir), !dir.boolValue {
-            p = (p as NSString).deletingLastPathComponent
+        var target = path, dir: ObjCBool = false
+        if folderOnly.contains(bundle), FileManager.default.fileExists(atPath: target, isDirectory: &dir),
+            !dir.boolValue
+        {
+            target = (target as NSString).deletingLastPathComponent
         }
         NSWorkspace.shared.open(
-            [URL(fileURLWithPath: p)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+            [URL(fileURLWithPath: target)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
     }
 
     /// "Open in VS Code"… for whatever editors this Mac has, like "Open With" in Finder.
     static func addOpenIn(
         to menu: NSMenu, path: @escaping @MainActor () -> String?, prefix: String = String(localized: "Open in ")
     ) {
-        for e in installedEditors {
-            let i = menu.add(prefix + e.name) {
-                guard let p = path() else {
+        for editor in installedEditors {
+            let item = menu.add(prefix + editor.name) {
+                guard let resolved = path() else {
                     NSSound.beep()
                     return
                 }
-                open(p, in: e.bundle)
+                open(resolved, in: editor.bundle)
             }
-            i.image = NSWorkspace.shared.icon(forFile: e.app.path).resized(16)
+            item.image = NSWorkspace.shared.icon(forFile: editor.app.path).resized(16)
         }
     }
     static func addOpenIn(to menu: NSMenu, path: String) { addOpenIn(to: menu, path: { path }) }
@@ -79,21 +83,21 @@ package struct WorkspaceActions {
         }
         let list = NSMenu()
         list.add(String(localized: "Path"), copyPath)
-        for c in copies { list.add(c.title, c.run) }
+        for copy in copies { list.add(copy.title, copy.run) }
         menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
     }
 
     /// The file in the focused tab, else the workspace's folder (Xcode's "Show in Finder" works on the selection).
     func revealCurrent() {
-        if let u = app.workbench.editor?.focusedContent?.fileURL {
-            NSWorkspace.shared.activateFileViewerSelecting([u])
+        if let url = app.workbench.editor?.focusedContent?.fileURL {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
             return
         }
-        guard let w = app.worktree(app.workbench.workspaceId) else {
+        guard let worktree = app.worktree(app.workbench.workspaceId) else {
             NSSound.beep()
             return
         }
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: w.path)])
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: worktree.path)])
     }
 
     /// What exists only in a branch's folder: nothing about it may go without being asked.
@@ -114,89 +118,91 @@ package struct WorkspaceActions {
 
     /// Nil: can't tell (its folder is gone, say).
     private func work(on id: String) async -> Work? {
-        guard let d = await app.quiet(WorktreeDirty(id: id)), let c = await app.quiet(WorktreeUnmerged(id: id)) else {
+        guard let dirty = await app.quiet(WorktreeDirty(id: id)),
+            let commits = await app.quiet(WorktreeUnmerged(id: id))
+        else {
             return nil
         }
-        return Work(dirty: d, commits: c)
+        return Work(dirty: dirty, commits: commits)
     }
 
-    func delete(_ w: Worktree) {
+    func delete(_ worktree: Worktree) {
         Task {
             let work = Work(
-                dirty: await app.call(WorktreeDirty(id: w.id)) ?? false,
-                commits: await app.call(WorktreeUnmerged(id: w.id)) ?? 0)
-            let a = NSAlert()
-            a.messageText = String(localized: "Delete “\(w.displayName)” and its branch?")
-            a.informativeText =
+                dirty: await app.call(WorktreeDirty(id: worktree.id)) ?? false,
+                commits: await app.call(WorktreeUnmerged(id: worktree.id)) ?? 0)
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Delete “\(worktree.displayName)” and its branch?")
+            alert.informativeText =
                 (work.isAny
                     ? work.words.joined(separator: " ")
-                    : String(localized: "The checkout and branch \(w.branch) are removed. Running agents stop."))
-                + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == w.id }.map(\.id))
-            a.addButton(
+                    : String(localized: "The checkout and branch \(worktree.branch) are removed. Running agents stop."))
+                + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == worktree.id }.map(\.id))
+            alert.addButton(
                 withTitle: work.isAny
                     ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch")
             )
             .hasDestructiveAction = true
-            a.addButton(withTitle: String(localized: "Cancel"))
-            a.alertStyle = work.isAny ? .critical : .warning
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
-            await discard(w, work)
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            alert.alertStyle = work.isAny ? .critical : .warning
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            await discard(worktree, work)
         }
     }
 
-    private func discard(_ w: Worktree, _ work: Work) async {
-        guard await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
-        if app.workbench.workspaceId == w.id,
-            let main = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id })
+    private func discard(_ worktree: Worktree, _ work: Work) async {
+        guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
+        if app.workbench.workspaceId == worktree.id,
+            let main = app.worktrees.first(where: { $0.repoId == worktree.repoId && $0.id != worktree.id })
         {
             app.workbench.show(workspace: main.id)
         }
-        await app.call(WorktreeRemove(id: w.id, force: work.dirty, dropCommits: work.commits > 0))
+        await app.call(WorktreeRemove(id: worktree.id, force: work.dirty, dropCommits: work.commits > 0))
     }
 
     /// The project's other git worktrees with nothing uncommitted (agents leave them in `.claude/worktrees`), after one
     /// question; git itself keeps any that changed meanwhile. Kelp's own workspaces aren't among them.
-    func removeCleanWorktrees(_ r: Repo) {
+    func removeCleanWorktrees(_ repo: Repo) {
         Task {
-            guard let all = await app.call(RepoWorktreeSizes(id: r.id)) else { return }
-            let clean = all.filter(\.removable), a = NSAlert()
+            guard let all = await app.call(RepoWorktreeSizes(id: repo.id)) else { return }
+            let clean = all.filter(\.removable), alert = NSAlert()
             guard !clean.isEmpty else {
-                a.messageText = String(localized: "No clean worktrees in “\(r.name)”")
-                a.informativeText =
+                alert.messageText = String(localized: "No clean worktrees in “\(repo.name)”")
+                alert.informativeText =
                     all.isEmpty
                     ? String(localized: "The project has no other git worktrees.")
                     : String(
                         localized:
                             "Each of its \(all.count) worktrees has uncommitted changes, is locked or is in use in Kelp."
                     )
-                _ = await runSheet(a)
+                _ = await runSheet(alert)
                 return
             }
             let size = WorktreeSizes.size(clean.reduce(0) { $0 + $1.bytes })
-            a.messageText =
+            alert.messageText =
                 clean.count == 1
                 ? String(
                     localized:
-                        "Remove the clean worktree “\(WorktreeSizes.name(clean[0].path, root: r.path))” (\(size))?")
+                        "Remove the clean worktree “\(WorktreeSizes.name(clean[0].path, root: repo.path))” (\(size))?")
                 : String(localized: "Remove \(clean.count) clean worktrees (\(size))?")
             let names = clean.prefix(10).map {
-                "\(WorktreeSizes.name($0.path, root: r.path))  \(WorktreeSizes.size($0.bytes))"
+                "\(WorktreeSizes.name($0.path, root: repo.path))  \(WorktreeSizes.size($0.bytes))"
             }
-            a.informativeText =
+            alert.informativeText =
                 (clean.count > 1 ? names.joined(separator: "\n") + (clean.count > 10 ? "\n…" : "") + "\n\n" : "")
                 + String(
                     localized: """
                         Nothing uncommitted is lost: git removes only clean worktrees. A branch goes too if its commits are on another branch. \
                         Ignored files (builds, copied .env) go with the folder.
                         """)
-            a.addButton(
+            alert.addButton(
                 withTitle: clean.count == 1
                     ? String(localized: "Remove Worktree") : String(localized: "Remove \(clean.count) Worktrees")
             )
             .hasDestructiveAction = true
-            a.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(a) == .alertFirstButtonReturn,
-                let res = await app.call(RepoRemoveWorktrees(id: r.id, paths: clean.map(\.path)))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn,
+                let res = await app.call(RepoRemoveWorktrees(id: repo.id, paths: clean.map(\.path)))
             else { return }
             let freed = WorktreeSizes.size(clean.filter { res.removed.contains($0.path) }.reduce(0) { $0 + $1.bytes })
             if let why = res.kept.values.first {
@@ -210,22 +216,24 @@ package struct WorkspaceActions {
 
     /// A group: its agents end, the project's files stay. Asks only when agents are running there. One on a branch goes with
     /// its folder and branch, and first asks if they hold the only copy of something. A project's own screen stays.
-    func close(_ w: Worktree) {
-        guard let r = app.repo(w.repoId), w.id != mainWorkspace(of: r, among: app.workspaces(of: r))?.id else {
+    func close(_ worktree: Worktree) {
+        guard let repo = app.repo(worktree.repoId),
+            worktree.id != mainWorkspace(of: repo, among: app.workspaces(of: repo))?.id
+        else {
             NSSound.beep()
             return
         }
-        let open = app.sessions.filter { $0.worktreeId == w.id && $0.status != .exited }
+        let open = app.sessions.filter { $0.worktreeId == worktree.id && $0.status != .exited }
         let running = open.filter { $0.status != .paused }, paused = open.count - running.count
         Task {
-            if w.path != r.path, let work = await work(on: w.id), work.isAny {
-                await closeKeeping(w, work)
+            if worktree.path != repo.path, let work = await work(on: worktree.id), work.isAny {
+                await closeKeeping(worktree, work)
                 return
             }
             if !open.isEmpty {
-                let a = NSAlert()
-                a.messageText = String(localized: "Close “\(w.displayName)”?")
-                a.informativeText =
+                let alert = NSAlert()
+                alert.messageText = String(localized: "Close “\(worktree.displayName)”?")
+                alert.informativeText =
                     pausedGo(paused)
                     + (running.isEmpty
                         ? String(localized: "Files in the project are not touched.")
@@ -234,79 +242,79 @@ package struct WorkspaceActions {
                             : String(
                                 localized: "\(running.count) running agents stop. Files in the project are not touched."
                             ))
-                a.addButton(
+                alert.addButton(
                     withTitle: running.isEmpty
                         ? String(localized: "Close")
                         : running.count == 1
                             ? String(localized: "Stop Agent and Close")
                             : String(localized: "Stop \(running.count) Agents and Close")
                 ).hasDestructiveAction = true
-                a.addButton(withTitle: String(localized: "Cancel"))
-                guard await runSheet(a) == .alertFirstButtonReturn else { return }
+                alert.addButton(withTitle: String(localized: "Cancel"))
+                guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             }
-            guard await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
-            if app.workbench.workspaceId == w.id,
-                let other = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id })
+            guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
+            if app.workbench.workspaceId == worktree.id,
+                let other = app.worktrees.first(where: { $0.repoId == worktree.repoId && $0.id != worktree.id })
             {
                 app.workbench.show(workspace: other.id)
             }
             // Refused (an agent wrote something at the last moment): back to what's still there.
-            if await app.call(WorktreeRemove(id: w.id)) == nil { app.workbench.show(workspace: w.id) }
+            if await app.call(WorktreeRemove(id: worktree.id)) == nil { app.workbench.show(workspace: worktree.id) }
             await app.refresh()
         }
     }
 
     /// Closing takes a paused agent's tab and its history too: it can't be opened from Kelp again.
-    private func pausedGo(_ n: Int) -> String {
-        n == 0
+    private func pausedGo(_ count: Int) -> String {
+        count == 0
             ? ""
-            : (n == 1
+            : (count == 1
                 ? String(localized: "1 paused agent closes for good. ")
-                : String(localized: "\(n) paused agents close for good. "))
+                : String(localized: "\(count) paused agents close for good. "))
     }
 
     /// A branch with work of its own: kept unless told otherwise, as it can't be got back.
-    private func closeKeeping(_ w: Worktree, _ work: Work) async {
-        let a = NSAlert()
-        a.messageText = String(localized: "“\(w.displayName)” has work that's nowhere else")
-        a.informativeText =
+    private func closeKeeping(_ worktree: Worktree, _ work: Work) async {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "“\(worktree.displayName)” has work that's nowhere else")
+        alert.informativeText =
             (work.words + [
                 String(localized: "Archive keeps it, agents paused, until Window › Archived Groups brings it back.")
             ])
             .joined(separator: " ")
-        a.addButton(withTitle: String(localized: "Archive"))
-        a.addButton(withTitle: String(localized: "Delete and Lose Changes")).hasDestructiveAction = true
-        a.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
-        switch await runSheet(a) {
-        case .alertFirstButtonReturn: archive(w)
-        case .alertSecondButtonReturn: await discard(w, work)
+        alert.addButton(withTitle: String(localized: "Archive"))
+        alert.addButton(withTitle: String(localized: "Delete and Lose Changes")).hasDestructiveAction = true
+        alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
+        switch await runSheet(alert) {
+        case .alertFirstButtonReturn: archive(worktree)
+        case .alertSecondButtonReturn: await discard(worktree, work)
         default: break
         }
     }
 
     /// The project's folder was moved or renamed: pick it again; its workspaces follow.
-    func relocate(_ r: Repo) {
-        let p = NSOpenPanel()
-        p.canChooseDirectories = true
-        p.canChooseFiles = false
-        p.message = String(localized: "Where is “\(r.name)” now?")
-        p.prompt = String(localized: "Choose")
-        p.directoryURL = URL(fileURLWithPath: (r.path as NSString).deletingLastPathComponent)
+    func relocate(_ repo: Repo) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.message = String(localized: "Where is “\(repo.name)” now?")
+        panel.prompt = String(localized: "Choose")
+        panel.directoryURL = URL(fileURLWithPath: (repo.path as NSString).deletingLastPathComponent)
         let chosen = { (resp: NSApplication.ModalResponse) in
-            guard resp == .OK, let u = p.url else { return }
-            Task { if await app.call(RepoRelocate(id: r.id, path: u.path)) != nil { await app.refresh() } }
+            guard resp == .OK, let url = panel.url else { return }
+            Task { if await app.call(RepoRelocate(id: repo.id, path: url.path)) != nil { await app.refresh() } }
         }
-        if let w = NSApp.mainWindow {
-            p.beginSheetModal(for: w, completionHandler: chosen)
+        if let host = NSApp.mainWindow {
+            panel.beginSheetModal(for: host, completionHandler: chosen)
         } else {
-            p.begin(completionHandler: chosen)
+            panel.begin(completionHandler: chosen)
         }
     }
 
     /// Chats off to a group of their own, named after the first. Their agents go on where they are.
     func newGroup(from chats: [String]) async {
-        guard let first = chats.first.flatMap(app.session), let w = app.worktree(first.worktreeId),
-            let made = await app.call(WorkspaceCreate(repoId: w.repoId))
+        guard let first = chats.first.flatMap(app.session), let worktree = app.worktree(first.worktreeId),
+            let made = await app.call(WorkspaceCreate(repoId: worktree.repoId))
         else { return }
         await app.call(WorktreeNote(id: made.id, note: app.catalog.displayName(first)))
         await move(chats, to: made.id)
@@ -314,10 +322,10 @@ package struct WorkspaceActions {
 
     func move(_ chats: [String], to id: String) async {
         let from = Set(chats.compactMap { app.session($0)?.worktreeId }).subtracting([id])
-        for s in chats { await app.call(SessionMove(id: s, worktreeId: id)) }
+        for sid in chats { await app.call(SessionMove(id: sid, worktreeId: id)) }
         await app.refresh()
-        if let s = chats.first { app.workbench.focus(session: s) }
-        for w in from { app.workbench.window?.editors.chatsLeft(w) }
+        if let sid = chats.first { app.workbench.focus(session: sid) }
+        for wid in from { app.workbench.window?.editors.chatsLeft(wid) }
     }
 
     /// Its last tab was closed: its row goes too, with nothing to ask. One on a branch with work of its own stays, and says
@@ -330,21 +338,24 @@ package struct WorkspaceActions {
         {
             ending.formUnion(more)
         }
-        guard let w = app.worktree(id), let r = app.repo(w.repoId),
+        guard let group = app.worktree(id), let repo = app.repo(group.repoId),
             !app.sessions.contains(where: { $0.worktreeId == id && !ending.contains($0.id) && $0.status != .exited }),
-            let next = WorkspaceClosing.afterLastTab(of: w, rows: app.workspaces(of: r), repos: app.repos)
+            let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
         else { return }
         Task {
-            if w.path != r.path {
+            if group.path != repo.path {
                 guard let work = await work(on: id) else { return }
                 if work.isAny {
                     Banner.show(
-                        String(localized: "“\(w.displayName)” stays: its work is only on \(w.branch). ⇧⌘W closes it."))
+                        String(
+                            localized:
+                                "“\(group.displayName)” stays: its work is only on \(group.branch). ⇧⌘W closes it."
+                        ))
                     return
                 }
             }
             if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            await app.workbench.keepClosedTabs(of: w, on: next)
+            await app.workbench.keepClosedTabs(of: group, on: next)
             // The agent that just ended may have left something after all: then it stays, as above.
             if await app.call(WorktreeRemove(id: id)) == nil { app.workbench.show(workspace: id) }
             await app.refresh()
@@ -354,21 +365,23 @@ package struct WorkspaceActions {
     /// Several at once (sidebar multi-selection): one question; each project keeps at least one workspace.
     /// Workspaces close; one on its own branch goes if nothing is only there, else it's archived (nothing is lost).
     func close(_ ws: [Worktree]) {
-        let m = app
-        let plan = WorkspaceClosing(picked: ws, open: m.worktrees.filter { !$0.archived }, repos: m.repos),
+        let model = app
+        let plan = WorkspaceClosing(picked: ws, open: model.worktrees.filter { !$0.archived }, repos: model.repos),
             closing = plan.ids
         guard !closing.isEmpty else {
             NSSound.beep()
             return
         }
-        let open = m.sessions.filter { s in s.worktreeId.map(closing.contains) == true && s.status != .exited }
+        let open = model.sessions.filter { session in
+            session.worktreeId.map(closing.contains) == true && session.status != .exited
+        }
         let running = open.filter { $0.status != .paused }
-        let a = NSAlert()
+        let alert = NSAlert()
         let name = ws.first { $0.id == closing[0] }?.displayName ?? ""
-        a.messageText =
+        alert.messageText =
             closing.count == 1
             ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) groups?")
-        a.informativeText =
+        alert.informativeText =
             pausedGo(open.count - running.count)
             + (running.isEmpty
                 ? ""
@@ -377,46 +390,50 @@ package struct WorkspaceActions {
                     : String(localized: "\(running.count) running sessions stop. "))
             + String(localized: "Files in the projects are not touched.")
             + (plan.keptSome ? " " + String(localized: "A project's own chats stay.") : "")
-        let close = a.addButton(
+        let close = alert.addButton(
             withTitle: running.isEmpty
                 ? String(localized: "Close")
                 : running.count == 1
                     ? String(localized: "Stop 1 Session and Close")
                     : String(localized: "Stop \(running.count) Sessions and Close"))
         close.hasDestructiveAction = !open.isEmpty
-        a.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn, await UnsavedChanges.confirm(closing: closing, in: app)
+            guard await runSheet(alert) == .alertFirstButtonReturn,
+                await UnsavedChanges.confirm(closing: closing, in: app)
             else { return }
             if let id = app.workbench.workspaceId, closing.contains(id),
-                let other = m.worktrees.first(where: { !$0.archived && !closing.contains($0.id) })
+                let other = model.worktrees.first(where: { !$0.archived && !closing.contains($0.id) })
             {
                 app.workbench.show(workspace: other.id)
             }
-            for id in plan.remove { await m.call(WorktreeRemove(id: id)) }
+            for id in plan.remove { await model.call(WorktreeRemove(id: id)) }
             for id in plan.archive {
                 if await work(on: id)?.isAny == false {
-                    await m.call(WorktreeRemove(id: id))
+                    await model.call(WorktreeRemove(id: id))
                 } else {
-                    await m.call(WorktreeArchive(id: id))
+                    await model.call(WorktreeArchive(id: id))
                 }
             }
-            await m.refresh()
+            await model.refresh()
         }
     }
 
     /// Out of the sidebar, nothing lost: its agents pause and its tabs stay until it comes back (Window › Archived Workspaces).
-    func archive(_ w: Worktree) {
+    func archive(_ worktree: Worktree) {
         Task {
-            guard await UnsavedChanges.confirm(closing: [w.id], in: app) else { return }
-            if app.workbench.workspaceId == w.id,
-                let other = app.worktrees.first(where: { $0.repoId == w.repoId && $0.id != w.id && !$0.archived })
+            guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
+            if app.workbench.workspaceId == worktree.id,
+                let other = app.worktrees.first(where: {
+                    $0.repoId == worktree.repoId && $0.id != worktree.id && !$0.archived
+                })
             {
                 app.workbench.show(workspace: other.id)
             }
-            if await app.call(WorktreeArchive(id: w.id)) != nil {
+            if await app.call(WorktreeArchive(id: worktree.id)) != nil {
                 await app.refresh()
-                Banner.show(String(localized: "“\(w.displayName)” archived. Window › Archived Groups brings it back."))
+                Banner.show(
+                    String(localized: "“\(worktree.displayName)” archived. Window › Archived Groups brings it back."))
             }
         }
     }
@@ -429,23 +446,23 @@ package struct WorkspaceActions {
         }
     }
 
-    func removeProject(_ r: Repo) {
-        let a = NSAlert()
-        a.messageText = String(localized: "Remove “\(app.projectName(r.id) ?? r.name)” from Kelp?")
-        let branches = app.worktrees.filter { $0.repoId == r.id && $0.path != r.path }
-        a.informativeText = [
+    func removeProject(_ repo: Repo) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Remove “\(app.projectName(repo.id) ?? repo.name)” from Kelp?")
+        let branches = app.worktrees.filter { $0.repoId == repo.id && $0.path != repo.path }
+        alert.informativeText = [
             String(localized: "Its agents stop, and its chats and routines leave Kelp for good."),
             branches.isEmpty
                 ? nil : String(localized: "Folders of its branch groups stay on disk, and Kelp no longer lists them."),
             String(localized: "The repository on disk is not touched.")
         ].compactMap { $0 }.joined(separator: " ")
-        a.addButton(withTitle: String(localized: "Remove")).hasDestructiveAction = true
-        a.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Remove")).hasDestructiveAction = true
+        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn,
-                await UnsavedChanges.confirm(closing: app.worktrees.filter { $0.repoId == r.id }.map(\.id), in: app)
+            guard await runSheet(alert) == .alertFirstButtonReturn,
+                await UnsavedChanges.confirm(closing: app.worktrees.filter { $0.repoId == repo.id }.map(\.id), in: app)
             else { return }
-            await app.call(RepoRemove(id: r.id))
+            await app.call(RepoRemove(id: repo.id))
         }
     }
 }

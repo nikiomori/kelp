@@ -7,26 +7,27 @@ import Carbon.HIToolbox
 @MainActor
 enum LatinShortcuts {
     static func install() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-            guard e.modifierFlags.contains(.command), let typed = e.charactersIgnoringModifiers,
-                typed.unicodeScalars.contains(where: isLetterOfAnotherScript), let latin = latin(e),
-                let t = NSEvent.keyEvent(
-                    with: .keyDown, location: e.locationInWindow, modifierFlags: e.modifierFlags,
-                    timestamp: e.timestamp,
-                    windowNumber: e.windowNumber, context: nil, characters: latin, charactersIgnoringModifiers: latin,
-                    isARepeat: e.isARepeat, keyCode: e.keyCode)
-            else { return e }
-            return t
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.contains(.command), let typed = event.charactersIgnoringModifiers,
+                typed.unicodeScalars.contains(where: isLetterOfAnotherScript), let latin = latin(event),
+                let retyped = NSEvent.keyEvent(
+                    with: .keyDown, location: event.locationInWindow, modifierFlags: event.modifierFlags,
+                    timestamp: event.timestamp,
+                    windowNumber: event.windowNumber, context: nil, characters: latin,
+                    charactersIgnoringModifiers: latin,
+                    isARepeat: event.isARepeat, keyCode: event.keyCode)
+            else { return event }
+            return retyped
         }
     }
 
     /// ⌘Ц yes; ⌘↓ no: arrows and other function keys come as private-use characters (NSUpArrowFunctionKey…).
-    static func isLetterOfAnotherScript(_ c: Unicode.Scalar) -> Bool {
-        !c.isASCII && !(0xF700...0xF8FF).contains(c.value)
+    static func isLetterOfAnotherScript(_ scalar: Unicode.Scalar) -> Bool {
+        !scalar.isASCII && !(0xF700...0xF8FF).contains(scalar.value)
     }
 
     /// The character this key types on the current ASCII-capable layout (shift kept, other modifiers dropped).
-    static func latin(_ e: NSEvent) -> String? {
+    static func latin(_ event: NSEvent) -> String? {
         guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
             let raw = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
         else { return nil }
@@ -35,9 +36,9 @@ enum LatinShortcuts {
             guard let layout = bytes.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return nil }
             var dead: UInt32 = 0, length = 0
             var chars = [UniChar](repeating: 0, count: 4)
-            let shift = e.modifierFlags.contains(.shift) ? UInt32(shiftKey >> 8) & 0xFF : 0
+            let shift = event.modifierFlags.contains(.shift) ? UInt32(shiftKey >> 8) & 0xFF : 0
             let status = UCKeyTranslate(
-                layout, e.keyCode, UInt16(kUCKeyActionDisplay), shift, UInt32(LMGetKbdType()),
+                layout, event.keyCode, UInt16(kUCKeyActionDisplay), shift, UInt32(LMGetKbdType()),
                 OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, chars.count, &length, &chars)
             return status == noErr && length > 0 ? String(utf16CodeUnits: chars, count: length) : nil
         }

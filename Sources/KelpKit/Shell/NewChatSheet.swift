@@ -36,15 +36,15 @@ final class NewChatSheet: NSObject {
         from.addItems(withTitles: local.isEmpty ? [base] : local)
         from.selectItem(withTitle: base)
         branch.addItems(withTitles: local + remote)
-        for p in prs {
-            pr.addItem(withTitle: "#\(p.number)  \(p.title) · \(p.author)")
-            pr.lastItem?.representedObject = p.number
+        for request in prs {
+            pr.addItem(withTitle: "#\(request.number)  \(request.title) · \(request.author)")
+            pr.lastItem?.representedObject = request.number
         }
-        for a in agents {
-            agent.addItem(withTitle: a.name)
-            agent.lastItem?.representedObject = a.id
+        for option in agents {
+            agent.addItem(withTitle: option.name)
+            agent.lastItem?.representedObject = option.id
         }
-        if let i = agents.firstIndex(where: { $0.id == picked }) { agent.selectItem(at: i) }
+        if let index = agents.firstIndex(where: { $0.id == picked }) { agent.selectItem(at: index) }
         rows = [
             .new: [row(String(localized: "Name"), name), row(String(localized: "From"), from)],
             .existing: [row(String(localized: "Branch"), branch)],
@@ -54,14 +54,14 @@ final class NewChatSheet: NSObject {
     }
 
     private func row(_ label: String, _ control: NSView) -> NSView {
-        let l = NSTextField(labelWithString: label)
-        l.alignment = .right
-        l.widthAnchor.constraint(equalToConstant: Metrics.formLabel).isActive = true
+        let caption = NSTextField(labelWithString: label)
+        caption.alignment = .right
+        caption.widthAnchor.constraint(equalToConstant: Metrics.formLabel).isActive = true
         control.widthAnchor.constraint(equalToConstant: Metrics.alertAccessory - Metrics.formLabel - Metrics.gapWide)
             .isActive = true
-        let r = NSStackView(views: [l, control])
-        r.spacing = Metrics.gapWide
-        return r
+        let line = NSStackView(views: [caption, control])
+        line.spacing = Metrics.gapWide
+        return line
     }
 
     /// The fields: the mode on top, its own rows, the agent last.
@@ -76,27 +76,27 @@ final class NewChatSheet: NSObject {
     }
 
     @objc private func modeChanged() {
-        let m = Mode(rawValue: mode.selectedSegment) ?? .new
-        for (k, views) in rows { for v in views { v.isHidden = k != m } }
+        let current = Mode(rawValue: mode.selectedSegment) ?? .new
+        for (kind, views) in rows { for view in views { view.isHidden = kind != current } }
     }
 
     var choice: Choice {
-        let m = Mode(rawValue: mode.selectedSegment) ?? .new
+        let current = Mode(rawValue: mode.selectedSegment) ?? .new
         return Choice(
-            mode: m, name: name.stringValue.trimmingCharacters(in: .whitespaces), from: from.titleOfSelectedItem,
-            branch: m == .pullRequest
+            mode: current, name: name.stringValue.trimmingCharacters(in: .whitespaces), from: from.titleOfSelectedItem,
+            branch: current == .pullRequest
                 ? prs.first { $0.number == pr.selectedItem?.representedObject as? Int }?.headRefName
                 : branch.titleOfSelectedItem,
-            pr: m == .pullRequest ? pr.selectedItem?.representedObject as? Int : nil,
+            pr: current == .pullRequest ? pr.selectedItem?.representedObject as? Int : nil,
             agent: agent.selectedItem?.representedObject as? String ?? "claude")
     }
 
-    /// What the daemon is asked to make for `c`.
-    static func request(_ c: Choice, repo: String) -> WorktreeCreate {
-        switch c.mode {
-        case .new: WorktreeCreate(repoId: repo, base: c.from, note: c.name.isEmpty ? nil : c.name)
-        case .existing: WorktreeCreate(repoId: repo, branch: c.branch, existing: true)
-        case .pullRequest: WorktreeCreate(repoId: repo, branch: c.branch, pr: c.pr)
+    /// What the daemon is asked to make for `choice`.
+    static func request(_ choice: Choice, repo: String) -> WorktreeCreate {
+        switch choice.mode {
+        case .new: WorktreeCreate(repoId: repo, base: choice.from, note: choice.name.isEmpty ? nil : choice.name)
+        case .existing: WorktreeCreate(repoId: repo, branch: choice.branch, existing: true)
+        case .pullRequest: WorktreeCreate(repoId: repo, branch: choice.branch, pr: choice.pr)
         }
     }
 }

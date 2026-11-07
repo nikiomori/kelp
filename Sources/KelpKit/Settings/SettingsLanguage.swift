@@ -44,11 +44,11 @@ extension SettingRow {
         return language == nil && (store.values[spec.key].map { $0 != spec.default } ?? false)
     }
 
-    func put(_ v: JSONValue?) {
-        if let language { store.setOwn(spec.key, v, language: language) } else { store.set(spec.key, v) }
+    func put(_ value: JSONValue?) {
+        if let language { store.setOwn(spec.key, value, language: language) } else { store.set(spec.key, value) }
     }
     /// A whole number is written as one (5, not 5.0).
-    func put(number v: Double) { put(v == v.rounded() ? .int(Int(v)) : .double(v)) }
+    func put(number value: Double) { put(value == value.rounded() ? .int(Int(value)) : .double(value)) }
     func bool() -> Bool? { store.bool(spec.key, language: language) }
     func number() -> Double? { store.number(spec.key, language: language) }
     func string() -> String? { store.string(spec.key, language: language) }

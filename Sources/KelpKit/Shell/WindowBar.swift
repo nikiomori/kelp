@@ -67,9 +67,9 @@ final class WindowBar: NSView {
         ciMark.centerYAnchor.constraint(equalTo: branch.centerYAnchor).isActive = true
         pr.target = self
         pr.action = #selector(openPR)
-        for b in [branch, back, forward] {
-            b.menu = NSMenu()
-            b.menu?.delegate = self
+        for chip in [branch, back, forward] {
+            chip.menu = NSMenu()
+            chip.menu?.delegate = self
         }
         context.setViews([icon, name, folder, branch, pr], in: .leading)
         context.spacing = 2
@@ -96,9 +96,9 @@ final class WindowBar: NSView {
         tools.detachesHiddenViews = true
         tools.setCustomSpacing(6, after: run)
         tools.setCustomSpacing(6, after: page)
-        for v in [context, nav, search, tools] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [context, nav, search, tools] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         // Short of room, the search leaves the centre first, then narrows; only then does the path shorten, then the name.
         // All below the window's own size (500): a long path or name truncates instead of widening the window.
@@ -208,59 +208,66 @@ final class WindowBar: NSView {
 
     /// A capsule that greys in under the pointer and springs when clicked (`PointerButton`), not AppKit's outline.
     private static func chip(_ symbol: String?) -> NSButton {
-        let b = PointerButton(frame: .zero)
-        b.radius = nil
-        b.padding = chipPadding
-        b.font = .ui(12)
-        b.imagePosition = .imageLeading
-        b.imageHugsTitle = true
+        let button = PointerButton(frame: .zero)
+        button.radius = nil
+        button.padding = chipPadding
+        button.font = .ui(12)
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
         if let symbol {
-            b.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, "")
-            b.symbolConfiguration = .chrome(Metrics.iconSmall)
+            button.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, "")
+            button.symbolConfiguration = .chrome(Metrics.iconSmall)
         }
-        return b
+        return button
     }
 
     private func update() {
-        guard let w = worktree else {
+        guard let worktree else {
             context.isHidden = true
             return
         }
         context.isHidden = false
-        if let r = app.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: app) } else { icon.image = nil }
-        name.stringValue = app.groupName(w) ?? ""   // a project's own screen: the folder beside it says it
+        if let repo = app.repo(worktree.repoId) {
+            ProjectIcon.show(repo.path, in: icon, app: app)
+        } else {
+            icon.image = nil
+        }
+        name.stringValue = app.groupName(worktree) ?? ""   // a project's own screen: the folder beside it says it
         name.isHidden = name.stringValue.isEmpty
         // The project's folder, as Xcode and Finder name a project, on a branch too: its own folder's name is no more than
         // the branch's first one, beside the chip with the real one. The whole path in its tooltip and its menu.
-        let place = app.repo(w.repoId).map(app.projectPlace) ?? (w.path as NSString).abbreviatingWithTildeInPath
-        let path = w.path == app.repo(w.repoId)?.path ? place : (w.path as NSString).abbreviatingWithTildeInPath
+        let place =
+            app.repo(worktree.repoId).map(app.projectPlace) ?? (worktree.path as NSString).abbreviatingWithTildeInPath
+        let path =
+            worktree.path == app.repo(worktree.repoId)?.path
+            ? place : (worktree.path as NSString).abbreviatingWithTildeInPath
         folder.title =
-            NoProject.holds(app.repo(w.repoId))
-            ? app.projectName(w.repoId) ?? "" : (place as NSString).lastPathComponent
+            NoProject.holds(app.repo(worktree.repoId))
+            ? app.projectName(worktree.repoId) ?? "" : (place as NSString).lastPathComponent
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }
-        let p = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
-        pr.isHidden = p == nil
-        if let p {
-            pr.attributedTitle = p.0
-            pr.toolTip = p.1
+        let badge = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
+        pr.isHidden = badge == nil
+        if let badge {
+            pr.attributedTitle = badge.0
+            pr.toolTip = badge.1
         }
     }
 
     @objc private func folderMenu() {
         guard let path = worktree?.path else { return }
-        let m = NSMenu()
-        WorkspaceActions.addOpenIn(to: m, path: path)
-        if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "Reveal in Finder")) {
+        let menu = NSMenu()
+        WorkspaceActions.addOpenIn(to: menu, path: path)
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        menu.add(String(localized: "Reveal in Finder")) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
-        m.add(String(localized: "Copy Path")) {
+        menu.add(String(localized: "Copy Path")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(path, forType: .string)
         }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
     }
 
     /// The branch, what is left to pull (orange) and push (blue), a dot while there are uncommitted changes; the sync arrows
@@ -269,21 +276,21 @@ final class WindowBar: NSView {
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
         let font = NSFont.ui(12), count = NSFont.ui(12, weight: .semibold)
-        let t = NSMutableAttributedString(
+        let title = NSMutableAttributedString(
             string: info.current ?? info.head ?? "HEAD",
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         if behind > 0 {
-            t.append(
+            title.append(
                 NSAttributedString(
                     string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.textOrange]))
         }
         if ahead > 0 {
-            t.append(
+            title.append(
                 NSAttributedString(
                     string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.emphasis]))
         }
         if dirty {
-            t.append(
+            title.append(
                 NSAttributedString(
                     string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor]))
         }
@@ -292,10 +299,10 @@ final class WindowBar: NSView {
         if atEnd {
             let room = NSTextAttachment()
             room.image = CIMark.room(12)
-            t.append(NSAttributedString(string: " "))
-            t.append(NSAttributedString(attachment: room))
+            title.append(NSAttributedString(string: " "))
+            title.append(NSAttributedString(attachment: room))
         }
-        branch.attributedTitle = t
+        branch.attributedTitle = title
         ciMark.state = atEnd || inPlace ? ci : nil
         ciAtStart.isActive = inPlace
         ciAtEnd.isActive = atEnd
@@ -358,22 +365,22 @@ final class WindowBar: NSView {
         let cup = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))   // a recessed button ignores contentTintColor
         awake.image = mode == "always" ? cup.withSymbolConfiguration(.init(paletteColors: [.systemOrange])) : cup
         awake.toolTip = tip
-        let m = NSMenu()
-        for (v, title) in [
+        let menu = NSMenu()
+        for (choice, title) in [
             ("agents", String(localized: "While agents work")), ("always", String(localized: "Always")),
             ("off", String(localized: "Never"))
         ] {
-            m.add(title) { app.settings.set("power.keepAwake", .string(v)) }.state =
-                (mode == "working" ? "agents" : mode) == v ? .on : .off
+            menu.add(title) { app.settings.set("power.keepAwake", .string(choice)) }.state =
+                (mode == "working" ? "agents" : mode) == choice ? .on : .off
         }
-        m.addItem(.separator())
-        Self.addHide(to: m, "workbench.awakeButton", app)
-        awake.menu = m
+        menu.addItem(.separator())
+        Self.addHide(to: menu, "workbench.awakeButton", app)
+        awake.menu = menu
     }
 
     /// A title-bar button's right-click: off by its setting, which Settings › Window turns back on.
-    private static func addHide(to m: NSMenu, _ key: String, _ app: AppModel) {
-        m.add(String(localized: "Hide Button")) {
+    private static func addHide(to menu: NSMenu, _ key: String, _ app: AppModel) {
+        menu.add(String(localized: "Hide Button")) {
             app.settings.set(key, .bool(false))
             Banner.show(String(localized: "The button is hidden. Settings › Window brings it back."))
         }
@@ -388,11 +395,11 @@ final class WindowBar: NSView {
 
     /// The arrows say where they go; with nothing that way they grey out.
     private func showNav(back to: String?, forward ahead: String?) {
-        for (b, name, title, key) in [
+        for (arrow, name, title, key) in [
             (back, to, String(localized: "Back"), "⌃⌘←"), (forward, ahead, String(localized: "Forward"), "⌃⌘→")
         ] {
-            b.isEnabled = name != nil
-            b.toolTip = name.map { "\(title): \($0) (\(key))" } ?? "\(title) (\(key))"
+            arrow.isEnabled = name != nil
+            arrow.toolTip = name.map { "\(title): \($0) (\(key))" } ?? "\(title) (\(key))"
         }
     }
     @objc private func goBack() { app.workbench.goBack(-1) }
@@ -417,8 +424,8 @@ final class WindowBar: NSView {
     @objc private func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 
     @objc private func openPR() {
-        guard let w = badgeFolder, let u = app.rowBadges.prs[w.id]?.url else { return }
-        app.workbench.open(u, workspace: worktree?.id)
+        guard let folder = badgeFolder, let url = app.rowBadges.prs[folder.id]?.url else { return }
+        app.workbench.open(url, workspace: worktree?.id)
     }
 }
 
@@ -427,34 +434,34 @@ extension WindowBar: NSPopoverDelegate {
 }
 
 extension WindowBar: NSMenuDelegate {
-    func menuNeedsUpdate(_ m: NSMenu) {
-        m.removeAllItems()
-        if m === branch.menu { branchItems(m) } else { placeItems(m, step: m === back.menu ? -1 : 1) }
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        if menu === branch.menu { branchItems(menu) } else { placeItems(menu, step: menu === back.menu ? -1 : 1) }
     }
 
     /// The branch chip: the name, and where its CI shows.
-    func branchItems(_ m: NSMenu) {
+    func branchItems(_ menu: NSMenu) {
         let app = app
         if let name = info?.current {
-            m.add(String(localized: "Copy Branch Name")) {
+            menu.add(String(localized: "Copy Branch Name")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(name, forType: .string)
             }
         }
-        if let w = worktree, app.rowBadges.prs[badgeFolder?.id ?? ""] == nil {
-            m.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: w.id) }
+        if let worktree, app.rowBadges.prs[badgeFolder?.id ?? ""] == nil {
+            menu.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: worktree.id) }
         }
-        if !m.items.isEmpty { m.addItem(.separator()) }
-        m.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
-        m.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
-        m.addItem(.separator())
-        m.addSettingsLink(String(localized: "CI Settings…"), section: "git", group: "CI", app)
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        menu.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
+        menu.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
+        menu.addItem(.separator())
+        menu.addSettingsLink(String(localized: "CI Settings…"), section: "git", group: "CI", app)
     }
 
     /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.
-    private func placeItems(_ m: NSMenu, step: Int) {
+    private func placeItems(_ menu: NSMenu, step: Int) {
         let app = app
-        for (i, name) in app.workbench.places(step).prefix(10) { m.add(name) { app.workbench.go(to: i) } }
+        for (index, name) in app.workbench.places(step).prefix(10) { menu.add(name) { app.workbench.go(to: index) } }
     }
 }
 
@@ -503,7 +510,7 @@ final class SearchPill: PointerControl {
         if label.stringValue != text { label.stringValue = text }
     }
     /// The whole pill takes the click; in the title bar its label would move the window instead.
-    override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) == nil ? nil : self }
+    override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
     /// The palettes grow out of it (QuickOpen.present).
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()

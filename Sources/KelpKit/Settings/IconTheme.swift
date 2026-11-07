@@ -12,13 +12,14 @@ final class IconTheme {
 
         /// Names match case-insensitively, as in VS Code.
         func lowercased() -> Associations {
-            func l(_ d: [String: String]?) -> [String: String]? {
-                d.map { Dictionary($0.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a }) }
+            func lowered(_ table: [String: String]?) -> [String: String]? {
+                table.map { Dictionary($0.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a }) }
             }
             return Associations(
-                file: file, folder: folder, folderExpanded: folderExpanded, fileExtensions: l(fileExtensions),
-                fileNames: l(fileNames),
-                languageIds: languageIds, folderNames: l(folderNames), folderNamesExpanded: l(folderNamesExpanded))
+                file: file, folder: folder, folderExpanded: folderExpanded, fileExtensions: lowered(fileExtensions),
+                fileNames: lowered(fileNames),
+                languageIds: languageIds, folderNames: lowered(folderNames),
+                folderNamesExpanded: lowered(folderNamesExpanded))
         }
     }
     private struct Document: Decodable {
@@ -26,11 +27,11 @@ final class IconTheme {
         var iconDefinitions: [String: Definition]
         var base: Associations, light: Associations?
         private enum Keys: String, CodingKey { case iconDefinitions, light }
-        init(from d: Decoder) throws {
-            let c = try d.container(keyedBy: Keys.self)
-            iconDefinitions = try c.decode([String: Definition].self, forKey: .iconDefinitions)
-            light = try c.decodeIfPresent(Associations.self, forKey: .light)
-            base = try Associations(from: d)
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: Keys.self)
+            iconDefinitions = try container.decode([String: Definition].self, forKey: .iconDefinitions)
+            light = try container.decodeIfPresent(Associations.self, forKey: .light)
+            base = try Associations(from: decoder)
         }
     }
 
@@ -53,35 +54,38 @@ final class IconTheme {
 
     /// nil when the theme has no picture for it.
     func image(_ name: String, folder: Bool, expanded: Bool) -> NSImage? {
-        let n = name.lowercased()
-        let dark = definition(n, folder, expanded, [base]).flatMap(picture)
-        guard let light, let lite = definition(n, folder, expanded, [light, base]).flatMap(picture), lite !== dark
+        let lowercased = name.lowercased()
+        let dark = definition(lowercased, folder, expanded, [base]).flatMap(picture)
+        guard let light, let lite = definition(lowercased, folder, expanded, [light, base]).flatMap(picture),
+            lite !== dark
         else { return dark }
         guard let dark else { return lite }
         let key = "\(ObjectIdentifier(dark).hashValue)/\(ObjectIdentifier(lite).hashValue)"
-        if let p = pairs[key] { return p }
-        let p = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { r in
-            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : lite).draw(in: r)
+        if let pair = pairs[key] { return pair }
+        let pair = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
+            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : lite).draw(
+                in: rect)
             return true
         }
-        pairs[key] = p
-        return p
+        pairs[key] = pair
+        return pair
     }
 
     /// VS Code's order: file name, then extensions longest first ("d.ts" before "ts"), language, the default file icon.
-    private func definition(_ n: String, _ folder: Bool, _ expanded: Bool, _ sections: [Associations]) -> String? {
+    private func definition(_ name: String, _ folder: Bool, _ expanded: Bool, _ sections: [Associations]) -> String? {
         func first(_ pick: (Associations) -> String?) -> String? { sections.lazy.compactMap(pick).first }
         if folder {
-            if expanded, let id = first({ $0.folderNamesExpanded?[n] }) { return id }
-            return first { $0.folderNames?[n] } ?? (expanded ? first { $0.folderExpanded } : nil) ?? first { $0.folder }
+            if expanded, let id = first({ $0.folderNamesExpanded?[name] }) { return id }
+            return first { $0.folderNames?[name] } ?? (expanded ? first { $0.folderExpanded } : nil)
+                ?? first { $0.folder }
         }
-        if let id = first({ $0.fileNames?[n] }) { return id }
-        var rest = Substring(n)
+        if let id = first({ $0.fileNames?[name] }) { return id }
+        var rest = Substring(name)
         while let dot = rest.firstIndex(of: ".") {
             rest = rest[rest.index(after: dot)...]
             if let id = first({ $0.fileExtensions?[String(rest)] }) { return id }
         }
-        if let lang = Self.languageByName[n] ?? Self.language[(n as NSString).pathExtension],
+        if let lang = Self.languageByName[name] ?? Self.language[(name as NSString).pathExtension],
             let id = first({ $0.languageIds?[lang] })
         {
             return id
@@ -91,7 +95,7 @@ final class IconTheme {
 
     private func picture(_ id: String) -> NSImage? {
         guard let path = paths[id] else { return nil }
-        if let p = pictures[path] { return p }
+        if let image = pictures[path] { return image }
         let img = NSImage(contentsOfFile: path)
         img?.size = NSSize(width: 16, height: 16)
         pictures[path] = img

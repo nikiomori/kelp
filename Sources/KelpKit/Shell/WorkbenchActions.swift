@@ -34,24 +34,24 @@ extension Workbench {
     /// The places Back (-1) or Forward (1) can reach, nearest first: where each is in the history, and its name.
     func places(_ step: Int) -> [(Int, String)] {
         var seen = Set([workspaceId ?? ""]), out: [(Int, String)] = []
-        var i = history.at + step
-        while history.visits.indices.contains(i) {
-            let id = history.visits[i]
-            if seen.insert(id).inserted, let w = app.worktree(id) {
-                out.append((i, app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName))
+        var index = history.at + step
+        while history.visits.indices.contains(index) {
+            let id = history.visits[index]
+            if seen.insert(id).inserted, let worktree = app.worktree(id) {
+                out.append((index, app.groupName(worktree) ?? app.projectName(worktree.repoId) ?? worktree.displayName))
             }
-            i += step
+            index += step
         }
         return out
     }
-    func go(to i: Int) { show(workspace: history.go(to: i), remember: false) }
+    func go(to index: Int) { show(workspace: history.go(to: index), remember: false) }
 
     func goBack(_ step: Int) {
-        guard let i = visit(step) else {
+        guard let index = visit(step) else {
             NSSound.beep()
             return
         }
-        show(workspace: history.go(to: i), remember: false)
+        show(workspace: history.go(to: index), remember: false)
     }
 
     /// Where Back (-1) / Forward (1) would go: nil when there's nothing that way (the title bar's arrows grey out).
@@ -81,20 +81,20 @@ extension Workbench {
     /// Restart: the new session takes the old one's tab in the workspace it belongs to, which may not be the one on screen
     /// (Restart from the sidebar).
     func replace(session old: String, with new: String, workspace: String?) {
-        let o = TabURI.session(old), n = TabURI.session(new)
+        let oldURI = TabURI.session(old), newURI = TabURI.session(new)
         if let workspace, workspace != workspaceId {
-            window?.editors.replaceInBackground(o, with: n, workspace: workspace)
+            window?.editors.replaceInBackground(oldURI, with: newURI, workspace: workspace)
             return
         }
-        window?.editors.current?.replace(o, with: n)
+        window?.editors.current?.replace(oldURI, with: newURI)
     }
 
     package func focus(session id: String) {
-        guard let s = app.session(id) else { return }
-        if let w = s.worktreeId, w != workspaceId || page != nil { show(workspace: w) }
+        guard let session = app.session(id) else { return }
+        if let wid = session.worktreeId, wid != workspaceId || page != nil { show(workspace: wid) }
         window?.editors.current?.focus(session: id)
         // Opening a finished agent is reading it; a question stays marked until it's answered (typing clears it).
-        if s.unread, s.status == .done { Task { await app.call(SessionMarkRead(id: id)) } }
+        if session.unread, session.status == .done { Task { await app.call(SessionMarkRead(id: id)) } }
     }
 
     /// No notification for an agent whose tab the user is looking at.
@@ -111,22 +111,22 @@ extension Workbench {
             NSSound.beep()
             return
         }
-        let i = all.firstIndex { $0.id == workspaceId }.map { ($0 + offset + all.count) % all.count } ?? 0
-        show(workspace: all[i].id)
+        let index = all.firstIndex { $0.id == workspaceId }.map { ($0 + offset + all.count) % all.count } ?? 0
+        show(workspace: all[index].id)
     }
 
-    func showWorkspace(number n: Int) {
+    func showWorkspace(number number: Int) {
         let all = workspacesInOrder
-        guard all.indices.contains(n - 1) else {
+        guard all.indices.contains(number - 1) else {
             NSSound.beep()
             return
         }
-        show(workspace: all[n - 1].id)
+        show(workspace: all[number - 1].id)
     }
 
     /// The chat's row, wherever it is: the screen you're on stays.
     func closeChat(session id: String) {
-        if let w = app.session(id)?.worktreeId { window?.editors.closeChat(id, workspace: w) }
+        if let wid = app.session(id)?.worktreeId { window?.editors.closeChat(id, workspace: wid) }
     }
 
     /// ⇧⌘U: the next agent that asked something or finished, wherever it is.
@@ -134,45 +134,45 @@ extension Workbench {
         let current = editor?.layout.focusedGroup?.selectedTab.map(\.uri).flatMap {
             TabURI.scheme($0) == "session" ? TabURI.body($0) : nil
         }
-        guard let s = AttentionQueue(app).next(after: current) else {
+        guard let session = AttentionQueue(app).next(after: current) else {
             NSSound.beep()
             return
         }
-        focus(session: s.id)
+        focus(session: session.id)
     }
 
     package func closeTab(uri: String, remember: Bool = true) {
-        guard let e = window?.editors.current, e.layout.tab(uri: uri) != nil,
-            let t = e.layout.tab(uri: uri)
+        guard let area = window?.editors.current, area.layout.tab(uri: uri) != nil,
+            let tab = area.layout.tab(uri: uri)
         else { return }
-        e.closeTab(t.id, remember: remember)
+        area.closeTab(tab.id, remember: remember)
     }
 
     /// Takes a tab off the screen without closing what it shows: a run hidden in the Run menu keeps running.
     func hideTab(uri: String) {
-        guard let e = window?.editors.current, e.layout.tab(uri: uri) != nil,
-            let t = e.layout.tab(uri: uri)
+        guard let area = window?.editors.current, area.layout.tab(uri: uri) != nil,
+            let tab = area.layout.tab(uri: uri)
         else { return }
-        e.drop(t.id)
+        area.drop(tab.id)
     }
 
     func addProject() {
         // A new folder made here is a new project (asked whether to `git init` it). Clone and SSH are their own commands.
-        let p = NSOpenPanel()
-        p.canChooseDirectories = true
-        p.canChooseFiles = false
-        p.canCreateDirectories = true
-        p.message = String(localized: "Choose a project folder, or make a new one")
-        p.prompt = String(localized: "Add Project")
-        let chosen = { [self] (r: NSApplication.ModalResponse) in
-            guard r == .OK, let u = p.url else { return }
-            addProject(path: u.path)
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.message = String(localized: "Choose a project folder, or make a new one")
+        panel.prompt = String(localized: "Add Project")
+        let chosen = { [self] (response: NSApplication.ModalResponse) in
+            guard response == .OK, let url = panel.url else { return }
+            addProject(path: url.path)
         }
         // A sheet on the window, not an app-modal panel that stops everything else.
-        if let w = NSApp.mainWindow ?? NSApp.keyWindow {
-            p.beginSheetModal(for: w, completionHandler: chosen)
+        if let host = NSApp.mainWindow ?? NSApp.keyWindow {
+            panel.beginSheetModal(for: host, completionHandler: chosen)
         } else {
-            p.begin(completionHandler: chosen)
+            panel.begin(completionHandler: chosen)
         }
     }
 
@@ -180,30 +180,30 @@ extension Workbench {
     /// (added first if it's new; a folder inside a repository adds the repository).
     func addProject(path: String) {
         Task {
-            let m = app
-            await m.waitForConnection()   // opened at launch
-            guard let rid = await repoAdd(path, m)?.id else { return }
-            await m.refresh()
-            let ws = m.repo(rid).map(m.workspaces(of:)) ?? []
-            if let w = ws.first(where: { $0.id == workspaceId }) ?? ws.first { show(workspace: w.id) }
+            let model = app
+            await model.waitForConnection()   // opened at launch
+            guard let rid = await repoAdd(path, model)?.id else { return }
+            await model.refresh()
+            let ws = model.repo(rid).map(model.workspaces(of:)) ?? []
+            if let screen = ws.first(where: { $0.id == workspaceId }) ?? ws.first { show(workspace: screen.id) }
         }
     }
 
     /// The folder's project; one outside any repository is asked about first: made one (`git init`) or added as it is.
-    private func repoAdd(_ path: String, _ m: AppModel) async -> Repo? {
-        do { return try await m.get(RepoAdd(path: path)) } catch let e as RPCError
-            where e.code == RepoAdd.notARepository.code
+    private func repoAdd(_ path: String, _ model: AppModel) async -> Repo? {
+        do { return try await model.get(RepoAdd(path: path)) } catch let error as RPCError
+            where error.code == RepoAdd.notARepository.code
         {
-            let a = NSAlert()
-            a.messageText = String(localized: "“\((path as NSString).lastPathComponent)” isn't a Git repository")
-            a.informativeText = String(
+            let alert = NSAlert()
+            alert.messageText = String(localized: "“\((path as NSString).lastPathComponent)” isn't a Git repository")
+            alert.informativeText = String(
                 localized: "Initialize Git to see changes, diffs and branches here, or open the folder without it.")
-            a.addButton(withTitle: String(localized: "Initialize Git"))
-            a.addButton(withTitle: String(localized: "Open Without Git"))
-            a.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
-            switch await runSheet(a) {
-            case .alertFirstButtonReturn: return await m.call(RepoAdd(path: path, init: true))
-            case .alertSecondButtonReturn: return await m.call(RepoAdd(path: path, init: false))
+            alert.addButton(withTitle: String(localized: "Initialize Git"))
+            alert.addButton(withTitle: String(localized: "Open Without Git"))
+            alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
+            switch await runSheet(alert) {
+            case .alertFirstButtonReturn: return await model.call(RepoAdd(path: path, init: true))
+            case .alertSecondButtonReturn: return await model.call(RepoAdd(path: path, init: false))
             default: return nil
             }
         } catch {
@@ -215,22 +215,23 @@ extension Workbench {
     /// Files and folders from Finder (dropped on the window or the Dock icon, `open -a Kelp <path>`): a folder becomes a
     /// project, a file opens as a tab (`open`: in that editor area, else wherever ⌘O would).
     package func open(files urls: [URL], with open: (@MainActor (String) -> Void)? = nil) {
-        for u in urls {
+        for url in urls {
             var dir: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: u.path, isDirectory: &dir) else { continue }
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) else { continue }
             if dir.boolValue {
-                addProject(path: u.path)
+                addProject(path: url.path)
             } else if let open {
-                open(TabURI.file(u.path))
+                open(TabURI.file(url.path))
             } else {
-                self.open(TabURI.file(u.path))
+                self.open(TabURI.file(url.path))
             }
         }
     }
 
     /// The files a drag carries (from Finder or the Files panel).
-    static func files(_ s: NSDraggingInfo) -> [URL] {
-        s.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+    static func files(_ sender: NSDraggingInfo) -> [URL] {
+        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+            as? [URL]
             ?? []
     }
 
@@ -240,18 +241,20 @@ extension Workbench {
     func newChat(repo: String? = nil, cwd: String? = nil) {
         Task {
             // Right after launch the project list may not be in yet: ⌘N must not turn into "Add Project".
-            let m = app
-            await m.waitForConnection()
-            let here = m.worktree(workspaceId)
-            guard let rid = repo ?? here?.repoId ?? m.repos.first(where: NoProject.holds)?.id ?? m.repos.first?.id
+            let model = app
+            await model.waitForConnection()
+            let here = model.worktree(workspaceId)
+            guard
+                let rid = repo ?? here?.repoId ?? model.repos.first(where: NoProject.holds)?.id ?? model.repos.first?.id
             else {
                 addProject()
                 return
             }
-            guard let w = m.repo(rid).flatMap({ newChatScreen(in: $0, current: here, rows: m.worktrees) }) else {
+            guard let screen = model.repo(rid).flatMap({ newChatScreen(in: $0, current: here, rows: model.worktrees) })
+            else {
                 return
             }
-            await startChat(on: w.id, cwd: cwd)
+            await startChat(on: screen.id, cwd: cwd)
         }
     }
 
@@ -281,37 +284,37 @@ extension Workbench {
     func newBranchAsking(repo: String? = nil) {
         Task {
             guard let rid = await project(repo) else { return }
-            let w = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
-            var b: BranchInfo?
-            if let w { b = await app.quiet(GitBranches(id: w.id)) }
+            let worktree = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
+            var branches: BranchInfo?
+            if let worktree { branches = await app.quiet(GitBranches(id: worktree.id)) }
             let prs = await app.quiet(GitHubPRs(repoId: rid, filter: "open")) ?? []
             let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" }.map {
                 (id: $0.id, name: $0.name)
             }
             let sheet = NewChatSheet(
-                local: b?.local ?? [base], remote: b?.remote ?? [], base: base, prs: prs, agents: agents,
+                local: branches?.local ?? [base], remote: branches?.remote ?? [], base: base, prs: prs, agents: agents,
                 picked: app.catalog.defaultAgent)
-            let a = NSAlert()
-            a.messageText = String(localized: "New Chat on Branch")
-            a.accessoryView = sheet.view
-            a.addButton(withTitle: String(localized: "Start"))
-            a.addButton(withTitle: String(localized: "Cancel"))
-            a.window.initialFirstResponder = sheet.name
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
-            let c = sheet.choice
-            guard let made = await app.call(NewChatSheet.request(c, repo: rid)) else { return }
-            await startChat(on: made.worktree.id, agent: c.agent)
+            let alert = NSAlert()
+            alert.messageText = String(localized: "New Chat on Branch")
+            alert.accessoryView = sheet.view
+            alert.addButton(withTitle: String(localized: "Start"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            alert.window.initialFirstResponder = sheet.name
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            let choice = sheet.choice
+            guard let made = await app.call(NewChatSheet.request(choice, repo: rid)) else { return }
+            await startChat(on: made.worktree.id, agent: choice.agent)
             if made.setupNeedsTrust == true, let info = await app.scripts.load(made.worktree.id), info.setup != nil {
-                await app.scripts.runKelp(made.worktree.id, "setup", info, pullRequest: c.pr)
+                await app.scripts.runKelp(made.worktree.id, "setup", info, pullRequest: choice.pr)
             }
         }
     }
 
     /// The project a new screen goes to: the one asked for, the one on screen, or the first; with none, adding one.
     private func project(_ repo: String?) async -> String? {
-        let m = app
-        await m.waitForConnection()
-        guard let id = repo ?? m.worktree(workspaceId)?.repoId ?? m.repos.first?.id else {
+        let model = app
+        await model.waitForConnection()
+        guard let id = repo ?? model.worktree(workspaceId)?.repoId ?? model.repos.first?.id else {
             addProject()
             return nil
         }
@@ -322,13 +325,13 @@ extension Workbench {
     /// Mac the empty screen offers to install one.
     private func startChat(on id: String, cwd: String? = nil, agent: String? = nil) async {
         var chat: Session?
-        if let a = agent ?? app.catalog.startable {
-            var p = SessionCreate(cwd: cwd, worktreeId: id, agent: a)
-            if let g = terminalGrid {
-                p.cols = g.cols
-                p.rows = g.rows
+        if let kind = agent ?? app.catalog.startable {
+            var request = SessionCreate(cwd: cwd, worktreeId: id, agent: kind)
+            if let grid = terminalGrid {
+                request.cols = grid.cols
+                request.rows = grid.rows
             }
-            chat = await app.call(p)
+            chat = await app.call(request)
         }
         await app.refresh()
         if let chat { focus(session: chat.id) } else { show(workspace: id) }
@@ -343,7 +346,7 @@ struct KelpLinks {
     package init(_ app: AppModel) { self.app = app }
 
     func handle(_ url: URL) {
-        let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let id = url.pathComponents.dropFirst().first ?? ""
         switch url.host {
         case "workspace" where app.worktree(id) != nil: app.workbench.show(workspace: id)
@@ -351,7 +354,7 @@ struct KelpLinks {
         case "open":
             // Standardized (`..` resolved) before it's compared with the projects': `proj/../../x` is no project of theirs.
             guard
-                let path = q.first(where: { $0.name == "path" })?.value.map({
+                let path = query.first(where: { $0.name == "path" })?.value.map({
                     (($0 as NSString).expandingTildeInPath as NSString).standardizingPath
                 }),
                 FileManager.default.fileExists(atPath: path)
@@ -362,16 +365,16 @@ struct KelpLinks {
             var dir: ObjCBool = false
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
-                openFile(path, line: q.first { $0.name == "line" }?.value.flatMap(Int.init))
+                openFile(path, line: query.first { $0.name == "line" }?.value.flatMap(Int.init))
             } else if app.repos.contains(where: { Self.within(path, $0.path, orIs: true) }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
-                let a = NSAlert()
-                a.messageText = String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?")
-                a.informativeText = String(localized: "A link asked to open \(path) as a project.")
-                a.addButton(withTitle: String(localized: "Add Project"))
-                a.addButton(withTitle: String(localized: "Cancel"))
-                Task { if await runSheet(a) == .alertFirstButtonReturn { app.workbench.addProject(path: path) } }
+                let alert = NSAlert()
+                alert.messageText = String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?")
+                alert.informativeText = String(localized: "A link asked to open \(path) as a project.")
+                alert.addButton(withTitle: String(localized: "Add Project"))
+                alert.addButton(withTitle: String(localized: "Cancel"))
+                Task { if await runSheet(alert) == .alertFirstButtonReturn { app.workbench.addProject(path: path) } }
             }
         default: Banner.show(String(localized: "Kelp doesn't know the link \(url.absoluteString)."), style: .error)
         }
@@ -380,15 +383,15 @@ struct KelpLinks {
 
     /// A project's file opens as a tab; one elsewhere (any web page can send this link) asks first, as a folder does.
     private func openFile(_ path: String, line: Int?) {
-        let w = app.worktrees.filter { Self.within(path, $0.path) }.max { $0.path.count < $1.path.count }
-        let open = { app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: w?.id) }
+        let worktree = app.worktrees.filter { Self.within(path, $0.path) }.max { $0.path.count < $1.path.count }
+        let open = { app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id) }
         guard !isKnown(path) else { return open() }
-        let a = NSAlert()
-        a.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
-        a.informativeText = String(localized: "A link asked to open \(path), which is outside your projects.")
-        a.addButton(withTitle: String(localized: "Open"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        Task { if await runSheet(a) == .alertFirstButtonReturn { open() } }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
+        alert.informativeText = String(localized: "A link asked to open \(path), which is outside your projects.")
+        alert.addButton(withTitle: String(localized: "Open"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        Task { if await runSheet(alert) == .alertFirstButtonReturn { open() } }
     }
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
@@ -399,16 +402,17 @@ struct KelpLinks {
     /// Whether `path` is in `folder` (or is it), both as they really are (`Paths.real`, as projects are kept): `..` and
     /// links followed.
     static func within(_ path: String, _ folder: String, orIs: Bool = false) -> Bool {
-        let (p, f) = (real(path), real(folder))
-        return p.hasPrefix(f + "/") || (orIs && p == f)
+        let (realPath, realFolder) = (real(path), real(folder))
+        return realPath.hasPrefix(realFolder + "/") || (orIs && realPath == realFolder)
     }
 
     /// A path not there (yet) is its nearest folder that is, as it really is, and the rest as written.
     private static func real(_ path: String) -> String {
-        let s = (path as NSString).standardizingPath
-        if let r = Paths.real(s) { return r }
-        let up = (s as NSString).deletingLastPathComponent
-        return up == s ? s : (real(up) as NSString).appendingPathComponent((s as NSString).lastPathComponent)
+        let standard = (path as NSString).standardizingPath
+        if let resolved = Paths.real(standard) { return resolved }
+        let up = (standard as NSString).deletingLastPathComponent
+        return up == standard
+            ? standard : (real(up) as NSString).appendingPathComponent((standard as NSString).lastPathComponent)
     }
 }
 
@@ -419,44 +423,46 @@ struct UIRequests {
     let app: AppModel
     init(_ app: AppModel) { self.app = app }
 
-    func handle(_ e: UIEvent) {
-        switch e.action {
+    func handle(_ event: UIEvent) {
+        switch event.action {
         case "open":
-            guard let uri = e.uri else { return }
-            let split = e.split.flatMap(SplitDirection.init(rawValue:))
-            let focus = e.focus == true
-            if let w = e.worktreeId, w != app.workbench.workspaceId, !focus, app.workbench.workspaceId != nil {
-                app.workbench.window?.editors.openInBackground(uri, workspace: w)
+            guard let uri = event.uri else { return }
+            let split = event.split.flatMap(SplitDirection.init(rawValue:))
+            let focus = event.focus == true
+            if let wid = event.worktreeId, wid != app.workbench.workspaceId, !focus, app.workbench.workspaceId != nil {
+                app.workbench.window?.editors.openInBackground(uri, workspace: wid)
                 return
             }
             // `kelp open`: the user's or their agent's own
             if TabURI.runs(uri) {
-                app.workbench.runURI(uri, split: split, workspace: e.worktreeId, focus: focus)
+                app.workbench.runURI(uri, split: split, workspace: event.worktreeId, focus: focus)
             } else if focus {
-                app.workbench.open(uri, split: split, workspace: e.worktreeId)
+                app.workbench.open(uri, split: split, workspace: event.worktreeId)
             } else {
-                app.workbench.showAside(uri, split: split, workspace: e.worktreeId)
+                app.workbench.showAside(uri, split: split, workspace: event.worktreeId)
             }
             if focus { NSApp.activate() }
         case "command":
-            guard let id = e.id else { return }
+            guard let id = event.id else { return }
             if id == "extensions.reload" {
                 app.extensions.reload()
                 return
             }
-            if id == "window.shot", let w = app.workbench.window?.window, let path = e.args?["path"]?.string {
+            if id == "window.shot", let shotWindow = app.workbench.window?.window,
+                let path = event.args?["path"]?.string
+            {
                 // A picture, by its name: `kelp shot` (an agent's too) writes a .png, never over a source file it was told.
                 guard path.lowercased().hasSuffix(".png") else {
                     return Banner.show(String(localized: "A window's picture is a .png file."), style: .error)
                 }
-                AppDelegate.snap(w, to: path)
+                AppDelegate.snap(shotWindow, to: path)
                 return
             }
-            guard let c = app.extensions.command(id) else {
+            guard let command = app.extensions.command(id) else {
                 Banner.show(String(localized: "Unknown command \(id)"), style: .error)
                 return
             }
-            if case .object(let args)? = e.args { c.run(args) } else { c.run([:]) }
+            if case .object(let args)? = event.args { command.run(args) } else { command.run([:]) }
         default: break
         }
     }
@@ -472,41 +478,42 @@ package struct FileActions {
     func reference(_ path: String, lines: ClosedRange<Int>?) -> String {
         let root = app.worktree(app.workbench.workspaceId)?.path ?? ""
         let rel = !root.isEmpty && path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
-        let l = lines.map { $0.count == 1 ? ":\($0.lowerBound)" : ":\($0.lowerBound)-\($0.upperBound)" } ?? ""
-        return IDE.escapedPath(rel) + l
+        let suffix = lines.map { $0.count == 1 ? ":\($0.lowerBound)" : ":\($0.lowerBound)-\($0.upperBound)" } ?? ""
+        return IDE.escapedPath(rel) + suffix
     }
 
     /// The agent the user was last with in this workspace (never a plain terminal).
     package var targetAgent: Session? {
-        let m = app, wid = app.workbench.workspaceId
-        if let s = app.workbench.focusedSession.flatMap(m.session), s.agent != "shell", s.worktreeId == wid,
-            s.status != .exited
+        let model = app, wid = app.workbench.workspaceId
+        if let session = app.workbench.focusedSession.flatMap(model.session), session.agent != "shell",
+            session.worktreeId == wid,
+            session.status != .exited
         {
-            return s
+            return session
         }
-        return m.sessions.last { $0.worktreeId == wid && $0.isChat && $0.status != .exited }
+        return model.sessions.last { $0.worktreeId == wid && $0.isChat && $0.status != .exited }
     }
 
     /// Types the reference into the agent's prompt without pressing Return, and shows the agent.
     package func sendToAgent(_ path: String, lines: ClosedRange<Int>? = nil) {
-        guard let s = targetAgent else {
+        guard let agent = targetAgent else {
             Banner.show(
                 String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
             return
         }
-        Task { await app.call(SessionSend(id: s.id, text: reference(path, lines: lines) + " ", enter: false)) }
-        app.workbench.focus(session: s.id)
+        Task { await app.call(SessionSend(id: agent.id, text: reference(path, lines: lines) + " ", enter: false)) }
+        app.workbench.focus(session: agent.id)
     }
 
     /// Words into the agent's prompt, not sent: the user adds what to do with them.
     package func sendToAgent(text: String) {
-        guard let s = targetAgent else {
+        guard let agent = targetAgent else {
             Banner.show(
                 String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
             return
         }
-        Task { await app.call(SessionSend(id: s.id, text: text + " ", enter: false)) }
-        app.workbench.focus(session: s.id)
+        Task { await app.call(SessionSend(id: agent.id, text: text + " ", enter: false)) }
+        app.workbench.focus(session: agent.id)
     }
 
     package func copyWebLink(_ path: String, lines: ClosedRange<Int>? = nil) {
@@ -548,8 +555,10 @@ package struct GitFix {
     }
 
     package func send(_ recipe: String, worktree wid: String, vars: [String: String]) {
-        guard let s = FileActions(app).targetAgent else { return }
-        Task { if await type(recipe, worktree: wid, vars: vars, into: s.id) { app.workbench.focus(session: s.id) } }
+        guard let agent = FileActions(app).targetAgent else { return }
+        Task {
+            if await type(recipe, worktree: wid, vars: vars, into: agent.id) { app.workbench.focus(session: agent.id) }
+        }
     }
 
     /// The recipe typed into the session, not sent: other people's text (errors, CI logs, review comments) waits for Return.
@@ -567,19 +576,19 @@ package struct PRActions {
 
     /// Pushes and opens a PR; title and body come from the branch's commits.
     package func create(worktree wid: String) {
-        let a = NSAlert()
-        a.messageText = String(localized: "Create a pull request?")
-        a.informativeText = String(
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Create a pull request?")
+        alert.informativeText = String(
             localized: "Pushes \(app.worktree(wid)?.branch ?? "the branch") and opens a PR titled from its commits.")
-        a.addButton(withTitle: String(localized: "Create"))
-        a.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Create"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             guard let url = await app.call(GitHubPRCreate(worktreeId: wid))?.url else { return }
             Banner.show(
                 url.isEmpty
                     ? String(localized: "Pull request created") : String(localized: "Pull request created: \(url)"))
-            if let u = URL(string: url), !url.isEmpty { app.workbench.open(u.absoluteString) }
+            if let link = URL(string: url), !url.isEmpty { app.workbench.open(link.absoluteString) }
         }
     }
 }

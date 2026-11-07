@@ -10,10 +10,10 @@ package enum CIRunLook {
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
         if status == "in_progress" {
-            let m = StatusMark(size: 12)   // as tall as the symbols beside it
-            m.status = .working
-            m.toolTip = words
-            return m
+            let ring = StatusMark(size: 12)   // as tall as the symbols beside it
+            ring.status = .working
+            ring.toolTip = words
+            return ring
         }
         let (symbol, color): (String, NSColor) =
             switch (status, conclusion) {
@@ -23,11 +23,11 @@ package enum CIRunLook {
             case ("completed", _): ("xmark.circle.fill", .systemRed)
             default: ("circle", .tertiaryLabelColor)
             }
-        let v = NSImageView(image: .symbol(symbol, words))
-        v.contentTintColor = color
-        v.toolTip = words
-        v.symbolConfiguration = .chrome()
-        return v
+        let view = NSImageView(image: .symbol(symbol, words))
+        view.contentTintColor = color
+        view.toolTip = words
+        view.symbolConfiguration = .chrome()
+        return view
     }
 
     package static func words(_ status: String, _ conclusion: String?) -> String {
@@ -44,8 +44,8 @@ package enum CIRunLook {
     }
 
     /// A branch's CI in one word, for tooltips and VoiceOver.
-    static func words(_ s: CIRuns.State) -> String {
-        switch s {
+    static func words(_ state: CIRuns.State) -> String {
+        switch state {
         case .passed: String(localized: "Succeeded")
         case .running: String(localized: "Running")
         case .waiting: String(localized: "Waiting for approval")
@@ -54,8 +54,9 @@ package enum CIRunLook {
     }
 
     package static func ago(_ iso: String) -> String {
-        guard let d = CIRuns.date(iso) else { return "" }
-        return shortAgo(d)   // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)
+        guard let date = CIRuns.date(iso) else { return "" }
+        // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)
+        return shortAgo(date)
     }
 }
 
@@ -76,11 +77,12 @@ final class CIMark: NSView {
         agentLike.announces = false   // its words are an agent's; the chip or badge says the CI's
         word.font = .ui(11, weight: .semibold)
         word.textColor = .textRed
-        for v in [agentLike, word] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [agentLike, word] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
             NSLayoutConstraint.activate([
-                v.centerXAnchor.constraint(equalTo: centerXAnchor), v.centerYAnchor.constraint(equalTo: centerYAnchor)
+                part.centerXAnchor.constraint(equalTo: centerXAnchor),
+                part.centerYAnchor.constraint(equalTo: centerYAnchor)
             ])
         }
         NSLayoutConstraint.activate([
@@ -90,7 +92,7 @@ final class CIMark: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// How much wider than its 12 pt the mark is while it says "CI": the room a row must keep for it.
     var overhang: CGFloat { spelled && state == .failed ? max(0, ceil(word.intrinsicContentSize.width) - 12) : 0 }

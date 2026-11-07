@@ -17,26 +17,27 @@ package final class SettingsStore {
     private var lastSet: Task<Void, Never>?
 
     func load() async {
-        if let o = await app.call(SettingsGet()) { received(o) }   // else a banner: what's shown may not be settings.json
+        // else a banner: what's shown may not be settings.json
+        if let fetched = await app.call(SettingsGet()) { received(fetched) }
     }
 
     /// The daemon's settings (its event, or a load): a key still being set here keeps the value set here.
-    func received(_ o: [String: JSONValue]) {
-        var o = o
-        for k in inFlight.keys { o[k] = values[k] }
-        apply(o)
+    func received(_ incoming: [String: JSONValue]) {
+        var incoming = incoming
+        for key in inFlight.keys { incoming[key] = values[key] }
+        apply(incoming)
     }
 
-    func apply(_ o: [String: JSONValue]) {
-        guard o != values else { return }
+    func apply(_ incoming: [String: JSONValue]) {
+        guard incoming != values else { return }
         // The skills only depend on their switches: don't rewrite their files (on main) for every other setting.
-        let skills = { (d: [String: JSONValue]) in d.filter { $0.key.hasPrefix("agents.skills.") } }
-        let skillsChanged = values.isEmpty || skills(o) != skills(values)
-        values = o
+        let skills = { (entries: [String: JSONValue]) in entries.filter { $0.key.hasPrefix("agents.skills.") } }
+        let skillsChanged = values.isEmpty || skills(incoming) != skills(values)
+        values = incoming
         app.themes.apply()
         if skillsChanged { AgentSkills.write(app) }
         if !app.extensions.extensions.isEmpty,
-            app.extensions.disabled(o["extensions.disabled"]) != app.extensions.disabledLoaded
+            app.extensions.disabled(incoming["extensions.disabled"]) != app.extensions.disabledLoaded
         {
             app.extensions.reload()
         }
@@ -49,16 +50,16 @@ package final class SettingsStore {
 
     /// `language`'s own value for `key`: settings.json's `"[markdown]": { … }` block, as in VS Code, then Kelp's default for it.
     private func own(_ key: String, _ language: String) -> JSONValue? {
-        if case .object(let block)? = values["[\(language)]"], let v = block[key] { return v }
+        if case .object(let block)? = values["[\(language)]"], let found = block[key] { return found }
         return Self.languageDefaults[language]?[key]
     }
 
     /// A setting's value (`language`: for that language's files), or the default its spec declares.
     func value(_ key: String, language: String? = nil) -> JSONValue? {
-        if let language, let v = own(key, language) { return v }
-        if let v = values[key] { return v }
-        for s in app.extensions.all.settings {
-            if let spec = s.specs.first(where: { $0.key == key }) { return spec.default }
+        if let language, let found = own(key, language) { return found }
+        if let found = values[key] { return found }
+        for section in app.extensions.all.settings {
+            if let spec = section.specs.first(where: { $0.key == key }) { return spec.default }
         }
         return nil
     }
@@ -67,8 +68,8 @@ package final class SettingsStore {
     var usageAlertAt: Int? { Int(string("usage.alertAt") ?? "80") }
     package func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
     package func number(_ key: String, language: String? = nil) -> Double? {
-        guard let n = value(key, language: language)?.number else { return nil }
-        return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(n) ?? n
+        guard let raw = value(key, language: language)?.number else { return nil }
+        return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(raw) ?? raw
     }
 
     /// A row's `requires`: "key" is on (true, or a value that isn't empty, off, never or 0), "key=value", "key!=value".
@@ -76,23 +77,27 @@ package final class SettingsStore {
         guard let rule else { return true }
         func text(_ key: String) -> String {
             switch value(key) {
-            case .bool(let b)?: return b ? "true" : "false"
-            case .int(let i)?: return String(i)
-            case .double(let d)?: return String(d)
-            case .string(let s)?: return s
+            case .bool(let bool)?: return bool ? "true" : "false"
+            case .int(let int)?: return String(int)
+            case .double(let double)?: return String(double)
+            case .string(let string)?: return string
             default: return ""
             }
         }
-        if let r = rule.range(of: "!=") { return text(String(rule[..<r.lowerBound])) != rule[r.upperBound...] }
-        if let r = rule.range(of: "=") { return text(String(rule[..<r.lowerBound])) == rule[r.upperBound...] }
+        if let range = rule.range(of: "!=") {
+            return text(String(rule[..<range.lowerBound])) != rule[range.upperBound...]
+        }
+        if let range = rule.range(of: "=") {
+            return text(String(rule[..<range.lowerBound])) == rule[range.upperBound...]
+        }
         return !["", "false", "off", "never", "0"].contains(text(rule))
     }
 
-    /// `language`'s own block, whether it had the key or not (Settings' language picker); nil `v` takes it out.
-    func setOwn(_ key: String, _ v: JSONValue?, language: String) {
+    /// `language`'s own block, whether it had the key or not (Settings' language picker); nil `value` takes it out.
+    func setOwn(_ key: String, _ value: JSONValue?, language: String) {
         var block: [String: JSONValue] = [:]
-        if case .object(let o)? = values["[\(language)]"] { block = o }
-        block[key] = v
+        if case .object(let existing)? = values["[\(language)]"] { block = existing }
+        block[key] = value
         set("[\(language)]", block.isEmpty ? nil : .object(block))
     }
 
@@ -102,27 +107,27 @@ package final class SettingsStore {
     }
 
     /// Shows a value without saving it (the palette trying themes on); `set` keeps one, `preview(key, saved)` goes back.
-    func preview(_ key: String, _ v: JSONValue?) {
+    func preview(_ key: String, _ value: JSONValue?) {
         var next = values
-        next[key] = v
+        next[key] = value
         apply(next)
     }
 
     /// `language`: a value that language has of its own changes there, where it's read; any other changes for all files.
-    package func set(_ key: String, _ v: JSONValue?, language: String? = nil) {
+    package func set(_ key: String, _ value: JSONValue?, language: String? = nil) {
         if let language, own(key, language) != nil {
             var block: [String: JSONValue] = [:]
-            if case .object(let o)? = values["[\(language)]"] { block = o }
-            block[key] = v
+            if case .object(let existing)? = values["[\(language)]"] { block = existing }
+            block[key] = value
             return set("[\(language)]", .object(block))
         }
         var next = values
-        next[key] = v
+        next[key] = value
         apply(next)   // optimistic; the daemon's echo confirms
         inFlight[key, default: 0] += 1
         lastSet = Task { [lastSet] in
             await lastSet?.value
-            let error = await app.tryCall(SettingsSet(key: key, value: v)).error
+            let error = await app.tryCall(SettingsSet(key: key, value: value)).error
             inFlight[key] = inFlight[key].flatMap { $0 > 1 ? $0 - 1 : nil }
             // Not saved: say so and show what settings.json really holds again, instead of a value that reverts later.
             if let error {

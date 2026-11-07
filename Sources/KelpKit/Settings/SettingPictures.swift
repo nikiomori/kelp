@@ -25,9 +25,9 @@ struct PictureGrid: View {
 
     var body: some View {
         TileGrid {
-            ForEach(options, id: \.self) { o in
-                PictureTile(name: label(o), on: o == selection, pick: { selection = o }) {
-                    PictureArt(key: key, option: o).frame(maxWidth: .infinity, maxHeight: .infinity).background(
+            ForEach(options, id: \.self) { choice in
+                PictureTile(name: label(choice), on: choice == selection, pick: { selection = choice }) {
+                    PictureArt(key: key, option: choice).frame(maxWidth: .infinity, maxHeight: .infinity).background(
                         Color(nsColor: .fillHover))
                 }
             }
@@ -126,14 +126,14 @@ private struct PictureArt: View {
 
     /// Two rows with their text scaled as Text size scales the chrome's (1, 1.15, 1.3).
     private var textSize: some View {
-        let s: CGFloat = ["large": 1.15, "larger": 1.3][option] ?? 1
+        let scale: CGFloat = ["large": 1.15, "larger": 1.3][option] ?? 1
         return VStack(spacing: 3) {
-            row(height: 15 * s) {
-                Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(s, anchor: .leading)
+            row(height: 15 * scale) {
+                Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(scale, anchor: .leading)
             }
-            row(height: 15 * s) {
+            row(height: 15 * scale) {
                 Circle().fill(Color.textGreen).frame(width: 5, height: 5)
-                Text(verbatim: "Claude").font(Self.drawn(10)).scaleEffect(s, anchor: .leading)
+                Text(verbatim: "Claude").font(Self.drawn(10)).scaleEffect(scale, anchor: .leading)
             }
         }
         .padding(.horizontal, 12)
@@ -142,10 +142,10 @@ private struct PictureArt: View {
     /// Three rows at the sidebar's own heights, halved.
     private func rows(_ points: CGFloat) -> some View {
         VStack(spacing: 2) {
-            ForEach(0..<3, id: \.self) { i in
+            ForEach(0..<3, id: \.self) { index in
                 row(height: points / 2) {
-                    if i > 0 { Circle().fill(Color.textGreen).frame(width: 4, height: 4) }
-                    line(i == 0 ? 22 : 34)
+                    if index > 0 { Circle().fill(Color.textGreen).frame(width: 4, height: 4) }
+                    line(index == 0 ? 22 : 34)
                 }
             }
         }
@@ -309,9 +309,9 @@ struct InspectorPanelsRow: View {
     private static let hiddenKey = "workbench.inspector.hiddenPanels", orderKey = "workbench.inspector.panelOrder"
 
     var body: some View {
-        let s = app.settings
-        let hidden = Set(s.value(Self.hiddenKey)?.array?.compactMap(\.string) ?? [])
-        let order = s.value(Self.orderKey)?.array?.compactMap(\.string) ?? []
+        let settings = app.settings
+        let hidden = Set(settings.value(Self.hiddenKey)?.array?.compactMap(\.string) ?? [])
+        let order = settings.value(Self.orderKey)?.array?.compactMap(\.string) ?? []
         let panels = app.extensions.all.panels.enumerated()
             .sorted {
                 (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (
@@ -321,20 +321,20 @@ struct InspectorPanelsRow: View {
             .map(\.element)
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
             TileHeading(title: { title }, about: about)
-            ForEach(panels, id: \.id) { p in
+            ForEach(panels, id: \.id) { panel in
                 Toggle(
                     isOn: Binding(
-                        get: { !hidden.contains(p.id) },
+                        get: { !hidden.contains(panel.id) },
                         set: { on in
                             var next = hidden
-                            if on { next.remove(p.id) } else { next.insert(p.id) }
+                            if on { next.remove(panel.id) } else { next.insert(panel.id) }
                             // At least one stays: an inspector without icons has no way back but here.
                             guard next.count < panels.count else { return }
                             let kept = panels.map(\.id).filter(next.contains)
-                            s.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
+                            settings.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
                         })
                 ) {
-                    Label(loc(p.title), systemImage: p.icon)
+                    Label(loc(panel.title), systemImage: panel.icon)
                 }
             }
         }
@@ -346,15 +346,15 @@ struct InspectorPanelsRow: View {
 private struct Stripes: View {
     let side: CGFloat
     var body: some View {
-        Canvas { c, size in
-            var p = Path()
+        Canvas { context, size in
+            var path = Path()
             var x = -size.height
             while x < size.width {
-                p.move(to: CGPoint(x: x, y: size.height))
-                p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
                 x += side
             }
-            c.stroke(p, with: .color(.primary.opacity(0.18)), lineWidth: 1)
+            context.stroke(path, with: .color(.primary.opacity(0.18)), lineWidth: 1)
         }
     }
 }

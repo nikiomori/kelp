@@ -25,9 +25,9 @@ package final class BranchChip: PointerButton {
         else { return }
         // Measured with a name: the branch comes later, and with no title the cell puts the glyph elsewhere.
         var glyph: CGFloat = 0
-        if let c = cell?.copy() as? NSButtonCell {
-            c.title = "main"
-            glyph = c.imageRect(forBounds: NSRect(origin: .zero, size: c.cellSize)).minX
+        if let measure = cell?.copy() as? NSButtonCell {
+            measure.title = "main"
+            glyph = measure.imageRect(forBounds: NSRect(origin: .zero, size: measure.cellSize)).minX
         }
         row.edgeInsets.left = Metrics.inset - padding - glyph
     }

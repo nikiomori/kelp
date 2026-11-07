@@ -5,11 +5,11 @@ import Foundation
 package final class Debounce {
     package init() {}
     private var work: DispatchWorkItem?
-    package func after(_ delay: Double, _ f: @escaping @MainActor () -> Void) {
+    package func after(_ delay: Double, _ action: @escaping @MainActor () -> Void) {
         work?.cancel()
-        let w = DispatchWorkItem { MainActor.assumeIsolated(f) }   // run on the main queue below
-        work = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: w)
+        let item = DispatchWorkItem { MainActor.assumeIsolated(action) }   // run on the main queue below
+        work = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
     package func cancel() { work?.cancel() }
 }

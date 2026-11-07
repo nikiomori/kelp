@@ -24,7 +24,7 @@ final class Backdrop: NSView {
         followReduceMotion(#selector(build))
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func show(_ look: WindowLook) {
         layer?.backgroundColor = look.surface?.cgColor
@@ -73,98 +73,99 @@ final class Backdrop: NSView {
     }
 
     /// Slow, wide lights adding up where they cross.
-    private static func aurora(_ colors: [NSColor], in r: NSRect) -> [CALayer] {
-        colors.enumerated().map { i, color in
-            let size = max(r.width, r.height) * 0.8, l = CAGradientLayer()
-            l.type = .radial
-            l.colors = [color.withAlphaComponent(0.4).cgColor, color.withAlphaComponent(0).cgColor]
-            l.startPoint = CGPoint(x: 0.5, y: 0.5)
-            l.endPoint = CGPoint(x: 1, y: 1)
-            l.bounds = CGRect(x: 0, y: 0, width: size, height: size)
-            l.compositingFilter = "screenBlendMode"
+    private static func aurora(_ colors: [NSColor], in rect: NSRect) -> [CALayer] {
+        colors.enumerated().map { index, color in
+            let size = max(rect.width, rect.height) * 0.8, light = CAGradientLayer()
+            light.type = .radial
+            light.colors = [color.withAlphaComponent(0.4).cgColor, color.withAlphaComponent(0).cgColor]
+            light.startPoint = CGPoint(x: 0.5, y: 0.5)
+            light.endPoint = CGPoint(x: 1, y: 1)
+            light.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            light.compositingFilter = "screenBlendMode"
             let places = [(0.2, 0.75), (0.8, 0.8), (0.55, 0.15), (0.1, 0.25), (0.9, 0.35)].map {
-                CGPoint(x: r.width * $0.0, y: r.height * $0.1)
+                CGPoint(x: rect.width * $0.0, y: rect.height * $0.1)
             }
-            let from = i % places.count
-            l.position = places[from]
-            guard !Motion.reduced else { return l }
+            let from = index % places.count
+            light.position = places[from]
+            guard !Motion.reduced else { return light }
             let drift = CAKeyframeAnimation(keyPath: "position")
             drift.values = (0...places.count).map { places[(from + $0) % places.count] }
-            drift.duration = 90 + Double(i) * 27
+            drift.duration = 90 + Double(index) * 27
             drift.calculationMode = .cubic
             drift.repeatCount = .infinity
             drift.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 20, preferred: 15)
-            l.add(drift, forKey: "drift")
-            return l
+            light.add(drift, forKey: "drift")
+            return light
         }
     }
 
     /// Specks of light rising through dark water, over the colour of the depth. Each is at its own point of its rise, so
     /// the water is full from the start.
-    private static func motes(_ colors: [NSColor], in r: NSRect) -> [CALayer] {
+    private static func motes(_ colors: [NSColor], in rect: NSRect) -> [CALayer] {
         let depth = CAGradientLayer()
-        depth.frame = r
+        depth.frame = rect
         depth.colors = [
             (colors.first ?? .clear).withAlphaComponent(0).cgColor,
             (colors.first ?? .clear).withAlphaComponent(0.22).cgColor
         ]
         let dots = colors.map(softDot)
         return [depth]
-            + (0..<Int(r.width * r.height / 22_000)).map { i in
-                let size = CGFloat.random(in: 3...11), l = CALayer()
-                l.contents = dots[i % dots.count]
-                l.bounds = CGRect(x: 0, y: 0, width: size, height: size)
-                l.position = CGPoint(x: .random(in: 0...r.width), y: .random(in: 0...r.height))
-                l.opacity = .random(in: 0.15...0.5)
-                guard !Motion.reduced else { return l }
+            + (0..<Int(rect.width * rect.height / 22_000)).map { index in
+                let size = CGFloat.random(in: 3...11), mote = CALayer()
+                mote.contents = dots[index % dots.count]
+                mote.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+                mote.position = CGPoint(x: .random(in: 0...rect.width), y: .random(in: 0...rect.height))
+                mote.opacity = .random(in: 0.15...0.5)
+                guard !Motion.reduced else { return mote }
                 let rise = CABasicAnimation(keyPath: "position.y")
                 rise.fromValue = -size
-                rise.toValue = r.height + size
+                rise.toValue = rect.height + size
                 let fade = CAKeyframeAnimation(keyPath: "opacity")
-                fade.values = [0, l.opacity, l.opacity, 0]
+                fade.values = [0, mote.opacity, mote.opacity, 0]
                 fade.keyTimes = [0, 0.15, 0.7, 1]
                 let life = CAAnimationGroup()
                 life.animations = [rise, fade]
-                life.duration = r.height / .random(in: 8...22)
+                life.duration = rect.height / .random(in: 8...22)
                 rise.duration = life.duration
                 fade.duration = life.duration
                 life.timeOffset = .random(in: 0...life.duration)
                 life.repeatCount = .infinity
                 life.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 20, preferred: 15)
-                l.add(life, forKey: "rise")
-                return l
+                mote.add(life, forKey: "rise")
+                return mote
             }
     }
 
     private static func softDot(_ color: NSColor) -> CGImage? {
-        let d = 32, space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let side = 32, space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard
             let ctx = CGContext(
-                data: nil, width: d, height: d, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0, space: space,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
-            let g = CGGradient(
+            let gradient = CGGradient(
                 colorsSpace: space, colors: [color.cgColor, color.withAlphaComponent(0).cgColor] as CFArray,
                 locations: [0, 1])
         else { return nil }
-        let c = CGPoint(x: d / 2, y: d / 2)
-        ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(d) / 2, options: [])
+        let center = CGPoint(x: side / 2, y: side / 2)
+        ctx.drawRadialGradient(
+            gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: CGFloat(side) / 2, options: [])
         return ctx.makeImage()
     }
 
     /// A draughtsman's grid: fine lines, every fifth one stronger.
-    private static func grid(_ colors: [NSColor], in r: NSRect) -> [CALayer] {
+    private static func grid(_ colors: [NSColor], in rect: NSRect) -> [CALayer] {
         let color = colors.first ?? .white, step: CGFloat = 20
-        let tile = NSImage(size: NSSize(width: step * 5, height: step * 5), flipped: false) { b in
-            for i in 0..<5 {
-                color.withAlphaComponent(i == 0 ? 0.16 : 0.07).setFill()
-                NSRect(x: CGFloat(i) * step, y: 0, width: 0.5, height: b.height).fill(using: .sourceOver)
-                NSRect(x: 0, y: CGFloat(i) * step, width: b.width, height: 0.5).fill(using: .sourceOver)
+        let tile = NSImage(size: NSSize(width: step * 5, height: step * 5), flipped: false) { bounds in
+            for index in 0..<5 {
+                color.withAlphaComponent(index == 0 ? 0.16 : 0.07).setFill()
+                NSRect(x: CGFloat(index) * step, y: 0, width: 0.5, height: bounds.height).fill(using: .sourceOver)
+                NSRect(x: 0, y: CGFloat(index) * step, width: bounds.width, height: 0.5).fill(using: .sourceOver)
             }
             return true
         }
-        let l = CALayer()
-        l.frame = r
-        l.backgroundColor = NSColor(patternImage: tile).cgColor
-        return [l]
+        let layer = CALayer()
+        layer.frame = rect
+        layer.backgroundColor = NSColor(patternImage: tile).cgColor
+        return [layer]
     }
 }

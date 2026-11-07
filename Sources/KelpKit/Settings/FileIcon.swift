@@ -34,10 +34,10 @@ package struct FileIcon {
     private static func systemIcon(_ name: String, folder: Bool) -> NSImage {
         if folder { return .symbol("folder") }
         let ext = (name as NSString).pathExtension.lowercased()
-        if let i = systemIcons[ext] { return i }
-        let i = NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data).resized(16)
-        systemIcons[ext] = i
-        return i
+        if let icon = systemIcons[ext] { return icon }
+        let icon = NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data).resized(16)
+        systemIcons[ext] = icon
+        return icon
     }
 
     private static var loaded: (key: String, theme: IconTheme?)?

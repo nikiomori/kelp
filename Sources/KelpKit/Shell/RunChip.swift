@@ -15,10 +15,10 @@ final class RunChip: NSStackView {
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        for b in [go, name] {
-            b.radius = nil   // a capsule, as the capsule it sits in
-            b.font = .ui(12)
-            b.setContentCompressionResistancePriority(.init(320), for: .horizontal)
+        for chip in [go, name] {
+            chip.radius = nil   // a capsule, as the capsule it sits in
+            chip.font = .ui(12)
+            chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
         }
         go.imagePosition = .imageOnly
         go.contentTintColor = .labelColor
@@ -72,31 +72,32 @@ final class RunChip: NSStackView {
 
     /// What the workspace on screen would run, and what runs there now.
     private var look: Look? {
-        let s = app.scripts
-        guard let wid = app.workbench.workspaceId, let current = s.current(wid) else { return nil }
-        let live = s.running(in: wid)
-        let label = s.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
+        let scripts = app.scripts
+        guard let wid = app.workbench.workspaceId, let current = scripts.current(wid) else { return nil }
+        let live = scripts.running(in: wid)
+        let label = scripts.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
         let host = app.worktree(wid).flatMap { RemoteHost.of($0.path)?.host }
         return Look(name: label + (host.map { " · \($0)" } ?? ""), guess: current.guess, running: !live.isEmpty)
     }
 
-    private func show(_ l: Look?) {
-        isHidden = l == nil
-        guard let l else { return }
+    private func show(_ look: Look?) {
+        isHidden = look == nil
+        guard let look else { return }
         crossfade()
         go.image = .symbol(
-            l.running ? "stop.fill" : "play.fill", l.running ? String(localized: "Stop") : String(localized: "Run"))
-        go.toolTip = l.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
+            look.running ? "stop.fill" : "play.fill",
+            look.running ? String(localized: "Stop") : String(localized: "Run"))
+        go.toolTip = look.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
         name.attributedTitle = NSAttributedString(
-            string: l.name,
+            string: look.name,
             attributes: [
                 .font: NSFont.ui(12),
-                .foregroundColor: l.guess ? NSColor.secondaryLabelColor : .labelColor
+                .foregroundColor: look.guess ? NSColor.secondaryLabelColor : .labelColor
             ])
     }
 
     private func goClicked() {
-        let s = app.scripts
-        if s.canStop { s.stop() } else { s.run("run") }
+        let scripts = app.scripts
+        if scripts.canStop { scripts.stop() } else { scripts.run("run") }
     }
 }

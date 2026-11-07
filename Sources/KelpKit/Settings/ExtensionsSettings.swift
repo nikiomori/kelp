@@ -86,45 +86,46 @@ struct ExtensionsSettings: View {
     }
 
     /// A row as every setting's: the name over its description, the form's own sizes and spacing; the symbol beside it.
-    private func row(_ e: ExtensionInfo) -> some View {
+    private func row(_ info: ExtensionInfo) -> some View {
         LabeledContent {
             HStack(spacing: Metrics.gap) {
-                if e.waitsToBeAllowed { Button("Allow…") { Task { await registry.allow(e) } } }
-                more(e)
-                enabled(e)
+                if info.waitsToBeAllowed { Button("Allow…") { Task { await registry.allow(info) } } }
+                more(info)
+                enabled(info)
             }
         } label: {
             Label {
-                Text(e.builtin ? loc(e.name) : "\(loc(e.name)) \(e.version)")
-                if !e.description.isEmpty { Text(loc(e.description)) }
-                if let err = e.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
-                if let u = e.unavailable { Text(u) }
-                if e.waitsToBeAllowed {
+                Text(info.builtin ? loc(info.name) : "\(loc(info.name)) \(info.version)")
+                if !info.description.isEmpty { Text(loc(info.description)) }
+                if let err = info.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
+                if let reason = info.unavailable { Text(reason) }
+                if info.waitsToBeAllowed {
                     Text("New or changed since it was allowed: it runs no commands until you allow it.")
                 }
             } icon: {
-                Image(systemName: e.icon).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(
-                    width: Metrics.iconMenu)
+                Image(systemName: info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textOrange)
+                    .frame(
+                        width: Metrics.iconMenu)
             }
         }
     }
 
-    private func enabled(_ e: ExtensionInfo) -> some View {
-        Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) })).toggleStyle(.switch)
+    private func enabled(_ info: ExtensionInfo) -> some View {
+        Toggle("", isOn: Binding(get: { info.enabled }, set: { registry.setEnabled(info.id, $0) })).toggleStyle(.switch)
             .labelsHidden()
     }
 
     /// What can be done to one that was installed; Kelp's own only turn off.
-    @ViewBuilder private func more(_ e: ExtensionInfo) -> some View {
-        if let p = e.path, !e.builtin {
+    @ViewBuilder private func more(_ info: ExtensionInfo) -> some View {
+        if let folder = info.path, !info.builtin {
             Menu {
-                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
                 let manifest =
-                    FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
+                    FileManager.default.fileExists(atPath: folder.appendingPathComponent("extension.json").path)
                     ? "extension.json" : "package.json"
-                Button("Edit \(manifest)") { app.workbench.showFile(p.appendingPathComponent(manifest)) }
+                Button("Edit \(manifest)") { app.workbench.showFile(folder.appendingPathComponent(manifest)) }
                 Divider()
-                Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
+                Button("Uninstall", role: .destructive) { registry.uninstall(info.id) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

@@ -62,32 +62,32 @@ package enum Banner {
     /// The column banners stack in, made once per window in the corner of the editor area (or of the window, without one).
     private static func stack(in window: NSWindow) -> NSStackView? {
         guard let content = window.contentView else { return nil }
-        if let s = stack, s.window === window { return s }
-        let s = NSStackView()
-        s.orientation = .vertical
-        s.alignment = .trailing
-        s.spacing = Metrics.gapWide
-        s.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(s)
+        if let existing = stack, existing.window === window { return existing }
+        let column = NSStackView()
+        column.orientation = .vertical
+        column.alignment = .trailing
+        column.spacing = Metrics.gapWide
+        column.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(column)
         let card = find(anchor, in: content) ?? content
         NSLayoutConstraint.activate([
             // Under the tab strip and the tab's bar (its Stage, Send to Agent…), clear of the card's edge; never wider than
             // the area leaves room for.
-            s.topAnchor.constraint(
+            column.topAnchor.constraint(
                 equalTo: card.topAnchor,
                 constant: (card === content
                     ? WindowBar.height
                     : TabStrip.height + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
-            s.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -Metrics.inset),
-            s.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -2 * Metrics.inset)
+            column.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -Metrics.inset),
+            column.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -2 * Metrics.inset)
         ])
-        stack = s
-        return s
+        stack = column
+        return column
     }
 
-    private static func find(_ id: NSUserInterfaceItemIdentifier, in v: NSView) -> NSView? {
-        if v.identifier == id { return v }
-        for sub in v.subviews { if let found = find(id, in: sub) { return found } }
+    private static func find(_ id: NSUserInterfaceItemIdentifier, in view: NSView) -> NSView? {
+        if view.identifier == id { return view }
+        for sub in view.subviews { if let found = find(id, in: sub) { return found } }
         return nil
     }
 }
@@ -116,19 +116,20 @@ private final class BannerCard: NSView {
         ])
         var lines: [NSView] = []
         if let title {
-            let t = NSTextField(wrappingLabelWithString: title)   // two lines: an agent's long name keeps the "finished" at its end
-            t.font = .ui(13, weight: .semibold)
-            t.maximumNumberOfLines = 2
-            t.cell?.truncatesLastVisibleLine = true
-            t.preferredMaxLayoutWidth = 252
-            lines.append(t)
+            // two lines: an agent's long name keeps the "finished" at its end
+            let heading = NSTextField(wrappingLabelWithString: title)
+            heading.font = .ui(13, weight: .semibold)
+            heading.maximumNumberOfLines = 2
+            heading.cell?.truncatesLastVisibleLine = true
+            heading.preferredMaxLayoutWidth = 252
+            lines.append(heading)
         }
         if let subtitle, !subtitle.isEmpty {
-            let s = NSTextField(labelWithString: subtitle)
-            s.font = .ui(11)
-            s.textColor = .secondaryLabelColor
-            s.lineBreakMode = .byTruncatingTail
-            lines.append(s)
+            let place = NSTextField(labelWithString: subtitle)
+            place.font = .ui(11)
+            place.textColor = .secondaryLabelColor
+            place.lineBreakMode = .byTruncatingTail
+            lines.append(place)
         }
         let body = NSTextField(wrappingLabelWithString: text)
         body.font = .ui(12)
@@ -150,13 +151,13 @@ private final class BannerCard: NSView {
         var rows: [NSView] = [top]
         var buttons: NSStackView?
         if let action {
-            let b = ClosureButton(title: action.title) { [weak self] in
+            let button = ClosureButton(title: action.title) { [weak self] in
                 action.run()
                 self?.dismiss()
             }
-            b.bezelStyle = .push
-            b.controlSize = .small
-            let row = NSStackView(views: [NSView(), b])
+            button.bezelStyle = .push
+            button.controlSize = .small
+            let row = NSStackView(views: [NSView(), button])
             buttons = row
             rows.append(row)
         }
@@ -181,19 +182,19 @@ private final class BannerCard: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     /// Liquid Glass where there is, the popover card before.
-    private static func ground(_ content: NSView, in v: NSView) {
+    private static func ground(_ content: NSView, in host: NSView) {
         if #available(macOS 26, *) {
             let glass = NSGlassEffectView()
             glass.cornerRadius = Metrics.radiusXL + 2
             glass.contentView = content
-            v.pin(glass)
+            host.pin(glass)
         } else {
-            v.pin(FloatingCard(content, radius: Metrics.radiusLG))
+            host.pin(FloatingCard(content, radius: Metrics.radiusLG))
         }
     }
 
-    override func mouseEntered(with e: NSEvent) { hovering = true }
-    override func mouseExited(with e: NSEvent) {
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) {
         hovering = false
         if let at = leaveAt, at < Date() { leave(after: Motion.linger) }   // its time came while it was read: a moment more, then away
     }

@@ -16,8 +16,10 @@ final class NoProject: NSObject {
 
     /// Its project's path, so lists of projects can tell it apart.
     static var path: String { URL(fileURLWithPath: Paths.scratch.path).resolvingSymlinksInPath().path }
-    static func holds(_ r: Repo?) -> Bool { r.map { holds(path: $0.path) } ?? false }
-    static func holds(path p: String) -> Bool { URL(fileURLWithPath: p).resolvingSymlinksInPath().path == path }
+    static func holds(_ repo: Repo?) -> Bool { repo.map { holds(path: $0.path) } ?? false }
+    static func holds(path candidate: String) -> Bool {
+        URL(fileURLWithPath: candidate).resolvingSymlinksInPath().path == path
+    }
 
     /// Made the first time (the daemon's), so the row is there before anyone asks.
     func ensure() async {
@@ -31,20 +33,20 @@ final class NoProject: NSObject {
         app.workbench.bringToFront()
         Task {
             await ensure()
-            if let r = app.repos.first(where: Self.holds) { app.workbench.newChat(repo: r.id) }
+            if let repo = app.repos.first(where: Self.holds) { app.workbench.newChat(repo: repo.id) }
         }
     }
 
     /// One already working in a folder you pick (Downloads, a game, photos): the folder stays as it is, not a project.
-    func newChat(inFolderOf r: Repo) {
-        let p = NSOpenPanel()
-        p.canChooseDirectories = true
-        p.canChooseFiles = false
-        p.prompt = String(localized: "Start Chat")
-        p.message = String(localized: "The agent works in this folder. It isn't added as a project.")
+    func newChat(inFolderOf repo: Repo) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = String(localized: "Start Chat")
+        panel.message = String(localized: "The agent works in this folder. It isn't added as a project.")
         Task {
-            guard await runSheet(p) == .OK, let url = p.url else { return }
-            app.workbench.newChat(repo: r.id, cwd: url.path)
+            guard await runSheet(panel) == .OK, let url = panel.url else { return }
+            app.workbench.newChat(repo: repo.id, cwd: url.path)
         }
     }
 

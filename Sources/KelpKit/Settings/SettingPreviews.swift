@@ -31,14 +31,14 @@ private struct TerminalSample: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        let s = app.settings, colors = app.themes.shown?.terminal
-        let size = CGFloat(s.number("terminal.fontSize") ?? 13)
+        let settings = app.settings, colors = app.themes.shown?.terminal
+        let size = CGFloat(settings.number("terminal.fontSize") ?? 13)
         let font =
-            s.string("terminal.fontFamily").flatMap { NSFont(name: $0, size: size) }
+            settings.string("terminal.fontFamily").flatMap { NSFont(name: $0, size: size) }
             ?? .monospacedSystemFont(ofSize: size, weight: .regular)
         let fg = colors.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .primary
         let palette = colors?.palette ?? []
-        let tint = { (i: Int) in palette.count > i ? NSColor(hex: palette[i]).map(Color.init) ?? fg : fg }
+        let tint = { (index: Int) in palette.count > index ? NSColor(hex: palette[index]).map(Color.init) ?? fg : fg }
         VStack(alignment: .leading, spacing: 2) {
             (Text(verbatim: "~/projects/kelp ").foregroundStyle(tint(4))
                 + Text(verbatim: "main").foregroundStyle(tint(2)))
@@ -93,15 +93,17 @@ private struct EditorSample: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { context.coordinator.view }
 
     func updateNSView(_ view: NSView, context: Context) {
-        let e = context.coordinator, s = app.settings
+        let editor = context.coordinator, settings = app.settings
         _ = app.themes.editorRevision   // font, colors and wrapping are the editor's own (ThemeManager sets them)
-        e.rulers =
-            s.string("editor.rulers").map { $0.split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 } } ?? []
-        e.whitespace = EditorTextView.WhitespaceMarks(rawValue: s.string("editor.renderWhitespace") ?? "") ?? .selection
-        e.bracketColors = s.bool("editor.bracketColors") == true
-        e.indentGuides = s.bool("editor.indentGuides") == true
+        editor.rulers =
+            settings.string("editor.rulers").map { $0.split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 } }
+            ?? []
+        editor.whitespace =
+            EditorTextView.WhitespaceMarks(rawValue: settings.string("editor.renderWhitespace") ?? "") ?? .selection
+        editor.bracketColors = settings.bool("editor.bracketColors") == true
+        editor.indentGuides = settings.bool("editor.indentGuides") == true
         // A moment later: ThemeManager applies a settings change after the views that read it are told.
-        DispatchQueue.main.async { e.refreshAppearance() }
+        DispatchQueue.main.async { editor.refreshAppearance() }
     }
 }
 

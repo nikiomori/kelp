@@ -7,10 +7,10 @@ import DesignKit
 enum ColorfulIcons {
     static func image(_ name: String, folder: Bool) -> NSImage {
         let (key, style) = folder ? folderStyle(name.lowercased()) : fileStyle(name.lowercased())
-        if let i = cache[key] { return i }
-        let i = render(style)
-        cache[key] = i
-        return i
+        if let image = cache[key] { return image }
+        let image = render(style)
+        cache[key] = image
+        return image
     }
 
     private struct Style {
@@ -19,10 +19,10 @@ enum ColorfulIcons {
         var text = false
         var badge: (glyph: String, color: NSColor)?
     }
-    private static func sym(_ g: String, _ c: NSColor) -> Style { Style(glyph: g, color: c) }
-    private static func text(_ t: String, _ c: NSColor) -> Style { Style(glyph: t, color: c, text: true) }
-    private static func badge(_ g: String, _ c: NSColor) -> Style {
-        Style(glyph: "folder.fill", color: folderColor, badge: (g, c))
+    private static func sym(_ glyph: String, _ color: NSColor) -> Style { Style(glyph: glyph, color: color) }
+    private static func text(_ text: String, _ color: NSColor) -> Style { Style(glyph: text, color: color, text: true) }
+    private static func badge(_ glyph: String, _ color: NSColor) -> Style {
+        Style(glyph: "folder.fill", color: folderColor, badge: (glyph, color))
     }
     private static var cache: [String: NSImage] = [:]
 
@@ -33,17 +33,17 @@ enum ColorfulIcons {
     private static let folderColor = NSColor.dynamic(
         light: .systemBlue, dark: NSColor(srgbRed: 0.42, green: 0.69, blue: 0.98, alpha: 1))
 
-    private static func fileStyle(_ n: String) -> (String, Style) {
-        if let s = byName[n] { return (n, s) }
-        for (prefix, s) in byPrefix where n.hasPrefix(prefix) { return (prefix, s) }
-        if n.hasSuffix(".d.ts") { return (".d.ts", text("TS", .secondaryLabelColor)) }
-        let ext = (n as NSString).pathExtension
+    private static func fileStyle(_ name: String) -> (String, Style) {
+        if let style = byName[name] { return (name, style) }
+        for (prefix, style) in byPrefix where name.hasPrefix(prefix) { return (prefix, style) }
+        if name.hasSuffix(".d.ts") { return (".d.ts", text("TS", .secondaryLabelColor)) }
+        let ext = (name as NSString).pathExtension
         return byExt[ext].map { ("." + ext, $0) } ?? ("", plainFile)
     }
 
-    private static func folderStyle(_ n: String) -> (String, Style) {
-        if generated.contains(n) { return ("/generated", sym("folder.fill", .systemGray.withAlphaComponent(0.55))) }
-        return byFolder[n].map { ("/" + n, $0) } ?? ("/", sym("folder.fill", folderColor))
+    private static func folderStyle(_ name: String) -> (String, Style) {
+        if generated.contains(name) { return ("/generated", sym("folder.fill", .systemGray.withAlphaComponent(0.55))) }
+        return byFolder[name].map { ("/" + name, $0) } ?? ("/", sym("folder.fill", folderColor))
     }
 
     private static func table(_ rows: [([String], Style)]) -> [String: Style] {
@@ -174,19 +174,19 @@ enum ColorfulIcons {
 
     // MARK: drawing (16 × 16 pt, the size every list and tab uses)
 
-    private static func render(_ s: Style) -> NSImage {
-        NSImage(size: NSSize(width: 16, height: 16), flipped: false) { r in
-            if s.text {
-                drawText(s.glyph, s.color, in: r)
+    private static func render(_ style: Style) -> NSImage {
+        NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
+            if style.text {
+                drawText(style.glyph, style.color, in: rect)
             } else {
-                drawSymbol(s.glyph, s.color, pointSize: 12, in: r.insetBy(dx: 0.5, dy: 1))
+                drawSymbol(style.glyph, style.color, pointSize: 12, in: rect.insetBy(dx: 0.5, dy: 1))
             }
-            if let b = s.badge {
+            if let badge = style.badge {
                 let spot = NSRect(x: 6, y: 0, width: 10, height: 10)
                 NSGraphicsContext.current?.compositingOperation = .destinationOut   // a gap around the badge
                 NSBezierPath(roundedRect: spot.insetBy(dx: -1, dy: -1), xRadius: 3, yRadius: 3).fill()
                 NSGraphicsContext.current?.compositingOperation = .sourceOver
-                drawSymbol(b.glyph, b.color, pointSize: 9, weight: .bold, in: spot)
+                drawSymbol(badge.glyph, badge.color, pointSize: 9, weight: .bold, in: spot)
             }
             return true
         }
@@ -201,28 +201,29 @@ enum ColorfulIcons {
                 .init(pointSize: pointSize, weight: weight)),
             let ctx = NSGraphicsContext.current?.cgContext
         else { return }
-        let k = min(box.width / img.size.width, box.height / img.size.height, 1)
-        let size = NSSize(width: img.size.width * k, height: img.size.height * k)
-        let r = NSRect(
+        let scale = min(box.width / img.size.width, box.height / img.size.height, 1)
+        let size = NSSize(width: img.size.width * scale, height: img.size.height * scale)
+        let rect = NSRect(
             x: box.midX - size.width / 2, y: box.midY - size.height / 2, width: size.width, height: size.height)
-        ctx.beginTransparencyLayer(in: r, auxiliaryInfo: nil)
-        img.draw(in: r)
+        ctx.beginTransparencyLayer(in: rect, auxiliaryInfo: nil)
+        img.draw(in: rect)
         color.set()
-        r.fill(using: .sourceIn)
+        rect.fill(using: .sourceIn)
         ctx.endTransparencyLayer()
     }
 
-    private static func drawText(_ t: String, _ color: NSColor, in r: NSRect) {
+    private static func drawText(_ text: String, _ color: NSColor, in rect: NSRect) {
         var size: CGFloat = 12, attrs: [NSAttributedString.Key: Any] = [:]
         repeat {   // shrink until it fits the width
             let base = NSFont.systemFont(ofSize: size, weight: .heavy)
             let font = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) } ?? base
             attrs = [.font: font, .foregroundColor: color, .kern: -0.4]
             size -= 0.5
-        } while (t as NSString).size(withAttributes: attrs).width > r.width && size > 6
+        } while (text as NSString).size(withAttributes: attrs).width > rect.width && size > 6
         let font = attrs[.font] as? NSFont ?? .systemFont(ofSize: size)
-        let w = (t as NSString).size(withAttributes: attrs).width
-        (t as NSString).draw(
-            at: NSPoint(x: r.midX - w / 2, y: r.midY - (font.capHeight / 2) + font.descender), withAttributes: attrs)
+        let width = (text as NSString).size(withAttributes: attrs).width
+        (text as NSString).draw(
+            at: NSPoint(x: rect.midX - width / 2, y: rect.midY - (font.capHeight / 2) + font.descender),
+            withAttributes: attrs)
     }
 }

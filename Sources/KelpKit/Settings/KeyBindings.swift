@@ -32,31 +32,33 @@ enum KeyBindings {
     private static let mask: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
 
     static func overrides(_ settings: SettingsStore) -> [String: String] {
-        guard case .object(let o)? = settings.value("keys") else { return [:] }
-        return o.compactMapValues(\.string)
+        guard case .object(let keys)? = settings.value("keys") else { return [:] }
+        return keys.compactMapValues(\.string)
     }
 
     /// Names every item and applies the overrides. Runs while the titles are English.
     static func apply(to menu: NSMenu, _ settings: SettingsStore) {
         let over = overrides(settings)
-        func walk(_ m: NSMenu, _ path: [String]) {
-            for i in m.items where !i.isSeparatorItem {
-                if let s = i.submenu {
-                    if s !== NSApp.servicesMenu { walk(s, path + [i.title]) }
+        func walk(_ level: NSMenu, _ path: [String]) {
+            for item in level.items where !item.isSeparatorItem {
+                if let submenu = item.submenu {
+                    if submenu !== NSApp.servicesMenu { walk(submenu, path + [item.title]) }
                     continue
                 }
-                guard let action = i.action else { continue }
+                guard let action = item.action else { continue }
                 // A command's item goes by the command id, the others by their English path ("Edit › Copy").
-                let command = action == #selector(AppDelegate.runCommand(_:)), name = i.identifier?.rawValue ?? i.title
-                let id = command ? name : (path + [i.title]).joined(separator: " › ")   // English: the same in every language
-                i.identifier = NSUserInterfaceItemIdentifier(id)
+                let command = action == #selector(AppDelegate.runCommand(_:)),
+                    name = item.identifier?.rawValue ?? item.title
+                // English: the same in every language
+                let id = command ? name : (path + [item.title]).joined(separator: " › ")
+                item.identifier = NSUserInterfaceItemIdentifier(id)
                 defaults[id] =
-                    i.keyEquivalent.isEmpty
-                    ? KeySpec?.none : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
+                    item.keyEquivalent.isEmpty
+                    ? KeySpec?.none : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
                 guard let spec = over[id] else { continue }
-                let k = spec.isEmpty ? nil : KeySpec(spec)
-                i.keyEquivalent = k?.key ?? ""
-                i.keyEquivalentModifierMask = k?.mods.flags ?? []
+                let shortcut = spec.isEmpty ? nil : KeySpec(spec)
+                item.keyEquivalent = shortcut?.key ?? ""
+                item.keyEquivalentModifierMask = shortcut?.mods.flags ?? []
             }
         }
         walk(menu, [])
@@ -71,21 +73,23 @@ enum KeyBindings {
 
     static func entries() -> [Entry] {
         var out: [Entry] = []
-        func walk(_ m: NSMenu, _ path: [String]) {
-            for i in m.items where !i.isSeparatorItem {
-                if let s = i.submenu {
-                    if s !== NSApp.servicesMenu { walk(s, path + [i.identifier?.rawValue ?? i.title]) }
+        func walk(_ level: NSMenu, _ path: [String]) {
+            for item in level.items where !item.isSeparatorItem {
+                if let submenu = item.submenu {
+                    if submenu !== NSApp.servicesMenu {
+                        walk(submenu, path + [item.identifier?.rawValue ?? item.title])
+                    }
                     continue
                 }
-                guard let id = i.identifier?.rawValue, defaults.keys.contains(id),
-                    !(i.action.map(systemActions.contains) ?? false)
+                guard let id = item.identifier?.rawValue, defaults.keys.contains(id),
+                    !(item.action.map(systemActions.contains) ?? false)
                 else { continue }
                 let key =
-                    i.keyEquivalent.isEmpty
-                    ? nil : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
+                    item.keyEquivalent.isEmpty
+                    ? nil : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
                 out.append(
                     Entry(
-                        id: id, menu: path.map(loc).joined(separator: " › "), title: i.title,
+                        id: id, menu: path.map(loc).joined(separator: " › "), title: item.title,
                         key: key, defaultKey: defaults[id] ?? nil))
             }
         }
@@ -93,44 +97,47 @@ enum KeyBindings {
         return out
     }
 
-    static func matches(_ e: Entry, _ query: String) -> Bool {
-        let q = query.lowercased()
-        return q.isEmpty || [e.id, e.menu, e.title, e.key.map(display) ?? ""].contains { $0.lowercased().contains(q) }
+    static func matches(_ entry: Entry, _ query: String) -> Bool {
+        let needle = query.lowercased()
+        return needle.isEmpty
+            || [entry.id, entry.menu, entry.title, entry.key.map(display) ?? ""].contains {
+                $0.lowercased().contains(needle)
+            }
     }
 
     /// nil: back to Kelp's default; a key with no key text: no shortcut.
     static func set(_ id: String, _ key: KeySpec?, in settings: SettingsStore) {
-        var o = overrides(settings)
-        if let key { o[id] = key.key.isEmpty ? "" : key.description } else { o[id] = nil }
-        settings.set("keys", o.isEmpty ? nil : .object(o.mapValues { .string($0) }))
+        var keys = overrides(settings)
+        if let key { keys[id] = key.key.isEmpty ? "" : key.description } else { keys[id] = nil }
+        settings.set("keys", keys.isEmpty ? nil : .object(keys.mapValues { .string($0) }))
     }
     static func resetAll(_ settings: SettingsStore) { settings.set("keys", nil) }
 
     /// "⇧⌘K", as menus show it.
-    static func display(_ k: KeySpec) -> String {
-        var s = ""
-        if k.mods.contains(.control) { s += "⌃" }
-        if k.mods.contains(.option) { s += "⌥" }
-        if k.mods.contains(.shift) { s += "⇧" }
-        if k.mods.contains(.command) { s += "⌘" }
+    static func display(_ key: KeySpec) -> String {
+        var text = ""
+        if key.mods.contains(.control) { text += "⌃" }
+        if key.mods.contains(.option) { text += "⌥" }
+        if key.mods.contains(.shift) { text += "⇧" }
+        if key.mods.contains(.command) { text += "⌘" }
         let named: [String: String] = [
             "\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→", "\r": "↩", "\t": "⇥",
             " ": String(localized: "Space"),
             "\u{1b}": "⎋", "\u{8}": "⌫", "\u{7f}": "⌫"
         ]
-        return s + (named[k.key] ?? k.key.uppercased())
+        return text + (named[key.key] ?? key.key.uppercased())
     }
 
     /// What else answers to this combination: another of Kelp's commands, or macOS (which gets it first).
-    static func conflict(_ k: KeySpec, keyCode: UInt16?, except id: String) -> String? {
-        let norm = KeySpec(key: k.key.lowercased(), mods: k.mods)
+    static func conflict(_ key: KeySpec, keyCode: UInt16?, except id: String) -> String? {
+        let norm = KeySpec(key: key.key.lowercased(), mods: key.mods)
         if let other = entries().first(where: {
             $0.id != id && $0.key.map { KeySpec(key: $0.key.lowercased(), mods: $0.mods) } == norm
         }) {
             let name = "\(other.menu) › \(other.title)"
             return String(localized: "Also the shortcut for \(name).")
         }
-        if let code = keyCode, let name = system[SystemKey(code: code, mods: k.mods.flags.rawValue)] {
+        if let code = keyCode, let name = system[SystemKey(code: code, mods: key.mods.flags.rawValue)] {
             return String(
                 localized:
                     "macOS uses this for \(name), so Kelp won't see it (System Settings › Keyboard › Keyboard Shortcuts)."
@@ -165,12 +172,14 @@ enum KeyBindings {
         guard let all = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys")
         else { return [:] }
         var out: [SystemKey: String] = [:]
-        for (k, v) in all {
-            guard let d = v as? [String: Any], (d["enabled"] as? Bool) == true || (d["enabled"] as? Int) == 1,
-                let p = (d["value"] as? [String: Any])?["parameters"] as? [Int], p.count == 3, p[1] != 65535
+        for (id, value) in all {
+            guard let hotKey = value as? [String: Any],
+                (hotKey["enabled"] as? Bool) == true || (hotKey["enabled"] as? Int) == 1,
+                let parameters = (hotKey["value"] as? [String: Any])?["parameters"] as? [Int], parameters.count == 3,
+                parameters[1] != 65535
             else { continue }
-            out[SystemKey(code: UInt16(p[1]), mods: UInt(p[2]) & mask.rawValue)] =
-                names[Int(k) ?? -1] ?? String(localized: "a system shortcut")
+            out[SystemKey(code: UInt16(parameters[1]), mods: UInt(parameters[2]) & mask.rawValue)] =
+                names[Int(id) ?? -1] ?? String(localized: "a system shortcut")
         }
         return out
     }()
@@ -261,49 +270,50 @@ struct KeyboardSettings: View {
     private var groups: [(String, [KeyBindings.Entry])] {
         let shown = entries.filter { KeyBindings.matches($0, query) }
         var order: [String] = [], by: [String: [KeyBindings.Entry]] = [:]
-        for e in shown {
-            if by[e.menu] == nil { order.append(e.menu) }
-            by[e.menu, default: []].append(e)
+        for entry in shown {
+            if by[entry.menu] == nil { order.append(entry.menu) }
+            by[entry.menu, default: []].append(entry)
         }
         return order.map { ($0, by[$0] ?? []) }
     }
 
-    @ViewBuilder private func row(_ e: KeyBindings.Entry) -> some View {
+    @ViewBuilder private func row(_ entry: KeyBindings.Entry) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text(e.title)
+                Text(entry.title)
                 Spacer()
-                if KeyBindings.overrides(app.settings)[e.id] != nil {
+                if KeyBindings.overrides(app.settings)[entry.id] != nil {
                     Button("Default") {
-                        KeyBindings.set(e.id, nil, in: app.settings)
-                        warning[e.id] = nil
+                        KeyBindings.set(entry.id, nil, in: app.settings)
+                        warning[entry.id] = nil
                         later()
                     }.buttonStyle(.link).font(.ui(11))
                         .help(
-                            e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
+                            entry.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
                                 ?? String(localized: "Kelp's default: none"))
                 }
                 // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
                 // plate on every row, "—" ones too, was a column of empty boxes.
                 Button {
-                    record(e.id)
+                    record(entry.id)
                 } label: {
                     Text(
-                        recording == e.id ? String(localized: "Type shortcut…") : e.key.map(KeyBindings.display) ?? "—"
+                        recording == entry.id
+                            ? String(localized: "Type shortcut…") : entry.key.map(KeyBindings.display) ?? "—"
                     ).monospacedDigit()
                 }
                 .buttonStyle(PointerButtonStyle())
                 .overlay {
-                    if recording == e.id {
+                    if recording == entry.id {
                         RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous).strokeBorder(
                             Color.accentColor)
                     }
                 }
                 .foregroundStyle(
-                    recording == e.id
-                        ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
+                    recording == entry.id
+                        ? Color.accentColor : entry.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
-            if let w = warning[e.id] { Text(w).font(.ui(11)).foregroundStyle(Color.textOrange) }
+            if let message = warning[entry.id] { Text(message).font(.ui(11)).foregroundStyle(Color.textOrange) }
         }
     }
 

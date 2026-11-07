@@ -21,7 +21,7 @@ package final class Workbench {
     package func showPanel(_ id: String) { window?.showInspector(panel: id) }
     /// The panel that shows `role`, whichever built-in's it is; none on, nothing happens.
     func showPanel(_ role: PanelRole) {
-        if let p = app.extensions.all.panels.first(where: { $0.role == role }) { showPanel(p.id) }
+        if let panel = app.extensions.all.panels.first(where: { $0.role == role }) { showPanel(panel.id) }
     }
     /// The panel's controller once the inspector has built it; nil before it's first shown.
     package func builtPanel(_ id: String) -> NSViewController? { window?.inspector.built(id) }
@@ -59,13 +59,13 @@ package final class Workbench {
     /// Columns × rows of the last terminal seen on screen: sizes the next one before it's shown. Kept across launches:
     /// the window usually opens at the same size.
     @ObservationIgnored package var terminalGrid: (cols: Int, rows: Int)? = {
-        let g = UserDefaults.standard.array(forKey: "terminal.lastGrid") as? [Int] ?? []
-        return g.count == 2 ? (g[0], g[1]) : nil
+        let grid = UserDefaults.standard.array(forKey: "terminal.lastGrid") as? [Int] ?? []
+        return grid.count == 2 ? (grid[0], grid[1]) : nil
     }()
     {
         didSet {
-            if let g = terminalGrid, g != oldValue ?? (0, 0) {
-                UserDefaults.standard.set([g.cols, g.rows], forKey: "terminal.lastGrid")
+            if let grid = terminalGrid, grid != oldValue ?? (0, 0) {
+                UserDefaults.standard.set([grid.cols, grid.rows], forKey: "terminal.lastGrid")
             }
         }
     }

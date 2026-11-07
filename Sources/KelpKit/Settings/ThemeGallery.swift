@@ -51,13 +51,15 @@ struct ThemeGallery: View {
     /// Captions in the system font, as every tile's: the theme's own font in them (Phosphor's mono) stood out of the row.
     private func grid(_ cards: [ThemeCard]) -> some View {
         TileGrid {
-            ForEach(cards) { c in
-                PictureTile(name: c.name, on: selection == c.id, pick: { selection = c.id }) { MiniWindow(card: c) }
+            ForEach(cards) { card in
+                PictureTile(name: card.name, on: selection == card.id, pick: { selection = card.id }) {
+                    MiniWindow(card: card)
+                }
             }
         }
     }
 
-    private func card(_ t: Theme) -> ThemeCard { ThemeCard(t) }
+    private func card(_ theme: Theme) -> ThemeCard { ThemeCard(theme) }
 
     /// Match System and Ghostty: the themes they stand for just now.
     private func following(_ all: [Theme]) -> [ThemeCard] {
@@ -73,14 +75,15 @@ struct ThemeGallery: View {
     /// Your Ghostty config's colours, as the terminal will have them; what it doesn't set, the Kelp theme's. A card without
     /// swatches looked like one that failed to load.
     private func ghostty(base: ThemeCard) -> ThemeCard {
-        let g = GhosttyConfig.load()
-        var c = base
-        c.id = "ghostty"
-        c.name = "Ghostty"
-        c.background = g?.background.flatMap { Color(hex: $0) } ?? base.background
-        c.foreground = g?.foreground.flatMap { Color(hex: $0) } ?? base.foreground
-        c.lines = base.lines.enumerated().map { i, line in g?.palette[i + 1].flatMap { Color(hex: $0) } ?? line }
-        return c
+        let config = GhosttyConfig.load()
+        var card = base
+        card.id = "ghostty"
+        card.name = "Ghostty"
+        card.background = config?.background.flatMap { Color(hex: $0) } ?? base.background
+        card.foreground = config?.foreground.flatMap { Color(hex: $0) } ?? base.foreground
+        card.lines = base.lines.enumerated().map { i, line in config?.palette[i + 1].flatMap { Color(hex: $0) } ?? line
+        }
+        return card
     }
 }
 
@@ -94,17 +97,18 @@ private struct ThemeCard: Identifiable {
     var lines: [Color]
     var opacity: Double
 
-    init(_ t: Theme) {
-        id = t.id
-        name = t.name
-        look = ThemeManager.windowLook(t, terminalOpacity: t.terminal?.opacity ?? 1, forced: nil)
-        dark = t.appearance != "light"
-        background = Color(hex: t.terminal?.background ?? "") ?? .black
-        foreground = Color(hex: t.terminal?.foreground ?? "") ?? .white
+    init(_ theme: Theme) {
+        id = theme.id
+        name = theme.name
+        look = ThemeManager.windowLook(theme, terminalOpacity: theme.terminal?.opacity ?? 1, forced: nil)
+        dark = theme.appearance != "light"
+        background = Color(hex: theme.terminal?.background ?? "") ?? .black
+        foreground = Color(hex: theme.terminal?.foreground ?? "") ?? .white
         accent =
-            (t.window?.accent ?? t.terminal?.palette?.dropFirst(4).first).flatMap { Color(hex: $0) } ?? .accentColor
-        lines = (t.terminal?.palette ?? []).dropFirst().prefix(6).compactMap { Color(hex: $0) }
-        opacity = t.terminal?.opacity ?? 1
+            (theme.window?.accent ?? theme.terminal?.palette?.dropFirst(4).first).flatMap { Color(hex: $0) }
+            ?? .accentColor
+        lines = (theme.terminal?.palette ?? []).dropFirst().prefix(6).compactMap { Color(hex: $0) }
+        opacity = theme.terminal?.opacity ?? 1
     }
 }
 
@@ -120,8 +124,8 @@ private struct MiniWindow: View {
             HStack(spacing: 4) {
                 VStack(alignment: .leading, spacing: 4) {
                     Capsule().fill(card.accent).frame(width: 18, height: 3)
-                    ForEach(0..<3, id: \.self) { i in
-                        Capsule().fill(ink.opacity(0.28)).frame(width: 24 - CGFloat(i) * 5, height: 3)
+                    ForEach(0..<3, id: \.self) { index in
+                        Capsule().fill(ink.opacity(0.28)).frame(width: 24 - CGFloat(index) * 5, height: 3)
                     }
                     Spacer()
                 }
@@ -141,10 +145,10 @@ private struct MiniWindow: View {
 
     private var text: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(card.lines.prefix(4).enumerated()), id: \.offset) { i, color in
+            ForEach(Array(card.lines.prefix(4).enumerated()), id: \.offset) { index, color in
                 HStack(spacing: 3) {
                     Capsule().fill(card.foreground.opacity(0.85)).frame(width: 14, height: 3)
-                    Capsule().fill(color).frame(width: 34 - CGFloat(i * 9 % 17), height: 3)
+                    Capsule().fill(color).frame(width: 34 - CGFloat(index * 9 % 17), height: 3)
                 }
             }
         }
@@ -152,8 +156,8 @@ private struct MiniWindow: View {
 
     /// See-through themes show a desktop behind them; macOS's material a window's plain grey.
     @ViewBuilder private var surface: some View {
-        if let s = card.look.surface {
-            Color(nsColor: s.withAlphaComponent(1))
+        if let color = card.look.surface {
+            Color(nsColor: color.withAlphaComponent(1))
         } else if card.look.seeThrough {
             LinearGradient(
                 colors: card.dark ? [.indigo, .teal] : [.cyan.opacity(0.5), .pink.opacity(0.35)],
@@ -164,24 +168,24 @@ private struct MiniWindow: View {
     }
 
     @ViewBuilder private var ambient: some View {
-        if let a = card.look.ambient {
-            let colors = a.colors.map { Color(nsColor: $0) }
-            switch a.kind {
+        if let effect = card.look.ambient {
+            let colors = effect.colors.map { Color(nsColor: $0) }
+            switch effect.kind {
             case .aurora:
                 ZStack {
-                    ForEach(Array(colors.enumerated()), id: \.offset) { i, color in
-                        let corner = [UnitPoint.topLeading, .topTrailing, .bottom][i % 3]
+                    ForEach(Array(colors.enumerated()), id: \.offset) { index, color in
+                        let corner = [UnitPoint.topLeading, .topTrailing, .bottom][index % 3]
                         RadialGradient(
                             colors: [color.opacity(0.65), .clear], center: corner, startRadius: 0, endRadius: 90)
                     }
                 }
             case .motes:
                 Canvas { ctx, size in
-                    for i in 0..<14 {
-                        let x = CGFloat((i * 37) % 100) / 100 * size.width,
-                            y = CGFloat((i * 53) % 100) / 100 * size.height, d = CGFloat(i % 3) + 1.5
+                    for index in 0..<14 {
+                        let x = CGFloat((index * 37) % 100) / 100 * size.width,
+                            y = CGFloat((index * 53) % 100) / 100 * size.height, diameter = CGFloat(index % 3) + 1.5
                         ctx.fill(
-                            Path(ellipseIn: CGRect(x: x, y: y, width: d, height: d)),
+                            Path(ellipseIn: CGRect(x: x, y: y, width: diameter, height: diameter)),
                             with: .color((colors.first ?? .white).opacity(0.6)))
                     }
                 }

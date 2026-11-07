@@ -72,11 +72,11 @@ struct LibrarySection: View {
     }
     /// The library's categories in the order the menu lists them; an index from before them files everything as tools.
     static let categories = ["tools", "integrations", "languages", "agents", "themes", "icons"]
-    static func category(_ e: ExtensionLibrary.Entry) -> String {
-        e.category.map { categories.contains($0) ? $0 : "tools" } ?? "tools"
+    static func category(_ entry: ExtensionLibrary.Entry) -> String {
+        entry.category.map { categories.contains($0) ? $0 : "tools" } ?? "tools"
     }
-    static func title(_ c: String) -> String {
-        switch c {
+    static func title(_ category: String) -> String {
+        switch category {
         case "integrations": String(localized: "Integrations")
         case "languages": String(localized: "Languages")
         case "agents": String(localized: "Agents")
@@ -112,35 +112,38 @@ struct LibrarySection: View {
         .padding(.top, 8)
     }
 
-    private func row(_ e: ExtensionLibrary.Entry) -> some View {
-        let have = registry.extensions.first { $0.id == e.id && !$0.builtin }
+    private func row(_ entry: ExtensionLibrary.Entry) -> some View {
+        let have = registry.extensions.first { $0.id == entry.id && !$0.builtin }
         return HStack(alignment: .top, spacing: 10) {
-            Image(systemName: e.icon ?? "puzzlepiece.extension").font(.symbol(Metrics.iconLarge)).foregroundStyle(
+            Image(systemName: entry.icon ?? "puzzlepiece.extension").font(.symbol(Metrics.iconLarge)).foregroundStyle(
                 .secondary
             ).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(e.name).fontWeight(.medium)
-                    Text(e.version).font(.ui(11)).foregroundStyle(.secondary)
-                    if let stars = e.stars {
-                        Text("★ \(stars)" + (e.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(
+                    Text(entry.name).fontWeight(.medium)
+                    Text(entry.version).font(.ui(11)).foregroundStyle(.secondary)
+                    if let stars = entry.stars {
+                        Text("★ \(stars)" + (entry.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(
                             .ui(11).monospacedDigit()
                         )
                         .foregroundStyle(.secondary)
                     }
                 }
-                if let d = e.description, !d.isEmpty { Text(d).font(.ui(11)).foregroundStyle(.secondary) }
-                if let m = missing[e.id] {
-                    Text("Needs `\(m)` — not found on this Mac.").font(.ui(11)).foregroundStyle(.secondary)
+                if let summary = entry.description, !summary.isEmpty {
+                    Text(summary).font(.ui(11)).foregroundStyle(.secondary)
+                }
+                if let tool = missing[entry.id] {
+                    Text("Needs `\(tool)` — not found on this Mac.").font(.ui(11)).foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            if installing == e.id {
+            if installing == entry.id {
                 ProgressView().controlSize(.small)
             } else if have == nil {
-                Button(e.reviewed == false ? "Install…" : "Install") { install(e) }
-            } else if let s = have?.source, s != e.source || e.reviewed == false {   // found by its topic: its branch may have moved
-                Button(e.reviewed == false ? "Update…" : "Update") { install(e) }
+                Button(entry.reviewed == false ? "Install…" : "Install") { install(entry) }
+            } else if let source = have?.source, source != entry.source || entry.reviewed == false {
+                // found by its topic: its branch may have moved
+                Button(entry.reviewed == false ? "Update…" : "Update") { install(entry) }
             } else {
                 Text("Already installed").font(.ui(11)).foregroundStyle(.secondary)
             }
@@ -148,10 +151,10 @@ struct LibrarySection: View {
         .padding(.vertical, 2)
     }
 
-    private func install(_ e: ExtensionLibrary.Entry) {
-        installing = e.id
+    private func install(_ entry: ExtensionLibrary.Entry) {
+        installing = entry.id
         Task {
-            _ = await registry.install(source: e.source, files: e.files)
+            _ = await registry.install(source: entry.source, files: entry.files)
             installing = nil
         }
     }
@@ -163,8 +166,8 @@ struct LibrarySection: View {
             // Where the daemon finds the tools they need; not said when it can't tell.
             if let found = await app.quiet(ProcessWhich(commands: Array(Set(all.flatMap { $0.requires ?? [] })))) {
                 missing = Dictionary(
-                    uniqueKeysWithValues: all.compactMap { e in
-                        (e.requires ?? []).first { found[$0] == nil }.map { (e.id, $0) }
+                    uniqueKeysWithValues: all.compactMap { entry in
+                        (entry.requires ?? []).first { found[$0] == nil }.map { (entry.id, $0) }
                     })
             }
             entries = all.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

@@ -10,14 +10,14 @@ extension NSLayoutConstraint {
 
 extension NSView {
     /// Adds `v` filling this view, `inset` in from its edges.
-    package func pin(_ v: NSView, inset: NSEdgeInsets = NSEdgeInsetsZero) {
-        v.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(v)
+    package func pin(_ view: NSView, inset: NSEdgeInsets = NSEdgeInsetsZero) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view)
         NSLayoutConstraint.activate([
-            v.topAnchor.constraint(equalTo: topAnchor, constant: inset.top),
-            v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset.bottom),
-            v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset.left),
-            v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset.right)
+            view.topAnchor.constraint(equalTo: topAnchor, constant: inset.top),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset.bottom),
+            view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset.left),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset.right)
         ])
     }
 }
@@ -29,17 +29,17 @@ package final class FlippedView: NSView { package override var isFlipped: Bool {
 /// over a bar). Used by every mode view.
 @MainActor
 package func stacked(_ views: NSView...) -> NSView {
-    let v = NSView()
-    var above = v.topAnchor
-    for x in views {
-        x.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(x)
+    let column = NSView()
+    var above = column.topAnchor
+    for view in views {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        column.addSubview(view)
         NSLayoutConstraint.activate([
-            x.topAnchor.constraint(equalTo: above), x.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            x.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+            view.topAnchor.constraint(equalTo: above), view.leadingAnchor.constraint(equalTo: column.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: column.trailingAnchor)
         ])
-        above = x.bottomAnchor
+        above = view.bottomAnchor
     }
-    above.constraint(equalTo: v.bottomAnchor).isActive = true
-    return v
+    above.constraint(equalTo: column.bottomAnchor).isActive = true
+    return column
 }

@@ -133,11 +133,11 @@ package final class ThemeManager {
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 
     func apply() {
-        let s = app.settings
+        let settings = app.settings
         // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;
         // Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =
-            switch themes.first(where: { $0.id == s.string("workbench.theme") })?.appearance {
+            switch themes.first(where: { $0.id == settings.string("workbench.theme") })?.appearance {
             case "light": .aqua
             case "dark": .darkAqua
             default: nil
@@ -153,54 +153,55 @@ package final class ThemeManager {
     }
 
     func applyColors() {
-        let s = app.settings
+        let settings = app.settings
         let theme = shown
 
-        var t = TerminalAppearance()
-        t.useGhosttyConfig = theme == nil || s.bool("terminal.useGhosttyConfig") == true
-        if let c = theme?.terminal {
-            t.background = Theme.terminalColor(c.background)
-            t.foreground = Theme.terminalColor(c.foreground)
-            t.cursor = Theme.terminalColor(c.cursor) ?? NSColor.controlAccentColor.hexString   // the system's accent, by name
-            t.selection = Theme.terminalColor(c.selection)
-            t.palette = (c.palette ?? []).compactMap(Theme.terminalColor)
+        var terminal = TerminalAppearance()
+        terminal.useGhosttyConfig = theme == nil || settings.bool("terminal.useGhosttyConfig") == true
+        if let colors = theme?.terminal {
+            terminal.background = Theme.terminalColor(colors.background)
+            terminal.foreground = Theme.terminalColor(colors.foreground)
+            // the system's accent, by name
+            terminal.cursor = Theme.terminalColor(colors.cursor) ?? NSColor.controlAccentColor.hexString
+            terminal.selection = Theme.terminalColor(colors.selection)
+            terminal.palette = (colors.palette ?? []).compactMap(Theme.terminalColor)
         }
-        t.fontFamily = s.string("terminal.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
-        t.fontSize = s.number("terminal.fontSize")
-        t.cursorStyle = s.string("terminal.cursorStyle")
-        t.optionAsAlt = s.bool("terminal.optionAsAlt") ?? false
+        terminal.fontFamily = settings.string("terminal.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
+        terminal.fontSize = settings.number("terminal.fontSize")
+        terminal.cursorStyle = settings.string("terminal.cursorStyle")
+        terminal.optionAsAlt = settings.bool("terminal.optionAsAlt") ?? false
         // Settings › Appearance › Terminal opacity, over any theme: the window opens up with it.
-        let opacity = s.string("terminal.opacity").flatMap(Double.init).map { $0 / 100 }
-        t.opacity = opacity ?? theme?.terminal?.opacity
-        t.shader = theme?.terminal?.shader
-        GhosttyRuntime.cleanCopy = s.bool("terminal.cleanCopy") ?? true
-        if t != lastTerminal {
-            lastTerminal = t
-            GhosttyRuntime.appearance = t
-            if GhosttyTerminalView.isLoaded { GhosttyRuntime.shared.configure(t) }
+        let opacity = settings.string("terminal.opacity").flatMap(Double.init).map { $0 / 100 }
+        terminal.opacity = opacity ?? theme?.terminal?.opacity
+        terminal.shader = theme?.terminal?.shader
+        GhosttyRuntime.cleanCopy = settings.bool("terminal.cleanCopy") ?? true
+        if terminal != lastTerminal {
+            lastTerminal = terminal
+            GhosttyRuntime.appearance = terminal
+            if GhosttyTerminalView.isLoaded { GhosttyRuntime.shared.configure(terminal) }
         }
 
-        let e = theme?.editor
-        let palette = e.map {
+        let editor = theme?.editor
+        let palette = editor.map {
             CodeEditor.Palette(
                 background: $0.background + Self.alpha($0.opacity), text: $0.text,
                 keyword: $0.keyword, string: $0.string, comment: $0.comment, type: $0.type,
                 number: $0.number, function: $0.function, selection: $0.selection ?? theme?.terminal?.selection,
                 lineHighlight: $0.lineHighlight)
         }
-        let size = CGFloat(s.number("editor.fontSize") ?? 13),
-            font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
-        let wrap = s.bool("editor.wordWrap") ?? false
-        let hang = s.string("editor.wrappingIndent").flatMap(CodeEditor.WrappingIndent.init) ?? .same
-        TextSize.apply(s.string("workbench.textSize"))
+        let size = CGFloat(settings.number("editor.fontSize") ?? 13),
+            font = settings.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
+        let wrap = settings.bool("editor.wordWrap") ?? false
+        let hang = settings.string("editor.wrappingIndent").flatMap(CodeEditor.WrappingIndent.init) ?? .same
+        TextSize.apply(settings.string("workbench.textSize"))
         TextSize.apply(design: theme?.window?.font)
-        chromeText = "\(s.string("workbench.textSize") ?? "") \(theme?.window?.font ?? "")"
+        chromeText = "\(settings.string("workbench.textSize") ?? "") \(theme?.window?.font ?? "")"
         chromeDesign =
             ["mono": .monospaced, "serif": .serif, "rounded": .rounded][theme?.window?.font ?? ""] ?? .default
         NSColor.setThemeAccent(Self.accent(theme))
-        look = Self.windowLook(theme, terminalOpacity: t.opacity ?? 1, forced: opacity)
+        look = Self.windowLook(theme, terminalOpacity: terminal.opacity ?? 1, forced: opacity)
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
-        let language = s.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
+        let language = settings.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
         if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName
             || wrap != CodeEditor.wrapLines
@@ -221,7 +222,7 @@ package final class ThemeManager {
     }
 
     private static func accent(_ theme: Theme?) -> NSColor? {
-        if let w = theme?.window { return w.accent.flatMap { NSColor(hex: $0) } }
+        if let window = theme?.window { return window.accent.flatMap { NSColor(hex: $0) } }
         return theme?.terminal?.palette.flatMap { $0.count > 4 ? NSColor(hex: $0[4]) : nil }   // ANSI blue, as near as a palette has to one
     }
 
@@ -230,22 +231,23 @@ package final class ThemeManager {
         guard let theme, let background = theme.terminal.flatMap({ NSColor(hex: $0.background) }) else {
             return terminalOpacity < 1 ? WindowLook(card: .clear, seeThrough: true) : WindowLook()
         }
-        var l = WindowLook(), w = theme.window ?? Theme.Window.own(theme)
-        l.seeThrough = terminalOpacity < 1
-        if let forced, forced < 1 { w.surfaceOpacity = min(w.surfaceOpacity ?? 1, forced) }
-        if w.surface != "material" {
-            let surface = w.surface.flatMap { NSColor(hex: $0) } ?? background
-            l.surface = surface.withAlphaComponent(w.surfaceOpacity ?? 1)
+        var look = WindowLook(), window = theme.window ?? Theme.Window.own(theme)
+        look.seeThrough = terminalOpacity < 1
+        if let forced, forced < 1 { window.surfaceOpacity = min(window.surfaceOpacity ?? 1, forced) }
+        if window.surface != "material" {
+            let surface = window.surface.flatMap { NSColor(hex: $0) } ?? background
+            look.surface = surface.withAlphaComponent(window.surfaceOpacity ?? 1)
         }
-        l.card =
-            l.seeThrough ? .clear : w.card.flatMap { NSColor(hex: $0) } ?? (w.surface == "material" ? nil : background)
-        l.border = w.border.flatMap { NSColor(hex: $0) }
-        l.borderWidth = w.borderWidth ?? 1
-        l.radius = w.radius ?? Metrics.radiusLG
-        if let kind = w.ambient.flatMap(WindowLook.Ambient.Kind.init) {
-            l.ambient = .init(kind: kind, colors: (w.ambientColors ?? []).compactMap { NSColor(hex: $0) })
+        look.card =
+            look.seeThrough
+            ? .clear : window.card.flatMap { NSColor(hex: $0) } ?? (window.surface == "material" ? nil : background)
+        look.border = window.border.flatMap { NSColor(hex: $0) }
+        look.borderWidth = window.borderWidth ?? 1
+        look.radius = window.radius ?? Metrics.radiusLG
+        if let kind = window.ambient.flatMap(WindowLook.Ambient.Kind.init) {
+            look.ambient = .init(kind: kind, colors: (window.ambientColors ?? []).compactMap { NSColor(hex: $0) })
         }
-        return l
+        return look
     }
 }
 

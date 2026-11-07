@@ -21,10 +21,10 @@ final class PageChip: NSStackView {
         self.app = app
         ports = Watched(.ports, in: app)
         super.init(frame: .zero)
-        for b in [open, more] {
-            b.radius = nil   // a capsule, as the capsule it sits in
-            b.font = .uiDigits(12)
-            b.setContentCompressionResistancePriority(.init(320), for: .horizontal)
+        for chip in [open, more] {
+            chip.radius = nil   // a capsule, as the capsule it sits in
+            chip.font = .uiDigits(12)
+            chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
         }
         open.padding = 8
         open.imagePosition = .imageLeading
@@ -32,8 +32,8 @@ final class PageChip: NSStackView {
         open.image = .symbol("network", "")
         open.symbolConfiguration = .chrome(Metrics.iconSmall)
         open.onClick = { [weak self] in
-            guard let self, let l = look else { return }
-            app.scripts.open(l.page, in: l.workspace)
+            guard let self, let look = look else { return }
+            app.scripts.open(look.page, in: look.workspace)
         }
         more.padding = 6
         more.contentTintColor = .secondaryLabelColor
@@ -77,58 +77,62 @@ final class PageChip: NSStackView {
         fadeBackground(to: .fillRest)
     }
 
-    private func show(_ l: Look?) {
-        if isHidden != (l == nil) { crossfade() }
-        isHidden = l == nil
-        guard let l else { return }
-        open.title = compact ? ":\(l.page.port)" : l.page.address
-        open.contentTintColor = l.page.offline ? .tertiaryLabelColor : .labelColor
-        open.toolTip = tip(l.page)
-        open.menu = menu(l)
-        more.isHidden = l.more == 0
-        more.title = "+\(l.more)"
+    private func show(_ look: Look?) {
+        if isHidden != (look == nil) { crossfade() }
+        isHidden = look == nil
+        guard let look else { return }
+        open.title = compact ? ":\(look.page.port)" : look.page.address
+        open.contentTintColor = look.page.offline ? .tertiaryLabelColor : .labelColor
+        open.toolTip = tip(look.page)
+        open.menu = menu(look)
+        more.isHidden = look.more == 0
+        more.title = "+\(look.more)"
     }
 
-    private func tip(_ p: ServedPage) -> String {
-        if p.offline, let host = p.host {
+    private func tip(_ page: ServedPage) -> String {
+        if page.offline, let host = page.host {
             return String(localized: "No connection to \(host). The server keeps running there. Click to connect.")
         }
-        return p.isWeb ? String(localized: "Open \(p.place) (⇧⌘O)") : String(localized: "Copy \(p.place) (⇧⌘O)")
+        return page.isWeb
+            ? String(localized: "Open \(page.place) (⇧⌘O)") : String(localized: "Copy \(page.place) (⇧⌘O)")
     }
 
     /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
-    private func menu(_ l: Look) -> NSMenu {
-        let m = NSMenu(), app = app
-        if l.page.isWeb {
-            m.add(String(localized: "Open in Browser")) {
+    private func menu(_ look: Look) -> NSMenu {
+        let actions = NSMenu(), app = app
+        if look.page.isWeb {
+            actions.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) {
-                        PreviewLinks.openOutside(u)
+                    if let url = await app.scripts.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
+                    {
+                        PreviewLinks.openOutside(url)
                     }
                 }
             }
         }
-        m.add(String(localized: "Copy Address")) {
-            Task { if let p = await app.scripts.reach(l.page, in: l.workspace) { app.scripts.copy(p) } }
+        actions.add(String(localized: "Copy Address")) {
+            Task {
+                if let reached = await app.scripts.reach(look.page, in: look.workspace) { app.scripts.copy(reached) }
+            }
         }
-        if l.page.host != nil, l.page.forwarded {
-            m.add(String(localized: "Stop Forwarding")) {
+        if look.page.host != nil, look.page.forwarded {
+            actions.add(String(localized: "Stop Forwarding")) {
                 Task {
-                    if await app.call(PortsUnforward(worktreeId: l.workspace, port: l.page.remotePort)) != nil {
-                        app.watchAgain(.ports, l.workspace)
+                    if await app.call(PortsUnforward(worktreeId: look.workspace, port: look.page.remotePort)) != nil {
+                        app.watchAgain(.ports, look.workspace)
                     }
                 }
             }
         }
-        if let pid = l.page.pid {
-            m.add(String(localized: "Stop")) {
+        if let pid = look.page.pid {
+            actions.add(String(localized: "Stop")) {
                 Task {
-                    if await app.call(PortsStop(worktreeId: l.workspace, pid: Int(pid))) != nil {
-                        app.watchAgain(.ports, l.workspace)
+                    if await app.call(PortsStop(worktreeId: look.workspace, pid: Int(pid))) != nil {
+                        app.watchAgain(.ports, look.workspace)
                     }
                 }
             }
         }
-        return m
+        return actions
     }
 }

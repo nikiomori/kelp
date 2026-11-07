@@ -11,14 +11,14 @@ package func loc(_ english: String) -> String {
 enum Localize {
     /// The menu bar is built in English and shows the translation; a submenu keeps its English title as its
     /// identifier (Settings › Keyboard names items by command id or English path).
-    static func menu(_ m: NSMenu) {
-        for i in m.items where !i.isSeparatorItem {
-            if i.identifier == nil { i.identifier = NSUserInterfaceItemIdentifier(i.title) }
-            let indent = i.title.prefix { $0 == " " }   // the View menu's panel list is indented
-            i.title = indent + loc(String(i.title.dropFirst(indent.count)))
-            if let s = i.submenu, s !== NSApp.servicesMenu {
-                s.title = loc(s.title)
-                menu(s)
+    static func menu(_ level: NSMenu) {
+        for item in level.items where !item.isSeparatorItem {
+            if item.identifier == nil { item.identifier = NSUserInterfaceItemIdentifier(item.title) }
+            let indent = item.title.prefix { $0 == " " }   // the View menu's panel list is indented
+            item.title = indent + loc(String(item.title.dropFirst(indent.count)))
+            if let submenu = item.submenu, submenu !== NSApp.servicesMenu {
+                submenu.title = loc(submenu.title)
+                menu(submenu)
             }
         }
     }

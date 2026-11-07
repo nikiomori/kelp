@@ -24,78 +24,79 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
     ) {
         let uc = web.configuration.userContentController
         uc.removeAllUserScripts()
-        for s in scripts {
-            uc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world))
+        for script in scripts {
+            uc.addUserScript(
+                WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world))
         }
         shown = baseURL.map(Self.sansFragment) ?? "about:blank"
         web.loadHTMLString(html, baseURL: baseURL)
     }
 
     package func webView(
-        _ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences,
+        _ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
         preferences.allowsContentJavaScript = false
-        decisionHandler(policy(a, in: w), preferences)
+        decisionHandler(policy(action, in: webView), preferences)
     }
 
-    private func policy(_ a: WKNavigationAction, in w: WKWebView) -> WKNavigationActionPolicy {
-        let u = a.request.url
-        guard a.navigationType == .linkActivated, let u else {
+    private func policy(_ action: WKNavigationAction, in webView: WKWebView) -> WKNavigationActionPolicy {
+        let url = action.request.url
+        guard action.navigationType == .linkActivated, let url else {
             // A page's frames load what they load (their scripts are off too); the page itself stays.
-            return a.targetFrame?.isMainFrame == false || u.map(Self.sansFragment) == shown ? .allow : .cancel
+            return action.targetFrame?.isMainFrame == false || url.map(Self.sansFragment) == shown ? .allow : .cancel
         }
-        if u.fragment != nil, Self.sansFragment(u) == w.url.map(Self.sansFragment) { return .allow }
-        Self.open(u, in: app)
+        if url.fragment != nil, Self.sansFragment(url) == webView.url.map(Self.sansFragment) { return .allow }
+        Self.open(url, in: app)
         return .cancel
     }
 
     /// A clicked link, by `target`: a web page as a browser tab, a file as a tab, mail in Mail, anything else refused.
-    package static func open(_ u: URL, in app: AppModel) {
-        switch target(u) {
-        case .web(let s): app.workbench.open(s)
-        case .file(let p): app.workbench.open(TabURI.file(p))
-        case .mail(let m): openOutside(m)
-        case .refused: refuse(u)
+    package static func open(_ url: URL, in app: AppModel) {
+        switch target(url) {
+        case .web(let address): app.workbench.open(address)
+        case .file(let path): app.workbench.open(TabURI.file(path))
+        case .mail(let mail): openOutside(mail)
+        case .refused: refuse(url)
         }
     }
 
     /// The one place Kelp hands a URL to macOS to open in another app (ArchitectureTests holds it to that): a web page,
     /// mail, a pane of System Settings. A file, an app or another app's scheme could run something, so it's refused.
-    package static func openOutside(_ u: URL) {
-        guard opensOutside(u) else { return refuse(u) }
-        NSWorkspace.shared.open(u)
+    package static func openOutside(_ url: URL) {
+        guard opensOutside(url) else { return refuse(url) }
+        NSWorkspace.shared.open(url)
     }
-    static func opensOutside(_ u: URL) -> Bool {
-        ["http", "https", "mailto", "x-apple.systempreferences"].contains(u.scheme?.lowercased() ?? "")
+    static func opensOutside(_ url: URL) -> Bool {
+        ["http", "https", "mailto", "x-apple.systempreferences"].contains(url.scheme?.lowercased() ?? "")
     }
 
     /// Says why nothing opened, with the link to copy (a terminal's links go by the same rules: `target`).
-    private static func refuse(_ u: URL) {
+    private static func refuse(_ url: URL) {
         Banner.show(
-            String(localized: "Kelp opens links to web pages and files only, not “\(u.absoluteString)”."),
+            String(localized: "Kelp opens links to web pages and files only, not “\(url.absoluteString)”."),
             action: (
                 String(localized: "Copy Link"),
                 {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(u.absoluteString, forType: .string)
+                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
                 }
             ))
     }
 
-    package static func target(_ u: URL) -> Target {
-        switch u.scheme?.lowercased() {
-        case "http", "https": return .web(u.absoluteString)
-        case "mailto": return .mail(u)
-        case "file" where isPlainFile(u.resolvingSymlinksInPath()): return .file(u.resolvingSymlinksInPath().path)
+    package static func target(_ url: URL) -> Target {
+        switch url.scheme?.lowercased() {
+        case "http", "https": return .web(url.absoluteString)
+        case "mailto": return .mail(url)
+        case "file" where isPlainFile(url.resolvingSymlinksInPath()): return .file(url.resolvingSymlinksInPath().path)
         default: return .refused
         }
     }
 
     /// A regular file: not a folder, and so not an app or any other bundle (which the Finder would launch).
-    private static func isPlainFile(_ u: URL) -> Bool {
-        (try? u.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+    private static func isPlainFile(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
     }
 
-    private static func sansFragment(_ u: URL) -> String { u.absoluteString.components(separatedBy: "#")[0] }
+    private static func sansFragment(_ url: URL) -> String { url.absoluteString.components(separatedBy: "#")[0] }
 }

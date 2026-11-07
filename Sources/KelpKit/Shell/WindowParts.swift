@@ -10,19 +10,19 @@ import WorkbenchKit
 final class ShellSplit: NSSplitViewController {
     init() {
         super.init(nibName: nil, bundle: nil)
-        let v = Seamless()
-        v.isVertical = true
-        v.dividerStyle = .thin
-        splitView = v
+        let seamless = Seamless()
+        seamless.isVertical = true
+        seamless.dividerStyle = .thin
+        splitView = seamless
     }
     required init?(coder: NSCoder) { fatalError() }
     override func splitView(
-        _ v: NSSplitView, effectiveRect proposed: NSRect, forDrawnRect drawn: NSRect, ofDividerAt i: Int
+        _ split: NSSplitView, effectiveRect proposed: NSRect, forDrawnRect drawn: NSRect, ofDividerAt index: Int
     ) -> NSRect {
-        var r = super.splitView(v, effectiveRect: proposed, forDrawnRect: drawn, ofDividerAt: i)
-        r.size.width += Card.gap
-        if i > 0 { r.origin.x -= Card.gap }   // into the gap, which is on the editor area's side
-        return r
+        var rect = super.splitView(split, effectiveRect: proposed, forDrawnRect: drawn, ofDividerAt: index)
+        rect.size.width += Card.gap
+        if index > 0 { rect.origin.x -= Card.gap }   // into the gap, which is on the editor area's side
+        return rect
     }
     private final class Seamless: NSSplitView { override var dividerColor: NSColor { .clear } }
 }
@@ -60,10 +60,10 @@ final class Floater: NSView {
         material.wantsLayer = true
         material.layer?.borderWidth = 1
         box.wantsLayer = true
-        for v in [material, box] {
-            v.layer?.cornerRadius = Self.radius
-            v.layer?.cornerCurve = .continuous
-            v.layer?.masksToBounds = true
+        for layered in [material, box] {
+            layered.layer?.cornerRadius = Self.radius
+            layered.layer?.cornerCurve = .continuous
+            layered.layer?.masksToBounds = true
         }
         pin(material)
         tint.wantsLayer = true
@@ -79,13 +79,13 @@ final class Floater: NSView {
         glassy = on
         box.removeFromSuperview()
         if on, #available(macOS 26, *) {
-            let g = glass as? NSGlassEffectView ?? NSGlassEffectView()
+            let glassView = glass as? NSGlassEffectView ?? NSGlassEffectView()
             if glass == nil {
-                g.cornerRadius = Self.radius
-                pin(g)
-                glass = g
+                glassView.cornerRadius = Self.radius
+                pin(glassView)
+                glass = glassView
             }
-            g.contentView = box
+            glassView.contentView = box
         } else {
             if #available(macOS 26, *) { (glass as? NSGlassEffectView)?.contentView = nil }
             pin(box)
@@ -97,17 +97,18 @@ final class Floater: NSView {
 
     /// Against the window's leading or trailing edge, its full height; out of sight until it slides in.
     func attach(leading: Bool) {
-        guard let s = superview else { return }
-        let e =
+        guard let parent = superview else { return }
+        let pinned =
             leading
-            ? leadingAnchor.constraint(equalTo: s.leadingAnchor) : s.trailingAnchor.constraint(equalTo: trailingAnchor)
-        let w = widthAnchor.constraint(equalToConstant: width)
+            ? leadingAnchor.constraint(equalTo: parent.leadingAnchor)
+            : parent.trailingAnchor.constraint(equalTo: trailingAnchor)
+        let sized = widthAnchor.constraint(equalToConstant: width)
         NSLayoutConstraint.activate([
-            e, w, topAnchor.constraint(equalTo: s.topAnchor, constant: inset),
-            bottomAnchor.constraint(equalTo: s.bottomAnchor, constant: -inset)
+            pinned, sized, topAnchor.constraint(equalTo: parent.topAnchor, constant: inset),
+            bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: -inset)
         ])
-        edge = e
-        widthC = w
+        edge = pinned
+        widthC = sized
     }
 
     func slide(in on: Bool, animated: Bool = true) {
@@ -168,12 +169,13 @@ final class Card: NSView {
 extension NSButton {
     /// An icon button for the title bar: 14 pt, greyed in under the pointer like every Kelp control.
     static func titlebar(_ symbol: String, _ label: String, tip: String) -> PointerButton {
-        let b = PointerButton(frame: .zero)   // greys in under the pointer, springs when clicked, as every Kelp control
-        b.image = .symbol(symbol, label)
-        b.imagePosition = .imageOnly
-        b.toolTip = tip
-        b.symbolConfiguration = .chrome(Metrics.segmentPoint)
-        return b
+        // greys in under the pointer, springs when clicked, as every Kelp control
+        let button = PointerButton(frame: .zero)
+        button.image = .symbol(symbol, label)
+        button.imagePosition = .imageOnly
+        button.toolTip = tip
+        button.symbolConfiguration = .chrome(Metrics.segmentPoint)
+        return button
     }
 }
 
@@ -187,8 +189,8 @@ final class EdgeTrigger: NSView {
         addTrackingArea(
             NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self))
     }
-    override func mouseEntered(with e: NSEvent) { onEnter?() }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to whatever is under it
+    override func mouseEntered(with event: NSEvent) { onEnter?() }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // clicks go to whatever is under it
 }
 
 /// The window's surface, in the sidebar's material: the panels and the gap round the editor area are this.
@@ -213,9 +215,11 @@ final class DropRoot: NSVisualEffectView {
         // What the desktop shows through stays clear with the window in the background too.
         state = look.solid ? .inactive : look.seeThrough ? .active : .followsWindowActiveState
     }
-    override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { Workbench.files(s).isEmpty ? [] : .copy }
-    override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
-        let files = Workbench.files(s)
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        Workbench.files(sender).isEmpty ? [] : .copy
+    }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let files = Workbench.files(sender)
         app.workbench.open(files: files)
         return !files.isEmpty
     }
@@ -277,16 +281,16 @@ final class EditorHost: NSViewController {
     }
 
     func show(_ id: String?) {
-        if let p = page {   // back from a page: it goes (it reads its server only while it's there)
-            p.view.removeFromSuperview()
+        if let previous = page {   // back from a page: it goes (it reads its server only while it's there)
+            previous.view.removeFromSuperview()
             page = nil
-            if let c = current, c.workspaceId == id {
-                card.pin(c.view)
-                c.focusSelected()
+            if let shown = current, shown.workspaceId == id {
+                card.pin(shown.view)
+                shown.focusSelected()
                 return
             }
         }
-        if let c = current, c.workspaceId == id { return }
+        if let shown = current, shown.workspaceId == id { return }
         current?.view.removeFromSuperview()
         guard let id, app.worktree(id) != nil else {
             current = nil
@@ -341,76 +345,80 @@ final class EditorHost: NSViewController {
 
     /// A tab for a workspace that isn't on screen: into its editor area if it's loaded, else into its saved layout.
     func openInBackground(_ uri: String, workspace id: String) {
-        if let a = areas[id] {
-            if TabURI.runs(uri) { a.runURI(uri) } else { a.open(uri, focus: false) }
+        if let area = areas[id] {
+            if TabURI.runs(uri) { area.runURI(uri) } else { area.open(uri, focus: false) }
             return
         }
         guard !TabURI.runs(uri) else { return }
-        var l = WorkspaceLayout.load(id, from: app.uiState)
-        if l.tab(uri: uri) == nil {
-            _ = l.add(uri, to: l.focusedGroup?.id)
-            l.save(id, to: app.uiState)
+        var layout = WorkspaceLayout.load(id, from: app.uiState)
+        if layout.tab(uri: uri) == nil {
+            _ = layout.add(uri, to: layout.focusedGroup?.id)
+            layout.save(id, to: app.uiState)
         }
     }
 
     /// Chats went from a workspace that may not be on screen, the same two ways: a group left with no tab closes.
     func chatsLeft(_ id: String) {
-        if let a = areas[id] {
-            a.reconcile()
+        if let area = areas[id] {
+            area.reconcile()
             return
         }
-        var l = WorkspaceLayout.load(id, from: app.uiState)
-        for t in l.allTabs where TabURI.scheme(t.uri) == "session" && app.session(TabURI.body(t.uri))?.worktreeId != id
-        { l.remove(t.id) }
-        l.save(id, to: app.uiState)
-        if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
+        var layout = WorkspaceLayout.load(id, from: app.uiState)
+        for tab in layout.allTabs
+        where TabURI.scheme(tab.uri) == "session" && app.session(TabURI.body(tab.uri))?.worktreeId != id {
+            layout.remove(tab.id)
+        }
+        layout.save(id, to: app.uiState)
+        if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
     }
 
     /// A chat closed from its row, on any screen, with the questions its tab asks and ⇧⌘T after: its tab closing, or where
     /// the screen isn't loaded yet, its session ending and its place in the saved layout going.
     func closeChat(_ sid: String, workspace id: String) {
         let uri = TabURI.session(sid)
-        if let a = areas[id], let t = a.layout.tab(uri: uri) {
-            a.closeTab(t.id)
+        if let area = areas[id], let tab = area.layout.tab(uri: uri) {
+            area.closeTab(tab.id)
             return
         }
         let title = app.session(sid)?.displayTitle ?? ""
         Task {
             guard await app.extensions.tabProvider(for: uri)?.closeUnbuilt?(uri) ?? true else { return }
-            if let a = areas[id] {
-                a.reconcile()
+            if let area = areas[id] {
+                area.reconcile()
                 return
             }
-            var l = WorkspaceLayout.load(id, from: app.uiState)
-            guard let t = l.tab(uri: uri) else { return }
+            var layout = WorkspaceLayout.load(id, from: app.uiState)
+            guard let tab = layout.tab(uri: uri) else { return }
             app.workbench.closedTabs.remember(
-                ClosedTab(uri: uri, title: title, workspace: id, group: l.group(of: t.id), index: nil))
-            l.remove(t.id)
-            l.save(id, to: app.uiState)
-            if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
+                ClosedTab(uri: uri, title: title, workspace: id, group: layout.group(of: tab.id), index: nil))
+            layout.remove(tab.id)
+            layout.save(id, to: app.uiState)
+            if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
         }
     }
 
     /// A restarted session into its old tab in a workspace that isn't on screen, the same two ways.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
-        if let a = areas[id] {
-            a.replace(old, with: new, focus: false)
+        if let area = areas[id] {
+            area.replace(old, with: new, focus: false)
             return
         }
-        var l = WorkspaceLayout.load(id, from: app.uiState)
-        if l.replace(old, with: new) == nil, l.tab(uri: new) == nil { l.add(new, to: l.focusedGroup?.id) }
-        l.save(id, to: app.uiState)
+        var layout = WorkspaceLayout.load(id, from: app.uiState)
+        if layout.replace(old, with: new) == nil, layout.tab(uri: new) == nil {
+            layout.add(new, to: layout.focusedGroup?.id)
+        }
+        layout.save(id, to: app.uiState)
     }
 
     private func refresh() {
-        for (id, a) in areas where app.worktree(id) == nil {
-            a.view.removeFromSuperview()
+        for (id, area) in areas where app.worktree(id) == nil {
+            area.view.removeFromSuperview()
             areas[id] = nil
             recent.removeAll { $0 == id }
             // Closed from elsewhere (the CLI, an agent): unsaved files still get their question, only without Cancel.
-            let edited = a.editedFiles
+            let edited = area.editedFiles
             guard !edited.isEmpty else {
-                a.removeFromParent()
+                area.removeFromParent()
                 continue
             }
             Task {
@@ -418,21 +426,21 @@ final class EditorHost: NSViewController {
                 if await UnsavedChanges.settle(edited, answer, canCancel: false) {
                     _ = await UnsavedChanges.written(edited)
                 }
-                a.removeFromParent()
+                area.removeFromParent()
             }
         }
-        if let c = current, areas[c.workspaceId] == nil { current = nil }
+        if let shown = current, areas[shown.workspaceId] == nil { current = nil }
         current?.reconcile()   // the others reconcile when shown
         if current == nil, page == nil { showWelcome() }
     }
 
     private func showWelcome() {
         let hasRepos = app.repos.contains { !NoProject.holds($0) }
-        if let w = welcome as? WelcomeView, w.hasRepos == hasRepos { return }
+        if let shown = welcome as? WelcomeView, shown.hasRepos == hasRepos { return }
         welcome?.removeFromSuperview()
-        let w = WelcomeView(hasRepos: hasRepos, app: app)
-        card.pin(w)
-        welcome = w
+        let fresh = WelcomeView(hasRepos: hasRepos, app: app)
+        card.pin(fresh)
+        welcome = fresh
     }
 }
 
@@ -462,9 +470,9 @@ final class WelcomeView: NSView {
         let chat = ClosureButton(title: String(localized: "New Chat")) { [app] in app.workbench.newChat() }
         let add = ClosureButton(title: String(localized: "Add Project…")) { [app] in app.workbench.addProject() }
         let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
-        for case let b as NSButton in buttons.arrangedSubviews {
-            b.bezelStyle = .push
-            b.controlSize = .large
+        for case let button as NSButton in buttons.arrangedSubviews {
+            button.bezelStyle = .push
+            button.controlSize = .large
         }
         chat.keyEquivalent = "\r"
         // First run: how it looks and who answers, picked here before anything else (the same tiles as in Settings).

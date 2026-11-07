@@ -75,7 +75,7 @@ private final class ChoicePreview: NSObject, NSMenuDelegate {
     func menuDidClose(_ menu: NSMenu) { show(nil) }
 
     private func show(_ item: ChoiceItem?) {
-        if let t = trying { store.preview(t.key, t.saved) }
+        if let tried = trying { store.preview(tried.key, tried.saved) }
         trying = nil
         guard let item else { return }
         trying = (item.key, store.values[item.key])

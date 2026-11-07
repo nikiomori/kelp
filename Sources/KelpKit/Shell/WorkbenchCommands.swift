@@ -11,10 +11,10 @@ extension Builtins {
         "Panes, tabs, groups, the sidebar and inspector: the commands of the window.",
         icon: "macwindow", essential: true
     ) { app in
-        var c = Contributions()
-        c.commands = [
-            CommandSpec(id: "workbench.openSettings", title: "Settings…", key: "cmd+,") { a in
-                SettingsWindow.show(app, section: a["section"]?.string, group: a["group"]?.string)
+        var contributions = Contributions()
+        contributions.commands = [
+            CommandSpec(id: "workbench.openSettings", title: "Settings…", key: "cmd+,") { args in
+                SettingsWindow.show(app, section: args["section"]?.string, group: args["group"]?.string)
             },
             cmd("workbench.openExtensions", "Extensions…") { SettingsWindow.show(app, section: "extensions") },
             cmd("workbench.restartService", "Restart Background Service…") { restartService(app) },
@@ -23,8 +23,8 @@ extension Builtins {
                 app.workbench.window?.toggleInspectorPanel()
             },
             cmd("workbench.toggleFocusMode", "Focus Mode", "ctrl+cmd+z") { app.workbench.window?.toggleFocusMode() },
-            CommandSpec(id: "workbench.showPanel", title: "Show Panel") { a in
-                if let p = a["panel"]?.string { app.workbench.window?.showInspector(panel: p) }
+            CommandSpec(id: "workbench.showPanel", title: "Show Panel") { args in
+                if let panel = args["panel"]?.string { app.workbench.window?.showInspector(panel: panel) }
             },
             cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") {
                 app.quickOpen.show(commandsOnly: true)
@@ -55,11 +55,11 @@ extension Builtins {
             cmd("editor.previousTab", "Previous Tab", "shift+cmd+[") { editor(app)?.cycleTab(-1) },
             // ⌘W: the focused tab; in a workspace with nothing open, the workspace itself.
             cmd("editor.closeTab", "Close Tab", "cmd+w") {
-                guard let e = editor(app) else { return }
-                if e.focusedContent == nil, let w = e.worktree {
-                    WorkspaceActions(app).close(w)
+                guard let area = editor(app) else { return }
+                if area.focusedContent == nil, let worktree = area.worktree {
+                    WorkspaceActions(app).close(worktree)
                 } else {
-                    e.closeFocusedTab()
+                    area.closeFocusedTab()
                 }
             },
             cmd("editor.reopenTab", "Reopen Closed Tab", "shift+cmd+t") { app.workbench.reopenClosedTab() },
@@ -74,11 +74,11 @@ extension Builtins {
             cmd("workspace.addRemote", "Open over SSH…") { RemoteSheet.show(app) },
             cmd("workspace.revealInFinder", "Reveal in Finder", "opt+cmd+r") { WorkspaceActions(app).revealCurrent() },
             cmd("workspace.close", "Close Group", "shift+cmd+w") {
-                if let w = editor(app)?.worktree { WorkspaceActions(app).close(w) }
+                if let worktree = editor(app)?.worktree { WorkspaceActions(app).close(worktree) }
             },
             // ⌃Tab walks the workspaces used last (⌃⇧Tab: `{"by": -1}`).
-            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { a in
-                app.switcher.step(a["by"]?.int ?? 1)
+            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { args in
+                app.switcher.step(args["by"]?.int ?? 1)
             },
             cmd("workspace.next", "Next Group", "ctrl+cmd+down") { app.workbench.showWorkspace(offset: 1) },
             cmd("workspace.previous", "Previous Group", "ctrl+cmd+up") { app.workbench.showWorkspace(offset: -1) },
@@ -87,8 +87,8 @@ extension Builtins {
             cmd("workspace.forward", "Forward", "ctrl+cmd+right") { app.workbench.goBack(1) },
             // The Run menu: what ran last in the project, else the list of what its files offer (`{"name": "lint"}` runs
             // a .kelp.yaml command by name).
-            CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r") { a in
-                app.scripts.run(a["name"]?.string ?? "run")
+            CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r") { args in
+                app.scripts.run(args["name"]?.string ?? "run")
             },
             cmd("scripts.choose", "Run…", "ctrl+cmd+r") { app.scripts.choose() },
             cmd("scripts.test", "Test", "cmd+u") { app.scripts.run("test") },
@@ -101,20 +101,22 @@ extension Builtins {
             }
         ]
         // Like VS Code's openEditorAtIndex1…9: one id per number, so each can be rebound.
-        c.commands += (1...9).map { n in
-            cmd("editor.tab.\(n)", "Tab \(n)", "cmd+\(n)") { editor(app)?.selectTab(index: n - 1) }
+        contributions.commands += (1...9).map { number in
+            cmd("editor.tab.\(number)", "Tab \(number)", "cmd+\(number)") { editor(app)?.selectTab(index: number - 1) }
         }
-        c.commands += (1...9).map { n in
-            cmd("workspace.select.\(n)", "Group \(n)", "ctrl+\(n)") { app.workbench.showWorkspace(number: n) }
+        contributions.commands += (1...9).map { number in
+            cmd("workspace.select.\(number)", "Group \(number)", "ctrl+\(number)") {
+                app.workbench.showWorkspace(number: number)
+            }
         }
-        return c
+        return contributions
     }
 
     /// Terminal and editor text zoom together, like a browser; the settings stay the one source.
     private static func zoomText(_ app: AppModel, _ step: Double?) {
-        let s = app.settings
+        let settings = app.settings
         for key in ["terminal.fontSize", "editor.fontSize"] {
-            s.set(key, .double(step.map { min(40, max(8, (s.number(key) ?? 13) + $0)) } ?? 13))
+            settings.set(key, .double(step.map { min(40, max(8, (settings.number(key) ?? 13) + $0)) } ?? 13))
         }
     }
 
@@ -122,13 +124,13 @@ extension Builtins {
     private static func restartService(_ app: AppModel) {
         Task {
             if await app.restartDaemon(keepingSessions: true) { return }
-            let a = NSAlert()
-            a.messageText = String(localized: "Restart the background service?")
-            a.informativeText = String(
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Restart the background service?")
+            alert.informativeText = String(
                 localized: "Running agent sessions end. Projects, history and settings are kept.")
-            a.addButton(withTitle: String(localized: "Restart"))
-            a.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(a) == .alertFirstButtonReturn { await app.restartDaemon() }
+            alert.addButton(withTitle: String(localized: "Restart"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            if await runSheet(alert) == .alertFirstButtonReturn { await app.restartDaemon() }
         }
     }
 }

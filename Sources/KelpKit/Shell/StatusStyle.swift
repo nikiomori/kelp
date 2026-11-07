@@ -45,16 +45,16 @@ extension AgentStatus {
     }
     /// Most urgent first: what a workspace shows when it has several agents.
     static let urgency: [AgentStatus] = [.waiting, .error, .working, .done, .idle, .paused, .exited]
-    static func mostUrgent(_ s: [AgentStatus]) -> AgentStatus? {
-        s.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) }
+    static func mostUrgent(_ statuses: [AgentStatus]) -> AgentStatus? {
+        statuses.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) }
     }
 }
 
 /// "now", "4m", "2h", "3d": how long ago, as short as a row allows.
-package func shortAgo(_ d: Date?, now: Date = Date()) -> String {
-    guard let d else { return "" }
-    let s = now.timeIntervalSince(d)
-    return s < 60 ? String(localized: "now") : shortSpan(s)
+package func shortAgo(_ date: Date?, now: Date = Date()) -> String {
+    guard let date else { return "" }
+    let elapsed = now.timeIntervalSince(date)
+    return elapsed < 60 ? String(localized: "now") : shortSpan(elapsed)
 }
 
 /// "4m", "1d 3h": a span in Kelp's language, `units` parts at most (the last one rounded), down to `smallest`.
@@ -62,20 +62,20 @@ package func shortAgo(_ d: Date?, now: Date = Date()) -> String {
 package func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.Unit = .minute) -> String {
     let language = Bundle.main.preferredLocalizations.first ?? "en",
         key = "\(units) \(smallest.rawValue) \(language)" as NSString
-    let f =
+    let formatter =
         spanFormatters.object(forKey: key)
         ?? {
-            let f = DateComponentsFormatter()
-            f.unitsStyle = .abbreviated
-            f.maximumUnitCount = units
-            f.allowedUnits = [.day, .hour, .minute, smallest]
-            var c = Calendar.current
-            c.locale = Locale(identifier: language)
-            f.calendar = c
-            spanFormatters.setObject(f, forKey: key)
-            return f
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .abbreviated
+            formatter.maximumUnitCount = units
+            formatter.allowedUnits = [.day, .hour, .minute, smallest]
+            var calendar = Calendar.current
+            calendar.locale = Locale(identifier: language)
+            formatter.calendar = calendar
+            spanFormatters.setObject(formatter, forKey: key)
+            return formatter
         }()
-    return f.string(from: max(0, seconds)) ?? ""
+    return formatter.string(from: max(0, seconds)) ?? ""
 }
 nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
 
@@ -127,10 +127,10 @@ package final class StatusMark: NSView {
         track.lineWidth = 1
         bar.path = arc
         bar.lineWidth = pie
-        for l in [track, bar] {
-            l.frame = ring.frame
-            l.fillColor = nil
-            layer?.addSublayer(l)
+        for shape in [track, bar] {
+            shape.frame = ring.frame
+            shape.fillColor = nil
+            layer?.addSublayer(shape)
         }
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -154,20 +154,21 @@ package final class StatusMark: NSView {
     }   // animations stop when a view leaves a window
 
     private func update() {
-        let s = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
-        let filling = s == .working ? progress : nil
-        isHidden = s == nil
-        let dotted = s == .working && waitsForCommand && !compacting
-        let dashed = s == .working && guessed && !dotted && !compacting
+        let shown = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
+        let filling = shown == .working ? progress : nil
+        isHidden = shown == nil
+        let dotted = shown == .working && waitsForCommand && !compacting
+        let dashed = shown == .working && guessed && !dotted && !compacting
         toolTip =
-            filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" }
+            filling.map { "\(shown?.words ?? "") · \(Int($0 * 100)) %" }
             ?? (dotted
                 ? String(localized: "Waits for its command")
-                : dashed ? String(localized: "Working, as far as the screen shows") : s?.words)
+                : dashed ? String(localized: "Working, as far as the screen shows") : shown?.words)
         // VoiceOver reads the state (the spinning ring is only a layer): the same words as the tooltip.
-        setAccessibilityElement(s != nil && announces)
+        setAccessibilityElement(shown != nil && announces)
         setAccessibilityRole(.image)
-        setAccessibilityLabel(compacting && s == .working ? String(localized: "Compacting its conversation") : toolTip)
+        setAccessibilityLabel(
+            compacting && shown == .working ? String(localized: "Compacting its conversation") : toolTip)
         track.isHidden = filling == nil
         bar.isHidden = filling == nil
         if let filling {
@@ -187,7 +188,7 @@ package final class StatusMark: NSView {
         // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion a
         // still symbol says "working" instead: a ring that stopped spinning looks stuck.
         let still = Motion.reduced
-        let spinning = s == .working && !compacting && !still
+        let spinning = shown == .working && !compacting && !still
         ring.isHidden = !spinning && !dotted
         image.isHidden = spinning || dotted
         ring.removeAllAnimations()
@@ -207,47 +208,47 @@ package final class StatusMark: NSView {
             ring.strokeEnd = dotted || dashed ? 1 : 0.75
             CATransaction.commit()
             guard !still else { return }
-            let a = CABasicAnimation(keyPath: "transform.rotation.z")
-            a.fromValue = 0
-            a.toValue = -2 * Double.pi
-            a.duration = dotted ? Motion.wait : Motion.spin
-            a.repeatCount = .infinity
-            a.beginTime = Motion.beat(a.duration)
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.fromValue = 0
+            spin.toValue = -2 * Double.pi
+            spin.duration = dotted ? Motion.wait : Motion.spin
+            spin.repeatCount = .infinity
+            spin.beginTime = Motion.beat(spin.duration)
             // As EdgeGlow: one per working agent in its row, tab and summary kept the window drawing at 120 Hz for hours.
-            a.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
-            ring.add(a, forKey: "spin")
+            spin.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
+            ring.add(spin, forKey: "spin")
             return
         }
-        if s == .working {
+        if shown == .working {
             image.image = .symbol(
                 compacting ? "arrow.down.right.and.arrow.up.left" : "ellipsis.circle",
-                compacting ? String(localized: "Compacting its conversation") : s?.words ?? "")
+                compacting ? String(localized: "Compacting its conversation") : shown?.words ?? "")
             image.symbolConfiguration = .chrome(size - 2)
             image.contentTintColor = .secondaryLabelColor
             if compacting, !still {
                 image.wantsLayer = true
-                let p = CABasicAnimation(keyPath: "opacity")
-                p.fromValue = 1
-                p.toValue = 0.3
-                p.duration = Motion.pulse
-                p.autoreverses = true
-                p.repeatCount = .infinity
-                p.beginTime = Motion.beat(2 * p.duration)
-                image.layer?.add(p, forKey: "pulse")
+                let pulse = CABasicAnimation(keyPath: "opacity")
+                pulse.fromValue = 1
+                pulse.toValue = 0.3
+                pulse.duration = Motion.pulse
+                pulse.autoreverses = true
+                pulse.repeatCount = .infinity
+                pulse.beginTime = Motion.beat(2 * pulse.duration)
+                image.layer?.add(pulse, forKey: "pulse")
             }
             return
         }
-        guard let s else { return }
+        guard let shown else { return }
         if limited {
             image.image = .symbol("clock", String(localized: "Stopped at its limit"))
             image.symbolConfiguration = .chrome(size - 1)
             image.contentTintColor = .textOrange
             return
         }
-        image.image = .symbol(s.symbol, s.words)
+        image.image = .symbol(shown.symbol, shown.words)
         // The moon is wider than the circles: a size smaller, it takes the same room.
-        image.symbolConfiguration = .chrome(s == .paused ? size - 3 : size - 1)
-        image.contentTintColor = s.nsColor
+        image.symbolConfiguration = .chrome(shown == .paused ? size - 3 : size - 1)
+        image.contentTintColor = shown.nsColor
     }
 }
 
@@ -275,14 +276,15 @@ extension Session {
     }
     /// "Working · 40 %" when it says how far it got.
     package var statusWords: String {
-        let s = markStatus
-        return s == .working ? progress.map { "\(s.words) · \($0) %" } ?? s.words : s.words
+        let shown = markStatus
+        return shown == .working ? progress.map { "\(shown.words) · \($0) %" } ?? shown.words : shown.words
     }
     /// "Works in .claude/worktrees/fix-login" when the agent went out of the folder it started in.
     package var workingElsewhere: String? {
-        guard let d = workDir else { return nil }
+        guard let dir = workDir else { return nil }
         let inside =
-            d.hasPrefix(cwd + "/") ? String(d.dropFirst(cwd.count + 1)) : (d as NSString).abbreviatingWithTildeInPath
+            dir.hasPrefix(cwd + "/")
+            ? String(dir.dropFirst(cwd.count + 1)) : (dir as NSString).abbreviatingWithTildeInPath
         return String(localized: "Works in \(inside)")
     }
 }
@@ -302,14 +304,14 @@ struct AttentionQueue {
     }
 
     /// Results last, then oldest first.
-    private static func order(_ s: Session) -> (Int, Date) {
-        (SidebarCell.shownStatus(s) == .done ? 1 : 0, s.statusAt ?? s.createdAt)
+    private static func order(_ session: Session) -> (Int, Date) {
+        (SidebarCell.shownStatus(session) == .done ? 1 : 0, session.statusAt ?? session.createdAt)
     }
 
     /// The one after `current` (wrapping), so pressing again walks the whole queue.
     func next(after current: String?) -> Session? {
-        let q = sessions
-        guard let i = q.firstIndex(where: { $0.id == current }) else { return q.first }
-        return q.count > 1 ? q[(i + 1) % q.count] : nil
+        let queue = sessions
+        guard let index = queue.firstIndex(where: { $0.id == current }) else { return queue.first }
+        return queue.count > 1 ? queue[(index + 1) % queue.count] : nil
     }
 }

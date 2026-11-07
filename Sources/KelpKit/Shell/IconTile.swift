@@ -12,13 +12,13 @@ enum IconTile {
 
     /// A Mac app's icon cropped to its body: on the Big Sur grid the body is 824 of the 1024-point canvas.
     static func app(_ icon: NSImage) -> NSImage {
-        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
             NSGraphicsContext.saveGraphicsState()
-            NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7).addClip()
-            let grow = r.width * (1024.0 / 824.0 - 1) / 2
-            icon.draw(in: r.insetBy(dx: -grow, dy: -grow))
+            NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7).addClip()
+            let grow = rect.width * (1024.0 / 824.0 - 1) / 2
+            icon.draw(in: rect.insetBy(dx: -grow, dy: -grow))
             NSGraphicsContext.restoreGraphicsState()
-            edge(r)
+            edge(rect)
             return true
         }
         img.cacheMode = .never   // its edge is drawn for each appearance
@@ -27,9 +27,9 @@ enum IconTile {
 
     /// A hairline just inside a tile's edge, so every tile has one: a black logo's on a dark row and a white one's on a
     /// light row read as tiles of the same shape, not as a loose mark beside bright squares.
-    static func edge(_ r: NSRect) {
+    static func edge(_ rect: NSRect) {
         NSColor.labelColor.withAlphaComponent(0.14).setStroke()
-        let line = NSBezierPath(roundedRect: r.insetBy(dx: 0.25, dy: 0.25), xRadius: 6.75, yRadius: 6.75)
+        let line = NSBezierPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 6.75, yRadius: 6.75)
         line.lineWidth = 0.5
         line.stroke()
     }
@@ -42,18 +42,18 @@ enum IconTile {
             color == nil
             ? initials(name) : name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "?"
         let hue = chosen ?? hues[name.unicodeScalars.reduce(0) { $0 + Int($1.value) } % hues.count]
-        let img = NSImage(size: NSSize(width: size, height: size), flipped: false) { r in
+        let img = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
             let dark = NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             (color ?? hue.tint(dark)).setFill()
-            NSBezierPath(roundedRect: r, xRadius: r.width * 7 / 32, yRadius: r.height * 7 / 32).fill()
-            let s = NSAttributedString(
+            NSBezierPath(roundedRect: rect, xRadius: rect.width * 7 / 32, yRadius: rect.height * 7 / 32).fill()
+            let label = NSAttributedString(
                 string: text,
                 attributes: [
-                    .font: NSFont.systemFont(ofSize: r.height * (text.count > 1 ? 0.5 : 0.62), weight: .bold),
+                    .font: NSFont.systemFont(ofSize: rect.height * (text.count > 1 ? 0.5 : 0.62), weight: .bold),
                     .foregroundColor: color == nil ? hue.ink(dark) : NSColor.white
                 ])
-            let b = s.size()
-            s.draw(at: NSPoint(x: r.midX - b.width / 2, y: r.midY - b.height / 2))
+            let extent = label.size()
+            label.draw(at: NSPoint(x: rect.midX - extent.width / 2, y: rect.midY - extent.height / 2))
             return true
         }
         img.cacheMode = .never   // drawn again for each appearance: one cached tile serves light and dark rows
@@ -64,13 +64,13 @@ enum IconTile {
     /// The first letters of the first two words: "AgroStorage" AS, "kelp-extensions" KE, "vangersert" V.
     static func initials(_ name: String) -> String {
         var words: [String] = [], word = ""
-        for c in name {
-            let starts = c.isUppercase && word.last?.isLowercase == true   // camelCase
-            if !(c.isLetter || c.isNumber) || starts {
+        for character in name {
+            let starts = character.isUppercase && word.last?.isLowercase == true   // camelCase
+            if !(character.isLetter || character.isNumber) || starts {
                 if !word.isEmpty { words.append(word) }
                 word = ""
             }
-            if c.isLetter || c.isNumber { word.append(c) }
+            if character.isLetter || character.isNumber { word.append(character) }
         }
         if !word.isEmpty { words.append(word) }
         let lettered = words.filter { $0.first?.isLetter == true }
@@ -122,10 +122,10 @@ extension NSImage {
 extension FileChange {
     /// VS Code's status letter and colour, as Files and the diff's file list show it (text shades: they colour names too).
     package var badge: (String, NSColor) {
-        let l =
+        let letter =
             conflicted
             ? "!"
             : untracked ? "U" : (index == "D" || worktree == "D") ? "D" : index == "A" ? "A" : index == "R" ? "R" : "M"
-        return (l, .gitLetter(l))
+        return (letter, .gitLetter(letter))
     }
 }

@@ -43,9 +43,9 @@ final class UpdatePill: PointerButton {
         guard let update else { return }
         toolTip = String(localized: "Kelp \(update.version) is ready. Click to restart.")
         menu = update.notes.map { url in
-            let m = NSMenu()
-            m.add(String(localized: "What's New")) { PreviewLinks.openOutside(url) }
-            return m
+            let notesMenu = NSMenu()
+            notesMenu.add(String(localized: "What's New")) { PreviewLinks.openOutside(url) }
+            return notesMenu
         }
     }
 }

@@ -88,10 +88,10 @@ final class SyncPopover: NSViewController {
         status.spacing = 6
         status.alignment = .top
 
-        for s in [outgoing, incoming, ci] {
-            s.orientation = .vertical
-            s.alignment = .leading
-            s.spacing = 2
+        for stack in [outgoing, incoming, ci] {
+            stack.orientation = .vertical
+            stack.alignment = .leading
+            stack.spacing = 2
         }
 
         let changeHead = NSStackView()
@@ -128,11 +128,11 @@ final class SyncPopover: NSViewController {
             (head, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12),
             (rules.1, 4)
         ]
-        for (v, gap) in gaps {
-            root.setCustomSpacing(gap, after: v)
+        for (part, gap) in gaps {
+            root.setCustomSpacing(gap, after: part)
         }
-        for v in [head, status, primary, changeHead, field, footer] as [NSView] {
-            v.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        for part in [head, status, primary, changeHead, field, footer] as [NSView] {
+            part.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         }
 
         view = Self.ground(root)
@@ -180,26 +180,26 @@ final class SyncPopover: NSViewController {
     }
 
     private func column(_ views: [NSView], spacing: CGFloat) -> NSStackView {
-        let s = NSStackView(views: views)
-        s.orientation = .vertical
-        s.alignment = .leading
-        s.spacing = spacing
-        s.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        return s
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = spacing
+        stack.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+        return stack
     }
 
     private func rule() -> NSView {
-        let r = NSBox()
-        r.boxType = .separator
-        r.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-        return r
+        let line = NSBox()
+        line.boxType = .separator
+        line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        return line
     }
 
     private func label(_ text: String, size: CGFloat = 12, secondary: Bool = true) -> NSTextField {
-        let l = NSTextField(labelWithString: text)
-        l.font = .ui(size)
-        l.textColor = secondary ? .secondaryLabelColor : .labelColor
-        return l
+        let field = NSTextField(labelWithString: text)
+        field.font = .ui(size)
+        field.textColor = secondary ? .secondaryLabelColor : .labelColor
+        return field
     }
 
     // MARK: state
@@ -299,14 +299,14 @@ final class SyncPopover: NSViewController {
 
     /// The commits behind the counts, read again when the head, the upstream or a count moves (a fetch, a commit, a push).
     private func loadLists(_ info: BranchInfo?) {
-        guard let b = info else { return }
-        let key = "\(b.head ?? "")|\(b.upstream ?? "")|\(b.ahead ?? -1)|\(b.behind ?? -1)"
+        guard let branch = info else { return }
+        let key = "\(branch.head ?? "")|\(branch.upstream ?? "")|\(branch.ahead ?? -1)|\(branch.behind ?? -1)"
         guard key != listKey else { return }
         listKey = key
         Task {
-            let u = await app.quiet(GitUnsynced(id: wid, limit: Self.shown))
+            let lists = await app.quiet(GitUnsynced(id: wid, limit: Self.shown))
             guard key == listKey else { return }
-            unsynced = u
+            unsynced = lists
             update()
         }
     }
@@ -354,7 +354,7 @@ final class SyncPopover: NSViewController {
             let name = label(run.workflow, secondary: false)
             name.lineBreakMode = .byTruncatingTail
             name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-            let r = LinkRow(
+            let line = LinkRow(
                 [
                     CIRunLook.mark(run.status, run.conclusion), name, words, NSView(),
                     label(CIRunLook.ago(run.began), size: 11)
@@ -365,48 +365,51 @@ final class SyncPopover: NSViewController {
                 app.rowBadges.openCI(folder)
                 popover?.performClose(nil)
             }
-            r.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
-            r.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-            return r as NSView
+            line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
+            line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+            return line as NSView
         }
         ci.setViews([head] + shown + more(runs.count - shown.count), in: .top)
         ci.setCustomSpacing(2, after: head)
     }
 
-    private func caption(_ text: String, _ n: Int) -> NSView {
-        let l = NSTextField(labelWithString: "")
-        l.attributedStringValue = NSAttributedString(string: text + " · \(n)", attributes: Self.captionAttributes)
-        return l
+    private func caption(_ text: String, _ count: Int) -> NSView {
+        let field = NSTextField(labelWithString: "")
+        field.attributedStringValue = NSAttributedString(
+            string: text + " · \(count)", attributes: Self.captionAttributes)
+        return field
     }
 
     /// "11m", as the sidebar and the graph write how long ago (the relative formatter's short style wrote "−11 мин" in Russian).
-    private func when(_ c: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: c.date)) }
+    private func when(_ commit: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: commit.date)) }
 
-    private func more(_ n: Int) -> [NSView] { n > 0 ? [label(String(localized: "and \(n) more"))] : [] }
+    private func more(_ count: Int) -> [NSView] { count > 0 ? [label(String(localized: "and \(count) more"))] : [] }
 
-    private func row(_ c: Unsynced.Commit, trailing: String) -> NSView {
-        let hash = label(c.hash, size: 11)
+    private func row(_ commit: Unsynced.Commit, trailing: String) -> NSView {
+        let hash = label(commit.hash, size: 11)
         hash.font = .monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-        let subject = label(c.subject, secondary: false)
+        let subject = label(commit.subject, secondary: false)
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        let r = NSStackView(views: [hash, subject, label(trailing, size: 11)])
-        r.spacing = 8
+        let line = NSStackView(views: [hash, subject, label(trailing, size: 11)])
+        line.spacing = 8
         hash.widthAnchor.constraint(equalToConstant: 56).isActive = true
-        r.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-        return r
+        line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        return line
     }
 
     private func showChanges() {
-        let git = app.latest(GitEvent.self, wid), list = git?.changes ?? [], n = list.count
+        let git = app.latest(GitEvent.self, wid), list = git?.changes ?? [], changed = list.count
         let hasRemote = git?.branches.map { $0.upstream != nil || !$0.remote.isEmpty } ?? false
         changes.attributedStringValue = NSAttributedString(
-            string: String(localized: "Changes") + (n > 0 ? " · \(n)" : ""),
+            string: String(localized: "Changes") + (changed > 0 ? " · \(changed)" : ""),
             attributes: Self.captionAttributes)
         let text = NSMutableAttributedString()
-        if n > 0, let s = git?.stats {
+        if changed > 0, let totals = git?.stats {
             let mono = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-            for (count, sign, color) in [(s.totalAdded, "+", NSColor.textGreen), (s.totalRemoved, "−", .textRed)]
+            for (count, sign, color) in [
+                (totals.totalAdded, "+", NSColor.textGreen), (totals.totalRemoved, "−", .textRed)
+            ]
             where count > 0 {
                 text.append(
                     NSAttributedString(
@@ -415,9 +418,9 @@ final class SyncPopover: NSViewController {
             }
         }
         stats.attributedStringValue = text
-        field.isHidden = n == 0
-        nothing.isHidden = n > 0
-        hint.isHidden = n == 0 || !hasRemote
+        field.isHidden = changed == 0
+        nothing.isHidden = changed > 0
+        hint.isHidden = changed == 0 || !hasRemote
         let blocked = list.contains(where: \.conflicted) || app.syncing[wid] != nil || committing
         commit.isEnabled = !message.stringValue.trimmingCharacters(in: .whitespaces).isEmpty && !blocked
         message.isEnabled = !committing
@@ -494,9 +497,9 @@ final class SyncPopover: NSViewController {
             // Read now, not from the last push: unread, nothing would look staged and every change would go in.
             guard let status = await app.call(GitStatus(id: wid)) else { return }
             let all = !status.contains { $0.staged && !$0.conflicted }
-            let r = await app.tryCall(GitCommit(id: wid, message: text, all: all))
-            if let e = r.error {
-                GitFix(app).offer(e, recipe: "fixCommit", worktree: wid)
+            let result = await app.tryCall(GitCommit(id: wid, message: text, all: all))
+            if let error = result.error {
+                GitFix(app).offer(error, recipe: "fixCommit", worktree: wid)
                 return
             }
             message.stringValue = ""
@@ -510,36 +513,37 @@ final class SyncPopover: NSViewController {
     /// The local branches to switch to, and a new one; the remote ones are in Source Control.
     @objc private func switchMenu() {
         guard let info = app.latest(GitEvent.self, wid)?.branches else { return }
-        let m = NSMenu(), wid = wid
-        for b in info.local {
-            m.add(b) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: b)) }.state =
-                b == info.current ? .on : .off
+        let menu = NSMenu(), wid = wid
+        for branch in info.local {
+            menu.add(branch) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: branch)) }.state =
+                branch == info.current ? .on : .off
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Create Branch…")) { [weak self] in
+        menu.addItem(.separator())
+        menu.add(String(localized: "Create Branch…")) { [weak self] in
             Task {
                 let starts = String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")
                 guard let name = await prompt(String(localized: "Create Branch"), starts), !name.isEmpty else { return }
                 self?.switchBranch(GitSwitch(id: wid, branch: name, create: true))
             }
         }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: name.bounds.height + 4), in: name)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: name.bounds.height + 4), in: name)
     }
 
-    private func switchBranch(_ m: GitSwitch) {
+    private func switchBranch(_ request: GitSwitch) {
         Task {
-            await app.call(m)
-            app.watchAgain(.git, m.id)   // the chip now, not on the next file event
+            await app.call(request)
+            app.watchAgain(.git, request.id)   // the chip now, not on the next file event
         }
     }
 }
 
 extension SyncPopover: NSTextFieldDelegate {
-    func controlTextDidChange(_ n: Notification) { showChanges() }
+    func controlTextDidChange(_ notification: Notification) { showChanges() }
 
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         guard sel == #selector(NSResponder.insertNewline(_:)) || sel == Selector(("noop:")),
-            let e = NSApp.currentEvent, e.keyCode == 36 || e.keyCode == 76, e.modifierFlags.contains(.command)
+            let event = NSApp.currentEvent, event.keyCode == 36 || event.keyCode == 76,
+            event.modifierFlags.contains(.command)
         else { return false }
         if commit.isEnabled { commitAll(thenPush: true) }
         return true
@@ -573,5 +577,6 @@ private final class LinkRow: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
     override func clicked() { run() }
-    override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) == nil ? nil : self }   // one target, label included
+    // one target, label included
+    override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
 }

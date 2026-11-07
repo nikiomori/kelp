@@ -32,14 +32,14 @@ private final class Tracker<T: Equatable> {
     func run() {
         if owned, owner == nil { return }
         // onChange runs wherever the change was made: the next look is on main, on the next run-loop turn.
-        let v = withObservationTracking {
+        let current = withObservationTracking {
             value()
         } onChange: { [self] in
             DispatchQueue.main.async { self.run() }
         }
-        if v != last {
-            last = v
-            if quiet { quiet = false } else { changed(v) }
+        if current != last {
+            last = current
+            if quiet { quiet = false } else { changed(current) }
         }
     }
 }

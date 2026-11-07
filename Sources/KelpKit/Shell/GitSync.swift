@@ -17,7 +17,7 @@ enum GitSync {
                 op == "push"
                 ? String(localized: "Pushing…")
                 : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…")
-            if let e = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return e }
+            if let error = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return error }
             if op == "push" { app.watchAgain(.ci, app.rowBadges.folder(of: wid)?.id ?? wid) }
         }
         return nil

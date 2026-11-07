@@ -52,8 +52,9 @@ extension ScriptsMenu {
             || app.session(sid).map { isOnLine($0) } == true
     }
     /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
-    func isOnLine(_ s: Session, inTab: Set<String>? = nil) -> Bool {
-        app.sessions.owner(of: s) != nil && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(s.id)
+    func isOnLine(_ session: Session, inTab: Set<String>? = nil) -> Bool {
+        app.sessions.owner(of: session) != nil
+            && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(session.id)
     }
     /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
     package func openInTab(_ sid: String) {
@@ -78,12 +79,14 @@ extension ScriptsMenu {
 
     /// How a run's tab stands out among terminals: its purpose's symbol in colour (green ▶ for a server) and a glow of
     /// that colour, the port it serves after its name. nil for any other session.
-    func look(_ s: Session) -> (icon: NSImage?, glow: NSColor?)? {
-        guard let wid = s.worktreeId, let c = choice(of: s), var r = rows(wid).first(where: { $0.id == c }) else {
+    func look(_ session: Session) -> (icon: NSImage?, glow: NSColor?)? {
+        guard let wid = session.worktreeId, let picked = choice(of: session),
+            var row = rows(wid).first(where: { $0.id == picked })
+        else {
             return nil
         }
-        r.running = false   // its purpose's mark, not the menu's "running" circle
-        let (symbol, color) = Self.glyph(r)
+        row.running = false   // its purpose's mark, not the menu's "running" circle
+        let (symbol, color) = Self.glyph(row)
         return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color)
     }
 
@@ -95,53 +98,53 @@ extension ScriptsMenu {
     }
 
     /// The port after a tab's name: what its run printed, else what its session listens on.
-    func port(of s: Session) -> Int? {
-        state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }
-            ?? s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?
-            .first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+    func port(of session: Session) -> Int? {
+        state.active[session.id]?.url.flatMap { URLComponents(string: $0)?.port }
+            ?? session.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?
+            .first { $0.session == session.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
     }
 
     /// The page as this Mac reaches it, the ports read again when that moved it; nil and a banner when it can't be.
-    func reach(_ p: ServedPage, in wid: String) async -> ServedPage? {
-        let here = await p.reached(in: wid) { await app.call($0) }
-        if here != p { app.watchAgain(.ports, wid) }
+    func reach(_ page: ServedPage, in wid: String) async -> ServedPage? {
+        let here = await page.reached(in: wid) { await app.call($0) }
+        if here != page { app.watchAgain(.ports, wid) }
         return here
     }
 
     /// A page beside what you're doing, or the tab that shows it; what isn't one (a database) gets its address copied.
-    func open(_ p: ServedPage, in wid: String) {
+    func open(_ page: ServedPage, in wid: String) {
         Task {
-            guard let p = await reach(p, in: wid) else { return }
-            guard p.isWeb else {
-                copy(p)
+            guard let page = await reach(page, in: wid) else { return }
+            guard page.isWeb else {
+                copy(page)
                 return
             }
-            app.workbench.open(p.url, split: .right, workspace: wid, focus: false)
+            app.workbench.open(page.url, split: .right, workspace: wid, focus: false)
         }
     }
 
-    func copy(_ p: ServedPage) {
+    func copy(_ page: ServedPage) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(p.address, forType: .string)
-        Banner.show(String(localized: "Copied \(p.address)"))
+        NSPasteboard.general.setString(page.address, forType: .string)
+        Banner.show(String(localized: "Copied \(page.address)"))
     }
 
     /// A run that couldn't start: who holds its port, when that's one of Kelp's own screens on this Mac.
-    func portBusy(_ e: PortBusyEvent) {
+    func portBusy(_ event: PortBusyEvent) {
         Task {
-            for w in app.worktrees where !w.archived && RemoteHost.of(w.path) == nil {
+            for worktree in app.worktrees where !worktree.archived && RemoteHost.of(worktree.path) == nil {
                 guard
-                    let p = await app.quiet(PortsList(worktreeId: w.id))?.first(where: {
-                        $0.port == e.port && $0.session != e.session
+                    let port = await app.quiet(PortsList(worktreeId: worktree.id))?.first(where: {
+                        $0.port == event.port && $0.session != event.session
                     })
                 else { continue }
-                let screen = app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName
+                let screen = app.groupName(worktree) ?? app.projectName(worktree.repoId) ?? worktree.displayName
                 Banner.show(
-                    String(localized: ":\(e.port) is taken: \(p.command) on \(screen)."),
+                    String(localized: ":\(event.port) is taken: \(port.command) on \(screen)."),
                     action: (
                         String(localized: "Show"),
                         { [app] in
-                            app.workbench.focus(session: p.session)
+                            app.workbench.focus(session: port.session)
                         }
                     ))
                 return
@@ -151,19 +154,19 @@ extension ScriptsMenu {
 
     /// ⇧⌘O: the main page of the workspace on screen.
     func openPage() {
-        guard let wid = app.workbench.workspaceId, let p = pages(wid).first else {
+        guard let wid = app.workbench.workspaceId, let page = pages(wid).first else {
             NSSound.beep()
             return
         }
-        open(p, in: wid)
+        open(page, in: wid)
     }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
 
     /// What the workspace's files offer, read again (on a remote host: one ssh call). Quiet: the list says what it has.
     @discardableResult func detect(_ wid: String) async -> RunDetect.Result? {
-        guard let r = await app.quiet(RunDetect(worktreeId: wid)) else { return state.found[wid] }
-        if state.found[wid] != r { state.found[wid] = r }
-        return r
+        guard let result = await app.quiet(RunDetect(worktreeId: wid)) else { return state.found[wid] }
+        if state.found[wid] != result { state.found[wid] = result }
+        return result
     }
 
     /// Runs a choice and keeps it as the project's: false when it's gone (the file no longer has it).
@@ -186,20 +189,23 @@ extension ScriptsMenu {
             return state.kelp[wid]?.first { "kelp:" + $0.name == choice }.map { Self.short($0.command) }
                 ?? String(choice.dropFirst(5))
         }
-        guard let o = state.found[wid]?.options.first(where: { $0.id == choice }) else {
+        guard let option = state.found[wid]?.options.first(where: { $0.id == choice }) else {
             return choice.split(separator: "|").last.map(String.init) ?? choice
         }
-        return (o.folder.isEmpty ? "" : "\((o.folder as NSString).lastPathComponent) › ") + Self.short(o.command)
+        return (option.folder.isEmpty ? "" : "\((option.folder as NSString).lastPathComponent) › ")
+            + Self.short(option.command)
     }
 
     /// A command as one short line (32 characters), whole in tips.
-    static func short(_ s: String) -> String {
-        s.count > 32 ? s.prefix(31).trimmingCharacters(in: .whitespaces) + "…" : s
+    static func short(_ command: String) -> String {
+        command.count > 32 ? command.prefix(31).trimmingCharacters(in: .whitespaces) + "…" : command
     }
 
     /// What ⌘R would run in the workspace now, and whether it's only a guess (nothing ran in the project yet).
     func current(_ wid: String) -> (choice: String, guess: Bool)? {
-        if let s = running(in: wid).first.flatMap(app.session), let c = choice(of: s) { return (c, false) }
+        if let session = running(in: wid).first.flatMap(app.session), let picked = choice(of: session) {
+            return (picked, false)
+        }
         if let last = remembered(wid) { return (last, false) }
         if state.kelp[wid]?.contains(where: { $0.name == "run" }) == true { return ("kelp:run", false) }
         return state.found[wid]?.guess.map { ($0, true) }
@@ -209,12 +215,12 @@ extension ScriptsMenu {
     /// it's only a guess (then ⌘R lists the choices instead of running it).
     struct Offer: Equatable { var choice: String, label: String, command: String?, guess: Bool }
     func offer(_ wid: String) -> Offer? {
-        current(wid).map { c in
+        current(wid).map { pick in
             let command =
-                c.choice.hasPrefix("kelp:")
-                ? state.kelp[wid]?.first { "kelp:" + $0.name == c.choice }?.command
-                : state.found[wid]?.options.first { $0.id == c.choice }?.command
-            return Offer(choice: c.choice, label: label(c.choice, in: wid), command: command, guess: c.guess)
+                pick.choice.hasPrefix("kelp:")
+                ? state.kelp[wid]?.first { "kelp:" + $0.name == pick.choice }?.command
+                : state.found[wid]?.options.first { $0.id == pick.choice }?.command
+            return Offer(choice: pick.choice, label: label(pick.choice, in: wid), command: command, guess: pick.guess)
         }
     }
 
@@ -230,12 +236,14 @@ extension ScriptsMenu {
             if state.found[wid] == nil { await detect(wid) } else { Task { await self.detect(wid) } }
             await load(wid)
             if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
-            let m = menu(wid)
+            let runMenu = menu(wid)
             // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
-            if let a = button ?? anchor, a.window != nil {
-                m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a)
-            } else if let v = app.workbench.window?.window?.contentView {
-                m.popUp(positioning: nil, at: NSPoint(x: v.bounds.midX - 120, y: v.bounds.maxY - 40), in: v)
+            if let below = button ?? anchor, below.window != nil {
+                runMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: below.bounds.height + 4), in: below)
+            } else if let content = app.workbench.window?.window?.contentView {
+                runMenu.popUp(
+                    positioning: nil, at: NSPoint(x: content.bounds.midX - 120, y: content.bounds.maxY - 40),
+                    in: content)
             }
         }
     }
@@ -244,11 +252,14 @@ extension ScriptsMenu {
     /// the servers an agent or a terminal started, for the menu's first section.
     private func adopt(_ ports: [PortsList.Port], _ wid: String) {
         state.ports[wid] = ports
-        for p in ports {
-            guard let s = app.session(p.session), let c = choice(of: s), state.active[s.id]?.url == nil else {
+        for port in ports {
+            guard let session = app.session(port.session), let picked = choice(of: session),
+                state.active[session.id]?.url == nil
+            else {
                 continue
             }
-            state.active[s.id] = RunState.Run(workspace: wid, choice: c, url: "http://localhost:\(p.port)")
+            state.active[session.id] = RunState.Run(
+                workspace: wid, choice: picked, url: "http://localhost:\(port.port)")
         }
     }
 
@@ -256,96 +267,98 @@ extension ScriptsMenu {
     /// "npm · web"), each by what it does, a line each: its purpose's symbol, its name, the program in grey; more than three
     /// that say nothing of their purpose go under More, by file. A description and the whole command are the tip.
     private func menu(_ wid: String) -> NSMenu {
-        let m = NSMenu()
+        let runMenu = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
-        let elsewhere = (state.ports[wid] ?? []).filter { p in
-            ServedPages.listed(p) && app.session(p.session).map { choice(of: $0) == nil } ?? false
+        let elsewhere = (state.ports[wid] ?? []).filter { port in
+            ServedPages.listed(port) && app.session(port.session).map { choice(of: $0) == nil } ?? false
         }
         if !elsewhere.isEmpty {
-            m.addItem(.sectionHeader(title: String(localized: "Already Running")))
-            for p in elsewhere { server(p, in: m, wid) }
+            runMenu.addItem(.sectionHeader(title: String(localized: "Already Running")))
+            for port in elsewhere { server(port, in: runMenu, wid) }
         }
         let rows = rows(wid), rest = rows.filter { Self.purpose($0) == .other }
         let shown = rest.count > 3 ? rows.filter { Self.purpose($0) != .other } : rows
         let tools = shown.map(Self.source).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         let column = Self.column(shown.map(\.name) + [String(localized: "More")])   // the programs, after the longest name
         for tool in tools {
-            if m.numberOfItems > 0 { m.addItem(.separator()) }
+            if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
             let group = shown.filter { Self.source($0) == tool }.sorted {
                 Self.purpose($0).rawValue < Self.purpose($1).rawValue
             }
-            for r in group { item(r, in: m, wid, column: column) }
+            for row in group { item(row, in: runMenu, wid, column: column) }
         }
         if rest.count > 3 {
             let sub = NSMenu(), inSub = Self.column(rest.map(\.name))
             var file = ""
-            for r in rest {
-                let from = r.folder.isEmpty ? r.file : "\(r.folder) · \(r.file)"
+            for row in rest {
+                let from = row.folder.isEmpty ? row.file : "\(row.folder) · \(row.file)"
                 if from != file {
                     sub.addItem(.sectionHeader(title: from))
                     file = from
                 }
-                item(r, in: sub, wid, column: inSub)
+                item(row, in: sub, wid, column: inSub)
             }
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)", column: column)
             more.show(.symbol("ellipsis.circle"))
-            if m.numberOfItems > 0 { m.addItem(.separator()) }
-            m.addItem(more)
-            m.setSubmenu(sub, for: more)
+            if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
+            runMenu.addItem(more)
+            runMenu.setSubmenu(sub, for: more)
         }
         if rows.isEmpty {
-            m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled =
+            runMenu.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "")
+                .isEnabled =
                 false
         }
-        m.addItem(.separator())
+        runMenu.addItem(.separator())
         if let host = app.worktree(wid).flatMap({ RemoteHost.of($0.path)?.host }) {
-            m.add(String(localized: "Forward a Port from \(host)…"), symbol: "network") { [weak self] in
+            runMenu.add(String(localized: "Forward a Port from \(host)…"), symbol: "network") { [weak self] in
                 self?.forwardByHand(host, wid)
             }
         }
-        m.add(String(localized: "Edit Commands…"), symbol: "pencil") { [weak self] in self?.edit() }
-        return m
+        runMenu.add(String(localized: "Edit Commands…"), symbol: "pencil") { [weak self] in self?.edit() }
+        return runMenu
     }
 
     /// One command on one line: its purpose's symbol (grey; green while it runs), its name, where it comes from ("make",
     /// "npm · web") — and its port while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
-    private func item(_ r: Row, in m: NSMenu, _ wid: String, column: CGFloat) {
+    private func item(_ row: Row, in menu: NSMenu, _ wid: String, column: CGFloat) {
         // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
-        let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
+        let item = menu.add(row.name, key: row.current ? "r" : "") { [weak self] in
             guard let self else { return }
-            if let sid = r.session {
+            if let sid = row.session {
                 show(sid)
                 return
             }
             Task {
-                r.install
-                    ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id))
-                    : await self.start(choice: r.id, in: wid)
+                row.install
+                    ? await self.start(wid, row.id, RunStart(worktreeId: wid, id: row.id))
+                    : await self.start(choice: row.id, in: wid)
             }
         }
         defer {
-            if let sid = r.session {
-                let stop = m.add(String(localized: "Stop \(r.name)")) { [weak self] in
+            if let sid = row.session {
+                let stop = menu.add(String(localized: "Stop \(row.name)")) { [weak self] in
                     Task { await self?.app.call(SessionKill(id: sid)) }
                 }
                 stop.show(Self.tinted("stop.circle.fill", .systemRed))
-                stop.keyEquivalent = i.keyEquivalent   // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
-                stop.keyEquivalentModifierMask = i.keyEquivalent.isEmpty ? .option : [.command, .option]
+                // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
+                stop.keyEquivalent = item.keyEquivalent
+                stop.keyEquivalentModifierMask = item.keyEquivalent.isEmpty ? .option : [.command, .option]
                 stop.isAlternate = true
             }
         }
-        let (symbol, color) = Self.glyph(r)
-        i.show(Self.tinted(symbol, r.running ? color : .secondaryLabelColor))
-        i.state = r.current ? .on : .off
-        i.toolTip = [r.detail, r.command].compactMap { $0 }.joined(separator: "\n")
+        let (symbol, color) = Self.glyph(row)
+        item.show(Self.tinted(symbol, row.running ? color : .secondaryLabelColor))
+        item.state = row.current ? .on : .off
+        item.toolTip = [row.detail, row.command].compactMap { $0 }.joined(separator: "\n")
         // What it runs is the project's file's to say: seen before it's picked, not only on a hover.
-        if #available(macOS 14.4, *) { i.subtitle = String((r.detail ?? r.command).prefix(80)) }
-        let port = r.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
-        let hidden = r.session.map(isHidden) == true ? [String(localized: "hidden")] : []
-        let place = [Self.source(r)] + (r.running ? [port ?? String(localized: "Running")] : []) + hidden
-        let note = r.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
-        i.attributedTitle = Self.title(r.name, note: note, column: column, dim: r.missing != nil)
+        if #available(macOS 14.4, *) { item.subtitle = String((row.detail ?? row.command).prefix(80)) }
+        let port = row.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
+        let hidden = row.session.map(isHidden) == true ? [String(localized: "hidden")] : []
+        let place = [Self.source(row)] + (row.running ? [port ?? String(localized: "Running")] : []) + hidden
+        let note = row.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
+        item.attributedTitle = Self.title(row.name, note: note, column: column, dim: row.missing != nil)
     }
 
     /// A name, and in grey at `column` what tells it apart.
@@ -354,17 +367,17 @@ extension ScriptsMenu {
     ) -> NSAttributedString {
         let tab = NSMutableParagraphStyle()
         tab.tabStops = [NSTextTab(textAlignment: .left, location: column)]
-        let t = NSMutableAttributedString(
+        let text = NSMutableAttributedString(
             string: name,
             attributes: [
                 .font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
                 .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor
             ])
-        t.append(
+        text.append(
             NSAttributedString(
                 string: "\t" + note,
                 attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab, .foregroundColor: noteColor]))
-        return t
+        return text
     }
 
     /// The longest name's width and a gap: where the grey notes start.
@@ -379,38 +392,41 @@ extension ScriptsMenu {
     }
 
     /// By run.detect's kind, and by name for what kinds don't say (deploy, release, rollback; smoke and e2e tests).
-    static func purpose(_ r: Row) -> Purpose {
-        let n = r.name.lowercased()
-        if r.install || ["install", "setup", "bootstrap", "deps"].contains(where: n.hasPrefix) { return .install }
-        if ["deploy", "release", "publish", "ship", "rollback"].contains(where: n.hasPrefix) { return .deploy }
-        switch r.kind {
-        case "run": return r.file == "Dockerfile" ? .other : .run   // building an image to run it: not the everyday server
+    static func purpose(_ row: Row) -> Purpose {
+        let name = row.name.lowercased()
+        if row.install || ["install", "setup", "bootstrap", "deps"].contains(where: name.hasPrefix) { return .install }
+        if ["deploy", "release", "publish", "ship", "rollback"].contains(where: name.hasPrefix) { return .deploy }
+        switch row.kind {
+        // building an image to run it: not the everyday server
+        case "run": return row.file == "Dockerfile" ? .other : .run
         case "test": return .test
         case "build", "lint": return .build
-        default: return ["smoke", "e2e"].contains(where: n.hasPrefix) ? .test : .other
+        default: return ["smoke", "e2e"].contains(where: name.hasPrefix) ? .test : .other
         }
     }
 
     /// Its purpose's symbol and colour (green ▶ run, purple flask tests, orange hammer build, blue check lint, red plane
     /// deploy, teal install) — the colour for a run's tab; the Run menu shows it only on what runs. The rest in grey, by
     /// name. ▶ in a green circle: it runs now.
-    static func glyph(_ r: Row) -> (String, NSColor) {
-        let n = r.name.lowercased()
-        if r.running { return ("play.circle.fill", .systemGreen) }
-        switch purpose(r) {
+    static func glyph(_ row: Row) -> (String, NSColor) {
+        let name = row.name.lowercased()
+        if row.running { return ("play.circle.fill", .systemGreen) }
+        switch purpose(row) {
         case .install: return ("arrow.down.circle.fill", .systemTeal)
         case .run: return ("play.fill", .systemGreen)
         case .test: return ("flask.fill", .systemPurple)
-        case .build: return r.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
+        case .build: return row.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
         case .deploy:
-            return (n.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
+            return (name.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
         case .other:
-            if r.file.contains("compose") || r.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
+            if row.file.contains("compose") || row.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
             let named: [(words: [String], symbol: String)] = [
                 (["clean"], "trash"), (["migrate", "seed", "db", "backup"], "cylinder"),
                 (["log"], "text.alignleft"), (["doc"], "book")
             ]
-            return (named.first { $0.words.contains(where: n.hasPrefix) }?.symbol ?? "terminal", .secondaryLabelColor)
+            return (
+                named.first { $0.words.contains(where: name.hasPrefix) }?.symbol ?? "terminal", .secondaryLabelColor
+            )
         }
     }
 
@@ -421,40 +437,42 @@ extension ScriptsMenu {
         if let known = symbolCache.object(forKey: key) { return known }
         let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
         let look = NSImage.SymbolConfiguration.chrome().applying(.init(paletteColors: colors))
-        let i = NSImage.symbol(name, "").withSymbolConfiguration(look)
-        i?.isTemplate = false
-        if let i { symbolCache.setObject(i, forKey: key) }
-        return i
+        let image = NSImage.symbol(name, "").withSymbolConfiguration(look)
+        image?.isTemplate = false
+        if let image { symbolCache.setObject(image, forKey: key) }
+        return image
     }
 
     /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its folder.
-    static func source(_ r: Row) -> String {
-        let words = r.command.split(separator: " ").map(String.init)
-        var tool = r.id.hasPrefix("kelp:") ? r.file : words.first ?? ""
+    static func source(_ row: Row) -> String {
+        let words = row.command.split(separator: " ").map(String.init)
+        var tool = row.id.hasPrefix("kelp:") ? row.file : words.first ?? ""
         if tool == "docker", words.dropFirst().first == "compose" { tool = "compose" }
         if tool.hasPrefix(".venv/") { tool = "venv" }
         if tool.hasPrefix("./") { tool = String(tool.dropFirst(2)) }
-        return r.folder.isEmpty ? tool : "\(tool) · \((r.folder as NSString).lastPathComponent)"
+        return row.folder.isEmpty ? tool : "\(tool) · \((row.folder as NSString).lastPathComponent)"
     }
 
     /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's background
     /// task runs it; else the program), who started it and its port. A click opens its page; with ⌥, it stops.
-    private func server(_ p: PortsList.Port, in m: NSMenu, _ wid: String) {
-        let s = app.session(p.session)
-        let agent = s?.agent.flatMap { id in
+    private func server(_ port: PortsList.Port, in menu: NSMenu, _ wid: String) {
+        let session = app.session(port.session)
+        let agent = session?.agent.flatMap { id in
             ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id }
         }
-        let tasks = s?.background ?? []
-        let what = state.found[wid]?.options.first { o in tasks.contains { $0.contains(o.command) } }?.name ?? p.command
-        let page = ServedPage(p)
-        let open = m.add(what) { [weak self] in self?.open(page, in: wid) }
+        let tasks = session?.background ?? []
+        let what =
+            state.found[wid]?.options.first { option in tasks.contains { $0.contains(option.command) } }?.name
+            ?? port.command
+        let page = ServedPage(port)
+        let open = menu.add(what) { [weak self] in self?.open(page, in: wid) }
         open.show(agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
         open.toolTip = String(localized: "Open \(page.url)")
         if #available(macOS 14.4, *) {
             open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · \(page.place)"
         }
-        let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
-            Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
+        let stop = menu.add(String(localized: "Stop \(what)")) { [weak self] in
+            Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(port.pid))) }
         }
         stop.show(.symbol("stop.circle"))
         stop.isAlternate = true
@@ -494,20 +512,21 @@ extension ScriptsMenu {
                 id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other",
                 file: state.kelpFile[wid] ?? ".kelp.yaml")
         }
-        let found = (state.found[wid]?.options ?? []).map { o in
+        let found = (state.found[wid]?.options ?? []).map { option in
             Row(
-                id: o.id, name: o.kind == "install" ? String(localized: "Install") : o.name, command: o.command,
-                detail: o.detail,
-                missing: o.missing, kind: o.kind, file: o.source, folder: o.folder)
+                id: option.id, name: option.kind == "install" ? String(localized: "Install") : option.name,
+                command: option.command,
+                detail: option.detail,
+                missing: option.missing, kind: option.kind, file: option.source, folder: option.folder)
         }
-        return (kelp + found).map { r in
-            var r = r
-            r.url = live[r.id].flatMap { state.active[$0]?.url }
-            r.running = live[r.id] != nil
-            r.session = live[r.id]
-            r.current = r.id == mark
-            r.install = r.kind == "install"
-            return r
+        return (kelp + found).map { row in
+            var row = row
+            row.url = live[row.id].flatMap { state.active[$0]?.url }
+            row.running = live[row.id] != nil
+            row.session = live[row.id]
+            row.current = row.id == mark
+            row.install = row.kind == "install"
+            return row
         }
     }
 }

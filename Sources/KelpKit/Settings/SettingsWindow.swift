@@ -12,27 +12,28 @@ enum SettingsWindow {
     /// Workbench language as the window first opened, which is what this launch runs in unless it changed before that.
     private(set) static var language: String?
     static func show(_ app: AppModel, section: String? = nil, group: String? = nil) {
-        if let s = section { UserDefaults.standard.set(s, forKey: "settings.section") }
+        if let section { UserDefaults.standard.set(section, forKey: "settings.section") }
         UserDefaults.standard.set(group ?? "", forKey: "settings.group")
         let fresh = window == nil
         if fresh {
             language = app.settings.string("workbench.language")
-            let w = NSWindow(
+            let created = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
                 styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
                 backing: .buffered, defer: false)
-            w.title = String(localized: "Settings")
-            w.isReleasedWhenClosed = false
-            w.animationBehavior = .documentWindow   // the system's own open and close
-            w.toolbarStyle = .unified
-            w.standardWindowButton(.zoomButton)?.isEnabled = false   // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
+            created.title = String(localized: "Settings")
+            created.isReleasedWhenClosed = false
+            created.animationBehavior = .documentWindow   // the system's own open and close
+            created.toolbarStyle = .unified
+            // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
+            created.standardWindowButton(.zoomButton)?.isEnabled = false
             let host = NSHostingController(rootView: SettingsView().environment(app))
             host.sizingOptions = [.minSize]
-            w.contentViewController = host
-            w.setContentSize(NSSize(width: 860, height: 600))
-            w.setFrameAutosaveName("settings")
-            if w.frame.origin == .zero { w.center() }
-            window = w
+            created.contentViewController = host
+            created.setContentSize(NSSize(width: 860, height: 600))
+            created.setFrameAutosaveName("settings")
+            if created.frame.origin == .zero { created.center() }
+            window = created
         }
         window?.makeKeyAndOrderFront(nil)
         // AppKit hands a new window's first text field the focus: Font size opened with its value selected, so typing changed it.
@@ -49,14 +50,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             // Nothing is selected while search fills the pane; picking a section ends the search.
-            List(selection: Binding(get: { query.isEmpty ? current : nil }, set: { if let s = $0 { open(s) } })) {
+            List(
+                selection: Binding(
+                    get: { query.isEmpty ? current : nil }, set: { if let section = $0 { open(section) } })
+            ) {
                 Section {
-                    ForEach(sections) { s in
+                    ForEach(sections) { section in
                         Label {
-                            Text(loc(s.title))
+                            Text(loc(section.title))
                         } icon: {
-                            SettingsIcon(symbol: s.icon, id: s.id)
-                        }.tag(Optional(s.id))
+                            SettingsIcon(symbol: section.icon, id: section.id)
+                        }.tag(Optional(section.id))
                     }
                 }
                 Section {
@@ -75,8 +79,8 @@ struct SettingsView: View {
                     SearchResults(query: query, open: open)
                 } else if current == "extensions" {
                     ExtensionsSettings()
-                } else if let s = registry.all.settings.first(where: { $0.id == current }) {
-                    if s.fillsPane { s.custom?() } else { SectionForm(section: s) }
+                } else if let section = registry.all.settings.first(where: { $0.id == current }) {
+                    if section.fillsPane { section.custom?() } else { SectionForm(section: section) }
                 } else {
                     ContentUnavailableView("Pick a section", systemImage: "gearshape")
                 }
@@ -147,13 +151,13 @@ private struct SectionForm: View {
         ScrollViewReader { scroller in
             Form {
                 if section.id == "editor" { LanguagePicker(language: $language) }
-                ForEach(groups.indices, id: \.self) { i in
-                    let rows = groups[i].1.filter {
+                ForEach(groups.indices, id: \.self) { index in
+                    let rows = groups[index].1.filter {
                         (language.isEmpty || SettingRow.perLanguage.contains($0.key)) && store.meets($0.requires)
                     }
                     if rows.isEmpty {
                         EmptyView()
-                    } else if let title = groups[i].0 {
+                    } else if let title = groups[index].0 {
                         Section(loc(title)) {
                             SettingPreview(section: section.id, group: title)
                             ForEach(rows) { row($0) }
@@ -194,15 +198,15 @@ private struct SearchResults: View {
         let keys = KeyBindings.entries().contains { KeyBindings.matches($0, query) }
         Form {
             if found.isEmpty, !keys { Text("No settings match “\(query)”.").foregroundStyle(.secondary) }
-            ForEach(found) { f in
-                Section(f.title) {
-                    ForEach(f.specs) { spec in SettingRow(spec: spec) { open(f.section.id) } }
-                    ForEach(f.screens, id: \.self) { word in
+            ForEach(found) { result in
+                Section(result.title) {
+                    ForEach(result.specs) { spec in SettingRow(spec: spec) { open(result.section.id) } }
+                    ForEach(result.screens, id: \.self) { word in
                         // The word goes along: the Agent Catalog opens on the agent it names (it has no search of its own).
                         LabeledContent(word) {
                             Button("Open") {
                                 UserDefaults.standard.set(word, forKey: "settings.group")
-                                open(f.section.id)
+                                open(result.section.id)
                             }
                         }
                     }
@@ -256,13 +260,13 @@ struct SettingRow: View {
 
     @ViewBuilder private var label: some View {
         title
-        if let d = spec.description { Text(loc(d)) }
+        if let summary = spec.description { Text(loc(summary)) }
     }
 
     private var title: some View {
         HStack(spacing: Metrics.gap) {
             Text(loc(spec.title))
-            if let h = spec.help { HelpMark(text: loc(h)) }
+            if let help = spec.help { HelpMark(text: loc(help)) }
             if changed {
                 Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel(
                     "Changed")
@@ -280,8 +284,9 @@ struct SettingRow: View {
             let values: [Double] = (spec.options ?? []).compactMap { Double($0) }
             let shown: [Double] = values.contains(current) ? values : values + [current]
             Picker(selection: Binding<Double>(get: { current }, set: { put(number: $0) })) {
-                ForEach(shown, id: \.self) { v in
-                    Text(Self.label(spec.key, v == v.rounded() ? String(Int(v)) : String(v), app)).tag(v)
+                ForEach(shown, id: \.self) { option in
+                    Text(Self.label(spec.key, option == option.rounded() ? String(Int(option)) : String(option), app))
+                        .tag(option)
                 }
             } label: {
                 label
@@ -306,7 +311,7 @@ struct SettingRow: View {
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
-                if let d = spec.description { Text(loc(d)) }
+                if let summary = spec.description { Text(loc(summary)) }
             }
         case "enum" where SettingPictures.keys.contains(spec.key):
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
@@ -391,89 +396,90 @@ struct SettingRow: View {
     }
 
     /// Option values made readable (agent ids → names, theme ids → names).
-    static func label(_ key: String, _ v: String, _ app: AppModel) -> String {
+    static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
         switch key {
-        case "agents.default": return app.catalog.name(v)
+        case "agents.default": return app.catalog.name(value)
         case "workbench.theme":
-            return v == "auto"
+            return value == "auto"
                 ? String(localized: "Match System")
-                : v == "ghostty"
+                : value == "ghostty"
                     ? String(localized: "Ghostty config")
-                    : app.themes.themes.first { $0.id == v }?.name ?? v
-        case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == v }?.label ?? v
+                    : app.themes.themes.first { $0.id == value }?.name ?? value
+        case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == value }?.label ?? value
         case "agents.dockStrip.comesFor":
             return [
                 "questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
                 "all": String(localized: "Anything New")
-            ][v] ?? v
+            ][value] ?? value
         case "agents.dockStrip":
             return [
                 "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
                 "off": String(localized: "Never")
-            ][v] ?? v
+            ][value] ?? value
         case "agents.dockIcon":
             return [
                 "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
                 "icon": String(localized: "App Icon")
-            ][v] ?? v
-        case "terminal.opacity": return v == "theme" ? String(localized: "From Theme") : "\(v)%"
+            ][value] ?? value
+        case "terminal.opacity": return value == "theme" ? String(localized: "From Theme") : "\(value)%"
         case "artifacts.where":
             return [
                 "agent": String(localized: "Agent’s Own When It Has One"),
                 "local": String(localized: "Always on This Mac")
-            ][v] ?? v
+            ][value] ?? value
         case "agents.skills.browser":
             return [
                 "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
                 "off": String(localized: "Never")
-            ][v] ?? v
+            ][value] ?? value
         case "power.keepAwake":
             return [
                 "agents": String(localized: "While Agents Work"), "always": String(localized: "Always"),
                 "off": String(localized: "Never")
-            ][v] ?? v
+            ][value] ?? value
         // Each language in its own words, so it can be found whichever language Kelp is in.
-        case "workbench.language": return ["en": "English", "ru": "Русский"][v] ?? String(localized: "Match System")
-        case "workbench.sidebar.rowHeight" where v == "system": return String(localized: "Match System")
-        case "workbench.sidebar.agentDetail" where v == "needsYou": return String(localized: "When They Need You")
-        case "workbench.sidebar.agentIcons" where v == "others": return String(localized: "Other Agents Only")
+        case "workbench.language": return ["en": "English", "ru": "Русский"][value] ?? String(localized: "Match System")
+        case "workbench.sidebar.rowHeight" where value == "system": return String(localized: "Match System")
+        case "workbench.sidebar.agentDetail" where value == "needsYou": return String(localized: "When They Need You")
+        case "workbench.sidebar.agentIcons" where value == "others": return String(localized: "Other Agents Only")
         case "workbench.sidebar.projectColor":
-            return v == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
+            return value == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
         case "workbench.sidebar.serverLook":
             let said = [
                 "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
                 "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")
             ]
-            return said[v] ?? v
+            return said[value] ?? value
         case "workbench.ci.branchChip":
             let said = [
                 "icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"),
                 "off": String(localized: "Off")
             ]
-            return said[v] ?? v
+            return said[value] ?? value
         case "workbench.inspectorIconsPosition":
-            return v == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
-        case "usage.limits": return v == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
-        case "usage.alertAt": return v == "off" ? String(localized: "Off") : "\(v)%"
+            return value == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
+        case "usage.limits":
+            return value == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
+        case "usage.alertAt": return value == "off" ? String(localized: "Off") : "\(value)%"
         case "workbench.sidebar.order":
-            return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
+            return value == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "agents.onFinish", "agents.onWaiting", "agents.onError":
             return [
                 "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"),
                 "off": String(localized: "Off")
-            ][v] ?? v
-        case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) Seconds")
+            ][value] ?? value
+        case "agents.quietUnder": return value == "0" ? String(localized: "Off") : String(localized: "\(value) Seconds")
         case "sessions.hibernateMinutes":
-            let m = Int(v) ?? -1
-            return m == 0
+            let minutes = Int(value) ?? -1
+            return minutes == 0
                 ? String(localized: "Never")
-                : m == 60
+                : minutes == 60
                     ? String(localized: "After 1 Hour")
-                    : m > 0 && m % 60 == 0
-                        ? String(localized: "After \(m / 60) Hours") : String(localized: "After \(v) Minutes")
+                    : minutes > 0 && minutes % 60 == 0
+                        ? String(localized: "After \(minutes / 60) Hours") : String(localized: "After \(value) Minutes")
         case "agents.remindAfter":
-            return v == "off" ? String(localized: "Off") : String(localized: "After \(v) Minutes")
-        default: return loc(v.prefix(1).uppercased() + v.dropFirst())
+            return value == "off" ? String(localized: "Off") : String(localized: "After \(value) Minutes")
+        default: return loc(value.prefix(1).uppercased() + value.dropFirst())
         }
     }
 
@@ -545,7 +551,7 @@ private struct SettingTextField: View {
             .onAppear { draft = store.string(key, language: language) ?? "" }
             .onDisappear(perform: commit)   // the window closed while typing
             .onChange(of: editing) { _, now in if !now { commit() } }
-            .onChange(of: store.string(key, language: language)) { _, v in if !editing { draft = v ?? "" } }
+            .onChange(of: store.string(key, language: language)) { _, stored in if !editing { draft = stored ?? "" } }
     }
 
     private func commit() {
@@ -560,12 +566,13 @@ private struct SettingTextField: View {
 
 extension Color {
     init?(hex: String) {
-        guard let c = NSColor(hex: hex) else { return nil }
-        self.init(nsColor: c)
+        guard let color = NSColor(hex: hex) else { return nil }
+        self.init(nsColor: color)
     }
     var hex: String {
-        guard let c = NSColor(self).usingColorSpace(.sRGB) else { return "#000000" }
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return "#000000" }
         return String(
-            format: "#%02x%02x%02x", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+            format: "#%02x%02x%02x", Int(color.redComponent * 255), Int(color.greenComponent * 255),
+            Int(color.blueComponent * 255))
     }
 }
