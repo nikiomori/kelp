@@ -214,6 +214,17 @@ final class SidebarRowView: NSTableRowView {
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 }
 
+/// How a server's card says its projects run on another machine (Settings › Appearance › Servers): stripes under the
+/// whole card, sparser ones in an outline, stripes by the server's icon that fade before the text, or only a striped plate
+/// under the icon.
+enum ServerLook: String {
+    case stripes, sparse, fade, icon
+    static let key = "workbench.sidebar.serverLook"
+    @MainActor static func of(_ app: AppModel) -> ServerLook {
+        app.settings.string(key).flatMap(ServerLook.init) ?? .stripes
+    }
+}
+
 /// A project's card: one shape under all of its rows, so it grows and shrinks with them as the project opens or folds
 /// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
 @MainActor

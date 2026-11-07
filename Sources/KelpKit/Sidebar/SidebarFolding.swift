@@ -255,3 +255,31 @@ extension SidebarController {
         }
     }
 }
+
+/// The servers' headers in the list (`ServerCards.header`): a header folds its projects away as a project folds its rows.
+extension SidebarController {
+    func hostFolded(_ host: String) -> Bool { collapsed.contains("h:" + host) }
+
+    func foldHost(_ host: String) {
+        if hostFolded(host) { collapsed.remove("h:" + host) } else { collapsed.insert("h:" + host) }
+        refresh()
+    }
+
+    /// What a server's header asks of the list: its fold, and the plate under its icon (ServerLook.icon).
+    func serverRow(_ host: String) -> ServerRow {
+        ServerRow(
+            folded: { [weak self] in self?.hostFolded(host) == true },
+            fold: { [weak self] in self?.foldHost(host) },
+            plate: { [weak self] in
+                guard let app = self?.app, ServerLook.of(app) == .icon else { return nil }
+                return ProjectCard.stripes(over: .fillRest)
+            })
+    }
+
+    /// The headers follow the rows and their card's look; each its own server's readings too.
+    func updateHeaders() {
+        for row in 0..<outline.numberOfRows {
+            (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRow)?.update()
+        }
+    }
+}

@@ -309,6 +309,48 @@ package struct SidebarSection {
     }
 }
 
+/// The sidebar's server cards, from the built-in that knows SSH servers (Servers): the header over the projects on one
+/// host, its menu, and what a remote project's menu and hover card add. None, and a remote project is a row like any other.
+package struct ServerCards {
+    /// The header's row, brought up to date by the sidebar as its rows and its card's look change.
+    package let header: @MainActor (_ host: String, _ row: ServerRow) -> SidebarRow
+    /// The header's menu, over the card's look.
+    package let menu: @MainActor (_ menu: NSMenu, _ host: String) -> Void
+    /// A remote project's menu: its server's items.
+    package let projectItems: @MainActor (_ menu: NSMenu, _ host: String) -> Void
+    /// In a remote project's hover card, under its title; `close` puts the card away.
+    package let section: @MainActor (_ host: String, _ close: @escaping () -> Void) -> AnyView
+    /// The hosts the sidebar lists, each time it builds its rows.
+    package let listed: @MainActor (_ hosts: Set<String>) -> Void
+    package init(
+        header: @escaping @MainActor (String, ServerRow) -> SidebarRow,
+        menu: @escaping @MainActor (NSMenu, String) -> Void,
+        projectItems: @escaping @MainActor (NSMenu, String) -> Void,
+        section: @escaping @MainActor (String, @escaping () -> Void) -> AnyView,
+        listed: @escaping @MainActor (Set<String>) -> Void
+    ) {
+        self.header = header
+        self.menu = menu
+        self.projectItems = projectItems
+        self.section = section
+        self.listed = listed
+    }
+}
+
+/// What a server's header asks the sidebar: whether its projects are folded away, to fold or open them, and the striped
+/// plate under its icon when that is how its card is marked (Settings › Appearance › Servers; nil: none).
+package struct ServerRow {
+    package let folded: @MainActor () -> Bool
+    package let fold: @MainActor () -> Void
+    package let plate: @MainActor () -> NSColor?
+}
+
+/// A row a built-in makes for the sidebar (a server's header): `update` shows what it stands for now.
+@MainActor
+package protocol SidebarRow: NSView {
+    func update()
+}
+
 package struct Contributions {
     package init() {}
     package var panels: [PanelSpec] = []
@@ -332,6 +374,8 @@ package struct Contributions {
     package var pushed: [@MainActor (any Pushed) -> Void] = []
     /// What's said beside each agent where agents are chosen, by agent id (its plan's fullest limit): one built-in's.
     package var planNotes: (@MainActor () -> [String: PlanNote])?
+    /// The sidebar's server cards: one built-in's (the first that has them); none, and remote projects are plain rows.
+    package var servers: ServerCards?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -418,6 +462,7 @@ package final class ExtensionRegistry {
             merged.ci = merged.ci ?? c.ci
             merged.pushed += c.pushed
             merged.planNotes = merged.planNotes ?? c.planNotes
+            merged.servers = merged.servers ?? c.servers
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))

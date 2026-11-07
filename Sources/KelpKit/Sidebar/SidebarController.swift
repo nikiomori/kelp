@@ -67,8 +67,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var cards: [String: ProjectCard] = [:]
     var roots: [Node] = []
     private var shape: [String] = []
-    /// Hosts of the remote projects listed, watched for the mark on their icons (`WatchTopic.host`).
-    var watchedHosts: Set<String> = []
     /// Project id → the host it's on: a host's header and projects share one hatched card (`placeCards`).
     var projectHosts: [String: String] = [:]
     /// Room between one server's card and what's over it.
@@ -132,6 +130,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             app.extensions.all.sidebarSections.map(\.id)
         } changed: { [weak self] _ in
             self?.makeSections()
+        }
+        // Servers' headers and cards come and go with the built-in that makes them.
+        track(owner: self, now: false) { [app] in
+            app.extensions.all.servers != nil
+        } changed: { [weak self] _ in
+            self?.refresh()
         }
         let root = NSView()
         // Over the projects it adds to, where people look for it.
@@ -214,11 +218,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             app.rowBadges.stats
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
-        }
-        track(owner: self) { [app] in
-            app.latest(HostEvent.self).byKey
-        } changed: { [weak self] _ in
-            self?.updateHeaders()
         }
         track(owner: self) { [app] in
             app.rowBadges.prs
@@ -311,12 +310,15 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
         tree.pinnedLast = app.repos.first(where: NoProject.holds)?.id
         tree.parked = app.parkedIds
+        let servers = app.extensions.all.servers
         tree.hosts = Dictionary(
-            app.projects.compactMap { project in RemoteHost.of(project.path).map { (project.id, $0.host) } }
+            app.projects.compactMap { project in
+                servers == nil ? nil : RemoteHost.of(project.path).map { (project.id, $0.host) }
+            }
         ) { first, _ in
             first
         }
-        watchHosts(Set(tree.hosts.values))
+        servers?.listed(Set(tree.hosts.values))
         projectHosts = tree.hosts
         leavePage(unless: Set(tree.hosts.values))
         tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
@@ -566,8 +568,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard let node = item as? Node else { return nil }
         if case .parked = node.kind { return ParkedHeader(count: node.children.count) }
         if case .host(let host) = node.kind {
-            let header = ServerHeader(host: host, owner: self)
-            header.update()
+            let header = app.extensions.all.servers?.header(host, serverRow(host))
+            header?.update()
             return header
         }
         let cell = SidebarCell(node: node, owner: self)

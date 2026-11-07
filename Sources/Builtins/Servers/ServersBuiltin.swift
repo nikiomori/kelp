@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import KelpKit
+import SwiftUI
 
 extension Builtins {
 
@@ -12,6 +13,13 @@ extension Builtins {
     ) { app in
         var contributions = Contributions()
         contributions.tabs = [TabProvider(schemes: ["host"]) { ServerTab(uri: $0, app: app) }]
+        // The sidebar's server cards: the header over a host's projects, its menu, a remote project's items and hover card.
+        contributions.servers = ServerCards(
+            header: { ServerHeader(host: $0, app: app, row: $1) },
+            menu: { ServerHeaders.serverMenu($0, $1, app) },
+            projectItems: { ServerHeaders.serverItems($0, $1, app) },
+            section: { AnyView(ServerSection(app: app, host: $0, close: $1)) },
+            listed: { ServerHeaders.watchHosts($0, app) })
         return contributions
     }
 }

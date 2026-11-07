@@ -131,7 +131,7 @@ final class SidebarCell: NSTableCellView {
             action.toolTip = String(localized: "Close Chat")
             layout(row: [slot, title, muted, glyph, chip, family, trailing])
             addAsk()
-        case .host, .parked: break   // a ServerHeader, a ParkedHeader
+        case .host, .parked: break   // a server's header (ServerCards), a ParkedHeader
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.

@@ -4,8 +4,8 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings — and, until they move into built-ins of their own, a few features
-that still live in the shell (KelpKit): the server cards, the run menu and the agent strip. The
-review rubric (`docs/review-rubric.md`, Architecture 5) counts them.
+that still live in the shell (KelpKit): the run menu and the agent strip. The review rubric
+(`docs/review-rubric.md`, Architecture 5) counts them.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
@@ -81,6 +81,7 @@ review rubric (`docs/review-rubric.md`, Architecture 5) counts them.
 | ci (built-ins only) | a folder's CI mark beside its sidebar row, in ⌃Tab and on the branch chip: what it says, where a click goes, the chip menu's CI items (Git's) |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
 | planNotes (built-ins only) | the note beside each agent where agents are chosen ("92 % · 3:40pm"), in the "+" menu and the empty workspace |
+| servers (built-ins only) | the sidebar's server cards: the header over a host's projects, its menu, a remote project's menu items and hover card (Servers); none, and remote projects are plain rows |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
 or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so

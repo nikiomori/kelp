@@ -132,6 +132,9 @@ extension OneAtATime {
         let here = Repo(id: "r1", name: "infra", path: "/tmp/kelp-screen-infra"),
             there = Repo(id: "r2", name: "infra", path: folder.path)
         try withSidebar(repos: [here, there], worktrees: [], sessions: []) { vc, o in
+            #expect(rows(of: o).count == 2)   // with no built-in's server cards, a remote project is a row like any other
+            vc.app.extensions.reload()   // the server's header over the remote one is the Servers built-in's
+            vc.refresh()
             let names = rows(of: o).flatMap { $0 }
             // Both by their names; the remote one has its machine beside it, in grey, and this Mac's nothing.
             #expect(names.filter { $0 == "infra" }.count == 2 && names.filter { $0 == "beet" }.count == 1)

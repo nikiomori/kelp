@@ -130,7 +130,7 @@ extension SidebarController {
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
             menu.addItem(.separator())
-            if let host = RemoteHost.of(repo.path)?.host { serverItems(menu, host) }
+            if let host = RemoteHost.of(repo.path)?.host { app.extensions.all.servers?.projectItems(menu, host) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             muteItem(menu, node.muteIds)
@@ -172,7 +172,10 @@ extension SidebarController {
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
-        case .host(let host): serverMenu(menu, host)
+        case .host(let host):
+            app.extensions.all.servers?.menu(menu, host)
+            menu.addItem(.separator())
+            menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
         case .parked: break
         }
     }
@@ -197,7 +200,9 @@ extension SidebarController {
         menu.addChoiceMenu("workbench.sidebar.order", app, title: String(localized: "Project Order"))
         menu.addChoiceMenu("workbench.sidebar.rowHeight", app, title: String(localized: "Row Height"))
         menu.addChoiceMenu("workbench.sidebar.projectColor", app, title: String(localized: "Project Color"))
-        menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
+        if app.extensions.all.servers != nil {   // no servers' cards to mark without the built-in that makes them
+            menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
+        }
         menu.addChoiceMenu("workbench.sidebar.agentIcons", app, title: String(localized: "Agent Icons"))
         menu.addToggle("workbench.sidebar.gitBadges", app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())

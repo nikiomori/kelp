@@ -263,7 +263,9 @@ struct CardView: View {
                     Text(model.subtitle).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            if let host = model.server { ServerSection(app: model.app, host: host, close: model.closeCard) }
+            if let host = model.server, let servers = model.app.extensions.all.servers {
+                servers.section(host, model.closeCard)
+            }
             if let repo = model.repo { WorktreeSizes(items: model.worktrees, root: repo.path) }
             if let pr = model.pr { PRLine(pr: pr) }
             if let changes = model.changes, changes.totalAdded + changes.totalRemoved > 0 {

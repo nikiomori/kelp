@@ -109,8 +109,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // the CI marks are Git's. +13 so the plan limits are the Agents built-in's: each landed reading and the plan notes
     // (`pushed`, `planNotes`), a notification under the shell's rules and its Continue, and what the foot, the strip and
     // the warnings read of the shell (`PlanNote`, `LimitStop`, mutes, the warning level, the foot's menu, a hand-off).
-    #expect(declared <= 366, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 366, "fewer now (\(declared)): lower the ceiling")
+    // +7 for the sidebar's server cards (`ServerCards`, `ServerRow`, `SidebarRow`), so the servers' headers are Servers'.
+    #expect(declared <= 373, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 373, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

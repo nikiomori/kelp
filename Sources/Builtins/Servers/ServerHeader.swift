@@ -1,25 +1,17 @@
 import AppKit
 import Core
 import DesignKit
-
-/// How a server's card says its projects run on another machine (Settings › Appearance › Servers): stripes under the
-/// whole card, sparser ones in an outline, stripes by the server's icon that fade before the text, or only a striped plate
-/// under the icon.
-enum ServerLook: String {
-    case stripes, sparse, fade, icon
-    static let key = "workbench.sidebar.serverLook"
-    @MainActor static func of(_ app: AppModel) -> ServerLook {
-        app.settings.string(key).flatMap(ServerLook.init) ?? .stripes
-    }
-}
+import KelpKit
 
 /// The first row of a server's card, one line as tall as a project's: the machine, a word only when something's wrong,
 /// and at the right CPU, memory and disk, each a symbol and its percent (orange from 90), the rest in the tooltip. A click
 /// opens the server's tab; under the pointer its icon turns into the chevron that folds its projects away, as a project's.
 @MainActor
-final class ServerHeader: NSTableCellView {
+final class ServerHeader: NSTableCellView, SidebarRow {
     let host: String
-    private weak var owner: SidebarController?
+    private weak var app: AppModel?
+    /// The sidebar's side of it: the fold, and the plate its card's look puts under the icon.
+    private let row: ServerRow
     private let title = NSTextField(labelWithString: "")
     private let word = NSTextField(labelWithString: "")
     /// At the right: the meters, or why there are none.
@@ -28,16 +20,16 @@ final class ServerHeader: NSTableCellView {
     private let cpu = Meter("cpu", String(localized: "CPU")), ram = Meter("memorychip", String(localized: "Memory"))
     private let disk = Meter("internaldrive", String(localized: "Disk"))
     private let glyph = NSImageView(image: .symbol("server.rack"))
-    /// The striped plate under the icon, when that is all the card shows of being elsewhere (ServerLook.icon).
+    /// The striped plate under the icon, when that is all the card shows of being elsewhere (`ServerRow.plate`).
     private let plate = NSView()
     private lazy var fold = IconButton(.symbol("chevron.down"), tip: String(localized: "Collapse")) { [weak self] in
-        guard let self else { return }
-        self.owner?.foldHost(self.host)
+        self?.row.fold()
     }
 
-    init(host: String, owner: SidebarController) {
+    init(host: String, app: AppModel, row: ServerRow) {
         self.host = host
-        self.owner = owner
+        self.app = app
+        self.row = row
         super.init(frame: .zero)
         glyph.symbolConfiguration = .chrome()
         glyph.contentTintColor = .secondaryLabelColor
@@ -86,6 +78,12 @@ final class ServerHeader: NSTableCellView {
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
+        // The header follows every reading of its server; the sidebar's rows only what they show.
+        track(owner: self, now: false) { [weak app, host] in
+            app?.latest(HostEvent.self, host)
+        } changed: { [weak self] _ in
+            self?.update()
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -119,7 +117,7 @@ final class ServerHeader: NSTableCellView {
     }
 
     func update() {
-        guard let app = owner?.app else { return }
+        guard let app else { return }
         let stats = app.latest(HostEvent.self, host)?.stats
         title.stringValue = host
         let said = app.serverWord(host)
@@ -135,13 +133,13 @@ final class ServerHeader: NSTableCellView {
         ram.show(up ? HostStats.percent(stats?.memory, stats?.memoryTotal) : nil)
         disk.show(up ? HostStats.percent(stats?.disk, stats?.diskTotal) : nil)
         fitMeters()
-        let look = ServerLook.of(app)
-        plate.isHidden = look != .icon
-        if look == .icon {   // the appearance is current while the row updates
-            plate.layer?.backgroundColor = ProjectCard.stripes(over: .fillRest).cgColor
+        let striped = row.plate()
+        plate.isHidden = striped == nil
+        if let striped {   // the appearance is current while the row updates
+            plate.layer?.backgroundColor = striped.cgColor
             plate.layer?.borderColor = NSColor.separatorColor.cgColor
         }
-        let folded = owner?.hostFolded(host) == true
+        let folded = row.folded()
         fold.image = .symbol(
             folded ? "chevron.right" : "chevron.down",
             folded ? String(localized: "Expand") : String(localized: "Collapse"))
@@ -198,31 +196,22 @@ private final class Meter: NSStackView {
     }
 }
 
-/// The servers' headers in the list.
-extension SidebarController {
-    func hostFolded(_ host: String) -> Bool { collapsed.contains("h:" + host) }
-
-    func foldHost(_ host: String) {
-        if hostFolded(host) { collapsed.remove("h:" + host) } else { collapsed.insert("h:" + host) }
-        refresh()
-    }
+/// The servers' headers in the sidebar: what they watch and their menus.
+@MainActor
+enum ServerHeaders {
+    /// Hosts of the remote projects listed, watched for the mark on their icons (`WatchTopic.host`).
+    private final class Watched { var hosts: Set<String> = [] }
 
     /// Each listed server is watched while it's listed (every 10 s, never dialing).
-    func watchHosts(_ hosts: Set<String>) {
-        for host in hosts.subtracting(watchedHosts) { app.watch(.host, host) }
-        for host in watchedHosts.subtracting(hosts) { app.unwatch(.host, host) }
-        watchedHosts = hosts
+    static func watchHosts(_ hosts: Set<String>, _ app: AppModel) {
+        let watched = app.part { Watched() }
+        for host in hosts.subtracting(watched.hosts) { app.watch(.host, host) }
+        for host in watched.hosts.subtracting(hosts) { app.unwatch(.host, host) }
+        watched.hosts = hosts
     }
 
-    /// The headers follow every reading; the rows only what they show.
-    func updateHeaders() {
-        for row in 0..<outline.numberOfRows {
-            (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? ServerHeader)?.update()
-        }
-    }
-
-    func serverMenu(_ menu: NSMenu, _ host: String) {
-        let app = self.app
+    /// The header's; the sidebar adds how the card looks under it.
+    static func serverMenu(_ menu: NSMenu, _ host: String, _ app: AppModel) {
         menu.add(String(localized: "Open Server")) { app.openServer(host) }
         menu.addItem(.separator())
         menu.add(String(localized: "New Terminal on \(host)")) { app.runOnServer(host) }
@@ -237,13 +226,10 @@ extension SidebarController {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(host, forType: .string)
         }
-        menu.addItem(.separator())
-        menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
     }
 
     /// A remote project's: its server's tab and htop there.
-    func serverItems(_ menu: NSMenu, _ host: String) {
-        let app = self.app
+    static func serverItems(_ menu: NSMenu, _ host: String, _ app: AppModel) {
         menu.add(String(localized: "Open Server \(host)")) { app.openServer(host) }
         menu.add(String(localized: "Open htop on \(host)")) { app.openHtop(host) }
         menu.addItem(.separator())

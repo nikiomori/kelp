@@ -1,5 +1,6 @@
 import Core
 import DesignKit
+import KelpKit
 import SwiftUI
 
 /// In a remote project's hover card: its server, how the machine is doing now, and the way into the server's tab.
@@ -36,7 +37,7 @@ struct ServerSection: View {
 }
 
 /// "Ubuntu 24.04.5 LTS · 2 cores · up 3 d 10 h", or why there's nothing to say.
-package func serverLine(_ stats: HostStats?) -> String {
+func serverLine(_ stats: HostStats?) -> String {
     guard let stats else { return String(localized: "Reading…") }
     guard stats.connected else {
         return stats.error.map { String(localized: "Can't reach: \($0)") }
