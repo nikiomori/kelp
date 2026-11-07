@@ -44,18 +44,21 @@ public enum GitLab {
         guard let exe = glabPath else {
             throw GitHubError(args: ["glab"], status: -1, stderr: "glab CLI not found (brew install glab)")
         }
-        let f = fields.flatMap { ["--raw-field", "\($0.0)=\($0.1)"] }   // raw: a title is text, never read as a number or a file
-        do { return Data(try Git.run(["api", "-X", method, path] + f, cwd: cwd, executable: exe).utf8) } catch let e
+        // raw: a title is text, never read as a number or a file
+        let rawFields = fields.flatMap { ["--raw-field", "\($0.0)=\($0.1)"] }
+        do {
+            return Data(try Git.run(["api", "-X", method, path] + rawFields, cwd: cwd, executable: exe).utf8)
+        } catch let error
             as GitError
-        { throw GitHubError(args: e.args, status: e.status, stderr: e.stderr) }
+        { throw GitHubError(args: error.args, status: error.status, stderr: error.stderr) }
     }
 
     /// A value for a query string: everything but unreserved characters escaped, so "fix+x" or "a&b=c" stay one value
     /// (`.urlQueryAllowed` leaves + & = as they are, and "+" reads as a space).
-    static func queryValue(_ s: String) -> String {
-        s.addingPercentEncoding(
+    static func queryValue(_ value: String) -> String {
+        value.addingPercentEncoding(
             withAllowedCharacters: CharacterSet(
-                charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")) ?? s
+                charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")) ?? value
     }
 
     struct RawMR: Decodable {
@@ -65,18 +68,20 @@ public enum GitLab {
         var draft: Bool?, work_in_progress: Bool?, head_pipeline: Pipeline?
     }
 
-    static func pr(_ m: RawMR) -> GitHub.PullRequest {
+    static func pr(_ request: RawMR) -> GitHub.PullRequest {
         var checks = GitHub.PullRequest.Checks()
-        switch m.head_pipeline?.status {
+        switch request.head_pipeline?.status {
         case "success"?: checks.passed = 1
         case "failed"?: checks.failed = 1
         case "running"?, "pending"?, "created"?, "preparing"?, "waiting_for_resource"?: checks.pending = 1
         default: break
         }
-        let state = ["opened": "OPEN", "merged": "MERGED", "closed": "CLOSED"][m.state] ?? m.state.uppercased()
+        let state =
+            ["opened": "OPEN", "merged": "MERGED", "closed": "CLOSED"][request.state] ?? request.state.uppercased()
         return GitHub.PullRequest(
-            number: m.iid, title: m.title, url: m.web_url, author: m.author.username, headRefName: m.source_branch,
-            isDraft: m.draft ?? m.work_in_progress ?? false, state: state, reviewDecision: nil, checks: checks)
+            number: request.iid, title: request.title, url: request.web_url, author: request.author.username,
+            headRefName: request.source_branch, isDraft: request.draft ?? request.work_in_progress ?? false,
+            state: state, reviewDecision: nil, checks: checks)
     }
 
     public static func mergeRequests(cwd: String, mine: Bool) throws -> [GitHub.PullRequest] {
@@ -90,23 +95,25 @@ public enum GitLab {
 
     /// The newest MR from `branch`, with its pipeline's state.
     public static func mergeRequest(cwd: String, branch: String) throws -> GitHub.PullRequest? {
-        let b = queryValue(branch)
+        let source = queryValue(branch)
         guard
-            let m = try JSONDecoder().decode(
+            let request = try JSONDecoder().decode(
                 [RawMR].self,
                 from: api(
-                    "projects/:id/merge_requests?source_branch=\(b)&state=all&per_page=1&order_by=updated_at", cwd: cwd)
+                    "projects/:id/merge_requests?source_branch=\(source)&state=all&per_page=1&order_by=updated_at",
+                    cwd: cwd)
             )
             .first
         else { return nil }
         return pr(
-            (try? JSONDecoder().decode(RawMR.self, from: api("projects/:id/merge_requests/\(m.iid)", cwd: cwd))) ?? m)
+            (try? JSONDecoder().decode(RawMR.self, from: api("projects/:id/merge_requests/\(request.iid)", cwd: cwd)))
+                ?? request)
     }
 
     /// Opens a merge request from the branch checked out now (pushed already) into `base`; returns its page's URL.
     public static func createMR(cwd: String, title: String, body: String, base: String, draft: Bool) throws -> String {
         let branch = try Git.currentBranch(cwd)
-        let m = try JSONDecoder().decode(
+        let request = try JSONDecoder().decode(
             RawMR.self,
             from: api(
                 "projects/:id/merge_requests", cwd: cwd, method: "POST",
@@ -114,7 +121,7 @@ public enum GitLab {
                     ("source_branch", branch), ("target_branch", base), ("title", draft ? "Draft: " + title : title),
                     ("description", body)
                 ]))
-        return m.web_url
+        return request.web_url
     }
 
     /// Merges it now, squashed unless asked otherwise.
@@ -135,10 +142,10 @@ public enum GitLab {
     public static func avatarURL(email: String, cwd: String) throws -> URL? {
         struct Raw: Decodable { var avatar_url: String? }
         let raw = try JSONDecoder().decode(Raw.self, from: api("avatar?email=\(queryValue(email))&size=64", cwd: cwd))
-        guard let u = raw.avatar_url.flatMap(URL.init(string:)), u.host?.contains("gravatar") != true else {
+        guard let url = raw.avatar_url.flatMap(URL.init(string:)), url.host?.contains("gravatar") != true else {
             return nil
         }
-        return u
+        return url
     }
 
     public static func issues(cwd: String, mine: Bool) throws -> [GitHub.Issue] {

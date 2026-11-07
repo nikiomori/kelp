@@ -15,36 +15,36 @@ public enum HookTransport: Sendable, Equatable {
     /// The variable it's set through, if any.
     public var env: String? {
         switch self {
-        case .pluginDir(let e), .settingsFile(let e, _): e
+        case .pluginDir(let name), .settingsFile(let name, _): name
         case .settingsFlag, .herdr: nil
         }
     }
 
-    init?(from c: KeyedDecodingContainer<AgentManifest.CodingKeys>) throws {
-        if let f = try c.decodeIfPresent(String.self, forKey: .hooksSettingsFlag) {
-            self = .settingsFlag(f)
-        } else if let e = try c.decodeIfPresent(String.self, forKey: .hooksConfigDirEnv) {
-            self = .pluginDir(env: e)
-        } else if let e = try c.decodeIfPresent(String.self, forKey: .hooksSettingsEnv) {
+    init?(from container: KeyedDecodingContainer<AgentManifest.CodingKeys>) throws {
+        if let flag = try container.decodeIfPresent(String.self, forKey: .hooksSettingsFlag) {
+            self = .settingsFlag(flag)
+        } else if let name = try container.decodeIfPresent(String.self, forKey: .hooksConfigDirEnv) {
+            self = .pluginDir(env: name)
+        } else if let name = try container.decodeIfPresent(String.self, forKey: .hooksSettingsEnv) {
             self = .settingsFile(
-                env: e,
-                replaces: AgentManifest.presets.lazy.compactMap { p -> String? in
-                    if case .settingsFile(e, let r)? = p.hooks { return r }
+                env: name,
+                replaces: AgentManifest.presets.lazy.compactMap { preset -> String? in
+                    if case .settingsFile(name, let replaced)? = preset.hooks { return replaced }
                     return nil
                 }.first)
-        } else if try c.decodeIfPresent(Bool.self, forKey: .hooksHerdr) == true {
+        } else if try container.decodeIfPresent(Bool.self, forKey: .hooksHerdr) == true {
             self = .herdr
         } else {
             return nil
         }
     }
 
-    func encode(to c: inout KeyedEncodingContainer<AgentManifest.CodingKeys>) throws {
+    func encode(to container: inout KeyedEncodingContainer<AgentManifest.CodingKeys>) throws {
         switch self {
-        case .settingsFlag(let f): try c.encode(f, forKey: .hooksSettingsFlag)
-        case .pluginDir(let e): try c.encode(e, forKey: .hooksConfigDirEnv)
-        case .settingsFile(let e, _): try c.encode(e, forKey: .hooksSettingsEnv)
-        case .herdr: try c.encode(true, forKey: .hooksHerdr)
+        case .settingsFlag(let flag): try container.encode(flag, forKey: .hooksSettingsFlag)
+        case .pluginDir(let name): try container.encode(name, forKey: .hooksConfigDirEnv)
+        case .settingsFile(let name, _): try container.encode(name, forKey: .hooksSettingsEnv)
+        case .herdr: try container.encode(true, forKey: .hooksHerdr)
         }
     }
 }

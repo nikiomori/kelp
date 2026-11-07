@@ -14,13 +14,15 @@ public struct TerminalModes: Sendable {
 
     public init() {}
 
-    public mutating func read(_ d: Data) {
-        guard let re = Self.set, let s = String(data: d, encoding: .isoLatin1) else { return }
-        for m in re.matches(in: s, range: NSRange(s.startIndex..., in: s)) {
-            guard let r = Range(m.range(at: 1), in: s), let hl = Range(m.range(at: 2), in: s) else { continue }
-            for mode in s[r].split(separator: ";").compactMap({ Int($0) }) where Self.kept.contains(mode) {
+    public mutating func read(_ data: Data) {
+        guard let re = Self.set, let text = String(data: data, encoding: .isoLatin1) else { return }
+        for match in re.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let modes = Range(match.range(at: 1), in: text), let hl = Range(match.range(at: 2), in: text) else {
+                continue
+            }
+            for mode in text[modes].split(separator: ";").compactMap({ Int($0) }) where Self.kept.contains(mode) {
                 last.removeAll { $0.mode == mode }
-                last.append((mode, s[hl] == "h"))
+                last.append((mode, text[hl] == "h"))
             }
         }
     }

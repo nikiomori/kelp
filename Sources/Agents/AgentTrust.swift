@@ -11,8 +11,8 @@ public enum AgentTrust {
         agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
     ) -> Bool {
         let trusted = trustedFolders(agent: agent, env: env, home: home).map(normal)
-        return folders.map(normal).contains { f in
-            trusted.contains { t in f == t || f.hasPrefix(t == "/" ? "/" : t + "/") }
+        return folders.map(normal).contains { folder in
+            trusted.contains { t in folder == t || folder.hasPrefix(t == "/" ? "/" : t + "/") }
         }
     }
 
@@ -44,8 +44,8 @@ public enum AgentTrust {
                 section =
                     line.hasPrefix("[projects.\"") && line.hasSuffix("\"]")
                     ? String(line.dropFirst(11).dropLast(2)) : nil
-            } else if let s = section, line.replacingOccurrences(of: " ", with: "") == "trust_level=\"trusted\"" {
-                out.append(s)
+            } else if let project = section, line.replacingOccurrences(of: " ", with: "") == "trust_level=\"trusted\"" {
+                out.append(project)
             }
         }
         return out
@@ -53,8 +53,8 @@ public enum AgentTrust {
 
     /// `{"<path>": "TRUST_FOLDER" | "TRUST_PARENT" | "DO_NOT_TRUST"}`; a trusted parent covers the folders in it.
     static func gemini(_ file: String) -> [String] {
-        guard let o = json(file) as? [String: String] else { return [] }
-        return o.compactMap { path, level in
+        guard let levels = json(file) as? [String: String] else { return [] }
+        return levels.compactMap { path, level in
             level == "TRUST_FOLDER"
                 ? path : level == "TRUST_PARENT" ? (path as NSString).deletingLastPathComponent : nil
         }
@@ -75,8 +75,8 @@ public enum AgentTrust {
     }
 
     /// Symlinks resolved where the folder exists (/tmp is /private/tmp), no trailing slash.
-    public static func normal(_ p: String) -> String {
-        let real = Paths.real(p) ?? p
+    public static func normal(_ folder: String) -> String {
+        let real = Paths.real(folder) ?? folder
         return real.count > 1 && real.hasSuffix("/") ? String(real.dropLast()) : real
     }
 }

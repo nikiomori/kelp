@@ -17,27 +17,27 @@ public enum ClaudeLimits {
         options: .caseInsensitive)
 
     public static func parse(_ text: String) -> [Reading] {
-        let r = NSRange(text.startIndex..., in: text)
-        func group(_ m: NSTextCheckingResult, _ i: Int) -> String? {
-            Range(m.range(at: i), in: text).map { String(text[$0]).trimmingCharacters(in: .whitespaces) }
+        let range = NSRange(text.startIndex..., in: text)
+        func group(_ match: NSTextCheckingResult, _ index: Int) -> String? {
+            Range(match.range(at: index), in: text).map { String(text[$0]).trimmingCharacters(in: .whitespaces) }
         }
-        var out = (used?.matches(in: text, range: r) ?? []).compactMap { m -> Reading? in
-            guard let p = group(m, 1).flatMap(Double.init), let kind = group(m, 2) else { return nil }
-            return Reading(kind: kind, percent: bounded(p), resets: group(m, 3))
+        var out = (used?.matches(in: text, range: range) ?? []).compactMap { match -> Reading? in
+            guard let percent = group(match, 1).flatMap(Double.init), let kind = group(match, 2) else { return nil }
+            return Reading(kind: kind, percent: bounded(percent), resets: group(match, 3))
         }
-        out += (reached?.matches(in: text, range: r) ?? []).compactMap { m in
-            group(m, 1).map {
+        out += (reached?.matches(in: text, range: range) ?? []).compactMap { match in
+            group(match, 1).map {
                 Reading(
                     kind: $0.replacingOccurrences(of: "Claude AI usage", with: "usage"), percent: 100,
-                    resets: group(m, 2))
+                    resets: group(match, 2))
             }
         }
         // "You've hit your 5-hour limit · resets 3:40pm", "You've hit your limit".
         out += text.matches(of: /hit your ([A-Za-z0-9\- ]{0,30}?) ?limit(?:\s*[·∙•|-]\s*resets ([^\n(·]{2,40}))?/).map {
-            m in
+            match in
             Reading(
-                kind: m.1.isEmpty ? "usage" : String(m.1), percent: 100,
-                resets: m.2.map { $0.trimmingCharacters(in: .whitespaces) })
+                kind: match.1.isEmpty ? "usage" : String(match.1), percent: 100,
+                resets: match.2.map { $0.trimmingCharacters(in: .whitespaces) })
         }
         return out
     }
@@ -47,30 +47,30 @@ public enum ClaudeLimits {
     public static func parseUsage(_ text: String) -> [Reading] {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             guard
-                let m = line.trimmingCharacters(in: .whitespaces)
+                let match = line.trimmingCharacters(in: .whitespaces)
                     .wholeMatch(
                         of: /Current (.+?): (\d{1,3}(?:\.\d+)?)% used(?: · resets (.+?))?(?: \(.*\))?/.ignoresCase()),
-                let percent = Double(m.2)
+                let percent = Double(match.2)
             else { return nil }
-            let label = String(m.1)
+            let label = String(match.1)
             let kind =
                 label == "session"
                 ? "session"
                 : label.hasPrefix("week (all")
                     ? "week"
                     : label.hasPrefix("week (") ? "week · " + label.dropFirst(6).dropLast() : label
-            return Reading(kind: kind, percent: bounded(percent), resets: m.3.map(String.init))
+            return Reading(kind: kind, percent: bounded(percent), resets: match.3.map(String.init))
         }
     }
 
     /// Grok Build's `/usage` dialog: "Weekly limit (X Premium)", a bar with "45%", "Resets: October 24, 19:36".
     public static func parseGrokUsage(_ text: String) -> [Reading] {
         let lines = cells(text)
-        guard let i = lines.lastIndex(where: { $0.hasPrefix("Weekly limit") }) else { return [] }
+        guard let title = lines.lastIndex(where: { $0.hasPrefix("Weekly limit") }) else { return [] }
         var percent: Double?, resets: String?
-        for next in lines[(i + 1)..<min(i + 4, lines.count)] {
-            if percent == nil, let r = next.range(of: #"\d{1,3}(?:\.\d+)?%"#, options: .regularExpression) {
-                percent = Double(next[r].dropLast()).map(bounded)
+        for next in lines[(title + 1)..<min(title + 4, lines.count)] {
+            if percent == nil, let range = next.range(of: #"\d{1,3}(?:\.\d+)?%"#, options: .regularExpression) {
+                percent = Double(next[range].dropLast()).map(bounded)
             }
             if next.hasPrefix("Resets:") {
                 resets = next.dropFirst("Resets:".count).trimmingCharacters(in: .whitespaces)
@@ -83,19 +83,19 @@ public enum ClaudeLimits {
     /// "Gemini Models  Weekly Limit Remaining  9%  2026-10-30T21:42:00Z". A limit *remaining*, returned as used like the
     /// others ("Gemini week" 91 = 9% left), and the reset as Claude writes one ("Oct 30 at 9:42pm", local time).
     public static func parseAntigravityUsage(_ text: String, timeZone: TimeZone = .current) -> [Reading] {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = timeZone
-        f.dateFormat = "MMM d 'at' h:mma"
-        f.amSymbol = "am"
-        f.pmSymbol = "pm"
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "MMM d 'at' h:mma"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
         return text.split(whereSeparator: \.isNewline).compactMap { line in
             let cell = line.split(separator: "\t").map { $0.trimmingCharacters(in: .whitespaces) }
             guard cell.count >= 3, cell[1].localizedCaseInsensitiveContains("remaining"), cell[2].hasSuffix("%"),
                 let left = Double(cell[2].dropLast())
             else { return nil }
             let group = cell[0].split(separator: " ").first.map { $0.capitalized } ?? "Models"
-            let resets = cell.count > 3 ? ISO8601DateFormatter().date(from: cell[3]).map(f.string) : nil
+            let resets = cell.count > 3 ? ISO8601DateFormatter().date(from: cell[3]).map(formatter.string) : nil
             return Reading(kind: "\(group) week", percent: bounded(100 - left), resets: resets)
         }
     }
@@ -119,8 +119,8 @@ public enum ClaudeLimits {
                     "week"
                 } else if label.hasPrefix("monthly") { "month" } else if label.isEmpty { "plan" } else { label }
             var resets: String?
-            if let r = line.range(of: #"(?i)resets in .+$"#, options: .regularExpression) {
-                resets = String(line[r].dropFirst("resets ".count))
+            if let range = line.range(of: #"(?i)resets in .+$"#, options: .regularExpression) {
+                resets = String(line[range].dropFirst("resets ".count))
             } else if line.range(of: #"(?i)\breset\b"#, options: .regularExpression) != nil {
                 resets = "now"
             }
@@ -163,12 +163,12 @@ public enum ClaudeLimits {
         let resets = lines[head].firstMatch(of: /Resets\s+(.+?)\s*$/).map { String($0.1) }
         var found: [String: Reading] = [:], order: [String] = []
         for line in lines[(head + 1)...] {
-            guard let m = line.firstMatch(of: /^([A-Za-z][A-Za-z ]{0,20}?)\s+(\d{1,3}(?:\.\d+)?)% used/),
-                let p = Double(m.2)
+            guard let match = line.firstMatch(of: /^([A-Za-z][A-Za-z ]{0,20}?)\s+(\d{1,3}(?:\.\d+)?)% used/),
+                let percent = Double(match.2)
             else { continue }
-            let kind = m.1 == "Included" ? "month" : String(m.1)
+            let kind = match.1 == "Included" ? "month" : String(match.1)
             if found[kind] == nil { order.append(kind) }
-            found[kind] = Reading(kind: kind, percent: bounded(p), resets: resets)
+            found[kind] = Reading(kind: kind, percent: bounded(percent), resets: resets)
         }
         return order.compactMap { found[$0] }
     }
@@ -180,8 +180,8 @@ public enum ClaudeLimits {
         guard text.contains("hit your usage limit") || text.contains("hit your free requests limit") else { return nil }
         let date = text.firstMatch(of: /cycle\s+ends\s+on\s+(\d{1,2})\/(\d{1,2})\/\d{4}/)
         let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let resets = date.flatMap { m in
-            Int(m.1).flatMap { (1...12).contains($0) ? "\(months[$0 - 1]) \(Int(m.2) ?? 0)" : nil }
+        let resets = date.flatMap { match in
+            Int(match.1).flatMap { (1...12).contains($0) ? "\(months[$0 - 1]) \(Int(match.2) ?? 0)" : nil }
         }
         return Reading(kind: "month", percent: 100, resets: resets)
     }

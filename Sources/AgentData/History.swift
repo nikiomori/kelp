@@ -43,9 +43,9 @@ public enum ClaudeHistory {
 
     private static func isScripted(_ url: URL) -> Bool {
         let head =
-            (try? FileHandle(forReadingFrom: url)).flatMap { h in
-                defer { try? h.close() }
-                return try? h.read(upToCount: 8192)
+            (try? FileHandle(forReadingFrom: url)).flatMap { handle in
+                defer { try? handle.close() }
+                return try? handle.read(upToCount: 8192)
             } ?? Data()
         return String(bytes: head, encoding: .utf8)?.contains(#""entrypoint":"sdk-"#) == true
     }
@@ -56,22 +56,22 @@ public enum ClaudeHistory {
             lastPrompt: String?
         var span = JSONL.Span(), count = 0
         for line in lines {
-            guard let o = JSONL.object(line) else { continue }
-            id = id ?? o["sessionId"] as? String
-            cwd = cwd ?? o["cwd"] as? String
-            span.add(JSONL.date(o["timestamp"]))
-            switch o["type"] as? String {
-            case "summary": summary = o["summary"] as? String ?? summary
-            case "custom-title": custom = o["customTitle"] as? String ?? custom
-            case "ai-title": aiTitle = o["aiTitle"] as? String ?? aiTitle
-            case "last-prompt": lastPrompt = o["lastPrompt"] as? String ?? lastPrompt
+            guard let object = JSONL.object(line) else { continue }
+            id = id ?? object["sessionId"] as? String
+            cwd = cwd ?? object["cwd"] as? String
+            span.add(JSONL.date(object["timestamp"]))
+            switch object["type"] as? String {
+            case "summary": summary = object["summary"] as? String ?? summary
+            case "custom-title": custom = object["customTitle"] as? String ?? custom
+            case "ai-title": aiTitle = object["aiTitle"] as? String ?? aiTitle
+            case "last-prompt": lastPrompt = object["lastPrompt"] as? String ?? lastPrompt
             case "assistant": count += 1
             case "user":
                 count += 1
-                if prompt == nil, o["isMeta"] as? Bool != true, o["isSidechain"] as? Bool != true,
-                    let m = o["message"] as? [String: Any]
+                if prompt == nil, object["isMeta"] as? Bool != true, object["isSidechain"] as? Bool != true,
+                    let message = object["message"] as? [String: Any]
                 {
-                    prompt = JSONL.promptText(m["content"])
+                    prompt = JSONL.promptText(message["content"])
                 }
             default: break
             }
@@ -101,9 +101,10 @@ public enum CodexHistory {
     /// What the conversation in `rollout` ended its last turn with; nil before one ended, or if it ended with nothing to say.
     public static func lastReply(rollout url: URL) -> String? {
         for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
-            guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete"
+            guard let payload = JSONL.object(line)?["payload"] as? [String: Any],
+                payload["type"] as? String == "task_complete"
             else { continue }
-            let text = (p["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = (payload["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             return text?.isEmpty == false ? text : nil
         }
         return nil
@@ -141,20 +142,20 @@ public enum CodexHistory {
         var id: String?, cwd: String?, prompt: String?, fallbackPrompt: String?
         var span = JSONL.Span(), count = 0
         for line in lines {
-            guard let o = JSONL.object(line), let p = o["payload"] as? [String: Any] else { continue }
-            span.add(JSONL.date(o["timestamp"]))
-            switch (o["type"] as? String, p["type"] as? String) {
+            guard let object = JSONL.object(line), let payload = object["payload"] as? [String: Any] else { continue }
+            span.add(JSONL.date(object["timestamp"]))
+            switch (object["type"] as? String, payload["type"] as? String) {
             case ("session_meta", _):
-                id = id ?? p["id"] as? String
-                cwd = cwd ?? p["cwd"] as? String
-                span.add(JSONL.date(p["timestamp"]))
-            case ("turn_context", _): cwd = cwd ?? p["cwd"] as? String
-            case ("event_msg", "user_message"): prompt = prompt ?? JSONL.promptText(p["message"])
+                id = id ?? payload["id"] as? String
+                cwd = cwd ?? payload["cwd"] as? String
+                span.add(JSONL.date(payload["timestamp"]))
+            case ("turn_context", _): cwd = cwd ?? payload["cwd"] as? String
+            case ("event_msg", "user_message"): prompt = prompt ?? JSONL.promptText(payload["message"])
             case ("response_item", "message"):
-                let role = p["role"] as? String
+                let role = payload["role"] as? String
                 guard role == "user" || role == "assistant" else { break }
                 count += 1
-                if role == "user", fallbackPrompt == nil { fallbackPrompt = JSONL.promptText(p["content"]) }
+                if role == "user", fallbackPrompt == nil { fallbackPrompt = JSONL.promptText(payload["content"]) }
             default: break
             }
         }
@@ -170,10 +171,10 @@ public enum CodexHistory {
 public enum History {
     /// Title / cwd substring match; an empty query returns everything.
     public static func search(_ sessions: [AgentSessionInfo], query: String) -> [AgentSessionInfo] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return sessions }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return sessions }
         return sessions.filter {
-            $0.title.localizedCaseInsensitiveContains(q) || $0.cwd.localizedCaseInsensitiveContains(q)
+            $0.title.localizedCaseInsensitiveContains(trimmed) || $0.cwd.localizedCaseInsensitiveContains(trimmed)
         }
     }
 
@@ -185,19 +186,19 @@ public enum History {
         let needles = Set([query, query.lowercased()]).filter { !$0.isEmpty }.map { Data($0.utf8) }
         guard !needles.isEmpty else { return [] }
         var out: [AgentSessionInfo] = []
-        for s in sessions where out.count < limit {
-            guard let h = try? FileHandle(forReadingFrom: s.path) else { continue }
-            let data = (try? h.read(upToCount: 2 << 20)) ?? nil
-            try? h.close()
-            if let data, needles.contains(where: { data.range(of: $0) != nil }) { out.append(s) }
+        for session in sessions where out.count < limit {
+            guard let handle = try? FileHandle(forReadingFrom: session.path) else { continue }
+            let data = (try? handle.read(upToCount: 2 << 20)) ?? nil
+            try? handle.close()
+            if let data, needles.contains(where: { data.range(of: $0) != nil }) { out.append(session) }
         }
         return out
     }
 
-    public static func resumeCommand(for s: AgentSessionInfo) -> [String] {
-        switch s.agent {
-        case .claude: ["claude", "--resume", s.id]
-        case .codex: ["codex", "resume", s.id]
+    public static func resumeCommand(for session: AgentSessionInfo) -> [String] {
+        switch session.agent {
+        case .claude: ["claude", "--resume", session.id]
+        case .codex: ["codex", "resume", session.id]
         }
     }
 }
@@ -208,17 +209,17 @@ enum JSONL {
 
     /// Complete lines from the first and last `chunk` bytes (or the whole file if small) and the fraction of bytes read.
     static func headAndTail(_ url: URL) -> (lines: [Data], covered: Double)? {
-        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? h.close() }
-        guard let size = try? h.seekToEnd(), size > 0, (try? h.seek(toOffset: 0)) != nil else { return nil }
-        if size <= UInt64(chunk * 2) { return (lines((try? h.readToEnd()) ?? Data()), 1) }
-        let head = (try? h.read(upToCount: chunk)) ?? Data()
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let size = try? handle.seekToEnd(), size > 0, (try? handle.seek(toOffset: 0)) != nil else { return nil }
+        if size <= UInt64(chunk * 2) { return (lines((try? handle.readToEnd()) ?? Data()), 1) }
+        let head = (try? handle.read(upToCount: chunk)) ?? Data()
         // The last lines can be huge (a tool result, an image): read further back until a few whole lines are in.
         let limit = min(size - UInt64(chunk), 16 << 20)
         var back = UInt64(chunk), tail = Data()
         while true {
-            guard (try? h.seek(toOffset: size - back)) != nil else { return nil }
-            tail = (try? h.readToEnd()) ?? Data()
+            guard (try? handle.seek(toOffset: size - back)) != nil else { return nil }
+            tail = (try? handle.readToEnd()) ?? Data()
             if lines(tail).count > 4 || back >= limit { break }
             back = min(back * 4, limit)
         }
@@ -226,69 +227,71 @@ enum JSONL {
         return (headLines + lines(tail).dropFirst(), Double(UInt64(chunk) + back) / Double(size))
     }
 
-    /// Non-empty lines as slices of `d`. memchr, because `Data.split` is ~10x slower on gigabytes of transcripts.
-    static func lines(_ d: Data) -> [Data] {
-        d.withUnsafeBytes { buf in
+    /// Non-empty lines as slices of `data`. memchr, because `Data.split` is ~10x slower on gigabytes of transcripts.
+    static func lines(_ data: Data) -> [Data] {
+        data.withUnsafeBytes { buf in
             guard let base = buf.baseAddress else { return [] }
             var out: [Data] = [], start = 0
             while start < buf.count {
                 let end = memchr(base + start, 10, buf.count - start).map { base.distance(to: $0) } ?? buf.count
-                if end > start { out.append(d[d.startIndex + start..<d.startIndex + end]) }
+                if end > start { out.append(data[data.startIndex + start..<data.startIndex + end]) }
                 start = end + 1
             }
             return out
         }
     }
 
-    static func object(_ d: Data) -> [String: Any]? { try? JSONSerialization.jsonObject(with: d) as? [String: Any] }
+    static func object(_ data: Data) -> [String: Any]? {
+        try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
 
     /// A number field as an Int, 0 when it's missing.
-    static func int(_ o: [String: Any], _ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
+    static func int(_ object: [String: Any], _ key: String) -> Int { (object[key] as? NSNumber)?.intValue ?? 0 }
 
     /// ISO-8601 string (with or without fractional seconds) or epoch seconds.
-    static func date(_ v: Any?) -> Date? {
-        if let n = v as? NSNumber { return Date(timeIntervalSince1970: n.doubleValue) }
-        guard let s = v as? String else { return nil }
-        return (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(s))
-            ?? (try? Date.ISO8601FormatStyle().parse(s))
+    static func date(_ value: Any?) -> Date? {
+        if let seconds = value as? NSNumber { return Date(timeIntervalSince1970: seconds.doubleValue) }
+        guard let string = value as? String else { return nil }
+        return (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string))
+            ?? (try? Date.ISO8601FormatStyle().parse(string))
     }
 
     /// Text a human typed: a string or the text blocks of a content array, minus injected `<tag>` and AGENTS.md blocks.
     /// A slash command with arguments counts as "/name args".
     static func promptText(_ content: Any?) -> String? {
         let texts: [String] =
-            if let s = content as? String { [s] } else {
+            if let string = content as? String { [string] } else {
                 (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
             }
-        return texts.lazy.compactMap { t -> String? in
-            let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
-            if s.hasPrefix("<command-"), let name = s.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-                let args = s.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
+        return texts.lazy.compactMap { raw -> String? in
+            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
+                let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
                 !args.allSatisfy(\.isWhitespace)
             {
                 return "\(name) \(args)"
             }
-            return s.isEmpty || s.hasPrefix("<") || s.hasPrefix("# AGENTS.md") ? nil : s
+            return text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md") ? nil : text
         }.first
     }
 
-    static func clip(_ s: String, _ n: Int = 80) -> String {
-        let t = s.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        return t.count > n ? String(t.prefix(n - 1)) + "…" : t
+    static func clip(_ text: String, _ length: Int = 80) -> String {
+        let oneLine = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        return oneLine.count > length ? String(oneLine.prefix(length - 1)) + "…" : oneLine
     }
 
     struct Span {
         var first: Date?, last: Date?
-        mutating func add(_ d: Date?) {
-            guard let d else { return }
-            first = min(first ?? d, d)
-            last = max(last ?? d, d)
+        mutating func add(_ date: Date?) {
+            guard let date else { return }
+            first = min(first ?? date, date)
+            last = max(last ?? date, date)
         }
         func orFileDate(_ url: URL) -> (Date, Date) {
-            let m =
+            let modified =
                 (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
                 ?? Date(timeIntervalSince1970: 0)
-            return (first ?? m, last ?? m)
+            return (first ?? modified, last ?? modified)
         }
     }
 }

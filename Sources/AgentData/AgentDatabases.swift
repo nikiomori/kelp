@@ -33,8 +33,8 @@ public enum AgentDatabases {
             default: []
             }
         func changed(_ path: String) -> TimeInterval {
-            var s = stat()
-            return stat(path, &s) == 0 ? TimeInterval(s.st_mtimespec.tv_sec) : 0
+            var info = stat()
+            return stat(path, &info) == 0 ? TimeInterval(info.st_mtimespec.tv_sec) : 0
         }
         return all.filter { max(changed($0.path), changed($0.path + "-wal")) >= since.timeIntervalSince1970 }
     }
@@ -65,12 +65,13 @@ public enum AgentDatabases {
         ) { st in
             // ISO with a "Z", or SQLite's own "2026-10-25 01:17:12" (UTC) when a row took the column's default.
             let at = text(st, 1)
-            guard let t = JSONL.date(at) ?? JSONL.date(at.replacingOccurrences(of: " ", with: "T") + "Z"), t >= since
+            guard let created = JSONL.date(at) ?? JSONL.date(at.replacingOccurrences(of: " ", with: "T") + "Z"),
+                created >= since
             else { return }
             let read = int(st, 5), written = int(st, 6)
             out.append(
                 UsageEntry(
-                    time: t.timeIntervalSince1970, model: text(st, 2), cwd: text(st, 7), id: nil,
+                    time: created.timeIntervalSince1970, model: text(st, 2), cwd: text(st, 7), id: nil,
                     tokens: TokenCounts(
                         input: max(0, int(st, 3) - read - written), output: int(st, 4), cacheWrite: written,
                         cacheRead: read)))
@@ -87,20 +88,22 @@ public enum AgentDatabases {
             "SELECT m.data, s.directory FROM message m JOIN session s ON s.id = m.session_id WHERE m.time_created >= ?",
             Int64(since.timeIntervalSince1970 * 1000)
         ) { st in
-            guard let o = JSONL.object(Data(text(st, 0).utf8)), o["role"] as? String == "assistant",
-                let time = o["time"] as? [String: Any], time["completed"] != nil,
-                let created = (time["created"] as? NSNumber)?.doubleValue, let t = o["tokens"] as? [String: Any]
+            guard let message = JSONL.object(Data(text(st, 0).utf8)), message["role"] as? String == "assistant",
+                let time = message["time"] as? [String: Any], time["completed"] != nil,
+                let created = (time["created"] as? NSNumber)?.doubleValue,
+                let counts = message["tokens"] as? [String: Any]
             else { return }
-            let cache = t["cache"] as? [String: Any] ?? [:]
+            let cache = counts["cache"] as? [String: Any] ?? [:]
             let tokens = TokenCounts(
-                input: JSONL.int(t, "input"), output: JSONL.int(t, "output") + JSONL.int(t, "reasoning"),
+                input: JSONL.int(counts, "input"),
+                output: JSONL.int(counts, "output") + JSONL.int(counts, "reasoning"),
                 cacheWrite: JSONL.int(cache, "write"), cacheRead: JSONL.int(cache, "read"))
             guard tokens.total > 0 else { return }
-            let cost = (o["cost"] as? NSNumber)?.doubleValue ?? 0
+            let cost = (message["cost"] as? NSNumber)?.doubleValue ?? 0
             out.append(
                 UsageEntry(
-                    time: created / 1000, model: o["modelID"] as? String ?? "opencode",
-                    cwd: (o["path"] as? [String: Any])?["cwd"] as? String ?? text(st, 1), id: nil, tokens: tokens,
+                    time: created / 1000, model: message["modelID"] as? String ?? "opencode",
+                    cwd: (message["path"] as? [String: Any])?["cwd"] as? String ?? text(st, 1), id: nil, tokens: tokens,
                     cost: cost > 0 ? cost : nil))
         }
         return out
@@ -127,88 +130,89 @@ public enum AgentDatabases {
                 cacheWrite: Proto.number(usage, 4).map(Int.init) ?? 0,
                 cacheRead: Proto.number(usage, 5).map(Int.init) ?? 0)
             let steps = Proto.message(top, 2).map(Proto.packed) ?? Proto.number(top, 2).map { [$0] } ?? []
-            guard tokens.total > 0, let t = steps.compactMap({ started[Int($0)] }).min(),
-                t >= since.timeIntervalSince1970
+            guard tokens.total > 0, let time = steps.compactMap({ started[Int($0)] }).min(),
+                time >= since.timeIntervalSince1970
             else { return }
             out.append(
-                UsageEntry(time: t, model: Proto.string(call, 19) ?? "antigravity", cwd: cwd, id: nil, tokens: tokens))
+                UsageEntry(
+                    time: time, model: Proto.string(call, 19) ?? "antigravity", cwd: cwd, id: nil, tokens: tokens))
         }
         return out
     }
 
     private static func query(_ db: URL, _ sql: String, _ arg: Int64? = nil, row: (OpaquePointer) -> Void) {
-        var h: OpaquePointer?, st: OpaquePointer?
+        var handle: OpaquePointer?, st: OpaquePointer?
         defer {
             sqlite3_finalize(st)
-            sqlite3_close(h)
+            sqlite3_close(handle)
         }
-        guard sqlite3_open_v2(db.path, &h, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK,
-            sqlite3_prepare_v2(h, sql, -1, &st, nil) == SQLITE_OK, let st
+        guard sqlite3_open_v2(db.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK,
+            sqlite3_prepare_v2(handle, sql, -1, &st, nil) == SQLITE_OK, let st
         else { return }
         if let arg { sqlite3_bind_int64(st, 1, arg) }
         while sqlite3_step(st) == SQLITE_ROW { row(st) }
     }
-    private static func text(_ st: OpaquePointer, _ i: Int32) -> String {
-        sqlite3_column_text(st, i).map { String(cString: $0) } ?? ""
+    private static func text(_ st: OpaquePointer, _ column: Int32) -> String {
+        sqlite3_column_text(st, column).map { String(cString: $0) } ?? ""
     }
-    private static func int(_ st: OpaquePointer, _ i: Int32) -> Int { Int(sqlite3_column_int64(st, i)) }
-    private static func blob(_ st: OpaquePointer, _ i: Int32) -> Data {
-        guard let p = sqlite3_column_blob(st, i) else { return Data() }
-        return Data(bytes: p, count: Int(sqlite3_column_bytes(st, i)))
+    private static func int(_ st: OpaquePointer, _ column: Int32) -> Int { Int(sqlite3_column_int64(st, column)) }
+    private static func blob(_ st: OpaquePointer, _ column: Int32) -> Data {
+        guard let bytes = sqlite3_column_blob(st, column) else { return Data() }
+        return Data(bytes: bytes, count: Int(sqlite3_column_bytes(st, column)))
     }
 }
 
 /// Protocol Buffers' wire format, as much as Antigravity's numbers need: the first value of a field, a number or the bytes
 /// of a string or nested message.
 enum Proto {
-    static func number(_ d: Data, _ field: Int) -> UInt64? {
-        if case .number(let n)? = first(d, field) { n } else { nil }
+    static func number(_ data: Data, _ field: Int) -> UInt64? {
+        if case .number(let value)? = first(data, field) { value } else { nil }
     }
-    static func message(_ d: Data, _ field: Int) -> Data? {
-        if case .bytes(let b)? = first(d, field) { b } else { nil }
+    static func message(_ data: Data, _ field: Int) -> Data? {
+        if case .bytes(let bytes)? = first(data, field) { bytes } else { nil }
     }
-    static func string(_ d: Data, _ field: Int) -> String? {
-        message(d, field).flatMap { String(data: $0, encoding: .utf8) }
+    static func string(_ data: Data, _ field: Int) -> String? {
+        message(data, field).flatMap { String(data: $0, encoding: .utf8) }
     }
 
     /// A packed repeated number field's values.
-    static func packed(_ d: Data) -> [UInt64] {
-        let b = [UInt8](d)
-        var i = 0, out: [UInt64] = []
-        while i < b.count, let n = varint(b, &i) { out.append(n) }
+    static func packed(_ data: Data) -> [UInt64] {
+        let bytes = [UInt8](data)
+        var offset = 0, out: [UInt64] = []
+        while offset < bytes.count, let value = varint(bytes, &offset) { out.append(value) }
         return out
     }
 
     private enum Value { case number(UInt64), bytes(Data) }
 
-    private static func first(_ d: Data, _ field: Int) -> Value? {
-        let b = [UInt8](d)
-        var i = 0
-        while i < b.count, let key = varint(b, &i) {
+    private static func first(_ data: Data, _ field: Int) -> Value? {
+        let bytes = [UInt8](data)
+        var offset = 0
+        while offset < bytes.count, let key = varint(bytes, &offset) {
             let wire = key & 7, here = Int(key >> 3) == field
             switch wire {
             case 0:
-                guard let n = varint(b, &i) else { return nil }
-                if here { return .number(n) }
+                guard let value = varint(bytes, &offset) else { return nil }
+                if here { return .number(value) }
             case 2:
-                guard let len = varint(b, &i), len <= UInt64(b.count - i) else { return nil }
-                if here { return .bytes(Data(b[i..<i + Int(len)])) }
-                i += Int(len)
-            case 1: i += 8
-            case 5: i += 4
+                guard let len = varint(bytes, &offset), len <= UInt64(bytes.count - offset) else { return nil }
+                if here { return .bytes(Data(bytes[offset..<offset + Int(len)])) }
+                offset += Int(len)
+            case 1: offset += 8
+            case 5: offset += 4
             default: return nil   // groups: not in these messages
             }
         }
         return nil
     }
 
-    private static func varint(_ b: [UInt8], _ i: inout Int) -> UInt64? {
-        var n: UInt64 = 0, shift: UInt64 = 0
-        while i < b.count, shift < 64 {
-            let x = b[i]
-            i += 1
-            n |= UInt64(x & 0x7F) << shift
-            if x < 0x80 { return n }
+    private static func varint(_ bytes: [UInt8], _ offset: inout Int) -> UInt64? {
+        var value: UInt64 = 0, shift: UInt64 = 0
+        while offset < bytes.count, shift < 64 {
+            let byte = bytes[offset]
+            offset += 1
+            value |= UInt64(byte & 0x7F) << shift
+            if byte < 0x80 { return value }
             shift += 7
         }
         return nil

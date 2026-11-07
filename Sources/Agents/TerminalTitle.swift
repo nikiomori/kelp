@@ -21,31 +21,31 @@ public enum TerminalTitle {
                     !(0x2800...0x28FF).contains($0.value) && $0.properties.generalCategory != .privateUse
                 })
         ).split(separator: " ").joined(separator: " ")
-        let t = String(bare.drop { !($0.isLetter || $0.isNumber) }).trimmingCharacters(in: .whitespaces)
-        let low = t.lowercased()
-        guard !t.isEmpty, t.count <= 80, !t.contains("/"), !t.contains("~") else { return nil }
-        return names.contains { $0.count >= 2 && low.contains($0.lowercased()) } ? nil : t
+        let trimmed = String(bare.drop { !($0.isLetter || $0.isNumber) }).trimmingCharacters(in: .whitespaces)
+        let low = trimmed.lowercased()
+        guard !trimmed.isEmpty, trimmed.count <= 80, !trimmed.contains("/"), !trimmed.contains("~") else { return nil }
+        return names.contains { $0.count >= 2 && low.contains($0.lowercased()) } ? nil : trimmed
     }
 }
 
 /// The bodies of OSC sequences opened by one of `starts` (BEL or ESC ends one), in order. `carry` keeps a sequence cut
 /// off at the end of one read for the next; one still open after `limit` bytes is dropped.
 func oscBodies(_ chunk: String, starts: [String], limit: Int, carry: inout String) -> [String] {
-    var s = carry + chunk
+    var rest = carry + chunk
     carry = ""
     var out: [String] = []
-    while let r = starts.compactMap({ s.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) {
-        let body = s[r.upperBound...]
+    while let start = starts.compactMap({ rest.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) {
+        let body = rest[start.upperBound...]
         guard let end = body.firstIndex(where: { $0 == "\u{07}" || $0 == "\u{1B}" }) else {
-            if body.utf8.count < limit { carry = String(s[r.lowerBound...]) }   // unfinished: wait for the rest
+            if body.utf8.count < limit { carry = String(rest[start.lowerBound...]) }   // unfinished: wait for the rest
             return out
         }
         out.append(String(body[..<end]))
-        s = String(body[body.index(after: end)...])
+        rest = String(body[body.index(after: end)...])
     }
     // "…\u{1B}]" at the very end: the start of a sequence the next read completes.
-    if let i = s.lastIndex(of: "\u{1B}"), starts.contains(where: { $0.hasPrefix(String(s[i...])) }) {
-        carry = String(s[i...])
+    if let escape = rest.lastIndex(of: "\u{1B}"), starts.contains(where: { $0.hasPrefix(String(rest[escape...])) }) {
+        carry = String(rest[escape...])
     }
     return out
 }

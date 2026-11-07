@@ -18,15 +18,15 @@ public struct LinearClient: Sendable {
 
     /// Open issues assigned to the API key's user.
     public func myIssues() async throws -> [LinearIssue] {
-        let q = "{ viewer { assignedIssues(first: 100, \(Self.openFilter)) { nodes { \(Self.issueFields) } } } }"
-        return try Self.parse([LinearIssue].self, from: await request(q), at: "viewer", "assignedIssues", "nodes")
+        let query = "{ viewer { assignedIssues(first: 100, \(Self.openFilter)) { nodes { \(Self.issueFields) } } } }"
+        return try Self.parse([LinearIssue].self, from: await request(query), at: "viewer", "assignedIssues", "nodes")
     }
 
     public func teamIssues(teamId: String) async throws -> [LinearIssue] {
-        let q =
+        let query =
             "query($id: String!) { team(id: $id) { issues(first: 100, \(Self.openFilter)) { nodes { \(Self.issueFields) } } } }"
         return try Self.parse(
-            [LinearIssue].self, from: await request(q, ["id": .string(teamId)]), at: "team", "issues", "nodes")
+            [LinearIssue].self, from: await request(query, ["id": .string(teamId)]), at: "team", "issues", "nodes")
     }
 
     public func teams() async throws -> [LinearTeam] {
@@ -35,15 +35,15 @@ public struct LinearClient: Sendable {
     }
 
     public func workflowStates(teamId: String) async throws -> [LinearState] {
-        let q = "query($id: String!) { team(id: $id) { states { nodes { id name type } } } }"
+        let query = "query($id: String!) { team(id: $id) { states { nodes { id name type } } } }"
         return try Self.parse(
-            [LinearState].self, from: await request(q, ["id": .string(teamId)]), at: "team", "states", "nodes")
+            [LinearState].self, from: await request(query, ["id": .string(teamId)]), at: "team", "states", "nodes")
     }
 
     public func setState(issueId: String, stateId: String) async throws {
-        let q = "mutation($id: String!, $s: String!) { issueUpdate(id: $id, input: { stateId: $s }) { success } }"
+        let query = "mutation($id: String!, $s: String!) { issueUpdate(id: $id, input: { stateId: $s }) { success } }"
         let ok = try Self.parse(
-            Bool.self, from: await request(q, ["id": .string(issueId), "s": .string(stateId)]), at: "issueUpdate",
+            Bool.self, from: await request(query, ["id": .string(issueId), "s": .string(stateId)]), at: "issueUpdate",
             "success")
         if !ok { throw IntegrationError(description: "Linear issueUpdate returned success=false") }
     }
@@ -52,13 +52,13 @@ public struct LinearClient: Sendable {
         guard let url = URL(string: "https://api.linear.app/graphql") else {
             throw IntegrationError(description: "bad Linear URL")
         }
-        var r = URLRequest(url: url)
-        r.httpMethod = "POST"
-        r.setValue(apiKey, forHTTPHeaderField: "Authorization")
-        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONEncoder().encode(
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
             JSONValue.object(["query": .string(query), "variables": .object(variables)]))
-        let (data, resp) = try await URLSession.shared.data(for: r)
+        let (data, resp) = try await URLSession.shared.data(for: request)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         // GraphQL errors come back as 400 with an `errors` body; let parse() report those.
         if code != 200, (try? JSONDecoder().decode(JSONValue.self, from: data))?["errors"] == nil {
@@ -74,15 +74,15 @@ public struct LinearClient: Sendable {
             throw IntegrationError(
                 description: "Linear: " + errs.map { $0["message"]?.string ?? "error" }.joined(separator: "; "))
         }
-        guard let v = path.reduce(root["data"], { $0?[$1] }), v != .null else {
+        guard let value = path.reduce(root["data"], { $0?[$1] }), value != .null else {
             throw IntegrationError(description: "Linear: missing data." + path.joined(separator: "."))
         }
-        return try v.decode(T.self)
+        return try value.decode(T.self)
     }
 
     /// Pick the team state to move an issue to. inReview is nil when the team has no review-like state.
     public static func stateFor(kind: StateKind, in states: [LinearState]) -> LinearState? {
-        let isReview = { (s: LinearState) in s.name.lowercased().contains("review") }
+        let isReview = { (state: LinearState) in state.name.lowercased().contains("review") }
         switch kind {
         case .inReview:
             return states.first(where: isReview)

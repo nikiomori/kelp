@@ -19,18 +19,18 @@ public struct IntegrationError: Error, CustomStringConvertible, Sendable { publi
 func basicAuthRequest(_ service: String, _ method: String, _ url: URL, login: String, body: [String: Any]?) async throws
     -> Data
 {
-    var r = URLRequest(url: url)
-    r.httpMethod = method
-    r.setValue("Basic " + Data(login.utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
-    r.setValue("application/json", forHTTPHeaderField: "Accept")
+    var request = URLRequest(url: url)
+    request.httpMethod = method
+    request.setValue("Basic " + Data(login.utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
     if let body {
-        r.httpBody = try JSONSerialization.data(withJSONObject: body)
-        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     }
-    let (d, resp) = try await URLSession.shared.data(for: r)
+    let (data, resp) = try await URLSession.shared.data(for: request)
     let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
     guard (200..<300).contains(code) else {
-        throw IntegrationError(description: "\(service) \(code): \(String(decoding: d.prefix(300), as: UTF8.self))")
+        throw IntegrationError(description: "\(service) \(code): \(String(decoding: data.prefix(300), as: UTF8.self))")
     }
-    return d
+    return data
 }

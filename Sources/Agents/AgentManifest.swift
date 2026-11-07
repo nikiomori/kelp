@@ -89,28 +89,29 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     }
 
     public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        let d = AgentManifest(id: "", name: "", command: "")
-        id = try c.decode(String.self, forKey: .id)
-        name = try c.decode(String.self, forKey: .name)
-        command = try c.decode(String.self, forKey: .command)
-        args = try c.decodeIfPresent([String].self, forKey: .args) ?? d.args
-        env = try c.decodeIfPresent([String: String].self, forKey: .env) ?? d.env
-        waitingPatterns = try c.decodeIfPresent([String].self, forKey: .waitingPatterns) ?? d.waitingPatterns
-        quietSeconds = try c.decodeIfPresent(Double.self, forKey: .quietSeconds) ?? d.quietSeconds
-        hooks = try HookTransport(from: c)
-        modelFlag = try c.decodeIfPresent(String.self, forKey: .modelFlag)
-        models = try c.decodeIfPresent([String].self, forKey: .models) ?? []
-        effortArgs = try c.decodeIfPresent([String: [String]].self, forKey: .effortArgs) ?? [:]
-        autoAnswers = try c.decodeIfPresent([AutoAnswer].self, forKey: .autoAnswers) ?? []
-        resumeArgs = try c.decodeIfPresent([String].self, forKey: .resumeArgs) ?? []
-        pluginDirFlag = try c.decodeIfPresent(String.self, forKey: .pluginDirFlag)
-        contextFlag = try c.decodeIfPresent(String.self, forKey: .contextFlag)
-        sessionIdFlag = try c.decodeIfPresent(String.self, forKey: .sessionIdFlag)
-        resumeIdFlag = try c.decodeIfPresent(String.self, forKey: .resumeIdFlag)
-        install = try c.decodeIfPresent(String.self, forKey: .install)
-        update = try c.decodeIfPresent(String.self, forKey: .update)
-        npm = try c.decodeIfPresent(String.self, forKey: .npm)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = AgentManifest(id: "", name: "", command: "")
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        command = try container.decode(String.self, forKey: .command)
+        args = try container.decodeIfPresent([String].self, forKey: .args) ?? defaults.args
+        env = try container.decodeIfPresent([String: String].self, forKey: .env) ?? defaults.env
+        waitingPatterns =
+            try container.decodeIfPresent([String].self, forKey: .waitingPatterns) ?? defaults.waitingPatterns
+        quietSeconds = try container.decodeIfPresent(Double.self, forKey: .quietSeconds) ?? defaults.quietSeconds
+        hooks = try HookTransport(from: container)
+        modelFlag = try container.decodeIfPresent(String.self, forKey: .modelFlag)
+        models = try container.decodeIfPresent([String].self, forKey: .models) ?? []
+        effortArgs = try container.decodeIfPresent([String: [String]].self, forKey: .effortArgs) ?? [:]
+        autoAnswers = try container.decodeIfPresent([AutoAnswer].self, forKey: .autoAnswers) ?? []
+        resumeArgs = try container.decodeIfPresent([String].self, forKey: .resumeArgs) ?? []
+        pluginDirFlag = try container.decodeIfPresent(String.self, forKey: .pluginDirFlag)
+        contextFlag = try container.decodeIfPresent(String.self, forKey: .contextFlag)
+        sessionIdFlag = try container.decodeIfPresent(String.self, forKey: .sessionIdFlag)
+        resumeIdFlag = try container.decodeIfPresent(String.self, forKey: .resumeIdFlag)
+        install = try container.decodeIfPresent(String.self, forKey: .install)
+        update = try container.decodeIfPresent(String.self, forKey: .update)
+        npm = try container.decodeIfPresent(String.self, forKey: .npm)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -121,27 +122,27 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     }
 
     public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(name, forKey: .name)
-        try c.encode(command, forKey: .command)
-        try c.encode(args, forKey: .args)
-        try c.encode(env, forKey: .env)
-        try c.encode(waitingPatterns, forKey: .waitingPatterns)
-        try c.encode(quietSeconds, forKey: .quietSeconds)
-        try hooks?.encode(to: &c)
-        try c.encodeIfPresent(modelFlag, forKey: .modelFlag)
-        try c.encode(models, forKey: .models)
-        try c.encode(effortArgs, forKey: .effortArgs)
-        try c.encode(autoAnswers, forKey: .autoAnswers)
-        try c.encode(resumeArgs, forKey: .resumeArgs)
-        try c.encodeIfPresent(sessionIdFlag, forKey: .sessionIdFlag)
-        try c.encodeIfPresent(resumeIdFlag, forKey: .resumeIdFlag)
-        try c.encodeIfPresent(pluginDirFlag, forKey: .pluginDirFlag)
-        try c.encodeIfPresent(contextFlag, forKey: .contextFlag)
-        try c.encodeIfPresent(install, forKey: .install)
-        try c.encodeIfPresent(update, forKey: .update)
-        try c.encodeIfPresent(npm, forKey: .npm)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(command, forKey: .command)
+        try container.encode(args, forKey: .args)
+        try container.encode(env, forKey: .env)
+        try container.encode(waitingPatterns, forKey: .waitingPatterns)
+        try container.encode(quietSeconds, forKey: .quietSeconds)
+        try hooks?.encode(to: &container)
+        try container.encodeIfPresent(modelFlag, forKey: .modelFlag)
+        try container.encode(models, forKey: .models)
+        try container.encode(effortArgs, forKey: .effortArgs)
+        try container.encode(autoAnswers, forKey: .autoAnswers)
+        try container.encode(resumeArgs, forKey: .resumeArgs)
+        try container.encodeIfPresent(sessionIdFlag, forKey: .sessionIdFlag)
+        try container.encodeIfPresent(resumeIdFlag, forKey: .resumeIdFlag)
+        try container.encodeIfPresent(pluginDirFlag, forKey: .pluginDirFlag)
+        try container.encodeIfPresent(contextFlag, forKey: .contextFlag)
+        try container.encodeIfPresent(install, forKey: .install)
+        try container.encodeIfPresent(update, forKey: .update)
+        try container.encodeIfPresent(npm, forKey: .npm)
     }
 
     /// What an agent file says instead of a secret's value: the value is in the login keychain (`agent.<id>.<KEY>`).
@@ -161,7 +162,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// Installs and updates of the agents people use most, as their own docs give them; the npm package says what's newest.
-    static func withInstall(_ m: AgentManifest) -> AgentManifest {
+    static func withInstall(_ manifest: AgentManifest) -> AgentManifest {
         let known: [String: (install: String, update: String?, npm: String?)] = [
             "claude": ("curl -fsSL https://claude.ai/install.sh | bash", "claude update", "@anthropic-ai/claude-code"),
             "codex": ("npm install -g @openai/codex", "npm install -g @openai/codex@latest", "@openai/codex"),
@@ -203,12 +204,12 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
             ),
             "kiro": ("curl -fsSL https://cli.kiro.dev/install | bash", "kiro-cli update", nil)
         ]
-        guard let k = known[m.id] else { return m }
-        var m = m
-        if m.install == nil { m.install = k.install }
-        if m.update == nil { m.update = k.update }
-        if m.npm == nil { m.npm = k.npm }
-        return m
+        guard let entry = known[manifest.id] else { return manifest }
+        var manifest = manifest
+        if manifest.install == nil { manifest.install = entry.install }
+        if manifest.update == nil { manifest.update = entry.update }
+        if manifest.npm == nil { manifest.npm = entry.npm }
+        return manifest
     }
 
     /// The package manager its install command needs, when that's not something every Mac has (npm, Homebrew).
@@ -229,11 +230,11 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
     /// Full argv for a launch with the chosen options.
     public func argv(model: String? = nil, effort: String? = nil, resume: Bool = false) -> [String] {
-        var a = commandLine
-        if let model, !model.isEmpty, let f = modelFlag { a += [f, model] }
-        if let effort, let e = effortArgs[effort] { a += e }
-        if resume { a += resumeArgs }
-        return a
+        var launch = commandLine
+        if let model, !model.isEmpty, let flag = modelFlag { launch += [flag, model] }
+        if let effort, let extra = effortArgs[effort] { launch += extra }
+        if resume { launch += resumeArgs }
+        return launch
     }
 
     /// True when `argv` already names the conversation to continue.
@@ -243,10 +244,12 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
     /// `argv` changed to continue its conversation: the pinned id when there is one, else the agent's "latest here".
     public func resuming(_ argv: [String]) -> [String] {
-        if let f = sessionIdFlag, let r = resumeIdFlag, let i = argv.firstIndex(of: f), i + 1 < argv.count {
-            var a = argv
-            a[i] = r
-            return a
+        if let pin = sessionIdFlag, let resume = resumeIdFlag, let index = argv.firstIndex(of: pin),
+            index + 1 < argv.count
+        {
+            var resumed = argv
+            resumed[index] = resume
+            return resumed
         }
         return resumes(argv) ? argv : argv + resumeArgs
     }
@@ -254,21 +257,23 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     /// `argv` pinned to `conversation`, the one the agent writes now (Claude Code's /resume or /clear switched to it), so a
     /// wake or restart brings back that one. Unchanged when it already names it, or names none.
     public func following(_ argv: [String], conversation: String) -> [String] {
-        guard let pin = sessionIdFlag, let r = resumeIdFlag, let i = argv.lastIndex(where: { $0 == pin || $0 == r }),
-            i + 1 < argv.count,
-            argv[i + 1].lowercased() != conversation.lowercased()
+        guard let pin = sessionIdFlag, let resume = resumeIdFlag,
+            let index = argv.lastIndex(where: { $0 == pin || $0 == resume }),
+            index + 1 < argv.count,
+            argv[index + 1].lowercased() != conversation.lowercased()
         else { return argv }
-        var a = argv
-        a[i] = pin
-        a[i + 1] = conversation   // pinned: a wake resumes it once it's on disk, else starts it under this id
-        a.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (`forking`): this is it
-        return a
+        var pinned = argv
+        pinned[index] = pin
+        pinned[index + 1] = conversation   // pinned: a wake resumes it once it's on disk, else starts it under this id
+        pinned.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (`forking`): this is it
+        return pinned
     }
 
     /// `argv` changed to continue a copy of its conversation (a session copied to another home, `HomeSeed`), leaving the
     /// one it names as it is; `following` drops the flag once the copy is made. Nil when no id is pinned, or the agent can't.
     public func forking(_ argv: [String]) -> [String]? {
-        guard id == "claude", let pin = sessionIdFlag, let r = resumeIdFlag, argv.contains(pin) || argv.contains(r)
+        guard id == "claude", let pin = sessionIdFlag, let resume = resumeIdFlag,
+            argv.contains(pin) || argv.contains(resume)
         else { return nil }
         return resuming(argv) + ["--fork-session"]
     }
@@ -352,20 +357,22 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public static func load(dir: URL) -> [AgentManifest] {
         var all = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, withInstall($0)) })
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        for f in files where f.pathExtension == "json" {
-            if let d = try? Data(contentsOf: f), let m = try? JSONDecoder().decode(AgentManifest.self, from: d) {
-                all[m.id] = withInstall(m)
+        for file in files where file.pathExtension == "json" {
+            if let data = try? Data(contentsOf: file),
+                let manifest = try? JSONDecoder().decode(AgentManifest.self, from: data)
+            {
+                all[manifest.id] = withInstall(manifest)
             }
         }
         return all.values.sorted { $0.name < $1.name }
     }
 
     /// Settings UI: save an override (binary, args, env…) or reset to the preset by deleting it.
-    public static func saveOverride(_ m: AgentManifest, dir: URL) throws {
+    public static func saveOverride(_ manifest: AgentManifest, dir: URL) throws {
         try Paths.ensure(dir)
-        let e = JSONEncoder()
-        e.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try e.encode(m).write(to: dir.appendingPathComponent("\(m.id).json"))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(manifest).write(to: dir.appendingPathComponent("\(manifest.id).json"))
     }
     public static func resetOverride(id: String, dir: URL) {
         try? FileManager.default.removeItem(at: dir.appendingPathComponent("\(id).json"))
@@ -420,10 +427,10 @@ public enum Hooks {
         func hook(_ command: String) -> JSONValue {
             .array([.object(["hooks": .array([.object(["type": "command", "command": .string(command)])])])])
         }
-        func only(_ tool: String, _ h: JSONValue) -> JSONValue {
-            guard case .object(var o)? = h.array?.first else { return h }
-            o["matcher"] = .string(tool)
-            return .array([.object(o)])
+        func only(_ tool: String, _ entry: JSONValue) -> JSONValue {
+            guard case .object(var first)? = entry.array?.first else { return entry }
+            first["matcher"] = .string(tool)
+            return .array([.object(first)])
         }
         let hooks: [String: JSONValue] = [
             "UserPromptSubmit": agent("state=working"), "PostToolUse": agent("state=working"),
@@ -440,9 +447,9 @@ public enum Hooks {
                 #""state=working:id=$(f agent_id):title=$(printf %s "$(f agent_type)"|base64|tr -d '\n')""#),
             "SubagentStop": subagent(#""state=clear:id=$(f agent_id)""#)
         ]
-        let e = JSONEncoder()
-        e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return String(decoding: try e.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: try encoder.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
     }
 
     /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
@@ -539,7 +546,7 @@ public enum Hooks {
         guard
             case .object(let ours)? = try JSONDecoder().decode(JSONValue.self, from: Data(settingsJSON().utf8))["hooks"]
         else { return }
-        var hooks: [String: JSONValue] = if case .object(let h)? = all["hooks"] { h } else { [:] }
+        var hooks: [String: JSONValue] = if case .object(let existing)? = all["hooks"] { existing } else { [:] }
         for (event, list) in ours { hooks[event] = .array((hooks[event]?.array ?? []) + (list.array ?? [])) }
         all["hooks"] = .object(hooks)
         try Paths.ensure(url.deletingLastPathComponent())

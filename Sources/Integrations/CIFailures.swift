@@ -18,13 +18,13 @@ extension CIRuns {
                 lines.append(line)
                 continue
             }
-            if let n = line.firstMatch(of: /^. Test run with (\d+) tests?/) { runTests += Int(n.1) ?? 0 }
+            if let match = line.firstMatch(of: /^. Test run with (\d+) tests?/) { runTests += Int(match.1) ?? 0 }
             if !found.read(line) { lines.append(line) }
         }
-        var r = Report(failures: found.failures, more: found.more, log: GitHub.tail(text))
-        r.tests = testCases + runTests > 0 ? testCases + runTests : nil
-        if r.failures.isEmpty { (r.exitCode, r.lastLines) = ending(of: lines) }
-        return r
+        var result = Report(failures: found.failures, more: found.more, log: GitHub.tail(text))
+        result.tests = testCases + runTests > 0 ? testCases + runTests : nil
+        if result.failures.isEmpty { (result.exitCode, result.lastLines) = ending(of: lines) }
+        return result
     }
 
     /// How a log ended: the exit code in its last lines, and up to three lines before it.
@@ -45,20 +45,25 @@ extension CIRuns {
 
         /// False: not a line about a failure.
         mutating func read(_ line: Substring) -> Bool {
-            if let m = line.wholeMatch(of: /(.+?):(\d+): error: -\[(\S+) (\S+)\] : (.*)/) {
-                let suite = m.3.split(separator: ".").last.map(String.init)
-                add(test: String(m.4), suite: suite, file: String(m.1), line: Int(m.2), message: String(m.5))
-            } else if let m = line.wholeMatch(of: /✘ Test (.+?) recorded an issue at (\S+?):(\d+):\d+: (.*)/) {
-                add(test: String(m.1), suite: nil, file: String(m.2), line: Int(m.3), message: String(m.4))
-            } else if let m = line.wholeMatch(of: /(.+?):(\d+):\d+: error: (.*)/) {
-                add(test: nil, suite: nil, file: String(m.1), line: Int(m.2), message: String(m.3))
-            } else if let m = line.wholeMatch(of: /Test Case '-\[(\S+) (\S+)\]' failed .*/) {
+            if let match = line.wholeMatch(of: /(.+?):(\d+): error: -\[(\S+) (\S+)\] : (.*)/) {
+                let suite = match.3.split(separator: ".").last.map(String.init)
+                add(
+                    test: String(match.4), suite: suite, file: String(match.1), line: Int(match.2),
+                    message: String(match.5))
+            } else if let match = line.wholeMatch(of: /✘ Test (.+?) recorded an issue at (\S+?):(\d+):\d+: (.*)/) {
+                add(
+                    test: String(match.1), suite: nil, file: String(match.2), line: Int(match.3),
+                    message: String(match.4))
+            } else if let match = line.wholeMatch(of: /(.+?):(\d+):\d+: error: (.*)/) {
+                add(test: nil, suite: nil, file: String(match.1), line: Int(match.2), message: String(match.3))
+            } else if let match = line.wholeMatch(of: /Test Case '-\[(\S+) (\S+)\]' failed .*/) {
                 // A test can fail with no line of its own (a crash, a timeout): its name is still worth saying.
                 add(
-                    test: String(m.2), suite: m.1.split(separator: ".").last.map(String.init), file: nil, line: nil,
+                    test: String(match.2), suite: match.1.split(separator: ".").last.map(String.init), file: nil,
+                    line: nil,
                     message: nil)
-            } else if let m = line.wholeMatch(of: /✘ Test (.+?) failed after .*/), !m.1.hasPrefix("run with") {
-                add(test: String(m.1), suite: nil, file: nil, line: nil, message: nil)
+            } else if let match = line.wholeMatch(of: /✘ Test (.+?) failed after .*/), !match.1.hasPrefix("run with") {
+                add(test: String(match.1), suite: nil, file: nil, line: nil, message: nil)
             } else {
                 return false
             }
@@ -69,7 +74,7 @@ extension CIRuns {
             let file = file.map(CIRuns.repoPath)
             // A compiler says one error at each column of a line, and says it again in each build pass.
             let key = test.map { "\(suite ?? "").\($0)" } ?? "\(file ?? ""):\(line ?? 0):\(message ?? "")"
-            guard let i = seen[key] else {
+            guard let index = seen[key] else {
                 guard failures.count < CIRuns.maxFailures else {
                     more += 1
                     return
@@ -79,34 +84,34 @@ extension CIRuns {
                     Failure(test: test, suite: suite, file: file, line: line, messages: message.map { [$0] } ?? []))
                 return
             }
-            guard let message, failures[i].messages.count < CIRuns.maxMessages else { return }
-            if failures[i].line == nil {
-                failures[i].file = file
-                failures[i].line = line
+            guard let message, failures[index].messages.count < CIRuns.maxMessages else { return }
+            if failures[index].line == nil {
+                failures[index].file = file
+                failures[index].line = line
             }
-            let said = line == failures[i].line ? message : ":\(line ?? 0) \(message)"
-            if !failures[i].messages.contains(said) { failures[i].messages.append(said) }
+            let said = line == failures[index].line ? message : ":\(line ?? 0) \(message)"
+            if !failures[index].messages.contains(said) { failures[index].messages.append(said) }
         }
     }
 
     /// A path on the runner, as a path in the project: "/Users/runner/work/App/App/Tests/A.swift" → "Tests/A.swift".
     static func repoPath(_ path: String) -> String {
-        guard let m = path.firstMatch(of: /\/(?:work|builds)\/[^\/]+\/[^\/]+\//) else { return path }
-        return String(path[m.range.upperBound...])
+        guard let match = path.firstMatch(of: /\/(?:work|builds)\/[^\/]+\/[^\/]+\//) else { return path }
+        return String(path[match.range.upperBound...])
     }
 
     /// Swift Testing names a file without its folder: the project knows where it is, if only one is called that.
-    static func located(_ r: Report, cwd: String) -> Report {
-        var r = r, known: [String: String?] = [:]
-        for i in r.failures.indices {
-            guard let f = r.failures[i].file, !f.contains("/") else { continue }
-            if known[f] == nil {
-                let paths = trackedFiles(named: f, cwd: cwd)
-                known[f] = .some(paths.count == 1 ? paths[0] : nil)
+    static func located(_ report: Report, cwd: String) -> Report {
+        var result = report, known: [String: String?] = [:]
+        for index in result.failures.indices {
+            guard let name = result.failures[index].file, !name.contains("/") else { continue }
+            if known[name] == nil {
+                let paths = trackedFiles(named: name, cwd: cwd)
+                known[name] = .some(paths.count == 1 ? paths[0] : nil)
             }
-            if let path = known[f] ?? nil { r.failures[i].file = path }
+            if let path = known[name] ?? nil { result.failures[index].file = path }
         }
-        return r
+        return result
     }
 
     /// A probe: no git here (a folder that isn't a clone) means no such file.

@@ -78,10 +78,10 @@ extension Git {
             try run(["merge", "--no-edit", rev(branch)], cwd: target, remotes: remotes)
             return MergeResult(merged: true, conflicts: [])
         } catch {
-            let c = try status(target, remotes: remotes).filter(\.conflicted).map(\.path)
-            if c.isEmpty { throw error }
+            let conflicts = try status(target, remotes: remotes).filter(\.conflicted).map(\.path)
+            if conflicts.isEmpty { throw error }
             if !keepConflicts { try run(["merge", "--abort"], cwd: target, remotes: remotes) }
-            return MergeResult(merged: false, conflicts: c)
+            return MergeResult(merged: false, conflicts: conflicts)
         }
     }
 
@@ -90,9 +90,9 @@ extension Git {
     )] {
         let range = try base.map { ["\(try rev($0))..HEAD"] } ?? []
         return try run(["log", "--format=%h%x09%s", "-n\(limit)"] + range, cwd: path, remotes: remotes)
-            .split(separator: "\n").compactMap { l in
-                let p = l.split(separator: "\t", maxSplits: 1)
-                return p.count == 2 ? (String(p[0]), String(p[1])) : nil
+            .split(separator: "\n").compactMap { line in
+                let parts = line.split(separator: "\t", maxSplits: 1)
+                return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
             }
     }
 }

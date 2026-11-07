@@ -3,16 +3,16 @@ import Foundation
 public struct TokenCounts: Codable, Sendable, Equatable {
     public var input = 0, output = 0, cacheWrite = 0, cacheRead = 0
     public var total: Int { input + output + cacheWrite + cacheRead }
-    public static func + (a: Self, b: Self) -> Self {
+    public static func + (lhs: Self, rhs: Self) -> Self {
         Self(
-            input: a.input + b.input, output: a.output + b.output, cacheWrite: a.cacheWrite + b.cacheWrite,
-            cacheRead: a.cacheRead + b.cacheRead)
+            input: lhs.input + rhs.input, output: lhs.output + rhs.output,
+            cacheWrite: lhs.cacheWrite + rhs.cacheWrite, cacheRead: lhs.cacheRead + rhs.cacheRead)
     }
-    public static func += (a: inout Self, b: Self) {
-        a.input += b.input
-        a.output += b.output
-        a.cacheWrite += b.cacheWrite
-        a.cacheRead += b.cacheRead
+    public static func += (lhs: inout Self, rhs: Self) {
+        lhs.input += rhs.input
+        lhs.output += rhs.output
+        lhs.cacheWrite += rhs.cacheWrite
+        lhs.cacheRead += rhs.cacheRead
     }
 }
 
@@ -21,9 +21,9 @@ public struct Pricing: Sendable, Equatable {
     public var input, output, cacheWrite, cacheRead: Double
     /// A request whose prompt, cache included, is longer than this pays five times every rate (Haiku 5.5).
     public var longPrompt = Int.max
-    public func cost(_ t: TokenCounts) -> Double {
-        (Double(t.input) * input + Double(t.output) * output + Double(t.cacheWrite) * cacheWrite + Double(t.cacheRead)
-            * cacheRead) / 1_000_000
+    public func cost(_ tokens: TokenCounts) -> Double {
+        (Double(tokens.input) * input + Double(tokens.output) * output + Double(tokens.cacheWrite) * cacheWrite
+            + Double(tokens.cacheRead) * cacheRead) / 1_000_000
     }
 
     /// ESTIMATE: list prices as of Nov 2026, hand-copied; they drift. Cache write = 5-minute TTL rate; `hourWrites` says how
@@ -57,10 +57,10 @@ public struct Pricing: Sendable, Equatable {
 
     /// One call's cost, 0 for unknown models. A write kept for an hour costs twice the input rate.
     public static func cost(model: String, tokens: TokenCounts, hourWrites: Int = 0) -> Double {
-        let m = model.lowercased()
-        guard let p = table.first(where: { m.contains($0.match) })?.price else { return 0 }
-        let cost = p.cost(tokens) + Double(hourWrites) * (2 * p.input - p.cacheWrite) / 1_000_000
-        return tokens.input + tokens.cacheWrite + tokens.cacheRead > p.longPrompt ? cost * 5 : cost
+        let id = model.lowercased()
+        guard let price = table.first(where: { id.contains($0.match) })?.price else { return 0 }
+        let cost = price.cost(tokens) + Double(hourWrites) * (2 * price.input - price.cacheWrite) / 1_000_000
+        return tokens.input + tokens.cacheWrite + tokens.cacheRead > price.longPrompt ? cost * 5 : cost
     }
 }
 
@@ -90,14 +90,14 @@ public enum CodexUsage {
     /// Rollouts without one are skipped: Codex Desktop imports Claude Code conversations as rollouts by the dozen, all
     /// newer than the last real session and with `rate_limits: null`.
     public static func latest(root: URL = CodexHistory.defaultRoot) -> CodexLimits? {
-        func mtime(_ u: URL) -> Date {
-            (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        func mtime(_ url: URL) -> Date {
+            (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
         }
         var found: [CodexLimits] = []
         // Limit: reads up to 200 rollouts when none has limits (API-key sign-in); remember that if it gets slow.
-        for (u, _) in CodexHistory.rollouts(root).map({ ($0, mtime($0)) }).sorted(by: { $0.1 > $1.1 }).prefix(200)
+        for (rollout, _) in CodexHistory.rollouts(root).map({ ($0, mtime($0)) }).sorted(by: { $0.1 > $1.1 }).prefix(200)
         where found.count < 3 {
-            if let l = latest(in: u) { found.append(l) }
+            if let limits = latest(in: rollout) { found.append(limits) }
         }
         return found.max { $0.observedAt < $1.observedAt }
     }
@@ -110,29 +110,33 @@ public enum CodexUsage {
         }.first
     }
 
-    static func limits(_ o: [String: Any]?) -> CodexLimits? {
-        guard let o, let p = o["payload"] as? [String: Any], p["type"] as? String == "token_count",
-            let at = JSONL.date(o["timestamp"])
+    static func limits(_ line: [String: Any]?) -> CodexLimits? {
+        guard let line, let payload = line["payload"] as? [String: Any], payload["type"] as? String == "token_count",
+            let at = JSONL.date(line["timestamp"])
         else { return nil }
-        return limits(rateLimits: p["rate_limits"], at: at)
+        return limits(rateLimits: payload["rate_limits"], at: at)
     }
 
     /// A rollout's `rate_limits` (`primary: {used_percent, window_minutes, resets_at | resets_in_seconds}`, or the older flat
     /// `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent, windowDurationMins, resetsAt}`), read at `at`.
     public static func limits(rateLimits: Any?, at: Date) -> CodexLimits? {
         guard let rl = rateLimits as? [String: Any] else { return nil }
-        func window(_ k: String) -> (used: Double, resets: Date?, minutes: Double?)? {
-            let w =
-                rl[k] as? [String: Any]
+        func window(_ name: String) -> (used: Double, resets: Date?, minutes: Double?)? {
+            let fields =
+                rl[name] as? [String: Any]
                 ?? Dictionary(
                     uniqueKeysWithValues: rl.compactMap {
-                        $0.key.hasPrefix(k + "_") ? (String($0.key.dropFirst(k.count + 1)), $0.value) : nil
+                        $0.key.hasPrefix(name + "_") ? (String($0.key.dropFirst(name.count + 1)), $0.value) : nil
                     })
-            guard let used = ((w["used_percent"] ?? w["usedPercent"]) as? NSNumber)?.doubleValue else { return nil }
+            guard let used = ((fields["used_percent"] ?? fields["usedPercent"]) as? NSNumber)?.doubleValue else {
+                return nil
+            }
             let resets =
-                JSONL.date(w["resets_at"] ?? w["resetsAt"])
-                ?? (w["resets_in_seconds"] as? NSNumber).map { at + $0.doubleValue }
-            return (used, resets, ((w["window_minutes"] ?? w["windowDurationMins"]) as? NSNumber)?.doubleValue)
+                JSONL.date(fields["resets_at"] ?? fields["resetsAt"])
+                ?? (fields["resets_in_seconds"] as? NSNumber).map { at + $0.doubleValue }
+            return (
+                used, resets, ((fields["window_minutes"] ?? fields["windowDurationMins"]) as? NSNumber)?.doubleValue
+            )
         }
         let primary = window("primary"), secondary = window("secondary")
         guard primary != nil || secondary != nil else { return nil }

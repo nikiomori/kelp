@@ -30,15 +30,15 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
-    func reads(_ f: URL) -> Bool {
+    func reads(_ file: URL) -> Bool {
         switch self {
-        case .claude: f.pathExtension == "jsonl"
-        case .codex: f.pathExtension == "jsonl" && f.lastPathComponent.hasPrefix("rollout-")
-        case .grok: f.lastPathComponent == "updates.jsonl"
-        case .kimi: f.lastPathComponent == "wire.jsonl"
-        case .pi, .omp: f.pathExtension == "jsonl"
-        case .qwen: f.pathExtension == "jsonl" && f.deletingLastPathComponent().lastPathComponent == "chats"
-        case .gemini: f.pathExtension == "jsonl" && f.lastPathComponent.hasPrefix("session-")
+        case .claude: file.pathExtension == "jsonl"
+        case .codex: file.pathExtension == "jsonl" && file.lastPathComponent.hasPrefix("rollout-")
+        case .grok: file.lastPathComponent == "updates.jsonl"
+        case .kimi: file.lastPathComponent == "wire.jsonl"
+        case .pi, .omp: file.pathExtension == "jsonl"
+        case .qwen: file.pathExtension == "jsonl" && file.deletingLastPathComponent().lastPathComponent == "chats"
+        case .gemini: file.pathExtension == "jsonl" && file.lastPathComponent.hasPrefix("session-")
         }
     }
 
@@ -56,11 +56,11 @@ public enum UsageFormat: String, Sendable, CaseIterable {
     }
 
     /// What the file's folder says, before its first line.
-    func start(_ f: URL) -> [String: String] {
+    func start(_ file: URL) -> [String: String] {
         switch self {
         // sessions/<cwd, percent-encoded>/<id>/updates.jsonl. A subagent's turns are already in its parent's.
         case .grok:
-            let dir = f.deletingLastPathComponent()
+            let dir = file.deletingLastPathComponent()
             let summary = FileManager.default.contents(atPath: dir.appendingPathComponent("summary.json").path).flatMap(
                 JSONL.object)
             let info = summary?["info"] as? [String: Any]
@@ -71,15 +71,15 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             return kind.hasPrefix("subagent") ? ["skip": "1"] : ["cwd": cwd]
         // sessions/<folder>/session_<id>/agents/<agent>/wire.jsonl; the folder is in the session's state.json.
         case .kimi:
-            let session = f.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            let session = file.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             let state = FileManager.default.contents(atPath: session.appendingPathComponent("state.json").path).flatMap(
                 JSONL.object)
             return ["cwd": state?["cwd"] as? String ?? ""]
         // tmp/<project>/chats/session-….jsonl; projects.json says which folder a project's name stands for.
         case .gemini:
-            let project = f.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+            let project = file.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
             let list = FileManager.default.contents(
-                atPath: f.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                atPath: file.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
                     .deletingLastPathComponent().appendingPathComponent("projects.json").path
             ).flatMap(JSONL.object)
             let names = list?["projects"] as? [String: String] ?? [:]
@@ -104,31 +104,32 @@ public enum UsageFormat: String, Sendable, CaseIterable {
     /// `last_token_usage` (its input counts the cached part). The same snapshot is often written twice (one running total:
     /// counted once); an estimate has nothing but a total (an imported Claude Code conversation has one), so it's left out.
     /// Limit: a fork replays its parent's events stamped with the time it forked; those in its first 2 s are taken as its parent's.
-    static func codex(_ line: Data, _ c: inout [String: String]) -> UsageEntry? {
-        guard let o = JSONL.object(line), let p = o["payload"] as? [String: Any],
-            let t = JSONL.date(o["timestamp"])?.timeIntervalSince1970
+    static func codex(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
+        guard let object = JSONL.object(line), let payload = object["payload"] as? [String: Any],
+            let time = JSONL.date(object["timestamp"])?.timeIntervalSince1970
         else { return nil }
-        switch o["type"] as? String {
+        switch object["type"] as? String {
         case "session_meta":
-            c["cwd"] = p["cwd"] as? String
-            if p["forked_from_id"] is String { c["fork"] = String(t) }
+            context["cwd"] = payload["cwd"] as? String
+            if payload["forked_from_id"] is String { context["fork"] = String(time) }
         case "turn_context":
-            c["model"] = p["model"] as? String ?? c["model"]
-            c["cwd"] = p["cwd"] as? String ?? c["cwd"]
-        case "event_msg" where p["type"] as? String == "token_count":
-            let info = p["info"] as? [String: Any]
+            context["model"] = payload["model"] as? String ?? context["model"]
+            context["cwd"] = payload["cwd"] as? String ?? context["cwd"]
+        case "event_msg" where payload["type"] as? String == "token_count":
+            let info = payload["info"] as? [String: Any]
             guard let last = info?["last_token_usage"] as? [String: Any] else { return nil }
             let total = (info?["total_token_usage"] as? [String: Any])?["total_tokens"].map { "\($0)" }
-            guard total == nil || total != c["total"] else { return nil }
-            c["total"] = total
-            if let fork = c["fork"].flatMap(Double.init), t < fork + 2 { return nil }
+            guard total == nil || total != context["total"] else { return nil }
+            context["total"] = total
+            if let fork = context["fork"].flatMap(Double.init), time < fork + 2 { return nil }
             let input = n(last, "input_tokens"), cached = n(last, "cached_input_tokens"),
                 written = n(last, "cache_write_input_tokens")
             let tokens = TokenCounts(
                 input: max(0, input - cached - written), output: n(last, "output_tokens"), cacheWrite: written,
                 cacheRead: cached)
             guard tokens.input + tokens.output > 0 else { return nil }
-            return UsageEntry(time: t, model: c["model"] ?? "codex", cwd: c["cwd"] ?? "", id: nil, tokens: tokens)
+            return UsageEntry(
+                time: time, model: context["model"] ?? "codex", cwd: context["cwd"] ?? "", id: nil, tokens: tokens)
         default: break
         }
         return nil
@@ -136,13 +137,15 @@ public enum UsageFormat: String, Sendable, CaseIterable {
 
     /// Grok Build's `updates.jsonl`: a `turn_completed` per prompt with its tokens (input counts the cached part) and what it
     /// cost (`costUsdTicks`, 10¹⁰ to the dollar). The model is the one that took most of it.
-    static func grok(_ line: Data, _ c: [String: String]) -> UsageEntry? {
-        guard let o = JSONL.object(line), let params = o["params"] as? [String: Any],
-            let u = params["update"] as? [String: Any],
-            u["sessionUpdate"] as? String == "turn_completed", let usage = u["usage"] as? [String: Any]
+    static func grok(_ line: Data, _ context: [String: String]) -> UsageEntry? {
+        guard let object = JSONL.object(line), let params = object["params"] as? [String: Any],
+            let update = params["update"] as? [String: Any],
+            update["sessionUpdate"] as? String == "turn_completed", let usage = update["usage"] as? [String: Any]
         else { return nil }
         let ms = ((params["_meta"] as? [String: Any])?["agentTimestampMs"] as? NSNumber)?.doubleValue
-        guard let t = ms.map({ $0 / 1000 }) ?? JSONL.date(o["timestamp"])?.timeIntervalSince1970 else { return nil }
+        guard let time = ms.map({ $0 / 1000 }) ?? JSONL.date(object["timestamp"])?.timeIntervalSince1970 else {
+            return nil
+        }
         let models = usage["modelUsage"] as? [String: [String: Any]] ?? [:]
         let model = models.max { n($0.value, "totalTokens") < n($1.value, "totalTokens") }?.key ?? "grok"
         let cached = n(usage, "cachedReadTokens"), written = n(usage, "cacheCreationTokens")
@@ -150,43 +153,47 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             input: max(0, n(usage, "inputTokens") - cached - written), output: n(usage, "outputTokens"),
             cacheWrite: written, cacheRead: cached)
         return UsageEntry(
-            time: t, model: model, cwd: c["cwd"] ?? "", id: u["prompt_id"] as? String, tokens: tokens,
+            time: time, model: model, cwd: context["cwd"] ?? "", id: update["prompt_id"] as? String, tokens: tokens,
             cost: (usage["costUsdTicks"] as? NSNumber).map { $0.doubleValue / 1e10 })
     }
 
     /// Kimi Code's `wire.jsonl`: a `usage.record` per model call (`inputOther` leaves the cache out), its time in milliseconds.
-    static func kimi(_ line: Data, _ c: [String: String]) -> UsageEntry? {
-        guard let o = JSONL.object(line), o["type"] as? String == "usage.record", let u = o["usage"] as? [String: Any],
-            let ms = (o["time"] as? NSNumber)?.doubleValue
+    static func kimi(_ line: Data, _ context: [String: String]) -> UsageEntry? {
+        guard let object = JSONL.object(line), object["type"] as? String == "usage.record",
+            let usage = object["usage"] as? [String: Any],
+            let ms = (object["time"] as? NSNumber)?.doubleValue
         else { return nil }
         let tokens = TokenCounts(
-            input: n(u, "inputOther"), output: n(u, "output"), cacheWrite: n(u, "inputCacheCreation"),
-            cacheRead: n(u, "inputCacheRead"))
+            input: n(usage, "inputOther"), output: n(usage, "output"), cacheWrite: n(usage, "inputCacheCreation"),
+            cacheRead: n(usage, "inputCacheRead"))
         return UsageEntry(
-            time: ms / 1000, model: o["model"] as? String ?? "kimi", cwd: c["cwd"] ?? "", id: nil, tokens: tokens)
+            time: ms / 1000, model: object["model"] as? String ?? "kimi", cwd: context["cwd"] ?? "", id: nil,
+            tokens: tokens)
     }
 
     /// pi's (and oh-my-pi's) sessions: the folder on the first line (`type: session`), then an assistant message's `usage`
     /// (input without the cache, output with the reasoning) and what pi priced it at. A fork copies its parent's lines with
     /// their old times: the index skips those as older than the file.
-    static func pi(_ line: Data, _ c: inout [String: String]) -> UsageEntry? {
-        guard let o = JSONL.object(line) else { return nil }
-        if o["type"] as? String == "session" {
-            c["cwd"] = o["cwd"] as? String
+    static func pi(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
+        guard let object = JSONL.object(line) else { return nil }
+        if object["type"] as? String == "session" {
+            context["cwd"] = object["cwd"] as? String
             return nil
         }
-        guard o["type"] as? String == "message", let m = o["message"] as? [String: Any],
-            m["role"] as? String == "assistant",
-            let u = m["usage"] as? [String: Any],
-            let t = (m["timestamp"] as? NSNumber).map({ $0.doubleValue / 1000 })
-                ?? JSONL.date(o["timestamp"])?.timeIntervalSince1970
+        guard object["type"] as? String == "message", let message = object["message"] as? [String: Any],
+            message["role"] as? String == "assistant",
+            let usage = message["usage"] as? [String: Any],
+            let time = (message["timestamp"] as? NSNumber).map({ $0.doubleValue / 1000 })
+                ?? JSONL.date(object["timestamp"])?.timeIntervalSince1970
         else { return nil }
         let tokens = TokenCounts(
-            input: n(u, "input"), output: n(u, "output"), cacheWrite: n(u, "cacheWrite"), cacheRead: n(u, "cacheRead"))
+            input: n(usage, "input"), output: n(usage, "output"), cacheWrite: n(usage, "cacheWrite"),
+            cacheRead: n(usage, "cacheRead"))
         guard tokens.total > 0 else { return nil }
-        let cost = ((u["cost"] as? [String: Any])?["total"] as? NSNumber)?.doubleValue
+        let cost = ((usage["cost"] as? [String: Any])?["total"] as? NSNumber)?.doubleValue
         return UsageEntry(
-            time: t, model: m["model"] as? String ?? "pi", cwd: c["cwd"] ?? "", id: m["responseId"] as? String,
+            time: time, model: message["model"] as? String ?? "pi", cwd: context["cwd"] ?? "",
+            id: message["responseId"] as? String,
             tokens: tokens,
             cost: cost.flatMap { $0 > 0 ? $0 : nil })
     }
@@ -194,35 +201,38 @@ public enum UsageFormat: String, Sendable, CaseIterable {
     /// Qwen Code's chats: an assistant line's `usageMetadata`, Gemini's shape (the prompt counts the cache; what's past the
     /// prompt in the total is output, thinking included, whichever provider answered).
     static func qwen(_ line: Data) -> UsageEntry? {
-        guard let o = JSONL.object(line), o["type"] as? String == "assistant",
-            let u = o["usageMetadata"] as? [String: Any],
-            let t = JSONL.date(o["timestamp"])?.timeIntervalSince1970
+        guard let object = JSONL.object(line), object["type"] as? String == "assistant",
+            let usage = object["usageMetadata"] as? [String: Any],
+            let time = JSONL.date(object["timestamp"])?.timeIntervalSince1970
         else { return nil }
-        let prompt = n(u, "promptTokenCount"), cached = n(u, "cachedContentTokenCount")
+        let prompt = n(usage, "promptTokenCount"), cached = n(usage, "cachedContentTokenCount")
         let tokens = TokenCounts(
-            input: max(0, prompt - cached), output: max(0, n(u, "totalTokenCount") - prompt), cacheWrite: 0,
+            input: max(0, prompt - cached), output: max(0, n(usage, "totalTokenCount") - prompt), cacheWrite: 0,
             cacheRead: cached)
         guard tokens.total > 0 else { return nil }
         return UsageEntry(
-            time: t, model: o["model"] as? String ?? "qwen", cwd: o["cwd"] as? String ?? "", id: o["uuid"] as? String,
+            time: time, model: object["model"] as? String ?? "qwen", cwd: object["cwd"] as? String ?? "",
+            id: object["uuid"] as? String,
             tokens: tokens)
     }
 
     /// Gemini CLI's sessions: a reply's record (`type: gemini`) with its `tokens` (input counts the cache, thoughts aren't
     /// in output). A reply is written again once its tokens come, under the same id: one counts.
-    static func gemini(_ line: Data, _ c: [String: String]) -> UsageEntry? {
-        guard let o = JSONL.object(line), o["type"] as? String == "gemini", let u = o["tokens"] as? [String: Any],
-            let t = JSONL.date(o["timestamp"])?.timeIntervalSince1970
+    static func gemini(_ line: Data, _ context: [String: String]) -> UsageEntry? {
+        guard let object = JSONL.object(line), object["type"] as? String == "gemini",
+            let usage = object["tokens"] as? [String: Any],
+            let time = JSONL.date(object["timestamp"])?.timeIntervalSince1970
         else { return nil }
-        let cached = n(u, "cached")
+        let cached = n(usage, "cached")
         let tokens = TokenCounts(
-            input: max(0, n(u, "input") - cached), output: n(u, "output") + n(u, "thoughts"), cacheWrite: 0,
+            input: max(0, n(usage, "input") - cached), output: n(usage, "output") + n(usage, "thoughts"), cacheWrite: 0,
             cacheRead: cached)
         guard tokens.total > 0 else { return nil }
         return UsageEntry(
-            time: t, model: o["model"] as? String ?? "gemini", cwd: c["cwd"] ?? "", id: o["id"] as? String,
+            time: time, model: object["model"] as? String ?? "gemini", cwd: context["cwd"] ?? "",
+            id: object["id"] as? String,
             tokens: tokens)
     }
 
-    private static func n(_ o: [String: Any], _ k: String) -> Int { JSONL.int(o, k) }
+    private static func n(_ object: [String: Any], _ key: String) -> Int { JSONL.int(object, key) }
 }

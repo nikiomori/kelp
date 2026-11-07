@@ -5,25 +5,25 @@ extension Hooks {
     /// What a hook's notification puts on the row. Claude Code's PermissionRequest (`kelp hook` passes it on as
     /// "permission_request" with its tool) comes as the dialog opens and says what it would run; the generic "Claude needs
     /// your permission to use Bash" Notification it sends six seconds later doesn't replace that.
-    public static func message(_ n: JSONValue, alreadyWaiting: Bool) -> String? {
-        switch n["notification_type"]?.string {
-        case "permission_request": permissionAsk(n)
+    public static func message(_ notification: JSONValue, alreadyWaiting: Bool) -> String? {
+        switch notification["notification_type"]?.string {
+        case "permission_request": permissionAsk(notification)
         case "permission_prompt" where alreadyWaiting: nil
-        default: n["message"]?.string
+        default: notification["message"]?.string
         }
     }
 
     /// "Allow rm -rf node_modules?", "Allow editing Sources/App.swift?": the tool and what it would act on. A question
     /// (AskUserQuestion goes through the same dialog) is its own first question, not a permission.
-    public static func permissionAsk(_ n: JSONValue) -> String {
-        let tool = n["tool_name"]?.string ?? "", input = n["tool_input"] ?? .null
-        if tool == "AskUserQuestion", let q = input["questions"]?.array?.first?["question"]?.string.map(oneLine),
-            !q.isEmpty
+    public static func permissionAsk(_ notification: JSONValue) -> String {
+        let tool = notification["tool_name"]?.string ?? "", input = notification["tool_input"] ?? .null
+        if tool == "AskUserQuestion", let question = input["questions"]?.array?.first?["question"]?.string.map(oneLine),
+            !question.isEmpty
         {
-            return q.count > 126 ? String(q.prefix(125)) + "…" : q
+            return question.count > 126 ? String(question.prefix(125)) + "…" : question
         }
         func field(_ key: String) -> String? { input[key]?.string.map(oneLine).flatMap { $0.isEmpty ? nil : $0 } }
-        func file(_ key: String) -> String? { field(key).map { shortPath($0, cwd: n["cwd"]?.string) } }
+        func file(_ key: String) -> String? { field(key).map { shortPath($0, cwd: notification["cwd"]?.string) } }
         // A command of more lines than shows ends "…": what's asked isn't all on screen (`Hooks.shownWhole`).
         let lines =
             input["command"]?.string?.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.count
@@ -48,8 +48,8 @@ extension Hooks {
     /// so it is answered in the agent's own dialog, never with one click on a banner or the Dock.
     public static func shownWhole(_ question: String) -> Bool { !question.hasSuffix("…?") }
 
-    private static func oneLine(_ s: String) -> String {
-        s.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+    private static func oneLine(_ text: String) -> String {
+        text.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
     }
 
     /// Inside the session's folder: relative to it; elsewhere in the home folder: from "~".

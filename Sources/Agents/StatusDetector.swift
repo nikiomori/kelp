@@ -64,10 +64,10 @@ public struct StatusDetector: Sendable {
         source = "screen: it printed words"
     }
 
-    /// `s` up to an escape sequence it ends inside of, and that unfinished sequence.
-    static func wholeSequences(_ s: String) -> (whole: String, rest: String) {
-        guard let esc = s.lastIndex(of: "\u{1B}") else { return (s, "") }
-        let seq = Array(s[esc...].unicodeScalars)
+    /// `text` up to an escape sequence it ends inside of, and that unfinished sequence.
+    static func wholeSequences(_ text: String) -> (whole: String, rest: String) {
+        guard let esc = text.lastIndex(of: "\u{1B}") else { return (text, "") }
+        let seq = Array(text[esc...].unicodeScalars)
         let done: Bool =
             switch seq.count > 1 ? seq[1] : "\u{0}" {
             case "\u{0}": false
@@ -75,19 +75,19 @@ public struct StatusDetector: Sendable {
             case "]", "P", "_", "^": seq.contains("\u{07}")   // OSC and the like: BEL (an ESC \ ending is its own ESC)
             default: true
             }
-        return done ? (s, "") : (String(s[..<esc]), String(s[esc...]))
+        return done ? (text, "") : (String(text[..<esc]), String(text[esc...]))
     }
 
     private static let letters = CharacterSet.letters
-    static func hasWords(_ s: String) -> Bool {
-        s.unicodeScalars.lazy.filter { letters.contains($0) }.prefix(3).count == 3
+    static func hasWords(_ text: String) -> Bool {
+        text.unicodeScalars.lazy.filter { letters.contains($0) }.prefix(3).count == 3
     }
 
     /// An OSC 0 / 2 title that starts with a braille spinner frame (⠋⠙⠹…).
     private static let titleSpinner = try? NSRegularExpression(pattern: #"\x{1B}\][02];[\x{2801}-\x{28FF}]"#)
-    static func spinsTitle(_ s: String) -> Bool {
-        guard s.utf8.contains(0x1B), let titleSpinner else { return false }
-        return titleSpinner.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
+    static func spinsTitle(_ text: String) -> Bool {
+        guard text.utf8.contains(0x1B), let titleSpinner else { return false }
+        return titleSpinner.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
     /// Call periodically; returns the (possibly new) status.
@@ -105,8 +105,8 @@ public struct StatusDetector: Sendable {
 
     /// The end of what it printed asks the user something.
     private var asks: Bool {
-        let r = NSRange(tail.startIndex..., in: tail)
-        return regexes.contains { $0.firstMatch(in: tail, range: r) != nil }
+        let range = NSRange(tail.startIndex..., in: tail)
+        return regexes.contains { $0.firstMatch(in: tail, range: range) != nil }
     }
 
     /// Hook event: "working" | "waiting" | "done" | "error". Once seen, heuristics are off for this session.
@@ -212,9 +212,9 @@ public struct StatusDetector: Sendable {
     }
 
     /// A better guess from elsewhere (local model) that does not switch heuristics off like a hook does.
-    public mutating func override(_ s: AgentStatus, because why: String = "set by Kelp") {
-        guard (status != .exited && status != .paused) || s == .paused else { return }
-        status = s
+    public mutating func override(_ newStatus: AgentStatus, because why: String = "set by Kelp") {
+        guard (status != .exited && status != .paused) || newStatus == .paused else { return }
+        status = newStatus
         source = why
     }
 
@@ -227,10 +227,10 @@ public struct StatusDetector: Sendable {
     )
 
     /// Runs on every chunk of every session: compiled once, and text without an escape is returned as is.
-    public static func stripANSI(_ s: String) -> String {
-        guard s.utf8.contains(0x1B), let cursorMoves, let escapes else { return s }
+    public static func stripANSI(_ text: String) -> String {
+        guard text.utf8.contains(0x1B), let cursorMoves, let escapes else { return text }
         let spaced = cursorMoves.stringByReplacingMatches(
-            in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
+            in: text, range: NSRange(text.startIndex..., in: text), withTemplate: " ")
         return escapes.stringByReplacingMatches(
             in: spaced, range: NSRange(spaced.startIndex..., in: spaced), withTemplate: "")
     }

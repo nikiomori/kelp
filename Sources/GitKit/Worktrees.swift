@@ -36,8 +36,9 @@ extension Git {
             }
         }
         let fm = FileManager.default
-        for f in copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : [] {
-            let src = (repo as NSString).appendingPathComponent(f), dst = (path as NSString).appendingPathComponent(f)
+        for file in copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : [] {
+            let src = (repo as NSString).appendingPathComponent(file),
+                dst = (path as NSString).appendingPathComponent(file)
             guard fm.fileExists(atPath: src), !fm.fileExists(atPath: dst), staysInside(dst, path) else { continue }
             try? fm.createDirectory(
                 atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
@@ -65,13 +66,13 @@ extension Git {
         let head = try line(["rev-parse", "FETCH_HEAD"])
         // Kept past its branch (`holdsPullRequest`): a workspace made later on top of it is the PR's code too.
         try run(["update-ref", "refs/kelp/pr/\(number)", head], cwd: repo, remotes: remotes)
-        func at(_ b: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + b]) }
-        func openIn(_ b: String) throws -> String {
-            try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + b])
+        func at(_ branch: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + branch]) }
+        func openIn(_ branch: String) throws -> String {
+            try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + branch])
         }
         if let wanted, Git.isRevision(wanted), try at(wanted) == head, try openIn(wanted).isEmpty { return wanted }
         // pr-<N>, moved on from an older fetch of this PR; pr-<N>-2… when it holds commits of its own, which stay.
-        var mine = "pr-\(number)", k = 2
+        var mine = "pr-\(number)", attempt = 2
         while true {
             let now = try at(mine), open = try openIn(mine)
             if now.isEmpty {
@@ -86,8 +87,8 @@ extension Git {
                 try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
                 return mine
             }
-            mine = "pr-\(number)-\(k)"
-            k += 1
+            mine = "pr-\(number)-\(attempt)"
+            attempt += 1
         }
     }
 
@@ -133,8 +134,8 @@ extension Git {
             ((try? run(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd: repo, remotes: remotes))
             ?? "")
             .split(separator: "\0").map(String.init)
-        return ignored.filter { f in
-            pats.contains { fnmatch($0, f, 0) == 0 || fnmatch($0, (f as NSString).lastPathComponent, 0) == 0 }
+        return ignored.filter { file in
+            pats.contains { fnmatch($0, file, 0) == 0 || fnmatch($0, (file as NSString).lastPathComponent, 0) == 0 }
         }
     }
 
@@ -176,9 +177,9 @@ extension Git {
         _ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void
     ) {
         // Only paths inside the project: "/etc", "../x" or "a/../../b" would link (or create folders) outside it.
-        for d in dirs where !d.hasPrefix("/") && !d.hasPrefix("~") && !d.split(separator: "/").contains("..") {
-            let src = (repo as NSString).appendingPathComponent(d),
-                dst = (worktree as NSString).appendingPathComponent(d)
+        for dir in dirs where !dir.hasPrefix("/") && !dir.hasPrefix("~") && !dir.split(separator: "/").contains("..") {
+            let src = (repo as NSString).appendingPathComponent(dir),
+                dst = (worktree as NSString).appendingPathComponent(dir)
             guard FileManager.default.fileExists(atPath: src), !FileManager.default.fileExists(atPath: dst),
                 staysInside(dst, worktree)
             else { continue }
@@ -197,13 +198,15 @@ extension Git {
     )] {
         let nul = remotes.of(repo) == nil
         let out = try run(["worktree", "list", "--porcelain"] + (nul ? ["-z"] : []), cwd: repo, remotes: remotes)
-        return out.components(separatedBy: nul ? "\0\0" : "\n\n").dropFirst().compactMap { b in
-            let lines = b.split(separator: nul ? "\0" : "\n")
-            guard let p = lines.first(where: { $0.hasPrefix("worktree ") }) else { return nil }
+        return out.components(separatedBy: nul ? "\0\0" : "\n\n").dropFirst().compactMap { block in
+            let lines = block.split(separator: nul ? "\0" : "\n")
+            guard let worktreeLine = lines.first(where: { $0.hasPrefix("worktree ") }) else { return nil }
             let branch = lines.first { $0.hasPrefix("branch refs/heads/") }.map { String($0.dropFirst(18)) }.flatMap {
                 Git.isRevision($0) ? $0 : nil
             }
-            return (String(p.dropFirst(9)), branch, lines.contains { $0 == "locked" || $0.hasPrefix("locked ") })
+            return (
+                String(worktreeLine.dropFirst(9)), branch, lines.contains { $0 == "locked" || $0.hasPrefix("locked ") }
+            )
         }
     }
 
@@ -211,8 +214,8 @@ extension Git {
         try run(["branch", "-m", rev(old), rev(new)], cwd: path, remotes: remotes)
     }
 
-    public static func branchExists(_ repo: String, _ b: String, remotes: Remotes = .none) -> Bool {
-        (try? run(["rev-parse", "--verify", "--quiet", "refs/heads/" + b], cwd: repo, remotes: remotes)) != nil
+    public static func branchExists(_ repo: String, _ branch: String, remotes: Remotes = .none) -> Bool {
+        (try? run(["rev-parse", "--verify", "--quiet", "refs/heads/" + branch], cwd: repo, remotes: remotes)) != nil
     }
 
     public static func isDirty(_ path: String, remotes: Remotes = .none) throws -> Bool {
@@ -235,9 +238,9 @@ extension Git {
             let real = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
             // A host's path as git lists it, links followed there (git lists /private/tmp for /tmp).
             let here =
-                try host.map { h in
+                try host.map { remote in
                     String(
-                        decoding: try h.run(
+                        decoding: try remote.run(
                             "cd -- \(IDE.shellWord(path)) 2>/dev/null && pwd -P || printf %s \(IDE.shellWord(path))"),
                         as: UTF8.self
                     ).trimmingCharacters(in: .newlines)
@@ -261,10 +264,10 @@ extension Git {
         // ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two removals
         // of a same-named folder in one second apart.
         if let host {
-            let q = IDE.shellWord,
+            let quote = IDE.shellWord,
                 aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
             _ = try host.run(
-                "d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(q(path)) ]; then mv -- \(q(path)) \"$d\"/\(q(aside))-$$; fi"
+                "d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(quote(path)) ]; then mv -- \(quote(path)) \"$d\"/\(quote(aside))-$$; fi"
             )
         }
         // Its record only: `worktree prune` would also drop worktrees whose folder is just away (an unmounted disk).
@@ -283,21 +286,23 @@ extension Git {
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Commits made on a detached HEAD belong to no branch at all: removing the folder would leave them to `git gc`.
         if !dropCommits, remotes.of(path) != nil || FileManager.default.fileExists(atPath: path),
-            case let n = commitsOnNoBranch(path, remotes: remotes), n > 0
+            case let count = commitsOnNoBranch(path, remotes: remotes), count > 0
         {
             throw GitError(
                 args: ["worktree", "remove"], status: 1,
                 stderr:
-                    "This workspace has \(n) commit\(n == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
+                    "This workspace has \(count) commit\(count == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
             )
         }
     }
 
     private static func checkBranchDeletable(repo: String, _ branch: String, remotes: Remotes) throws {
-        if case let n = try onlyOnBranch(repo: repo, branch, remotes: remotes), n > 0 {
+        if case let count = try onlyOnBranch(repo: repo, branch, remotes: remotes), count > 0 {
             throw GitError(
                 args: ["branch", "-D", branch], status: 1,
-                stderr: "\(branch) has \(n) commit\(n == 1 ? "" : "s") that aren't on any other branch or remote")
+                stderr:
+                    "\(branch) has \(count) commit\(count == 1 ? "" : "s") that aren't on any other branch or remote"
+            )
         }
     }
 
@@ -311,11 +316,13 @@ extension Git {
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Only the folder it was in is there to follow links in to where git lists it (/tmp is /private/tmp).
         let local = remotes.of(repo) == nil
-        let real = { (p: String) in
-            let u = URL(fileURLWithPath: p)
+        let real = { (folder: String) in
+            let url = URL(fileURLWithPath: folder)
             return local
-                ? u.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent(u.lastPathComponent)
-                    .path : p
+                ? url.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent(
+                    url.lastPathComponent
+                )
+                .path : folder
         }
         if let entry = try linkedWorktrees(repo, remotes: remotes).first(where: { real($0.path) == real(path) }) {
             try run(["worktree", "remove", "--force", entry.path], cwd: repo, remotes: remotes)

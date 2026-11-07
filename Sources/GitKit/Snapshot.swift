@@ -45,9 +45,9 @@ extension Git {
         return try run(["diff", "--numstat", "--no-renames", "-z", rev(tree), now], cwd: cwd, remotes: remotes).split(
             separator: "\0"
         ).compactMap { line in
-            let f = line.split(separator: "\t", maxSplits: 2)
-            guard f.count == 3 else { return nil }
-            return (String(f[2]), Int(f[0]) ?? 0, Int(f[1]) ?? 0)
+            let fields = line.split(separator: "\t", maxSplits: 2)
+            guard fields.count == 3 else { return nil }
+            return (String(fields[2]), Int(fields[0]) ?? 0, Int(fields[1]) ?? 0)
         }
     }
 }
@@ -104,8 +104,8 @@ extension Git {
             try run(
                 ["restore", "--source=" + rev(tree), "--worktree", "--"] + literal(back), cwd: cwd, remotes: remotes)
         }
-        for f in files where !had.contains(f) && FileManager.default.fileExists(atPath: cwd + "/" + f) {
-            try Trash.move(URL(fileURLWithPath: cwd + "/" + f))
+        for file in files where !had.contains(file) && FileManager.default.fileExists(atPath: cwd + "/" + file) {
+            try Trash.move(URL(fileURLWithPath: cwd + "/" + file))
         }
         let left = Set(try changed(since: tree, cwd: cwd, remotes: remotes).files).intersection(files)
         guard left.isEmpty else {

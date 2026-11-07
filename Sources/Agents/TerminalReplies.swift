@@ -31,15 +31,20 @@ public enum TerminalReplies {
 
     /// History to replay into a new terminal, minus the agent's old questions to its terminal: answered again, the
     /// answers would reach the agent as typing (">|ghostty 1.3.2" in its prompt). Its old clipboard copies go too.
-    public static func withoutQueries(_ d: Data) -> Data {
-        guard let q = queries, let s = String(data: d, encoding: .isoLatin1) else { return d }
-        let out = q.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: "")
-        return out.data(using: .isoLatin1) ?? d
+    public static func withoutQueries(_ data: Data) -> Data {
+        guard let pattern = queries, let text = String(data: data, encoding: .isoLatin1) else { return data }
+        let out = pattern.stringByReplacingMatches(
+            in: text, range: NSRange(text.startIndex..., in: text), withTemplate: "")
+        return out.data(using: .isoLatin1) ?? data
     }
 
     /// Input made only of the terminal answering the agent: not the user doing anything.
-    public static func isReply(_ d: Data) -> Bool {
-        guard d.first == 0x1B, let r = replies, let s = String(data: d, encoding: .isoLatin1) else { return false }
-        return r.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: "").isEmpty
+    public static func isReply(_ data: Data) -> Bool {
+        guard data.first == 0x1B, let pattern = replies, let text = String(data: data, encoding: .isoLatin1) else {
+            return false
+        }
+        return pattern.stringByReplacingMatches(
+            in: text, range: NSRange(text.startIndex..., in: text), withTemplate: ""
+        ).isEmpty
     }
 }

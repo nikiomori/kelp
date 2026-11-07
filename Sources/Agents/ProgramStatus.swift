@@ -50,10 +50,10 @@ public enum ProgramStatus {
         var pairs: [String: String] = [:]
         for pair in body.split(separator: ":") {
             guard let eq = pair.firstIndex(of: "=") else { continue }
-            let k = pair[..<eq].trimmingCharacters(in: .whitespaces),
-                v = pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces)
-            guard k.count <= 16, k.allSatisfy({ $0.isLowercase && $0.isASCII }) else { continue }
-            pairs[k] = v
+            let key = pair[..<eq].trimmingCharacters(in: .whitespaces),
+                value = pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            guard key.count <= 16, key.allSatisfy({ $0.isLowercase && $0.isASCII }) else { continue }
+            pairs[key] = value
         }
         guard let state = pairs["state"], states.contains(state) else { return nil }
         func text(_ key: String) -> String? {
@@ -77,14 +77,16 @@ public enum ProgramStatus {
         chunk.components(separatedBy: conEmuPrefix).dropFirst().compactMap { body -> Int?? in
             // Cut off between two reads: skipped, the tool writes the next one soon.
             guard let end = body.firstIndex(where: { $0 == "\u{07}" || $0 == "\u{1B}" }) else { return nil }
-            let f = body[..<end].split(separator: ";", omittingEmptySubsequences: false)
-            guard f.first == "1" || f.first == "4", f.count > 1, let n = Int(f[1]) else { return .some(nil) }
-            return min(100, max(0, n))
+            let fields = body[..<end].split(separator: ";", omittingEmptySubsequences: false)
+            guard fields.first == "1" || fields.first == "4", fields.count > 1, let percent = Int(fields[1]) else {
+                return .some(nil)
+            }
+            return min(100, max(0, percent))
         }
     }
 
-    private static func padded(_ s: String) -> String {
-        let t = s.trimmingCharacters(in: CharacterSet(charactersIn: "="))
-        return t + String(repeating: "=", count: (4 - t.count % 4) % 4)
+    private static func padded(_ text: String) -> String {
+        let bare = text.trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return bare + String(repeating: "=", count: (4 - bare.count % 4) % 4)
     }
 }

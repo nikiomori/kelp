@@ -26,20 +26,20 @@ extension Git {
 
     static func webURL(remote: String, sha: String, file: String, lines: ClosedRange<Int>?) -> String? {
         guard let (host, repo) = webRepo(remote) else { return nil }
-        let f = file.split(separator: "/").map {
+        let encoded = file.split(separator: "/").map {
             $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0)
         }.joined(separator: "/")
         let base = "https://\(host)/\(repo)"
         if host.contains("gitlab") {
-            return "\(base)/-/blob/\(sha)/\(f)"
+            return "\(base)/-/blob/\(sha)/\(encoded)"
                 + (lines.map { $0.count == 1 ? "#L\($0.lowerBound)" : "#L\($0.lowerBound)-\($0.upperBound)" } ?? "")
         }
         if host.contains("bitbucket") {
-            return "\(base)/src/\(sha)/\(f)"
+            return "\(base)/src/\(sha)/\(encoded)"
                 + (lines.map { $0.count == 1 ? "#lines-\($0.lowerBound)" : "#lines-\($0.lowerBound):\($0.upperBound)" }
                     ?? "")
         }
-        return "\(base)/blob/\(sha)/\(f)"
+        return "\(base)/blob/\(sha)/\(encoded)"
             + (lines.map { $0.count == 1 ? "#L\($0.lowerBound)" : "#L\($0.lowerBound)-L\($0.upperBound)" } ?? "")
     }
 
@@ -63,17 +63,19 @@ extension Git {
 
     /// `git@github.com:o/r.git`, `ssh://git@host:22/o/r`, `https://user@host/o/r.git` → (host, "o/r").
     public static func webRepo(_ remote: String) -> (String, String)? {
-        var s = remote
+        var address = remote
         var hasScheme = false   // only `ssh://host:22/…` has a port; in `git@host:123/repo` the 123 is the owner
-        if let r = s.range(of: "://") {
-            s = String(s[r.upperBound...])
+        if let scheme = address.range(of: "://") {
+            address = String(address[scheme.upperBound...])
             hasScheme = true
         }
-        if let at = s.firstIndex(of: "@"), s[..<at].contains("/") == false { s = String(s[s.index(after: at)...]) }
-        guard let sep = s.firstIndex(where: { $0 == "/" || $0 == ":" }) else { return nil }
-        let host = String(s[..<sep])
-        var path = String(s[s.index(after: sep)...])
-        if hasScheme, s[sep] == ":", let first = path.split(separator: "/").first, Int(first) != nil {
+        if let at = address.firstIndex(of: "@"), address[..<at].contains("/") == false {
+            address = String(address[address.index(after: at)...])
+        }
+        guard let sep = address.firstIndex(where: { $0 == "/" || $0 == ":" }) else { return nil }
+        let host = String(address[..<sep])
+        var path = String(address[address.index(after: sep)...])
+        if hasScheme, address[sep] == ":", let first = path.split(separator: "/").first, Int(first) != nil {
             path = path.split(separator: "/").dropFirst().joined(separator: "/")
         }   // ssh port
         if path.hasSuffix(".git") { path.removeLast(4) }

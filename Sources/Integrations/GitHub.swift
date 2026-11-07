@@ -8,12 +8,12 @@ public struct GitHubError: Error, CustomStringConvertible, Sendable {
     public var stderr: String
     /// What the user can act on, not the command line (`args` is there for logs).
     public var description: String {
-        let e = stderr.lowercased()
-        if e.contains("not found (brew install gh)") {
+        let message = stderr.lowercased()
+        if message.contains("not found (brew install gh)") {
             return "Install GitHub CLI to see pull requests and issues: brew install gh"
         }
-        if e.contains("no git remotes") || e.contains("known github host") { return GitHub.noRemote }
-        if e.contains("gh auth login") || e.contains("not logged in") {
+        if message.contains("no git remotes") || message.contains("known github host") { return GitHub.noRemote }
+        if message.contains("gh auth login") || message.contains("not logged in") {
             return "GitHub CLI isn't signed in — run gh auth login."
         }
         return stderr.split(whereSeparator: \.isNewline).first.map(String.init) ?? "gh failed (\(status))"
@@ -39,8 +39,8 @@ extension GitHub {
         guard let exe = ghPath else {
             throw GitHubError(args: args, status: -1, stderr: "gh CLI not found (brew install gh)")
         }
-        do { return Data(try Git.run(args, cwd: cwd, executable: exe).utf8) } catch let e as GitError {
-            throw GitHubError(args: args, status: e.status, stderr: e.stderr)
+        do { return Data(try Git.run(args, cwd: cwd, executable: exe).utf8) } catch let error as GitError {
+            throw GitHubError(args: args, status: error.status, stderr: error.stderr)
         }
     }
 
@@ -58,22 +58,22 @@ extension GitHub {
     /// one needs no call; any other is looked up among this repo's commits (GitHub ties an email to an account only
     /// through them). nil: no account has it.
     public static func avatarURL(email: String, cwd: String) throws -> URL? {
-        if let u = noreplyAvatar(email) { return u }
-        let q = "repos/{owner}/{repo}/commits?author=\(GitLab.queryValue(email))&per_page=1"
-        let s = String(
-            decoding: try gh(["api", q, "--jq", ".[0].author.avatar_url // empty"], cwd: cwd), as: UTF8.self
+        if let url = noreplyAvatar(email) { return url }
+        let query = "repos/{owner}/{repo}/commits?author=\(GitLab.queryValue(email))&per_page=1"
+        let avatar = String(
+            decoding: try gh(["api", query, "--jq", ".[0].author.avatar_url // empty"], cwd: cwd), as: UTF8.self
         )
         .trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.isEmpty ? nil : URL(string: s + (s.contains("?") ? "&" : "?") + "s=64")
+        return avatar.isEmpty ? nil : URL(string: avatar + (avatar.contains("?") ? "&" : "?") + "s=64")
     }
 
     /// "123+ada@users.noreply.github.com" is account 123; the older "ada@users.noreply.github.com" is ada's.
     public static func noreplyAvatar(_ email: String) -> URL? {
-        if let m = email.lowercased().wholeMatch(of: /(\d+)\+[^@]+@users\.noreply\.github\.com/) {
-            return URL(string: "https://avatars.githubusercontent.com/u/\(m.1)?s=64")
+        if let match = email.lowercased().wholeMatch(of: /(\d+)\+[^@]+@users\.noreply\.github\.com/) {
+            return URL(string: "https://avatars.githubusercontent.com/u/\(match.1)?s=64")
         }
-        if let m = email.lowercased().wholeMatch(of: /([a-z0-9-]+)@users\.noreply\.github\.com/) {
-            return URL(string: "https://github.com/\(m.1).png?size=64")
+        if let match = email.lowercased().wholeMatch(of: /([a-z0-9-]+)@users\.noreply\.github\.com/) {
+            return URL(string: "https://github.com/\(match.1).png?size=64")
         }
         return nil
     }
@@ -107,7 +107,7 @@ extension GitHub {
         do {
             return try parseChecks(
                 gh(["pr", "checks", String(pr), "--json", "name,state,link,bucket,workflow"], cwd: cwd))
-        } catch let e as GitHubError where e.stderr.contains("no checks reported") { return [] }
+        } catch let error as GitHubError where error.stderr.contains("no checks reported") { return [] }
     }
 
     /// Failed-step logs of a workflow run, last ~12 KB.
@@ -187,22 +187,22 @@ extension GitHub {
     /// The rollup keeps check runs from superseded workflow runs; count only the latest per workflow/name.
     private static func summarize(_ rollup: [RawRollup]) -> PullRequest.Checks {
         var latest: [String: RawRollup] = [:]
-        for r in rollup {
-            let key = "\(r.workflowName ?? "")/\(r.name ?? r.context ?? "")"
-            if let old = latest[key], (old.startedAt ?? "") > (r.startedAt ?? "") { continue }
-            latest[key] = r
+        for check in rollup {
+            let key = "\(check.workflowName ?? "")/\(check.name ?? check.context ?? "")"
+            if let old = latest[key], (old.startedAt ?? "") > (check.startedAt ?? "") { continue }
+            latest[key] = check
         }
-        var c = PullRequest.Checks()
-        for r in latest.values {
+        var checks = PullRequest.Checks()
+        for check in latest.values {
             // CheckRun has status+conclusion; StatusContext has only state.
-            switch r.status.map({ $0 == "COMPLETED" ? r.conclusion ?? "" : "PENDING" }) ?? r.state ?? "" {
-            case "SUCCESS": c.passed += 1
-            case "PENDING", "EXPECTED": c.pending += 1
-            case "FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE": c.failed += 1
+            switch check.status.map({ $0 == "COMPLETED" ? check.conclusion ?? "" : "PENDING" }) ?? check.state ?? "" {
+            case "SUCCESS": checks.passed += 1
+            case "PENDING", "EXPECTED": checks.pending += 1
+            case "FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE": checks.failed += 1
             default: break   // NEUTRAL, SKIPPED, STALE
             }
         }
-        return c
+        return checks
     }
 
     private struct RawIssue: Decodable {
@@ -219,9 +219,9 @@ extension GitHub {
 
     public static func parseChecks(_ data: Data) throws -> [Check] {
         try JSONDecoder().decode([Check].self, from: data).map {
-            var c = $0
-            c.runId = runId(fromLink: c.link)
-            return c
+            var check = $0
+            check.runId = runId(fromLink: check.link)
+            return check
         }
     }
 
@@ -279,9 +279,9 @@ extension GitHub {
         }
     }
 
-    static func tail(_ s: String, bytes: Int = 12_288) -> String {
-        guard s.utf8.count > bytes else { return s }
-        let cut = String(decoding: s.utf8.suffix(bytes), as: UTF8.self)
+    static func tail(_ text: String, bytes: Int = 12_288) -> String {
+        guard text.utf8.count > bytes else { return text }
+        let cut = String(decoding: text.utf8.suffix(bytes), as: UTF8.self)
         return "…\n" + (cut.firstIndex(of: "\n").map { String(cut[cut.index(after: $0)...]) } ?? cut)
     }
 }

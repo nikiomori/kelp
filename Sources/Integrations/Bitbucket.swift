@@ -33,14 +33,14 @@ public struct BitbucketClient: Sendable {
     public func createPR(
         workspace: String, repo: String, title: String, body: String, source: String, destination: String
     ) async throws -> String {
-        let d = try await request(
+        let data = try await request(
             "POST", "/repositories/\(workspace)/\(repo)/pullrequests",
             body: [
                 "title": title, "description": body,
                 "source": ["branch": ["name": source]], "destination": ["branch": ["name": destination]]
             ])
-        guard let o = try JSONSerialization.jsonObject(with: d) as? [String: Any],
-            let html = ((o["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let html = ((object["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String
         else { throw IntegrationError(description: "unexpected create response") }
         return html
     }
@@ -57,20 +57,20 @@ public struct BitbucketClient: Sendable {
         return try await basicAuthRequest("Bitbucket", method, url, login: "\(user):\(token)", body: body)
     }
 
-    public static func parsePullRequests(_ d: Data) throws -> [GitHub.PullRequest] {
-        guard let o = try JSONSerialization.jsonObject(with: d) as? [String: Any],
-            let vals = o["values"] as? [[String: Any]]
+    public static func parsePullRequests(_ data: Data) throws -> [GitHub.PullRequest] {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let vals = object["values"] as? [[String: Any]]
         else {
             throw IntegrationError(description: "unexpected pullrequests response")
         }
-        return vals.compactMap { v in
-            guard let id = v["id"] as? Int else { return nil }
-            let html = ((v["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String ?? ""
-            let branch = ((v["source"] as? [String: Any])?["branch"] as? [String: Any])?["name"] as? String ?? ""
+        return vals.compactMap { pr in
+            guard let id = pr["id"] as? Int else { return nil }
+            let html = ((pr["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String ?? ""
+            let branch = ((pr["source"] as? [String: Any])?["branch"] as? [String: Any])?["name"] as? String ?? ""
             return GitHub.PullRequest(
-                number: id, title: v["title"] as? String ?? "", url: html,
-                author: (v["author"] as? [String: Any])?["display_name"] as? String ?? "", headRefName: branch,
-                isDraft: v["draft"] as? Bool ?? false, state: v["state"] as? String ?? "OPEN", reviewDecision: nil,
+                number: id, title: pr["title"] as? String ?? "", url: html,
+                author: (pr["author"] as? [String: Any])?["display_name"] as? String ?? "", headRefName: branch,
+                isDraft: pr["draft"] as? Bool ?? false, state: pr["state"] as? String ?? "OPEN", reviewDecision: nil,
                 checks: .init())
         }
     }

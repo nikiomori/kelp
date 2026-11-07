@@ -13,7 +13,7 @@ public struct GitError: Error, CustomStringConvertible, Sendable {
             !$0.isEmpty
         }
         guard var first = lines.first else { return description }
-        for p in ["fatal: ", "error: "] where first.hasPrefix(p) { first.removeFirst(p.count) }
+        for prefix in ["fatal: ", "error: "] where first.hasPrefix(prefix) { first.removeFirst(prefix.count) }
         if first.hasSuffix(":"), lines.count > 1 { first += " " + lines[1] }
         return first.prefix(1).uppercased() + first.dropFirst()
     }
@@ -39,11 +39,11 @@ extension Git {
         _ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
         env extra: [String: String] = [:], timeLimit: TimeInterval = 300, remotes: Remotes = .none
     ) throws -> Data {
-        let r = try runPart(
+        let output = try runPart(
             args, cwd: cwd, stdin: stdin, executable: executable, ok: ok, env: extra, timeLimit: timeLimit,
             limit: Subprocess.outputLimit, remotes: remotes)
-        guard !r.truncated else { throw tooMuch(args) }
-        return r.data
+        guard !output.truncated else { throw tooMuch(args) }
+        return output.data
     }
 
     static func tooMuch(_ args: [String]) -> GitError {
@@ -76,12 +76,12 @@ extension Git {
                 args = Self.noSignatures + args
                 if remote == nil { off = RepoFilters.off(cwd) }
             }
-            if let r = remote {   // a remote project: the same git, on its host
+            if let host = remote {   // a remote project: the same git, on its host
                 args =
-                    r.sshArgs(tty: false) + [
-                        "cd \(RemoteHost.cdArg(r.path)) && git " + args.map(IDE.shellWord).joined(separator: " ")
+                    host.sshArgs(tty: false) + [
+                        "cd \(RemoteHost.cdArg(host.path)) && git " + args.map(IDE.shellWord).joined(separator: " ")
                     ]
-                executable = r.ssh
+                executable = host.ssh
                 cwd = NSHomeDirectory()
             }
         }
@@ -94,14 +94,14 @@ extension Git {
         env.merge(extra) { $1 }
         env.merge(configEnv(off, after: env)) { $1 }
         // A host that drops packets or a credential helper waiting on nobody is stopped at the time limit, with its children.
-        let r = try Subprocess.run(
+        let result = try Subprocess.run(
             [executable] + args, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
-        guard ok.contains(r.status), !r.timedOut else {
+        guard ok.contains(result.status), !result.timedOut else {
             throw GitError(
-                args: args, status: r.status,
-                stderr: String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+                args: args, status: result.status,
+                stderr: String(decoding: result.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        return (r.stdout, r.truncated)
+        return (result.stdout, result.truncated)
     }
 
     /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
@@ -119,16 +119,16 @@ extension Git {
         guard !pairs.isEmpty else { return [:] }
         let start = Int(env["GIT_CONFIG_COUNT"] ?? "") ?? 0
         var out = ["GIT_CONFIG_COUNT": String(start + pairs.count)]
-        for (i, (k, v)) in pairs.enumerated() {
-            out["GIT_CONFIG_KEY_\(start + i)"] = k
-            out["GIT_CONFIG_VALUE_\(start + i)"] = v
+        for (index, (key, value)) in pairs.enumerated() {
+            out["GIT_CONFIG_KEY_\(start + index)"] = key
+            out["GIT_CONFIG_VALUE_\(start + index)"] = value
         }
         return out
     }
 
-    /// `d` up to its last `separator`, inclusive: the whole entries of output cut off mid-entry.
-    static func wholeEntries(_ d: Data, _ separator: UInt8) -> Data {
-        d.lastIndex(of: separator).map { d[...$0] } ?? Data()
+    /// `data` up to its last `separator`, inclusive: the whole entries of output cut off mid-entry.
+    static func wholeEntries(_ data: Data, _ separator: UInt8) -> Data {
+        data.lastIndex(of: separator).map { data[...$0] } ?? Data()
     }
 
     /// File names as pathspecs that mean just those files: "[id].tsx" isn't a pattern for "i.tsx" or "d.tsx".
@@ -157,12 +157,14 @@ extension Git {
 
     /// Default branch: origin/HEAD if set, else current branch of the main checkout.
     public static func defaultBranch(repo: String, remotes: Remotes = .none) -> String {
-        if let s = try? run(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
-            let b = String(s.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 != "/" }).dropFirst())
-            if isRevision(b) { return b }
+        if let ref = try? run(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
+            let branch = String(
+                ref.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 != "/" }).dropFirst())
+            if isRevision(branch) { return branch }
         }
-        for b in ["main", "master"] where (try? run(["rev-parse", "--verify", b], cwd: repo, remotes: remotes)) != nil {
-            return b
+        for branch in ["main", "master"]
+        where (try? run(["rev-parse", "--verify", branch], cwd: repo, remotes: remotes)) != nil {
+            return branch
         }
         return (try? currentBranch(repo, remotes: remotes)) ?? "main"
     }
@@ -210,8 +212,10 @@ enum RepoFilters {
 
     /// The config that turns them off for one run in `cwd` (`Git.configEnv`).
     static func off(_ cwd: String) -> [(String, String)] {
-        names(cwd).flatMap { n in
-            [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map { ("filter.\(n).\($0)", $1) }
+        names(cwd).flatMap { filter in
+            [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map {
+                ("filter.\(filter).\($0)", $1)
+            }
         }
     }
 
@@ -232,10 +236,11 @@ enum RepoFilters {
         if let hit = cache.withLock({ $0[file] }), hit.stamps.allSatisfy({ stamp($0.key) == $0.value }) {
             return hit.names
         }
-        let r = read(cwd), subs = submodules(of: file)
-        let names = Array(Set(r.names + subs.names)).sorted()
-        let stamps = Dictionary((r.files + subs.files + [file]).compactMap { f in stamp(f).map { (f, $0) } }) { a, _ in
-            a
+        let own = read(cwd), subs = submodules(of: file)
+        let names = Array(Set(own.names + subs.names)).sorted()
+        let stamps = Dictionary((own.files + subs.files + [file]).compactMap { path in stamp(path).map { (path, $0) } })
+        { first, _ in
+            first
         }
         cache.withLock { $0[file] = (stamps, names) }
         return names
@@ -249,17 +254,17 @@ enum RepoFilters {
             (FileManager.default.enumerator(at: modules, includingPropertiesForKeys: nil)?.allObjects as? [URL]) ?? []
         let files = all.filter { $0.lastPathComponent == "config" }.map(\.path)
         var names = Set<String>()
-        for f in files {
+        for file in files {
             let args = [
-                "/usr/bin/git", "config", "-z", "--file", f, "--includes", "--get-regexp",
+                "/usr/bin/git", "config", "-z", "--file", file, "--includes", "--get-regexp",
                 #"^filter\..*\.(clean|smudge|process)$"#
             ]
             guard
-                let r = try? Subprocess.run(
+                let result = try? Subprocess.run(
                     args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20)
             else { continue }
-            for entry in String(decoding: r.stdout, as: UTF8.self).split(separator: "\0") {   // "key\nvalue"
-                if let n = name(ofKey: entry.prefix { $0 != "\n" }) { names.insert(n) }
+            for entry in String(decoding: result.stdout, as: UTF8.self).split(separator: "\0") {   // "key\nvalue"
+                if let filter = name(ofKey: entry.prefix { $0 != "\n" }) { names.insert(filter) }
             }
         }
         return (Array(names), files)
@@ -275,15 +280,17 @@ enum RepoFilters {
             "/usr/bin/git", "-c", "core.fsmonitor=false", "config", "-z", "--show-scope", "--show-origin", "--list"
         ]
         guard
-            let r = try? Subprocess.run(
+            let result = try? Subprocess.run(
                 args, cwd: cwd, env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20)
         else { return ([], []) }
         var names = Set<String>(), files = Set<String>()
         // Scope, origin and "key\nvalue", each ended by a NUL: nothing a name holds can pass for the next field.
-        let fields = String(decoding: r.stdout, as: UTF8.self).split(separator: "\0", omittingEmptySubsequences: false)
-        for i in stride(from: 0, to: fields.count - 2, by: 3) where fields[i] == "local" || fields[i] == "worktree" {
-            if fields[i + 1].hasPrefix("file:") { files.insert(String(fields[i + 1].dropFirst(5))) }
-            if let n = name(ofKey: fields[i + 2].prefix { $0 != "\n" }) { names.insert(n) }
+        let fields = String(decoding: result.stdout, as: UTF8.self).split(
+            separator: "\0", omittingEmptySubsequences: false)
+        for index in stride(from: 0, to: fields.count - 2, by: 3)
+        where fields[index] == "local" || fields[index] == "worktree" {
+            if fields[index + 1].hasPrefix("file:") { files.insert(String(fields[index + 1].dropFirst(5))) }
+            if let filter = name(ofKey: fields[index + 2].prefix { $0 != "\n" }) { names.insert(filter) }
         }
         let root = URL(fileURLWithPath: cwd)
         return (names.sorted(), files.map { URL(fileURLWithPath: $0, relativeTo: root).standardizedFileURL.path })

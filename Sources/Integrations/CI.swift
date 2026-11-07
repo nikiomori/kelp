@@ -16,8 +16,8 @@ extension CIRuns {
         }
         let fields =
             "databaseId,displayTitle,workflowName,name,status,conclusion,event,url,createdAt,number,attempt,headSha,startedAt,updatedAt"
-        let d = try GitHub.gh(["run", "list", "--branch", branch, "-L", "20", "--json", fields], cwd: cwd)
-        return try JSONDecoder().decode([RawRun].self, from: d).map {
+        let data = try GitHub.gh(["run", "list", "--branch", branch, "-L", "20", "--json", fields], cwd: cwd)
+        return try JSONDecoder().decode([RawRun].self, from: data).map {
             Run(
                 id: $0.databaseId, title: $0.displayTitle, workflow: $0.workflowName ?? $0.name ?? "",
                 status: $0.status,
@@ -39,18 +39,18 @@ extension CIRuns {
             var startedAt: String?, completedAt: String?
         }
         struct RunView: Decodable { var jobs: [RawJob] }
-        let v = try JSONDecoder().decode(
+        let view = try JSONDecoder().decode(
             RunView.self, from: GitHub.gh(["run", "view", String(run), "--json", "jobs"], cwd: cwd))
-        return v.jobs.map { j in
+        return view.jobs.map { job in
             Job(
-                id: j.databaseId, name: j.name, status: j.status,
-                conclusion: j.conclusion.flatMap { $0.isEmpty ? nil : $0 }, url: j.url,
-                steps: (j.steps ?? []).map {
+                id: job.databaseId, name: job.name, status: job.status,
+                conclusion: job.conclusion.flatMap { $0.isEmpty ? nil : $0 }, url: job.url,
+                steps: (job.steps ?? []).map {
                     Step(
                         name: $0.name, status: $0.status, conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 },
                         number: $0.number,
                         startedAt: moment($0.startedAt), completedAt: moment($0.completedAt))
-                }, startedAt: moment(j.startedAt), completedAt: moment(j.completedAt))
+                }, startedAt: moment(job.startedAt), completedAt: moment(job.completedAt))
         }
     }
 
@@ -102,13 +102,13 @@ extension CIRuns {
         var out: [String] = [], step: Substring?
         for line in log.split(separator: "\n", omittingEmptySubsequences: false) {
             var text = line
-            let f = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
-            if f.count == 3 {
-                if f[1] != step {
-                    step = f[1]
-                    out.append((out.isEmpty ? "" : "\n") + "▸ " + f[1])
+            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
+            if parts.count == 3 {
+                if parts[1] != step {
+                    step = parts[1]
+                    out.append((out.isEmpty ? "" : "\n") + "▸ " + parts[1])
                 }
-                text = f[2].replacing(/^\x{FEFF}?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, with: "")
+                text = parts[2].replacing(/^\x{FEFF}?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, with: "")
             }
             if text == "##[endgroup]" { continue }
             out.append(
@@ -161,9 +161,11 @@ extension CIRuns {
         let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).filter {
             $0.hasSuffix(".yml") || $0.hasSuffix(".yaml")
         }.sorted()
-        return files.compactMap { f in
-            guard let text = try? String(contentsOf: dir.appendingPathComponent(f), encoding: .utf8) else { return nil }
-            return parseWorkflow(text, file: f)
+        return files.compactMap { file in
+            guard let text = try? String(contentsOf: dir.appendingPathComponent(file), encoding: .utf8) else {
+                return nil
+            }
+            return parseWorkflow(text, file: file)
         }
     }
 
@@ -171,41 +173,45 @@ extension CIRuns {
     static func parseWorkflow(_ text: String, file: String) -> Workflow? {
         let lines = text.components(separatedBy: "\n")
         guard
-            let d = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("workflow_dispatch") })
+            let dispatchLine = lines.firstIndex(where: {
+                $0.trimmingCharacters(in: .whitespaces).hasPrefix("workflow_dispatch")
+            })
         else { return nil }
         let name = lines.first { $0.hasPrefix("name:") }.map { unquote(String($0.dropFirst(5))) } ?? file
-        func indent(_ l: String) -> Int { l.prefix { $0 == " " }.count }
-        let base = indent(lines[d])
-        var inputs: [Workflow.Input] = [], i = d + 1, inputIndent: Int?
-        while i < lines.count {
-            let l = lines[i], t = l.trimmingCharacters(in: .whitespaces)
-            if t.isEmpty || t.hasPrefix("#") {
-                i += 1
+        func indent(_ line: String) -> Int { line.prefix { $0 == " " }.count }
+        let base = indent(lines[dispatchLine])
+        var inputs: [Workflow.Input] = [], index = dispatchLine + 1, inputIndent: Int?
+        while index < lines.count {
+            let line = lines[index], trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                index += 1
                 continue
             }
-            if indent(l) <= base { break }
-            if t == "inputs:" {
-                i += 1
+            if indent(line) <= base { break }
+            if trimmed == "inputs:" {
+                index += 1
                 continue
             }
-            if inputIndent == nil || indent(l) == inputIndent, t.hasSuffix(":"), !t.contains(" ") {
-                inputIndent = indent(l)
+            if inputIndent == nil || indent(line) == inputIndent, trimmed.hasSuffix(":"), !trimmed.contains(" ") {
+                inputIndent = indent(line)
                 inputs.append(
-                    .init(name: String(t.dropLast()), description: "", defaultValue: "", options: [], required: false))
+                    .init(
+                        name: String(trimmed.dropLast()), description: "", defaultValue: "", options: [],
+                        required: false))
             } else if var last = inputs.popLast() {
-                if t.hasPrefix("description:") { last.description = unquote(String(t.dropFirst(12))) }
-                if t.hasPrefix("default:") { last.defaultValue = unquote(String(t.dropFirst(8))) }
-                if t.hasPrefix("required:") { last.required = t.hasSuffix("true") }
-                if t.hasPrefix("- ") { last.options.append(unquote(String(t.dropFirst(2)))) }
+                if trimmed.hasPrefix("description:") { last.description = unquote(String(trimmed.dropFirst(12))) }
+                if trimmed.hasPrefix("default:") { last.defaultValue = unquote(String(trimmed.dropFirst(8))) }
+                if trimmed.hasPrefix("required:") { last.required = trimmed.hasSuffix("true") }
+                if trimmed.hasPrefix("- ") { last.options.append(unquote(String(trimmed.dropFirst(2)))) }
                 inputs.append(last)
             }
-            i += 1
+            index += 1
         }
         return Workflow(file: file, name: name, inputs: inputs)
     }
 
-    static func unquote(_ s: String) -> String {
-        s.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+    static func unquote(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
     }
 
     // MARK: GitLab
@@ -215,13 +221,13 @@ extension CIRuns {
             var id: Int, status: String, source: String?, web_url: String, created_at: String, ref: String
             var iid: Int?, sha: String?, updated_at: String?
         }
-        let b = GitLab.queryValue(branch)
+        let ref = GitLab.queryValue(branch)
         return try JSONDecoder().decode(
-            [RawPipeline].self, from: GitLab.api("projects/:id/pipelines?ref=\(b)&per_page=20", cwd: cwd)
+            [RawPipeline].self, from: GitLab.api("projects/:id/pipelines?ref=\(ref)&per_page=20", cwd: cwd)
         ).map {
-            let (s, c) = gitlabState($0.status)
+            let (status, conclusion) = gitlabState($0.status)
             return Run(
-                id: $0.id, title: "Pipeline #\($0.id)", workflow: $0.ref, status: s, conclusion: c,
+                id: $0.id, title: "Pipeline #\($0.id)", workflow: $0.ref, status: status, conclusion: conclusion,
                 event: $0.source ?? "",
                 url: $0.web_url, createdAt: $0.created_at, number: $0.iid, sha: $0.sha, updatedAt: $0.updated_at)
         }
@@ -235,17 +241,17 @@ extension CIRuns {
         return try JSONDecoder().decode(
             [RawGitLabJob].self, from: GitLab.api("projects/:id/pipelines/\(pipeline)/jobs?per_page=100", cwd: cwd)
         ).map {
-            let (s, c) = gitlabState($0.status)
+            let (status, conclusion) = gitlabState($0.status)
             return Job(
-                id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: s,
-                conclusion: c, url: $0.web_url, steps: [],
+                id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: status,
+                conclusion: conclusion, url: $0.web_url, steps: [],
                 startedAt: $0.started_at, completedAt: $0.finished_at)
         }
     }
 
     /// GitLab's states in GitHub's two fields.
-    static func gitlabState(_ s: String) -> (String, String?) {
-        switch s {
+    static func gitlabState(_ status: String) -> (String, String?) {
+        switch status {
         case "success": ("completed", "success")
         case "failed": ("completed", "failure")
         case "canceled": ("completed", "cancelled")
