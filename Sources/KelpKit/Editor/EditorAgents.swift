@@ -21,10 +21,10 @@ extension EditorArea {
     /// A terminal attached to tmux session `name` (started if tmux has none); the tab already attached to it, if there is one.
     func newTmux(_ name: String, split: SplitDirection? = nil, focus: Bool = true) {
         let name = Tmux.name(name)
-        if let s = app.sessions.first(where: {
+        if let session = app.sessions.first(where: {
             $0.worktreeId == workspaceId && $0.status != .exited && Tmux.session($0.argv) == name
         }) {
-            show(TabURI.session(s.id), split: split, focus: focus)
+            show(TabURI.session(session.id), split: split, focus: focus)
             return
         }
         createSession(SessionCreate(worktreeId: workspaceId, tmux: name), split: split, focus: focus)
@@ -43,17 +43,17 @@ extension EditorArea {
             focus: focus, created: created)
     }
 
-    /// A new shell where `s` was, in the tab left for it; attached again when `s` was tmux's.
-    func newShell(like s: Session, inTabOf uri: String) {
-        var p = SessionCreate(cwd: s.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(s.argv))
+    /// A new shell where `old` was, in the tab left for it; attached again when `old` was tmux's.
+    func newShell(like old: Session, inTabOf uri: String) {
+        var create = SessionCreate(cwd: old.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(old.argv))
         if let (cols, rows) = terminalSize(split: nil) {
-            p.cols = cols
-            p.rows = rows
+            create.cols = cols
+            create.rows = rows
         }
         Task {
-            guard let n = await app.call(p) else { return }
-            app.upsert(n)
-            replace(uri, with: TabURI.session(n.id))
+            guard let shell = await app.call(create) else { return }
+            app.upsert(shell)
+            replace(uri, with: TabURI.session(shell.id))
         }
     }
 
@@ -63,18 +63,18 @@ extension EditorArea {
     }
 
     private func createSession(
-        _ p: SessionCreate, split: SplitDirection?, focus: Bool = true, created: ((Session) -> Void)? = nil
+        _ create: SessionCreate, split: SplitDirection?, focus: Bool = true, created: ((Session) -> Void)? = nil
     ) {
-        var p = p
+        var create = create
         if let (cols, rows) = terminalSize(split: split) {
-            p.cols = cols
-            p.rows = rows
+            create.cols = cols
+            create.rows = rows
         }
         Task {
-            guard let s = await app.call(p) else { return }
-            app.upsert(s)
-            created?(s)
-            show(TabURI.session(s.id), split: split, focus: focus)
+            guard let session = await app.call(create) else { return }
+            app.upsert(session)
+            created?(session)
+            show(TabURI.session(session.id), split: split, focus: focus)
         }
     }
 
@@ -82,13 +82,13 @@ extension EditorArea {
     /// line, an agent's banner wrapped twice). A split gets half; a guess on the small side only leaves room.
     private func terminalSize(split: SplitDirection?) -> (Int, Int)? {
         guard
-            let g = focusedContent?.terminalGrid ?? contents.values.lazy.compactMap(\.terminalGrid).first
+            let grid = focusedContent?.terminalGrid ?? contents.values.lazy.compactMap(\.terminalGrid).first
                 ?? app.workbench.terminalGrid
         else { return nil }
         switch split {
-        case .right?: return (max(20, g.cols / 2 - 1), g.rows)
-        case .down?: return (g.cols, max(5, g.rows / 2 - 1))
-        case nil: return (g.cols, g.rows)
+        case .right?: return (max(20, grid.cols / 2 - 1), grid.rows)
+        case .down?: return (grid.cols, max(5, grid.rows / 2 - 1))
+        case nil: return (grid.cols, grid.rows)
         }
     }
 
@@ -97,21 +97,23 @@ extension EditorArea {
         let mine = app.sessions.filter { $0.worktreeId == workspaceId }
         let known = Set(app.sessions.map(\.id))
         var changed = false, movedOut = false
-        for t in layout.allTabs where TabURI.scheme(t.uri) == "session" {
-            let sid = TabURI.body(t.uri)
-            let s = app.session(sid)
-            if let w = s?.worktreeId, w != workspaceId {   // gone to another screen: its tab goes with it
-                contents[t.id] = nil
-                layout.remove(t.id)
+        for tab in layout.allTabs where TabURI.scheme(tab.uri) == "session" {
+            let sid = TabURI.body(tab.uri)
+            let session = app.session(sid)
+            if let other = session?.worktreeId, other != workspaceId {   // gone to another screen: its tab goes with it
+                contents[tab.id] = nil
+                layout.remove(tab.id)
                 changed = true
                 movedOut = true
                 continue
             }
             // Ended while Kelp was closed (or deleted): nothing to show. Ended now: keep it, the tab offers Restart.
             // A lost connection stays too: its agent still runs on the host, reached by Reconnect, ended by closing the tab.
-            if !known.contains(sid) || (!reconciledOnce && s?.status == .exited && s?.connectionLost != true) {
-                contents[t.id] = nil
-                layout.remove(t.id)
+            if !known.contains(sid)
+                || (!reconciledOnce && session?.status == .exited && session?.connectionLost != true)
+            {
+                contents[tab.id] = nil
+                layout.remove(tab.id)
                 changed = true
             }
         }
@@ -124,9 +126,11 @@ extension EditorArea {
         if movedOut, layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: nil) }
         let shown = Set(layout.allTabs.filter { TabURI.scheme($0.uri) == "session" }.map { TabURI.body($0.uri) })
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
-        for s in mine
-        where s.status != .exited && !shown.contains(s.id) && !closed.contains(s.id) && !app.scripts.isHidden(s.id) {
-            layout.add(TabURI.session(s.id), select: false)
+        for session in mine
+        where session.status != .exited && !shown.contains(session.id) && !closed.contains(session.id)
+            && !app.scripts.isHidden(session.id)
+        {
+            layout.add(TabURI.session(session.id), select: false)
             changed = true
         }
         reconciledOnce = true
@@ -145,17 +149,17 @@ extension EditorArea {
     /// `focus: false` for a workspace that isn't on screen.
     package func replace(_ old: String, with new: String, focus: Bool = true) {
         let dup = layout.tab(uri: new)
-        guard let t = layout.replace(old, with: new) else {
+        guard let tab = layout.replace(old, with: new) else {
             open(new, focus: focus)
             return
         }
-        contents[t.id] = nil
+        contents[tab.id] = nil
         if let dup { contents[dup.id] = nil }
         render()
-        select(t.id, focus: focus)
+        select(tab.id, focus: focus)
     }
 
     func focus(session sid: String) {
-        if let t = layout.tab(uri: TabURI.session(sid)) { select(t.id) } else { open(TabURI.session(sid)) }
+        if let tab = layout.tab(uri: TabURI.session(sid)) { select(tab.id) } else { open(TabURI.session(sid)) }
     }
 }

@@ -21,10 +21,12 @@ extension EditorArea {
     /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came
     /// from elsewhere: those go through `open`, which only shows things.
     func runURI(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
-        let q = URLComponents(string: uri)
-        func value(_ name: String) -> String? { q?.queryItems?.first { $0.name == name }?.value }
+        let components = URLComponents(string: uri)
+        func value(_ name: String) -> String? { components?.queryItems?.first { $0.name == name }?.value }
         if TabURI.scheme(uri) == "agent" {
-            newAgent(q?.path.isEmpty == false ? q?.path : nil, prompt: value("prompt"), split: split, focus: focus)
+            newAgent(
+                components?.path.isEmpty == false ? components?.path : nil, prompt: value("prompt"), split: split,
+                focus: focus)
         } else if let name = value("tmux") {
             newTmux(name, split: split, focus: focus)
         } else {
@@ -45,40 +47,40 @@ extension EditorArea {
     func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
         guard !TabURI.runs(uri) else { return }
         // A page already open stays where it is, even when asked for beside you: a second click must not move it.
-        if let t = layout.pageTab(for: uri) {
-            select(t.id, focus: focus)
+        if let tab = layout.pageTab(for: uri) {
+            select(tab.id, focus: focus)
             return
         }
         // A file already open (at another line, or by another path to it): that tab, moved to the line asked for.
-        if layout.tab(uri: uri) == nil, let t = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
-            select(t.id, focus: focus)
-            if let l = TabURI.filePath(uri).line { contents[t.id]?.goTo(line: l) }
+        if layout.tab(uri: uri) == nil, let tab = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
+            select(tab.id, focus: focus)
+            if let line = TabURI.filePath(uri).line { contents[tab.id]?.goTo(line: line) }
             return
         }
-        if let t = layout.tab(uri: uri) {   // already open (maybe added by reconcile a moment ago)
-            if let split, let gid = layout.group(of: t.id) {
-                layout.split(t.id, from: gid, vertical: split == .right, before: false)
+        if let tab = layout.tab(uri: uri) {   // already open (maybe added by reconcile a moment ago)
+            if let split, let gid = layout.group(of: tab.id) {
+                layout.split(tab.id, from: gid, vertical: split == .right, before: false)
                 arrange()
                 render()
             }
-            select(t.id, focus: focus)
+            select(tab.id, focus: focus)
             return
         }
         if TabURI.scheme(uri) != "session", app.extensions.tabProvider(for: uri) == nil {
-            if let u = URL(string: uri), u.scheme?.hasPrefix("http") == true {
-                PreviewLinks.openOutside(u)
+            if let url = URL(string: uri), url.scheme?.hasPrefix("http") == true {
+                PreviewLinks.openOutside(url)
                 return
             }   // browser extension off
         }
         var target: String? = layout.focusedGroup?.id
-        if let split, let f = target {
-            target = layout.newGroup(beside: f, vertical: split == .right)
+        if let split, let focused = target {
+            target = layout.newGroup(beside: focused, vertical: split == .right)
             zoomed = nil
         }
-        let t = layout.add(uri, to: target)
+        let tab = layout.add(uri, to: target)
         arrange()
         render()
-        select(t.id, focus: focus)
+        select(tab.id, focus: focus)
     }
 
     /// What an agent or a script asks to show (`kelp open` without `--focus`): the pane you're in stays yours, its keys
@@ -108,8 +110,8 @@ extension EditorArea {
         let uri = layout.allTabs.first { $0.id == id }?.uri ?? ""
         let sid = TabURI.scheme(uri) == "session" ? TabURI.body(uri) : nil
         // A tab not built yet (in the background since launch) closes all the same: an agent's ends its session.
-        if let c = contents[id] {
-            guard await c.close() else { return false }
+        if let content = contents[id] {
+            guard await content.close() else { return false }
         } else if let close = app.extensions.tabProvider(for: uri)?.closeUnbuilt, await !close(uri) {
             return false
         }
@@ -148,20 +150,20 @@ extension EditorArea {
 
     package var focusedContent: TabContent? { layout.focusedGroup?.selectedTab.flatMap { contents[$0.id] } }
 
-    func closeFocusedTab() { if let t = layout.focusedGroup?.selectedTab { closeTab(t.id) } }
+    func closeFocusedTab() { if let tab = layout.focusedGroup?.selectedTab { closeTab(tab.id) } }
 
     func selectTab(index: Int) {
-        guard let g = layout.focusedGroup, g.tabs.indices.contains(index) else { return }
-        select(g.tabs[index].id)
+        guard let group = layout.focusedGroup, group.tabs.indices.contains(index) else { return }
+        select(group.tabs[index].id)
     }
     func cycleTab(_ offset: Int) { if let id = layout.tab(cycling: offset) { select(id) } }
     /// ⇧⌘↩: the focused group fills the editor area, or every pane comes back (like zooming a split in Terminal or Ghostty).
     func toggleZoom() {
-        guard let g = layout.focusedGroup, (layout.root?.sessions.count ?? 0) > 1 else {
+        guard let group = layout.focusedGroup, (layout.root?.sessions.count ?? 0) > 1 else {
             NSSound.beep()
             return
         }
-        zoomed = zoomed == nil ? g.id : nil
+        zoomed = zoomed == nil ? group.id : nil
         render()
         focusSelected()
     }
@@ -174,28 +176,30 @@ extension EditorArea {
     func focusGroup(toward edge: NSRectEdge) {
         guard let cur = layout.focusedGroup?.id, let from = groupViews[cur], from.window != nil else { return }
         var others: [String: CGRect] = [:]
-        for (id, v) in groupViews where id != cur && v.window != nil { others[id] = v.convert(v.bounds, to: nil) }
+        for (id, pane) in groupViews where id != cur && pane.window != nil {
+            others[id] = pane.convert(pane.bounds, to: nil)
+        }
         guard
             let gid = WorkspaceLayout.nearestPane(
                 from: from.convert(from.bounds, to: nil), among: others, toward: edge),
-            let t = layout.groups[gid]?.selectedTab
+            let tab = layout.groups[gid]?.selectedTab
         else {
             NSSound.beep()
             return
         }
-        select(t.id)
+        select(tab.id)
     }
 
     /// Moves the focused tab into a new group to the right / below.
     package func splitFocused(_ dir: SplitDirection) {
         zoomed = nil
         arrangedByHand()
-        guard let g = layout.focusedGroup, let t = g.selectedTab else { return }
-        if g.tabs.count == 1 {
+        guard let group = layout.focusedGroup, let tab = group.selectedTab else { return }
+        if group.tabs.count == 1 {
             newTerminal(split: dir)
             return
         }   // nothing to move: open a terminal there, like a terminal app
-        layout.split(t.id, from: g.id, vertical: dir == .right, before: false)
+        layout.split(tab.id, from: group.id, vertical: dir == .right, before: false)
         render()
         focusSelected()
     }
@@ -205,9 +209,11 @@ extension EditorArea {
     @discardableResult
     func arrange() -> Bool {
         guard layout.manual != true else { return false }
-        let agents = layout.allTabs.filter { t in
-            guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)) else { return false }
-            return s.isAgent && s.status != .exited && s.status != .paused
+        let agents = layout.allTabs.filter { tab in
+            guard TabURI.scheme(tab.uri) == "session", let session = app.session(TabURI.body(tab.uri)) else {
+                return false
+            }
+            return session.isAgent && session.status != .exited && session.status != .paused
         }
         let old = layout
         layout.tile(agents.map(\.id))
@@ -232,97 +238,100 @@ extension EditorArea {
     }
 
     func tabMenu(_ id: String) -> NSMenu {
-        let m = NSMenu()
+        let menu = NSMenu()
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri,
             let items = app.extensions.tabProvider(for: uri)?.menu
         {
-            items(m, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
-            if !m.items.isEmpty { m.addItem(.separator()) }
+            items(menu, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
+            if !menu.items.isEmpty { menu.addItem(.separator()) }
         }
-        m.add(String(localized: "Split Right")) { [weak self] in
+        menu.add(String(localized: "Split Right")) { [weak self] in
             self?.select(id)
             self?.splitFocused(.right)
         }
-        m.add(String(localized: "Split Down")) { [weak self] in
+        menu.add(String(localized: "Split Down")) { [weak self] in
             self?.select(id)
             self?.splitFocused(.down)
         }
-        m.addItem(.separator())
+        menu.addItem(.separator())
         // A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
-            let s = app.session(TabURI.body(uri)), s.status != .exited, app.scripts.choice(of: s) != nil
+            let session = app.session(TabURI.body(uri)), session.status != .exited,
+            app.scripts.choice(of: session) != nil
         {
-            m.add(String(localized: "Hide in Run Menu")) { [app] in app.scripts.hide(s.id) }
+            menu.add(String(localized: "Hide in Run Menu")) { [app] in app.scripts.hide(session.id) }
         }
-        m.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
+        menu.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
         let tabs = layout.group(of: id).flatMap { layout.groups[$0]?.tabs } ?? []
         func close(_ title: String, _ gone: [TabRef]) {
             guard !gone.isEmpty else { return }
-            m.add(title) { [weak self] in Task { for t in gone { await self?.closeTabAsking(t.id) } } }   // one question at a time
+            menu.add(title) { [weak self] in Task { for tab in gone { await self?.closeTabAsking(tab.id) } } }   // one question at a time
         }
         close(String(localized: "Close Other Tabs"), tabs.filter { $0.id != id })
         close(String(localized: "Close Tabs to the Right"), Array(tabs.drop { $0.id != id }.dropFirst()))
-        return m
+        return menu
     }
 
     /// "+" menu, in the empty workspace's order (`NewTabChoices`): the agents, what opens, what runs, then Make.
     func newTabMenu(group: String?) -> NSMenu {
         let app = self.app
         let focus: @MainActor () -> Void = { [weak self] in if let group { self?.layout.focused = group } }
-        let m = NSMenu()
+        let menu = NSMenu()
         let agents = NewTabChoices.agents(app), def = app.catalog.defaultAgent
-        m.addItem(.sectionHeader(title: String(localized: "Agents")))
+        menu.addItem(.sectionHeader(title: String(localized: "Agents")))
         let notes = app.planNotes
         let shown = agents.prefix(NewTabChoices.shown), rest = agents.dropFirst(NewTabChoices.shown)
-        func agentItem(_ a: AgentManifest, in menu: NSMenu, column: CGFloat) {
-            let item = menu.add(a.name) { [weak self] in
+        func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat) {
+            let item = menu.add(agent.name) { [weak self] in
                 focus()
-                self?.newAgent(a.id)
+                self?.newAgent(agent.id)
             }
-            item.show(app.catalog.icon(a.id))
-            if let n = notes[a.id] {
-                item.attributedTitle = ScriptsMenu.title(a.name, note: n.text, column: column, noteColor: n.color)
+            item.show(app.catalog.icon(agent.id))
+            if let note = notes[agent.id] {
+                item.attributedTitle = ScriptsMenu.title(
+                    agent.name, note: note.text, column: column, noteColor: note.color)
             }
-            if a.id == def, let k = NewTabChoices.defaultKey(app) {
-                item.keyEquivalent = k.key
-                item.keyEquivalentModifierMask = k.mods.flags
+            if agent.id == def, let shortcut = NewTabChoices.defaultKey(app) {
+                item.keyEquivalent = shortcut.key
+                item.keyEquivalentModifierMask = shortcut.mods.flags
             }
         }
         let column = ScriptsMenu.column(shown.map(\.name))
-        for a in shown { agentItem(a, in: m, column: column) }
+        for agent in shown { agentItem(agent, in: menu, column: column) }
         if agents.isEmpty {
-            m.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "").isEnabled =
+            menu.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "")
+                .isEnabled =
                 false
         }
         if !rest.isEmpty {
             let sub = NSMenu(), column = ScriptsMenu.column(rest.map(\.name))
-            for a in rest { agentItem(a, in: sub, column: column) }
-            let item = m.addItem(withTitle: String(localized: "Other Agents"), action: nil, keyEquivalent: "")
+            for agent in rest { agentItem(agent, in: sub, column: column) }
+            let item = menu.addItem(withTitle: String(localized: "Other Agents"), action: nil, keyEquivalent: "")
             item.show(.symbol("ellipsis.circle"))
             item.submenu = sub
         }
-        m.addItem(.separator())
-        m.addItem(.sectionHeader(title: String(localized: "Open")))
+        menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: String(localized: "Open")))
         let open = NewTabChoices.open(app, app.worktree(workspaceId)) { [weak self] in self?.newTerminal() }
-        for a in open { m.add(a, before: focus) }
+        for choice in open { menu.add(choice, before: focus) }
         let run = NewTabChoices.run(app, workspace: workspaceId)
         if !run.isEmpty {
-            m.addItem(.separator())
-            m.addItem(.sectionHeader(title: String(localized: "Run")))
-            for a in run { m.add(a) }
+            menu.addItem(.separator())
+            menu.addItem(.sectionHeader(title: String(localized: "Run")))
+            for choice in run { menu.add(choice) }
         }
         if !agents.isEmpty {
-            m.addItem(.separator())
+            menu.addItem(.separator())
             let sub = NSMenu()
             Make.addItems(to: sub, heading: false) { [weak self] line in
                 focus()
                 self?.newAgent(prompt: line, draft: true)
             }
-            let item = m.addItem(withTitle: String(localized: "Make"), action: nil, keyEquivalent: "")
+            let item = menu.addItem(withTitle: String(localized: "Make"), action: nil, keyEquivalent: "")
             item.show(.symbol("doc.text"))
             item.submenu = sub
         }
-        return m
+        return menu
     }
 
 }

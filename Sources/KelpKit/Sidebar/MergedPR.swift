@@ -23,61 +23,66 @@ struct MergedPR {
 
     let app: AppModel
 
-    /// Nil unless `w`'s folder still stands on a merged PR's branch and isn't on the base branch already.
-    func next(_ w: Worktree) -> (pr: GitHub.PullRequest, next: Next)? {
-        guard let p = app.rowBadges.prs[w.id], p.state == "MERGED", p.headRefName == w.branch,
-            let base = app.repo(w.repoId)?.baseBranch,
-            base != w.branch
+    /// Nil unless `worktree`'s folder still stands on a merged PR's branch and isn't on the base branch already.
+    func next(_ worktree: Worktree) -> (pr: GitHub.PullRequest, next: Next)? {
+        guard let pr = app.rowBadges.prs[worktree.id], pr.state == "MERGED", pr.headRefName == worktree.branch,
+            let base = app.repo(worktree.repoId)?.baseBranch,
+            base != worktree.branch
         else { return nil }
-        let working = app.sessions.contains { $0.status == .working && app.worktree($0.worktreeId)?.path == w.path }
+        let working = app.sessions.contains {
+            $0.status == .working && app.worktree($0.worktreeId)?.path == worktree.path
+        }
         return (
-            p,
-            Self.next(base: base, working: working, uncommitted: app.latest(GitEvent.self, w.id)?.changes?.count ?? 0)
+            pr,
+            Self.next(
+                base: base, working: working, uncommitted: app.latest(GitEvent.self, worktree.id)?.changes?.count ?? 0)
         )
     }
 
-    func tell(_ w: Worktree) {
-        guard let (pr, next) = next(w) else { return }
+    func tell(_ worktree: Worktree) {
+        guard let (pr, next) = next(worktree) else { return }
         let title = String(localized: "PR #\(pr.number) merged")
         switch next {
         case .switchTo(let base):
             Banner.show(
-                String(localized: "The project folder is still on \(w.branch)."),
-                action: (String(localized: "Switch to \(base)"), { start(w, base) }), title: title)
+                String(localized: "The project folder is still on \(worktree.branch)."),
+                action: (String(localized: "Switch to \(base)"), { start(worktree, base) }), title: title)
         case .agentWorking:
             Banner.show(
                 String(
                     localized:
-                        "An agent is at work in the folder, so it stays on \(w.branch). The project's menu can switch it later."
+                        "An agent is at work in the folder, so it stays on \(worktree.branch). The project's menu can switch it later."
                 ), title: title)
-        case .uncommitted(let n):
+        case .uncommitted(let count):
             Banner.show(
-                String(localized: "\(n) files not committed on \(w.branch). The project's menu can switch it later."),
+                String(
+                    localized:
+                        "\(count) files not committed on \(worktree.branch). The project's menu can switch it later."),
                 title: title)
         }
     }
 
     /// At the top of the project's menu: on, or off saying why.
-    func addItems(to m: NSMenu, _ w: Worktree) {
-        guard let (_, next) = next(w) else { return }
-        let base = app.repo(w.repoId)?.baseBranch ?? ""
-        let item = m.add(String(localized: "Switch to \(base) and Pull")) { [self] in start(w, base) }
+    func addItems(to menu: NSMenu, _ worktree: Worktree) {
+        guard let (_, next) = next(worktree) else { return }
+        let base = app.repo(worktree.repoId)?.baseBranch ?? ""
+        let item = menu.add(String(localized: "Switch to \(base) and Pull")) { [self] in start(worktree, base) }
         if next != .switchTo(base) { item.action = nil }   // the menu greys an item with nothing to do
-        if case .uncommitted(let n) = next { item.toolTip = String(localized: "\(n) files not committed") }
+        if case .uncommitted(let count) = next { item.toolTip = String(localized: "\(count) files not committed") }
         if next == .agentWorking { item.toolTip = String(localized: "An agent is at work in this folder") }
-        m.addItem(.separator())
+        menu.addItem(.separator())
     }
 
     /// Asked again as it starts: a banner can wait a while. A failed step says why, the folder stays where it was. The old
     /// branch stays too: deleting it is another decision.
-    private func start(_ w: Worktree, _ base: String) {
-        guard next(w)?.next == .switchTo(base) else {
-            tell(w)
+    private func start(_ worktree: Worktree, _ base: String) {
+        guard next(worktree)?.next == .switchTo(base) else {
+            tell(worktree)
             return
         }
         Task { [app] in
-            guard await app.call(GitSwitch(id: w.id, branch: base)) != nil else { return }
-            if let e = await GitSync.run(app, w.id, ["pull"]) { Banner.show(e, style: .error) }
+            guard await app.call(GitSwitch(id: worktree.id, branch: base)) != nil else { return }
+            if let error = await GitSync.run(app, worktree.id, ["pull"]) { Banner.show(error, style: .error) }
         }
     }
 }

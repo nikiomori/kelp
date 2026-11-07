@@ -55,9 +55,9 @@ enum ProjectColor: String, CaseIterable {
     static func value(_ colors: [String: ProjectColor]) -> JSONValue {
         .object(colors.mapValues { .string($0.rawValue) })
     }
-    static func read(_ v: JSONValue?) -> [String: ProjectColor] {
-        guard case .object(let o)? = v else { return [:] }
-        return o.compactMapValues { $0.string.flatMap(ProjectColor.init) }
+    static func read(_ json: JSONValue?) -> [String: ProjectColor] {
+        guard case .object(let object)? = json else { return [:] }
+        return object.compactMapValues { $0.string.flatMap(ProjectColor.init) }
     }
 }
 
@@ -75,7 +75,7 @@ struct ProjectLook: Equatable {
 extension AppModel {
     var projectLook: ProjectLook {
         var colors = arrangement.projectColors
-        if let p = arrangement.colorPreview { colors[p.project] = p.color }
+        if let preview = arrangement.colorPreview { colors[preview.project] = preview.color }
         return ProjectLook(
             style: ProjectColorStyle(rawValue: settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon,
             colors: colors)

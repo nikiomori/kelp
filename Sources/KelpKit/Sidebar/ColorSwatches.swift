@@ -18,18 +18,19 @@ final class ColorSwatches: NSView {
         let colors: [ProjectColor?] = [nil] + ProjectColor.allCases
         let width = 2 * Self.inset + CGFloat(colors.count) * Self.side + CGFloat(colors.count - 1) * Self.gap
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: Self.height))
-        for (i, c) in colors.enumerated() {
+        for (index, color) in colors.enumerated() {
             let frame = NSRect(
-                x: Self.inset + CGFloat(i) * (Self.side + Self.gap), y: (Self.height - Self.side) / 2, width: Self.side,
+                x: Self.inset + CGFloat(index) * (Self.side + Self.gap), y: (Self.height - Self.side) / 2,
+                width: Self.side,
                 height: Self.side)
-            let s = Swatch(frame: frame, color: c, chosen: c != nil && c == chosen)
-            s.entered = { previewing(c) }
-            s.exited = left
-            s.pressed = { [weak self] in
-                pick(c)
+            let swatch = Swatch(frame: frame, color: color, chosen: color != nil && color == chosen)
+            swatch.entered = { previewing(color) }
+            swatch.exited = left
+            swatch.pressed = { [weak self] in
+                pick(color)
                 self?.enclosingMenuItem?.menu?.cancelTracking()
             }
-            addSubview(s)
+            addSubview(swatch)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -55,24 +56,25 @@ private final class Swatch: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) {
+    override func mouseEntered(with event: NSEvent) {
         hovering = true
         entered()
     }
-    override func mouseExited(with e: NSEvent) {
+    override func mouseExited(with event: NSEvent) {
         hovering = false
         exited()
     }
-    override func mouseUp(with e: NSEvent) { pressed() }
-    override func rightMouseUp(with e: NSEvent) { pressed() }   // the menu came with a right-click, held and let go here
+    override func mouseUp(with event: NSEvent) { pressed() }
+    override func rightMouseUp(with event: NSEvent) { pressed() }   // the menu came with a right-click, held and let go here
     override func accessibilityPerformPress() -> Bool {
         pressed()
         return true
     }
 
     override func draw(_ dirty: NSRect) {
-        let d: CGFloat = hovering ? 16 : 14
-        let dot = NSRect(x: (bounds.width - d) / 2, y: (bounds.height - d) / 2, width: d, height: d)
+        let diameter: CGFloat = hovering ? 16 : 14
+        let dot = NSRect(
+            x: (bounds.width - diameter) / 2, y: (bounds.height - diameter) / 2, width: diameter, height: diameter)
         guard let color else {
             NSColor.secondaryLabelColor.setStroke()
             let ring = NSBezierPath(ovalIn: dot.insetBy(dx: 0.5, dy: 0.5))

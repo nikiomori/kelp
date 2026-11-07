@@ -49,10 +49,10 @@ enum ProjectIcon {
     /// whatever disk the project is on, held up the sidebar); `show` puts the icon in once it's found. A remote project's
     /// is looked for on its host by the daemon, which keeps a copy of it here: it shows again without the host.
     static func image(for repo: String, app: AppModel) -> NSImage {
-        if let i = cache[repo] { return i }
+        if let cached = cache[repo] { return cached }
         if searched.insert(repo).inserted { look(for: repo, app: app) }
         let color = app.iconColor(folder: repo)
-        if let l = letters[repo], l.color == color { return l.image }
+        if let drawn = letters[repo], drawn.color == color { return drawn.image }
         let letter = IconTile.letter((repo as NSString).lastPathComponent, hue: color?.hue)
         letters[repo] = (color, letter)
         return letter
@@ -79,7 +79,7 @@ enum ProjectIcon {
             }
             let icon = file.hasSuffix(".icns") ? IconTile.app(img) : img
             cache[repo] = icon
-            for v in views where v.view?.image === v.showing { v.view?.image = icon }
+            for entry in views where entry.view?.image === entry.showing { entry.view?.image = icon }
         }
     }
 }

@@ -14,30 +14,30 @@ final class UnavailableTab: TabContent {
         let icon = NSImageView(image: .symbol("puzzlepiece.extension"))
         icon.symbolConfiguration = .chrome(Metrics.iconEmpty)
         icon.contentTintColor = .tertiaryLabelColor
-        let t = NSTextField(labelWithString: String(localized: "Extension Turned Off"))
-        t.font = .ui(13, weight: .semibold)
-        let l = NSTextField(
+        let heading = NSTextField(labelWithString: String(localized: "Extension Turned Off"))
+        heading.font = .ui(13, weight: .semibold)
+        let message = NSTextField(
             wrappingLabelWithString: String(
                 localized: "The extension that shows “\(uri)” is turned off or was removed."))
-        l.alignment = .center
-        l.textColor = .secondaryLabelColor
-        let b = ClosureButton(title: String(localized: "Extensions…")) {
+        message.alignment = .center
+        message.textColor = .secondaryLabelColor
+        let button = ClosureButton(title: String(localized: "Extensions…")) {
             SettingsWindow.show(app, section: "extensions")
         }
-        b.bezelStyle = .push
-        let stack = NSStackView(views: [icon, t, l, b])
+        button.bezelStyle = .push
+        let stack = NSStackView(views: [icon, heading, message, button])
         stack.orientation = .vertical
         stack.spacing = 8
-        let v = NSView()
+        let content = NSView()
         stack.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(stack)
+        content.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: v.centerYAnchor),
-            stack.widthAnchor.constraint(lessThanOrEqualTo: v.widthAnchor, constant: -32),
-            l.widthAnchor.constraint(lessThanOrEqualToConstant: 420)
+            stack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -32),
+            message.widthAnchor.constraint(lessThanOrEqualToConstant: 420)
         ])
-        view = v
+        view = content
     }
     func focus() {}
 }
@@ -49,12 +49,12 @@ extension NSMenu {
     package func add(
         _ title: String, symbol: String? = nil, key: String = "", _ action: @escaping @MainActor () -> Void
     ) -> NSMenuItem {
-        let t = ClosureTarget(action)
-        let i = addItem(withTitle: title, action: #selector(ClosureTarget.fire), keyEquivalent: key)
-        i.target = t
-        i.representedObject = t
-        if let symbol { i.image = .symbol(symbol) }
-        return i
+        let target = ClosureTarget(action)
+        let item = addItem(withTitle: title, action: #selector(ClosureTarget.fire), keyEquivalent: key)
+        item.target = target
+        item.representedObject = target
+        if let symbol { item.image = .symbol(symbol) }
+        return item
     }
 }
 
@@ -70,18 +70,20 @@ extension NSMenuItem {
 
 /// A double-click on a divider shares that split equally (like Terminal's and Ghostty's splits).
 final class EqualizingSplitView: NSSplitView {
-    override func mouseDown(with e: NSEvent) {
-        guard e.clickCount == 2, arrangedSubviews.count > 1 else { return super.mouseDown(with: e) }
-        let p = convert(e.locationInWindow, from: nil)
-        let onDivider = arrangedSubviews.dropLast().contains { v in
-            let f = v.frame
-            return isVertical ? abs(p.x - f.maxX) <= dividerThickness + 3 : abs(p.y - f.maxY) <= dividerThickness + 3
+    override func mouseDown(with event: NSEvent) {
+        guard event.clickCount == 2, arrangedSubviews.count > 1 else { return super.mouseDown(with: event) }
+        let point = convert(event.locationInWindow, from: nil)
+        let onDivider = arrangedSubviews.dropLast().contains { pane in
+            let paneFrame = pane.frame
+            return isVertical
+                ? abs(point.x - paneFrame.maxX) <= dividerThickness + 3
+                : abs(point.y - paneFrame.maxY) <= dividerThickness + 3
         }
-        guard onDivider else { return super.mouseDown(with: e) }
+        guard onDivider else { return super.mouseDown(with: event) }
         let total = (isVertical ? bounds.width : bounds.height) - dividerThickness * CGFloat(arrangedSubviews.count - 1)
         let share = total / CGFloat(arrangedSubviews.count)
-        for i in 0..<(arrangedSubviews.count - 1) {
-            setPosition(share * CGFloat(i + 1) + dividerThickness * CGFloat(i), ofDividerAt: i)
+        for index in 0..<(arrangedSubviews.count - 1) {
+            setPosition(share * CGFloat(index + 1) + dividerThickness * CGFloat(index), ofDividerAt: index)
         }
     }
 }

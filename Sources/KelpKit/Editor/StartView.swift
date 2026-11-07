@@ -83,8 +83,8 @@ final class StartView: NSView {
         stack.setCustomSpacing(14, after: icon)
         stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
         if let field { stack.setCustomSpacing(22, after: field) }
-        for (v, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] {
-            stack.setCustomSpacing(after, after: v)
+        for (head, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] {
+            stack.setCustomSpacing(after, after: head)
         }
         stack.setCustomSpacing(18, after: agentList)
         stack.setCustomSpacing(14, after: run)
@@ -117,11 +117,11 @@ final class StartView: NSView {
             folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor)
         ])
         // The groups' headings over their rows' icons; the field, the tiles and the cards as wide as the page.
-        for v in [agentsHead, openHead, run.head] {
-            v.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: Self.headInset).isActive = true
+        for head in [agentsHead, openHead, run.head] {
+            head.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: Self.headInset).isActive = true
         }
-        for v in [field, agentList, openCard, run].compactMap({ $0 }) {
-            v.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        for part in [field, agentList, openCard, run].compactMap({ $0 }) {
+            part.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
         followPlans(in: stack, after: field)
     }
@@ -131,25 +131,26 @@ final class StartView: NSView {
     static let headInset = StartCard.inset + StartRow.inset
 
     static func heading(_ text: String) -> NSTextField {
-        let t = NSTextField(labelWithString: text)
-        t.font = .ui(11, weight: .semibold)
-        t.textColor = .secondaryLabelColor
-        return t
+        let label = NSTextField(labelWithString: text)
+        label.font = .ui(11, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        return label
     }
 
     /// The first six agents as tiles, four to a row, then one for the rest (a menu, the catalog at its foot) or, when
     /// there's no rest, the catalog.
     private func tiles(_ agents: [AgentManifest]) -> NSView {
         let app = self.app
-        var all: [AgentTile] = agents.prefix(NewTabChoices.shown).map { a in
-            let key = a.id == def ? NewTabChoices.defaultKey(app).map(KeyBindings.display) : nil
-            let t = AgentTile(
-                image: app.catalog.icon(a.id, size: Metrics.iconEmpty), title: a.name, key: key, isDefault: a.id == def
+        var all: [AgentTile] = agents.prefix(NewTabChoices.shown).map { agent in
+            let key = agent.id == def ? NewTabChoices.defaultKey(app).map(KeyBindings.display) : nil
+            let tile = AgentTile(
+                image: app.catalog.icon(agent.id, size: Metrics.iconEmpty), title: agent.name, key: key,
+                isDefault: agent.id == def
             ) { [weak self] in
-                self?.start(a.id)
+                self?.start(agent.id)
             }
-            tilesById[a.id] = t
-            return t
+            tilesById[agent.id] = tile
+            return tile
         }
         let rest = Array(agents.dropFirst(NewTabChoices.shown))
         let catalog: @MainActor () -> Void = { SettingsWindow.show(app, section: "catalog") }
@@ -164,7 +165,9 @@ final class StartView: NSView {
             let more = AgentTile(stack: icons, title: String(localized: "\(rest.count) More")) { [weak self] in
                 guard let self, let tile else { return }
                 let menu = NSMenu()
-                for a in rest { menu.add(a.name) { [weak self] in self?.start(a.id) }.show(app.catalog.icon(a.id)) }
+                for agent in rest {
+                    menu.add(agent.name) { [weak self] in self?.start(agent.id) }.show(app.catalog.icon(agent.id))
+                }
                 menu.addItem(.separator())
                 menu.add(String(localized: "Agent Catalog…"), catalog).show(.symbol("square.grid.2x2"))
                 menu.popUp(positioning: nil, at: NSPoint(x: 0, y: tile.bounds.height + 4), in: tile)
@@ -174,8 +177,8 @@ final class StartView: NSView {
             all.append(more)
         }
         allTiles = all
-        let rows = stride(from: 0, to: all.count, by: Self.perRow).map { i in
-            let row = NSStackView(views: (i..<i + Self.perRow).map { $0 < all.count ? all[$0] : NSView() })   // a short last row keeps the width
+        let rows = stride(from: 0, to: all.count, by: Self.perRow).map { first in
+            let row = NSStackView(views: (first..<first + Self.perRow).map { $0 < all.count ? all[$0] : NSView() })   // a short last row keeps the width
             row.distribution = .fillEqually
             row.alignment = .top
             row.spacing = Metrics.gap
@@ -184,7 +187,7 @@ final class StartView: NSView {
         let grid = NSStackView(views: rows)
         grid.orientation = .vertical
         grid.spacing = Metrics.gap
-        for r in rows { r.widthAnchor.constraint(equalTo: grid.widthAnchor).isActive = true }
+        for row in rows { row.widthAnchor.constraint(equalTo: grid.widthAnchor).isActive = true }
         return grid
     }
     private static let perRow = 4
@@ -199,11 +202,12 @@ final class StartView: NSView {
             ))
         none.textColor = .secondaryLabelColor
         var rows: [NSView] = [StartView.padded(none)]
-        rows += app.catalog.suggested.map { m in
+        rows += app.catalog.suggested.map { agent in
             StartRow(
-                image: app.catalog.icon(m.id, size: 20), title: m.name, detail: app.catalog.about(m.id), shortcut: nil
+                image: app.catalog.icon(agent.id, size: 20), title: agent.name, detail: app.catalog.about(agent.id),
+                shortcut: nil
             ) { [weak self] in
-                self?.onInstall?(m)
+                self?.onInstall?(agent)
             }
         }
         // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
@@ -239,7 +243,7 @@ final class StartView: NSView {
         let notes = app.planNotes
         for (id, tile) in tilesById { tile.show(notes[id]) }
         let anyPlan = tilesById.keys.contains { notes[$0] != nil }
-        for t in allTiles { t.roomForPlan = anyPlan }
+        for tile in allTiles { tile.roomForPlan = anyPlan }
         let name = app.catalog.all.first { $0.id == def }?.name ?? def
         let warning = notes[def]?.warning(for: name)
         planLine.stringValue = warning ?? ""
@@ -247,8 +251,8 @@ final class StartView: NSView {
         let other = warning == nil ? nil : PlanNote.roomiest(Array(others), notes: notes)
         planBar.isHidden = warning == nil
         planSwitch.isHidden = other == nil
-        if let other, let n = app.catalog.all.first(where: { $0.id == other })?.name {
-            planSwitch.title = String(localized: "Start in \(n)")
+        if let other, let otherName = app.catalog.all.first(where: { $0.id == other })?.name {
+            planSwitch.title = String(localized: "Start in \(otherName)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
         if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
@@ -292,15 +296,15 @@ final class StartView: NSView {
     func focus() { if prompt.superview != nil { prompt.focus() } }
 
     /// The Make line in the field, the caret after it: what to make is the user's to say.
-    private func draftMake(_ k: Make.Kind) {
-        prompt.value = Make.line(k)
+    private func draftMake(_ kind: Make.Kind) {
+        prompt.value = Make.line(kind)
         prompt.focus()
     }
 
-    static func padded(_ v: NSView) -> NSView {
-        let p = NSStackView(views: [v])
-        p.edgeInsets = NSEdgeInsets(top: 10, left: headInset, bottom: 10, right: headInset)
-        return p
+    static func padded(_ content: NSView) -> NSView {
+        let stack = NSStackView(views: [content])
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: headInset, bottom: 10, right: headInset)
+        return stack
     }
 }
 
@@ -336,20 +340,20 @@ private final class StartCard: NSView {
         let lines: [NSView] =
             columns == 1
             ? rows
-            : stride(from: 0, to: rows.count, by: columns).map { i in
-                let pair = NSStackView(views: (i..<i + columns).map { $0 < rows.count ? rows[$0] : NSView() })
+            : stride(from: 0, to: rows.count, by: columns).map { first in
+                let pair = NSStackView(views: (first..<first + columns).map { $0 < rows.count ? rows[$0] : NSView() })
                 pair.distribution = .fillEqually
                 pair.spacing = Self.inset
                 return pair
             }
         var views: [NSView] = []
-        for (i, r) in lines.enumerated() {
-            if i > 0 {
+        for (index, line) in lines.enumerated() {
+            if index > 0 {
                 let sep = NSBox()
                 sep.boxType = .separator
                 views.append(sep)
             }
-            views.append(r)
+            views.append(line)
         }
         let list = NSStackView(views: views)
         list.orientation = .vertical
@@ -357,12 +361,12 @@ private final class StartCard: NSView {
         list.edgeInsets = NSEdgeInsets(top: Self.inset, left: Self.inset, bottom: Self.inset, right: Self.inset)
         pin(box)
         pin(list)
-        for v in views {
-            if v is NSBox {
-                v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -40).isActive = true
+        for view in views {
+            if view is NSBox {
+                view.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -40).isActive = true
             }   // inset like grouped lists
             else {
-                v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Self.inset).isActive = true
+                view.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Self.inset).isActive = true
             }
         }
     }

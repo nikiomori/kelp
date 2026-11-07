@@ -27,14 +27,14 @@ final class SidebarCell: NSTableCellView {
     private weak var rest: NSView?
     /// A chat's ✕, a project's or a group's fold: 16 pt and round, as on a tab. Clicks reach it from a little around it.
     private lazy var action: PointerButton = {
-        let b = PointerButton(title: "") { [weak self] in self?.acted() }
-        b.imagePosition = .imageOnly
-        b.isBordered = false
-        b.radius = nil   // a round fill under the pointer, the slot's 16 pt
-        b.contentTintColor = .secondaryLabelColor
-        b.symbolConfiguration = .chrome(Metrics.iconTiny)
-        b.isHidden = true
-        return b
+        let button = PointerButton(title: "") { [weak self] in self?.acted() }
+        button.imagePosition = .imageOnly
+        button.isBordered = false
+        button.radius = nil   // a round fill under the pointer, the slot's 16 pt
+        button.contentTintColor = .secondaryLabelColor
+        button.symbolConfiguration = .chrome(Metrics.iconTiny)
+        button.isHidden = true
+        return button
     }()
     /// Waits a moment after the pointer comes: passing over the list doesn't blink the marks people read.
     private let reveal = Debounce()
@@ -43,12 +43,12 @@ final class SidebarCell: NSTableCellView {
     /// A project's colour after its name, in the Dot style.
     /// On the row that was muted (`Mutes`), not on what's inside it.
     private let muted: NSImageView = {
-        let v = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
-        v.symbolConfiguration = .chrome(Metrics.iconSmall)
-        v.contentTintColor = .secondaryLabelColor
-        v.toolTip = v.image?.accessibilityDescription
-        v.isHidden = true
-        return v
+        let view = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
+        view.symbolConfiguration = .chrome(Metrics.iconSmall)
+        view.contentTintColor = .secondaryLabelColor
+        view.toolTip = view.image?.accessibilityDescription
+        view.isHidden = true
+        return view
     }()
     /// Under an agent that asks or failed: what it asks, or what went wrong (Settings › Appearance › What agents ask).
     private let ask = NSTextField(labelWithString: "")
@@ -98,8 +98,8 @@ final class SidebarCell: NSTableCellView {
             title.textColor = .labelColor
             trailing.font = .ui(11, weight: .semibold)
             trailing.textColor = .textOrange
-            let b = Self.newChatButton { [weak owner] in owner?.newChat(id) }
-            add = b   // on hover, like Finder's sidebar
+            let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
+            add = button   // on hover, like Finder's sidebar
             icon.imageScaling = .scaleProportionallyUpOrDown
             icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
             icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
@@ -109,7 +109,7 @@ final class SidebarCell: NSTableCellView {
             detail.lineBreakMode = .byTruncatingTail
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, trailing, b])
+            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, trailing, button])
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
@@ -137,11 +137,11 @@ final class SidebarCell: NSTableCellView {
         title.setContentHuggingPriority(.init(2), for: .horizontal)
         // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
         // (Source Control's sections): bare, they read as part of the name.
-        for b in [changes, pr, ci] {
-            b.radius = b === pr ? nil : Metrics.radiusXS
-            b.padding = b === pr ? Metrics.gap : 3
-            b.restFill = b === pr ? .fillRest : nil
-            b.target = self
+        for badge in [changes, pr, ci] {
+            badge.radius = badge === pr ? nil : Metrics.radiusXS
+            badge.padding = badge === pr ? Metrics.gap : 3
+            badge.restFill = badge === pr ? .fillRest : nil
+            badge.target = self
         }
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
@@ -183,12 +183,12 @@ final class SidebarCell: NSTableCellView {
             guard coming else { return }
             add.layer?.removeAllAnimations()
             guard !Motion.reduced else { return }
-            let a = CABasicAnimation(keyPath: "opacity")   // faint while the badges are still moving out of its way
-            a.fromValue = 0
-            a.toValue = 1
-            a.duration = Motion.fast
-            a.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            add.layer?.add(a, forKey: "fadeIn")
+            let fade = CABasicAnimation(keyPath: "opacity")   // faint while the badges are still moving out of its way
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = Motion.fast
+            fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            add.layer?.add(fade, forKey: "fadeIn")
         }
     }
 
@@ -196,12 +196,12 @@ final class SidebarCell: NSTableCellView {
     private func fillSlot(_ view: NSView) {
         rest = view
         slot.translatesAutoresizingMaskIntoConstraints = false
-        for v in [view, action] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            slot.addSubview(v)
+        for subview in [view, action] as [NSView] {
+            subview.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(subview)
             NSLayoutConstraint.activate([
-                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+                subview.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                subview.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
             ])
         }
         NSLayoutConstraint.activate([
@@ -243,32 +243,32 @@ final class SidebarCell: NSTableCellView {
         shownFolded = folded
     }
 
-    /// The pointer is on the slot's action: the row's card waits, the row's fate is being decided. `p` is in the window.
-    func overAction(_ p: NSPoint) -> Bool { !action.isHidden && actionArea.contains(convert(p, from: nil)) }
+    /// The pointer is on the slot's action: the row's card waits, the row's fate is being decided. `point` is in the window.
+    func overAction(_ point: NSPoint) -> Bool { !action.isHidden && actionArea.contains(convert(point, from: nil)) }
     /// A little wider than what's drawn, from the pill's edge to the name, and as high as the pill.
     private var actionArea: NSRect { action.convert(action.bounds, to: self).insetBy(dx: -3, dy: -4) }
-    override func hitTest(_ p: NSPoint) -> NSView? {
-        if !action.isHidden, actionArea.contains(convert(p, from: superview)) { return action }
-        return super.hitTest(p)
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if !action.isHidden, actionArea.contains(convert(point, from: superview)) { return action }
+        return super.hitTest(point)
     }
 
     private func layout(row: [NSView]) {
-        let r = NSStackView(views: row)
-        r.spacing = 6
-        r.alignment = .centerY
-        r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr || v === ci || v === stack {
-            r.setVisibilityPriority(.notVisible, for: v)
+        let rowStack = NSStackView(views: row)
+        rowStack.spacing = 6
+        rowStack.alignment = .centerY
+        rowStack.detachesHiddenViews = true
+        for view in row where view === changes || view === pr || view === ci || view === stack {
+            rowStack.setVisibilityPriority(.notVisible, for: view)
         }
-        r.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(r)
+        rowStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rowStack)
         // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
-        r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
-        let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
-        rowY = y
+        rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
+        let centerY = rowStack.centerYAnchor.constraint(equalTo: centerYAnchor)
+        rowY = centerY
         NSLayoutConstraint.activate([
-            r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-            r.trailingAnchor.constraint(equalTo: trailingAnchor), y
+            rowStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            rowStack.trailingAnchor.constraint(equalTo: trailingAnchor), centerY
         ])
     }
 
@@ -280,28 +280,30 @@ final class SidebarCell: NSTableCellView {
         case .agent, .host, .parked: nil
         }
     }
-    @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
-    @objc private func openPR() {
-        if let w = folder, let u = app.rowBadges.prs[w.id]?.url { app.workbench.open(u, workspace: w.id) }
+    @objc private func openChanges() {
+        if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
     }
-    @objc private func openCI() { if let w = folder { app.rowBadges.openCI(w.id) } }
+    @objc private func openPR() {
+        if let folder, let url = app.rowBadges.prs[folder.id]?.url { app.workbench.open(url, workspace: folder.id) }
+    }
+    @objc private func openCI() { if let folder { app.rowBadges.openCI(folder.id) } }
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
-        let w = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder,
-            stats = w.flatMap { app.rowBadges.stats[$0.id] }
-        let c = RowBadges.changes(stats)
-        let p = w.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
-        counts = c
+        let badgeFolder = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder,
+            stats = badgeFolder.flatMap { app.rowBadges.stats[$0.id] }
+        let changeCounts = RowBadges.changes(stats)
+        let prBadge = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
+        counts = changeCounts
         showChanges()
-        if c != nil, let stats {
+        if changeCounts != nil, let stats {
             changes.toolTip = String(
                 localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
             changes.setAccessibilityLabel(changes.toolTip)
         }
-        if let p {
-            pr.attributedTitle = p.0
-            pr.toolTip = p.1
+        if let prBadge {
+            pr.attributedTitle = prBadge.0
+            pr.toolTip = prBadge.1
         }
         let state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
         ciMark.state = state
@@ -309,7 +311,7 @@ final class SidebarCell: NSTableCellView {
             $0 + "\n" + String(localized: "Click to open CI Runs")
         }
         ci.setAccessibilityLabel(ci.toolTip)
-        hasBadge = (c != nil, p != nil, state != nil)
+        hasBadge = (changeCounts != nil, prBadge != nil, state != nil)
         fitBadges()
     }
     private var hasBadge = (changes: false, pr: false, ci: false)
@@ -331,47 +333,46 @@ final class SidebarCell: NSTableCellView {
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack
     /// squeezes the name instead: "kdrde…  +2 −1").
     private func fitBadges() {
-        guard let r = changes.superview as? NSStackView else { return }
-        let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
-        var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
-        for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
-            let need = b.intrinsicContentSize.width + (b === ci ? ciMark.overhang : 0) + r.spacing,
+        guard let rowStack = changes.superview as? NSStackView else { return }
+        let others = rowStack.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
+        var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + rowStack.spacing }
+        for (badge, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
+            let need = badge.intrinsicContentSize.width + (badge === ci ? ciMark.overhang : 0) + rowStack.spacing,
                 show = has && room >= need
             if show { room -= need }
-            r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)
+            rowStack.setVisibilityPriority(show ? .mustHold : .notVisible, for: badge)
         }
         // The agents' logos take what's left: fewer of them, then none ("+N" counts the rest; the tooltip names all).
-        let fits = (0...stack.count).last { stack.width(showing: $0) + r.spacing <= room } ?? 0
+        let fits = (0...stack.count).last { stack.width(showing: $0) + rowStack.spacing <= room } ?? 0
         stack.cap = fits
-        r.setVisibilityPriority(fits > 0 ? .mustHold : .notVisible, for: stack)
+        rowStack.setVisibilityPriority(fits > 0 ? .mustHold : .notVisible, for: stack)
     }
-    override func setFrameSize(_ s: NSSize) {
+    override func setFrameSize(_ size: NSSize) {
         let old = frame.width
-        super.setFrameSize(s)
-        if s.width != old { fitBadges() }
+        super.setFrameSize(size)
+        if size.width != old { fitBadges() }
     }
 
     func update() {
         defer { trailing.isHidden = trailing.stringValue.isEmpty }   // an empty label would still take its spacing
         muted.isHidden = app.mutedUntil(node.muteIds) == nil
         updateBadges()
-        let m = app
         func live(_ wid: String) -> [Session] {
-            m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat }
+            app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat }
         }
         switch node.kind {
         case .project(let id):
-            let r = m.repo(id)
-            let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
-            if let r, !missing {
-                ProjectIcon.show(r.path, in: icon, app: m)
+            let repo = app.repo(id)
+            let missing = repo.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
+            if let repo, !missing {
+                ProjectIcon.show(repo.path, in: icon, app: app)
             } else {
                 icon.image = missing ? .symbol("questionmark.folder") : nil
             }
             icon.contentTintColor = .secondaryLabelColor
             // Not under a rename (a status change re-reads the row). A remote one's server heads its card, not its name.
             if !title.isEditable {
-                title.stringValue = owner?.projectHosts[id] == nil ? m.projectName(id) ?? "" : r?.name ?? ""
+                title.stringValue = owner?.projectHosts[id] == nil ? app.projectName(id) ?? "" : repo?.name ?? ""
             }
             // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
             let busy =
@@ -381,8 +382,8 @@ final class SidebarCell: NSTableCellView {
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip =
                 missing
-                ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
-                : r.map(m.projectPlace)
+                ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
+                : repo.map(app.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable {
@@ -391,18 +392,18 @@ final class SidebarCell: NSTableCellView {
             }
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // folding, not a status change
-            stack.show(folded ? AgentStack.chats(under: node, m) : [], m)
+            stack.show(folded ? AgentStack.chats(under: node, app) : [], app)
             fitBadges()
             showFold()
         case .workspace(let id):
-            guard let w = m.worktree(id) else { return }
+            guard let worktree = app.worktree(id) else { return }
             let agents = live(id)
-            title.stringValue = w.displayName
+            title.stringValue = worktree.displayName
             title.textColor = .labelColor
             // A branch splits the code, a group the screen: the slot tells them apart, always.
-            let onBranch = w.path != m.repo(w.repoId)?.path
+            let onBranch = worktree.path != app.repo(worktree.repoId)?.path
             icon.image = .symbol(onBranch ? "arrow.triangle.branch" : "rectangle.stack")
-            detail.stringValue = onBranch && w.branch != w.displayName ? w.branch : ""
+            detail.stringValue = onBranch && worktree.branch != worktree.displayName ? worktree.branch : ""
             detail.isHidden = detail.stringValue.isEmpty
             showFold()
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
@@ -413,41 +414,43 @@ final class SidebarCell: NSTableCellView {
             }
             trailing.stringValue =
                 collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
-            stack.show(collapsed ? AgentStack.chats(under: node, m) : [], m)
+            stack.show(collapsed ? AgentStack.chats(under: node, app) : [], app)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
         case .agent(let sid):
-            guard let s = m.session(sid) else { return }
-            showIcon(s)
-            title.stringValue = app.catalog.displayName(s)
-            title.font = .ui(13, weight: Self.isNews(s) ? .semibold : .regular)
-            mark.status = Self.shownStatus(s)
-            mark.unread = s.unread
-            mark.limited = s.limitHit != nil
-            mark.compacting = s.summary.hasPrefix("Compacting")
-            mark.waitsForCommand = s.waitsForCommand
-            mark.guessed = s.guessed == true
-            mark.progress = s.progress.map { Double($0) / 100 }
-            showFace(s)
+            guard let session = app.session(sid) else { return }
+            showIcon(session)
+            title.stringValue = app.catalog.displayName(session)
+            title.font = .ui(13, weight: Self.isNews(session) ? .semibold : .regular)
+            mark.status = Self.shownStatus(session)
+            mark.unread = session.unread
+            mark.limited = session.limitHit != nil
+            mark.compacting = session.summary.hasPrefix("Compacting")
+            mark.waitsForCommand = session.waitsForCommand
+            mark.guessed = session.guessed == true
+            mark.progress = session.progress.map { Double($0) / 100 }
+            showFace(session)
             // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
             // A chat with no project working in a folder you picked says which (its own folders are just dates).
-            let r = m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }
+            let repo = app.worktree(session.worktreeId).flatMap { app.repo($0.repoId) }
             let picked =
-                NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path
-                ? (s.cwd as NSString).lastPathComponent : ""
+                NoProject.holds(repo) && (session.cwd as NSString).deletingLastPathComponent != repo?.path
+                ? (session.cwd as NSString).lastPathComponent : ""
             // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
             let quiet =
-                Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
+                Self.shownStatus(session) == .working
+                ? session.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
             trailing.stringValue =
-                [.waiting, .error].contains(Self.shownStatus(s))
-                ? shortAgo(s.statusAt ?? s.createdAt)
-                : m.arrangement.parked[sid].flatMap { m.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
-            alphaValue = m.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
-            family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
-            showChip(s)
-            showState(s)
-            showAsk(s)
-            speak(s)
+                [.waiting, .error].contains(Self.shownStatus(session))
+                ? shortAgo(session.statusAt ?? session.createdAt)
+                : app.arrangement.parked[sid].flatMap { app.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
+            alphaValue = app.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
+            family.show(
+                app.sessions.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
+            showChip(session)
+            showState(session)
+            showAsk(session)
+            speak(session)
         case .host, .parked: break
         }
     }
@@ -455,59 +458,59 @@ final class SidebarCell: NSTableCellView {
     /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the
     /// default one (Other Agents Only), none for Never. In colour while the agent is loaded; paused, the same icon without
     /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
-    private func showIcon(_ s: Session) {
+    private func showIcon(_ session: Session) {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others",
-            image = app.catalog.icon(s.agent, size: 16)
+            image = app.catalog.icon(session.agent, size: 16)
         face.isHidden = mode != "always"
         markBox.isHidden = !face.isHidden
-        face.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
-        face.alphaValue = s.status == .paused ? 0.7 : 1
-        glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
+        face.image = session.status == .paused ? image.map(app.agentIcons.grey) : image
+        face.alphaValue = session.status == .paused ? 0.7 : 1
+        glyph.isHidden = mode != "others" || session.agent == app.catalog.defaultAgent
         let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
         if glyph.image !== mark { glyph.image = mark }
-        glyph.toolTip = app.catalog.name(s.agent)
+        glyph.toolTip = app.catalog.name(session.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)
     }
 
     /// The slot's two looks, one shown (`showIcon`): the mark, or the logo with the mark in its corner.
     private func lead() -> NSView {
-        let v = NSView()
+        let view = NSView()
         markBox.addSubview(mark)
         for (child, side) in [(markBox, 16.0), (face, AgentFace.side)] as [(NSView, CGFloat)] {
             child.translatesAutoresizingMaskIntoConstraints = false
-            v.addSubview(child)
+            view.addSubview(child)
             NSLayoutConstraint.activate([
                 child.widthAnchor.constraint(equalToConstant: side),
                 child.heightAnchor.constraint(equalToConstant: side),
-                child.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-                child.centerYAnchor.constraint(equalTo: v.centerYAnchor)
+                child.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                child.centerYAnchor.constraint(equalTo: view.centerYAnchor)
             ])
         }
         NSLayoutConstraint.activate([
             mark.centerXAnchor.constraint(equalTo: markBox.centerXAnchor),
             mark.centerYAnchor.constraint(equalTo: markBox.centerYAnchor),
-            v.widthAnchor.constraint(equalToConstant: 16), v.heightAnchor.constraint(equalToConstant: 16)
+            view.widthAnchor.constraint(equalToConstant: 16), view.heightAnchor.constraint(equalToConstant: 16)
         ])
-        return v
+        return view
     }
 
     /// The face's corner says what the row's mark would.
-    private func showFace(_ s: Session) {
-        let m = face.mark
-        m.status = mark.status
-        m.unread = mark.unread
-        m.limited = mark.limited
-        m.compacting = mark.compacting
-        m.waitsForCommand = mark.waitsForCommand
-        m.guessed = mark.guessed
-        m.progress = mark.progress
+    private func showFace(_ session: Session) {
+        let faceMark = face.mark
+        faceMark.status = mark.status
+        faceMark.unread = mark.unread
+        faceMark.limited = mark.limited
+        faceMark.compacting = mark.compacting
+        faceMark.waitsForCommand = mark.waitsForCommand
+        faceMark.guessed = mark.guessed
+        faceMark.progress = mark.progress
         face.cut()
     }
 
     /// VoiceOver reads the row as one sentence: "Fix login, needs your input, Asks: may I run npm test?, Atlas, now",
     /// not its mark, name, line and time one by one.
-    private func speak(_ s: Session) {
-        let st = Self.shownStatus(s), project = app.projectName(app.worktree(s.worktreeId)?.repoId)
+    private func speak(_ session: Session) {
+        let st = Self.shownStatus(session), project = app.projectName(app.worktree(session.worktreeId)?.repoId)
         let state = mark.isHidden ? nil : st.words
         let line = ask.isHidden ? nil : ask.stringValue, quiet = muted.isHidden ? nil : muted.toolTip
         setAccessibilityElement(true)
@@ -518,13 +521,13 @@ final class SidebarCell: NSTableCellView {
             }
             .joined(separator: ", "))
         mark.announces = false
-        for v in [title, ask, trailing] as [NSView] { v.setAccessibilityElement(false) }
+        for part in [title, ask, trailing] as [NSView] { part.setAccessibilityElement(false) }
     }
 
     /// One line, as Mail lists mailboxes: an agent asking for you or done unseen is bold (isNews) and its mark says which;
     /// the colour stays on the mark (orange text on a light sidebar is 2:1). What it asks or did is on the hover card.
-    private func showState(_ s: Session) {
-        title.textColor = s.status == .paused ? .secondaryLabelColor : .labelColor
+    private func showState(_ session: Session) {
+        title.textColor = session.status == .paused ? .secondaryLabelColor : .labelColor
         trailing.textColor = selected ? Self.onPill : .secondaryLabelColor
         toolTip = nil
     }
@@ -532,17 +535,17 @@ final class SidebarCell: NSTableCellView {
     /// A mark for the goal it works toward, else for what runs beside it, as on its tab, else for the machine it runs a
     /// command in (`kelp vm run`). Words have no room here: a name and a chip shared the same points, and a command mostly
     /// ended before it could be read. The tooltip and the card say them.
-    private func showChip(_ s: Session) {
-        let beside = s.aside.count,
-            mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(s) }).first : nil
+    private func showChip(_ session: Session) {
+        let beside = session.aside.count,
+            mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(session) }).first : nil
         // Beside the dots there's no room for both it and the name: the card lists what it says.
-        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0 && mark == nil)
-        if let g = s.goal {
+        chip.isHidden = !family.isHidden || (session.goal == nil && beside == 0 && mark == nil)
+        if let goal = session.goal {
             chip.show("scope")
-            chip.toolTip = String(localized: "Goal: \(g)")
+            chip.toolTip = String(localized: "Goal: \(goal)")
         } else {
             chip.show(mark?.symbol ?? "apple.terminal", count: beside)
-            chip.toolTip = mark?.tip ?? s.backgroundTip
+            chip.toolTip = mark?.tip ?? session.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)
     }
@@ -564,16 +567,16 @@ extension SidebarCell {
     /// A project's "+", hidden until the pointer is on the row. Small and faint there, brighter on the button itself: at
     /// 13 pt secondary it was the biggest mark in the row.
     fileprivate static func newChatButton(_ action: @escaping () -> Void) -> IconButton {
-        let b = IconButton(.symbol("plus"), tip: String(localized: "New Chat"), action: action)
-        b.isHidden = true
-        b.symbolConfiguration = .chrome(Metrics.iconSmall)
-        b.tints = (.tertiaryLabelColor, .secondaryLabelColor)
+        let button = IconButton(.symbol("plus"), tip: String(localized: "New Chat"), action: action)
+        button.isHidden = true
+        button.symbolConfiguration = .chrome(Metrics.iconSmall)
+        button.tints = (.tertiaryLabelColor, .secondaryLabelColor)
         // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
         NSLayoutConstraint.activate([
-            b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
-            b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
+            button.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+            button.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
         ])
-        return b
+        return button
     }
 
     /// A group's row: its branch quieter than its name, and what gives way first.
@@ -606,10 +609,10 @@ extension SidebarCell {
     }
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
-    private func showAsk(_ s: Session) {
+    private func showAsk(_ session: Session) {
         let line = Self.line(
-            s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
-            back: app.arrangement.parkedBack[s.id])
+            session, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+            back: app.arrangement.parkedBack[session.id])
         setAsk(line)
     }
 
@@ -619,17 +622,17 @@ extension SidebarCell {
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
-        let t = NSMutableAttributedString()
+        let styled = NSMutableAttributedString()
         // On the pill too: the text shades hold 4.5:1 on it (light 5.5, dark 4.9), and the row it marks is the one you're on.
         if let (word, color) = line.prefix {
-            t.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: color]))
+            styled.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: color]))
         }
-        t.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
+        styled.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
         // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
         let tail = NSMutableParagraphStyle()
         tail.lineBreakMode = .byTruncatingTail
-        t.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: t.length))
-        ask.attributedStringValue = t
+        styled.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: styled.length))
+        ask.attributedStringValue = styled
         ask.toolTip = line.text
     }
 }

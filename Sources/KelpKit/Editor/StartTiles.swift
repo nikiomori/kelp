@@ -55,14 +55,14 @@ final class AgentTile: NSView {
         ])
         if icon is NSImageView { icon.widthAnchor.constraint(equalToConstant: Metrics.iconEmpty).isActive = true }
         if let key {
-            let k = NSTextField(labelWithString: key)
-            k.font = .ui(10)
-            k.textColor = .secondaryLabelColor
-            k.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(k)
+            let keyLabel = NSTextField(labelWithString: key)
+            keyLabel.font = .ui(10)
+            keyLabel.textColor = .secondaryLabelColor
+            keyLabel.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(keyLabel)
             NSLayoutConstraint.activate([
-                k.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.gap),
-                k.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide)
+                keyLabel.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.gap),
+                keyLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide)
             ])
         }
         addTrackingArea(

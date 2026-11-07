@@ -130,10 +130,14 @@ package final class EditorArea: NSViewController {
             return
         }
         start = nil
-        if let z = zoomed, layout.groups[z] != nil, root.sessions.count > 1 { root = .pane(z) } else { zoomed = nil }
+        if let zoomedGroup = zoomed, layout.groups[zoomedGroup] != nil, root.sessions.count > 1 {
+            root = .pane(zoomedGroup)
+        } else {
+            zoomed = nil
+        }
         if zoomed == nil, let sizes = layout.sizes { layout.sizes = sizes.filter { root.splitKeys.contains($0.key) } }
-        let v = build(root)
-        view.pin(v)
+        let rootView = build(root)
+        view.pin(rootView)
         // The focused group now, the others one per run-loop turn: restoring a browser, files and terminals together
         // would otherwise hold the main thread for 100–200 ms. A newer render takes over the rest.
         renders += 1
@@ -156,8 +160,8 @@ package final class EditorArea: NSViewController {
         scheduleSave()
     }
 
-    private func build(_ n: LayoutNode) -> NSView {
-        switch n {
+    private func build(_ node: LayoutNode) -> NSView {
+        switch node {
         case .pane(let gid): return groupView(gid)
         case .split(let vertical, let kids):
             let sv = EqualizingSplitView()
@@ -170,14 +174,14 @@ package final class EditorArea: NSViewController {
             let saved = layout.sizes?[key].flatMap { $0.count == kids.count ? $0 : nil }
             let shares = saved ?? Array(repeating: 1 / Double(kids.count), count: kids.count)
             sv.frame = NSRect(origin: .zero, size: size)
-            for (k, share) in zip(kids, shares) {   // starting frames; NSSplitView keeps proportions from there
-                let v = build(k)
-                v.translatesAutoresizingMaskIntoConstraints = true
-                v.frame.size =
+            for (kid, share) in zip(kids, shares) {   // starting frames; NSSplitView keeps proportions from there
+                let child = build(kid)
+                child.translatesAutoresizingMaskIntoConstraints = true
+                child.frame.size =
                     vertical
                     ? NSSize(width: size.width * share, height: size.height)
                     : NSSize(width: size.width, height: size.height * share)
-                sv.addArrangedSubview(v)
+                sv.addArrangedSubview(child)
             }
             return sv
         }
@@ -191,23 +195,27 @@ package final class EditorArea: NSViewController {
             return
         }
         if outerHint.superview !== view { view.addSubview(outerHint, positioned: .above, relativeTo: nil) }
-        var r = view.bounds.insetBy(dx: 6, dy: 6)
+        var frame = view.bounds.insetBy(dx: 6, dy: 6)
         // Its share once added: one more beside the panes already split that way.
         let vertical = edge == .minX || edge == .maxX
-        let n: CGFloat = {
-            if case .split(let v, let c)? = layout.root, v == vertical { CGFloat(c.count + 1) } else { 2 }
+        let count: CGFloat = {
+            if case .split(let isVertical, let kids)? = layout.root, isVertical == vertical {
+                CGFloat(kids.count + 1)
+            } else {
+                2
+            }
         }()
         switch edge {
-        case .minX: r.size.width /= n
+        case .minX: frame.size.width /= count
         case .maxX:
-            r.origin.x += r.width * (n - 1) / n
-            r.size.width /= n
-        case .minY: r.size.height /= n
+            frame.origin.x += frame.width * (count - 1) / count
+            frame.size.width /= count
+        case .minY: frame.size.height /= count
         default:
-            r.origin.y += r.height * (n - 1) / n
-            r.size.height /= n
+            frame.origin.y += frame.height * (count - 1) / count
+            frame.size.height /= count
         }
-        outerHint.frame = r
+        outerHint.frame = frame
         outerHint.isHidden = false
     }
 
@@ -220,37 +228,37 @@ package final class EditorArea: NSViewController {
     }
 
     private func groupView(_ gid: String) -> GroupView {
-        if let g = groupViews[gid] {
-            g.removeFromSuperview()
-            return g
+        if let group = groupViews[gid] {
+            group.removeFromSuperview()
+            return group
         }
-        let g = GroupView(groupId: gid, themes: app.themes)
-        g.strip.onSelect = { [weak self] id in self?.select(id) }
-        g.strip.onClose = { [weak self] id in self?.closeTab(id) }
-        g.strip.onMenu = { [weak self] id in self?.tabMenu(id) }
-        g.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
-        g.strip.onNewAgent = { [weak self] in
+        let group = GroupView(groupId: gid, themes: app.themes)
+        group.strip.onSelect = { [weak self] id in self?.select(id) }
+        group.strip.onClose = { [weak self] id in self?.closeTab(id) }
+        group.strip.onMenu = { [weak self] id in self?.tabMenu(id) }
+        group.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
+        group.strip.onNewAgent = { [weak self] in
             self?.layout.focused = gid
             self?.newAgent()
         }
-        g.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
-        g.strip.hoverCard = tabCard
-        g.strip.onDropTab = { [weak self] id, index in
+        group.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
+        group.strip.hoverCard = tabCard
+        group.strip.onDropTab = { [weak self] id, index in
             guard let self else { return }
             if layout.group(of: id) != gid { arrangedByHand() }   // into another pane's strip, not reordering its own
             layout.move(id, to: gid, index: index)
             render()
         }
-        g.editorFrame = { [weak self] in self.map { $0.view.convert($0.view.bounds, to: nil) } }
-        g.showOuterHint = { [weak self] edge in self?.showOuterHint(edge) }
-        g.onDropOuter = { [weak self] id, edge in
+        group.editorFrame = { [weak self] in self.map { $0.view.convert($0.view.bounds, to: nil) } }
+        group.showOuterHint = { [weak self] edge in self?.showOuterHint(edge) }
+        group.onDropOuter = { [weak self] id, edge in
             guard let self else { return }
             arrangedByHand()
             layout.splitRoot(id, vertical: edge == .minX || edge == .maxX, before: edge == .minX || edge == .maxY)
             render()
             focusSelected()
         }
-        g.onDropTab = { [weak self] id, edge in
+        group.onDropTab = { [weak self] id, edge in
             guard let self else { return }
             if edge != nil || layout.group(of: id) != gid { arrangedByHand() }
             switch edge {
@@ -263,48 +271,51 @@ package final class EditorArea: NSViewController {
             render()
             focusSelected()
         }
-        g.onDropFiles = { [weak self] urls in
+        group.onDropFiles = { [weak self] urls in
             self?.layout.focused = gid
             self?.app.workbench.open(files: urls) { self?.open($0) }
         }
-        groupViews[gid] = g
-        return g
+        groupViews[gid] = group
+        return group
     }
 
     /// Strip and visible content of one group (cheap: called on every title / status change).
     func refreshGroup(_ gid: String) {
-        guard let g = groupViews[gid], let model = layout.groups[gid] else { return }
-        g.strip.focused = layout.focused == gid || (layout.focused == nil && layout.root?.sessions.first == gid)
-        g.strip.zoomed = zoomed == gid
+        guard let group = groupViews[gid], let model = layout.groups[gid] else { return }
+        group.strip.focused = layout.focused == gid || (layout.focused == nil && layout.root?.sessions.first == gid)
+        group.strip.zoomed = zoomed == gid
         let agent = app.catalog.startable
         let agentIcon = agent.flatMap { app.catalog.icon($0) }
-        g.strip.setNewAgent(icon: agentIcon, grey: agentIcon.map(app.agentIcons.grey), name: app.catalog.name(agent))
+        group.strip.setNewAgent(
+            icon: agentIcon, grey: agentIcon.map(app.agentIcons.grey), name: app.catalog.name(agent))
         // Only the visible tab is built: a background agent tab must not wake a paused agent.
         let visible = model.selectedTab.flatMap { content($0) }
-        g.strip.set(
+        group.strip.set(
             Self.disambiguated(
-                model.tabs.map { t in
-                    var item = placeholder(t)
-                    if let c = contents[t.id] {
+                model.tabs.map { tab in
+                    var item = placeholder(tab)
+                    if let content = contents[tab.id] {
                         item = .badged(
-                            .init(id: t.id, title: c.title, icon: c.icon, status: nil, toolTip: c.toolTip), c.badge,
-                            edited: c.isEdited)
-                    } else if TabURI.scheme(t.uri) == "session" {   // not built, or its terminal let go: its session still says all this
-                        let sid = TabURI.body(t.uri)
+                            .init(
+                                id: tab.id, title: content.title, icon: content.icon, status: nil,
+                                toolTip: content.toolTip), content.badge,
+                            edited: content.isEdited)
+                    } else if TabURI.scheme(tab.uri) == "session" {   // not built, or its terminal let go: its session still says all this
+                        let sid = TabURI.body(tab.uri)
                         item = .badged(item, .of(app.session(sid), meter: app.latest(ContextEvent.self, sid)?.shown))
                     }
-                    return runLook(item, t)
+                    return runLook(item, tab)
                 }, model.tabs), selected: model.selectedTab?.id)
-        g.show(visible?.view)
+        group.show(visible?.view)
         noteShown(model.selectedTab?.id)
         // With panes side by side, those without focus fade, tabs too: the one you're in is the lit one, whatever it shows.
         // Never the one that calls for you: it's the pane to look at.
-        g.dimmed =
-            !g.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible != nil
+        group.dimmed =
+            !group.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible != nil
             && visible?.badge?.attention == nil
-        g.strip.dimmed = g.dimmed
-        g.attention = visible?.badge?.attention
-        g.breathing = visible?.badge?.status == .waiting
+        group.strip.dimmed = group.dimmed
+        group.attention = visible?.badge?.attention
+        group.breathing = visible?.badge?.status == .waiting
         showEdited()
     }
 
@@ -320,17 +331,19 @@ package final class EditorArea: NSViewController {
 
     /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour and a glow of that colour. Any
     /// session's tab says the port it serves, a label only: the title bar's capsule opens it.
-    private func runLook(_ item: TabStrip.Item, _ t: TabRef) -> TabStrip.Item {
-        guard TabURI.scheme(t.uri) == "session", let s = app.session(TabURI.body(t.uri)), s.status != .exited else {
+    private func runLook(_ item: TabStrip.Item, _ tab: TabRef) -> TabStrip.Item {
+        guard TabURI.scheme(tab.uri) == "session", let session = app.session(TabURI.body(tab.uri)),
+            session.status != .exited
+        else {
             return item
         }
         var item = item
-        if s.agent != "shell" { item.card = "a:" + s.id }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
-        if let look = app.scripts.look(s) {
+        if session.agent != "shell" { item.card = "a:" + session.id }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
+        if let look = app.scripts.look(session) {
             item.icon = look.icon
             item.run = look.glow
         }
-        if let port = app.scripts.port(of: s) { item.title += " · :\(port)" }
+        if let port = app.scripts.port(of: session) { item.title += " · :\(port)" }
         return item
     }
 
@@ -348,71 +361,73 @@ package final class EditorArea: NSViewController {
         }
     }
 
-    func placeholder(_ t: TabRef) -> TabStrip.Item {
-        let body = TabURI.body(t.uri)
-        switch TabURI.scheme(t.uri) {
+    func placeholder(_ tab: TabRef) -> TabStrip.Item {
+        let body = TabURI.body(tab.uri)
+        switch TabURI.scheme(tab.uri) {
         case "session":
-            let s = app.session(body)
-            let title = s.map(app.catalog.displayName) ?? String(localized: "Session")
+            let session = app.session(body)
+            let title = session.map(app.catalog.displayName) ?? String(localized: "Session")
             return .init(
-                id: t.id, title: title, icon: app.catalog.icon(s?.agent),
-                status: s.flatMap { $0.agent == "shell" ? nil : $0.endedWithError ? .error : $0.status },
-                unread: s?.unread ?? false, toolTip: title)
+                id: tab.id, title: title, icon: app.catalog.icon(session?.agent),
+                status: session.flatMap { $0.agent == "shell" ? nil : $0.endedWithError ? .error : $0.status },
+                unread: session?.unread ?? false, toolTip: title)
         case "file":
-            let p = TabURI.filePath(t.uri).path
+            let path = TabURI.filePath(tab.uri).path
             return .init(
-                id: t.id, title: (p as NSString).lastPathComponent,
-                icon: app.fileIcons.image((p as NSString).lastPathComponent),
-                status: nil, toolTip: p)
+                id: tab.id, title: (path as NSString).lastPathComponent,
+                icon: app.fileIcons.image((path as NSString).lastPathComponent),
+                status: nil, toolTip: path)
         case "diff":
             return .init(
-                id: t.id, title: String(localized: "Changes"), icon: .symbol("plus.forwardslash.minus"), status: nil,
+                id: tab.id, title: String(localized: "Changes"), icon: .symbol("plus.forwardslash.minus"), status: nil,
                 toolTip: nil)
         case "http", "https", "about", TabURI.agentScheme:
             return .init(
-                id: t.id, title: URL(string: TabURI.pageURL(t.uri))?.host ?? String(localized: "New Page"),
+                id: tab.id, title: URL(string: TabURI.pageURL(tab.uri))?.host ?? String(localized: "New Page"),
                 icon: .symbol("safari"),
-                status: nil, toolTip: t.uri)
+                status: nil, toolTip: tab.uri)
         case "preview":
             return .init(
-                id: t.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil, toolTip: body)
+                id: tab.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil,
+                toolTip: body)
         case "usage":
             return .init(
-                id: t.id, title: String(localized: "Usage"), icon: .symbol("chart.bar"), status: nil, toolTip: nil)
+                id: tab.id, title: String(localized: "Usage"), icon: .symbol("chart.bar"), status: nil, toolTip: nil)
         case "routines":
             return .init(
-                id: t.id, title: String(localized: "Routines"), icon: .symbol("clock.arrow.circlepath"), status: nil,
+                id: tab.id, title: String(localized: "Routines"), icon: .symbol("clock.arrow.circlepath"), status: nil,
                 toolTip: nil)
         case "cilog":
             return .init(
-                id: t.id, title: String(localized: "Log"), icon: .symbol("doc.text"), status: nil, toolTip: nil)
+                id: tab.id, title: String(localized: "Log"), icon: .symbol("doc.text"), status: nil, toolTip: nil)
         default:
-            let v = DeclarativeExtension.viewInfo(t.uri)
+            let info = DeclarativeExtension.viewInfo(tab.uri)
             return .init(
-                id: t.id, title: v?.title ?? body, icon: .symbol(v?.icon ?? "puzzlepiece.extension"), status: nil,
-                toolTip: t.uri)
+                id: tab.id, title: info?.title ?? body, icon: .symbol(info?.icon ?? "puzzlepiece.extension"),
+                status: nil,
+                toolTip: tab.uri)
         }
     }
 
-    func content(_ t: TabRef) -> TabContent? {
-        if let c = contents[t.id] { return c }
-        let c = app.extensions.tabProvider(for: t.uri)?.make(t.uri) ?? UnavailableTab(uri: t.uri, app: app)
-        contents[t.id] = c
-        track(owner: c, now: false) { [weak c] in
-            c.map(TabLook.init)
+    func content(_ tab: TabRef) -> TabContent? {
+        if let content = contents[tab.id] { return content }
+        let content = app.extensions.tabProvider(for: tab.uri)?.make(tab.uri) ?? UnavailableTab(uri: tab.uri, app: app)
+        contents[tab.id] = content
+        track(owner: content, now: false) { [weak content] in
+            content.map(TabLook.init)
         } changed: { [weak self] look in
-            guard let self, let look, let gid = layout.group(of: t.id) else { return }
-            if var g = layout.groups[gid], let i = g.tabs.firstIndex(where: { $0.id == t.id }),
-                g.tabs[i].uri != look.uri
+            guard let self, let look, let gid = layout.group(of: tab.id) else { return }
+            if var group = layout.groups[gid], let index = group.tabs.firstIndex(where: { $0.id == tab.id }),
+                group.tabs[index].uri != look.uri
             {
-                g.tabs[i].uri = look.uri
-                layout.groups[gid] = g
+                group.tabs[index].uri = look.uri
+                layout.groups[gid] = group
                 scheduleSave()   // e.g. the browser navigated
             }
             refreshGroup(gid)
             app.publishUIState()
         }
-        return c
+        return content
     }
 
     private func rebuildStart() {
@@ -423,35 +438,35 @@ package final class EditorArea: NSViewController {
     }
 
     private func showStart() {
-        guard start == nil, let w = worktree else { return }
-        let s = StartView(app: app, worktree: w)
-        s.onAgent = { [weak self] agent in self?.newAgent(agent) }
-        s.onPrompt = { [weak self] agent, text in
+        guard start == nil, let worktree else { return }
+        let startView = StartView(app: app, worktree: worktree)
+        startView.onAgent = { [weak self] agent in self?.newAgent(agent) }
+        startView.onPrompt = { [weak self] agent, text in
             self?.startDraft = ""
             self?.newAgent(agent, prompt: text)
         }
-        s.draft = startDraft
-        s.onDraft = { [weak self] in self?.startDraft = $0 }
-        s.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
-        s.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self) } }
-        start = s
-        view.pin(s)
-        DispatchQueue.main.async { s.focus() }
+        startView.draft = startDraft
+        startView.onDraft = { [weak self] in self?.startDraft = $0 }
+        startView.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
+        startView.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self) } }
+        start = startView
+        view.pin(startView)
+        DispatchQueue.main.async { startView.focus() }
     }
 
     // MARK: focus
 
-    private func responderChanged(_ r: NSResponder?) {
-        var v = r as? NSView
-        while let x = v, !(x is GroupView) { v = x.superview }
-        guard let g = v as? GroupView, layout.focused != g.groupId else {
+    private func responderChanged(_ responder: NSResponder?) {
+        var candidate = responder as? NSView
+        while let current = candidate, !(current is GroupView) { candidate = current.superview }
+        guard let group = candidate as? GroupView, layout.focused != group.groupId else {
             publishFocus()
             return
         }
         let old = layout.focused
-        layout.focused = g.groupId
+        layout.focused = group.groupId
         if let old { refreshGroup(old) }
-        refreshGroup(g.groupId)
+        refreshGroup(group.groupId)
         publishFocus()
     }
 
@@ -476,11 +491,11 @@ package final class EditorArea: NSViewController {
     }
 
     package func focusSelected() {
-        guard let t = layout.focusedGroup?.selectedTab else {
+        guard let tab = layout.focusedGroup?.selectedTab else {
             start?.focus()
             return
         }
-        DispatchQueue.main.async { [weak self] in self?.contents[t.id]?.focus() }
+        DispatchQueue.main.async { [weak self] in self?.contents[tab.id]?.focus() }
     }
 
     // MARK: persistence
@@ -497,9 +512,9 @@ package final class EditorArea: NSViewController {
     private static let unsaved = NSHashTable<EditorArea>.weakObjects()
     /// Quitting: layouts still waiting are saved now, before the app's last writes go out.
     static func saveLayouts() {
-        for a in unsaved.allObjects {
-            a.saveWork.cancel()
-            a.saveLayout()
+        for area in unsaved.allObjects {
+            area.saveWork.cancel()
+            area.saveLayout()
         }
     }
 

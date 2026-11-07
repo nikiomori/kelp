@@ -28,40 +28,44 @@ extension SidebarController {
     }
 
     /// Folds or opens a row (at once under Reduce Motion); a click while it moves turns it back.
-    func toggle(_ n: Node) {
-        if outline.isItemExpanded(n), folding[n.key] == nil { close(n) } else { open(n) }
+    func toggle(_ node: Node) {
+        if outline.isItemExpanded(node), folding[node.key] == nil { close(node) } else { open(node) }
     }
 
-    /// The rows under `n` close up to nothing; then the outline folds it for real, where nothing has to move any more.
-    private func close(_ n: Node) {
+    /// The rows under `node` close up to nothing; then the outline folds it for real, where nothing has to move any
+    /// more.
+    private func close(_ node: Node) {
         // Nothing to watch (Reduce Motion, a window that isn't on screen): folded at once.
-        guard !Motion.reduced, outline.window?.isVisible == true else { return instantly { outline.collapseItem(n) } }
+        guard !Motion.reduced, outline.window?.isVisible == true else {
+            return instantly { outline.collapseItem(node) }
+        }
         folds += 1
-        let ticket = folds, key = n.key
+        let ticket = folds, key = node.key
         folding[key] = ticket
-        move(n, rows: 0) { [weak self] in
+        move(node, rows: 0) { [weak self] in
             guard let self, folding[key] == ticket else { return }   // opened again on the way
             folding[key] = nil
-            if let n = node(key) { instantly { outline.collapseItem(n) } }
+            if let folded = self.node(key) { instantly { outline.collapseItem(folded) } }
         }
     }
 
     /// Folded: the outline opens it with its rows at no height and see-through, and they open out from there. Still
     /// closing: they open out again from where they are.
-    func open(_ n: Node) {
-        if folding.removeValue(forKey: n.key) == nil {
-            folding[n.key] = 0
-            instantly { outline.expandItem(n) }
+    func open(_ node: Node) {
+        if folding.removeValue(forKey: node.key) == nil {
+            folding[node.key] = 0
+            instantly { outline.expandItem(node) }
             outline.layoutSubtreeIfNeeded()   // the new rows' views, to start from nothing
-            forRows(under: n) { $0.alphaValue = 0 }
-            folding[n.key] = nil
+            forRows(under: node) { $0.alphaValue = 0 }
+            folding[node.key] = nil
         }
-        move(n, rows: 1)
+        move(node, rows: 1)
     }
 
-    /// One movement: the rows under `n` fade to `alpha`, every row takes its height (none under a fold) and each card
-    /// its size. `n`'s own row changes in place: its chevron turns, what its agents do fades in or out (SidebarCell).
-    private func move(_ n: Node, rows alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
+    /// One movement: the rows under `node` fade to `alpha`, every row takes its height (none under a fold) and each
+    /// card its size. `node`'s own row changes in place: its chevron turns, what its agents do fades in or out
+    /// (SidebarCell).
+    private func move(_ node: Node, rows alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
         NSAnimationContext.runAnimationGroup(
             { ctx in
                 ctx.duration = Motion.duration(Motion.base)
@@ -70,31 +74,31 @@ extension SidebarController {
                 NSAnimationContext.runAnimationGroup { fade in
                     fade.duration = Motion.duration(alpha == 0 ? Motion.fast : Motion.base)
                     fade.timingFunction = CAMediaTimingFunction(name: alpha == 0 ? .easeOut : .easeIn)
-                    forRows(under: n) { $0.animator().alphaValue = alpha }
+                    forRows(under: node) { $0.animator().alphaValue = alpha }
                 }
                 updateCard()
             }, completionHandler: { MainActor.assumeIsolated { done?() } })   // AppKit ends the group on the main thread
-        refreshCell(n.key)
+        refreshCell(node.key)
     }
 
-    /// The row views shown under `n`.
-    private func forRows(under n: Node, _ body: (NSTableRowView) -> Void) {
-        let top = outline.row(forItem: n)
+    /// The row views shown under `node`.
+    private func forRows(under node: Node, _ body: (NSTableRowView) -> Void) {
+        let top = outline.row(forItem: node)
         guard top >= 0 else { return }
         let level = outline.level(forRow: top)
         var row = top + 1
         while row < outline.numberOfRows, outline.level(forRow: row) > level {
-            if let v = outline.rowView(atRow: row, makeIfNecessary: false) { body(v) }
+            if let rowView = outline.rowView(atRow: row, makeIfNecessary: false) { body(rowView) }
             row += 1
         }
     }
 
     /// Under a row that is folding: no height.
-    func underFold(_ n: Node) -> Bool {
-        var up = outline.parent(forItem: n) as? Node
-        while let p = up {
-            if folding[p.key] != nil { return true }
-            up = outline.parent(forItem: p) as? Node
+    func underFold(_ node: Node) -> Bool {
+        var up = outline.parent(forItem: node) as? Node
+        while let parent = up {
+            if folding[parent.key] != nil { return true }
+            up = outline.parent(forItem: parent) as? Node
         }
         return false
     }
@@ -106,14 +110,14 @@ extension SidebarController {
     func placeCards() {
         var shown: Set<String> = [], made = false
         let look = app.projectLook
-        func put(_ key: String, _ r: NSRect, _ shows: ProjectCard.Look) {
+        func put(_ key: String, _ frame: NSRect, _ shows: ProjectCard.Look) {
             shown.insert(key)
             if let card = cards[key] {
-                card.animator().frame = r
+                card.animator().frame = frame
                 card.look = shows
                 return
             }
-            let card = ProjectCard(frame: r)
+            let card = ProjectCard(frame: frame)
             card.look = shows
             card.autoresizingMask = .width
             outline.addSubview(card, positioned: .below, relativeTo: nil)
@@ -122,41 +126,41 @@ extension SidebarController {
         }
         var server: (host: String, rows: NSRect)?
         func endServer() {
-            guard let s = server else { return }
+            guard let current = server else { return }
             // 2 pt around the rows' pills, from under the header's gap.
-            var r = SidebarRowView.band(s.rows, 4).insetBy(dx: 0, dy: -1)
-            r.origin.y += Self.serverGap
-            r.size.height -= Self.serverGap
-            put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
+            var frame = SidebarRowView.band(current.rows, 4).insetBy(dx: 0, dy: -1)
+            frame.origin.y += Self.serverGap
+            frame.size.height -= Self.serverGap
+            put("s:" + current.host, frame, ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
             server = nil
         }
-        for p in roots {
-            guard case let first = outline.row(forItem: p), first >= 0,
-                case let last = outline.row(forItem: lastRow(p)), last >= 0
+        for root in roots {
+            guard case let first = outline.row(forItem: root), first >= 0,
+                case let last = outline.row(forItem: lastRow(root)), last >= 0
             else { continue }
             let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last))
-            if case .host(let h) = p.kind {   // a server's card starts at its header
+            if case .host(let host) = root.kind {   // a server's card starts at its header
                 endServer()
-                server = (h, rows)
+                server = (host, rows)
                 continue
             }
-            guard case .project(let id) = p.kind else { continue }
-            if let host = projectHosts[id], let s = server, host == s.host {
-                server = (host, s.rows.union(rows))
+            guard case .project(let id) = root.kind else { continue }
+            if let host = projectHosts[id], let current = server, host == current.host {
+                server = (host, current.rows.union(rows))
             } else {
                 endServer()
             }
             let color = look.style == .card ? look.colors[id] : nil
-            guard !p.children.isEmpty || color != nil else { continue }
-            var r = SidebarRowView.band(rows, 6)
+            guard !root.children.isEmpty || color != nil else { continue }
+            var frame = SidebarRowView.band(rows, 6)
             // Flipped: 4 in from the first row's top and the last row's bottom.
-            if p.children.isEmpty {
-                r = r.insetBy(dx: 0, dy: 1)
+            if root.children.isEmpty {
+                frame = frame.insetBy(dx: 0, dy: 1)
             } else {
-                r.origin.y += 4
-                r.size.height -= 8
+                frame.origin.y += 4
+                frame.size.height -= 8
             }
-            put(p.key, r, ProjectCard.Look(color: color, plain: p.children.isEmpty))
+            put(root.key, frame, ProjectCard.Look(color: color, plain: root.children.isEmpty))
         }
         endServer()
         for (key, card) in cards where !shown.contains(key) {
@@ -193,14 +197,15 @@ extension SidebarController {
         }
         for key in came {
             // From a value of its own: set first and animated after, it would start from what the view shows now.
-            guard let n = node(key), let v = outline.rowView(atRow: outline.row(forItem: n), makeIfNecessary: false)
+            guard let node = node(key),
+                let rowView = outline.rowView(atRow: outline.row(forItem: node), makeIfNecessary: false)
             else { continue }
-            let a = CABasicAnimation(keyPath: "opacity")
-            a.fromValue = 0
-            a.toValue = 1
-            a.duration = Motion.appear
-            a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            v.layer?.add(a, forKey: "arrive")
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = Motion.appear
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            rowView.layer?.add(fade, forKey: "arrive")
         }
     }
 
@@ -210,7 +215,7 @@ extension SidebarController {
         let gone = shown.subtracting(keys(next))
         guard !gone.isEmpty, gone.count <= 3, let list = outline.enclosingScrollView else { return }
         for key in gone {
-            guard let n = node(key), case let row = outline.row(forItem: n), row >= 0 else { continue }
+            guard let node = node(key), case let row = outline.row(forItem: node), row >= 0 else { continue }
             outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(in: list)
         }
     }
@@ -218,8 +223,8 @@ extension SidebarController {
     /// Where the rows on show stand, for `closeUp`.
     func rowPlaces() -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]
-        outline.enumerateAvailableRowViews { v, row in
-            if let key = (outline.item(atRow: row) as? Node)?.key { places[key] = v.placeInWindow }
+        outline.enumerateAvailableRowViews { rowView, row in
+            if let key = (outline.item(atRow: row) as? Node)?.key { places[key] = rowView.placeInWindow }
         }
         return places
     }
@@ -230,11 +235,11 @@ extension SidebarController {
         guard !old.isEmpty, !Motion.reduced, outline.window?.isVisible == true else { return }
         let now = shownRows(), gone = old.subtracting(now)
         guard !gone.isEmpty, gone.count <= 3, now.isSubset(of: old) else { return }
-        outline.enumerateAvailableRowViews { v, row in
-            if let key = (outline.item(atRow: row) as? Node)?.key, let place = rows[key] { v.slide(from: place) }
+        outline.enumerateAvailableRowViews { rowView, row in
+            if let key = (outline.item(atRow: row) as? Node)?.key, let place = rows[key] { rowView.slide(from: place) }
         }
         let ends = cards.mapValues(\.frame)
-        for (key, card) in cards { if let f = was[key] { card.frame = f } }
+        for (key, card) in cards { if let frame = was[key] { card.frame = frame } }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.appear
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)

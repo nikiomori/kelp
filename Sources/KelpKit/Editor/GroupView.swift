@@ -57,9 +57,9 @@ final class GroupView: NSView {
         super.init(frame: .zero)
         veil.wantsLayer = true
         veil.isHidden = true
-        for v in [strip, container, veil, ring] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for subview in [strip, container, veil, ring] as [NSView] {
+            subview.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(subview)
         }
         addSubview(hint)
         NSLayoutConstraint.activate([
@@ -89,105 +89,107 @@ final class GroupView: NSView {
 
     /// Where a dropped tab will go (here and at the editor area's outer edges): accent fill, accent border.
     static func dropHint() -> NSView {
-        let v = NSView()
-        v.wantsLayer = true
-        v.isHidden = true
-        v.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.18).cgColor
-        v.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
-        v.layer?.borderWidth = 1
-        v.layer?.cornerRadius = Metrics.radiusSM
-        return v
+        let hint = NSView()
+        hint.wantsLayer = true
+        hint.isHidden = true
+        hint.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.18).cgColor
+        hint.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
+        hint.layer?.borderWidth = 1
+        hint.layer?.cornerRadius = Metrics.radiusSM
+        return hint
     }
 
-    func show(_ v: NSView?) {
-        guard v !== shown || v?.superview !== container else { return }
+    func show(_ content: NSView?) {
+        guard content !== shown || content?.superview !== container else { return }
         // Only if it's still here: a tab moved to another group took its view along.
         if shown?.superview === container {
-            if v != nil { container.crossfade() }   // one tab's content fades into the next
+            if content != nil { container.crossfade() }   // one tab's content fades into the next
             shown?.removeFromSuperview()
         }
-        shown = v
-        guard let v else { return }
-        v.removeFromSuperview()
-        container.pin(v)
+        shown = content
+        guard let content else { return }
+        content.removeFromSuperview()
+        container.pin(content)
     }
 
     // MARK: tab dropped on the content: an edge splits, the middle moves the tab here
 
     /// Within 18 pt of a side of this group that is also a side of the editor area.
-    private func outerEdge(_ s: NSDraggingInfo) -> NSRectEdge? {
+    private func outerEdge(_ sender: NSDraggingInfo) -> NSRectEdge? {
         guard let area = editorFrame?() else { return nil }
-        let me = convert(bounds, to: nil), p = s.draggingLocation, near: CGFloat = 18
-        if abs(me.minX - area.minX) < 1, p.x - me.minX < near { return .minX }
-        if abs(me.maxX - area.maxX) < 1, me.maxX - p.x < near { return .maxX }
-        if abs(me.maxY - area.maxY) < 1, me.maxY - p.y < near, p.y < me.maxY - strip.frame.height { return .maxY }
-        if abs(me.minY - area.minY) < 1, p.y - me.minY < near { return .minY }
+        let me = convert(bounds, to: nil), point = sender.draggingLocation, near: CGFloat = 18
+        if abs(me.minX - area.minX) < 1, point.x - me.minX < near { return .minX }
+        if abs(me.maxX - area.maxX) < 1, me.maxX - point.x < near { return .maxX }
+        if abs(me.maxY - area.maxY) < 1, me.maxY - point.y < near, point.y < me.maxY - strip.frame.height {
+            return .maxY
+        }
+        if abs(me.minY - area.minY) < 1, point.y - me.minY < near { return .minY }
         return nil
     }
-    private func edge(_ s: NSDraggingInfo) -> NSRectEdge? {
-        let p = container.convert(s.draggingLocation, from: nil), b = container.bounds
-        guard b.width > 0, b.height > 0 else { return nil }
-        let fx = p.x / b.width, fy = p.y / b.height
-        let m = min(fx, 1 - fx, fy, 1 - fy)
-        guard m < 0.25 else { return nil }
-        if m == fx { return .minX }
-        if m == 1 - fx { return .maxX }
-        return m == fy ? .minY : .maxY
+    private func edge(_ sender: NSDraggingInfo) -> NSRectEdge? {
+        let point = container.convert(sender.draggingLocation, from: nil), inner = container.bounds
+        guard inner.width > 0, inner.height > 0 else { return nil }
+        let fx = point.x / inner.width, fy = point.y / inner.height
+        let nearest = min(fx, 1 - fx, fy, 1 - fy)
+        guard nearest < 0.25 else { return nil }
+        if nearest == fx { return .minX }
+        if nearest == 1 - fx { return .maxX }
+        return nearest == fy ? .minY : .maxY
     }
-    private func showHint(_ e: NSRectEdge?) {
-        var r = container.frame.insetBy(dx: 6, dy: 6)
-        switch e {
-        case .minX?: r.size.width /= 2
+    private func showHint(_ edge: NSRectEdge?) {
+        var hintFrame = container.frame.insetBy(dx: 6, dy: 6)
+        switch edge {
+        case .minX?: hintFrame.size.width /= 2
         case .maxX?:
-            r.origin.x += r.width / 2
-            r.size.width /= 2
-        case .minY?: r.size.height /= 2
+            hintFrame.origin.x += hintFrame.width / 2
+            hintFrame.size.width /= 2
+        case .minY?: hintFrame.size.height /= 2
         case .maxY?:
-            r.origin.y += r.height / 2
-            r.size.height /= 2
+            hintFrame.origin.y += hintFrame.height / 2
+            hintFrame.size.height /= 2
         default: break
         }
-        hint.frame = r
+        hint.frame = hintFrame
         hint.isHidden = false
     }
-    override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { draggingUpdated(s) }
-    override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
-        guard s.draggingPasteboard.string(forType: .kelpTab) != nil else {
-            guard !Workbench.files(s).isEmpty else { return [] }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.string(forType: .kelpTab) != nil else {
+            guard !Workbench.files(sender).isEmpty else { return [] }
             showHint(nil)
             return .copy
         }
-        if let o = outerEdge(s) {
+        if let outer = outerEdge(sender) {
             hint.isHidden = true
-            showOuterHint?(o)
+            showOuterHint?(outer)
             return .move
         }
         showOuterHint?(nil)
-        showHint(edge(s))
+        showHint(edge(sender))
         return .move
     }
-    override func draggingExited(_ s: NSDraggingInfo?) {
+    override func draggingExited(_ sender: NSDraggingInfo?) {
         hint.isHidden = true
         showOuterHint?(nil)
     }
-    override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         hint.isHidden = true
         showOuterHint?(nil)
-        guard let id = s.draggingPasteboard.string(forType: .kelpTab) else {
-            let files = Workbench.files(s)
+        guard let id = sender.draggingPasteboard.string(forType: .kelpTab) else {
+            let files = Workbench.files(sender)
             onDropFiles?(files)
             return !files.isEmpty
         }
-        if let o = outerEdge(s) {
-            onDropOuter?(id, o)
+        if let outer = outerEdge(sender) {
+            onDropOuter?(id, outer)
             return true
         }
-        onDropTab?(id, edge(s))
+        onDropTab?(id, edge(sender))
         return true
     }
 }
 
 /// Paints over the content without taking its clicks.
 private class Veil: NSView {
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

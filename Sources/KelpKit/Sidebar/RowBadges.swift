@@ -58,13 +58,13 @@ package final class RowBadges {
     /// Settings › Appearance › Changes and pull requests off: no git or PR is watched for the badges, gh isn't asked; CI
     /// beside folders off: only the folder on screen's CI, for the branch chip and its popover.
     private func wanted() -> [WatchTopic: Set<String>] {
-        let s = app.settings
+        let settings = app.settings
         let all = Set(
             app.repos.compactMap { folder(project: $0.id)?.id }
                 + app.worktrees.compactMap { folder(workspace: $0.id)?.id })
-        let badges = s.bool("workbench.sidebar.gitBadges") != false ? all : []
-        var ci = s.bool("workbench.ci.sidebar") != false ? all : []
-        if s.string("workbench.ci.branchChip") != "off" || s.bool("workbench.ci.popover") != false,
+        let badges = settings.bool("workbench.sidebar.gitBadges") != false ? all : []
+        var ci = settings.bool("workbench.ci.sidebar") != false ? all : []
+        if settings.string("workbench.ci.branchChip") != "off" || settings.bool("workbench.ci.popover") != false,
             let here = folder(of: app.workbench.workspaceId)
         {
             ci.insert(here.id)
@@ -88,49 +88,50 @@ package final class RowBadges {
 
     /// The worktree whose folder a row stands for (nil: the row has none of its own).
     func folder(project id: String) -> Worktree? {
-        let m = app
-        guard let r = m.repo(id) else { return nil }
-        return m.worktrees.first { $0.repoId == id && $0.path == r.path && !$0.archived }
+        let model = app
+        guard let repo = model.repo(id) else { return nil }
+        return model.worktrees.first { $0.repoId == id && $0.path == repo.path && !$0.archived }
     }
     func folder(workspace id: String) -> Worktree? {
-        let m = app
-        guard let w = m.worktree(id), !w.archived, w.path != m.repo(w.repoId)?.path else { return nil }
-        return w
+        let model = app
+        guard let worktree = model.worktree(id), !worktree.archived, worktree.path != model.repo(worktree.repoId)?.path
+        else { return nil }
+        return worktree
     }
 
     /// "+6 −2" in green and red (text shades: NSColor.textGreen); a side with nothing changed is left out ("+6", not "+6 −0").
     /// `compact`, for a row: "+21.7k" from ten thousand lines (generated files), the exact count left to its tooltip.
-    package static func changes(_ s: LineStats?, compact: Bool = false) -> NSAttributedString? {
-        guard let s, s.totalAdded + s.totalRemoved > 0 else { return nil }
-        return changes(added: s.totalAdded, removed: s.totalRemoved, compact: compact)
+    package static func changes(_ stats: LineStats?, compact: Bool = false) -> NSAttributedString? {
+        guard let stats, stats.totalAdded + stats.totalRemoved > 0 else { return nil }
+        return changes(added: stats.totalAdded, removed: stats.totalRemoved, compact: compact)
     }
     package static func changes(added: Int, removed: Int, compact: Bool = false) -> NSAttributedString {
-        let t = NSMutableAttributedString(), font = NSFont.uiDigits(11, weight: .regular)
-        func n(_ v: Int) -> String {
-            guard compact, v >= 10_000 else { return "\(v)" }
-            let k = (Double(v) / 100).rounded() / 10
-            return (k == k.rounded() ? String(Int(k)) : String(k)) + "k"
+        let result = NSMutableAttributedString(), font = NSFont.uiDigits(11, weight: .regular)
+        func short(_ lines: Int) -> String {
+            guard compact, lines >= 10_000 else { return "\(lines)" }
+            let thousands = (Double(lines) / 100).rounded() / 10
+            return (thousands == thousands.rounded() ? String(Int(thousands)) : String(thousands)) + "k"
         }
-        for (text, v, color) in [
-            ("+" + n(added), added, NSColor.textGreen), ("−" + n(removed), removed, NSColor.textRed)
-        ] where v > 0 {
-            t.append(
+        for (text, lines, color) in [
+            ("+" + short(added), added, NSColor.textGreen), ("−" + short(removed), removed, NSColor.textRed)
+        ] where lines > 0 {
+            result.append(
                 NSAttributedString(
-                    string: (t.length > 0 ? " " : "") + text, attributes: [.font: font, .foregroundColor: color]))
+                    string: (result.length > 0 ? " " : "") + text, attributes: [.font: font, .foregroundColor: color]))
         }
-        return t
+        return result
     }
 
     /// "#12" in the PR's state colour; its checks are the folder's CI mark (`sidebarCI`, `chipCI`), the tooltip counts them.
-    static func pr(_ p: GitHub.PullRequest?) -> (NSAttributedString, String)? {
-        guard let p else { return nil }
-        let n = p.number, state = p.isDraft ? "DRAFT" : p.state
+    static func pr(_ pr: GitHub.PullRequest?) -> (NSAttributedString, String)? {
+        guard let pr else { return nil }
+        let number = pr.number, state = pr.isDraft ? "DRAFT" : pr.state
         let color: NSColor =
             state == "DRAFT"
             ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
-        let failed = p.checks.failed, pending = p.checks.pending, passed = p.checks.passed
-        let t = NSAttributedString(
-            string: "#\(n)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
+        let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
+        let label = NSAttributedString(
+            string: "#\(number)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
         let checks =
             failed > 0
             ? String(localized: "\(failed) checks failing")
@@ -144,7 +145,7 @@ package final class RowBadges {
             case "CLOSED": String(localized: "closed")
             default: String(localized: "open")
             }
-        return (t, String(localized: "Pull request #\(n) · \(said) · \(checks)") + "\n" + p.title)
+        return (label, String(localized: "Pull request #\(number) · \(said) · \(checks)") + "\n" + pr.title)
     }
 }
 
@@ -158,8 +159,8 @@ extension RowBadges {
     }
     /// Beside a folder in the sidebar (and the ⌃Tab switcher): a pass while it hasn't been on screen.
     func sidebarCI(_ id: String) -> CIRuns.State? {
-        guard app.settings.bool("workbench.ci.sidebar") != false, let s = state(id) else { return nil }
-        return s != .passed || unseen.contains(id) ? s : nil
+        guard app.settings.bool("workbench.ci.sidebar") != false, let ciState = state(id) else { return nil }
+        return ciState != .passed || unseen.contains(id) ? ciState : nil
     }
     /// Every folder's sidebar mark: the rows follow this, not each CI read.
     var sidebarMarks: [String: CIRuns.State] {
@@ -167,23 +168,24 @@ extension RowBadges {
     }
     /// On the branch chip: a pass for its first minute on screen.
     func chipCI(_ id: String) -> CIRuns.State? {
-        guard let s = state(id) else { return nil }
-        return s != .passed || unseen.contains(id) || shown[id] != nil ? s : nil
+        guard let ciState = state(id) else { return nil }
+        return ciState != .passed || unseen.contains(id) || shown[id] != nil ? ciState : nil
     }
 
     /// "CI: Failed · Tests, Deploy": what the mark says, and which workflows say it.
     func ciLine(_ id: String) -> String? {
-        guard let s = state(id) else { return nil }
+        guard let ciState = state(id) else { return nil }
         let runs = CIRuns.latest(app.latest(CIEvent.self, id)?.result?.runs ?? []).filter {
-            switch s {
+            switch ciState {
             case .failed: $0.failed
             case .waiting: $0.status == "waiting"
             case .running: $0.status != "completed"
             case .passed: false
             }
         }
-        let what = ([CIRunLook.words(s)] + (runs.isEmpty ? [] : [runs.map(\.workflow).joined(separator: ", ")])).joined(
-            separator: " · ")
+        let what = ([CIRunLook.words(ciState)] + (runs.isEmpty ? [] : [runs.map(\.workflow).joined(separator: ", ")]))
+            .joined(
+                separator: " · ")
         return String(localized: "CI: \(what)")
     }
 
@@ -209,7 +211,7 @@ extension RowBadges {
     /// Anything else (a new run, no CI) takes the ✓ away.
     private func landed(_ now: [String: CIRuns.State]) {
         let here = folder(of: app.workbench.workspaceId)?.id
-        for (id, s) in now where s == .passed && (states[id] == .running || states[id] == .waiting) {
+        for (id, ciState) in now where ciState == .passed && (states[id] == .running || states[id] == .waiting) {
             if id == here { show(id) } else { unseen.insert(id) }
         }
         for id in unseen.union(shown.keys) where now[id] != .passed {

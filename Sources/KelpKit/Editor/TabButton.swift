@@ -55,12 +55,12 @@ final class TabButton: NSControl, NSDraggingSource {
         editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
         editedDot.contentTintColor = .labelColor
         // One slot at the start: the agent's state while there's something to see, else the tab's icon; the close button on hover.
-        for v in [icon, mark, close, editedDot] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            slot.addSubview(v)
+        for part in [icon, mark, close, editedDot] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(part)
             NSLayoutConstraint.activate([
-                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+                part.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                part.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
             ])
         }
         NSLayoutConstraint.activate([
@@ -134,8 +134,8 @@ final class TabButton: NSControl, NSDraggingSource {
 
     /// Working, asking, failed, or finished and not looked at: the state says more than the agent's icon.
     private var showsState: Bool {
-        guard let s = item?.status else { return false }
-        return [.working, .waiting, .error].contains(s) || (s == .done && item?.unread == true)
+        guard let status = item?.status else { return false }
+        return [.working, .waiting, .error].contains(status) || (status == .done && item?.unread == true)
     }
 
     /// There's something here for you: it stays bright when its pane fades.
@@ -212,9 +212,9 @@ final class TabButton: NSControl, NSDraggingSource {
         updateLook()
     }
     /// The whole tab takes the click, label and icon included: in the title bar they would move the window instead.
-    override func hitTest(_ p: NSPoint) -> NSView? {
-        guard let v = super.hitTest(p) else { return nil }
-        return v.isDescendant(of: close) ? v : self
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        return hit.isDescendant(of: close) ? hit : self
     }
     override var mouseDownCanMoveWindow: Bool { false }
     /// A capsule on macOS 26+, like the system's own controls there (search fields, buttons, Safari's tabs).
@@ -223,11 +223,11 @@ final class TabButton: NSControl, NSDraggingSource {
         if #available(macOS 26, *) { layer?.cornerRadius = bounds.height / 2 }
         edgeGlow.radius = layer?.cornerRadius ?? Metrics.radiusSM   // the glow follows the capsule
     }
-    override func mouseEntered(with e: NSEvent) {
+    override func mouseEntered(with event: NSEvent) {
         hover = true
         if let key = item?.card { strip?.hoverCard?.hover(key, rect: bounds, in: self) }
     }
-    override func mouseExited(with e: NSEvent) {
+    override func mouseExited(with event: NSEvent) {
         hover = false
         if item?.card != nil { strip?.hoverCard?.hover(nil, rect: .zero, in: self) }
     }
@@ -236,31 +236,31 @@ final class TabButton: NSControl, NSDraggingSource {
         guard let window else { return }
         hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
     }
-    override func mouseDown(with e: NSEvent) {
+    override func mouseDown(with event: NSEvent) {
         strip?.hoverCard?.close()
         if let id = item?.id { strip?.onSelect?(id) }
     }
-    override func mouseUp(with e: NSEvent) { pressBounce() }   // a click springs as every control's does; a drag never comes here
+    override func mouseUp(with event: NSEvent) { pressBounce() }   // a click springs as every control's does; a drag never comes here
     override func accessibilityPerformPress() -> Bool {
         if let id = item?.id { strip?.onSelect?(id) }
         return true
     }
-    override func otherMouseUp(with e: NSEvent) { closeTapped() }
+    override func otherMouseUp(with event: NSEvent) { closeTapped() }
     override func menu(for event: NSEvent) -> NSMenu? {
         strip?.hoverCard?.close()
         return item.flatMap { strip?.onMenu?($0.id) }
     }
     @objc private func closeTapped() { if let id = item?.id { strip?.onClose?(id) } }
 
-    override func mouseDragged(with e: NSEvent) {
+    override func mouseDragged(with event: NSEvent) {
         guard let id = item?.id else { return }
-        let p = NSPasteboardItem()
-        p.setString(id, forType: .kelpTab)
-        let d = NSDraggingItem(pasteboardWriter: p)
-        d.setDraggingFrame(bounds, contents: snapshot())
-        beginDraggingSession(with: [d], event: e, source: self)
+        let pasteboardItem = NSPasteboardItem()
+        pasteboardItem.setString(id, forType: .kelpTab)
+        let dragItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
+        dragItem.setDraggingFrame(bounds, contents: snapshot())
+        beginDraggingSession(with: [dragItem], event: event, source: self)
     }
-    nonisolated func draggingSession(_ s: NSDraggingSession, sourceOperationMaskFor c: NSDraggingContext)
+    nonisolated func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext)
         -> NSDragOperation
     { .move }
 }

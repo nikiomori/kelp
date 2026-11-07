@@ -5,18 +5,18 @@ import AppKit
 enum UnsavedChanges {
     /// Save (All), Cancel when `canCancel` (not once the workspace is already gone), Don't Save.
     static func alert(_ edited: [SavableTab], quitting: Bool, canCancel: Bool = true) -> NSAlert {
-        let a = NSAlert()
-        a.messageText =
+        let alert = NSAlert()
+        alert.messageText =
             edited.count == 1
             ? String(localized: "Do you want to save the changes you made to “\(edited[0].title)”?")
             : quitting
                 ? String(localized: "You have \(edited.count) files with unsaved changes. Save them before quitting?")
                 : String(localized: "You have \(edited.count) files with unsaved changes. Save them before closing?")
-        a.informativeText = String(localized: "Your changes will be lost if you don't save them.")
-        a.addButton(withTitle: edited.count == 1 ? String(localized: "Save") : String(localized: "Save All"))
-        if canCancel { a.addButton(withTitle: String(localized: "Cancel")) }
-        a.addButton(withTitle: String(localized: "Don't Save"))
-        return a
+        alert.informativeText = String(localized: "Your changes will be lost if you don't save them.")
+        alert.addButton(withTitle: edited.count == 1 ? String(localized: "Save") : String(localized: "Save All"))
+        if canCancel { alert.addButton(withTitle: String(localized: "Cancel")) }
+        alert.addButton(withTitle: String(localized: "Don't Save"))
+        return alert
     }
 
     /// True to go on: every file saved, or the user chose to lose them. A save still on its way counts as saved here:
@@ -25,7 +25,7 @@ enum UnsavedChanges {
         -> Bool
     {
         if answer == .alertFirstButtonReturn {
-            for t in edited { guard await t.save() else { return false } }   // one at a time: each may ask (Save Here, a name)
+            for tab in edited { guard await tab.save() else { return false } }   // one at a time: each may ask (Save Here, a name)
             return true
         }
         guard answer == (canCancel ? .alertThirdButtonReturn : .alertSecondButtonReturn) else { return false }
@@ -43,7 +43,7 @@ enum UnsavedChanges {
 
     /// Saves still on their way (remote files) are answered; true when nothing is left unsaved.
     static func written(_ tabs: [SavableTab]) async -> Bool {
-        for t in tabs { await t.pendingSave?.value }
+        for tab in tabs { await tab.pendingSave?.value }
         return tabs.allSatisfy { !$0.isEdited }
     }
 }

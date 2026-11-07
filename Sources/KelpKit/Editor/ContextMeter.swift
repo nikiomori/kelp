@@ -17,14 +17,14 @@ final class ContextMeter: NSView {
         }
     }
     /// 0 room, 1 yellow, 2 orange, 3 red.
-    static func level(_ u: SessionContextWindow.Usage?) -> Int {
-        guard let u, u.window > 0 else { return 0 }
-        let w = Double(u.window), used = Double(u.used)
-        return used >= min(0.75 * w, 600_000)
-            ? 3 : used >= min(0.65 * w, 400_000) ? 2 : used >= min(0.5 * w, 200_000) ? 1 : 0
+    static func level(_ usage: SessionContextWindow.Usage?) -> Int {
+        guard let usage, usage.window > 0 else { return 0 }
+        let window = Double(usage.window), used = Double(usage.used)
+        return used >= min(0.75 * window, 600_000)
+            ? 3 : used >= min(0.65 * window, 400_000) ? 2 : used >= min(0.5 * window, 200_000) ? 1 : 0
     }
     /// On a tab from yellow on.
-    static func shows(_ u: SessionContextWindow.Usage?) -> Bool { level(u) >= 1 }
+    static func shows(_ usage: SessionContextWindow.Usage?) -> Bool { level(usage) >= 1 }
     init() {
         super.init(frame: .zero)
         wantsLayer = true
@@ -38,9 +38,9 @@ final class ContextMeter: NSView {
             center: CGPoint(x: 6, y: 6), radius: 2, startAngle: .pi / 2, endAngle: .pi / 2 - 2 * .pi, clockwise: true)
         fill.path = pie
         fill.lineWidth = 4
-        for l in [track, fill] {
-            l.fillColor = nil
-            layer?.addSublayer(l)
+        for shape in [track, fill] {
+            shape.fillColor = nil
+            layer?.addSublayer(shape)
         }
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([

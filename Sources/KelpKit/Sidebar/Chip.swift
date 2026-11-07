@@ -13,24 +13,25 @@ final class Chip: NSView {
         icon.contentTintColor = .secondaryLabelColor
         count.font = .uiDigits(11, weight: .medium)
         count.textColor = .secondaryLabelColor
-        let s = NSStackView(views: [icon, count])
-        s.spacing = 2
-        s.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(s)
+        let stack = NSStackView(views: [icon, count])
+        stack.spacing = 2
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
         NSLayoutConstraint.activate([
-            s.leadingAnchor.constraint(equalTo: leadingAnchor), s.trailingAnchor.constraint(equalTo: trailingAnchor),
-            s.topAnchor.constraint(equalTo: topAnchor), s.bottomAnchor.constraint(equalTo: bottomAnchor)
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
-        s.setHuggingPriority(.required, for: .horizontal)   // an NSStackView keeps to its views only so; a view around one has no size of its own
-        s.setClippingResistancePriority(.required, for: .horizontal)
+        stack.setHuggingPriority(.required, for: .horizontal)   // an NSStackView keeps to its views only so; a view around one has no size of its own
+        stack.setClippingResistancePriority(.required, for: .horizontal)
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)   // read by its label: the tooltip, the whole list
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func show(_ symbol: String, count n: Int = 1) {
+    func show(_ symbol: String, count number: Int = 1) {
         icon.image = .symbol(symbol)
-        count.isHidden = n < 2
-        count.stringValue = "\(n)"
+        count.isHidden = number < 2
+        count.stringValue = "\(number)"
     }
 }

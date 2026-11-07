@@ -138,9 +138,9 @@ extension NSImage {
         let key = "\(name)\u{0}\(label ?? "")" as NSString
         if let known = symbolCache.object(forKey: key) { return known }
         let made =
-            Glyph.image(name).map { g in
-                g.accessibilityDescription = label
-                return g
+            Glyph.image(name).map { glyph in
+                glyph.accessibilityDescription = label
+                return glyph
             }
             ?? NSImage(systemSymbolName: name, accessibilityDescription: label) ?? NSImage()
         symbolCache.setObject(made, forKey: key)

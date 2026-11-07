@@ -64,10 +64,10 @@ final class TabStrip: NSView {
     private let stack = NSStackView()
     private let scroll = NSScrollView()
     private lazy var edgeMask: CAGradientLayer = {
-        let g = CAGradientLayer()
-        g.startPoint = CGPoint(x: 0, y: 0.5)
-        g.endPoint = CGPoint(x: 1, y: 0.5)
-        return g
+        let gradient = CAGradientLayer()
+        gradient.startPoint = CGPoint(x: 0, y: 0.5)
+        gradient.endPoint = CGPoint(x: 1, y: 0.5)
+        return gradient
     }()
     private let overflow = PointerButton(frame: .zero)
     private let add = CapsuleSegment()
@@ -148,9 +148,9 @@ final class TabStrip: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         let sep = NSBox()
         sep.boxType = .separator
-        for v in [scroll, adds, trailing, sep] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [scroll, adds, trailing, sep] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         addSubview(insertion)
         // Below the split view's holding (250), like `fit`: measured before the overflow button shows, it asked for 18 pt
@@ -207,18 +207,18 @@ final class TabStrip: NSView {
         let places =
             moved && window != nil && items.contains { kept[$0.id] != nil }
             ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
-        for b in buttons where !next.contains(b) {
-            if !places.isEmpty { b.leaveGhost(in: self) }
-            b.removeFromSuperview()
+        for button in buttons where !next.contains(button) {
+            if !places.isEmpty { button.leaveGhost(in: self) }
+            button.removeFromSuperview()
         }
-        for (i, b) in next.enumerated()
-        where stack.arrangedSubviews.indices.contains(i) ? stack.arrangedSubviews[i] !== b : true {
-            stack.insertArrangedSubview(b, at: i)
+        for (index, button) in next.enumerated()
+        where stack.arrangedSubviews.indices.contains(index) ? stack.arrangedSubviews[index] !== button : true {
+            stack.insertArrangedSubview(button, at: index)
         }
         buttons = next
-        for (b, it) in zip(buttons, items) {
-            b.stripDimmed = dimmed
-            b.set(it, selected: it.id == selected, groupFocused: focused)
+        for (button, item) in zip(buttons, items) {
+            button.stripDimmed = dimmed
+            button.set(item, selected: item.id == selected, groupFocused: focused)
         }
         self.items = items
         selectedId = selected
@@ -245,26 +245,26 @@ final class TabStrip: NSView {
     }
 
     private func newButton() -> TabButton {
-        let b = TabButton()
-        b.strip = self
-        return b
+        let button = TabButton()
+        button.strip = self
+        return button
     }
 
     /// The tabs travel from where they stood, a new one fades in at its place. The next tab can come to rest under a
     /// pointer that closed the last: its ✕ is there for the next click, as in a browser.
     private func settle(from places: [ObjectIdentifier: NSPoint]) {
         layoutSubtreeIfNeeded()
-        for b in buttons {
-            if let place = places[ObjectIdentifier(b)] {
-                b.slide(from: place, duration: Motion.base)
+        for button in buttons {
+            if let place = places[ObjectIdentifier(button)] {
+                button.slide(from: place, duration: Motion.base)
             } else if !Motion.reduced {
-                b.alphaValue = 0
+                button.alphaValue = 0
                 NSAnimationContext.runAnimationGroup {
                     $0.duration = Motion.base
-                    b.animator().alphaValue = 1
+                    button.animator().alphaValue = 1
                 }
             }
-            b.followPointer()
+            button.followPointer()
         }
     }
 
@@ -276,8 +276,8 @@ final class TabStrip: NSView {
             measured ?? (stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width)
         measured = sizes
         let natural = sizes.tabs, room = bounds.width - 6 - sizes.others - 2
-        let x = max(0, min(natural, room))
-        if abs((addLead?.constant ?? 0) - x) > 0.5 { addLead?.constant = x }
+        let offset = max(0, min(natural, room))
+        if abs((addLead?.constant ?? 0) - offset) > 0.5 { addLead?.constant = offset }
         let fits = natural <= room + 1
         if overflow.isHidden != fits {
             overflow.isHidden = fits
@@ -315,9 +315,11 @@ final class TabStrip: NSView {
 
     /// Keeps the selected tab in view when the strip is scrolled or squeezed.
     private func revealSelected() {
-        guard let i = items.firstIndex(where: { $0.id == selectedId }), buttons.indices.contains(i) else { return }
+        guard let index = items.firstIndex(where: { $0.id == selectedId }), buttons.indices.contains(index) else {
+            return
+        }
         layoutSubtreeIfNeeded()
-        buttons[i].scrollToVisible(buttons[i].bounds.insetBy(dx: -24, dy: 0))
+        buttons[index].scrollToVisible(buttons[index].bounds.insetBy(dx: -24, dy: 0))
     }
 
     @objc private func unzoomTapped() { onUnzoom?() }
@@ -335,8 +337,8 @@ final class TabStrip: NSView {
     private var faint: (of: NSImage, image: NSImage)?
     /// `image` at the opacity of a secondary label.
     private static func faint(_ image: NSImage) -> NSImage {
-        let img = NSImage(size: image.size, flipped: false) { r in
-            image.draw(in: r, from: .zero, operation: .sourceOver, fraction: 0.55)
+        let img = NSImage(size: image.size, flipped: false) { rect in
+            image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.55)
             return true
         }
         img.accessibilityDescription = image.accessibilityDescription
@@ -348,34 +350,34 @@ final class TabStrip: NSView {
     }
 
     @objc private func overflowTapped() {
-        let m = NSMenu()
-        for it in items {
-            let i = m.add(it.title) { [weak self] in self?.onSelect?(it.id) }
-            i.image = it.icon
-            i.state = it.id == selectedId ? .on : .off
+        let menu = NSMenu()
+        for item in items {
+            let menuItem = menu.add(item.title) { [weak self] in self?.onSelect?(item.id) }
+            menuItem.image = item.icon
+            menuItem.state = item.id == selectedId ? .on : .off
         }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)
     }
 
     /// The empty strip: what the + offers.
     override func menu(for event: NSEvent) -> NSMenu? { addMenu?() }
 
     /// Double-click on the empty strip: new tab, like Safari's tab bar.
-    override func mouseDown(with e: NSEvent) {
-        guard e.clickCount == 2, let m = addMenu?() else {
-            super.mouseDown(with: e)
+    override func mouseDown(with event: NSEvent) {
+        guard event.clickCount == 2, let menu = addMenu?() else {
+            super.mouseDown(with: event)
             return
         }
-        m.popUp(positioning: nil, at: convert(e.locationInWindow, from: nil), in: self)
+        menu.popUp(positioning: nil, at: convert(event.locationInWindow, from: nil), in: self)
     }
 
     // MARK: drops between tabs
-    private func index(at p: NSPoint) -> Int {
-        let x = stack.convert(p, from: nil).x
+    private func index(at point: NSPoint) -> Int {
+        let x = stack.convert(point, from: nil).x
         return buttons.firstIndex { $0.frame.midX > x } ?? buttons.count
     }
-    private func showInsertion(_ i: Int) {
-        let local = i < buttons.count ? buttons[i].frame.minX - 1 : (buttons.last?.frame.maxX ?? 6)
+    private func showInsertion(_ position: Int) {
+        let local = position < buttons.count ? buttons[position].frame.minX - 1 : (buttons.last?.frame.maxX ?? 6)
         let x = convert(NSPoint(x: local, y: 0), from: stack).x
         let frame = NSRect(x: x, y: 4, width: 2, height: bounds.height - 8)
         if insertion.isHidden {   // it comes in where it's needed, then glides from gap to gap
@@ -388,17 +390,17 @@ final class TabStrip: NSView {
             }
         }
     }
-    override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { draggingUpdated(s) }
-    override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
-        guard s.draggingPasteboard.string(forType: .kelpTab) != nil else { return [] }
-        showInsertion(index(at: s.draggingLocation))
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.string(forType: .kelpTab) != nil else { return [] }
+        showInsertion(index(at: sender.draggingLocation))
         return .move
     }
-    override func draggingExited(_ s: NSDraggingInfo?) { insertion.isHidden = true }
-    override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
+    override func draggingExited(_ sender: NSDraggingInfo?) { insertion.isHidden = true }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         insertion.isHidden = true
-        guard let id = s.draggingPasteboard.string(forType: .kelpTab) else { return false }
-        onDropTab?(id, index(at: s.draggingLocation))
+        guard let id = sender.draggingPasteboard.string(forType: .kelpTab) else { return false }
+        onDropTab?(id, index(at: sender.draggingLocation))
         return true
     }
 }

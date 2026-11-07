@@ -20,7 +20,9 @@ extension EditorArea {
         for id in hidden where hiddenAt[id] == nil { hiddenAt[id] = now }
         for id in hidden.dropLast(Self.keptHidden) where now.timeIntervalSince(hiddenAt[id] ?? now) >= Self.releaseAfter
         {
-            guard let c = contents[id], TabURI.scheme(c.uri) == "session", !c.isEdited else { continue }
+            guard let content = contents[id], TabURI.scheme(content.uri) == "session", !content.isEdited else {
+                continue
+            }
             contents[id] = nil
         }
         recent.removeAll { contents[$0] == nil && !onScreen.contains($0) }

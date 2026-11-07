@@ -28,9 +28,9 @@ final class SidebarScroller: NSScroller {
     /// border, or of their right margin when docked.
     override func drawKnob() {
         let knob = rect(for: .knob).insetBy(dx: 0, dy: 2), width: CGFloat = 4
-        let r = NSRect(
+        let capsule = NSRect(
             x: bounds.maxX - Metrics.gapWide / 2 - width / 2, y: knob.minY, width: width, height: knob.height)
         NSColor.tertiaryLabelColor.setFill()
-        NSBezierPath(roundedRect: r, xRadius: width / 2, yRadius: width / 2).fill()
+        NSBezierPath(roundedRect: capsule, xRadius: width / 2, yRadius: width / 2).fill()
     }
 }

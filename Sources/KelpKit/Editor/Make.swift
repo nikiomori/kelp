@@ -27,15 +27,16 @@ enum Make {
     ]
 
     /// What the agent gets; the user writes what it's about after it. In English: it's the agent's instruction.
-    static func line(_ k: Kind) -> String { "Make a \(k.id) (kelp artifact guide \(k.id)): " }
+    static func line(_ kind: Kind) -> String { "Make a \(kind.id) (kelp artifact guide \(kind.id)): " }
 
     /// The kinds as menu items, after a "Make" heading unless they're its submenu: each starts `start` with its line.
-    @MainActor static func addItems(to m: NSMenu, heading: Bool = true, start: @escaping @MainActor (String) -> Void) {
-        if heading { m.addItem(.sectionHeader(title: String(localized: "Make"))) }
-        for k in kinds {
-            let i = m.add(k.title) { start(line(k)) }
-            i.show(.symbol(k.symbol))
-            i.toolTip = k.help
+    @MainActor static func addItems(to menu: NSMenu, heading: Bool = true, start: @escaping @MainActor (String) -> Void)
+    {
+        if heading { menu.addItem(.sectionHeader(title: String(localized: "Make"))) }
+        for kind in kinds {
+            let item = menu.add(kind.title) { start(line(kind)) }
+            item.show(.symbol(kind.symbol))
+            item.toolTip = kind.help
         }
     }
 }
@@ -43,15 +44,15 @@ enum Make {
 /// Make's choices for a built-in (Artifacts' empty state): the default agent starts in the focused pane with the line
 /// typed in, for the user to finish, as from "+".
 @MainActor package func makeMenu(_ app: AppModel) -> NSMenu {
-    let m = NSMenu()
-    Make.addItems(to: m) { line in
+    let menu = NSMenu()
+    Make.addItems(to: menu) { line in
         guard let editor = app.workbench.editor else {
             NSSound.beep()
             return
         }
         editor.newAgent(prompt: line, draft: true)
     }
-    return m
+    return menu
 }
 
 /// Make on the start page, in the foot of the field it fills: a small grey chip per kind. Each only puts a line in the
@@ -61,15 +62,15 @@ final class MakeChips: NSStackView {
     init(pick: @escaping (Make.Kind) -> Void) {
         super.init(frame: .zero)
         spacing = Metrics.gap
-        let chips = Make.kinds.map { k in
-            let b = PointerButton(title: k.title) { pick(k) }
-            b.font = .ui(12)
-            b.padding = Metrics.gap
-            b.restFill = .fillRest
-            b.toolTip = k.help
-            b.setAccessibilityLabel(String(localized: "Make a \(k.title)"))
-            b.setAccessibilityHelp(k.help)
-            return b
+        let chips = Make.kinds.map { kind in
+            let chip = PointerButton(title: kind.title) { pick(kind) }
+            chip.font = .ui(12)
+            chip.padding = Metrics.gap
+            chip.restFill = .fillRest
+            chip.toolTip = kind.help
+            chip.setAccessibilityLabel(String(localized: "Make a \(kind.title)"))
+            chip.setAccessibilityHelp(kind.help)
+            return chip
         }
         setViews(chips, in: .leading)
     }

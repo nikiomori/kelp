@@ -28,8 +28,8 @@ final class HoverCard {
         // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
         // a card left open costs a core's tenth for as long as it stays, SwiftUI laying it out over and over.
         NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: nil, queue: .main) {
-            [weak self] n in
-            let window = n.object as? NSWindow
+            [weak self] notification in
+            let window = notification.object as? NSWindow
             MainActor.assumeIsolated { if window === self?.anchor { self?.closeUnlessInside() } }   // queue: .main
         }
     }
@@ -94,9 +94,9 @@ final class HoverCard {
         model.load()
         keys =
             keys
-            ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
-                return e
+                return event
             }
     }
 }
@@ -135,75 +135,77 @@ final class CardModel {
     /// `placed`: the subtitle says where the agent is (group · project); a tab's card leaves it out.
     init?(_ key: String, app: AppModel, placed: Bool = true) {
         self.app = app
-        let m = app
-        if key.hasPrefix("a:"), let s = m.session(String(key.dropFirst(2))) {
-            title = app.catalog.displayName(s)
-            let w = m.worktree(s.worktreeId)
+        if key.hasPrefix("a:"), let session = app.session(String(key.dropFirst(2))) {
+            title = app.catalog.displayName(session)
+            let worktree = app.worktree(session.worktreeId)
             subtitle =
-                placed ? [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · ") : ""
-            agents = [Agent(id: s.id, session: s)]
-            workspaceId = s.worktreeId ?? ""
+                placed
+                ? [app.groupName(worktree), app.projectName(worktree?.repoId)].compactMap { $0 }.joined(
+                    separator: " · ") : ""
+            agents = [Agent(id: session.id, session: session)]
+            workspaceId = session.worktreeId ?? ""
             agentOnly = true
             repo = nil
-            muteIds = [s.id]
+            muteIds = [session.id]
             server = nil
-        } else if key.hasPrefix("p:"), let r = m.repo(String(key.dropFirst(2))) {
-            title = m.projectName(r.id) ?? r.name
-            subtitle = m.projectPlace(r)
+        } else if key.hasPrefix("p:"), let project = app.repo(String(key.dropFirst(2))) {
+            title = app.projectName(project.id) ?? project.name
+            subtitle = app.projectPlace(project)
             agents = []
             workspaceId = ""
             agentOnly = false
-            repo = r
-            muteIds = [r.id]
-            server = RemoteHost.of(r.path)?.host
-        } else if key.hasPrefix("w:"), let w = m.worktree(String(key.dropFirst(2))) {
-            let r = m.repo(w.repoId)
+            repo = project
+            muteIds = [project.id]
+            server = RemoteHost.of(project.path)?.host
+        } else if key.hasPrefix("w:"), let worktree = app.worktree(String(key.dropFirst(2))) {
+            let project = app.repo(worktree.repoId)
             // A project's own screen has no name of its own: the row stands for the project.
-            let group = m.groupName(w)
-            title = group ?? m.projectName(r?.id) ?? w.displayName
-            let branch = w.path == r?.path ? nil : String(localized: "branch \(w.branch)")
-            subtitle = [group == nil ? nil : m.projectName(r?.id), branch].compactMap { $0 }.joined(separator: " · ")
-            agents = m.sessions.filter { $0.worktreeId == w.id && $0.isChat && $0.status != .exited }.map {
+            let group = app.groupName(worktree)
+            title = group ?? app.projectName(project?.id) ?? worktree.displayName
+            let branch = worktree.path == project?.path ? nil : String(localized: "branch \(worktree.branch)")
+            subtitle = [group == nil ? nil : app.projectName(project?.id), branch].compactMap { $0 }.joined(
+                separator: " · ")
+            agents = app.sessions.filter { $0.worktreeId == worktree.id && $0.isChat && $0.status != .exited }.map {
                 Agent(id: $0.id, session: $0)
             }
-            workspaceId = w.id
+            workspaceId = worktree.id
             agentOnly = false
             repo = nil
-            let alone = m.worktrees.filter { $0.repoId == w.repoId && !$0.archived }.count == 1
-            muteIds = [w.id] + (alone ? [w.repoId] : [])
-            server = r.flatMap { RemoteHost.of($0.path)?.host }
+            let alone = app.worktrees.filter { $0.repoId == worktree.repoId && !$0.archived }.count == 1
+            muteIds = [worktree.id] + (alone ? [worktree.repoId] : [])
+            server = project.flatMap { RemoteHost.of($0.path)?.host }
         } else {
             return nil
         }
     }
 
     func load() {
-        let m = app
-        watches = agents.filter { $0.session.agent == "claude" }.map { a in
-            let w = Watched(.subagents, in: m)
-            w.key = a.id
-            return w
+        watches = agents.filter { $0.session.agent == "claude" }.map { agent in
+            let watched = Watched(.subagents, in: app)
+            watched.key = agent.id
+            return watched
         }
         Task {
             if let repo {
-                worktrees = await m.quiet(RepoWorktreeSizes(id: repo.id)) ?? []
+                worktrees = await app.quiet(RepoWorktreeSizes(id: repo.id)) ?? []
                 return
             }
             if !agentOnly {
-                changes = await m.quiet(GitLineStats(id: workspaceId))
-                if let p = await m.quiet(GitHubBranchPR(worktreeId: workspaceId)) ?? nil { pr = p }
-                pages = ServedPages.list(printed: [], ports: await m.quiet(PortsList(worktreeId: workspaceId)) ?? [])
+                changes = await app.quiet(GitLineStats(id: workspaceId))
+                if let branchPR = await app.quiet(GitHubBranchPR(worktreeId: workspaceId)) ?? nil { pr = branchPR }
+                pages = ServedPages.list(printed: [], ports: await app.quiet(PortsList(worktreeId: workspaceId)) ?? [])
             }
-            guard agentOnly, let a = agents.first else { return }
+            guard agentOnly, let agent = agents.first else { return }
             if !workspaceId.isEmpty {
                 pages = ServedPages.list(
                     printed: [],
-                    ports: (await m.quiet(PortsList(worktreeId: workspaceId)) ?? []).filter { $0.session == a.id })
+                    ports: (await app.quiet(PortsList(worktreeId: workspaceId)) ?? []).filter { $0.session == agent.id }
+                )
             }
-            if let t = (await m.quiet(SessionTurn(id: a.id)) ?? nil)?.turn {
-                let files = t.files
+            if let lastTurn = (await app.quiet(SessionTurn(id: agent.id)) ?? nil)?.turn {
+                let files = lastTurn.files
                 let add = files.reduce(0) { $0 + $1.added }, del = files.reduce(0) { $0 + $1.removed }
-                let took = shortSpan(t.seconds, smallest: .second)
+                let took = shortSpan(lastTurn.seconds, smallest: .second)
                 turn =
                     files.isEmpty
                     ? String(localized: "Last turn changed no files · \(took)")
@@ -211,34 +213,34 @@ final class CardModel {
                         ? String(localized: "Last turn: 1 file +\(add) −\(del) · \(took)")
                         : String(localized: "Last turn: \(files.count) files +\(add) −\(del) · \(took)")
             }
-            if let u = await m.quiet(SessionContextWindow(id: a.id)) ?? nil { context = u }
+            if let usage = await app.quiet(SessionContextWindow(id: agent.id)) ?? nil { context = usage }
         }
     }
 
     /// What filled the context reads all of the transcript: only once someone opens it.
     func loadParts() async {
-        if parts == nil, let a = agents.first { parts = await app.quiet(SessionContextParts(id: a.id)) ?? nil }
+        if parts == nil, let agent = agents.first { parts = await app.quiet(SessionContextParts(id: agent.id)) ?? nil }
     }
 
     func stop() { watches = [] }
 
     /// Compact Now, once the ring turns orange, while the agent is at its prompt (a question's menu would take the text).
     var compact: (() -> Void)? {
-        guard let c = context, ContextMeter.level(c) >= 2, let a = agents.first,
-            [.done, .idle, .error].contains(app.session(a.id)?.status)
+        guard let usage = context, ContextMeter.level(usage) >= 2, let agent = agents.first,
+            [.done, .idle, .error].contains(app.session(agent.id)?.status)
         else { return nil }
         let app = self.app
-        return { Task { await app.call(SessionSend(id: a.id, text: "/compact", enter: true)) } }
+        return { Task { await app.call(SessionSend(id: agent.id, text: "/compact", enter: true)) } }
     }
 }
 
 extension CardModel {
     /// What the next message will pay for, while the agent rests: said from 15 minutes before the cache goes cold.
     var coldCache: String? {
-        guard let c = context, let until = c.cacheUntil, let a = agents.first,
-            [.done, .idle, .error].contains(app.session(a.id)?.status)
+        guard let usage = context, let until = usage.cacheUntil, let agent = agents.first,
+            [.done, .idle, .error].contains(app.session(agent.id)?.status)
         else { return nil }
-        return Self.coldCache(until: until, used: c.used, now: Date())
+        return Self.coldCache(until: until, used: usage.used, now: Date())
     }
 
     static func coldCache(until: Date, used: Int, now: Date) -> String? {
@@ -261,58 +263,67 @@ struct CardView: View {
                     Text(model.subtitle).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            if let h = model.server { ServerSection(app: model.app, host: h, close: model.closeCard) }
-            if let r = model.repo { WorktreeSizes(items: model.worktrees, root: r.path) }
+            if let host = model.server { ServerSection(app: model.app, host: host, close: model.closeCard) }
+            if let repo = model.repo { WorktreeSizes(items: model.worktrees, root: repo.path) }
             if let pr = model.pr { PRLine(pr: pr) }
-            if let c = model.changes, c.totalAdded + c.totalRemoved > 0 {
-                (Text("Not committed  ") + Text(c.totalAdded > 0 ? "+\(c.totalAdded)" : "").foregroundColor(.textGreen)
-                    + Text(c.totalAdded > 0 && c.totalRemoved > 0 ? " " : "")
-                    + Text(c.totalRemoved > 0 ? "−\(c.totalRemoved)" : "").foregroundColor(.textRed))
+            if let changes = model.changes, changes.totalAdded + changes.totalRemoved > 0 {
+                (Text("Not committed  ")
+                    + Text(changes.totalAdded > 0 ? "+\(changes.totalAdded)" : "").foregroundColor(.textGreen)
+                    + Text(changes.totalAdded > 0 && changes.totalRemoved > 0 ? " " : "")
+                    + Text(changes.totalRemoved > 0 ? "−\(changes.totalRemoved)" : "").foregroundColor(.textRed))
                     .font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
             }
-            ForEach(model.agents) { a in
+            ForEach(model.agents) { agent in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        StatusIcon(status: a.session.markStatus, waitsForCommand: a.session.waitsForCommand).font(
-                            .ui(11))
-                        Text(model.agentOnly ? a.session.statusWords : model.app.catalog.displayName(a.session)).font(
-                            .ui(12)
-                        ).lineLimit(1)
-                        if !model.agentOnly { Text(a.session.statusWords).font(.ui(11)).foregroundStyle(.secondary) }
+                        StatusIcon(status: agent.session.markStatus, waitsForCommand: agent.session.waitsForCommand)
+                            .font(
+                                .ui(11))
+                        Text(model.agentOnly ? agent.session.statusWords : model.app.catalog.displayName(agent.session))
+                            .font(
+                                .ui(12)
+                            ).lineLimit(1)
+                        if !model.agentOnly {
+                            Text(agent.session.statusWords).font(.ui(11)).foregroundStyle(.secondary)
+                        }
                         Spacer(minLength: 8)
-                        Text(shortAgo(a.session.statusAt ?? a.session.createdAt)).font(.ui(11).monospacedDigit())
-                            .foregroundStyle(.tertiary)
+                        Text(shortAgo(agent.session.statusAt ?? agent.session.createdAt)).font(
+                            .ui(11).monospacedDigit()
+                        )
+                        .foregroundStyle(.tertiary)
                     }
-                    if !a.session.summary.isEmpty {
-                        Text(Self.linked(a.session.summary)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
+                    if !agent.session.summary.isEmpty {
+                        Text(Self.linked(agent.session.summary)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let g = a.session.goal {
-                        Text("Goal: \(g)").font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
+                    if let goal = agent.session.goal {
+                        Text("Goal: \(goal)").font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
                     }
-                    if let q = a.session.quietSince, a.session.status == .working {
-                        Text("No news for \(shortSpan(Date().timeIntervalSince(q)))").font(.ui(11)).foregroundStyle(
-                            .secondary)
+                    if let quietSince = agent.session.quietSince, agent.session.status == .working {
+                        Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(.ui(11))
+                            .foregroundStyle(
+                                .secondary)
                     }
-                    if a.session.guessed == true, [.working, .done].contains(a.session.status) {
+                    if agent.session.guessed == true, [.working, .done].contains(agent.session.status) {
                         Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(.ui(11))
                             .foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let w = a.session.workingElsewhere {
-                        Text(w).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    if let elsewhere = agent.session.workingElsewhere {
+                        Text(elsewhere).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     }
-                    if model.agentOnly, let b = a.session.browser {
-                        Text("Browser \(BrowserSkillWords.line(b))").font(.ui(11)).foregroundStyle(.tertiary).lineLimit(
-                            1)
+                    if model.agentOnly, let browser = agent.session.browser {
+                        Text("Browser \(BrowserSkillWords.line(browser))").font(.ui(11)).foregroundStyle(.tertiary)
+                            .lineLimit(
+                                1)
                     }
                 }
-                AgentWork(model: model, id: a.id)
+                AgentWork(model: model, id: agent.id)
             }
             if !model.pages.isEmpty {
                 HStack(spacing: 8) {
-                    ForEach(model.pages, id: \.port) { p in
-                        Button(p.address) { model.app.scripts.open(p, in: model.workspaceId) }
+                    ForEach(model.pages, id: \.port) { page in
+                        Button(page.address) { model.app.scripts.open(page, in: model.workspaceId) }
                             .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(
                                 Color.accentColor)
                     }
@@ -325,8 +336,8 @@ struct CardView: View {
                     Button("Unmute") { model.app.mute(model.muteIds, until: nil) }.controlSize(.small)
                 }
             }
-            if let t = model.turn { Text(t).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
-            if let c = model.context { ContextBlock(model: model, used: c.used, window: c.window) }
+            if let turn = model.turn { Text(turn).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
+            if let usage = model.context { ContextBlock(model: model, used: usage.used, window: usage.window) }
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)
@@ -382,11 +393,11 @@ struct WorktreeSizes: View {
                     Spacer(minLength: 8)
                     Text(Self.size(items.reduce(0) { $0 + $1.bytes })).monospacedDigit()
                 }.font(.ui(12))
-                ForEach(items.prefix(8), id: \.path) { w in
+                ForEach(items.prefix(8), id: \.path) { worktree in
                     HStack(spacing: 6) {
-                        Text(Self.name(w.path, root: root)).lineLimit(1).truncationMode(.middle)
+                        Text(Self.name(worktree.path, root: root)).lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 8)
-                        Text(Self.size(w.bytes)).monospacedDigit()
+                        Text(Self.size(worktree.bytes)).monospacedDigit()
                     }.font(.ui(11)).foregroundStyle(.secondary)
                 }
                 if items.count > 8 { Text("\(items.count - 8) more").font(.ui(11)).foregroundStyle(.tertiary) }
@@ -396,10 +407,13 @@ struct WorktreeSizes: View {
                 .foregroundStyle(.secondary)
         }
     }
-    static func name(_ p: String, root: String) -> String {
-        p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : (p as NSString).abbreviatingWithTildeInPath
+    static func name(_ path: String, root: String) -> String {
+        path.hasPrefix(root + "/")
+            ? String(path.dropFirst(root.count + 1)) : (path as NSString).abbreviatingWithTildeInPath
     }
-    static func size(_ b: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(b), countStyle: .file) }
+    static func size(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
 }
 
 /// How full the agent's conversation is, and what filled it under a click, remembered: it's a long table, so it stays out

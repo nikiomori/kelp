@@ -7,12 +7,12 @@ import WorkbenchKit
 extension EditorArea {
     /// Before the tab leaves the layout, while it still has a place.
     func rememberClosing(_ id: String) {
-        guard let t = layout.allTabs.first(where: { $0.id == id }),
-            !["untitled", "prompt"].contains(TabURI.scheme(t.uri))
+        guard let tab = layout.allTabs.first(where: { $0.id == id }),
+            !["untitled", "prompt"].contains(TabURI.scheme(tab.uri))
         else { return }
-        let uri = (contents[id] as? SavableTab).map(\.reopenURI) ?? t.uri
+        let uri = (contents[id] as? SavableTab).map(\.reopenURI) ?? tab.uri
         guard let uri else { return }   // nothing left of it
-        let session = TabURI.scheme(t.uri) == "session" ? app.session(TabURI.body(t.uri)) : nil
+        let session = TabURI.scheme(tab.uri) == "session" ? app.session(TabURI.body(tab.uri)) : nil
         let group = layout.group(of: id)
         app.workbench.closedTabs.remember(
             ClosedTab(
@@ -23,39 +23,48 @@ extension EditorArea {
     }
 
     /// Already on screen: the same file or page, opened again since.
-    func shows(_ c: ClosedTab) -> Bool {
-        layout.tab(uri: c.uri) != nil || (TabURI.scheme(c.uri) == "file" && layout.fileTab(sameFileAs: c.uri) != nil)
+    func shows(_ closedTab: ClosedTab) -> Bool {
+        layout.tab(uri: closedTab.uri) != nil
+            || (TabURI.scheme(closedTab.uri) == "file" && layout.fileTab(sameFileAs: closedTab.uri) != nil)
     }
 
-    func reopen(_ c: ClosedTab) {
-        guard TabURI.scheme(c.uri) == "session" else {
-            if app.extensions.tabProvider(for: c.uri) == nil || shows(c) { open(c.uri) } else { place(c) }
+    func reopen(_ closedTab: ClosedTab) {
+        guard TabURI.scheme(closedTab.uri) == "session" else {
+            if app.extensions.tabProvider(for: closedTab.uri) == nil || shows(closedTab) {
+                open(closedTab.uri)
+            } else {
+                place(closedTab)
+            }
             return
         }
         // Its tab first: the new session takes it. Otherwise the daemon's update puts the new one in whatever pane is focused.
-        let sid = TabURI.body(c.uri)
-        guard let s = app.session(sid) else { return }
+        let sid = TabURI.body(closedTab.uri)
+        guard let session = app.session(sid) else { return }
         closed.remove(sid)
-        place(c)
-        if s.agent == "shell" { newShell(like: s, inTabOf: c.uri) } else { AgentActions(app).restart(sid) }
+        place(closedTab)
+        if session.agent == "shell" {
+            newShell(like: session, inTabOf: closedTab.uri)
+        } else {
+            AgentActions(app).restart(sid)
+        }
     }
 
     /// Its pane may have closed with its last tab.
-    private func place(_ c: ClosedTab) {
-        let group = c.group.flatMap { layout.groups[$0] == nil ? nil : $0 }
-        let t = layout.add(c.uri, to: group, at: group == nil ? nil : c.index)
+    private func place(_ closedTab: ClosedTab) {
+        let group = closedTab.group.flatMap { layout.groups[$0] == nil ? nil : $0 }
+        let tab = layout.add(closedTab.uri, to: group, at: group == nil ? nil : closedTab.index)
         arrange()
         render()
-        select(t.id)
+        select(tab.id)
     }
 }
 
 extension Workbench {
     /// What can still come back, latest first: its row is there and, for a session, its record (a restart replaces it).
     var reopenableTabs: [ClosedTab] {
-        closedTabs.all.filter { c in
-            guard let w = app.worktree(c.workspace), !w.archived else { return false }
-            return TabURI.scheme(c.uri) != "session" || app.session(TabURI.body(c.uri)) != nil
+        closedTabs.all.filter { closedTab in
+            guard let worktree = app.worktree(closedTab.workspace), !worktree.archived else { return false }
+            return TabURI.scheme(closedTab.uri) != "session" || app.session(TabURI.body(closedTab.uri)) != nil
         }
     }
 
@@ -63,30 +72,31 @@ extension Workbench {
     var nextClosedTab: ClosedTab? { reopenableTabs.first { $0.workspace == workspaceId && editor?.shows($0) != true } }
 
     func reopenClosedTab() {
-        guard let c = nextClosedTab else {
+        guard let closedTab = nextClosedTab else {
             NSSound.beep()
             return
         }
-        reopen(c)
+        reopen(closedTab)
     }
 
-    func reopen(_ c: ClosedTab) {
-        closedTabs.forget(c)
-        if c.workspace != workspaceId { show(workspace: c.workspace) }
-        editor?.reopen(c)
+    func reopen(_ closedTab: ClosedTab) {
+        closedTabs.forget(closedTab)
+        if closedTab.workspace != workspaceId { show(workspace: closedTab.workspace) }
+        editor?.reopen(closedTab)
     }
 
-    /// `w` is going with its last tab, and its sessions' records with it: those closed by hand move to `next`, with the same
+    /// `worktree` is going with its last tab, and its sessions' records with it: those closed by hand move to `next`, with the same
     /// folder, where ⇧⌘T finds them. A folder of its own goes too, and nothing could resume there.
-    func keepClosedTabs(of w: Worktree, on next: Worktree) async {
-        if w.path == next.path {
-            for c in closedTabs.all where c.workspace == w.id && TabURI.scheme(c.uri) == "session" {
-                let sid = TabURI.body(c.uri)
+    func keepClosedTabs(of worktree: Worktree, on next: Worktree) async {
+        if worktree.path == next.path {
+            for closedTab in closedTabs.all
+            where closedTab.workspace == worktree.id && TabURI.scheme(closedTab.uri) == "session" {
+                let sid = TabURI.body(closedTab.uri)
                 if workspaceId == next.id { editor?.closed.insert(sid) }   // it may still be ending: no tab for it there
                 await app.quiet(SessionMove(id: sid, worktreeId: next.id))
             }
         }
-        closedTabs.move(from: w.id, to: next.id)
+        closedTabs.move(from: worktree.id, to: next.id)
     }
 }
 
@@ -104,10 +114,12 @@ final class RecentlyClosedMenu: NSObject, NSMenuDelegate {
             menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false
             return
         }
-        for c in list {
-            let place = [app.worktree(c.workspace)?.displayName, shortAgo(c.at)].compactMap { $0 }.joined(
-                separator: " · ")
-            menu.add("\(c.title) — \(place)") { [app] in app.workbench.reopen(c) }.show(.symbol(Self.symbol(c.uri)))
+        for closedTab in list {
+            let place = [app.worktree(closedTab.workspace)?.displayName, shortAgo(closedTab.at)].compactMap { $0 }
+                .joined(
+                    separator: " · ")
+            menu.add("\(closedTab.title) — \(place)") { [app] in app.workbench.reopen(closedTab) }.show(
+                .symbol(Self.symbol(closedTab.uri)))
         }
     }
 

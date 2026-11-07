@@ -28,35 +28,40 @@ enum NewTabChoices {
     /// The installed agents: the default first, then those in use, then the others by name.
     static func agents(_ app: AppModel) -> [AgentManifest] {
         let def = app.catalog.defaultAgent, started = Set(app.sessions.map(\.agent))
-        let rank = { (a: AgentManifest) in (a.id == def ? 0 : 1, started.contains(a.id) ? 0 : 1, a.name.lowercased()) }
+        let rank = { (agent: AgentManifest) in
+            (agent.id == def ? 0 : 1, started.contains(agent.id) ? 0 : 1, agent.name.lowercased())
+        }
         return app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
     }
 
     /// A terminal, a tmux session when there is tmux, and what extensions open, in the registry's order.
-    static func open(_ app: AppModel, _ w: Worktree?, terminal: @escaping @MainActor () -> Void) -> [Action] {
+    static func open(_ app: AppModel, _ worktree: Worktree?, terminal: @escaping @MainActor () -> Void) -> [Action] {
         let new = key("terminal.new", app, default: "cmd+t")
         var all = [Action(title: String(localized: "Terminal"), symbol: "terminal", key: new, run: terminal)]
-        if app.catalog.hasTmux(w) {
+        if app.catalog.hasTmux(worktree) {
             all.append(
                 Action(title: String(localized: "tmux Session…"), symbol: "rectangle.split.3x1", key: nil) {
                     app.quickOpen.showTmux()
                 })
         }
         let ctx = IDEContext.of(app)
-        for e in app.extensions.all.editors {
-            all.append(Action(title: e.label, symbol: e.icon, key: app.extensions.key(e.id)) { e.open(ctx, in: app) })
+        for editor in app.extensions.all.editors {
+            all.append(
+                Action(title: editor.label, symbol: editor.icon, key: app.extensions.key(editor.id)) {
+                    editor.open(ctx, in: app)
+                })
         }
         return all
     }
 
     /// What the run chip runs and its list; none while the project offers nothing to run.
     static func run(_ app: AppModel, workspace wid: String) -> [Action] {
-        guard let o = app.scripts.offer(wid) else { return [] }
+        guard let offer = app.scripts.offer(wid) else { return [] }
         let choose = key("scripts.choose", app, default: "ctrl+cmd+r"),
-            run = o.guess ? nil : key("scripts.run", app, default: "cmd+r")
+            run = offer.guess ? nil : key("scripts.run", app, default: "cmd+r")
         return [
-            Action(title: String(localized: "Run \(o.label)"), symbol: "play", key: run, help: o.command) {
-                Task { await app.scripts.start(choice: o.choice, in: wid) }
+            Action(title: String(localized: "Run \(offer.label)"), symbol: "play", key: run, help: offer.command) {
+                Task { await app.scripts.start(choice: offer.choice, in: wid) }
             },
             Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) {
                 app.scripts.choose()
@@ -69,17 +74,17 @@ enum NewTabChoices {
 extension NSMenu {
     /// An action as an item: its symbol shown (macOS 27 hides the rest) and its key beside it.
     @discardableResult
-    func add(_ a: NewTabChoices.Action, before: (@MainActor () -> Void)? = nil) -> NSMenuItem {
-        let i = add(a.title) {
+    func add(_ action: NewTabChoices.Action, before: (@MainActor () -> Void)? = nil) -> NSMenuItem {
+        let item = add(action.title) {
             before?()
-            a.run()
+            action.run()
         }
-        i.show(.symbol(a.symbol))
-        if let k = a.key {
-            i.keyEquivalent = k.key
-            i.keyEquivalentModifierMask = k.mods.flags
+        item.show(.symbol(action.symbol))
+        if let shortcut = action.key {
+            item.keyEquivalent = shortcut.key
+            item.keyEquivalentModifierMask = shortcut.mods.flags
         }
-        i.toolTip = a.help
-        return i
+        item.toolTip = action.help
+        return item
     }
 }

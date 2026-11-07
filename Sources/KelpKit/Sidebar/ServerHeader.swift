@@ -59,12 +59,12 @@ final class ServerHeader: NSTableCellView {
         meters.spacing = Metrics.gap
         meters.detachesHiddenViews = true
         let slot = NSView()
-        for v in [plate, glyph, fold] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            slot.addSubview(v)
+        for view in [plate, glyph, fold] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(view)
             NSLayoutConstraint.activate([
-                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+                view.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                view.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
             ])
         }
         let row = NSStackView(views: [slot, title, word, meters])
@@ -89,10 +89,10 @@ final class ServerHeader: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func setFrameSize(_ s: NSSize) {
+    override func setFrameSize(_ newSize: NSSize) {
         let old = frame.width
-        super.setFrameSize(s)
-        if s.width != old { fitMeters() }
+        super.setFrameSize(newSize)
+        if newSize.width != old { fitMeters() }
     }
     /// All three meters stay while the server's name keeps its first few letters (`nameFloor`); past that they step
     /// aside, the disk first, then memory, then the CPU (all are in the tooltip and on the server's tab).
@@ -100,18 +100,18 @@ final class ServerHeader: NSTableCellView {
         let name = min(title.intrinsicContentSize.width, Self.nameFloor)
         let said = word.isHidden ? 0 : word.intrinsicContentSize.width + Metrics.gap
         var room = bounds.width - (2 + 16 + Metrics.gap + name + said + Metrics.gap) + meters.spacing
-        for m in [cpu, ram, disk] {
-            let need = m.fittingSize.width + meters.spacing, fits = m.has && room >= need
+        for meter in [cpu, ram, disk] {
+            let need = meter.fittingSize.width + meters.spacing, fits = meter.has && room >= need
             if fits { room -= need }
-            m.isHidden = !fits
+            meter.isHidden = !fits
         }
     }
 
     /// About seven letters: enough to tell servers apart.
     static let nameFloor: CGFloat = 52
 
-    override func mouseEntered(with e: NSEvent) { showFold(true) }
-    override func mouseExited(with e: NSEvent) { showFold(false) }
+    override func mouseEntered(with event: NSEvent) { showFold(true) }
+    override func mouseExited(with event: NSEvent) { showFold(false) }
     private func showFold(_ on: Bool) {
         fold.isHidden = !on
         glyph.alphaValue = on ? 0 : 1
@@ -120,20 +120,20 @@ final class ServerHeader: NSTableCellView {
 
     func update() {
         guard let app = owner?.app else { return }
-        let s = app.latest(HostEvent.self, host)?.stats
+        let stats = app.latest(HostEvent.self, host)?.stats
         title.stringValue = host
         let said = app.serverWord(host)
-        let up = s?.connected == true
+        let up = stats?.connected == true
         // Off: the word goes to the right, where the meters would be.
         word.stringValue = up ? said?.text ?? "" : ""
         word.textColor = said?.color ?? .secondaryLabelColor
         word.isHidden = word.stringValue.isEmpty
-        note.stringValue = s == nil ? "" : up ? "" : said?.text ?? ""
+        note.stringValue = stats == nil ? "" : up ? "" : said?.text ?? ""
         note.textColor = said?.color ?? .secondaryLabelColor
         note.isHidden = note.stringValue.isEmpty
-        cpu.show(up ? s?.cpu.map { Int($0.rounded()) } : nil)
-        ram.show(up ? HostStats.percent(s?.memory, s?.memoryTotal) : nil)
-        disk.show(up ? HostStats.percent(s?.disk, s?.diskTotal) : nil)
+        cpu.show(up ? stats?.cpu.map { Int($0.rounded()) } : nil)
+        ram.show(up ? HostStats.percent(stats?.memory, stats?.memoryTotal) : nil)
+        disk.show(up ? HostStats.percent(stats?.disk, stats?.diskTotal) : nil)
         fitMeters()
         let look = ServerLook.of(app)
         plate.isHidden = look != .icon
@@ -146,28 +146,28 @@ final class ServerHeader: NSTableCellView {
             folded ? "chevron.right" : "chevron.down",
             folded ? String(localized: "Expand") : String(localized: "Collapse"))
         fold.toolTip = fold.image?.accessibilityDescription
-        toolTip = Self.details(s)
+        toolTip = Self.details(stats)
         setAccessibilityLabel(
             [String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
     }
 
     /// Everything read, a line each: the tooltip.
-    static func details(_ s: HostStats?) -> String? {
-        guard let s else { return nil }
-        guard s.connected else {
-            return s.error ?? String(localized: "Not connected. Click to open the server, which connects.")
+    static func details(_ stats: HostStats?) -> String? {
+        guard let stats else { return nil }
+        guard stats.connected else {
+            return stats.error ?? String(localized: "Not connected. Click to open the server, which connects.")
         }
         func of(_ used: Int?, _ total: Int?) -> String? {
-            guard let used, let total, let p = HostStats.percent(used, total) else { return nil }
-            return "\(serverBytes(used)) / \(serverBytes(total)) · \(p)%"
+            guard let used, let total, let percent = HostStats.percent(used, total) else { return nil }
+            return "\(serverBytes(used)) / \(serverBytes(total)) · \(percent)%"
         }
-        let load = s.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: " ") }
+        let load = stats.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: " ") }
         return [
-            serverLine(s),
-            s.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
-            of(s.memory, s.memoryTotal).map { String(localized: "Memory \($0)") },
-            of(s.swap, s.swapTotal).map { String(localized: "Swap \($0)") },
-            of(s.disk, s.diskTotal).map { String(localized: "Disk / \($0)") }
+            serverLine(stats),
+            stats.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
+            of(stats.memory, stats.memoryTotal).map { String(localized: "Memory \($0)") },
+            of(stats.swap, stats.swapTotal).map { String(localized: "Swap \($0)") },
+            of(stats.disk, stats.diskTotal).map { String(localized: "Disk / \($0)") }
         ].compactMap { $0 }.joined(separator: "\n")
     }
 }
@@ -209,8 +209,8 @@ extension SidebarController {
 
     /// Each listed server is watched while it's listed (every 10 s, never dialing).
     func watchHosts(_ hosts: Set<String>) {
-        for h in hosts.subtracting(watchedHosts) { app.watch(.host, h) }
-        for h in watchedHosts.subtracting(hosts) { app.unwatch(.host, h) }
+        for host in hosts.subtracting(watchedHosts) { app.watch(.host, host) }
+        for host in watchedHosts.subtracting(hosts) { app.unwatch(.host, host) }
         watchedHosts = hosts
     }
 

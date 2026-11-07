@@ -13,18 +13,18 @@ final class AgentSummary: NSView {
     /// Liquid Glass where there is (macOS 26): the one custom glass in the sidebar, over the list it floats above.
     private let glass: NSView = {
         if #available(macOS 26, *) {
-            let g = NSGlassEffectView()
-            g.cornerRadius = Metrics.radiusXL
-            return g
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = Metrics.radiusXL
+            return glass
         }
-        let v = NSVisualEffectView()
-        v.material = .popover
-        v.blendingMode = .withinWindow
-        v.state = .active
-        v.wantsLayer = true
-        v.layer?.cornerRadius = Metrics.radiusXL
-        v.layer?.masksToBounds = true
-        return v
+        let effect = NSVisualEffectView()
+        effect.material = .popover
+        effect.blendingMode = .withinWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = Metrics.radiusXL
+        effect.layer?.masksToBounds = true
+        return effect
     }()
     /// Over the glass, under the words: the grey the pointer brings (a fill behind the glass wouldn't show).
     private let sheen = NSView()
@@ -40,10 +40,10 @@ final class AgentSummary: NSView {
     /// The words' room, as wished rather than required: a stack around a label has no width of its own, and a required one
     /// would widen the sidebar.
     private lazy var asideWidth: NSLayoutConstraint = {
-        let c = aside.widthAnchor.constraint(equalToConstant: 0)
-        c.priority = .defaultHigh
-        c.isActive = true
-        return c
+        let constraint = aside.widthAnchor.constraint(equalToConstant: 0)
+        constraint.priority = .defaultHigh
+        constraint.isActive = true
+        return constraint
     }()
     private let app: AppModel
     private var asking = false
@@ -62,9 +62,9 @@ final class AgentSummary: NSView {
         sheen.wantsLayer = true
         sheen.layer?.cornerRadius = Metrics.radiusXL
         sheen.layer?.cornerCurve = .continuous
-        for v in [glass, sheen, content] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            capsule.addSubview(v)
+        for view in [glass, sheen, content] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            capsule.addSubview(view)
         }
         capsule.look = { [weak self] hovering, pressed in
             self?.sheen.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
@@ -81,10 +81,10 @@ final class AgentSummary: NSView {
         doneText.textColor = .secondaryLabelColor
         doneMark.status = .done
         doneMark.announces = false
-        for v in [asideMark, asideText, doneMark, doneText] as [NSView] { aside.addArrangedSubview(v) }
+        for view in [asideMark, asideText, doneMark, doneText] as [NSView] { aside.addArrangedSubview(view) }
         aside.spacing = Metrics.gap
         aside.detachesHiddenViews = true
-        for v in [capsule, aside] as [NSView] { row.addArrangedSubview(v) }
+        for view in [capsule, aside] as [NSView] { row.addArrangedSubview(view) }
         row.spacing = Metrics.gap
         row.detachesHiddenViews = true
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -139,7 +139,7 @@ final class AgentSummary: NSView {
         let working = [asideMark, asideText].filter { !$0.isHidden } as [NSView]
         let finished: [NSView] = doneText.stringValue.isEmpty ? [] : [doneMark, doneText]
         let fits = Self.width(working + finished, gap: aside.spacing) <= room   // what finished goes first: it asks for nothing
-        for v in [doneMark, doneText] as [NSView] { v.isHidden = !fits || finished.isEmpty }
+        for view in [doneMark, doneText] as [NSView] { view.isHidden = !fits || finished.isEmpty }
         let parts = fits ? working + finished : working
         let words = Self.width(parts, gap: aside.spacing)
         if asideWidth.constant != words { asideWidth.constant = words }
@@ -202,13 +202,13 @@ final class AgentSummary: NSView {
 
     /// The capsule's: where who waits for you is, and what their rows say.
     static func viewMenu(_ app: AppModel) -> NSMenu {
-        let m = NSMenu()
-        m.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
-        m.addItem(.separator())
-        m.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
-        m.addItem(.separator())
-        m.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", group: "Sidebar", app)
-        return m
+        let menu = NSMenu()
+        menu.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
+        menu.addItem(.separator())
+        menu.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
+        menu.addItem(.separator())
+        menu.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", group: "Sidebar", app)
+        return menu
     }
 }
 

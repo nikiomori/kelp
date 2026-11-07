@@ -17,11 +17,12 @@ struct ContextParts: View {
     /// In the bar's order: the base, then the conversation's parts.
     var rows: [Row] {
         let base =
-            parts.setup.map { s in
-                s.parts.map { g in
+            parts.setup.map { setup in
+                setup.parts.map { group in
                     Row(
-                        id: "setup." + g.label, label: Self.label(g.label), tokens: g.tokens, detail: Self.detail(g),
-                        color: Self.color(g.label))
+                        id: "setup." + group.label, label: Self.label(group.label), tokens: group.tokens,
+                        detail: Self.detail(group),
+                        color: Self.color(group.label))
                 }
             } ?? [
                 Row(
@@ -30,10 +31,11 @@ struct ContextParts: View {
                     color: Color(nsColor: .tertiaryLabelColor))
             ]
         return base
-            + parts.parts.map { p in
+            + parts.parts.map { part in
                 Row(
-                    id: p.kind.rawValue, label: Self.label(p.kind), tokens: p.tokens, detail: Self.detail(p),
-                    color: Self.color(p.kind))
+                    id: part.kind.rawValue, label: Self.label(part.kind), tokens: part.tokens,
+                    detail: Self.detail(part),
+                    color: Self.color(part.kind))
             }
     }
 
@@ -47,7 +49,7 @@ struct ContextParts: View {
                 total: Double(window),
                 end: buffer > 0 ? PartsBar.Part(id: "buffer", value: Double(buffer), color: reserve) : nil)
             Grid(alignment: .leading, horizontalSpacing: Metrics.gap, verticalSpacing: 3) {
-                ForEach(rows.sorted { $0.tokens > $1.tokens }) { r in legend(r, bold: r.id == biggest) }
+                ForEach(rows.sorted { $0.tokens > $1.tokens }) { row in legend(row, bold: row.id == biggest) }
                 if buffer > 0 {
                     legend(
                         Row(
@@ -59,8 +61,8 @@ struct ContextParts: View {
                         id: "free", label: String(localized: "Free"), tokens: max(0, window - used - buffer),
                         detail: "", color: nil), bold: false)
             }
-            if let d = parts.setup?.deferred, !d.isEmpty {
-                Text(Self.deferred(d)).font(.ui(11)).foregroundStyle(.tertiary).fixedSize(
+            if let deferred = parts.setup?.deferred, !deferred.isEmpty {
+                Text(Self.deferred(deferred)).font(.ui(11)).foregroundStyle(.tertiary).fixedSize(
                     horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
@@ -69,26 +71,26 @@ struct ContextParts: View {
 
     /// Swatch, name, tokens, share of the window; what's in it on a line under the name. Each part's tokens are an
     /// estimate (the line above has the exact total).
-    @ViewBuilder private func legend(_ r: Row, bold: Bool) -> some View {
+    @ViewBuilder private func legend(_ row: Row, bold: Bool) -> some View {
         GridRow {
-            PartsBar.Swatch(r.color)
-            Text(r.label).fontWeight(bold ? .semibold : .regular).lineLimit(1)
-            Text(Self.k(r.tokens)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
-            Text(Self.share(r.tokens, of: window)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(
+            PartsBar.Swatch(row.color)
+            Text(row.label).fontWeight(bold ? .semibold : .regular).lineLimit(1)
+            Text(Self.k(row.tokens)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+            Text(Self.share(row.tokens, of: window)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(
                 .trailing)
         }
         .font(.ui(11))
-        if !r.detail.isEmpty {
+        if !row.detail.isEmpty {
             GridRow {
                 Color.clear.frame(width: 0, height: 0)
-                Text(r.detail).font(.ui(11)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.tail)
+                Text(row.detail).font(.ui(11)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.tail)
                     .gridCellColumns(3)
             }
         }
     }
 
-    static func label(_ k: SessionContextParts.Kind) -> String {
-        switch k {
+    static func label(_ kind: SessionContextParts.Kind) -> String {
+        switch kind {
         case .files: String(localized: "Files read")
         case .commands: String(localized: "Command output")
         case .conversation: String(localized: "Conversation")
@@ -112,16 +114,16 @@ struct ContextParts: View {
     }
 
     /// "Not in the context until used: MCP tools 46.8k · built-in tools 13.7k" (Claude Code's "MCP tools (deferred)"…).
-    static func deferred(_ d: [SessionContextParts.Item]) -> String {
-        let items = d.map { i in
-            let name = label(i.label.replacingOccurrences(of: " (deferred)", with: ""))
-            return "\(name) \(k(i.tokens))"
+    static func deferred(_ deferredItems: [SessionContextParts.Item]) -> String {
+        let items = deferredItems.map { item in
+            let name = label(item.label.replacingOccurrences(of: " (deferred)", with: ""))
+            return "\(name) \(k(item.tokens))"
         }
         return String(localized: "Not in the context until used: \(items.joined(separator: " · "))")
     }
 
-    static func color(_ k: SessionContextParts.Kind) -> Color {
-        switch k {
+    static func color(_ kind: SessionContextParts.Kind) -> Color {
+        switch kind {
         case .files: .blue
         case .commands: .purple
         case .conversation: .teal
@@ -144,32 +146,32 @@ struct ContextParts: View {
     }
 
     /// "payment.ts 17.6k · npm test ×38 66k · +7 more 22.6k"; the conversation's own words ("its replies", "your 9 messages").
-    static func detail(_ p: SessionContextParts.Part) -> String {
-        if p.kind == .summary { return String(localized: "What /compact kept of the conversation") }
-        let items = p.top.map { i -> String in
+    static func detail(_ part: SessionContextParts.Part) -> String {
+        if part.kind == .summary { return String(localized: "What /compact kept of the conversation") }
+        let items = part.top.map { item -> String in
             let name =
-                switch (p.kind, i.label) {
+                switch (part.kind, item.label) {
                 case (.conversation, "replies"): String(localized: "its replies")
                 case (.conversation, "thinking"): String(localized: "its thinking")
-                case (.conversation, "messages") where i.count == 1: String(localized: "your message")
-                case (.conversation, "messages"): String(localized: "your \(i.count) messages")
+                case (.conversation, "messages") where item.count == 1: String(localized: "your message")
+                case (.conversation, "messages"): String(localized: "your \(item.count) messages")
                 case (.conversation, "notes"): String(localized: "Claude Code's notes")
-                default: i.count > 1 ? "\(i.label) ×\(i.count)" : i.label
+                default: item.count > 1 ? "\(item.label) ×\(item.count)" : item.label
                 }
-            return "\(name) \(k(i.tokens))"
+            return "\(name) \(k(item.tokens))"
         }
-        let line = list(items, more: p.more, rest: p.tokens - p.top.reduce(0) { $0 + $1.tokens })
-        return p.kind == .conversation ? line.prefix(1).uppercased() + line.dropFirst() : line   // "Its replies", but "npm test"
+        let line = list(items, more: part.more, rest: part.tokens - part.top.reduce(0) { $0 + $1.tokens })
+        return part.kind == .conversation ? line.prefix(1).uppercased() + line.dropFirst() : line   // "Its replies", but "npm test"
     }
 
     /// "CLAUDE.md 4k · MEMORY.md 3.9k", "design-review 520 · tabbit 40 · +12 more 1.2k".
-    static func detail(_ g: SessionContextParts.Setup.Group) -> String {
-        if g.label == "Other" {
+    static func detail(_ group: SessionContextParts.Setup.Group) -> String {
+        if group.label == "Other" {
             return String(localized: "Hook output, the environment, names of tools loaded when used")
         }
         return list(
-            g.top.map { "\($0.label) \(k($0.tokens))" }, more: g.more,
-            rest: max(0, g.tokens - g.top.reduce(0) { $0 + $1.tokens }))
+            group.top.map { "\($0.label) \(k($0.tokens))" }, more: group.more,
+            rest: max(0, group.tokens - group.top.reduce(0) { $0 + $1.tokens }))
     }
 
     private static func list(_ items: [String], more: Int, rest: Int) -> String {
@@ -177,14 +179,14 @@ struct ContextParts: View {
     }
 
     /// 17_600 → "17.6k", 31_000 → "31k", 184_000 → "184k", 640 → "640".
-    static func k(_ n: Int) -> String {
-        guard n >= 1000 else { return "\(n)" }
-        let tenths = (n + 50) / 100
-        return n >= 100_000 || tenths % 10 == 0 ? "\((n + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
+    static func k(_ tokens: Int) -> String {
+        guard tokens >= 1000 else { return "\(tokens)" }
+        let tenths = (tokens + 50) / 100
+        return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
     }
 
     /// 146_200 of 1M → "14.6%".
-    static func share(_ n: Int, of window: Int) -> String {
-        (Double(n) / Double(max(window, 1))).formatted(.percent.precision(.fractionLength(1)))
+    static func share(_ tokens: Int, of window: Int) -> String {
+        (Double(tokens) / Double(max(window, 1))).formatted(.percent.precision(.fractionLength(1)))
     }
 }

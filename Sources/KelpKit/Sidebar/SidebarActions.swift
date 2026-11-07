@@ -42,44 +42,46 @@ extension SidebarController {
     /// Where a chat can go: among the screens of its folder. One on a branch has its own files and stays.
     func moveItems(_ menu: NSMenu, chat sid: String) {
         let app = self.app
-        guard let w = movable(sid), let r = app.repo(w.repoId) else { return }
-        let own = mainWorkspace(of: r, among: app.worktrees), list = NSMenu()
+        guard let worktree = movable(sid), let repo = app.repo(worktree.repoId) else { return }
+        let own = mainWorkspace(of: repo, among: app.worktrees), list = NSMenu()
         list.add(String(localized: "New Group")) { Task { await WorkspaceActions(app).newGroup(from: [sid]) } }
-        if let own, own.id != w.id {
+        if let own, own.id != worktree.id {
             list.add(String(localized: "Back to Project")) {
                 Task { await WorkspaceActions(app).move([sid], to: own.id) }
             }
         }
-        for g in app.workspaces(of: r) where g.path == r.path && g.id != w.id && g.id != own?.id {
-            list.add(g.displayName) { Task { await WorkspaceActions(app).move([sid], to: g.id) } }
+        for group in app.workspaces(of: repo)
+        where group.path == repo.path && group.id != worktree.id && group.id != own?.id {
+            list.add(group.displayName) { Task { await WorkspaceActions(app).move([sid], to: group.id) } }
         }
         menu.setSubmenu(
             list, for: menu.addItem(withTitle: String(localized: "Move to"), action: nil, keyEquivalent: ""))
     }
 
     private func movable(_ sid: String) -> Worktree? {
-        guard let w = app.session(sid).flatMap({ app.worktree($0.worktreeId) }), w.path == app.repo(w.repoId)?.path
+        guard let worktree = app.session(sid).flatMap({ app.worktree($0.worktreeId) }),
+            worktree.path == app.repo(worktree.repoId)?.path
         else { return nil }
-        return w
+        return worktree
     }
     func refreshCell(_ key: String) {
-        guard let n = node(key) else { return }
-        let row = outline.row(forItem: n)
+        guard let node = node(key) else { return }
+        let row = outline.row(forItem: node)
         if row >= 0 { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
     }
 
     /// Inline rename, like Finder: a workspace's name, or with `project` its project's own.
     func startRename(_ id: String, project: Bool = false) {
-        guard let n = project ? node("p:" + id) : workspaceNode(id) else { return }
-        let row = outline.row(forItem: n)
+        guard let node = project ? node("p:" + id) : workspaceNode(id) else { return }
+        let row = outline.row(forItem: node)
         guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else {
             return
         }
         renaming = (id, project)
         cell.beginEditing(delegate: self, project: project)
     }
-    func controlTextDidEndEditing(_ n: Notification) {
-        guard let (id, project) = renaming, let field = n.object as? NSTextField else { return }
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let (id, project) = renaming, let field = notification.object as? NSTextField else { return }
         renaming = nil
         field.isEditable = false
         field.drawsBackground = false
@@ -93,8 +95,8 @@ extension SidebarController {
             }
         } else if !name.isEmpty, name != app.worktree(id)?.displayName {
             Task { await app.call(WorktreeNote(id: id, note: name)) }
-        } else if let n = workspaceNode(id) {
-            refreshCell(n.key)
+        } else if let node = workspaceNode(id) {
+            refreshCell(node.key)
         }
     }
 
@@ -107,39 +109,41 @@ extension SidebarController {
         let app = self.app
         menu.removeAllItems()
         card.close()
-        guard let n = outline.item(atRow: outline.menuRow) as? Node else { return emptySpaceMenu(menu) }
-        let m = app
+        guard let node = outline.item(atRow: outline.menuRow) as? Node else { return emptySpaceMenu(menu) }
+        let model = app
         let picked = outline.selectedRowIndexes
         if picked.count > 1, picked.contains(outline.menuRow) {
             bulkMenu(menu, picked.compactMap { outline.item(atRow: $0) as? Node })
             return
         }
-        switch n.kind {
+        switch node.kind {
         case .project(let id):
-            guard let r = m.repo(id) else { return }
-            if NoProject.holds(r) { return noProjectMenu(menu, r, n) }
-            if !FileManager.default.fileExists(atPath: r.path) {
-                menu.add(String(localized: "Locate…")) { WorkspaceActions(app).relocate(r) }
-                menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(r) }
+            guard let repo = model.repo(id) else { return }
+            if NoProject.holds(repo) { return noProjectMenu(menu, repo, node) }
+            if !FileManager.default.fileExists(atPath: repo.path) {
+                menu.add(String(localized: "Locate…")) { WorkspaceActions(app).relocate(repo) }
+                menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(repo) }
                 return
             }
-            if let w = app.rowBadges.folder(project: id) { MergedPR(app: app).addItems(to: menu, w) }
+            if let folder = app.rowBadges.folder(project: id) { MergedPR(app: app).addItems(to: menu, folder) }
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
             menu.addItem(.separator())
-            if let host = RemoteHost.of(r.path)?.host { serverItems(menu, host) }
+            if let host = RemoteHost.of(repo.path)?.host { serverItems(menu, host) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
-            muteItem(menu, n.muteIds)
+            muteItem(menu, node.muteIds)
             browserItem(menu, id)
             menu.addItem(.separator())
-            WorkspaceActions.addLocate(to: menu, path: r.path)
+            WorkspaceActions.addLocate(to: menu, path: repo.path)
             menu.addItem(.separator())
-            if RemoteHost.of(r.path) == nil {
-                menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) }
+            if RemoteHost.of(repo.path) == nil {
+                menu.add(String(localized: "Remove Clean Worktrees…")) {
+                    WorkspaceActions(app).removeCleanWorktrees(repo)
+                }
             }
-            menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
+            menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(repo) }
         case .workspace(let id): workspaceMenu(menu, id)
         case .agent(let sid):
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
@@ -148,44 +152,46 @@ extension SidebarController {
                 for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
-            if let s = m.session(sid), NoProject.holds(m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }) {
-                WorkspaceActions.addLocate(to: menu, path: s.cwd)   // its own folder, where its results are
+            if let session = model.session(sid),
+                NoProject.holds(model.worktree(session.worktreeId).flatMap { model.repo($0.repoId) })
+            {
+                WorkspaceActions.addLocate(to: menu, path: session.cwd)   // its own folder, where its results are
             } else {
                 moveItems(menu, chat: sid)
             }
-            if m.session(sid)?.unread == false {
+            if model.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in
                     Task { await app.call(SessionMarkUnread(id: sid)) }
                 }
-            } else if m.session(sid)?.status == .done {   // finished and waiting to be seen: put away by hand, as a glance would
+            } else if model.session(sid)?.status == .done {   // finished and waiting to be seen: put away by hand, as a glance would
                 menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) }
                 }
             }
-            muteItem(menu, n.muteIds)
+            muteItem(menu, node.muteIds)
             parkItem(menu, sid)
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
-        case .host(let h): serverMenu(menu, h)
+        case .host(let host): serverMenu(menu, host)
         case .parked: break
         }
     }
 
     /// No Project's row: chats, and its folder. Nothing to rename, colour or remove: it's Kelp's own.
-    private func noProjectMenu(_ menu: NSMenu, _ r: Repo, _ n: Node) {
+    private func noProjectMenu(_ menu: NSMenu, _ repo: Repo, _ node: Node) {
         let app = self.app
-        menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(r.id) }
-        menu.add(String(localized: "New Chat in Folder…")) { app.noProject.newChat(inFolderOf: r) }
+        menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(repo.id) }
+        menu.add(String(localized: "New Chat in Folder…")) { app.noProject.newChat(inFolderOf: repo) }
         menu.addItem(.separator())
-        muteItem(menu, n.muteIds)
-        WorkspaceActions.addLocate(to: menu, path: r.path)
+        muteItem(menu, node.muteIds)
+        WorkspaceActions.addLocate(to: menu, path: repo.path)
     }
 
     /// Under the rows: the ways in, as the + shows them, and how the list looks.
     private func emptySpaceMenu(_ menu: NSMenu) {
         let app = self.app
         for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
-            if let c = app.extensions.command(id) { menu.add(c.title) { app.extensions.run(id) } }
+            if let command = app.extensions.command(id) { menu.add(command.title) { app.extensions.run(id) } }
         }
         menu.addItem(.separator())
         menu.addChoiceMenu("workbench.sidebar.order", app, title: String(localized: "Project Order"))
@@ -203,7 +209,7 @@ extension SidebarController {
     /// Whether new chats here get Kelp's browser skill: as Settings say (the daemon says why, a moment after the menu
     /// opens), or always or never in this project.
     private func browserItem(_ menu: NSMenu, _ id: String) {
-        guard let w = app.rowBadges.folder(project: id), RemoteHost.of(w.path) == nil else { return }
+        guard let worktree = app.rowBadges.folder(project: id), RemoteHost.of(worktree.path) == nil else { return }
         let app = self.app, key = BrowserSkill.choiceKey(id), own = app.uiState[key]?.string
         let list = NSMenu()
         list.add(String(localized: "Automatic")) { app.uiState[key] = nil }.state = own == nil ? .on : .off
@@ -214,8 +220,8 @@ extension SidebarController {
             withTitle: String(localized: "For new chats in this project"), action: nil, keyEquivalent: "")
         why.isEnabled = false
         Task {
-            guard let b = await app.quiet(SkillsBrowser(worktreeId: w.id)) else { return }
-            why.title = String(localized: "New chats: browser \(BrowserSkillWords.line(b.line))")
+            guard let skill = await app.quiet(SkillsBrowser(worktreeId: worktree.id)) else { return }
+            why.title = String(localized: "New chats: browser \(BrowserSkillWords.line(skill.line))")
         }
         menu.setSubmenu(
             list, for: menu.addItem(withTitle: String(localized: "Browser for Agents"), action: nil, keyEquivalent: ""))
@@ -223,21 +229,22 @@ extension SidebarController {
 
     private func colorItem(_ menu: NSMenu, _ id: String) {
         let app = self.app, now = app.arrangement.projectColors[id]
-        func pick(_ c: ProjectColor?) { app.arrangement.projectColors[id] = c }
+        func pick(_ color: ProjectColor?) { app.arrangement.projectColors[id] = color }
         guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
             let row = menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
-            let a = app.arrangement
+            let arrangement = app.arrangement
             row.view = ColorSwatches(
-                chosen: now, previewing: { a.colorPreview = (id, $0) }, left: { a.colorPreview = nil }, pick: pick)
+                chosen: now, previewing: { arrangement.colorPreview = (id, $0) },
+                left: { arrangement.colorPreview = nil }, pick: pick)
             return
         }
         let shades = NSMenu()
         shades.add(String(localized: "None")) { pick(nil) }.state = now == nil ? .on : .off
         shades.addItem(.separator())
-        for c in ProjectColor.allCases {
-            let i = shades.add(c.title) { pick(c) }
-            i.show(c.dot)
-            i.state = now == c ? .on : .off
+        for color in ProjectColor.allCases {
+            let item = shades.add(color.title) { pick(color) }
+            item.show(color.dot)
+            item.state = now == color ? .on : .off
         }
         menu.setSubmenu(
             shades, for: menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
@@ -271,23 +278,23 @@ extension SidebarController {
 
     /// A group's items on its heading.
     private func workspaceMenu(_ menu: NSMenu, _ id: String) {
-        let app = self.app, m = app
-        guard let w = m.worktree(id) else { return }
+        let app = self.app, model = app
+        guard let worktree = model.worktree(id) else { return }
         menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
         menu.addItem(.separator())
         muteItem(menu, [id])
-        WorkspaceActions.addLocate(to: menu, path: w.path)
+        WorkspaceActions.addLocate(to: menu, path: worktree.path)
         menu.addItem(.separator())
-        if w.path == m.repo(w.repoId)?.path {
+        if worktree.path == model.repo(worktree.repoId)?.path {
             // A workspace: archiving pauses its agents and keeps its tabs (Window › Archived Workspaces brings it back);
             // with ⌥ the item closes it instead, ending its agents. The project's folder is untouched either way.
-            menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
-            let close = menu.add(String(localized: "Close Group")) { WorkspaceActions(app).close(w) }
+            menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(worktree) }
+            let close = menu.add(String(localized: "Close Group")) { WorkspaceActions(app).close(worktree) }
             close.isAlternate = true
             close.keyEquivalentModifierMask = .option
         } else {
-            menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(w) }
-            menu.add(String(localized: "Delete Folder & Branch…")) { WorkspaceActions(app).delete(w) }
+            menu.add(String(localized: "Archive")) { WorkspaceActions(app).archive(worktree) }
+            menu.add(String(localized: "Delete Folder & Branch…")) { WorkspaceActions(app).delete(worktree) }
         }
     }
 }
@@ -296,22 +303,30 @@ extension SidebarController {
     /// The menu for several selected rows: what applies to all of them.
     func bulkMenu(_ menu: NSMenu, _ nodes: [Node]) {
         let app = self.app
-        let m = app
-        let ws = nodes.compactMap { n -> Worktree? in
-            if case .workspace(let id) = n.kind { m.worktree(id) } else { n.workspace.flatMap(m.worktree) }
+        let model = app
+        let ws = nodes.compactMap { node -> Worktree? in
+            if case .workspace(let id) = node.kind {
+                model.worktree(id)
+            } else {
+                node.workspace.flatMap(model.worktree)
+            }
         }
-        let picked = nodes.compactMap { n -> String? in
-            switch n.kind {
+        let picked = nodes.compactMap { node -> String? in
+            switch node.kind {
             case .agent(let id): id
             default: nil
             }
         }
-        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.isChat && s.status != .exited }
-            .map(\.id)
+        let inside = model.sessions.filter { session in
+            ws.contains { $0.id == session.worktreeId } && session.isChat && session.status != .exited
+        }
+        .map(\.id)
         let agents = Array(Set(picked + inside))
-        if agents.contains(where: { m.session($0)?.unread == true }) {
+        if agents.contains(where: { model.session($0)?.unread == true }) {
             menu.add(String(localized: "Mark as Read")) {
-                for id in agents where m.session(id)?.unread == true { Task { await m.call(SessionMarkRead(id: id)) } }
+                for id in agents where model.session(id)?.unread == true {
+                    Task { await model.call(SessionMarkRead(id: id)) }
+                }
             }
         }
         if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Groups…")) { WorkspaceActions(app).close(ws) } }
@@ -334,9 +349,9 @@ extension SidebarController {
 /// The daemon's line about a chat's browser skill ("on · Vite in package.json", `BrowserSkill.line`), in the app's language
 /// where its words are fixed (a framework's name stays as it is).
 enum BrowserSkillWords {
-    static func line(_ s: String) -> String {
-        let parts = s.components(separatedBy: " · ")
-        guard parts.count == 2 else { return s }
+    static func line(_ daemonLine: String) -> String {
+        let parts = daemonLine.components(separatedBy: " · ")
+        guard parts.count == 2 else { return daemonLine }
         let fixed = [
             "set for this project": String(localized: "set for this project"),
             "Always, in Settings": String(localized: "Always, in Settings"),

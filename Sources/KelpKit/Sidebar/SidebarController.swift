@@ -21,13 +21,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var children: [Node] = []
         /// A project's own screen, which its row stands for (SidebarItem.workspace).
         var workspace: String?
-        init(_ k: SidebarItem.Kind) { kind = k }
+        init(_ kind: SidebarItem.Kind) { self.kind = kind }
         var key: String {
             switch kind {
             case .project(let id): "p:" + id
             case .workspace(let id): "w:" + id
             case .agent(let id): "a:" + id
-            case .host(let h): "h:" + h
+            case .host(let host): "h:" + host
             case .parked: "parked"
             }
         }
@@ -133,34 +133,34 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.makeSections()
         }
-        let v = NSView()
+        let root = NSView()
         // Over the projects it adds to, where people look for it.
         let add = NSButton.titlebar(
             "folder.badge.plus", String(localized: "Add Project"),
             tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
         add.target = self
         add.action = #selector(addMenu(_:))
-        for x in [add, scroll, machines, footer] as [NSView] {
-            x.translatesAutoresizingMaskIntoConstraints = false
-            v.addSubview(x)
+        for part in [add, scroll, machines, footer] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(part)
         }
-        addTrailing = add.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6)
-        footerTrailing = footer.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+        addTrailing = add.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6)
+        footerTrailing = footer.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         NSLayoutConstraint.activate([
             // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
-            add.centerYAnchor.constraint(equalTo: v.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
+            add.centerYAnchor.constraint(equalTo: root.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
             addTrailing,
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: machines.topAnchor),
-            machines.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            machines.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             machines.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
             machines.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: v.leadingAnchor), footerTrailing,
-            footer.bottomAnchor.constraint(equalTo: v.bottomAnchor)
+            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor), footerTrailing,
+            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ])
-        view = v
+        view = root
         placeSummary(over: scroll, beside: add)
         followModel()
     }
@@ -285,61 +285,65 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     // MARK: hover cards
 
-    override func mouseMoved(with e: NSEvent) {
-        let row = outline.row(at: outline.convert(e.locationInWindow, from: nil))
+    override func mouseMoved(with event: NSEvent) {
+        let row = outline.row(at: outline.convert(event.locationInWindow, from: nil))
         let cell = row >= 0 ? outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell : nil
-        guard row >= 0, renaming == nil, let n = outline.item(atRow: row) as? Node,
-            cell?.overAction(e.locationInWindow) != true
+        guard row >= 0, renaming == nil, let node = outline.item(atRow: row) as? Node,
+            cell?.overAction(event.locationInWindow) != true
         else {
             card.hover(nil, rect: .zero, in: outline)
             return
         }
-        card.hover(n.workspace.map { "w:" + $0 } ?? n.key, rect: outline.rect(ofRow: row), in: outline)
+        card.hover(node.workspace.map { "w:" + $0 } ?? node.key, rect: outline.rect(ofRow: row), in: outline)
     }
-    override func mouseExited(with e: NSEvent) { card.hover(nil, rect: .zero, in: outline) }
+    override func mouseExited(with event: NSEvent) { card.hover(nil, rect: .zero, in: outline) }
     /// A row's card, now: a click asked for it.
-    func openCard(_ n: Node) {
-        let row = outline.row(forItem: n)
-        if row >= 0 { card.open(n.workspace.map { "w:" + $0 } ?? n.key, rect: outline.rect(ofRow: row), in: outline) }
+    func openCard(_ node: Node) {
+        let row = outline.row(forItem: node)
+        if row >= 0 {
+            card.open(node.workspace.map { "w:" + $0 } ?? node.key, rect: outline.rect(ofRow: row), in: outline)
+        }
     }
 
     // MARK: model → tree
 
     private func build() -> [Node] {
-        let m = app
         var tree = SidebarTree(
-            projects: m.projects, workspaces: m.projects.flatMap { m.workspaces(of: $0) }, sessions: m.scripts.shown)
+            projects: app.projects, workspaces: app.projects.flatMap { app.workspaces(of: $0) },
+            sessions: app.scripts.shown)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
-        tree.pinnedLast = m.repos.first(where: NoProject.holds)?.id
-        tree.parked = m.parkedIds
-        tree.hosts = Dictionary(m.projects.compactMap { r in RemoteHost.of(r.path).map { (r.id, $0.host) } }) { a, _ in
-            a
+        tree.pinnedLast = app.repos.first(where: NoProject.holds)?.id
+        tree.parked = app.parkedIds
+        tree.hosts = Dictionary(
+            app.projects.compactMap { project in RemoteHost.of(project.path).map { (project.id, $0.host) } }
+        ) { first, _ in
+            first
         }
         watchHosts(Set(tree.hosts.values))
         projectHosts = tree.hosts
         leavePage(unless: Set(tree.hosts.values))
         tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
-        func node(_ i: SidebarItem) -> Node {
-            let n = Node(i.kind)
-            n.children = i.children.map(node)
-            n.workspace = i.workspace
-            return n
+        func node(_ item: SidebarItem) -> Node {
+            let built = Node(item.kind)
+            built.children = item.children.map(node)
+            built.workspace = item.workspace
+            return built
         }
         return tree.build().map(node)
     }
 
     /// The ways in, as File shows them: a folder (new or existing), a clone, a project over SSH.
-    @objc private func addMenu(_ b: NSButton) {
-        let m = NSMenu(), app = app
+    @objc private func addMenu(_ button: NSButton) {
+        let menu = NSMenu(), app = app
         for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
-            guard let c = app.extensions.command(id) else { continue }
-            let i = m.add(c.title) { app.extensions.run(id) }
-            if let k = app.extensions.key(id) {
-                i.keyEquivalent = k.key
-                i.keyEquivalentModifierMask = k.mods.flags
+            guard let command = app.extensions.command(id) else { continue }
+            let item = menu.add(command.title) { app.extensions.run(id) }
+            if let shortcut = app.extensions.key(id) {
+                item.keyEquivalent = shortcut.key
+                item.keyEquivalentModifierMask = shortcut.mods.flags
             }
         }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
     /// Same shape → refresh the visible cells; new shape → reload, keeping expansion and selection.
@@ -361,7 +365,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         shape = nextShape
         syncing = true
         outline.reloadData()
-        for p in roots where !collapsed.contains(p.key) { expand(p) }
+        for root in roots where !collapsed.contains(root.key) { expand(root) }
         syncing = false
         rowHeights = []   // as with the cells: a row's height was asked before what's under it opened, and it was its card's end
         instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
@@ -371,26 +375,31 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
 
     /// A project and the workspaces in it that weren't folded (their children wait until the project opens).
-    private func expand(_ p: Node) {
-        outline.expandItem(p)
-        for w in p.children where !collapsed.contains(w.key) { outline.expandItem(w) }
+    private func expand(_ node: Node) {
+        outline.expandItem(node)
+        for child in node.children where !collapsed.contains(child.key) { outline.expandItem(child) }
     }
 
     /// The row of what's on screen: the agent whose tab has focus, else its workspace. Several rows picked stay picked.
     private func syncSelection() {
         if let page = app.workbench.page { return select(page: page) }
-        guard let id = app.workbench.workspaceId, let w = workspaceNode(id), outline.selectedRowIndexes.count <= 1
+        guard let id = app.workbench.workspaceId, let workspace = workspaceNode(id),
+            outline.selectedRowIndexes.count <= 1
         else { return }
         // Gone to from elsewhere (⌃1, the line over the list) while its project is folded: open the project. Only on the
         // way in: a project folded while you're in it stays folded.
-        if id != revealed, let p = outline.parent(forItem: w) as? Node, isCollapsed(p) { open(p) }
+        if id != revealed, let project = outline.parent(forItem: workspace) as? Node, isCollapsed(project) {
+            open(project)
+        }
         revealed = id
         let tab = app.workbench.focusedTab ?? ""
         // A child has no row: its parent's stands for it.
         let on = TabURI.body(tab), parent = app.session(on)?.parent ?? ""
         let agent =
-            TabURI.scheme(tab) == "session" ? w.children.first { $0.key == "a:" + on || $0.key == "a:" + parent } : nil
-        let row = agent.map { outline.row(forItem: $0) }.flatMap { $0 >= 0 ? $0 : nil } ?? outline.row(forItem: w)
+            TabURI.scheme(tab) == "session"
+            ? workspace.children.first { $0.key == "a:" + on || $0.key == "a:" + parent } : nil
+        let row =
+            agent.map { outline.row(forItem: $0) }.flatMap { $0 >= 0 ? $0 : nil } ?? outline.row(forItem: workspace)
         guard row >= 0 else { return }
         if outline.selectedRow != row {
             syncing = true
@@ -402,7 +411,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     /// A server's page goes with its last project: back to the workspace behind it.
     private func leavePage(unless hosts: Set<String>) {
-        guard let p = app.workbench.page, TabURI.scheme(p) == "host", !hosts.contains(TabURI.body(p)),
+        guard let page = app.workbench.page, TabURI.scheme(page) == "host", !hosts.contains(TabURI.body(page)),
             let id = app.workbench.workspaceId ?? app.worktrees.first?.id
         else { return }
         app.workbench.show(workspace: id)
@@ -410,8 +419,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     /// A server's page: its header's row.
     private func select(page: String) {
-        guard TabURI.scheme(page) == "host", let n = node("h:" + TabURI.body(page)) else { return }
-        let row = outline.row(forItem: n)
+        guard TabURI.scheme(page) == "host", let header = node("h:" + TabURI.body(page)) else { return }
+        let row = outline.row(forItem: header)
         guard row >= 0, outline.selectedRow != row else { return }
         syncing = true
         outline.selectRowIndexes([row], byExtendingSelection: false)
@@ -436,54 +445,56 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private func makeSections() {
         guard let sections else { return }
         sections.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for s in app.extensions.all.sidebarSections {
-            let v = s.make()
-            sections.addArrangedSubview(v)
-            v.widthAnchor.constraint(equalTo: sections.widthAnchor).isActive = true
+        for section in app.extensions.all.sidebarSections {
+            let block = section.make()
+            sections.addArrangedSubview(block)
+            block.widthAnchor.constraint(equalTo: sections.widthAnchor).isActive = true
         }
     }
 
     /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
     private func keepOpenInView() {
-        guard let id = app.workbench.workspaceId, let n = workspaceNode(id) else { return }
-        let row = outline.row(forItem: n)
+        guard let id = app.workbench.workspaceId, let workspace = workspaceNode(id) else { return }
+        let row = outline.row(forItem: workspace)
         guard row >= 0 else { return }
-        if let last = n.children.last, outline.isItemExpanded(n) {
+        if let last = workspace.children.last, outline.isItemExpanded(workspace) {
             outline.scrollRowToVisible(outline.row(forItem: last))
         }
         outline.scrollRowToVisible(row)
     }
-    func isCollapsed(_ n: Node) -> Bool { !n.children.isEmpty && (!outline.isItemExpanded(n) || folding[n.key] != nil) }
+    func isCollapsed(_ node: Node) -> Bool {
+        !node.children.isEmpty && (!outline.isItemExpanded(node) || folding[node.key] != nil)
+    }
 
     // MARK: data source / delegate
 
-    func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         (item as? Node)?.children.count ?? roots.count
     }
-    func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any {
-        (item as? Node)?.children[i] ?? roots[i]
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        (item as? Node)?.children[index] ?? roots[index]
     }
-    func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool {
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         !((item as? Node)?.children.isEmpty ?? true)
     }
     static func isHeader(_ item: Any?) -> Bool {
         if case .project? = (item as? Node)?.kind { true } else { false }
     }
-    func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         if case .parked? = (item as? Node)?.kind { return false }
         return !Self.isHeader(item) || (item as? Node)?.workspace != nil
     }
     // A project too: the outline doesn't fold an item without one. Its triangle isn't drawn (SidebarOutline), it has its own chevron.
-    func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { true }
+    func outlineView(_ outlineView: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { true }
     // One line per row, as tall as Finder's at the same sidebar size; an agent that asks gets a second line.
-    func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        guard let n = item as? Node else { return TextSize.of(rowBase) }
-        if case .host = n.kind { return TextSize.of(rowBase) + Self.serverGap }
-        if underFold(n) { return 0.01 }   // the outline takes no 0
-        let pad = pads(n)
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+        guard let node = item as? Node else { return TextSize.of(rowBase) }
+        if case .host = node.kind { return TextSize.of(rowBase) + Self.serverGap }
+        if underFold(node) { return 0.01 }   // the outline takes no 0
+        let pad = pads(node)
         // Its card's edge stays: without that room the cell's height comes out below 0, which the outline throws on.
-        if arriving.contains(n.key) { return 0.01 + pad.top + pad.bottom }
-        return TextSize.of(rowBase + (hasAsk(n) ? 16 : 0)) + pad.top + pad.bottom
+        if arriving.contains(node.key) { return 0.01 + pad.top + pad.bottom }
+        return TextSize.of(rowBase + (hasAsk(node) ? 16 : 0)) + pad.top + pad.bottom
     }
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
     /// Finder and Mail do. Limit: only the height follows it, the text stays 13 pt (Text size scales that).
@@ -495,83 +506,85 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         default: [1: 24, 3: 32][UserDefaults.standard.integer(forKey: "NSTableViewDefaultSizeMode")] ?? 28
         }
     }
-    private func hasAsk(_ n: Node) -> Bool {
-        guard case .agent(let id) = n.kind, let s = app.session(id) else { return false }
+    private func hasAsk(_ node: Node) -> Bool {
+        guard case .agent(let id) = node.kind, let session = app.session(id) else { return false }
         return SidebarCell.line(
-            s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+            session, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
             back: app.arrangement.parkedBack[id]) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
-    private func pads(_ n: Node) -> (top: CGFloat, bottom: CGFloat) {
-        var p = group(n).map(SidebarRowView.pads) ?? (top: 0, bottom: 0)
-        p.top += serverGap(n)
-        return p
+    private func pads(_ node: Node) -> (top: CGFloat, bottom: CGFloat) {
+        var pad = group(node).map(SidebarRowView.pads) ?? (top: 0, bottom: 0)
+        pad.top += serverGap(node)
+        return pad
     }
     /// The gap over a server's header, which starts that server's card, and over No Project's row at the end, which
     /// would read as one more project (or one more of the last server's) without it.
-    func serverGap(_ n: Node) -> CGFloat {
-        switch n.kind {
+    func serverGap(_ node: Node) -> CGFloat {
+        switch node.kind {
         case .host: Self.serverGap
         case .project(let id) where app.repo(id).map(NoProject.holds) == true: Self.serverGap
         default: 0
         }
     }
     /// Where this row is in its project's card: nil for a project with nothing under it, which is a plain row.
-    private func group(_ n: Node) -> (first: Bool, last: Bool)? {
-        var top = n
+    private func group(_ node: Node) -> (first: Bool, last: Bool)? {
+        var top = node
         while let up = outline.parent(forItem: top) as? Node { top = up }
         guard case .project = top.kind, !top.children.isEmpty else { return nil }
-        return (n === top, n === lastRow(top))
+        return (node === top, node === lastRow(top))
     }
     /// The last row of what's under `n` (itself when folded or folding).
-    func lastRow(_ n: Node) -> Node {
-        var last = n
-        while outline.isItemExpanded(last), folding[last.key] == nil, let c = last.children.last { last = c }
+    func lastRow(_ node: Node) -> Node {
+        var last = node
+        while outline.isItemExpanded(last), folding[last.key] == nil, let child = last.children.last { last = child }
         return last
     }
 
-    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
     /// Typing a name jumps to its row (the cells have no textField the outline could read it from).
-    func outlineView(_ o: NSOutlineView, typeSelectStringFor tc: NSTableColumn?, item: Any) -> String? {
+    func outlineView(_ outlineView: NSOutlineView, typeSelectStringFor tc: NSTableColumn?, item: Any) -> String? {
         switch (item as? Node)?.kind {
         case .project(let id)?: app.projectName(id)
         case .workspace(let id)?: app.worktree(id)?.displayName
         case .agent(let id)?: app.session(id).map(app.catalog.displayName)
-        case .host(let h)?: h
+        case .host(let host)?: host
         case .parked?: String(localized: "Parked")
         default: nil
         }
     }
-    func outlineView(_ o: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) { place(rowView, row) }
+    func outlineView(_ outlineView: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) {
+        place(rowView, row)
+    }
 
-    func place(_ v: NSTableRowView, _ row: Int) {
-        let n = outline.item(atRow: row) as? Node
-        (v as? SidebarRowView)?.group = n.flatMap(group)
-        (v as? SidebarRowView)?.gap = n.map(serverGap) ?? 0
+    func place(_ rowView: NSTableRowView, _ row: Int) {
+        let node = outline.item(atRow: row) as? Node
+        (rowView as? SidebarRowView)?.group = node.flatMap(group)
+        (rowView as? SidebarRowView)?.gap = node.map(serverGap) ?? 0
     }
     /// The cards follow rows that open, close or move; a project's last row changes height with them.
     /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
-    func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
-        guard let n = item as? Node else { return nil }
-        if case .parked = n.kind { return ParkedHeader(count: n.children.count) }
-        if case .host(let h) = n.kind {
-            let header = ServerHeader(host: h, owner: self)
+    func outlineView(_ outlineView: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
+        guard let node = item as? Node else { return nil }
+        if case .parked = node.kind { return ParkedHeader(count: node.children.count) }
+        if case .host(let host) = node.kind {
+            let header = ServerHeader(host: host, owner: self)
             header.update()
             return header
         }
-        let cell = SidebarCell(node: n, owner: self)
+        let cell = SidebarCell(node: node, owner: self)
         cell.update()
         return cell
     }
 
-    func outlineViewItemDidCollapse(_ n: Notification) { remember(n, collapsed: true) }
-    func outlineViewItemDidExpand(_ n: Notification) { remember(n, collapsed: false) }
-    private func remember(_ n: Notification, collapsed c: Bool) {
-        guard !syncing, let node = n.userInfo?["NSObject"] as? Node, node.id != nil else { return }
+    func outlineViewItemDidCollapse(_ notification: Notification) { remember(notification, collapsed: true) }
+    func outlineViewItemDidExpand(_ notification: Notification) { remember(notification, collapsed: false) }
+    private func remember(_ notification: Notification, collapsed didCollapse: Bool) {
+        guard !syncing, let node = notification.userInfo?["NSObject"] as? Node, node.id != nil else { return }
         // A project folding folds its workspaces with it: that isn't the user folding them.
-        if let p = outline.parent(forItem: node) as? Node, !outline.isItemExpanded(p) { return }
-        if c { collapsed.insert(node.key) } else { collapsed.remove(node.key) }
-        if !c, case .project = node.kind {
+        if let parent = outline.parent(forItem: node) as? Node, !outline.isItemExpanded(parent) { return }
+        if didCollapse { collapsed.insert(node.key) } else { collapsed.remove(node.key) }
+        if !didCollapse, case .project = node.kind {
             syncing = true
             expand(node)
             syncing = false
@@ -590,9 +603,9 @@ extension SidebarController {
 
     private func find(_ test: (Node) -> Bool) -> Node? {
         func look(_ ns: [Node]) -> Node? {
-            for n in ns {
-                if test(n) { return n }
-                if let f = look(n.children) { return f }
+            for node in ns {
+                if test(node) { return node }
+                if let found = look(node.children) { return found }
             }
             return nil
         }
@@ -602,7 +615,7 @@ extension SidebarController {
 
 /// A row picked opens what it stands for.
 extension SidebarController {
-    func outlineViewSelectionDidChange(_ n: Notification) {
+    func outlineViewSelectionDidChange(_ notification: Notification) {
         card.close()
         // Several rows picked: nothing to open, they wait for the menu.
         guard !syncing, outline.selectedRowIndexes.count == 1,
@@ -621,7 +634,7 @@ extension SidebarController {
             } else {
                 app.workbench.show(workspace: id)
             }
-        case .host(let h): app.openServer(h)
+        case .host(let host): app.openServer(host)
         case .parked: break
         }
     }

@@ -10,7 +10,7 @@ final class ChildrenBadge: PointerControl {
     /// Filled works, hollow finished; the two that want someone are coloured. In the order they stand.
     enum Pip: Int, Comparable {
         case failed, asks, works, finished
-        static func < (a: Pip, b: Pip) -> Bool { a.rawValue < b.rawValue }
+        static func < (lhs: Pip, rhs: Pip) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     static let mostPips = 4
     private let pips = PipsView(), count = NSTextField(labelWithString: "")
@@ -42,8 +42,9 @@ final class ChildrenBadge: PointerControl {
 
     /// What it shows for an agent: one a plan limit stopped hasn't finished, whatever its status says, and Kelp isn't
     /// continuing it by itself: someone has to decide.
-    static func status(_ s: Session) -> AgentStatus {
-        s.status == .done && s.limitHit != nil && s.continueAt == nil ? .waiting : SidebarCell.shownStatus(s)
+    static func status(_ session: Session) -> AgentStatus {
+        session.status == .done && session.limitHit != nil && session.continueAt == nil
+            ? .waiting : SidebarCell.shownStatus(session)
     }
 
     /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished subagents
@@ -99,15 +100,20 @@ final class PipsView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// Two to a line, so four dots make a square of 12 pt and leave the name its width: column and line of dot `i`
-    /// among `n`, the first line on top.
-    static func cell(_ i: Int, of n: Int) -> (column: Int, line: Int) { n <= 2 ? (i, 0) : (i % 2, i / 2) }
-    static func grid(_ n: Int) -> (columns: Int, lines: Int) { n <= 2 ? (n, n > 0 ? 1 : 0) : (2, (n + 1) / 2) }
+    /// Two to a line, so four dots make a square of 12 pt and leave the name its width: column and line of dot `index`
+    /// among `count`, the first line on top.
+    static func cell(_ index: Int, of count: Int) -> (column: Int, line: Int) {
+        count <= 2 ? (index, 0) : (index % 2, index / 2)
+    }
+    static func grid(_ count: Int) -> (columns: Int, lines: Int) {
+        count <= 2 ? (count, count > 0 ? 1 : 0) : (2, (count + 1) / 2)
+    }
 
     override var intrinsicContentSize: NSSize {
-        let g = Self.grid(pips.count), step = Self.side + Self.gap
+        let grid = Self.grid(pips.count), step = Self.side + Self.gap
         return NSSize(
-            width: max(0, CGFloat(g.columns) * step - Self.gap), height: max(0, CGFloat(g.lines) * step - Self.gap))
+            width: max(0, CGFloat(grid.columns) * step - Self.gap),
+            height: max(0, CGFloat(grid.lines) * step - Self.gap))
     }
     override var wantsUpdateLayer: Bool { true }
 
@@ -119,9 +125,9 @@ final class PipsView: NSView {
         } else {
             CATransaction.setAnimationDuration(Motion.appear)
         }
-        for (i, dot) in dots.enumerated() {
-            dot.isHidden = i >= pips.count
-            if i < pips.count { paint(dot, pips[i]) }
+        for (index, dot) in dots.enumerated() {
+            dot.isHidden = index >= pips.count
+            if index < pips.count { paint(dot, pips[index]) }
         }
         CATransaction.commit()
     }
@@ -129,10 +135,11 @@ final class PipsView: NSView {
     /// Each dot in its cell; the layer's origin is at the bottom, so the first line is the top one.
     private func place() {
         let lines = Self.grid(pips.count).lines, step = Self.side + Self.gap
-        for (i, dot) in dots.enumerated() where i < pips.count {
-            let c = Self.cell(i, of: pips.count)
+        for (index, dot) in dots.enumerated() where index < pips.count {
+            let cell = Self.cell(index, of: pips.count)
             dot.frame = NSRect(
-                x: CGFloat(c.column) * step, y: CGFloat(lines - 1 - c.line) * step, width: Self.side, height: Self.side)
+                x: CGFloat(cell.column) * step, y: CGFloat(lines - 1 - cell.line) * step, width: Self.side,
+                height: Self.side)
         }
     }
 
@@ -171,15 +178,15 @@ extension Subagent {
 extension SidebarCell {
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
     /// `back`: why a parked agent came back (`AppModel.parkedBack`), said when nothing more urgent is.
-    static func line(_ s: Session, mode: String, among all: [Session], back: String? = nil) -> (
+    static func line(_ session: Session, mode: String, among all: [Session], back: String? = nil) -> (
         prefix: (String, NSColor)?, text: String
     )? {
-        let own = askLine(s, mode: mode)
+        let own = askLine(session, mode: mode)
         guard own?.prefix == nil else { return own }
         if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
-        for k in all.children(of: s.id) {
-            if let line = askLine(k, mode: mode), let color = line.prefix?.1 {
-                return ((k.displayTitle + ":", color), line.text)
+        for child in all.children(of: session.id) {
+            if let line = askLine(child, mode: mode), let color = line.prefix?.1 {
+                return ((child.displayTitle + ":", color), line.text)
             }
         }
         return own
@@ -188,9 +195,9 @@ extension SidebarCell {
 
 extension AppModel {
     /// "Fix login › reviewer" for a child, whose row is its parent's.
-    func familyName(_ s: Session) -> String {
-        let name = catalog.displayName(s)
-        return s.parent.flatMap(session).map { catalog.displayName($0) + " › " + name } ?? name
+    func familyName(_ child: Session) -> String {
+        let name = catalog.displayName(child)
+        return child.parent.flatMap(session).map { catalog.displayName($0) + " › " + name } ?? name
     }
 }
 
@@ -199,9 +206,9 @@ extension SidebarCell {
     /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
     /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
     /// line.
-    static func askLine(_ s: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
-        let st = shownStatus(s), text = s.summary.isEmpty ? st.words : s.summary
-        if mode != "never", let l = LimitStop.rowLine(s) { return ((l.word, .textOrange), l.text) }
+    static func askLine(_ session: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
+        let st = shownStatus(session), text = session.summary.isEmpty ? st.words : session.summary
+        if mode != "never", let limit = LimitStop.rowLine(session) { return ((limit.word, .textOrange), limit.text) }
         switch (mode, st) {
         case ("never", _): return nil
         case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)
@@ -212,14 +219,18 @@ extension SidebarCell {
     }
 
     /// Asks for you, failed, or finished and not looked at yet.
-    static func wantsYou(_ s: Session) -> Bool {
-        let st = shownStatus(s)
-        return s.isChat && (st == .waiting || st == .error || (st == .done && s.unread))
+    static func wantsYou(_ session: Session) -> Bool {
+        let st = shownStatus(session)
+        return session.isChat && (st == .waiting || st == .error || (st == .done && session.unread))
     }
 
     /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
-    static func shownStatus(_ s: Session) -> AgentStatus { s.status == .paused && s.unread ? .done : s.markStatus }
+    static func shownStatus(_ session: Session) -> AgentStatus {
+        session.status == .paused && session.unread ? .done : session.markStatus
+    }
 
     /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
-    static func isNews(_ s: Session) -> Bool { s.unread && [.done, .waiting, .error].contains(shownStatus(s)) }
+    static func isNews(_ session: Session) -> Bool {
+        session.unread && [.done, .waiting, .error].contains(shownStatus(session))
+    }
 }

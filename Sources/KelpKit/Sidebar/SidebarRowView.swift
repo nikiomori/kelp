@@ -10,13 +10,13 @@ final class SidebarOutline: NSOutlineView {
     /// No disclosure triangles: projects and groups fold from the chevron their slot shows under the pointer (SidebarCell).
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
-        var r = padded(super.frameOfCell(atColumn: column, row: row), row)
+        var cellFrame = padded(super.frameOfCell(atColumn: column, row: row), row)
         // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
         // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
-        let x = Self.lead + (level(forRow: row) >= 2 ? Self.step : 0)
-        r.origin.x = x
-        r.size.width = bounds.width - 8 - x
-        return r
+        let left = Self.lead + (level(forRow: row) >= 2 ? Self.step : 0)
+        cellFrame.origin.x = left
+        cellFrame.size.width = bounds.width - 8 - left
+        return cellFrame
     }
     /// The row a right-click opened the menu for; `clickedRow` stays -1, see `menu(for:)`.
     private(set) var menuRow = -1
@@ -34,9 +34,11 @@ final class SidebarOutline: NSOutlineView {
         menuRow = -1
     }
 
-    private func padded(_ r: NSRect, _ row: Int) -> NSRect {
-        let p = pads(row)
-        return NSRect(x: r.minX, y: r.minY + p.top, width: r.width, height: r.height - p.top - p.bottom)
+    private func padded(_ cellFrame: NSRect, _ row: Int) -> NSRect {
+        let pad = pads(row)
+        return NSRect(
+            x: cellFrame.minX, y: cellFrame.minY + pad.top, width: cellFrame.width,
+            height: cellFrame.height - pad.top - pad.bottom)
     }
 }
 
@@ -76,20 +78,20 @@ final class SidebarRowView: NSTableRowView {
         let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
         hoverLayer.opacity = to
         guard !Motion.reduced, from != to else { return }
-        let a = CABasicAnimation(keyPath: "opacity")
-        a.fromValue = from
-        a.toValue = to
-        a.duration = Motion.fast
-        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        hoverLayer.add(a, forKey: "fade")
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = from
+        fade.toValue = to
+        fade.duration = Motion.fast
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        hoverLayer.add(fade, forKey: "fade")
     }
 
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
-    static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
-        (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0)
+    static func pads(_ group: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
+        (group.first ? 4 : 0, group.last ? (group.first ? 4 : 8) : 0)
     }
 
-    override func drawBackground(in r: NSRect) {
+    override func drawBackground(in dirtyRect: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
         // In a card the pill is 2 pt inside it on every side, its corners following the card's (radiusLG − 2); a row on its own gets a pill
         // where its card would be.
@@ -132,35 +134,37 @@ final class SidebarRowView: NSTableRowView {
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
-    static func band(_ r: NSRect, _ inset: CGFloat) -> NSRect {
-        NSRect(x: r.minX + inset + 2, y: r.minY, width: r.width - 2 * inset + 4, height: r.height)
+    static func band(_ rect: NSRect, _ inset: CGFloat) -> NSRect {
+        NSRect(x: rect.minX + inset + 2, y: rect.minY, width: rect.width - 2 * inset + 4, height: rect.height)
     }
     /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses the
     /// card's foot) the cell would only stretch with it, its text off the chevron. Put it where the outline says; a row
     /// closing up keeps its cell where it was, cut off by the row's edge as it goes.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
-        guard bounds.height > 1, let o = superview as? NSOutlineView, case let row = o.row(for: self), row >= 0,
+        guard bounds.height > 1, let outline = superview as? NSOutlineView, case let row = outline.row(for: self),
+            row >= 0,
             let cell = subviews.first(where: { $0 is NSTableCellView })
         else { return }
-        let f = o.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
+        let cellFrame = outline.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
         cell.frame = NSRect(
-            x: cell.frame.minX, y: f.minY - o.rect(ofRow: row).minY, width: cell.frame.width, height: f.height)
+            x: cell.frame.minX, y: cellFrame.minY - outline.rect(ofRow: row).minY, width: cell.frame.width,
+            height: cellFrame.height)
     }
     override var isSelected: Bool {
         didSet {
             guard isSelected != oldValue else { return }
             needsDisplay = true
             showHover()   // the pill takes over from the hover grey
-            for case let c as SidebarCell in subviews { c.selected = isSelected }   // its grey text a step lighter on the pill
+            for case let cell as SidebarCell in subviews { cell.selected = isSelected }   // its grey text a step lighter on the pill
         }
     }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         area = retracked(area, .activeInActiveApp)
     }
-    override func mouseEntered(with e: NSEvent) { hovering = true }
-    override func mouseExited(with e: NSEvent) { hovering = false }
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
     override func prepareForReuse() {
         super.prepareForReuse()
         hovering = false
@@ -183,25 +187,26 @@ final class SidebarRowView: NSTableRowView {
         }
     }
     func recheckPointer() {
-        guard let w = window else { return }
-        hovering = w.isKeyWindow && bounds.contains(convert(w.mouseLocationOutsideOfEventStream, from: nil))
+        guard let window else { return }
+        hovering = window.isKeyWindow && bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
     }
     /// The pill dims while another window is in front.
-    override func viewWillMove(toWindow w: NSWindow?) {
-        super.viewWillMove(toWindow: w)
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
         keyWatch.forEach(NotificationCenter.default.removeObserver)
         keyWatch =
-            w == nil
+            newWindow == nil
             ? []
             : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
-                NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
+                NotificationCenter.default.addObserver(forName: name, object: newWindow, queue: .main) {
+                    [weak self] _ in
                     MainActor.assumeIsolated { if self?.isSelected == true { self?.needsDisplay = true } }   // queue: .main
                 }
             }
     }
-    override func didAddSubview(_ v: NSView) {
-        super.didAddSubview(v)
-        (v as? SidebarCell)?.selected = isSelected   // a cell made for a row that was already picked
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        (subview as? SidebarCell)?.selected = isSelected   // a cell made for a row that was already picked
     }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card and pill are drawn as they are.
     override var allowsVibrancy: Bool { false }
@@ -263,28 +268,29 @@ final class ProjectCard: NSView {
             return
         }
         // Lines, not the pattern colour: a pattern drew nothing in a layer of its own.
-        let l = fading ?? CAShapeLayer()
-        l.frame = bounds
-        l.path = Self.lines(in: bounds)
-        l.strokeColor = Self.stripe.cgColor
-        l.lineWidth = 1.5
-        if l.mask == nil {
-            let m = CAGradientLayer()
-            m.startPoint = CGPoint(x: 0, y: 0.5)
-            m.endPoint = CGPoint(x: 1, y: 0.5)
-            m.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+        let stripeLayer = fading ?? CAShapeLayer()
+        stripeLayer.frame = bounds
+        stripeLayer.path = Self.lines(in: bounds)
+        stripeLayer.strokeColor = Self.stripe.cgColor
+        stripeLayer.lineWidth = 1.5
+        if stripeLayer.mask == nil {
+            let mask = CAGradientLayer()
+            mask.startPoint = CGPoint(x: 0, y: 0.5)
+            mask.endPoint = CGPoint(x: 1, y: 0.5)
+            mask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
             // Full over the icon's column, gone by the middle, where the names end and the meters start.
-            m.locations = [0, 0.12, 0.5]
-            l.mask = m
+            mask.locations = [0, 0.12, 0.5]
+            stripeLayer.mask = mask
         }
-        l.mask?.frame = l.bounds   // a mask doesn't follow its layer's size: set again as the card grows (setFrameSize)
+        // A mask doesn't follow its layer's size: set again as the card grows (setFrameSize).
+        stripeLayer.mask?.frame = stripeLayer.bounds
         if fading == nil {
-            layer?.insertSublayer(l, at: 0)
-            fading = l
+            layer?.insertSublayer(stripeLayer, at: 0)
+            fading = stripeLayer
         }
     }
-    override func setFrameSize(_ s: NSSize) {
-        super.setFrameSize(s)
+    override func setFrameSize(_ size: NSSize) {
+        super.setFrameSize(size)
         guard let fading else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -293,16 +299,16 @@ final class ProjectCard: NSView {
         fading.mask?.frame = fading.bounds
         CATransaction.commit()
     }
-    /// The stripes' lines across `r`, as the pattern draws them.
-    private static func lines(in r: CGRect, side: CGFloat = 6) -> CGPath {
-        let p = CGMutablePath()
-        var x = -r.height
-        while x < r.width {
-            p.move(to: CGPoint(x: x, y: 0))
-            p.addLine(to: CGPoint(x: x + r.height, y: r.height))
+    /// The stripes' lines across `rect`, as the pattern draws them.
+    private static func lines(in rect: CGRect, side: CGFloat = 6) -> CGPath {
+        let path = CGMutablePath()
+        var x = -rect.height
+        while x < rect.width {
+            path.move(to: CGPoint(x: x, y: 0))
+            path.addLine(to: CGPoint(x: x + rect.height, y: rect.height))
             x += side
         }
-        return p
+        return path
     }
 
     /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
@@ -311,18 +317,18 @@ final class ProjectCard: NSView {
     private static let stripe = NSColor.dynamic(
         light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
     static func stripes(over base: NSColor?, side: CGFloat = 6) -> NSColor {
-        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+        let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
             if let base {
                 base.setFill()
-                r.fill()
+                rect.fill()
             }
             stripe.setStroke()
             for dx in [-side, 0, side] {
-                let p = NSBezierPath()
-                p.move(to: NSPoint(x: dx, y: 0))
-                p.line(to: NSPoint(x: dx + side, y: side))
-                p.lineWidth = 1.5
-                p.stroke()
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: dx, y: 0))
+                path.line(to: NSPoint(x: dx + side, y: side))
+                path.lineWidth = 1.5
+                path.stroke()
             }
             return true
         }
@@ -331,5 +337,5 @@ final class ProjectCard: NSView {
 
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card is drawn as it is.
     override var allowsVibrancy: Bool { false }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }   // the rows over it take the clicks
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // the rows over it take the clicks
 }

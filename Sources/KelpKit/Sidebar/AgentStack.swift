@@ -26,9 +26,9 @@ final class AgentStack: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The chats under `n`: its own screen's, then its groups'.
-    static func chats(under n: SidebarController.Node, _ app: AppModel) -> [Session] {
-        n.children.flatMap { $0.children.isEmpty ? [$0] : $0.children }
+    /// The chats under `node`: its own screen's, then its groups'.
+    static func chats(under node: SidebarController.Node, _ app: AppModel) -> [Session] {
+        node.children.flatMap { $0.children.isEmpty ? [$0] : $0.children }
             .compactMap { if case .agent(let id) = $0.kind { app.session(id) } else { nil } }
     }
 
@@ -51,21 +51,21 @@ final class AgentStack: NSView {
         place()
     }
 
-    /// The width it takes showing `k` logos, "+N" after them for the rest.
-    func width(showing k: Int) -> CGFloat {
-        let k = min(k, faces.count)
-        guard k > 0 else { return 0 }
-        let rest = total - k,
+    /// The width `logos` logos take, "+N" after them for the rest.
+    func width(showing logos: Int) -> CGFloat {
+        let logos = min(logos, faces.count)
+        guard logos > 0 else { return 0 }
+        let rest = total - logos,
             label =
                 rest > 0
                 ? NSAttributedString(string: "+\(rest)", attributes: [.font: more.font as Any]).size().width + 4 : 0
-        return Self.side + CGFloat(k - 1) * Self.step + 2 + ceil(label)
+        return Self.side + CGFloat(logos - 1) * Self.step + 2 + ceil(label)
     }
     var count: Int { faces.count }
 
     private func place() {
         let shown = min(cap, faces.count)
-        for (i, f) in faces.enumerated() { f.isHidden = i >= shown }
+        for (index, logo) in faces.enumerated() { logo.isHidden = index >= shown }
         more.stringValue = total > shown && shown > 0 ? "+\(total - shown)" : ""
         more.isHidden = more.stringValue.isEmpty
         invalidateIntrinsicContentSize()
@@ -73,19 +73,19 @@ final class AgentStack: NSView {
     }
 
     /// Asking, failed, working, or done and not looked at: what earns a mark in the corner.
-    private static func badge(_ s: Session) -> AgentStatus? {
-        let st = SidebarCell.shownStatus(s)
-        return [.waiting, .error, .working].contains(st) || (st == .done && s.unread) ? st : nil
+    private static func badge(_ session: Session) -> AgentStatus? {
+        let st = SidebarCell.shownStatus(session)
+        return [.waiting, .error, .working].contains(st) || (st == .done && session.unread) ? st : nil
     }
 
-    private func face(_ s: Session, _ app: AppModel) -> NSView {
-        let f = AgentFace()
-        let image = app.catalog.icon(s.agent, size: Self.side)
-        f.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
-        f.mark.status = Self.badge(s)
-        f.mark.unread = true
-        f.cut()
-        return f
+    private func face(_ session: Session, _ app: AppModel) -> NSView {
+        let face = AgentFace()
+        let image = app.catalog.icon(session.agent, size: Self.side)
+        face.image = session.status == .paused ? image.map(app.agentIcons.grey) : image
+        face.mark.status = Self.badge(session)
+        face.mark.unread = true
+        face.cut()
+        return face
     }
 
     override var intrinsicContentSize: NSSize { NSSize(width: width(showing: cap), height: Self.side) }
@@ -93,7 +93,7 @@ final class AgentStack: NSView {
     override func layout() {
         super.layout()
         let y = (bounds.height - Self.side) / 2
-        for (i, f) in faces.enumerated() { f.setFrameOrigin(NSPoint(x: CGFloat(i) * Self.step, y: y)) }
+        for (index, face) in faces.enumerated() { face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step, y: y)) }
         let x = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
         more.frame = NSRect(
             x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
