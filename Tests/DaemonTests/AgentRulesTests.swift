@@ -478,6 +478,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, WorktreeNote(id: userMade.id, note: "x"), false, "not in one the user made from its terminal"),
         (.session(mine.id), WorktreeNote(id: elsewhere.id, note: "x"), false, "what acts is held to its own workspaces"),
         (.session(mine.id), GitStatus(id: elsewhere.id), true, "what only reads may look at any"),
+        (.session(mine.id), GitHunk(id: elsewhere.id, file: "a", hunk: 0), false, "staging is a write: not in another's"),
+        (.session(mine.id), GitHunk(id: r.wt.id, file: "a", hunk: 0), true, "in its own, it stages"),
         (.session(mine.id), WorktreeCreate(repoId: r.repo.id, branch: "n"), true, "a workspace in its own project"),
         (.session(mine.id), WorktreeCreate(repoId: otherProject.id, branch: "n"), false, "not in another project"),
         (.session(mine.id), WorkspaceCreate(repoId: otherProject.id), false, "nor a group there"),

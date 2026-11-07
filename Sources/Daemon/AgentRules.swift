@@ -15,7 +15,7 @@ enum AgentRules {
         AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
         CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
         FilesList.self, FilesRead.self, FilesReadRemote.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
-        GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitHunk.self, GitLineStats.self,
+        GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitLineStats.self,
         GitLog.self, GitRemoteOp.self, GitStatus.self, GitUnsynced.self, GitWebPages.self, GitWebURL.self,
         GitHubBranchPR.self, GitHubChecks.self, GitHubFailedLog.self, GitHubForge.self, GitHubIssues.self,
         GitHubProjectItems.self, GitHubProjects.self, GitHubPRs.self, GitHubReviewComments.self, GitHubStatus.self,
@@ -37,6 +37,8 @@ enum AgentRules {
         SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
         SessionHook.self, SessionReport.self, SessionPermissionWait.self,
         PaneReportAgent.self, UsageReport.self, CommentAdd.self, CommentSend.self,
+        // staging or unstaging a hunk writes the index: in its own workspaces only
+        GitHunk.self,
         // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
         // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
         UIOpen.self, UICommand.self, UIBrowser.self, PortsStop.self, SettingsSet.self, ExtensionFetch.self,
