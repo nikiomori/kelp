@@ -320,7 +320,7 @@ struct KelpLinks {
 
     /// A project's file opens as a tab; one elsewhere (any web page can send this link) asks first, as a folder does.
     private func openFile(_ path: String, line: Int?) {
-        let w = app.worktrees.filter { path.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }
+        let w = app.worktrees.filter { Self.within(path, $0.path) }.max { $0.path.count < $1.path.count }
         let open = { app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: w?.id) }
         guard !isKnown(path) else { return open() }
         let a = NSAlert(); a.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
