@@ -8,12 +8,12 @@ extension LiveSession {
     /// `says`: it says what the status is. A tool's hook doesn't, and it runs side by side with AskUserQuestion's own for the
     /// same event: taken for the latest, it dropped that one, and the row kept asking.
     func newest(_ at: TimeInterval?, says: Bool) -> Bool {
-        state.withLock { s in
-            s.spoke()
+        state.withLock { st in
+            st.spoke()
             guard let at else { return true }
             // The same time twice: a hook sent again when the daemon went away with its reply, already counted.
-            guard says ? at > s.newestHook : at >= s.newestHook else { return false }
-            if says { s.newestHook = at }
+            guard says ? at > st.newestHook : at >= st.newestHook else { return false }
+            if says { st.newestHook = at }
             return true
         }
     }
@@ -24,21 +24,21 @@ extension LiveSession {
         _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
         goal: String? = nil, at: TimeInterval? = nil
     ) {
-        state.withLock { s in
-            if let at, at < s.newestHook { return }
-            let said = s.record.summary, awaited = s.record.awaiting
-            s.hook(event, trigger: trigger, message: message, asker: asker, question: question, goal: goal)
-            emit(s.sync() ?? (s.record.summary != said || s.record.awaiting != awaited ? s.record : nil))
+        state.withLock { st in
+            if let at, at < st.newestHook { return }
+            let said = st.record.summary, awaited = st.record.awaiting
+            st.hook(event, trigger: trigger, message: message, asker: asker, question: question, goal: goal)
+            emit(st.sync() ?? (st.record.summary != said || st.record.awaiting != awaited ? st.record : nil))
         }
     }
 
     /// Background shells ended: they leave the record now, not at the next Stop. Whether it changed.
     func tasksEnded(_ ids: [String]) -> Bool {
-        state.withLock { s in
-            let gone = s.turnEnd.ended(ids), left = s.record.background?.filter { !gone.contains($0) }
-            guard left != s.record.background else { return false }
-            s.record.background = left?.isEmpty == true ? nil : left
-            if let awaited = s.record.awaiting, gone.contains(awaited) { s.record.awaiting = nil }
+        state.withLock { st in
+            let gone = st.turnEnd.ended(ids), left = st.record.background?.filter { !gone.contains($0) }
+            guard left != st.record.background else { return false }
+            st.record.background = left?.isEmpty == true ? nil : left
+            if let awaited = st.record.awaiting, gone.contains(awaited) { st.record.awaiting = nil }
             return true
         }
     }
@@ -46,19 +46,19 @@ extension LiveSession {
     /// It says it has sat at its prompt for a minute. Claude Code says so only after a finished turn: not with a dialog open,
     /// not after Esc (2.1.316), so a row still working or asking missed a Stop. Droid says it instead of a Stop when Esc stopped it.
     func atPrompt() {
-        state.withLock { s in
-            guard !s.holding, s.detector.status == .working || s.detector.status == .waiting else { return }
-            s.nothingAsked()
-            s.detector.override(.done, because: "it says it sits at its prompt")
-            emit(s.sync())
+        state.withLock { st in
+            guard !st.holding, st.detector.status == .working || st.detector.status == .waiting else { return }
+            st.nothingAsked()
+            st.detector.override(.done, because: "it says it sits at its prompt")
+            emit(st.sync())
         }
     }
 
     /// The /goal the turn's prompt set, once: its first Stop goes by it.
     func takeGoalAsked() -> String? {
-        state.withLock { s in
-            defer { s.goalAsked = nil }
-            return s.goalAsked
+        state.withLock { st in
+            defer { st.goalAsked = nil }
+            return st.goalAsked
         }
     }
 
@@ -71,36 +71,40 @@ extension LiveSession {
     )
         -> (TurnEnd.Verdict, Date)?
     {
-        state.withLock { s in
-            if let at, at < s.newestHook { return nil }   // as in `hook`
+        state.withLock { st in
+            if let at, at < st.newestHook { return nil }   // as in `hook`
             let now = Date()
-            s.heard(at: now)
-            let (verdict, running) = s.turnEnd.stop(tasks, goal: goal)
-            s.trail.add("stop: \(verdict)")
-            s.nothingAsked()
-            s.endCommands(at: now)
-            s.holding = verdict != .done
-            s.parked = !tasks.isEmpty || !crons.isEmpty
-            s.record.background = running.isEmpty ? nil : running
-            if case .command(let c) = verdict { s.record.awaiting = c } else { s.record.awaiting = nil }
-            if case .goal(let c) = verdict { s.record.goal = c } else if goal?.met != false { s.record.goal = nil }
-            s.detector.hook(verdict != .done ? "working" : failure == nil ? "done" : "error")
-            if verdict == .done, let failure, !failure.isEmpty { s.record.summary = failure }
-            emit(s.sync() ?? s.record)
+            st.heard(at: now)
+            let (verdict, running) = st.turnEnd.stop(tasks, goal: goal)
+            st.trail.add("stop: \(verdict)")
+            st.nothingAsked()
+            st.endCommands(at: now)
+            st.holding = verdict != .done
+            st.parked = !tasks.isEmpty || !crons.isEmpty
+            st.record.background = running.isEmpty ? nil : running
+            if case .command(let command) = verdict { st.record.awaiting = command } else { st.record.awaiting = nil }
+            if case .goal(let goalText) = verdict {
+                st.record.goal = goalText
+            } else if goal?.met != false {
+                st.record.goal = nil
+            }
+            st.detector.hook(verdict != .done ? "working" : failure == nil ? "done" : "error")
+            if verdict == .done, let failure, !failure.isEmpty { st.record.summary = failure }
+            emit(st.sync() ?? st.record)
             return (verdict, now)
         }
     }
 
     /// One of its subagents started (`kind` says what it is) or ended (nil). Whether the record changed.
     func subagent(_ id: String?, kind: String?) -> Bool {
-        state.withLock { s in
-            s.heard()
-            guard let id, s.record.subagents?[id] != kind else { return false }
-            var running = s.record.subagents ?? [:]
+        state.withLock { st in
+            st.heard()
+            guard let id, st.record.subagents?[id] != kind else { return false }
+            var running = st.record.subagents ?? [:]
             running[id] = kind
-            s.record.subagents = running.isEmpty ? nil : running
-            if kind == nil { s.record.subagentTasks?[id] = nil }
-            if s.record.subagentTasks?.isEmpty == true { s.record.subagentTasks = nil }
+            st.record.subagents = running.isEmpty ? nil : running
+            if kind == nil { st.record.subagentTasks?[id] = nil }
+            if st.record.subagentTasks?.isEmpty == true { st.record.subagentTasks = nil }
             return true
         }
     }
@@ -109,51 +113,53 @@ extension LiveSession {
 
     /// A tool started or ended, or a batch of them did (`kelp hook command`): `State.tool`.
     func tool(_ hook: String?, agent: String?) {
-        state.withLock { s in
-            s.tool(hook, agent: agent)
-            emit(s.sync())
+        state.withLock { st in
+            st.tool(hook, agent: agent)
+            emit(st.sync())
         }
     }
 
     /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
     /// record when what it runs changed.
-    func ran(_ c: AgentCommand) -> Session? {
-        state.withLock { s in
-            if let i = s.commands.lastIndex(where: { $0.id == c.id }) {
-                let started = s.commands[i].started   // the end keeps the start it was told of
-                s.commands[i] = c
-                s.commands[i].started = min(started, c.started)
+    func ran(_ command: AgentCommand) -> Session? {
+        state.withLock { st in
+            if let index = st.commands.lastIndex(where: { $0.id == command.id }) {
+                let started = st.commands[index].started   // the end keeps the start it was told of
+                st.commands[index] = command
+                st.commands[index].started = min(started, command.started)
             } else {
-                s.commands.append(c)
-                if s.commands.count > Self.commandLimit { s.commands.removeFirst(s.commands.count - Self.commandLimit) }
+                st.commands.append(command)
+                if st.commands.count > Self.commandLimit {
+                    st.commands.removeFirst(st.commands.count - Self.commandLimit)
+                }
             }
-            _ = s.newCommands()
-            if c.outcome == .background { s.turnEnd.started(c.id, command: c.command) }
-            let moved = c.outcome == .background && s.sentToBackground(c.command)
-            let shown = s.showRunning()
-            return moved || shown ? s.record : nil
+            _ = st.newCommands()
+            if command.outcome == .background { st.turnEnd.started(command.id, command: command.command) }
+            let moved = command.outcome == .background && st.sentToBackground(command.command)
+            let shown = st.showRunning()
+            return moved || shown ? st.record : nil
         }
     }
 
     /// The time to `release` by, if a Stop is held (an update took the wait for it along: it starts over).
     func heldAgain() -> Date? {
-        state.withLock { s in
-            guard s.holding else { return nil }
+        state.withLock { st in
+            guard st.holding else { return nil }
             let now = Date()
-            s.lastHookAt = now
+            st.lastHookAt = now
             return now
         }
     }
 
     /// A Stop held as working that nothing came after (`at`: its time): the goal was met, or the wait ran out.
     func release(_ at: Date) {
-        state.withLock { s in
-            guard s.lastHookAt == at, s.detector.status == .working else { return }
-            s.holding = false
-            s.record.goal = nil
-            s.record.awaiting = nil
-            s.detector.override(.done, because: "what the last Stop was held for is over")
-            emit(s.sync())
+        state.withLock { st in
+            guard st.lastHookAt == at, st.detector.status == .working else { return }
+            st.holding = false
+            st.record.goal = nil
+            st.record.awaiting = nil
+            st.detector.override(.done, because: "what the last Stop was held for is over")
+            emit(st.sync())
         }
     }
 }

@@ -31,9 +31,9 @@ extension AgentUsage {
         mutating func read(_ fresh: [ClaudeLimits.Reading]) {
             hits.removeAll { h in fresh.contains { $0.kind == h.kind && $0.resets != h.resets } }
             readings = fresh
-            for i in readings.indices {
-                if let hit = hits.first(where: { $0.kind == readings[i].kind }) {
-                    readings[i].percent = max(readings[i].percent, hit.percent)
+            for index in readings.indices {
+                if let hit = hits.first(where: { $0.kind == readings[index].kind }) {
+                    readings[index].percent = max(readings[index].percent, hit.percent)
                 }
             }
             readAt = Date()
@@ -41,17 +41,17 @@ extension AgentUsage {
     }
 
     /// A session printed that `agent`'s plan ran out.
-    func recordPlanHit(_ agent: String, _ r: [ClaudeLimits.Reading]) {
+    func recordPlanHit(_ agent: String, _ readings: [ClaudeLimits.Reading]) {
         plans.withLock { plans in
-            var s = plans[agent] ?? PlanState()
+            var plan = plans[agent] ?? PlanState()
             // No date in what it printed: the cycle /usage last showed.
-            var r = r
-            for i in r.indices where r[i].resets == nil {
-                r[i].resets = s.readings.first { $0.kind == r[i].kind }?.resets
+            var readings = readings
+            for index in readings.indices where readings[index].resets == nil {
+                readings[index].resets = plan.readings.first { $0.kind == readings[index].kind }?.resets
             }
-            s.hits = r + s.hits.filter { h in !r.contains { $0.kind == h.kind } }
-            s.read(s.readings.isEmpty ? r : s.readings)
-            plans[agent] = s
+            plan.hits = readings + plan.hits.filter { h in !readings.contains { $0.kind == h.kind } }
+            plan.read(plan.readings.isEmpty ? readings : plan.readings)
+            plans[agent] = plan
         }
     }
 
@@ -122,8 +122,10 @@ extension AgentUsage {
         let used = usedLately()
         for probe in Self.planProbes where used.contains(probe.agent) {
             let start: Bool = plans.withLock { plans in
-                let s = plans[probe.agent] ?? PlanState()
-                guard !s.running, Date().timeIntervalSince(s.at ?? .distantPast) > probe.every else { return false }
+                let plan = plans[probe.agent] ?? PlanState()
+                guard !plan.running, Date().timeIntervalSince(plan.at ?? .distantPast) > probe.every else {
+                    return false
+                }
                 plans[probe.agent, default: PlanState()].running = true
                 return true
             }
@@ -172,11 +174,11 @@ extension AgentUsage {
         if agent == "codex" {
             codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) }
         }
-        guard let p = Self.planProbes.first(where: { $0.agent == agent }) else { return }
+        guard let probe = Self.planProbes.first(where: { $0.agent == agent }) else { return }
         plans.withLock { plans in
-            guard let s = plans[agent], let at = s.at, s.fails == 0 else { return }   // a failing probe keeps to its own wait
-            let due = max(Date().addingTimeInterval(30), (s.readAt ?? .distantPast).addingTimeInterval(Self.planGap))
-            plans[agent]?.at = min(at, due.addingTimeInterval(-p.every))
+            guard let plan = plans[agent], let at = plan.at, plan.fails == 0 else { return }   // a failing probe keeps to its own wait
+            let due = max(Date().addingTimeInterval(30), (plan.readAt ?? .distantPast).addingTimeInterval(Self.planGap))
+            plans[agent]?.at = min(at, due.addingTimeInterval(-probe.every))
         }
     }
 
@@ -188,18 +190,20 @@ extension AgentUsage {
     /// Limit: the default account's only (CODEX_HOME); account profiles keep what their sessions logged.
     func refreshCodexIfStale() {
         guard readsPlans else { return }
-        let start: Bool = codexLive.withLock { s in
-            guard !s.running, Date().timeIntervalSince(s.at) > Self.codexEvery else { return false }
-            s.running = true
+        let start: Bool = codexLive.withLock { live in
+            guard !live.running, Date().timeIntervalSince(live.at) > Self.codexEvery else { return false }
+            live.running = true
             return true
         }
         guard start else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let l = (try? LoginPath.resolve("codex")).flatMap { Self.codexLimits(path: $0, open: self?.openProbes) }
-            self?.codexLive.withLock { s in
-                if let l { s.limits = l }
-                s.at = Date()
-                s.running = false
+            let limits = (try? LoginPath.resolve("codex")).flatMap {
+                Self.codexLimits(path: $0, open: self?.openProbes)
+            }
+            self?.codexLive.withLock { live in
+                if let limits { live.limits = limits }
+                live.at = Date()
+                live.running = false
             }
         }
     }
@@ -236,18 +240,18 @@ extension AgentUsage {
             .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
             return answer != nil
         }
-        let l = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
-        if l == nil {
+        let limits = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
+        if limits == nil {
             Log.session.error("codex app-server gave no limits: \(answer.map { "\($0)" } ?? "no answer in 20 s")")
         }
-        return l
+        return limits
     }
 
     /// Kelp's own folder, with no agent config in it: nobody watches the hidden copy, so no project's hooks or MCP servers
     /// may come in unseen. Each agent trusts it for the run (Grok's and Kimi's env, Copilot's Enter, Cursor's --trust).
     private var probeDir: String? {
-        let d = root.appendingPathComponent("probe")
-        return (try? Paths.ensure(d)).map { d.path }
+        let dir = root.appendingPathComponent("probe")
+        return (try? Paths.ensure(dir)).map { dir.path }
     }
 
     /// Always the same session, so a reading leaves no session of its own in the agent's list (Copilot and Cursor kept one
@@ -273,12 +277,12 @@ extension AgentUsage {
         }
     }
 
-    static func probe(_ p: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> (
+    static func probe(_ probe: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> (
         [ClaudeLimits.Reading], String
     ) {
         let screen = ScreenBuffer()
         let pty: PTY
-        let env = ["PATH": LoginPath.value].merging(p.env) { _, n in n }
+        let env = ["PATH": LoginPath.value].merging(probe.env) { _, n in n }
         do { pty = try PTY(argv: argv, cwd: cwd, env: env, cols: 120, rows: 80) } catch {
             Log.session.error("the usage probe for \(argv.first ?? "", privacy: .public) didn't start: \(error)")
             return ([], "")
@@ -291,9 +295,9 @@ extension AgentUsage {
             pty.terminate()
         }
         var trusted = false
-        if p.answersTrust {
-            _ = screen.wait(15) { p.ready($0) || StartupQuestion.trustAsked($0) }
-            if !p.ready(StatusDetector.stripANSI(screen.text)),
+        if probe.answersTrust {
+            _ = screen.wait(15) { probe.ready($0) || StartupQuestion.trustAsked($0) }
+            if !probe.ready(StatusDetector.stripANSI(screen.text)),
                 StartupQuestion.trustAsked(StatusDetector.stripANSI(String(screen.text.suffix(3000))))
             {
                 pty.write(Data("\r".utf8))
@@ -301,8 +305,8 @@ extension AgentUsage {
             }
         }
         // Ready: the prompt is drawn and output went quiet (or it failed and said so).
-        guard screen.wait(20, until: { (p.ready($0) && screen.quietFor > 1) || $0.contains("Error:") }),
-            p.ready(StatusDetector.stripANSI(screen.text))
+        guard screen.wait(20, until: { (probe.ready($0) && screen.quietFor > 1) || $0.contains("Error:") }),
+            probe.ready(StatusDetector.stripANSI(screen.text))
         else { return ([], StatusDetector.stripANSI(screen.text)) }
         // Nobody watches this copy: a question on screen (trust this folder? use the project's new MCP servers?) is left
         // unanswered and the probe gives up. Typing /usage and Enter there would pick its default, usually "Yes".
@@ -320,11 +324,11 @@ extension AgentUsage {
         Thread.sleep(forTimeInterval: 0.6)
         pty.write(Data("\r".utf8))
         // Wait until the screen has the numbers; don't insist on quiet — Claude/Antigravity keep refreshing while open.
-        _ = screen.wait(25) { p.shown($0) }
+        _ = screen.wait(25) { probe.shown($0) }
         _ = screen.wait(2) { _ in screen.quietFor > 1.0 }
         // Parse before Esc: many TUIs put /usage on an alt screen that Esc discards.
         let text = StatusDetector.stripANSI(screen.text).replacingOccurrences(of: "\r", with: "\n")
-        let readings = p.parse(text)
+        let readings = probe.parse(text)
         pty.write(Data("\u{1B}".utf8))
         return (readings, text)
     }
@@ -334,13 +338,13 @@ extension AgentUsage {
 /// `exit`, and an agent left on a hung-up terminal lives on with launchd (Grok there spun a whole core for a day).
 final class OpenProbes: Sendable {
     private let ptys = OSAllocatedUnfairLock<[ObjectIdentifier: PTY]>(initialState: [:])
-    func add(_ p: PTY) { ptys.withLock { $0[ObjectIdentifier(p)] = p } }
-    func remove(_ p: PTY) { _ = ptys.withLock { $0.removeValue(forKey: ObjectIdentifier(p)) } }
+    func add(_ pty: PTY) { ptys.withLock { $0[ObjectIdentifier(pty)] = pty } }
+    func remove(_ pty: PTY) { _ = ptys.withLock { $0.removeValue(forKey: ObjectIdentifier(pty)) } }
     /// Ends them all (SIGKILL after 2 s): the pids, for `Sessions.waitGone`.
     func endAll() -> [pid_t] {
-        ptys.withLock { d in
-            defer { d = [:] }
-            return Array(d.values)
+        ptys.withLock { all in
+            defer { all = [:] }
+            return Array(all.values)
         }.flatMap { $0.terminate() }
     }
 }
@@ -348,9 +352,9 @@ final class OpenProbes: Sendable {
 /// Output collected from a probe's PTY.
 private final class ScreenBuffer: Sendable {
     private let state = OSAllocatedUnfairLock<(data: Data, last: Date)>(initialState: (Data(), Date()))
-    func append(_ d: Data) {
+    func append(_ data: Data) {
         state.withLock {
-            $0.data.append(d)
+            $0.data.append(data)
             $0.last = Date()
         }
     }

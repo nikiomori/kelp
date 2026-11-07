@@ -14,7 +14,7 @@ struct FileService: Sendable {
 
     func read(_ path: String) throws -> FilesRead.Result {
         let path = try absolute(path)
-        if let r = remotes.containing(path) { return try readRemote(r.remote, r.remotePath) }
+        if let located = remotes.containing(path) { return try readRemote(located.remote, located.remotePath) }
         guard let (stamp, data) = try contents(path) else {
             throw RPCError.invalidParams("It isn't on this Mac any more (moved or deleted).")
         }
@@ -26,11 +26,12 @@ struct FileService: Sendable {
     /// viewer knows its type; a file here is its own copy.
     func fetch(_ path: String) throws -> String {
         let path = try absolute(path)
-        guard let r = remotes.containing(path) else { return path }
-        let data = try remoteBytes(r.remote, r.remotePath)
+        guard let located = remotes.containing(path) else { return path }
+        let data = try remoteBytes(located.remote, located.remotePath)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-remote")
             .appendingPathComponent(
-                String(Self.digest(Data((r.remote.host + ":" + r.remotePath).utf8)).dropFirst(7).prefix(16)))
+                String(Self.digest(Data((located.remote.host + ":" + located.remotePath).utf8)).dropFirst(7).prefix(16))
+            )
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let copy = dir.appendingPathComponent((path as NSString).lastPathComponent)
         try data.write(to: copy, options: .atomic)
@@ -55,15 +56,18 @@ struct FileService: Sendable {
     func write(_ path: String, _ text: String, base: FileStamp?) throws -> FilesWrite.Result {
         let path = try absolute(path), data = Data(text.utf8)
         guard data.count <= Unopenable.openLimit else { throw Unopenable.tooBig(data.count).error }
-        if let r = remotes.containing(path) { return try writeRemote(r.remote, r.remotePath, data, base: base) }
+        if let located = remotes.containing(path) {
+            return try writeRemote(located.remote, located.remotePath, data, base: base)
+        }
         // Limit: checked, then written: an agent's write in that window is lost (agents take no lock to wait on).
         if let base {
             guard let now = Self.stamp(path) else { return .init(missing: true) }
             if now != base {
                 // Unreadable as text (grown past the limit, a pipe now, another encoding): no text, and still not written.
-                let c = try? contents(path)
+                let current = try? contents(path)
                 return .init(
-                    conflict: .init(stamp: c?.stamp ?? now, text: c.flatMap { String(data: $0.data, encoding: .utf8) }))
+                    conflict: .init(
+                        stamp: current?.stamp ?? now, text: current.flatMap { String(data: $0.data, encoding: .utf8) }))
             }
         }
         // Through a symlink to the file it points at: an atomic write to the link would replace it with a plain file.
@@ -76,9 +80,9 @@ struct FileService: Sendable {
 
     func move(_ pairs: [FileMove], unique: Bool) -> FilesMove.Result {
         var done: [FileMove] = []
-        for p in pairs {
+        for pair in pairs {
             do {
-                let from = try here(p.from), named = try here(p.to), to = unique ? Self.free(named) : named
+                let from = try here(pair.from), named = try here(pair.to), to = unique ? Self.free(named) : named
                 try FileManager.default.moveItem(atPath: from, toPath: to)
                 done.append(.init(from: from, to: to))
             } catch { return .init(done: done, error: message(error)) }
@@ -88,9 +92,9 @@ struct FileService: Sendable {
 
     func trash(_ paths: [String]) -> FilesMove.Result {
         var done: [FileMove] = []
-        for p in paths {
+        for path in paths {
             do {
-                let from = try here(p)
+                let from = try here(path)
                 done.append(.init(from: from, to: try Trash.move(URL(fileURLWithPath: from)).path))
             } catch { return .init(done: done, error: message(error)) }
         }
@@ -99,9 +103,9 @@ struct FileService: Sendable {
 
     func copy(_ paths: [String], into: String) -> FilesCopy.Result {
         var made: [String] = []
-        for p in paths {
+        for path in paths {
             do {
-                let from = try here(p), dir = try here(into),
+                let from = try here(path), dir = try here(into),
                     to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
                 try FileManager.default.copyItem(atPath: from, toPath: to)
                 made.append(to)
@@ -126,14 +130,15 @@ struct FileService: Sendable {
     static func free(_ path: String, word: String? = "copy") -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: path) else { return path }
-        let u = URL(fileURLWithPath: path), ext = u.pathExtension, base = u.deletingPathExtension().lastPathComponent,
-            dir = u.deletingLastPathComponent()
-        var i = word == nil ? 2 : 1
+        let url = URL(fileURLWithPath: path), ext = url.pathExtension,
+            base = url.deletingPathExtension().lastPathComponent,
+            dir = url.deletingLastPathComponent()
+        var number = word == nil ? 2 : 1
         while true {
-            let stem = [base, word].compactMap { $0 }.joined(separator: " ") + (i > 1 ? " \(i)" : "")
-            let c = dir.appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext).path
-            if !fm.fileExists(atPath: c) { return c }
-            i += 1
+            let stem = [base, word].compactMap { $0 }.joined(separator: " ") + (number > 1 ? " \(number)" : "")
+            let candidate = dir.appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext).path
+            if !fm.fileExists(atPath: candidate) { return candidate }
+            number += 1
         }
     }
 
@@ -160,9 +165,10 @@ struct FileService: Sendable {
         guard stat(path, &st) == 0 else { return nil }
         if st.st_mode & S_IFMT != S_IFREG { throw Unopenable.special.error }   // a pipe or /dev/zero would block or never end
         guard st.st_size <= Unopenable.openLimit else { throw Unopenable.tooBig(Int(st.st_size)).error }
-        let h = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
-        defer { try? h.close() }
-        let data = try h.read(upToCount: Unopenable.openLimit + 1) ?? Data()   // grown since the stat: still capped
+        let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
+        defer { try? handle.close() }
+        // grown since the stat: still capped
+        let data = try handle.read(upToCount: Unopenable.openLimit + 1) ?? Data()
         guard data.count <= Unopenable.openLimit else { throw Unopenable.tooBig(data.count).error }
         return (Self.stamp(st), data)
     }
@@ -175,15 +181,15 @@ struct FileService: Sendable {
     /// Moving, copying and making files is done here only: a remote project's folder here stands for the one on its host.
     private func here(_ path: String) throws -> String {
         let path = try absolute(path)
-        if let r = remotes.containing(path) {
+        if let located = remotes.containing(path) {
             throw RPCError.invalidParams(
-                "\((path as NSString).lastPathComponent) is in a remote project: move, copy or make files there on \(r.remote.host)."
+                "\((path as NSString).lastPathComponent) is in a remote project: move, copy or make files there on \(located.remote.host)."
             )
         }
         return path
     }
 
-    private func message(_ e: Error) -> String { (e as? RPCError)?.message ?? e.localizedDescription }
+    private func message(_ error: Error) -> String { (error as? RPCError)?.message ?? error.localizedDescription }
 
     // MARK: on a host
 
@@ -223,10 +229,10 @@ struct FileService: Sendable {
             + #"[ -f "$f" ] && printf '%s\t%s\t%s\n' "$s" "${f##*/}" "$(wc -c < "$f" | tr -d ' ')"; done; done; done; true"#
         var names: [String: [String]] = [:], sizes: [String: Int] = [:]
         for line in String(decoding: try remote.run(script, timeLimit: 30), as: UTF8.self).split(separator: "\n") {
-            let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-            guard f.count >= 2 else { continue }
-            names[f[0], default: []].append(f[1])
-            if f.count == 3 { sizes[f[0] + "/" + f[1]] = Int(f[2]) }
+            let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard fields.count >= 2 else { continue }
+            names[fields[0], default: []].append(fields[1])
+            if fields.count == 3 { sizes[fields[0] + "/" + fields[1]] = Int(fields[2]) }
         }
         let fm = FileManager.default, name = (remote.path as NSString).lastPathComponent
         let found = IconSearch.find(in: ".", name: name, list: { names[$0] }, size: { sizes[$0] ?? 0 })

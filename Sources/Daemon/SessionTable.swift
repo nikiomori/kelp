@@ -11,9 +11,9 @@ final class SessionTable: Sendable {
     var all: [LiveSession] { table.withLock { Array($0.live.values) } }
     /// Refused once the daemon is stopping (`close`): one started then would outlive it, running with nobody to pause it.
     func add(_ ls: LiveSession) throws {
-        try table.withLock { t in
-            guard !t.closed else { throw RPCError.internalError("Kelp's background service is stopping") }
-            t.live[ls.snapshot.id] = ls
+        try table.withLock { state in
+            guard !state.closed else { throw RPCError.internalError("Kelp's background service is stopping") }
+            state.live[ls.snapshot.id] = ls
         }
     }
     /// No more from now on: what runs, for the daemon to pause as it stops.
@@ -27,10 +27,10 @@ final class SessionTable: Sendable {
     func remove(_ id: String) -> LiveSession? { table.withLock { $0.live.removeValue(forKey: id) } }
     /// Out only if `ls` is still the one there and `ok` says so, checked under the same lock.
     func remove(_ ls: LiveSession, if ok: (LiveSession) -> Bool = { _ in true }) -> Bool {
-        table.withLockUnchecked { t in   // `ok` runs here, never later
+        table.withLockUnchecked { state in   // `ok` runs here, never later
             let id = ls.snapshot.id
-            guard t.live[id] === ls, ok(ls) else { return false }
-            t.live[id] = nil
+            guard state.live[id] === ls, ok(ls) else { return false }
+            state.live[id] = nil
             return true
         }
     }

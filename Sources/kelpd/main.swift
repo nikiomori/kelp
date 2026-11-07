@@ -26,19 +26,19 @@ nonisolated(unsafe) var homeWatch: DispatchSourceFileSystemObject?   // the same
 nonisolated(unsafe) var testWatch: DispatchSourceProcess?   // the same
 do {
     // An update's exec in place (`daemon.upgrade`): what the kelpd before this one handed over, and the rest it ran reaped.
-    let handover = CommandLine.arguments.firstIndex(of: "--adopt").flatMap { i in
-        CommandLine.arguments.dropFirst(i + 1).first
+    let handover = CommandLine.arguments.firstIndex(of: "--adopt").flatMap { index in
+        CommandLine.arguments.dropFirst(index + 1).first
     }.flatMap(Handover.take)
     handover?.reapOthers()
     if let stable = Paths.seed { HomeSeed.fill(Paths.root, from: stable) }
-    let d = try Daemon(root: Paths.root)
-    d.strict()
-    try d.start(adopting: handover)
-    for s in [SIGTERM, SIGINT, SIGHUP] {
-        signal(s, SIG_IGN)
-        let src = DispatchSource.makeSignalSource(signal: s, queue: .main)
+    let daemon = try Daemon(root: Paths.root)
+    daemon.strict()
+    try daemon.start(adopting: handover)
+    for signalNumber in [SIGTERM, SIGINT, SIGHUP] {
+        signal(signalNumber, SIG_IGN)
+        let src = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
         src.setEventHandler { @Sendable in
-            d.stop()
+            daemon.stop()
             exit(0)
         }
         src.resume()
@@ -51,7 +51,7 @@ do {
         let gone = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: home, eventMask: [.delete, .rename], queue: .main)
         gone.setEventHandler { @Sendable in
-            d.stop()
+            daemon.stop()
             exit(0)
         }
         gone.resume()
@@ -61,13 +61,13 @@ do {
     if let pid = ProcessInfo.processInfo.environment["KELP_TEST_PID"].flatMap(Int32.init) {
         let ended = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
         ended.setEventHandler { @Sendable in
-            d.stop()
+            daemon.stop()
             exit(0)
         }
         ended.resume()
         testWatch = ended
         if kill(pid, 0) != 0, errno == ESRCH {
-            d.stop()
+            daemon.stop()
             exit(0)
         }   // gone before the watch began
     }

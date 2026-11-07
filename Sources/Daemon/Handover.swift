@@ -45,15 +45,16 @@ public struct Handover: Codable, Sendable {
             Log.start.attempt("removing the adopt check's home") { try FileManager.default.removeItem(at: scratch) }
         }
         guard Log.start.attempt("making the adopt check's home", { try Paths.ensure(scratch) }) != nil,
-            let r = Log.start.attempt(
+            let result = Log.start.attempt(
                 "asking \(executable) whether it adopts",
                 {
                     try Subprocess.run(
                         [executable, "--can-adopt"], cwd: "/", env: ["KELP_HOME": scratch.path], timeLimit: 10)
                 })
         else { return false }
-        return r.status == 0
-            && String(decoding: r.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) == canAdopt
+        return result.status == 0
+            && String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                == canAdopt
     }
 
     /// The file `kelpd --adopt` names, read and removed. Nil if it can't be read: then the lock this process still holds
@@ -73,8 +74,8 @@ public struct Handover: Codable, Sendable {
     public func reapOthers() {
         let kept = Set(sessions.map(\.pid))
         var pids = [pid_t](repeating: 0, count: 4096)
-        let n = Int(proc_listchildpids(getpid(), &pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
-        for pid in pids.prefix(max(0, n)) where !kept.contains(pid) {
+        let count = Int(proc_listchildpids(getpid(), &pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        for pid in pids.prefix(max(0, count)) where !kept.contains(pid) {
             Thread.detachNewThread {
                 var st: Int32 = 0
                 while waitpid(pid, &st, 0) < 0 && errno == EINTR {}

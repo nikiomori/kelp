@@ -30,12 +30,12 @@ public enum HomeSeed {
             defer { close(lock) }
             flock(lock, LOCK_EX)
             guard !fm.fileExists(atPath: db) else { return }
-            for f in copied
-            where !fm.fileExists(atPath: home.appendingPathComponent(f).path)
-                && fm.fileExists(atPath: stable.appendingPathComponent(f).path)
+            for name in copied
+            where !fm.fileExists(atPath: home.appendingPathComponent(name).path)
+                && fm.fileExists(atPath: stable.appendingPathComponent(name).path)
             {
-                Log.start.attempt("copying \(f)") {
-                    try fm.copyItem(at: stable.appendingPathComponent(f), to: home.appendingPathComponent(f))
+                Log.start.attempt("copying \(name)") {
+                    try fm.copyItem(at: stable.appendingPathComponent(name), to: home.appendingPathComponent(name))
                 }
             }
             let temp = db + ".seed"
@@ -66,30 +66,30 @@ public enum HomeSeed {
         func moved(_ path: String) -> String {
             path.hasPrefix(standIns) || path == from + "scratch" ? to + path.dropFirst(from.count) : path
         }
-        for var r in try store.repos() where moved(r.path) != r.path {
-            r.path = moved(r.path)
-            try store.save(r)
+        for var repo in try store.repos() where moved(repo.path) != repo.path {
+            repo.path = moved(repo.path)
+            try store.save(repo)
         }
-        for var w in try store.worktrees() where moved(w.path) != w.path {
-            w.path = moved(w.path)
-            try store.save(w)
+        for var worktree in try store.worktrees() where moved(worktree.path) != worktree.path {
+            worktree.path = moved(worktree.path)
+            try store.save(worktree)
         }
         let manifests = AgentManifest.load(dir: home.appendingPathComponent("agents"))
-        for var s in try store.sessions() {
-            if Sessions.tmuxName(s) != nil {
-                try store.delete(s)
+        for var session in try store.sessions() {
+            if Sessions.tmuxName(session) != nil {
+                try store.delete(session)
                 continue
             }
-            let remote = s.cwd.hasPrefix(standIns)
-            if remote { s.cwd = moved(s.cwd) }   // a scratch session stays in Kelp's: its conversation is found by the folder
-            if s.status != .exited {
-                if !remote, let fork = manifests.first(where: { $0.id == s.agent })?.forking(s.argv) {
-                    s.argv = fork.map { $0.replacingOccurrences(of: from, with: to) }   // its hooks and skills: this home's
+            let remote = session.cwd.hasPrefix(standIns)
+            if remote { session.cwd = moved(session.cwd) }   // a scratch session stays in Kelp's: its conversation is found by the folder
+            if session.status != .exited {
+                if !remote, let fork = manifests.first(where: { $0.id == session.agent })?.forking(session.argv) {
+                    session.argv = fork.map { $0.replacingOccurrences(of: from, with: to) }   // its hooks and skills: this home's
                 } else {
-                    s.status = .exited
+                    session.status = .exited
                 }
             }
-            try store.save(s)
+            try store.save(session)
         }
         try store.db.write { try $0.execute(sql: "UPDATE routine SET enabled = 0") }
     }

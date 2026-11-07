@@ -24,16 +24,16 @@ final class Routines: Sendable {
 
     /// The clock; `workspaces` makes a routine's workspace at its first run.
     func start(workspaces: Workspaces) {
-        let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now() + 2, repeating: 10)
-        t.setEventHandler { [weak self, weak workspaces] in
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 2, repeating: 10)
+        timer.setEventHandler { [weak self, weak workspaces] in
             if let workspaces { self?.step(Date(), workspaces: workspaces) }
         }
         clock.withLock {
             $0?.cancel()
-            $0 = t
+            $0 = timer
         }
-        t.resume()
+        timer.resume()
     }
 
     func stop() {
@@ -44,18 +44,18 @@ final class Routines: Sendable {
     }
 
     func list(now: Date = Date()) throws -> RoutinesEvent {
-        try store.db.read { d in
+        try store.db.read { db in
             RoutinesEvent(
-                routines: try Routine.order(Column("createdAt")).fetchAll(d),
+                routines: try Routine.order(Column("createdAt")).fetchAll(db),
                 runs: try Routine.Run.filter(Column("started") > now.addingTimeInterval(-14 * 86400)).order(
                     Column("started").desc
-                ).fetchAll(d))
+                ).fetchAll(db))
         }
     }
 
     private func changed() {
-        guard let e = Log.store.attempt("reading routines", { try list() }) else { return }
-        clients.notify(e)
+        guard let event = Log.store.attempt("reading routines", { try list() }) else { return }
+        clients.notify(event)
     }
 
     /// A tick of the clock now (tests).
@@ -64,18 +64,19 @@ final class Routines: Sendable {
     private func step(_ now: Date, workspaces: Workspaces) {
         var told = false
         Log.store.attempt("running routines") {
-            for r in try store.db.read({ try Routine.filter(Column("enabled") == true).fetchAll($0) }) {
-                guard let last = r.times(after: r.checked, through: now).last else { continue }
-                try store.update(Routine.self, r.id) { $0.checked = now }
+            for routine in try store.db.read({ try Routine.filter(Column("enabled") == true).fetchAll($0) }) {
+                guard let last = routine.times(after: routine.checked, through: now).last else { continue }
+                try store.update(Routine.self, routine.id) { $0.checked = now }
                 told = true
-                if now.timeIntervalSince(last) > Routine.lateAfter && !r.onWake {
-                    try store.save(Routine.Run(routineId: r.id, due: last, started: now, ended: now, outcome: .missed))
-                } else if try open(r.id) == nil {   // still at the last one: this one is skipped
+                if now.timeIntervalSince(last) > Routine.lateAfter && !routine.onWake {
+                    try store.save(
+                        Routine.Run(routineId: routine.id, due: last, started: now, ended: now, outcome: .missed))
+                } else if try open(routine.id) == nil {   // still at the last one: this one is skipped
                     // One that can't start leaves a run that says why: its time has passed, and the others are still due.
-                    do { try begin(r, due: last, now: now, workspaces: workspaces) } catch {
+                    do { try begin(routine, due: last, now: now, workspaces: workspaces) } catch {
                         try store.save(
                             Routine.Run(
-                                routineId: r.id, due: last, started: now, ended: now, outcome: .failed,
+                                routineId: routine.id, due: last, started: now, ended: now, outcome: .failed,
                                 summary: Self.why(error)))
                     }
                 }
@@ -98,39 +99,40 @@ final class Routines: Sendable {
             throw RPCError.invalidParams("no such time")
         }
         return try queue.sync {
-            var r = new
+            var routine = new
             let old = try new.id.isEmpty ? nil : store.db.read { try Routine.fetchOne($0, key: new.id) }
             if let old {
                 let rescheduled =
-                    (old.every, old.time, old.weekday) != (r.every, r.time, r.weekday) || !old.enabled && r.enabled
-                r.checked = rescheduled ? Date() : old.checked
-                r.worktreeId = old.worktreeId
-                r.createdAt = old.createdAt
+                    (old.every, old.time, old.weekday) != (routine.every, routine.time, routine.weekday)
+                    || !old.enabled && routine.enabled
+                routine.checked = rescheduled ? Date() : old.checked
+                routine.worktreeId = old.worktreeId
+                routine.createdAt = old.createdAt
             } else {
-                (r.id, r.worktreeId) = (UUID().uuidString, nil)
-                (r.checked, r.createdAt) = (Date(), Date())
+                (routine.id, routine.worktreeId) = (UUID().uuidString, nil)
+                (routine.checked, routine.createdAt) = (Date(), Date())
             }
-            try store.save(r)
+            try store.save(routine)
             changed()
-            return r
+            return routine
         }
     }
 
     func delete(_ id: String) throws {
         try queue.sync {
-            guard let r = try store.db.read({ try Routine.fetchOne($0, key: id) }) else { return }
-            try store.delete(r)
+            guard let routine = try store.db.read({ try Routine.fetchOne($0, key: id) }) else { return }
+            try store.delete(routine)
             changed()
         }
     }
 
     func runNow(_ id: String, workspaces: Workspaces) throws -> Routine.Run {
         try queue.sync {
-            guard let r = try store.db.read({ try Routine.fetchOne($0, key: id) }) else {
+            guard let routine = try store.db.read({ try Routine.fetchOne($0, key: id) }) else {
                 throw RPCError.invalidParams("no routine \(id)")
             }
-            guard try open(id) == nil else { throw RPCError.invalidParams("\(r.name) is running now.") }
-            let run = try begin(r, due: Date(), now: Date(), workspaces: workspaces)
+            guard try open(id) == nil else { throw RPCError.invalidParams("\(routine.name) is running now.") }
+            let run = try begin(routine, due: Date(), now: Date(), workspaces: workspaces)
             changed()
             return run
         }
@@ -144,29 +146,31 @@ final class Routines: Sendable {
 
     /// The agent, with the prompt, in the routine's workspace: "Morning triage · Oct 29".
     @discardableResult
-    private func begin(_ r: Routine, due: Date, now: Date, workspaces: Workspaces) throws -> Routine.Run {
-        let w = try workspace(r, workspaces: workspaces)
-        let s = try SessionCreate(
-            worktreeId: w.id, agent: r.agent, model: r.model, prompt: r.prompt,
-            title: "\(r.name) · \(due.formatted(.dateTime.month(.abbreviated).day()))"
+    private func begin(_ routine: Routine, due: Date, now: Date, workspaces: Workspaces) throws -> Routine.Run {
+        let worktree = try workspace(routine, workspaces: workspaces)
+        let session = try SessionCreate(
+            worktreeId: worktree.id, agent: routine.agent, model: routine.model, prompt: routine.prompt,
+            title: "\(routine.name) · \(due.formatted(.dateTime.month(.abbreviated).day()))"
         ).handle(sessions)
-        let run = try store.save(Routine.Run(routineId: r.id, sessionId: s.id, due: due, started: now))
-        closeOld(r.id)
+        let run = try store.save(Routine.Run(routineId: routine.id, sessionId: session.id, due: due, started: now))
+        closeOld(routine.id)
         return run
     }
 
     /// Its own workspace in the project's folder, named after it: made at its first run, again if it was removed.
-    private func workspace(_ r: Routine, workspaces: Workspaces) throws -> Worktree {
-        if let id = r.worktreeId, let w = try store.worktree(id), !w.archived { return w }
-        guard let repo = try store.repo(r.repoId) else { throw RPCError.invalidParams("no project \(r.repoId)") }
+    private func workspace(_ routine: Routine, workspaces: Workspaces) throws -> Worktree {
+        if let id = routine.worktreeId, let worktree = try store.worktree(id), !worktree.archived { return worktree }
+        guard let repo = try store.repo(routine.repoId) else {
+            throw RPCError.invalidParams("no project \(routine.repoId)")
+        }
         let workspace = try workspaces.createWorkspace(in: repo)
-        let w = try store.update(Worktree.self, workspace.id) { $0.note = r.name } ?? workspace
-        try store.update(Routine.self, r.id) { $0.worktreeId = w.id }
-        return w
+        let worktree = try store.update(Worktree.self, workspace.id) { $0.note = routine.name } ?? workspace
+        try store.update(Routine.self, routine.id) { $0.worktreeId = worktree.id }
+        return worktree
     }
 
     static let neverStartedAfter: TimeInterval = 1800
-    private static func why(_ e: Error) -> String { (e as? RPCError)?.message ?? e.localizedDescription }
+    private static func why(_ error: Error) -> String { (error as? RPCError)?.message ?? error.localizedDescription }
 
     /// The runs past the last few close their tabs, unless their agent works or waits for an answer still, or its tab is open.
     private func closeOld(_ routine: String) {
@@ -176,9 +180,10 @@ final class Routines: Sendable {
             }
             let old = try runs.dropFirst(Self.keepRuns).compactMap { try $0.sessionId.flatMap(store.session) }
                 // Not one in an open tab: a hidden tab lets go of its terminal, so the layout says, not the attachment.
-                .filter { s in
-                    try ![.working, .waiting].contains(s.status) && sessions.existing(s.id)?.isAttached != true
-                        && !store.inALayout("session:" + s.id)
+                .filter { session in
+                    try ![.working, .waiting].contains(session.status)
+                        && sessions.existing(session.id)?.isAttached != true
+                        && !store.inALayout("session:" + session.id)
                 }
             if !old.isEmpty { sessions.discard(old) }
         }
@@ -186,31 +191,41 @@ final class Routines: Sendable {
 
     /// The run as its session is now; true when that changed it.
     private func follow(_ run: Routine.Run) throws -> Bool {
-        var r = run
+        var updated = run
         // The live one when it runs: its status is saved a moment later.
-        let s = try run.sessionId.flatMap { id in try sessions.existing(id)?.snapshot ?? store.session(id) }
-        switch s?.status {
+        let session = try run.sessionId.flatMap { id in try sessions.existing(id)?.snapshot ?? store.session(id) }
+        switch session?.status {
         // Its prompt behind a dialog nobody answers: left running, every later run would be skipped, and nothing would say so.
         case .idle? where Date().timeIntervalSince(run.started) > Self.neverStartedAfter:
-            (r.outcome, r.ended, r.summary) = (.failed, Date(), String(localized: "The agent didn't start on it"))
-        case .working?, .idle?: r.outcome = .running
-        case .waiting?: (r.outcome, r.summary) = (.asked, s?.summary ?? "")
-        case .done?: (r.outcome, r.ended, r.summary) = (.done, s?.statusAt ?? Date(), s.map(reply) ?? "")
-        case .error?: (r.outcome, r.ended, r.summary) = (.failed, s?.statusAt ?? Date(), s?.summary ?? "")
+            (updated.outcome, updated.ended, updated.summary) = (
+                .failed, Date(), String(localized: "The agent didn't start on it")
+            )
+        case .working?, .idle?: updated.outcome = .running
+        case .waiting?: (updated.outcome, updated.summary) = (.asked, session?.summary ?? "")
+        case .done?:
+            (updated.outcome, updated.ended, updated.summary) = (
+                .done, session?.statusAt ?? Date(), session.map(reply) ?? ""
+            )
+        case .error?:
+            (updated.outcome, updated.ended, updated.summary) = (
+                .failed, session?.statusAt ?? Date(), session?.summary ?? ""
+            )
         case .exited?, .paused?, nil:
-            (r.outcome, r.ended, r.summary) = (.failed, Date(), String(localized: "The agent ended before it finished"))
+            (updated.outcome, updated.ended, updated.summary) = (
+                .failed, Date(), String(localized: "The agent ended before it finished")
+            )
         }
-        guard r != run else { return false }
-        try store.save(r)
+        guard updated != run else { return false }
+        try store.save(updated)
         return true
     }
 
     /// The first line of the agent's last reply, else what its row says.
-    private func reply(_ s: Session) -> String {
-        let text = sessions.existing(s.id).flatMap(sessions.agentUsage.lastReply(of:))
+    private func reply(_ session: Session) -> String {
+        let text = sessions.existing(session.id).flatMap(sessions.agentUsage.lastReply(of:))
         let line = text?.split(whereSeparator: \.isNewline).first.map {
             $0.replacingOccurrences(of: "`", with: "").trimmingCharacters(in: .whitespaces)
         }
-        return String((line ?? s.summary).prefix(200))
+        return String((line ?? session.summary).prefix(200))
     }
 }

@@ -52,37 +52,38 @@ extension Forges {
         proc.standardInput = FileHandle.nullDevice
         // git rewrites its progress line with \r: pass the latest one on, at most a few times a second.
         let log = CloneLog(), eof = DispatchSemaphore(value: 0)
-        err.fileHandleForReading.readabilityHandler = { [weak self] h in
+        err.fileHandleForReading.readabilityHandler = { [weak self] handle in
             // Not `availableData`, which raises on a read error and would take the daemon down.
-            let d = (Log.store.attempt("reading git's progress") { try h.read(upToCount: 65536) } ?? nil) ?? Data()
+            let data =
+                (Log.store.attempt("reading git's progress") { try handle.read(upToCount: 65536) } ?? nil) ?? Data()
             // The end: the handler goes (it would be called again and again with nothing), and the failure can be read.
-            guard !d.isEmpty else {
-                h.readabilityHandler = nil
+            guard !data.isEmpty else {
+                handle.readabilityHandler = nil
                 eof.signal()
                 return
             }
-            guard let line = log.add(d) else { return }
+            guard let line = log.add(data) else { return }
             self?.notify(CloneEvent(id: id, line: line), to: [conn])
         }
         clones.set(id, proc)
-        let status: (Int32, Process.TerminationReason) = try await withCheckedThrowingContinuation { c in
-            proc.terminationHandler = { c.resume(returning: ($0.terminationStatus, $0.terminationReason)) }
+        let status: (Int32, Process.TerminationReason) = try await withCheckedThrowingContinuation { continuation in
+            proc.terminationHandler = { continuation.resume(returning: ($0.terminationStatus, $0.terminationReason)) }
             do { try proc.run() } catch {
                 proc.terminationHandler = nil
                 // Claimed above, nothing written: a retry finds the name free.
                 Log.store.attempt("removing an unstarted clone's folder") {
                     try FileManager.default.removeItem(atPath: dest)
                 }
-                c.resume(throwing: error)
+                continuation.resume(throwing: error)
             }
         }
         clones.set(id, nil)
         // git's last words ("fatal: …") can still be on their way when it has exited; a child holding the pipe can't
         // keep this waiting past 2 s.
-        await withCheckedContinuation { c in
+        await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
                 _ = eof.wait(timeout: .now() + 2)
-                c.resume()
+                continuation.resume()
             }
         }
         err.fileHandleForReading.readabilityHandler = nil
@@ -101,9 +102,9 @@ final class CloneLog: Sendable {
     private let state = OSAllocatedUnfairLock<(text: String, sent: Date)>(initialState: ("", .distantPast))
 
     /// The newest complete line, when it's time to show one.
-    func add(_ d: Data) -> String? {
+    func add(_ data: Data) -> String? {
         state.withLock { st in
-            st.text += String(bytes: d, encoding: .utf8) ?? ""   // git writes ASCII here
+            st.text += String(bytes: data, encoding: .utf8) ?? ""   // git writes ASCII here
             if st.text.count > 8000 { st.text = String(st.text.suffix(4000)) }
             guard Date().timeIntervalSince(st.sent) > 0.2 else { return nil }
             let lines = st.text.split(whereSeparator: { $0 == "\r" || $0 == "\n" })
@@ -117,12 +118,12 @@ final class CloneLog: Sendable {
     var failure: String? {
         let lines = state.withLock { $0 }.text.split(whereSeparator: \.isNewline).map(String.init)
         guard
-            let f = lines.last(where: { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") || $0.hasPrefix("ERROR:") })
+            let line = lines.last(where: { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") || $0.hasPrefix("ERROR:") })
                 ?? lines.last
         else { return nil }
-        var m = f.replacingOccurrences(of: #"^(fatal|error|ERROR): ?"#, with: "", options: .regularExpression)
-        m = m.prefix(1).uppercased() + m.dropFirst()
-        return m
+        var message = line.replacingOccurrences(of: #"^(fatal|error|ERROR): ?"#, with: "", options: .regularExpression)
+        message = message.prefix(1).uppercased() + message.dropFirst()
+        return message
     }
 }
 

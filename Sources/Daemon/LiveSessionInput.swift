@@ -83,28 +83,28 @@ extension LiveSession.State {
 extension LiveSession {
     /// Called on every tick. Reads the latest menu render; Enter only when the cursor sits on the wanted option.
     func steer() {
-        let key = state.withLock { s -> String? in
-            guard let st = s.steering else { return nil }
+        let key = state.withLock { state -> String? in
+            guard let st = state.steering else { return nil }
             if Date().timeIntervalSince(st.since) > 30 {
-                s.steering = nil
+                state.steering = nil
                 return nil
             }
             guard Date().timeIntervalSince(st.lastKey) > 0.7 else { return nil }
-            let screen = s.menuScreen()
+            let screen = state.menuScreen()
             // The dialog it was armed for has to be the one on screen, at every key: another menu is never pressed.
             if let must = st.screen,
-                must.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) == nil || s.typedYet
+                must.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) == nil || state.typedYet
             {
-                s.steering = nil
+                state.steering = nil
                 return nil
             }
             guard let option = AgentManifest.AutoAnswer.optionAtCursor(screen) else { return nil }
             if st.choose.firstMatch(in: option, range: NSRange(option.startIndex..., in: option)) != nil {
-                s.steering = nil
-                s.dialogSettled = true
+                state.steering = nil
+                state.dialogSettled = true
                 return "\r"
             }
-            s.steering?.lastKey = Date()
+            state.steering?.lastKey = Date()
             return "\u{1B}[B"   // menus wrap, so stepping down always reaches it
         }
         if let key { write(Data(key.utf8)) }   // after what's being typed: never between a send's text and its Enter
@@ -114,10 +114,10 @@ extension LiveSession {
     /// The cursor is walked to the option and Enter pressed only there (see `steer`). nil: no such menu on screen, or not
     /// the one `question` was about, so a banner left from before never answers what came after it.
     func choose(_ answer: String, to question: String? = nil) -> Session? {
-        state.withLock { s in
-            if let question, !s.asksOnly(question) { return nil }
-            let inTmux = s.record.tmux != nil,
-                screen = inTmux ? StartupQuestion.optionsOnLines(s.menuScreen()) : s.menuScreen()
+        state.withLock { state in
+            if let question, !state.asksOnly(question) { return nil }
+            let inTmux = state.record.tmux != nil,
+                screen = inTmux ? StartupQuestion.optionsOnLines(state.menuScreen()) : state.menuScreen()
             let pattern =
                 answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
             let lines = screen.split(whereSeparator: \.isNewline).map {
@@ -132,18 +132,18 @@ extension LiveSession {
             if inTmux, let number = option?.prefix(while: \.isNumber), !number.isEmpty {
                 write(Data(number.utf8))
             } else {
-                s.steering = (re, Date(), .distantPast, nil)
+                state.steering = (re, Date(), .distantPast, nil)
             }
-            s.detector.input()
-            s.record.unread = false
+            state.detector.input()
+            state.record.unread = false
             // A "No" ends the turn: the screen says so.
-            if s.saysItself {
-                s.interruptArmed = (Date(), "")
-                if s.answeredOne() { s.detector.override(.working, because: "an answer from a notification") }
+            if state.saysItself {
+                state.interruptArmed = (Date(), "")
+                if state.answeredOne() { state.detector.override(.working, because: "an answer from a notification") }
             } else {
-                s.detector.answered()
+                state.detector.answered()
             }
-            return s.sync() ?? s.record
+            return state.sync() ?? state.record
         }
     }
 
@@ -155,11 +155,11 @@ extension LiveSession {
     }
 
     func answeredThroughHook() -> Session {
-        state.withLock { s in
-            s.detector.input()
-            s.record.unread = false
-            s.detector.override(.working, because: "an answer from Kelp, through its hook")
-            return s.sync() ?? s.record
+        state.withLock { state in
+            state.detector.input()
+            state.record.unread = false
+            state.detector.override(.working, because: "an answer from Kelp, through its hook")
+            return state.sync() ?? state.record
         }
     }
 
@@ -169,10 +169,10 @@ extension LiveSession {
     }
 
     /// A task's text (a launch prompt): typed once the program is ready, as a paste, so a leading "!" or "/" is text.
-    func queuePrompt(_ p: String, draft: Bool = false) {
-        state.withLock { s in
-            s.pendingPrompts.append((p, draft, true))
-            s.sawFirstPrompt = true
+    func queuePrompt(_ prompt: String, draft: Bool = false) {
+        state.withLock { state in
+            state.pendingPrompts.append((prompt, draft, true))
+            state.sawFirstPrompt = true
         }
     }
 
@@ -181,17 +181,17 @@ extension LiveSession {
     /// send while the user has typed part of a line is refused: its Enter would send their line too, and queued it would
     /// wait on a line they may never finish. Text that isn't sent (a reference, a draft) goes in beside theirs.
     func submit(_ text: String, enter: Bool) throws {
-        try state.withLock { s in
-            if enter, !s.typing.isEmpty {
+        try state.withLock { state in
+            if enter, !state.typing.isEmpty {
                 throw RPCError.invalidParams(
                     "Not sent: the prompt has text you typed and haven't sent. Send it or clear it (⌃U), then try again."
                 )
             }
-            if s.startedUp, s.pendingPrompts.isEmpty, s.readyForText(submits: enter) {
-                type(text, enter: enter, paste: false, &s)
+            if state.startedUp, state.pendingPrompts.isEmpty, state.readyForText(submits: enter) {
+                type(text, enter: enter, paste: false, &state)
             } else {
-                s.pendingPrompts.append((text, !enter, false))
-                s.sawFirstPrompt = true
+                state.pendingPrompts.append((text, !enter, false))
+                state.sawFirstPrompt = true
             }
         }
     }
@@ -199,31 +199,31 @@ extension LiveSession {
     /// A child's news, typed when `takesReport` says so; nothing the agent does until then loses it. False: it no longer
     /// runs and what it owes has been taken, so this has to wait in the store.
     func report(_ text: String) -> Bool {
-        state.withLock { s in
-            guard !s.final, !s.letGo else { return false }
-            s.reports.append(text)
+        state.withLock { state in
+            guard !state.final, !state.letGo else { return false }
+            state.reports.append(text)
             return true
         }
     }
 
     /// What it was given and hasn't typed, which it no longer holds.
     func takeOwed() -> [OwedInput] {
-        state.withLock { s in
-            let id = s.record.id
+        state.withLock { state in
+            let id = state.record.id
             defer {
-                s.pendingPrompts.removeAll()
-                s.reports.removeAll()
+                state.pendingPrompts.removeAll()
+                state.reports.removeAll()
             }
-            return s.pendingPrompts.map { OwedInput(session: id, text: $0.text, draft: $0.draft, paste: $0.paste) }
-                + s.reports.map { OwedInput(session: id, text: $0, report: true) }
+            return state.pendingPrompts.map { OwedInput(session: id, text: $0.text, draft: $0.draft, paste: $0.paste) }
+                + state.reports.map { OwedInput(session: id, text: $0, report: true) }
         }
     }
 
     /// What was kept while it didn't run, typed once it's ready as if it had just come.
     func giveBack(_ owed: [OwedInput]) {
-        state.withLock { s in
-            s.pendingPrompts += owed.filter { !$0.report }.map { ($0.text, $0.draft, $0.paste) }
-            s.reports += owed.filter(\.report).map(\.text)
+        state.withLock { state in
+            state.pendingPrompts += owed.filter { !$0.report }.map { ($0.text, $0.draft, $0.paste) }
+            state.reports += owed.filter(\.report).map(\.text)
         }
     }
 
@@ -231,18 +231,18 @@ extension LiveSession {
     /// submit each line. Called inside `state.withLock`: the write is queued under it, so the order of these calls is the
     /// order typed. `paste`: as a paste even on one line (when the program takes pastes), so a leading "!" or "/" (an
     /// issue title) is text, not a mode or command. Without it one line is typed, so `kelp send <id> /compact` still runs it.
-    func type(_ text: String, enter: Bool, paste: Bool, _ s: inout State) {
-        s.detector.input()
-        s.typedYet = true
-        s.inputs += 1
+    func type(_ text: String, enter: Bool, paste: Bool, _ locked: inout State) {
+        locked.detector.input()
+        locked.typedYet = true
+        locked.inputs += 1
         if enter {
-            s.boxEmpty = true
-            s.expectHook()
-            s.lastSent = text   // what the turn it starts is named after
+            locked.boxEmpty = true
+            locked.expectHook()
+            locked.lastSent = text   // what the turn it starts is named after
         } else {
-            s.draftWaiting = true
+            locked.draftWaiting = true
         }   // a draft is left for the user to read and send
-        let takesPastes = s.pasteMode
+        let takesPastes = locked.pasteMode
         var text = Self.typeable(text)
         // Not to be sent (a draft: an issue's text, say) to a program that takes no pastes: each newline would submit a
         // line of it. One line instead, so nothing goes before the user presses Return.
@@ -256,9 +256,9 @@ extension LiveSession {
             pty.write(Data(body.utf8))
             guard enter else { return }
             Thread.sleep(forTimeInterval: 0.3)
-            let safe = state.withLock { s in
-                if s.takesEnter(after: typed) { return true }
-                s.enterHeld()
+            let safe = state.withLock { state in
+                if state.takesEnter(after: typed) { return true }
+                state.enterHeld()
                 return false
             }
             if safe { pty.write(Data("\r".utf8)) }
@@ -267,11 +267,12 @@ extension LiveSession {
 
     /// Text from elsewhere (an issue, a recipe, a review comment) as plain text: no escape sequences and no control keys but
     /// newlines and tabs. An issue body with ESC[201~ would end the paste, then Return, Shift-Tab or "!cmd" would act as keys.
-    static func typeable(_ s: String) -> String {
+    static func typeable(_ text: String) -> String {
         String(
             String.UnicodeScalarView(
-                s.replacingOccurrences(of: "\r\n", with: "\n").unicodeScalars.filter { c in
-                    c == "\n" || c == "\t" || !(c.value < 0x20 || c.value == 0x7F || (0x80...0x9F).contains(c.value))
+                text.replacingOccurrences(of: "\r\n", with: "\n").unicodeScalars.filter { scalar in
+                    scalar == "\n" || scalar == "\t"
+                        || !(scalar.value < 0x20 || scalar.value == 0x7F || (0x80...0x9F).contains(scalar.value))
                 }))
     }
 }

@@ -8,47 +8,49 @@ extension VMService {
     /// by itself on its first boot: an account with a random password (in the Keychain, "vm.<name>"), signed in, Remote
     /// Login on. Then, over SSH with that password once: Kelp's key, sudo without a password, and a screen that never sleeps.
     /// `given`: the user's own restore image, installed as it is and left where it is.
-    func makeMac(_ m: VMMachine, ipsw given: URL? = nil) async {
-        await making(m) {
+    func makeMac(_ machine: VMMachine, ipsw given: URL? = nil) async {
+        await making(machine) {
             var ipsw = given ?? images, version = given?.deletingPathExtension().lastPathComponent ?? ""
             if given == nil {
-                step(m, .asking)
+                step(machine, .asking)
                 let latest = try await blocking { try run([helper, "--latest"], limit: 120) }
                 struct Latest: Decodable { var url: String, build: String, version: String }
-                let l = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
+                let release = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
                 try Paths.ensure(images)
-                ipsw = images.appendingPathComponent("macos-\(l.build).ipsw")
-                version = "macOS \(l.version)"
+                ipsw = images.appendingPathComponent("macos-\(release.build).ipsw")
+                version = "macOS \(release.version)"
                 if !FileManager.default.fileExists(atPath: ipsw.path) {
                     let title = version
-                    try await download(l.url, to: ipsw) { step(m, .downloading, title, progress: $0) }
+                    try await download(release.url, to: ipsw) { step(machine, .downloading, title, progress: $0) }
                 }
             }
-            try await blocking { try makeMacFolder(m) }
-            step(m, .installing, version)
+            try await blocking { try makeMacFolder(machine) }
+            step(machine, .installing, version)
             let image = ipsw
-            try await blocking { _ = try run([helper, "--install", folder(m.name).path, image.path], limit: 3600) }
-            if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
-            step(m, .firstBoot)
             try await blocking {
-                try startHelper(m)
-                try check(ask(m.name, .init(op: .start), wait: 1800))
+                _ = try run([helper, "--install", folder(machine.name).path, image.path], limit: 3600)
             }
-            step(m, .lettingIn)
+            if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
+            step(machine, .firstBoot)
             try await blocking {
-                try letKelpIn(m)
-                try installGuest(m)
+                try startHelper(machine)
+                try check(ask(machine.name, .init(op: .start), wait: 1800))
+            }
+            step(machine, .lettingIn)
+            try await blocking {
+                try letKelpIn(machine)
+                try installGuest(machine)
             }
         }
     }
 
     /// A macOS machine's screen, read or driven from the Mac's side by its kelp-vm (`VMScreen`), waking it first.
     func screen(_ name: String, _ args: [String], session: String?) throws {
-        let m = try ready(name)
-        guard m.os == "macos" else {
+        let machine = try ready(name)
+        guard machine.os == "macos" else {
             throw RPCError.invalidParams("\(name) isn't a macOS machine: its screen goes through adb or the simulator.")
         }
-        try wake(m)
+        try wake(machine)
         try check(ask(name, .init(op: .screen, args: args, session: session), wait: 110))
     }
 
@@ -61,12 +63,12 @@ extension VMService {
         try screen(name, ["type", text], session: session)   // nil: the user's (Type Password), no turn to wait for
     }
 
-    private func makeMacFolder(_ m: VMMachine) throws {
+    private func makeMacFolder(_ machine: VMMachine) throws {
         let password = (0..<24).map { _ in
             "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement().map(String.init) ?? "x"
         }.joined()
-        try Keychain.set(password, account: "vm." + m.name)
-        let pw = file(m.name, "password")
+        try Keychain.set(password, account: "vm." + machine.name)
+        let pw = file(machine.name, "password")
         guard
             FileManager.default.createFile(
                 atPath: pw.path, contents: Data(password.utf8), attributes: [.posixPermissions: 0o600])
@@ -74,18 +76,18 @@ extension VMService {
             throw RPCError.internalError("can't write \(pw.path)")
         }
         try run([
-            "/usr/bin/ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "kelp-vm-" + m.name, "-f",
-            file(m.name, "id_ed25519").path
+            "/usr/bin/ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "kelp-vm-" + machine.name, "-f",
+            file(machine.name, "id_ed25519").path
         ])
-        try VMs.sshConfig(m, folder: folder(m.name)).write(
-            to: file(m.name, "ssh_config"), atomically: true, encoding: .utf8)
+        try VMs.sshConfig(machine, folder: folder(machine.name)).write(
+            to: file(machine.name, "ssh_config"), atomically: true, encoding: .utf8)
     }
 
     /// Over SSH with the password once (ssh's SSH_ASKPASS reads the file): Kelp's key, then sudo without a password, a
     /// display and a Mac that never sleep (an agent's screenshot of a black screen says nothing). The file goes then.
-    private func letKelpIn(_ m: VMMachine) throws {
-        let askpass = file(m.name, "askpass")
-        try "#!/bin/sh\ncat \(VMs.shellQuoted(file(m.name, "password").path))\n".write(
+    private func letKelpIn(_ machine: VMMachine) throws {
+        let askpass = file(machine.name, "askpass")
+        try "#!/bin/sh\ncat \(VMs.shellQuoted(file(machine.name, "password").path))\n".write(
             to: askpass, atomically: true, encoding: .utf8)
         chmod(askpass.path, 0o700)
         defer { remove(askpass) }
@@ -93,24 +95,24 @@ extension VMService {
         env["SSH_ASKPASS"] = askpass.path
         env["SSH_ASKPASS_REQUIRE"] = "force"
         let ssh = [
-            "/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", "-o", "PubkeyAuthentication=no", "-o",
-            "NumberOfPasswordPrompts=1", m.name
+            "/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", "-o", "PubkeyAuthentication=no", "-o",
+            "NumberOfPasswordPrompts=1", machine.name
         ]
-        let key = try String(contentsOf: file(m.name, "id_ed25519.pub"), encoding: .utf8)
+        let key = try String(contentsOf: file(machine.name, "id_ed25519.pub"), encoding: .utf8)
         let line =
             "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
         let keyed = try Subprocess.run(ssh + [line], cwd: "/", env: env, stdin: Data(key.utf8), timeLimit: 60)
         guard keyed.status == 0 else {
             throw RPCError.internalError("ssh with the password: " + String(decoding: keyed.stderr, as: UTF8.self))
         }
-        let password = try String(contentsOf: file(m.name, "password"), encoding: .utf8)
-        let rule = "\(m.user) ALL=(ALL) NOPASSWD: ALL"
+        let password = try String(contentsOf: file(machine.name, "password"), encoding: .utf8)
+        let rule = "\(machine.user) ALL=(ALL) NOPASSWD: ALL"
         let root =
             "echo \(VMs.shellQuoted(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
             + " && systemsetup -settimezone \(VMs.shellQuoted(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
         let sudo = try Subprocess.run(
             [
-                "/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name,
+                "/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name,
                 "sudo -S -p '' sh -c \(VMs.shellQuoted(root))"
             ],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
@@ -123,19 +125,19 @@ extension VMService {
             "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
             + " && { \(VMs.filesSetup(os: "macos")); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
         let unlocked = try Subprocess.run(
-            ["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name, unlock],
+            ["/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name, unlock],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
         guard unlocked.status == 0 else {
             throw RPCError.internalError("screen lock: " + String(decoding: unlocked.stderr, as: UTF8.self))
         }
-        remove(file(m.name, "password"))
+        remove(file(machine.name, "password"))
     }
 
     /// Kelp Guest, as an app in the machine's ~/Applications, started at login (a LaunchAgent in its GUI session): its
     /// apps' controls by name (`kelp vm ui`), with Accessibility, asked for the first time that runs. The screen needs it not.
-    private func installGuest(_ m: VMMachine) throws {
+    private func installGuest(_ machine: VMMachine) throws {
         let bin = URL(fileURLWithPath: helper).deletingLastPathComponent().appendingPathComponent("KelpGuest")
-        let work = file(m.name, ".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")
+        let work = file(machine.name, ".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")
         remove(work)
         defer { remove(work) }
         try Paths.ensure(app.appendingPathComponent("MacOS"))
@@ -156,14 +158,14 @@ extension VMService {
         guard tar.status == 0 else {
             throw RPCError.internalError("tar: " + String(decoding: tar.stderr, as: UTF8.self))
         }
-        let home = "/Users/\(m.user)"
+        let home = "/Users/\(machine.user)"
         let agent: [String: Any] = [
             "Label": "dev.kelp.guest",
             "ProgramArguments": ["\(home)/Applications/KelpGuest.app/Contents/MacOS/KelpGuest"],
             "RunAtLoad": true, "KeepAlive": true, "LimitLoadToSessionType": "Aqua", "ProcessType": "Interactive"
         ]
         let plist = try PropertyListSerialization.data(fromPropertyList: agent, format: .xml, options: 0)
-        let ssh = ["/usr/bin/ssh", "-F", file(m.name, "ssh_config").path, "-T", m.name]
+        let ssh = ["/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name]
         let env = ProcessInfo.processInfo.environment
         let unpack =
             "rm -rf ~/Applications/KelpGuest.app && mkdir -p ~/Applications ~/Library/LaunchAgents && tar -C ~/Applications -xf - && sync"
@@ -184,7 +186,8 @@ extension VMService {
         for _ in 0..<24 {
             let started = try Subprocess.run(ssh + [load], cwd: "/", env: env, timeLimit: 60)
             if started.status == 0 { return }
-            Log.vm.info("\(m.name): Kelp Guest not loaded yet: \(String(decoding: started.stderr, as: UTF8.self))")
+            Log.vm.info(
+                "\(machine.name): Kelp Guest not loaded yet: \(String(decoding: started.stderr, as: UTF8.self))")
             Thread.sleep(forTimeInterval: 5)
         }
     }

@@ -36,8 +36,8 @@ final class SettingsStore: Sendable {
             for _ in 0..<3 {
                 let seen = modified()
                 var values = self.values
-                if let d = try? Data(contentsOf: url) {
-                    guard case .object(let onDisk)? = try? JSONDecoder().decode(JSONValue.self, from: d) else {
+                if let data = try? Data(contentsOf: url) {
+                    guard case .object(let onDisk)? = try? JSONDecoder().decode(JSONValue.self, from: data) else {
                         throw RPCError.invalidParams(
                             "settings.json has an error, so the change wasn't saved. Fix the file (or remove it) and try again."
                         )
@@ -58,29 +58,29 @@ final class SettingsStore: Sendable {
     func reloadIfChanged() -> Bool {
         file.lock()
         defer { file.unlock() }
-        let m = modified()
-        guard m != state.withLock({ $0.mtime }) else { return false }
-        let read = Self.read(url), o = read?.values
-        if let read, o != state.withLock({ $0.values }) { remember(read.data) }
+        let mtime = modified()
+        guard mtime != state.withLock({ $0.mtime }) else { return false }
+        let read = Self.read(url), onDisk = read?.values
+        if let read, onDisk != state.withLock({ $0.values }) { remember(read.data) }
         // Nothing read yet, so nothing to stay: the start of a daemon with a broken file.
-        let kept = o == nil && state.withLock({ $0.values.isEmpty }) ? Self.read(lastGood)?.values : nil
+        let kept = onDisk == nil && state.withLock({ $0.values.isEmpty }) ? Self.read(lastGood)?.values : nil
         if kept != nil { Log.store.fault("settings.json doesn't parse: running on the last settings that did") }
         state.withLock { st in
-            st.mtime = m
-            if let v = o ?? kept { st.values = v }
+            st.mtime = mtime
+            if let loaded = onDisk ?? kept { st.values = loaded }
         }
-        return o != nil
+        return onDisk != nil
     }
 
-    private static func read(_ u: URL) -> (data: Data, values: [String: JSONValue])? {
-        guard let d = try? Data(contentsOf: u),
-            case .object(let o)? = try? JSONDecoder().decode(JSONValue.self, from: d)
+    private static func read(_ file: URL) -> (data: Data, values: [String: JSONValue])? {
+        guard let data = try? Data(contentsOf: file),
+            case .object(let values)? = try? JSONDecoder().decode(JSONValue.self, from: data)
         else { return nil }
-        return (d, o)
+        return (data, values)
     }
 
-    private func remember(_ d: Data) {
-        Log.store.attempt("keeping the last good settings") { try d.write(to: lastGood, options: .atomic) }
+    private func remember(_ data: Data) {
+        Log.store.attempt("keeping the last good settings") { try data.write(to: lastGood, options: .atomic) }
     }
 
     /// The date of the file a symlink points at: the link's own never changes on an edit.
@@ -91,14 +91,14 @@ final class SettingsStore: Sendable {
 
     /// Under `file`; the values change only once they're on disk.
     private func write(_ values: [String: JSONValue]) throws {
-        let e = JSONEncoder()
-        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // To where a symlink points (settings.json kept in a dotfiles repo): an atomic write would replace the link itself.
-        let data = try e.encode(JSONValue.object(values)) + Data("\n".utf8)
+        let data = try encoder.encode(JSONValue.object(values)) + Data("\n".utf8)
         try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
         remember(data)
-        let m = modified()   // our own write isn't a hand edit
-        state.withLock { $0 = (values, m) }
+        let mtime = modified()   // our own write isn't a hand edit
+        state.withLock { $0 = (values, mtime) }
     }
 }
 
@@ -141,16 +141,16 @@ final class SettingsEvents: Sendable {
             changed()
         }
         if fw == nil { Log.store.error("settings.json isn't watched: hand edits are read when the daemon restarts") }
-        let old = watcher.withLock { w in
-            defer { w = fw }
-            return w
+        let old = watcher.withLock { current in
+            defer { current = fw }
+            return current
         }
         _ = old   // stopped here, off the lock (its deinit waits on its own queue)
     }
     func stopWatching() {
-        let old = watcher.withLock { w in
-            defer { w = nil }
-            return w
+        let old = watcher.withLock { current in
+            defer { current = nil }
+            return current
         }
         _ = old
     }

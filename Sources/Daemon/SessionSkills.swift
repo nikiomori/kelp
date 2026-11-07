@@ -63,18 +63,18 @@ extension Sessions {
     /// The argv without this home's skill folders and Kelp's sentence, for choosing them again.
     static func withoutSkills(_ argv: [String], root: URL, flag: String, contextFlag: String?) -> [String] {
         let dir = root.appendingPathComponent("agent-skills").path
-        var out: [String] = [], i = 0
-        while i < argv.count {
-            let next = i + 1 < argv.count ? argv[i + 1] : nil
+        var out: [String] = [], index = 0
+        while index < argv.count {
+            let next = index + 1 < argv.count ? argv[index + 1] : nil
             if let next,
-                (argv[i] == flag && (next == dir || next.hasPrefix(dir + "/")))
-                    || (argv[i] == contextFlag && next.hasPrefix(kelpIntro))
+                (argv[index] == flag && (next == dir || next.hasPrefix(dir + "/")))
+                    || (argv[index] == contextFlag && next.hasPrefix(kelpIntro))
             {
-                i += 2
+                index += 2
                 continue
             }
-            out.append(argv[i])
-            i += 1
+            out.append(argv[index])
+            index += 1
         }
         return out
     }
@@ -85,7 +85,7 @@ extension Sessions {
     func browserSkill(worktreeId: String?, cwd: String) -> BrowserSkill {
         let repo = worktreeId.flatMap { id in Log.store.attempt("the workspace \(id)") { try store.worktree(id) } ?? nil
         }?.repoId
-        let choice = repo.flatMap { r in state(BrowserSkill.choiceKey(r))?.string }.flatMap {
+        let choice = repo.flatMap { repoId in state(BrowserSkill.choiceKey(repoId))?.string }.flatMap {
             ["on", "off"].contains($0) ? $0 : nil
         }
         if let choice {
@@ -105,9 +105,9 @@ extension Sessions {
     }
 
     /// "auto", "on" or "off"; the switch it used to be counts as on / off.
-    static func browserSetting(_ v: JSONValue?) -> String {
-        if case .bool(let b)? = v { return b ? "on" : "off" }
-        return v?.string ?? "auto"
+    static func browserSetting(_ value: JSONValue?) -> String {
+        if case .bool(let on)? = value { return on ? "on" : "off" }
+        return value?.string ?? "auto"
     }
 
     private func state(_ key: String) -> JSONValue? {
@@ -117,20 +117,20 @@ extension Sessions {
     /// A tab on a page this Mac serves (a dev server), in any of the project's workspaces.
     private func localPageOpen(repo: String) -> Bool {
         let worktrees = Log.store.attempt("the workspaces of \(repo)") { try store.worktrees(repo: repo) } ?? []
-        return worktrees.contains { w in
-            state("layout/\(w.id)").map { Self.strings($0).contains(where: Self.isLocalPage) } ?? false
+        return worktrees.contains { worktree in
+            state("layout/\(worktree.id)").map { Self.strings($0).contains(where: Self.isLocalPage) } ?? false
         }
     }
 
-    static func isLocalPage(_ s: String) -> Bool {
-        s.wholeMatch(of: /https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[^\/:]+\.local)([:\/].*)?/) != nil
+    static func isLocalPage(_ url: String) -> Bool {
+        url.wholeMatch(of: /https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[^\/:]+\.local)([:\/].*)?/) != nil
     }
 
-    static func strings(_ v: JSONValue) -> [String] {
-        switch v {
-        case .string(let s): [s]
-        case .array(let a): a.flatMap(strings)
-        case .object(let o): o.values.flatMap(strings)
+    static func strings(_ value: JSONValue) -> [String] {
+        switch value {
+        case .string(let text): [text]
+        case .array(let items): items.flatMap(strings)
+        case .object(let fields): fields.values.flatMap(strings)
         default: []
         }
     }
@@ -144,12 +144,14 @@ enum WebApp {
             !["node_modules", "vendor", "venv", "dist", "build", "target", "out"].contains($0.lastPathComponent)
         }
         .sorted { $0.path < $1.path }
-        for d in [dir] + subs {
-            if let why = node(d) ?? python(d) { return d == dir ? why : why + " (\(d.lastPathComponent))" }
+        for folder in [dir] + subs {
+            if let why = node(folder) ?? python(folder) {
+                return folder == dir ? why : why + " (\(folder.lastPathComponent))"
+            }
         }
         if fm.fileExists(atPath: dir.appendingPathComponent("index.html").path) { return "index.html" }
         for name in ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"] {
-            if let t = text(dir, name), t.contains(/(?m)^\s+ports:/) { return "ports in \(name)" }
+            if let contents = text(dir, name), contents.contains(/(?m)^\s+ports:/) { return "ports in \(name)" }
         }
         return nil
     }
@@ -162,18 +164,18 @@ enum WebApp {
         ("webpack-dev-server", "webpack"), ("parcel", "Parcel"), ("express", "Express"), ("fastify", "Fastify")
     ]
 
-    static func node(_ d: URL) -> String? {
-        guard let t = text(d, "package.json"),
-            let o = (try? JSONSerialization.jsonObject(with: Data(t.utf8))) as? [String: Any]
+    static func node(_ folder: URL) -> String? {
+        guard let contents = text(folder, "package.json"),
+            let manifest = (try? JSONSerialization.jsonObject(with: Data(contents.utf8))) as? [String: Any]
         else { return nil }
-        let scripts = o["scripts"] as? [String: Any] ?? [:]
+        let scripts = manifest["scripts"] as? [String: Any] ?? [:]
         guard !Set(scripts.keys).isDisjoint(with: ["dev", "start", "serve", "preview"]) else { return nil }
-        let deps = Set(["dependencies", "devDependencies"].flatMap { (o[$0] as? [String: Any] ?? [:]).keys })
+        let deps = Set(["dependencies", "devDependencies"].flatMap { (manifest[$0] as? [String: Any] ?? [:]).keys })
         return frameworks.first { deps.contains($0.0) }.map { "\($0.1) in package.json" }
     }
 
-    static func python(_ d: URL) -> String? {
-        if FileManager.default.fileExists(atPath: d.appendingPathComponent("manage.py").path) {
+    static func python(_ folder: URL) -> String? {
+        if FileManager.default.fileExists(atPath: folder.appendingPathComponent("manage.py").path) {
             return "Django (manage.py)"
         }
         let names = [
@@ -181,9 +183,9 @@ enum WebApp {
             ("streamlit", "Streamlit")
         ]
         for file in ["requirements.txt", "pyproject.toml"] {
-            guard let t = text(d, file)?.lowercased() else { continue }
-            let lines = t.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
-            if let hit = names.first(where: { p in lines.contains { Self.names(p.0, $0) } }) {
+            guard let contents = text(folder, file)?.lowercased() else { continue }
+            let lines = contents.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+            if let hit = names.first(where: { known in lines.contains { Self.names(known.0, $0) } }) {
                 return "\(hit.1) in \(file)"
             }
         }
@@ -199,8 +201,8 @@ enum WebApp {
     }
 
     /// A small text file, or nil (a big one isn't a manifest).
-    static func text(_ d: URL, _ name: String) -> String? {
-        guard let data = FileManager.default.contents(atPath: d.appendingPathComponent(name).path),
+    static func text(_ folder: URL, _ name: String) -> String? {
+        guard let data = FileManager.default.contents(atPath: folder.appendingPathComponent(name).path),
             data.count < 1_000_000
         else { return nil }
         return String(data: data, encoding: .utf8)

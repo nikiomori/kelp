@@ -40,17 +40,17 @@ extension SessionWrite: SessionInput {
     static var inOrder: Bool { true }   // keystrokes
     var actsOn: String? { id }
     var typesInto: String? { id }
-    func apply(to s: LiveSession) throws -> Done {
+    func apply(to session: LiveSession) throws -> Done {
         let data: Data
-        if let base64, let b = Data(base64Encoded: base64) {
-            data = b
+        if let base64, let decoded = Data(base64Encoded: base64) {
+            data = decoded
         } else if let text {
             data = Data(text.utf8)
         } else {
             throw RPCError.invalidParams("missing text")
         }
         // Keystrokes count as the user's typing; text goes to the program as it is.
-        if base64 != nil { s.userInput(data) } else { s.write(data) }
+        if base64 != nil { session.userInput(data) } else { session.write(data) }
         return Done()
     }
 }
@@ -62,11 +62,11 @@ extension SessionSend: SessionInput {
     /// An agent's send to a session that asks something (a hookless agent's "(y/n)" read off its screen included) is
     /// refused, not queued: `submit` holds text only for a question an agent said, and its Enter would answer this one.
     var typesInto: String? { id }
-    func apply(to s: LiveSession) throws -> Done {
+    func apply(to session: LiveSession) throws -> Done {
         // Still starting (woken just now, by this send or anyone else), a question open, an unread draft in the box, or
         // text still waiting ahead: queued, and typed once the program is ready for it (`LiveSession.submit`). A paused
         // one wakes on its lane, not on the reader thread (`SessionInput`).
-        try s.submit(text, enter: enter != false)
+        try session.submit(text, enter: enter != false)
         return Done()
     }
 }
@@ -75,8 +75,8 @@ extension SessionSend: SessionInput {
 extension SessionResize: Handled {
     static var inOrder: Bool { true }
     func handle(_ sessions: Sessions) throws -> Done {
-        let (c, r) = Sessions.Launch.size(cols: cols, rows: rows)
-        sessions.existing(id)?.resize(cols: c, rows: r)
+        let (width, height) = Sessions.Launch.size(cols: cols, rows: rows)
+        sessions.existing(id)?.resize(cols: width, rows: height)
         return Done()
     }
 }
@@ -133,8 +133,8 @@ extension Sessions {
     /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.
     func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
         let token = UUID()
-        return await withCheckedContinuation { c in
-            permissionWaits.withLock { w in w.updateValue((token, c), forKey: id) }?.1.resume(returning: nil)
+        return await withCheckedContinuation { continuation in
+            permissionWaits.withLock { w in w.updateValue((token, continuation), forKey: id) }?.1.resume(returning: nil)
             DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
                 self?.answerPermission(id, nil, only: token)
             }
@@ -144,10 +144,10 @@ extension Sessions {
     /// Hands `answer` to the hook waiting for `id`'s question (nil: none, it went on otherwise); whether one was waiting.
     @discardableResult
     func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil) -> Bool {
-        let waiting = permissionWaits.withLock { w -> CheckedContinuation<String?, Never>? in
-            guard let (t, c) = w[id], token == nil || t == token else { return nil }
-            w[id] = nil
-            return c
+        let waiting = permissionWaits.withLock { waits -> CheckedContinuation<String?, Never>? in
+            guard let (waitToken, continuation) = waits[id], token == nil || waitToken == token else { return nil }
+            waits[id] = nil
+            return continuation
         }
         waiting?.resume(returning: answer)
         return waiting != nil
@@ -186,19 +186,21 @@ extension PortsStop: Handled {
 
 extension PortsForward: Handled {
     func handle(_ sessions: Sessions) throws -> Forwarded {
-        guard let (w, remote) = sessions.remote(worktreeId) else {
+        guard let (worktree, remote) = sessions.remote(worktreeId) else {
             throw RPCError.invalidParams("Only a remote project's ports are forwarded.")
         }
-        let f = sessions.forwards
-        let goal = try target.map(Forwards.target) ?? port.map { f.target(port: $0, in: w.id) }
+        let forwards = sessions.forwards
+        let goal = try target.map(Forwards.target) ?? port.map { forwards.target(port: $0, in: worktree.id) }
         guard let goal else { throw RPCError.invalidParams("missing port") }
-        return Forwarded(port: try f.forward(goal, in: w.id, remote, manual: target != nil))
+        return Forwarded(port: try forwards.forward(goal, in: worktree.id, remote, manual: target != nil))
     }
 }
 
 extension PortsUnforward: Handled {
     func handle(_ sessions: Sessions) throws -> Done {
-        if let (w, remote) = sessions.remote(worktreeId) { sessions.forwards.drop(port: port, in: w.id, remote) }
+        if let (worktree, remote) = sessions.remote(worktreeId) {
+            sessions.forwards.drop(port: port, in: worktree.id, remote)
+        }
         return Done()
     }
 }
@@ -272,8 +274,8 @@ extension SessionContinueAt: Handled {
 extension SessionTurnUndo: Handled {
     var actsOn: String? { id }   // an agent undoes only its own turns and its children's
     func handle(_ workspaces: Workspaces) throws -> Result {
-        let (t, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes
-        let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
+        let (mark, dir) = try workspaces.turnPlace(session: id, turn: turn), remotes = workspaces.remotes
+        let plan = try Git.changed(since: mark.tree, cwd: dir, remotes: remotes)
         guard apply == true else { return Plan(files: plan.files, state: plan.now) }
         let before = state ?? ""
         guard plan.now == before else {
@@ -282,32 +284,34 @@ extension SessionTurnUndo: Handled {
         // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
         try Git.run(
             ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir,
-            remotes: r)
-        do { try Git.restore(plan.files, from: t.tree, now: before, cwd: dir, remotes: r) } catch {
+            remotes: remotes)
+        do { try Git.restore(plan.files, from: mark.tree, now: before, cwd: dir, remotes: remotes) } catch {
             // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
             let back: Void? = Log.session.attempt("putting a stopped undo back") {
-                let p = try Git.changed(since: before, cwd: dir, remotes: r)
-                try Git.restore(p.files.filter(plan.files.contains), from: before, now: p.now, cwd: dir, remotes: r)
+                let changed = try Git.changed(since: before, cwd: dir, remotes: remotes)
+                try Git.restore(
+                    changed.files.filter(plan.files.contains), from: before, now: changed.now, cwd: dir,
+                    remotes: remotes)
             }
             let why = (error as? GitError)?.stderr ?? "\(error)"
             let now = back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."
             throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + now)
         }
-        return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: r))
+        return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: remotes))
     }
 }
 
 extension SessionTurnRedo: Handled {
     var actsOn: String? { id }
     func handle(_ workspaces: Workspaces) throws -> Done {
-        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes,
+        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), remotes = workspaces.remotes,
             ref = Workspaces.undoneRef(id)
-        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: r)
+        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
-        let plan = try Git.changed(since: before, cwd: dir, remotes: r)
-        try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: r)
-        try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: r)
+        let plan = try Git.changed(since: before, cwd: dir, remotes: remotes)
+        try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: remotes)
+        try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: remotes)
         return Done()
     }
 }
@@ -321,32 +325,35 @@ extension Workspaces {
     func turnPlace(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
         guard try store.session(id) != nil else { throw RPCError.invalidParams("No such agent.") }
         let status = sessions.existing(id)?.snapshot.status   // nil: paused, so not in a turn
-        guard let t = try store.turns(session: id).first(where: { $0.id == turn }) else {
+        guard let mark = try store.turns(session: id).first(where: { $0.id == turn }) else {
             throw RPCError.invalidParams("No such turn.")
         }
-        let r = remotes, dir = try Git.root(of: t.folder, remotes: r)   // paths count from the top, whatever folder it was in
+        let remotes = remotes, dir = try Git.root(of: mark.folder, remotes: remotes)   // paths count from the top, whatever folder it was in
         guard status != .working, status != .waiting else {
             throw RPCError.invalidParams("The agent is still in its turn: stop it first.")
         }
-        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: r)
+        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (head.isEmpty ? nil : head) == t.head else {
+        guard (head.isEmpty ? nil : head) == mark.head else {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
         let top = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
-        let others = sessions.live.all.filter { o in   // anywhere in the checkout, by any path to it
-            let s = o.snapshot, at = URL(fileURLWithPath: o.turnDir ?? s.cwd).resolvingSymlinksInPath().path
-            return s.id != id && s.status != .exited && s.isAgent && (at == top || at.hasPrefix(top + "/"))
+        let others = sessions.live.all.filter { other in   // anywhere in the checkout, by any path to it
+            let snapshot = other.snapshot,
+                at = URL(fileURLWithPath: other.turnDir ?? snapshot.cwd).resolvingSymlinksInPath().path
+            return snapshot.id != id && snapshot.status != .exited && snapshot.isAgent
+                && (at == top || at.hasPrefix(top + "/"))
         }
         guard others.isEmpty else {
             throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.")
         }
         guard
-            try !Git.run(["rev-parse", "--verify", "-q", t.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: r).isEmpty
+            try !Git.run(["rev-parse", "--verify", "-q", mark.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: remotes)
+                .isEmpty
         else {
             throw RPCError.invalidParams("That turn's snapshot is gone: git cleaned it up.")
         }
-        return (t, dir)
+        return (mark, dir)
     }
 }
 
@@ -355,14 +362,14 @@ extension Sessions {
     /// the turns that drop off the list let theirs go.
     /// Its session deleted while the snapshot was taken: no turn, and no ref. Deleted between the two, the delete's own
     /// `dropTurnRefs` may have run before the ref was made: it's dropped here.
-    func keepTurn(_ t: SessionTurns.Mark) {
+    func keepTurn(_ mark: SessionTurns.Mark) {
         Log.store.attempt("keeping a turn") {
-            guard let dropped = try store.addTurn(t), remotes.of(t.folder) == nil else { return }   // no snapshots on a host
-            let ref = "refs/kelp/turns/" + t.id
-            try Git.run(["update-ref", ref, t.tree], cwd: t.folder, remotes: remotes)
+            guard let dropped = try store.addTurn(mark), remotes.of(mark.folder) == nil else { return }   // no snapshots on a host
+            let ref = "refs/kelp/turns/" + mark.id
+            try Git.run(["update-ref", ref, mark.tree], cwd: mark.folder, remotes: remotes)
             dropRefs(
                 dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) }
-                    + (try store.session(t.session) == nil ? [(ref, t.folder)] : []))
+                    + (try store.session(mark.session) == nil ? [(ref, mark.folder)] : []))
         }
     }
 
@@ -401,8 +408,10 @@ extension SessionTurn: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Info? {
         guard let ls = sessions.existing(id) else { return nil }
-        let turn = ls.lastTurn.map { t in
-            Turn(files: t.files.map { .init(path: $0.path, added: $0.added, removed: $0.removed) }, seconds: t.seconds)
+        let turn = ls.lastTurn.map { last in
+            Turn(
+                files: last.files.map { .init(path: $0.path, added: $0.added, removed: $0.removed) },
+                seconds: last.seconds)
         }
         return Info(turn: turn, hasBase: ls.turnBase != nil)
     }

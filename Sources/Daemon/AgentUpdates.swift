@@ -38,14 +38,14 @@ extension LiveSession {
     /// and it has been quiet for `quiet` seconds. Checked and typed under the lock: no key lands in between.
     /// `version`: tried once for each, for a Claude Code without the command (it prints "Unknown command", no more).
     func restartAgent(into version: String, quiet: TimeInterval) -> Bool {
-        state.withLock { s in
-            guard s.updatedTo != version, s.record.status == .done, !s.parked, s.boxEmpty, s.startedUp,
-                s.pendingPrompts.isEmpty,
-                s.inputsInFlight == 0, s.readyForText(submits: true),
-                Date().timeIntervalSince(s.lastOutputAt ?? s.started) > quiet
+        state.withLock { st in
+            guard st.updatedTo != version, st.record.status == .done, !st.parked, st.boxEmpty, st.startedUp,
+                st.pendingPrompts.isEmpty,
+                st.inputsInFlight == 0, st.readyForText(submits: true),
+                Date().timeIntervalSince(st.lastOutputAt ?? st.started) > quiet
             else { return false }
-            s.updatedTo = version
-            type("/restart", enter: true, paste: false, &s)
+            st.updatedTo = version
+            type("/restart", enter: true, paste: false, &st)
             return true
         }
     }

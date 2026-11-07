@@ -6,29 +6,30 @@ import GitKit
 
 extension Daemon {
     /// A method answered as a client would get it (refusals and error mapping included), its result as its type.
-    func ask<M: Answered>(_ m: M) async throws -> M.Result {
-        try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try m.params() ?? .null, conn: -1))
+    func ask<M: Answered>(_ method: M) async throws -> M.Result {
+        try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
     }
 
     /// The topic's event as it is now, as sent (nil: nothing to say, a failure that stays quiet), and when to read it
     /// again with nothing else saying so (nil: only when something does).
-    func sample(_ k: Watches.Key, fast: Bool) async -> (Data?, TimeInterval?) {
-        switch k.topic {
+    func sample(_ watch: Watches.Key, fast: Bool) async -> (Data?, TimeInterval?) {
+        let key = watch.key
+        switch watch.topic {
         case .git:
             // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-            let remote = (try? store.worktree(k.key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
-            var e: GitEvent
+            let remote = (try? store.worktree(key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
+            var event: GitEvent
             do {
-                let changes = try await ask(GitStatus(id: k.key))
-                e = GitEvent(worktree: k.key, changes: changes, branches: try await ask(GitBranches(id: k.key)))
-                e.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: k.key))
-            } catch { e = GitEvent(worktree: k.key, error: message(error)) }
-            return (line(e), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+                let changes = try await ask(GitStatus(id: key))
+                event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
+                event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
+            } catch { event = GitEvent(worktree: key, error: message(error)) }
+            return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
         case .ports:
             // A host is asked over ssh: less often, and as with git only while watched.
-            let remote = sessions.remote(k.key) != nil
+            let remote = sessions.remote(key) != nil
             return (
-                (try? await ask(PortsList(worktreeId: k.key))).flatMap { line(PortsEvent(worktree: k.key, ports: $0)) },
+                (try? await ask(PortsList(worktreeId: key))).flatMap { line(PortsEvent(worktree: key, ports: $0)) },
                 remote ? 10 : 3
             )
         case .activity:
@@ -39,67 +40,67 @@ extension Daemon {
             // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
             // for a run started elsewhere (a merge on the forge, a push from another machine).
             do {
-                let r = try await ask(CIRunsList(worktreeId: k.key))
-                let running = CIRuns.latest(r.runs).contains { $0.status != "completed" }
-                return (line(CIEvent(worktree: k.key, result: r)), running ? 10 : fast ? 5 : 120)
+                let result = try await ask(CIRunsList(worktreeId: key))
+                let running = CIRuns.latest(result.runs).contains { $0.status != "completed" }
+                return (line(CIEvent(worktree: key, result: result)), running ? 10 : fast ? 5 : 120)
             } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
-                return (line(CIEvent(worktree: k.key, error: message(error))), 120)
+                return (line(CIEvent(worktree: key, error: message(error))), 120)
             }
         case .pr:
             return (
-                (try? await ask(GitHubBranchPR(worktreeId: k.key))).flatMap { line(PREvent(worktree: k.key, pr: $0)) },
+                (try? await ask(GitHubBranchPR(worktreeId: key))).flatMap { line(PREvent(worktree: key, pr: $0)) },
                 60
             )
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
-            let usage = try? await ask(SessionContextWindow(id: k.key))
-            let working = sessions.existing(k.key)?.snapshot.status == .working
-            return (line(ContextEvent(session: k.key, usage: usage ?? nil)), working ? 15 : nil)
+            let usage = try? await ask(SessionContextWindow(id: key))
+            let working = sessions.existing(key)?.snapshot.status == .working
+            return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
         case .commands:
             // From memory; read again when one starts or ends (`Sessions.touchCommands`).
-            return (line(CommandsEvent(session: k.key, commands: sessions.existing(k.key)?.commands ?? [])), nil)
+            return (line(CommandsEvent(session: key, commands: sessions.existing(key)?.commands ?? [])), nil)
         case .subagents:
             // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
             do {
-                return (line(SubagentsEvent(session: k.key, steps: try await ask(SessionSubagentSteps(id: k.key)))), 3)
+                return (line(SubagentsEvent(session: key, steps: try await ask(SessionSubagentSteps(id: key)))), 3)
             } catch { return (nil, 3) }
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
             return ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
         case .file:
             // A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
-            guard k.key.hasPrefix("/"), remotes.containing(k.key) == nil else { return (nil, nil) }
+            guard key.hasPrefix("/"), remotes.containing(key) == nil else { return (nil, nil) }
             var problems: [CodeProblem] = []
-            do { problems = try await ask(LSPProblems(path: k.key)) } catch {
-                Log.session.error("reading \(k.key)'s problems: \(error)")
+            do { problems = try await ask(LSPProblems(path: key)) } catch {
+                Log.session.error("reading \(key)'s problems: \(error)")
             }
             return (
                 line(
-                    FileEvent(path: k.key, stamp: FileService.stamp(k.key), problems: problems.isEmpty ? nil : problems)
+                    FileEvent(path: key, stamp: FileService.stamp(key), problems: problems.isEmpty ? nil : problems)
                 ), nil
             )
         case .files:
-            let remote = (try? store.worktree(k.key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
-            var e: FilesEvent
+            let remote = (try? store.worktree(key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
+            var event: FilesEvent
             do {
-                e = FilesEvent(
-                    worktree: k.key, paths: try await ask(FilesList(id: k.key)),
-                    ignored: try? await ask(FilesIgnored(id: k.key)))
-            } catch { e = FilesEvent(worktree: k.key, error: message(error)) }
-            return (line(e), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+                event = FilesEvent(
+                    worktree: key, paths: try await ask(FilesList(id: key)),
+                    ignored: try? await ask(FilesIgnored(id: key)))
+            } catch { event = FilesEvent(worktree: key, error: message(error)) }
+            return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
         case .artifacts:
             // Read on this Mac: a remote project's folder here holds only its marker. Every page is read, so off the pool;
             // a failed read sends nothing, and the panel keeps what it had rather than going empty.
             let store = store, remotes = remotes
             do {
                 let items = try await offload {
-                    try store.worktree(k.key).flatMap {
+                    try store.worktree(key).flatMap {
                         remotes.of($0.path) == nil ? Artifacts.items(root: $0.path) : []
                     } ?? []
                 }
-                return (line(ArtifactsEvent(worktree: k.key, items: items)), nil)
+                return (line(ArtifactsEvent(worktree: key, items: items)), nil)
             } catch {
-                Log.session.error("reading workspace \(k.key) for its artifacts: \(error)")
+                Log.session.error("reading workspace \(key) for its artifacts: \(error)")
                 return (nil, nil)
             }
         case .machines:
@@ -112,32 +113,32 @@ extension Daemon {
                 )
             } catch { return (nil, 5) }
         case .machineDetail:
-            do { return (line(MachineEvent(name: k.key, detail: try await ask(VMDetailRead(name: k.key)))), 2) } catch {
+            do { return (line(MachineEvent(name: key, detail: try await ask(VMDetailRead(name: key)))), 2) } catch {
                 return (nil, 2)
             }
         case .host, .hostDetail:
-            let again: TimeInterval = k.topic == .host ? 10 : 2
-            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch {
+            let again: TimeInterval = watch.topic == .host ? 10 : 2
+            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: key)))), again) } catch {
                 return (nil, again)
             }
         }
     }
 
-    private func line(_ e: some RPCEvent) -> Data? {
+    private func line(_ event: some RPCEvent) -> Data? {
         let enc = JSONEncoder()
         enc.outputFormatting = .sortedKeys
-        guard var d = try? enc.encode(RPCNotification(e)) else { return nil }
-        d.append(0x0A)
-        return d
+        guard var data = try? enc.encode(RPCNotification(event)) else { return nil }
+        data.append(0x0A)
+        return data
     }
 
-    private func message(_ e: Error) -> String { (e as? RPCError)?.message ?? "\(e)" }
+    private func message(_ error: Error) -> String { (error as? RPCError)?.message ?? "\(error)" }
 
     /// A project or workspace record changed, or a record went: it goes to every client (they keep their lists from these).
-    func recordChanged(_ c: Store.Change) {
-        switch c {
-        case .repo(let r): notify(r)
-        case .worktree(let w): notify(w)
+    func recordChanged(_ change: Store.Change) {
+        switch change {
+        case .repo(let repo): notify(repo)
+        case .worktree(let worktree): notify(worktree)
         case .repoRemoved(let id): notify(RemovedEvent(repo: id))
         case .worktreeRemoved(let id): notify(RemovedEvent(worktree: id))
         case .sessionRemoved(let id): notify(RemovedEvent(session: id))

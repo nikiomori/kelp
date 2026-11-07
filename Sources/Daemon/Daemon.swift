@@ -121,10 +121,10 @@ public final class Daemon: Sendable {
         let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
         let adopted = Set(handover?.sessions.map(\.id) ?? [])
         do {
-            for var s in try store.sessions() where s.status != .exited && !adopted.contains(s.id) {
-                s.status = Sessions.resumable(s, manifests) ? .paused : .exited
-                s.progress = nil   // what ran there isn't getting any further
-                try store.save(s)
+            for var session in try store.sessions() where session.status != .exited && !adopted.contains(session.id) {
+                session.status = Sessions.resumable(session, manifests) ? .paused : .exited
+                session.progress = nil   // what ran there isn't getting any further
+                try store.save(session)
             }
         } catch { Log.store.error("couldn't mark the last run's sessions paused or ended: \(error)") }
         handover?.sessions.forEach(sessions.adopt)   // before the first connection: it finds them running
@@ -177,9 +177,9 @@ public final class Daemon: Sendable {
             }
         }
         settingsEvents.watch()
-        let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
-        t.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
-        t.setEventHandler { [self] in
+        let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
+        ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
+        ticker.setEventHandler { [self] in
             sessions.live.all.forEach { $0.tick() }
             sessions.applyKeepAwake()
             sessions.hibernateIdle()
@@ -191,11 +191,11 @@ public final class Daemon: Sendable {
         running.withLock {
             $0.listenFD = listenFD
             $0.accept = src
-            $0.ticker = t
+            $0.ticker = ticker
             $0.prune = prune
         }
         src.resume()
-        t.resume()
+        ticker.resume()
         prune.resume()
         workspaces.routines.start(workspaces: workspaces)
         // not once stopped
@@ -207,16 +207,16 @@ public final class Daemon: Sendable {
     }
 
     public func stop() {
-        let r = running.withLock { r in
-            defer { r = Running() }
-            return r
+        let previous = running.withLock { state in
+            defer { state = Running() }
+            return state
         }
-        r.successor?.stop()
+        previous.successor?.stop()
         // The accept source's cancel closes the socket
-        r.accept?.cancel()
-        r.ticker?.cancel()
-        r.prune?.cancel()
-        if r.accept == nil, r.listenFD >= 0 { close(r.listenFD) }
+        previous.accept?.cancel()
+        previous.ticker?.cancel()
+        previous.prune?.cancel()
+        if previous.accept == nil, previous.listenFD >= 0 { close(previous.listenFD) }
         // Every program ends with the daemon, whole trees (a job in a process group of its own, an agent that ignores the
         // hangup), each recorded as pausing records it: a resumable agent comes back paused, not as a second copy.
         workspaces.routines.stop()
@@ -229,24 +229,24 @@ public final class Daemon: Sendable {
         settingsEvents.stopWatching()
         clients.everyone().forEach { $0.hangUp() }
         unlink(socketPath)
-        if r.instanceLock >= 0 { close(r.instanceLock) }
+        if previous.instanceLock >= 0 { close(previous.instanceLock) }
     }
 
     /// As `stop()`, except every running session goes on, handed over with copies of the socket and the lock to the kelpd
     /// this process runs next (`upgrade`). Connections made meanwhile wait in the socket's queue for it. Nil when not running.
     func handOver() -> Handover? {
-        let r = running.withLock { r in
-            defer { r = Running() }
-            return r
+        let previous = running.withLock { state in
+            defer { state = Running() }
+            return state
         }
-        guard let accept = r.accept else { return nil }
-        let socket = dup(r.listenFD)
+        guard let accept = previous.accept else { return nil }
+        let socket = dup(previous.listenFD)
         // The accept source's cancel closes its own fd, not the copy
         accept.cancel()
-        r.ticker?.cancel()
-        r.prune?.cancel()
+        previous.ticker?.cancel()
+        previous.prune?.cancel()
         workspaces.routines.stop()
-        let h = Handover(socket: socket, lock: dup(r.instanceLock), sessions: sessions.handOver())
+        let handover = Handover(socket: socket, lock: dup(previous.instanceLock), sessions: sessions.handOver())
         Sessions.waitGone(agentUsage.openProbes.endAll())   // a probe's terminal doesn't go over: its agent would be left
         lsp.stopAll()
         watches.stopAll()
@@ -256,8 +256,8 @@ public final class Daemon: Sendable {
         // restart that ends the agents just handed over.
         drainReplies()
         clients.everyone().forEach { $0.hangUp() }
-        close(r.instanceLock)
-        return h
+        close(previous.instanceLock)
+        return handover
     }
 
     /// What's queued for every client goes out first (a stop's or an update's own reply among it), 2 s at most each.
@@ -294,11 +294,11 @@ public final class Daemon: Sendable {
         offloads.waitIdle(seconds: checked ? 3 : 5)
         forges.clones.cancelAll()
         offloads.waitIdle(seconds: 2)
-        guard let h = handOver() else { return nil }
+        guard let handover = handOver() else { return nil }
         let file = root.appendingPathComponent("handover.json")
         do {
-            try JSONEncoder().encode(h).write(to: file)
-            try exec(h, executable, file.path)
+            try JSONEncoder().encode(handover).write(to: file)
+            try exec(handover, executable, file.path)
         } catch {
             Log.start.fault("kelpd couldn't run its update: \(error)")
         }
@@ -307,7 +307,7 @@ public final class Daemon: Sendable {
         do {
             let back = try Daemon(root: root, store: store)   // the same database: one writer, not two in one process
             if sessions.callers.strict.withLock({ $0 }) { back.strict() }   // held to the same rules as this one
-            try back.start(adopting: h, takingBack: true)
+            try back.start(adopting: handover, takingBack: true)
             running.withLock { $0.successor = back }
             Log.start.notice("the update didn't run: this kelpd took its sessions back")
             return back
@@ -350,18 +350,18 @@ public final class Daemon: Sendable {
             let pending = OSAllocatedUnfairLock(initialState: 0)
             var ended = false   // the client said all it had (`printf … | nc -U`): what it asked is still answered
             reading: while true {
-                let n = read(fd, &buf, buf.count)
-                if n <= 0 {
-                    ended = n == 0
+                let count = read(fd, &buf, buf.count)
+                if count <= 0 {
+                    ended = count == 0
                     break
                 }
-                let lines = received.append(Data(buf[0..<n]))
+                let lines = received.append(Data(buf[0..<count]))
                 // A line past any request's size (a 50 MB file saved, escaped) isn't one: hang up rather than keep it all.
                 guard received.pending <= Self.lineLimit else {
                     Log.rpc.error("hung up on a client whose line passed \(Self.lineLimit) bytes with no end")
                     break reading
                 }
-                for (i, line) in lines.enumerated() {
+                for (index, line) in lines.enumerated() {
                     guard let req = try? JSONDecoder().decode(Request.self, from: line) else {
                         refuse(line, client)
                         continue
@@ -378,7 +378,7 @@ public final class Daemon: Sendable {
                     // The one method by name: it ends JSON-RPC on this connection, which becomes a raw byte pipe (kelp attach).
                     if req.method == "session.stream" {
                         // What came after its line in the same read is the stream's already: its whole lines, then the rest.
-                        let after = lines[(i + 1)...].reduce(Data()) { $0 + $1 + Data("\n".utf8) }
+                        let after = lines[(index + 1)...].reduce(Data()) { $0 + $1 + Data("\n".utf8) }
                         stream(
                             client, session: req.params?["id"]?.string ?? "", size: req.params,
                             leftover: after + received.takeRemainder())
@@ -427,11 +427,11 @@ public final class Daemon: Sendable {
     private func answerInOrder(_ handler: any Handled.Type, _ req: Request, _ client: Connection) {
         let id = req.id ?? .null, notification = req.isNotification, method = req.method
         let reply: @Sendable (Swift.Result<Data, Error>) -> Void = { result in
-            if case .failure(let e) = result { Self.log(method, failed: e, notification: notification) }
+            if case .failure(let error) = result { Self.log(method, failed: error, notification: notification) }
             guard !notification else { return }
             switch result {
             case .success(let data): client.send(Self.replyLine(id: id, result: data))
-            case .failure(let e): if let line = Self.errorLine(id: id, e) { client.send(line) }
+            case .failure(let error): if let line = Self.errorLine(id: id, error) { client.send(line) }
             }
         }
         // Input for a session answers once the session has it (`SessionInput`), maybe from its lane.
@@ -510,11 +510,11 @@ public final class Daemon: Sendable {
         // Queued under the session's lock: no live output gets ahead of it. One paused at this moment ends the attach,
         // as the pause does for those already attached (`letGo`).
         guard ls.attach(client.id, send: { client.send($0) }) != nil else { return }
-        let type = { (d: Data) -> Bool in
+        let type = { (chunk: Data) -> Bool in
             // While the session asks, an agent's attach ends there, the chunk unsent (a terminal reply's payload can carry a
             // Return): dropped and going on, what it types around the question would join into one line.
             guard held, ls.asksSomething else {
-                ls.userInput(d)
+                ls.userInput(chunk)
                 return true
             }
             client.send(Data("\r\nkelp: That session asks a question, the user's to answer.\r\n".utf8))
@@ -523,8 +523,8 @@ public final class Daemon: Sendable {
         var buf = [UInt8](repeating: 0, count: 65536)
         if leftover.isEmpty || type(leftover) {
             while true {
-                let n = read(client.fd, &buf, buf.count)
-                if n <= 0 || !type(Data(buf[0..<n])) { break }
+                let count = read(client.fd, &buf, buf.count)
+                if count <= 0 || !type(Data(buf[0..<count])) { break }
             }
         }
         ls.detach(client.id)
@@ -578,8 +578,8 @@ public final class Daemon: Sendable {
     /// A call's refusal went back to its caller; a notification's failure (a layout or UI state not saved) and anything
     /// unexpected has only the log.
     static func log(_ method: String, failed error: Error, notification: Bool) {
-        if let e = error as? RPCError, !notification {
-            Log.rpc.debug("\(method, privacy: .public) failed: \(e.message)")
+        if let rpcError = error as? RPCError, !notification {
+            Log.rpc.debug("\(method, privacy: .public) failed: \(rpcError.message)")
         } else {
             Log.rpc.error("\(method, privacy: .public) failed: \((error as? RPCError)?.message ?? "\(error)")")
         }
@@ -587,12 +587,12 @@ public final class Daemon: Sendable {
 
     /// A reply line around a result already encoded: the result isn't decoded and encoded again on its way out.
     static func replyLine(id: JSONValue, result: Data) -> Data {
-        var d = Data(#"{"jsonrpc":"2.0","id":"#.utf8)
-        d.append((try? JSONEncoder().encode(id)) ?? Data("null".utf8))
-        d.append(Data(#","result":"#.utf8))
-        d.append(result)
-        d.append(Data("}\n".utf8))
-        return d
+        var line = Data(#"{"jsonrpc":"2.0","id":"#.utf8)
+        line.append((try? JSONEncoder().encode(id)) ?? Data("null".utf8))
+        line.append(Data(#","result":"#.utf8))
+        line.append(result)
+        line.append(Data("}\n".utf8))
+        return line
     }
     static func errorLine(id: JSONValue, _ error: Error) -> Data? {
         try? Wire.line(Reply(id: id, result: nil, error: (error as? RPCError) ?? .internalError("\(error)")))
@@ -600,6 +600,6 @@ public final class Daemon: Sendable {
 
     /// Not ordered with replies on other threads: an event can reach a client before the reply it follows from. Events
     /// that carry state carry all of it (a session's record, a revision), so the later one read wins either way.
-    func notify(_ e: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(e, to: only) }
+    func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
 }

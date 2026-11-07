@@ -79,35 +79,37 @@ final class LiveSession: Sendable {
 
     /// Esc or ⌃C, as one byte or as the kitty keyboard protocol sends them once the agent turns it on (Claude Code does):
     /// ESC[27u, ESC[99;5u — on a non-Latin layout the layout's own letter comes first (ESC[1089::99;5u).
-    static func isStopKey(_ d: Data) -> Bool {
-        d == Data([0x1B]) || d.contains(0x03)
-            || String(decoding: d, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
+    static func isStopKey(_ keys: Data) -> Bool {
+        keys == Data([0x1B]) || keys.contains(0x03)
+            || String(decoding: keys, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
     }
 
     /// Keys that pick an option in an agent's menu: Return, a digit, ⇧Tab (Claude Code's "allow all edits during this session").
-    static func answersMenu(_ d: Data) -> Bool {
-        let s = String(decoding: d, as: UTF8.self)
-        if d.contains(0x0D) || (d.count == 1 && (0x31...0x39).contains(d[0])) || s == "\u{1B}[Z" { return true }
-        return kittyKey(s).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
+    static func answersMenu(_ keys: Data) -> Bool {
+        let text = String(decoding: keys, as: UTF8.self)
+        if keys.contains(0x0D) || (keys.count == 1 && (0x31...0x39).contains(keys[0])) || text == "\u{1B}[Z" {
+            return true
+        }
+        return kittyKey(text).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
     }
 
     /// Keys that move a menu's cursor without picking: arrows, Tab, ⇧Tab.
-    static func movesInMenu(_ d: Data) -> Bool {
-        String(decoding: d, as: UTF8.self).wholeMatch(of: /(?:\x1B(?:\[[0-9;]*|O)[A-DZ]|\t)+/) != nil
+    static func movesInMenu(_ keys: Data) -> Bool {
+        String(decoding: keys, as: UTF8.self).wholeMatch(of: /(?:\x1B(?:\[[0-9;]*|O)[A-DZ]|\t)+/) != nil
     }
 
     /// The one key some agents take for an answer (Codex's y, a, n).
-    static func saysYesOrNo(_ d: Data) -> Bool { d.count == 1 && "yanYAN".utf8.contains(d[0]) }
+    static func saysYesOrNo(_ keys: Data) -> Bool { keys.count == 1 && "yanYAN".utf8.contains(keys[0]) }
 
     /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
     /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
-    static func kittyKey(_ s: String) -> (key: Int, mods: Int)? {
+    static func kittyKey(_ sequence: String) -> (key: Int, mods: Int)? {
         guard
-            let m = s.wholeMatch(
+            let match = sequence.wholeMatch(
                 of: /\x1B\[([0-9]+)(?::[0-9]*)?(?::([0-9]+))?(?:;([0-9]+)(?::([0-9]+))?)?(?:;[0-9:]*)?u/),
-            m.4.map({ $0 != "3" }) ?? true, let key = Int(m.2 ?? m.1)
+            match.4.map({ $0 != "3" }) ?? true, let key = Int(match.2 ?? match.1)
         else { return nil }
-        return (key, ((m.3.flatMap { Int($0) } ?? 1) - 1) & 0b111111)
+        return (key, ((match.3.flatMap { Int($0) } ?? 1) - 1) & 0b111111)
     }
 
     convenience init(
@@ -169,9 +171,10 @@ final class LiveSession: Sendable {
     /// How long it has done nothing. An agent with hooks tells by its status (and someone typing): at rest it still redraws
     /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
     var idleSeconds: TimeInterval {
-        state.withLock { s in
+        state.withLock { st in
             let last =
-                s.hooked ? max(s.record.statusAt ?? s.started, s.lastInputAt ?? s.started) : s.lastOutputAt ?? s.started
+                st.hooked
+                ? max(st.record.statusAt ?? st.started, st.lastInputAt ?? st.started) : st.lastOutputAt ?? st.started
             return Date().timeIntervalSince(last)
         }
     }
@@ -204,16 +207,16 @@ final class LiveSession: Sendable {
     }
 
     /// On the PTY's queue, one chunk after another: the log is written here, after the lock, in that order.
-    private func handleOutput(_ d: Data) {
-        let text = state.withLock { s in
-            let (whole, rest) = UTF8Chunks.split(s.utf8Carry + d)
-            s.utf8Carry = rest
+    private func handleOutput(_ chunk: Data) {
+        let text = state.withLock { st in
+            let (whole, rest) = UTF8Chunks.split(st.utf8Carry + chunk)
+            st.utf8Carry = rest
             return String(decoding: whole, as: UTF8.self)
         }
-        let heard = state.withLock { hear(d, text, &$0) }
+        let heard = state.withLock { hear(chunk, text, &$0) }
         // Disk, off the lock: a slow disk or the trim (a megabyte read back) doesn't hold up typing, attaching or status.
-        try? log?.write(contentsOf: d)   // per chunk, unlogged: a full disk would flood the log (the trim says so)
-        if heard.trimLog, let n = Self.trimmed(log, logURL) { state.withLock { $0.logSize = n } }
+        try? log?.write(contentsOf: chunk)   // per chunk, unlogged: a full disk would flood the log (the trim says so)
+        if heard.trimLog, let size = Self.trimmed(log, logURL) { state.withLock { $0.logSize = size } }
         if heard.probe { write(Data(ProgramStatus.queryReply.utf8)) }   // "I read OSC 7501": the agent starts reporting
         if heard.probe, heard.attached.isEmpty, text.contains(ProgramStatus.attributesQuery) {
             write(Data(ProgramStatus.attributesReply.utf8))   // an attached terminal answers it itself
@@ -227,99 +230,99 @@ final class LiveSession: Sendable {
                 self?.pressIfStillAsked(answer)
             }
         }
-        callbacks.output(heard.id, d, heard.attached)
+        callbacks.output(heard.id, chunk, heard.attached)
     }
 
     /// Inside the lock: the chunk into the ring and the readers, and what to do about it once the lock is let go.
-    private func hear(_ d: Data, _ text: String, _ s: inout State) -> Heard {
-        s.lastLifeUp = ProcessInfo.processInfo.systemUptime
-        s.ring.append(d)
+    private func hear(_ chunk: Data, _ text: String, _ st: inout State) -> Heard {
+        st.lastLifeUp = ProcessInfo.processInfo.systemUptime
+        st.ring.append(chunk)
         // A copy, at twice the limit: removeFirst on Data only re-slices, and the storage kept every byte the session
         // ever printed (300 MB of output held 300 MB). The slack makes the copy rare.
-        if s.ring.count > 2 * Self.ringLimit {
-            s.ringModes.read(s.ring.dropLast(Self.ringLimit))
-            s.ring = Data(s.ring.suffix(Self.ringLimit))
+        if st.ring.count > 2 * Self.ringLimit {
+            st.ringModes.read(st.ring.dropLast(Self.ringLimit))
+            st.ring = Data(st.ring.suffix(Self.ringLimit))
         }
-        s.logSize += d.count
-        let said = (s.record.summary, s.record.progress, s.record.limitHit)
-        var h = Heard(probe: s.readReports(text, d), topic: s.readTopic(text, d))
+        st.logSize += chunk.count
+        let said = (st.record.summary, st.record.progress, st.record.limitHit)
+        var heard = Heard(probe: st.readReports(text, chunk), topic: st.readTopic(text, chunk))
         // The chunk without escapes, once, for the two readers that want it.
-        let plain = s.interruptArmed != nil || (!s.sawURL && s.wantsURL) ? StatusDetector.stripANSI(text) : ""
-        if let arm = s.interruptArmed { s.interruptArmed = (arm.at, String((arm.seen + plain).suffix(4000))) }
-        if Date() > s.redrawUntil {
-            s.detector.output(text)
-            s.lastOutputAt = Date()
+        let plain = st.interruptArmed != nil || (!st.sawURL && st.wantsURL) ? StatusDetector.stripANSI(text) : ""
+        if let arm = st.interruptArmed { st.interruptArmed = (arm.at, String((arm.seen + plain).suffix(4000))) }
+        if Date() > st.redrawUntil {
+            st.detector.output(text)
+            st.lastOutputAt = Date()
         }
-        s.notePasteMode(d)
-        h.answer = s.autoAnswer()
-        h.url = s.localURL(plain)
-        h.busy = s.busyPort(plain)
-        h.limits = s.newLimits(d)
-        h.attached = s.attached
-        h.id = s.record.id
-        h.trimLog = s.logSize > Self.logLimit
-        emit(s.sync() ?? (said != (s.record.summary, s.record.progress, s.record.limitHit) ? s.record : nil))
-        return h
+        st.notePasteMode(chunk)
+        heard.answer = st.autoAnswer()
+        heard.url = st.localURL(plain)
+        heard.busy = st.busyPort(plain)
+        heard.limits = st.newLimits(chunk)
+        heard.attached = st.attached
+        heard.id = st.record.id
+        heard.trimLog = st.logSize > Self.logLimit
+        emit(st.sync() ?? (said != (st.record.summary, st.record.progress, st.record.limitHit) ? st.record : nil))
+        return heard
     }
 
     /// The auto-answer's key, once the question has had time to draw: only if it's still the one on screen and nobody
     /// typed meanwhile (the key would land in their text, or answer whatever came next).
-    private func pressIfStillAsked(_ a: (input: String, asked: NSRegularExpression, after: Double)) {
-        let still = state.withLock { s -> Bool in
-            guard !s.typedYet else { return false }
-            let tail = s.screen(4000)
-            return a.asked.firstMatch(in: tail, range: NSRange(tail.startIndex..., in: tail)) != nil
+    private func pressIfStillAsked(_ answer: (input: String, asked: NSRegularExpression, after: Double)) {
+        let still = state.withLock { st -> Bool in
+            guard !st.typedYet else { return false }
+            let tail = st.screen(4000)
+            return answer.asked.firstMatch(in: tail, range: NSRange(tail.startIndex..., in: tail)) != nil
         }
-        if still { write(Data(a.input.utf8)) }
+        if still { write(Data(answer.input.utf8)) }
     }
 
     /// On the PTY's queue too, after its last output: the log closes after the last write.
     private func handleExit(_ code: Int32) {
-        state.withLock { s in
-            s.ended = true
-            if s.record.status == .paused { return }
-            s.detector.exited()
+        state.withLock { st in
+            st.ended = true
+            if st.record.status == .paused { return }
+            st.detector.exited()
             let exitCode = (code & 0x7f) == 0 ? (code >> 8) & 0xff : 0   // killed by a signal (closed, stopped) isn't a failure
-            if exitCode != 0, s.record.agent != "shell" {
-                s.record.summary = "Ended with an error (exit code \(exitCode))"
+            if exitCode != 0, st.record.agent != "shell" {
+                st.record.summary = "Ended with an error (exit code \(exitCode))"
             }
-            s.endCommands(at: Date())
-            s.record.progress = nil
-            s.record.exitCode = Int((code & 0x7f) == 0 ? (code >> 8) & 0xff : 128 + (code & 0x7f))
-            emit(s.sync())
+            st.endCommands(at: Date())
+            st.record.progress = nil
+            st.record.exitCode = Int((code & 0x7f) == 0 ? (code >> 8) & 0xff : 128 + (code & 0x7f))
+            emit(st.sync())
         }
         if let log { Log.session.attempt("closing a history log") { try log.close() } }
     }
 
     /// `kelp report`: the record to publish when only what it says changed (a new state goes out through `callbacks.status`).
-    func report(_ r: ProgramStatus.Report) -> Session? {
-        state.withLock { s in
-            s.apply(r)
-            let changed = s.sync()
+    func report(_ report: ProgramStatus.Report) -> Session? {
+        state.withLock { st in
+            st.apply(report)
+            let changed = st.sync()
             emit(changed)
-            return changed == nil ? s.record : nil
+            return changed == nil ? st.record : nil
         }
     }
 
     /// Hands a change to `callbacks.status` (saved, sent to the app, turn bookkeeping) in the order the changes were made:
     /// called inside `state.withLock`, so it's queued in that order and run one after another. Called after the lock,
     /// from whichever thread made the change, an older "working" could be saved after a newer "done" and stay.
-    func emit(_ s: Session?) {
-        guard let s else { return }
-        statusQueue.async { self.callbacks.status(self, s) }   // holds the session until it ran: one just taken out of `live` still says so
+    func emit(_ session: Session?) {
+        guard let session else { return }
+        statusQueue.async { self.callbacks.status(self, session) }   // holds the session until it ran: one just taken out of `live` still says so
     }
     /// `body` on the status queue, after every change queued before it.
     func inOrder(_ body: @escaping @Sendable () -> Void) { state.withLock { _ in statusQueue.async(execute: body) } }
 
     /// Called with every status change: a snapshot when work starts, the changes when it stops (git work off the lock).
     func noteTurn(_ status: AgentStatus, remotes: Remotes = .none) {
-        let (shell, starting, ending, start, cwd, prompt, id) = state.withLock { s in
+        let (shell, starting, ending, start, cwd, prompt, id) = state.withLock { st in
             // A shell or a plain command (a dev server, a script) has no turns: its output comes and goes, and each change
             // would copy the index and hash the tree again.
-            let shell = s.record.agent == "shell" || s.record.agent == "custom"
-            let (starting, ending) = s.turnMoved(to: status)
-            if starting { s.turnPrompt = s.lastSent }
-            return (shell, starting, ending, s.turnStart, s.turnFolder ?? s.record.cwd, s.turnPrompt, s.record.id)
+            let shell = st.record.agent == "shell" || st.record.agent == "custom"
+            let (starting, ending) = st.turnMoved(to: status)
+            if starting { st.turnPrompt = st.lastSent }
+            return (shell, starting, ending, st.turnStart, st.turnFolder ?? st.record.cwd, st.turnPrompt, st.record.id)
         }
         guard !shell, starting || ending else { return }
         // One after another, per session: a short turn's end waits for its own start snapshot instead of diffing against
@@ -349,46 +352,47 @@ final class LiveSession: Sendable {
 
     func tick() {
         steer()
-        state.withLock { s in
-            s.detector.tick()
-            s.releaseStale()
-            s.hooksSilent()
-            if let arm = s.interruptArmed {
-                if s.lastHookAt > arm.at {
-                    s.interruptArmed = nil
+        state.withLock { st in
+            st.detector.tick()
+            st.releaseStale()
+            st.hooksSilent()
+            if let arm = st.interruptArmed {
+                if st.lastHookAt > arm.at {
+                    st.interruptArmed = nil
                 } else if Self.printedStopped(arm.seen) {
-                    s.detector.interrupted()
-                    s.nothingAsked()
-                    s.record.summary = "Stopped by you"
-                    s.interruptArmed = nil
+                    st.detector.interrupted()
+                    st.nothingAsked()
+                    st.record.summary = "Stopped by you"
+                    st.interruptArmed = nil
                 } else if Date().timeIntervalSince(arm.at) > 10 {
-                    s.interruptArmed = nil
+                    st.interruptArmed = nil
                 }
             }
-            if s.noteQuiet() { emit(s.record) }
-            emit(s.sync())
-            continueIfDue(&s)
+            if st.noteQuiet() { emit(st.record) }
+            emit(st.sync())
+            continueIfDue(&st)
             // Deliver the launch prompt once the TUI has drawn and gone quiet (or after a timeout).
-            let quiet = Date().timeIntervalSince(s.lastOutputAt ?? s.started) > 1.5   // a program that prints nothing (cat) is quiet too
-            let settled = (quiet && Date().timeIntervalSince(s.started) > 2) || Date().timeIntervalSince(s.started) > 25
-            if settled { s.startedUp = true }
+            let quiet = Date().timeIntervalSince(st.lastOutputAt ?? st.started) > 1.5   // a program that prints nothing (cat) is quiet too
+            let settled =
+                (quiet && Date().timeIntervalSince(st.started) > 2) || Date().timeIntervalSince(st.started) > 25
+            if settled { st.startedUp = true }
             // Not once it's let go: one being handed over takes what waits along (`handedOver`).
-            if let p = s.pendingPrompts.first, settled, !s.letGo, s.readyForText(submits: !p.draft) {
-                s.pendingPrompts.removeFirst()
-                type(p.text, enter: !p.draft, paste: p.paste, &s)   // queued here, under the lock: nothing sent meanwhile gets ahead
+            if let prompt = st.pendingPrompts.first, settled, !st.letGo, st.readyForText(submits: !prompt.draft) {
+                st.pendingPrompts.removeFirst()
+                type(prompt.text, enter: !prompt.draft, paste: prompt.paste, &st)   // queued here, under the lock: nothing sent meanwhile gets ahead
             }
-            if quiet, settled, !s.letGo, s.takesReport() {
+            if quiet, settled, !st.letGo, st.takesReport() {
                 // To a program that takes no pastes on one line: its newlines would submit a part of it each.
-                let report = s.reports.removeFirst()
+                let report = st.reports.removeFirst()
                 type(
-                    s.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false,
-                    &s)
+                    st.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false,
+                    &st)
             }
         }
     }
 
     /// Bytes into the program after anything Kelp is still typing (`sends`): a key never lands between a send's text and its Enter.
-    func write(_ d: Data) { sends.async { [pty] in pty.write(d) } }
+    func write(_ data: Data) { sends.async { [pty] in pty.write(data) } }
 
     /// For a hand-over: no input is taken from now on (a caller is refused, not told it went in), then waits until what
     /// was taken is written to the program (one that doesn't read gives up after `within` seconds).
@@ -401,47 +405,49 @@ final class LiveSession: Sendable {
     }
 
     /// Keystrokes from a UI: the first submitted line becomes the source of the tab title.
-    func userInput(_ d: Data) {
+    func userInput(_ keys: Data) {
         guard !state.withLock({ $0.letGo }) else { return }   // its program stopping or handed over: an attach's keys go nowhere
-        write(d)
-        guard !TerminalReplies.isReply(d) else { return }   // the terminal answering the agent, not the user typing
-        let firstPrompt = state.withLock { s -> String? in
+        write(keys)
+        guard !TerminalReplies.isReply(keys) else { return }   // the terminal answering the agent, not the user typing
+        let firstPrompt = state.withLock { st -> String? in
             // Keys that answer a question or menu on screen ("1", Return on an option) aren't a line being written.
             let answering =
-                s.trustQuestionOpen() || s.menuOpen()
-                || (s.record.status == .waiting && d.count == 1 && (0x31...0x39).contains(d[0]))
-            s.typedYet = true
-            s.lastInputAt = Date()
+                st.trustQuestionOpen() || st.menuOpen()
+                || (st.record.status == .waiting && keys.count == 1 && (0x31...0x39).contains(keys[0]))
+            st.typedYet = true
+            st.lastInputAt = Date()
             // Moving through "trust this folder?" doesn't answer it: a launch prompt typed then would land its Enter on
             // whichever option the cursor reached ("No, exit"), and its text would be lost.
-            if !(s.trustQuestionOpen() && Self.movesInMenu(d)) { s.dialogSettled = true }
-            s.draftWaiting = false
-            s.detector.input(typing: !d.contains(0x0D))   // keys without Return: the prompt is still being written
+            if !(st.trustQuestionOpen() && Self.movesInMenu(keys)) { st.dialogSettled = true }
+            st.draftWaiting = false
+            st.detector.input(typing: !keys.contains(0x0D))   // keys without Return: the prompt is still being written
             var read: Session?
-            if s.record.unread {
-                s.record.unread = false
-                read = s.record
+            if st.record.unread {
+                st.record.unread = false
+                read = st.record
             }   // typing into it is having read it
             // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
-            if Self.isStopKey(d), s.record.status == .working || (s.saysItself && s.record.status == .waiting) {
-                s.interruptArmed = (Date(), "")
-                s.stopKeyAt = Date()
+            if Self.isStopKey(keys), st.record.status == .working || (st.saysItself && st.record.status == .waiting) {
+                st.interruptArmed = (Date(), "")
+                st.stopKeyAt = Date()
             }
-            if s.saysItself {
+            if st.saysItself {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
-                if s.record.status == .waiting, Self.answersMenu(d) {
-                    s.interruptArmed = (Date(), "")
-                    if s.answeredOne() { s.detector.override(.working, because: "an answer typed in the terminal") }
+                if st.record.status == .waiting, Self.answersMenu(keys) {
+                    st.interruptArmed = (Date(), "")
+                    if st.answeredOne() { st.detector.override(.working, because: "an answer typed in the terminal") }
                 }
-            } else if s.record.status == .waiting, Self.answersMenu(d) || Self.isStopKey(d) || Self.saysYesOrNo(d) {
-                s.detector.answered()
+            } else if st.record.status == .waiting,
+                Self.answersMenu(keys) || Self.isStopKey(keys) || Self.saysYesOrNo(keys)
+            {
+                st.detector.answered()
             }
-            emit(s.sync() ?? read)
+            emit(st.sync() ?? read)
             if answering {
-                s.typing = ""
+                st.typing = ""
                 return nil
             }
-            return s.noteTyping(d)
+            return st.noteTyping(keys)
         }
         if let line = firstPrompt {
             let cb = callbacks.firstPrompt
@@ -449,9 +455,9 @@ final class LiveSession: Sendable {
         }
     }
 
-    func update(_ f: @Sendable (inout Session) -> Void) -> Session {
+    func update(_ change: @Sendable (inout Session) -> Void) -> Session {
         state.withLock {
-            f(&$0.record)
+            change(&$0.record)
             return $0.record
         }
     }
@@ -461,17 +467,17 @@ final class LiveSession: Sendable {
 
     /// Hibernation: the PTY dies but the record says so, so the UI shows "Paused" instead of "Exited".
     func markHibernated() {
-        state.withLock { s in
-            s.trail.add("\(s.record.status.rawValue) → hibernated")
-            s.detector.override(.paused)
-            s.record.status = .paused
+        state.withLock { st in
+            st.trail.add("\(st.record.status.rawValue) → hibernated")
+            st.detector.override(.paused)
+            st.record.status = .paused
         }
     }
 
     func overrideStatus(_ status: AgentStatus) {
-        state.withLock { s in
-            s.detector.override(status)
-            emit(s.sync())
+        state.withLock { st in
+            st.detector.override(status)
+            emit(st.sync())
         }
     }
 }
@@ -480,45 +486,47 @@ extension LiveSession {
     var commands: [AgentCommand] { state.withLock { $0.commands } }
     /// `kelp why`: the status, where it came from, and when the agent last spoke up by itself.
     var statusWhy: String {
-        state.withLock { s in
+        state.withLock { st in
             let heard =
-                s.lastHookAt == .distantPast ? "" : ", last heard \(Int(-s.lastHookAt.timeIntervalSinceNow)) s ago"
-            return "\(s.detector.status.rawValue) (\(s.detector.source))\(heard)"
+                st.lastHookAt == .distantPast ? "" : ", last heard \(Int(-st.lastHookAt.timeIntervalSinceNow)) s ago"
+            return "\(st.detector.status.rawValue) (\(st.detector.source))\(heard)"
         }
     }
     var commandChanges: Int { state.withLock { $0.commandChanges } }
 
     /// A hook's `cwd`: where the agent works now. The record when that changed.
     func workIn(_ dir: String) -> Session? {
-        func real(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().standardizedFileURL.path }
-        let w = real(dir) == real(snapshot.cwd) ? nil : dir   // the folder it started in never changes
-        return state.withLock { s in
-            guard w != s.record.workDir else { return nil }
-            s.record.workDir = w
-            return s.record
+        func real(_ path: String) -> String {
+            URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+        }
+        let workDir = real(dir) == real(snapshot.cwd) ? nil : dir   // the folder it started in never changes
+        return state.withLock { st in
+            guard workDir != st.record.workDir else { return nil }
+            st.record.workDir = workDir
+            return st.record
         }
     }
 
     /// The record when that changed it.
     func setUnread(_ unread: Bool) -> Session? {
-        state.withLock { s in
-            guard s.record.unread != unread else { return nil }
-            s.record.unread = unread
-            return s.record
+        state.withLock { st in
+            guard st.record.unread != unread else { return nil }
+            st.record.unread = unread
+            return st.record
         }
     }
 
-    func tail(_ n: Int) -> Data { state.withLock { $0.ring.suffix(min(max(0, n), Self.ringLimit)) } }
+    func tail(_ count: Int) -> Data { state.withLock { $0.ring.suffix(min(max(0, count), Self.ringLimit)) } }
     /// The history, `conn` gets the output from here on. `send` runs under the lock with that history, so it goes out
     /// before any of the live output that follows. It starts by setting the modes the cut-off part had set (Codex's
     /// alternate screen and mouse reporting): without them the new terminal keeps the wheel and clicks to itself.
     /// nil once it was let go (`letGo`): its program is stopping, and nothing it shows would be live.
     @discardableResult
     func attach(_ conn: Int, send: @Sendable (Data) -> Void = { _ in }) -> Data? {
-        state.withLock { s in
-            guard !s.letGo else { return nil }
-            s.attached.insert(conn)
-            let history = s.historyModes.restore + TerminalReplies.withoutQueries(s.ring.suffix(Self.ringLimit))
+        state.withLock { st in
+            guard !st.letGo else { return nil }
+            st.attached.insert(conn)
+            let history = st.historyModes.restore + TerminalReplies.withoutQueries(st.ring.suffix(Self.ringLimit))
             send(history)
             return history
         }
@@ -526,20 +534,20 @@ extension LiveSession {
     func detach(_ conn: Int) { state.withLock { _ = $0.attached.remove(conn) } }
     /// Out of `live` with its program still to stop (paused, deleted): nobody attaches from now on. Who was attached.
     func letGo() -> Set<Int> {
-        state.withLock { s in
-            s.letGo = true
-            defer { s.attached = [] }
-            return s.attached
+        state.withLock { st in
+            st.letGo = true
+            defer { st.attached = [] }
+            return st.attached
         }
     }
 
     /// Input from a client, `work` writing it: nil (nothing done) once the session was let go, its program stopping, so
     /// the caller wakes it again instead. An idle pause doesn't let go of one with input on its way (`letGoIdle`).
     func input<T>(_ work: () throws -> T) rethrows -> T? {
-        let open = state.withLock { s -> Bool in
-            guard !s.letGo else { return false }
-            s.inputs += 1
-            s.inputsInFlight += 1
+        let open = state.withLock { st -> Bool in
+            guard !st.letGo else { return false }
+            st.inputs += 1
+            st.inputsInFlight += 1
             return true
         }
         guard open else { return nil }
@@ -553,11 +561,12 @@ extension LiveSession {
     /// `letGo` for an idle pause: only while nobody is attached, no input came since there were `seen`, and it still rests.
     /// Candidates go one after another, up to 3 s each, so a later one may have moved on since it was picked.
     func letGoIdle(seen: Int) -> Bool {
-        state.withLock { s in
-            guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0, [.done, .idle].contains(s.record.status)
+        state.withLock { st in
+            guard st.attached.isEmpty, st.inputs == seen, st.inputsInFlight == 0,
+                [.done, .idle].contains(st.record.status)
             else { return false }
-            guard s.typing.isEmpty, !s.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
-            s.letGo = true
+            guard st.typing.isEmpty, !st.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
+            st.letGo = true
             return true
         }
     }
@@ -565,16 +574,18 @@ extension LiveSession {
     /// Given up to the kelpd that takes over (`Sessions.handOver`), its output no longer read here: what that one needs to
     /// show the same history. The log holds every byte the ring does by now (it's written as output is handled).
     func handedOver(fd: Int32) -> Handover.Session {
-        state.withLock { s in
+        state.withLock { st in
             Handover.Session(
-                id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
-                bytes: min(s.ring.count, Self.ringLimit),
-                pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
+                id: st.record.id, pid: pty.pid, fd: fd, modes: String(decoding: st.historyModes.restore, as: UTF8.self),
+                bytes: min(st.ring.count, Self.ringLimit),
+                pending: st.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
                 status: .init(
-                    holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
-                    questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty,
-                    pasteMode: s.pasteMode, draftWaiting: s.draftWaiting, typing: s.typing, hooksSpoke: s.hooksSpoke),
-                reports: s.reports)
+                    holding: st.holding, parked: st.parked, hooked: st.detector.hooked, asking: st.asking,
+                    questionOpen: st.questionOpen, turnEnd: st.turnEnd, transcript: st.transcript,
+                    boxEmpty: st.boxEmpty,
+                    pasteMode: st.pasteMode, draftWaiting: st.draftWaiting, typing: st.typing, hooksSpoke: st.hooksSpoke
+                ),
+                reports: st.reports)
         }
     }
 
@@ -587,37 +598,38 @@ extension LiveSession {
         status: Handover.Status? = nil
     ) {
         let history = bytes > 0 ? Data(tailOf: logURL, bytes: bytes) ?? Data() : Data()
-        state.withLock { s in
-            s.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
-            s.reports = reports
-            s.ring = history
-            s.ringModes.read(Data(modes.utf8))
+        state.withLock { st in
+            st.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
+            st.reports = reports
+            st.ring = history
+            st.ringModes.read(Data(modes.utf8))
             if let status {
-                s.holding = status.holding
-                s.parked = status.parked
-                s.asking = status.asking
-                s.questionOpen = status.questionOpen
-                s.turnEnd = status.turnEnd
-                s.transcript = status.transcript
-                s.boxEmpty = status.boxEmpty ?? false
-                s.draftWaiting = status.draftWaiting ?? false
-                s.typing = status.typing ?? ""
-                s.hooksSpoke = status.hooksSpoke ?? false
+                st.holding = status.holding
+                st.parked = status.parked
+                st.asking = status.asking
+                st.questionOpen = status.questionOpen
+                st.turnEnd = status.turnEnd
+                st.transcript = status.transcript
+                st.boxEmpty = status.boxEmpty ?? false
+                st.draftWaiting = status.draftWaiting ?? false
+                st.typing = status.typing ?? ""
+                st.hooksSpoke = status.hooksSpoke ?? false
             }
-            s.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
-            s.detector.adopted(
-                s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked
+            st.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
+            st.detector.adopted(
+                st.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self),
+                hooked: status?.hooked
             )
-            s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
+            st.trail.add("\(st.record.status.rawValue) → \(st.detector.status.rawValue)  \(st.detector.source)")
             // A question read again and found to be none: the turn ended long ago, so one already read stays read.
-            if s.detector.status != s.record.status {
-                s.record.status = s.detector.status
-                emit(s.record)
+            if st.detector.status != st.record.status {
+                st.record.status = st.detector.status
+                emit(st.record)
             }
-            s.startedUp = true
-            s.typedYet = true
-            s.dialogSettled = true
-            s.sawFirstPrompt = true
+            st.startedUp = true
+            st.typedYet = true
+            st.dialogSettled = true
+            st.sawFirstPrompt = true
         }
     }
 }

@@ -46,52 +46,52 @@ final class Watches: Sendable {
         self.remotes = remotes
     }
 
-    func start(_ k: Key, conn: Int) {
+    func start(_ key: Key, conn: Int) {
         guard !closed.withLock({ $0 }) else { return }   // the daemon stopped them all: a late watch.start starts none
-        let n = numbers.withLock {
+        let number = numbers.withLock {
             $0 += 1
             return $0
         }
-        let (new, again, last) = entries.withLock { e -> (Bool, Bool, Data?) in
-            guard var x = e[k] else {
-                e[k] = Entry(number: n, watchers: [conn])
+        let (new, again, last) = entries.withLock { byKey -> (Bool, Bool, Data?) in
+            guard var entry = byKey[key] else {
+                byKey[key] = Entry(number: number, watchers: [conn])
                 return (true, false, nil)
             }
-            let again = !x.watchers.insert(conn).inserted
+            let again = !entry.watchers.insert(conn).inserted
             if again {
-                x.fastUntil = Date().addingTimeInterval(45)
-                x.quiet = 0
+                entry.fastUntil = Date().addingTimeInterval(45)
+                entry.quiet = 0
             }
-            e[k] = x
-            return (false, again, x.last)
+            byKey[key] = entry
+            return (false, again, entry.last)
         }
         // Stopped while this was taking its place: it goes too, rather than run on unseen.
         if closed.withLock({ $0 }) {
-            let late = entries.withLock { e in
-                defer { e = [:] }
-                return e
+            let late = entries.withLock { byKey in
+                defer { byKey = [:] }
+                return byKey
             }
             _ = late
             return
         }
         if new {
-            begin(k)
+            begin(key)
         } else if again {
-            read(k)
+            read(key)
         } else if let last {
             clients.targets([conn]).forEach { $0.send(last) }
         }
     }
 
-    func stop(_ k: Key, conn: Int) {
-        let gone = entries.withLock { e -> Entry? in
-            guard var x = e[k] else { return nil }
-            x.watchers.remove(conn)
-            if x.watchers.isEmpty {
-                e[k] = nil
-                return x
+    func stop(_ key: Key, conn: Int) {
+        let gone = entries.withLock { byKey -> Entry? in
+            guard var entry = byKey[key] else { return nil }
+            entry.watchers.remove(conn)
+            if entry.watchers.isEmpty {
+                byKey[key] = nil
+                return entry
             }
-            e[k] = x
+            byKey[key] = entry
             return nil
         }
         _ = gone   // its scheduled read finds it gone; its FileWatcher stops as it goes
@@ -99,15 +99,15 @@ final class Watches: Sendable {
 
     /// A connection went away.
     func drop(_ conn: Int) {
-        let gone = entries.withLock { e -> [Entry] in
+        let gone = entries.withLock { byKey -> [Entry] in
             var out: [Entry] = []
-            for (k, var x) in e where x.watchers.contains(conn) {
-                x.watchers.remove(conn)
-                if x.watchers.isEmpty {
-                    e[k] = nil
-                    out.append(x)
+            for (key, var entry) in byKey where entry.watchers.contains(conn) {
+                entry.watchers.remove(conn)
+                if entry.watchers.isEmpty {
+                    byKey[key] = nil
+                    out.append(entry)
                 } else {
-                    e[k] = x
+                    byKey[key] = entry
                 }
             }
             return out
@@ -117,123 +117,125 @@ final class Watches: Sendable {
 
     func stopAll() {
         closed.withLock { $0 = true }
-        let all = entries.withLock { e in
-            defer { e = [:] }
-            return e
+        let all = entries.withLock { byKey in
+            defer { byKey = [:] }
+            return byKey
         }
         _ = all   // released off the lock (a file watch's deinit waits on its own queue)
     }
 
     /// Something says it may have changed (a session's status, for its context): read again if it did.
-    func touched(_ k: Key, tag: String) {
-        let go = entries.withLock { e -> Bool in
-            guard var x = e[k], x.tag != tag else { return false }
-            x.tag = tag
-            e[k] = x
+    func touched(_ key: Key, tag: String) {
+        let go = entries.withLock { byKey -> Bool in
+            guard var entry = byKey[key], entry.tag != tag else { return false }
+            entry.tag = tag
+            byKey[key] = entry
             return true
         }
-        if go { read(k) }
+        if go { read(key) }
     }
 
-    private func begin(_ k: Key) {
-        if let (root, matters) = folder(k) {
+    private func begin(_ key: Key) {
+        if let (root, matters) = folder(key) {
             // Debounced: a save is several events, a checkout hundreds. A queue of its own: `matters` may run git
             // (check-ignore), and one slow folder must not hold up every other watch.
             let fw = FileWatcher(root: root, deliver: DispatchQueue(label: "kelp.watches.files")) { [weak self] paths in
                 guard let self, matters(paths) else { return }
-                soon(k)
+                soon(key)
             }
-            entries.withLock { e in e[k]?.files = fw }
+            entries.withLock { byKey in byKey[key]?.files = fw }
         }
-        read(k)
+        read(key)
     }
 
     /// The folder whose file events can change a topic, and which of them do; nil: none (a remote project's folder here
     /// holds only its marker, and the rest go by their clock).
-    private func folder(_ k: Key) -> (String, @Sendable ([String]) -> Bool)? {
-        switch k.topic {
+    private func folder(_ key: Key) -> (String, @Sendable ([String]) -> Bool)? {
+        switch key.topic {
         case .git, .files, .artifacts:
-            guard let w = try? store.worktree(k.key), remotes.of(w.path) == nil else { return nil }
-            if k.topic == .artifacts { return (w.path, { $0.contains { $0.contains("/\(Artifacts.folder)/") } }) }
-            let touches = k.topic == .git ? Git.touchesStatus : Git.touchesFileList,
-                ignored = IgnoredFolders(root: w.path, remotes: remotes)
-            return (w.path, { touches(ignored.drop($0)) })
+            guard let worktree = try? store.worktree(key.key), remotes.of(worktree.path) == nil else { return nil }
+            if key.topic == .artifacts {
+                return (worktree.path, { $0.contains { $0.contains("/\(Artifacts.folder)/") } })
+            }
+            let touches = key.topic == .git ? Git.touchesStatus : Git.touchesFileList,
+                ignored = IgnoredFolders(root: worktree.path, remotes: remotes)
+            return (worktree.path, { touches(ignored.drop($0)) })
         case .file:
-            guard k.key.hasPrefix("/"), remotes.containing(k.key) == nil else { return nil }
+            guard key.key.hasPrefix("/"), remotes.containing(key.key) == nil else { return nil }
             // Its folder, as FSEvents names it (/tmp is /private/tmp): the file itself may not be there to resolve.
             // Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
-            let dir = (k.key as NSString).deletingLastPathComponent, name = (k.key as NSString).lastPathComponent
-            let names = Set([k.key, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
+            let dir = (key.key as NSString).deletingLastPathComponent, name = (key.key as NSString).lastPathComponent
+            let names = Set([key.key, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
             return (dir, { $0.contains(where: names.contains) })
         default: return nil
         }
     }
 
-    private func soon(_ k: Key) {
-        let pending = entries.withLock { $0[k]?.timer != nil }
-        if !pending { schedule(k, after: 0.4) }
+    private func soon(_ key: Key) {
+        let pending = entries.withLock { $0[key]?.timer != nil }
+        if !pending { schedule(key, after: 0.4) }
     }
 
-    private func schedule(_ k: Key, after t: TimeInterval) {
-        let n = numbers.withLock {
+    private func schedule(_ key: Key, after delay: TimeInterval) {
+        let number = numbers.withLock {
             $0 += 1
             return $0
         }
-        let ok = entries.withLock { e -> Bool in
-            guard var x = e[k] else { return false }
-            x.timer = n
-            e[k] = x
+        let ok = entries.withLock { byKey -> Bool in
+            guard var entry = byKey[key] else { return false }
+            entry.timer = number
+            byKey[key] = entry
             return true
         }
         guard ok else { return }
-        DispatchQueue.global().asyncAfter(deadline: .now() + t) { [weak self] in
-            guard let self, entries.withLock({ $0[k]?.timer == n }) else { return }   // stopped, or read since
-            read(k)
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, entries.withLock({ $0[key]?.timer == number }) else { return }   // stopped, or read since
+            read(key)
         }
     }
 
-    private func read(_ k: Key) {
-        let go = entries.withLock { e -> (Date, Int)? in
-            guard var x = e[k] else { return nil }
-            if x.reading {
-                x.again = true
-                e[k] = x
+    private func read(_ key: Key) {
+        let go = entries.withLock { byKey -> (Date, Int)? in
+            guard var entry = byKey[key] else { return nil }
+            if entry.reading {
+                entry.again = true
+                byKey[key] = entry
                 return nil
             }
-            x.reading = true
-            x.timer = nil
-            e[k] = x
-            return (x.fastUntil, x.number)
+            entry.reading = true
+            entry.timer = nil
+            byKey[key] = entry
+            return (entry.fastUntil, entry.number)
         }
         guard let (fastUntil, number) = go else { return }
         Task {
             let began = Date()
-            let (line, next) = await reading.withLock({ $0.read })?(k, fastUntil > Date()) ?? (nil, nil)
-            reads.withLock { $0?[k, default: 0] += 1 }
-            let ours = entries.withLock { e -> (send: Data?, to: Set<Int>, again: Bool, quiet: Int)? in
+            let (line, next) = await reading.withLock({ $0.read })?(key, fastUntil > Date()) ?? (nil, nil)
+            reads.withLock { $0?[key, default: 0] += 1 }
+            let ours = entries.withLock { byKey -> (send: Data?, to: Set<Int>, again: Bool, quiet: Int)? in
                 // Stopped meanwhile, maybe started again: what it read may be older than the new watch's first value,
                 // and the new one keeps its own clock.
-                guard var x = e[k], x.number == number else { return nil }
-                x.reading = false
-                let changed = line != nil && line != x.last
-                if changed { x.last = line }
-                x.quiet = changed ? 0 : x.quiet + 1
-                let again = x.again
-                x.again = false
-                e[k] = x
-                return (changed ? line : nil, x.watchers, again, x.quiet)
+                guard var entry = byKey[key], entry.number == number else { return nil }
+                entry.reading = false
+                let changed = line != nil && line != entry.last
+                if changed { entry.last = line }
+                entry.quiet = changed ? 0 : entry.quiet + 1
+                let again = entry.again
+                entry.again = false
+                byKey[key] = entry
+                return (changed ? line : nil, entry.watchers, again, entry.quiet)
             }
             guard let (send, to, again, quiet) = ours else { return }
             if let send { clients.targets(to).forEach { $0.send(send) } }
             // Files changing all through a read: not back to back, or a large repository's git never stops; and not more than
             // 8 s behind either, or a slow repository's panels stay stale while an agent writes.
             if again {
-                schedule(k, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began))))
+                schedule(key, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began))))
             } else if let next {
                 // A backed-off read lands a little apart from the others': every project's watches start and slow down
                 // together, so gh and ssh ran in bursts (10 in one 30 s, then 2 in three minutes).
-                let t = fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)
-                schedule(k, after: t == next ? t : t * Double.random(in: 0.8...1.2))
+                let wait = fastUntil > Date() ? next : Self.slowed(key.topic, next, quiet: quiet)
+                schedule(key, after: wait == next ? wait : wait * Double.random(in: 0.8...1.2))
             }
         }
     }

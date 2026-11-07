@@ -11,18 +11,18 @@ final class WakeLocks: Sendable {
 
     private func take(_ id: String) -> NSLock {
         locks.withLock { all in
-            var e = all[id] ?? (NSLock(), 0)
-            e.users += 1
-            all[id] = e
-            return e.lock
+            var entry = all[id] ?? (NSLock(), 0)
+            entry.users += 1
+            all[id] = entry
+            return entry.lock
         }
     }
 
     private func letGo(_ id: String) {
         locks.withLock { all in
-            guard var e = all[id] else { return }
-            e.users -= 1
-            all[id] = e.users > 0 ? e : nil
+            guard var entry = all[id] else { return }
+            entry.users -= 1
+            all[id] = entry.users > 0 ? entry : nil
         }
     }
 
@@ -30,9 +30,9 @@ final class WakeLocks: Sendable {
     var count: Int { locks.withLock { $0.count } }
 
     func withLock<T>(_ id: String, _ body: () throws -> T) rethrows -> T {
-        let l = take(id)
+        let lock = take(id)
         defer { letGo(id) }
-        return try l.withLock(body)
+        return try lock.withLock(body)
     }
 
     /// Several sessions' at once (a workspace's), taken in one order (by id) so two callers can't each hold what the

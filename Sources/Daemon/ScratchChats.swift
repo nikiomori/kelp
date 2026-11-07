@@ -17,27 +17,29 @@ struct ScratchChats {
     /// A new empty folder for a chat: 2026-11-04-1, -2… the first free one that day.
     func newChat(now: Date = Date()) throws -> String {
         try Paths.ensure(folder)
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        let day = f.string(from: now)
-        var n = 1
-        while FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(day)-\(n)").path) { n += 1 }
-        let dir = folder.appendingPathComponent("\(day)-\(n)")
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: now)
+        var number = 1
+        while FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(day)-\(number)").path) {
+            number += 1
+        }
+        let dir = folder.appendingPathComponent("\(day)-\(number)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
         return Paths.real(dir.path) ?? dir.path
     }
 
     /// A chat folder Kelp made with nothing in it yet: an agent's "trust this folder?" has nothing there to guard.
     func isFresh(_ cwd: String) -> Bool {
-        let p = Paths.real(cwd) ?? cwd
-        return (p as NSString).deletingLastPathComponent == real && Self.isEmpty(p)
+        let path = Paths.real(cwd) ?? cwd
+        return (path as NSString).deletingLastPathComponent == real && Self.isEmpty(path)
     }
 
     /// Whether `cwd` is a chat's own folder, there or gone.
     func isChat(_ cwd: String) -> Bool {
-        let p = Paths.real(cwd) ?? cwd
-        return [real, folder.path].contains((p as NSString).deletingLastPathComponent)
+        let path = Paths.real(cwd) ?? cwd
+        return [real, folder.path].contains((path as NSString).deletingLastPathComponent)
     }
 
     /// Chat folders left empty that no session works in any more go (ended records are pruned a week after the end; a chat
@@ -47,15 +49,16 @@ struct ScratchChats {
         let used = Set(cwds.map { Paths.real($0) ?? $0 })
         let fm = FileManager.default
         for name in Self.names(real) {
-            let p = real + "/" + name
+            let path = real + "/" + name
             var dir: ObjCBool = false
-            guard fm.fileExists(atPath: p, isDirectory: &dir), dir.boolValue, !used.contains(p), Self.isEmpty(p),
+            guard fm.fileExists(atPath: path, isDirectory: &dir), dir.boolValue, !used.contains(path),
+                Self.isEmpty(path),
                 let made = Log.store.attempt(
-                    "reading when \(name) was made", { try fm.attributesOfItem(atPath: p)[.creationDate] as? Date })
+                    "reading when \(name) was made", { try fm.attributesOfItem(atPath: path)[.creationDate] as? Date })
                     ?? nil,
                 made < now - 86400
             else { continue }
-            Log.store.attempt("removing the empty chat folder \(name)") { try fm.removeItem(atPath: p) }
+            Log.store.attempt("removing the empty chat folder \(name)") { try fm.removeItem(atPath: path) }
         }
     }
 
@@ -83,9 +86,9 @@ struct ScratchChats {
 
     /// What's right in a folder (none when it isn't one).
     private static func names(_ path: String) -> [String] {
-        let e = FileManager.default.enumerator(
+        let enumerator = FileManager.default.enumerator(
             at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil,
             options: [.skipsSubdirectoryDescendants])
-        return (e?.allObjects as? [URL] ?? []).map(\.lastPathComponent)
+        return (enumerator?.allObjects as? [URL] ?? []).map(\.lastPathComponent)
     }
 }

@@ -112,10 +112,10 @@ extension LiveSession {
             detector = StatusDetector(manifest: manifest)
             hooked = manifest.hooks != nil
             selfNames = [manifest.id, manifest.name, (record.cwd as NSString).lastPathComponent]
-            autoAnswers = manifest.autoAnswers.compactMap { a in
+            autoAnswers = manifest.autoAnswers.compactMap { answer in
                 Log.session.attempt("\(manifest.id)'s auto-answer pattern") {
-                    try NSRegularExpression(pattern: a.pattern)
-                }.map { ($0, a) }
+                    try NSRegularExpression(pattern: answer.pattern)
+                }.map { ($0, answer) }
             }
             self.logSize = logSize
             wantsTopic = callbacks.topic != nil
@@ -130,9 +130,9 @@ extension LiveSession {
 
         /// The modes in effect where the history (the ring's last `ringLimit` bytes) starts.
         var historyModes: TerminalModes {
-            var m = ringModes
-            m.read(ring.dropLast(LiveSession.ringLimit))
-            return m
+            var modes = ringModes
+            modes.read(ring.dropLast(LiveSession.ringLimit))
+            return modes
         }
 
         // What a chunk of output says. Whether a chunk has a sequence at all is asked of its bytes: String.contains
@@ -140,33 +140,33 @@ extension LiveSession {
 
         /// OSC 7501 reports (true: the agent asked whether Kelp reads them) and ConEmu progress. An agent with hooks is read
         /// for its subagents alone: only there does it say what each does. Its status stays its hooks'.
-        mutating func readReports(_ text: String, _ d: Data) -> Bool {
+        mutating func readReports(_ text: String, _ data: Data) -> Bool {
             var probe = false
-            if d.range(of: Data(ProgramStatus.prefix.utf8)) != nil || !oscCarry.isEmpty {
-                for m in ProgramStatus.scan(text, carry: &oscCarry) {
-                    switch m {
+            if data.range(of: Data(ProgramStatus.prefix.utf8)) != nil || !oscCarry.isEmpty {
+                for item in ProgramStatus.scan(text, carry: &oscCarry) {
+                    switch item {
                     case .query: probe = true
-                    case .report(let r) where r.id != nil: subagentReported(r)
-                    case .report(let r) where !hooked: apply(r)
+                    case .report(let report) where report.id != nil: subagentReported(report)
+                    case .report(let report) where !hooked: apply(report)
                     default: break
                     }
                 }
             }
-            if d.range(of: Data(ProgramStatus.conEmuPrefix.utf8)) != nil,
-                let p = ProgramStatus.conEmuProgress(text).last
+            if data.range(of: Data(ProgramStatus.conEmuPrefix.utf8)) != nil,
+                let progress = ProgramStatus.conEmuProgress(text).last
             {
-                record.progress = p
+                record.progress = progress
             }
             return probe
         }
 
         /// A hook knows a subagent's kind and may come first, so a report adds no more than it knows.
-        private mutating func subagentReported(_ r: ProgramStatus.Report) {
-            guard let id = r.id else { return }
+        private mutating func subagentReported(_ report: ProgramStatus.Report) {
+            guard let id = report.id else { return }
             var running = record.subagents ?? [:], tasks = record.subagentTasks ?? [:]
-            if r.state == "working" || r.state == "blocked" {
+            if report.state == "working" || report.state == "blocked" {
                 if running[id] == nil { running[id] = "" }
-                if let title = r.title { tasks[id] = title }
+                if let title = report.title { tasks[id] = title }
             } else {
                 running[id] = nil
                 tasks[id] = nil
@@ -176,81 +176,82 @@ extension LiveSession {
         }
 
         /// A new topic from the terminal title the agent sets.
-        mutating func readTopic(_ text: String, _ d: Data) -> String? {
-            guard wantsTopic, d.range(of: Data("\u{1B}]".utf8)) != nil || !titleCarry.isEmpty,
-                let t = TerminalTitle.scan(text, carry: &titleCarry).last.flatMap({
+        mutating func readTopic(_ text: String, _ data: Data) -> String? {
+            guard wantsTopic, data.range(of: Data("\u{1B}]".utf8)) != nil || !titleCarry.isEmpty,
+                let topic = TerminalTitle.scan(text, carry: &titleCarry).last.flatMap({
                     TerminalTitle.topic($0, names: selfNames)
-                }), t != lastTopic
+                }), topic != lastTopic
             else {
                 return nil
             }
-            lastTopic = t
-            return t
+            lastTopic = topic
+            return topic
         }
 
         /// Bracketed paste switched on or off (the sequence can be split across two reads).
-        mutating func notePasteMode(_ d: Data) {
-            let scan = pasteCarry + d
+        mutating func notePasteMode(_ data: Data) {
+            let scan = pasteCarry + data
             if let on = scan.range(of: Data("\u{1B}[?2004".utf8), options: .backwards), on.upperBound < scan.endIndex {
                 pasteMode = scan[on.upperBound] == UInt8(ascii: "h")
             }
-            pasteCarry = Data(d.suffix(7))
+            pasteCarry = Data(data.suffix(7))
         }
 
         /// The keys that answer a question the manifest knows (a menu is steered instead, see `steer`).
         mutating func autoAnswer() -> (input: String, asked: NSRegularExpression, after: Double)? {
             guard !autoAnswers.isEmpty, !typedYet, Date().timeIntervalSince(started) < 90 else { return nil }
             let tail = screen(4000)
-            let r = NSRange(tail.startIndex..., in: tail)
-            guard let i = autoAnswers.firstIndex(where: { $0.0.firstMatch(in: tail, range: r) != nil }) else {
+            let whole = NSRange(tail.startIndex..., in: tail)
+            guard let index = autoAnswers.firstIndex(where: { $0.0.firstMatch(in: tail, range: whole) != nil }) else {
                 return nil
             }
-            let a = autoAnswers[i].1
-            if let choose = a.choose,
+            let answer = autoAnswers[index].1
+            if let choose = answer.choose,
                 let re = Log.session.attempt(
                     "an auto-answer's choice pattern", { try NSRegularExpression(pattern: choose) })
             {
-                steering = (re, Date(), .distantPast, autoAnswers[i].0)
-                autoAnswers.remove(at: i)   // closed loop, see steer()
+                steering = (re, Date(), .distantPast, autoAnswers[index].0)
+                autoAnswers.remove(at: index)   // closed loop, see steer()
                 return nil
             }
-            let asked = autoAnswers.remove(at: i).0
+            let asked = autoAnswers.remove(at: index).0
             dialogSettled = true
-            return (a.input, asked, a.after ?? 0.4)
+            return (answer.input, asked, answer.after ?? 0.4)
         }
 
         /// The first local URL it prints (a dev server), with 0.0.0.0 and [::] as localhost.
         mutating func localURL(_ plain: String) -> String? {
             guard !sawURL, wantsURL,
-                let m = LiveSession.urlRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)),
-                let r = Range(m.range, in: plain)
+                let match = LiveSession.urlRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)),
+                let range = Range(match.range, in: plain)
             else { return nil }
             sawURL = true
-            return String(plain[r]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(
+            return String(plain[range]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(
                 of: "[::]", with: "localhost")
         }
 
         /// The port a server couldn't get, once: a run that printed its page got one.
         mutating func busyPort(_ plain: String) -> Int? {
             guard !sawURL, !sawBusy, wantsURL else { return nil }
-            guard let m = LiveSession.busyRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain))
+            guard
+                let match = LiveSession.busyRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain))
             else { return nil }
-            let r = [1, 2].lazy.compactMap { Range(m.range(at: $0), in: plain) }.first
+            let range = [1, 2].lazy.compactMap { Range(match.range(at: $0), in: plain) }.first
             sawBusy = true
-            return r.flatMap { Int(plain[$0]) }
+            return range.flatMap { Int(plain[$0]) }
         }
 
         /// Plan limits Claude Code (or Cursor Agent or Codex, once it ran out) printed, when they changed.
-        mutating func newLimits(_ d: Data) -> [ClaudeLimits.Reading] {
-            guard wantsLimits, d.range(of: Data("limit".utf8)) != nil else { return [] }
+        mutating func newLimits(_ data: Data) -> [ClaudeLimits.Reading] {
+            guard wantsLimits, data.range(of: Data("limit".utf8)) != nil else { return [] }
             let found =
                 record.agent == "cursor"
                 ? ClaudeLimits.parseCursorLimitHit(screen(1200)).map { [$0] } ?? []
                 : record.agent == "codex"
                     ? ClaudeLimits.parseCodexLimitHit(screen(1200)).map { [$0] } ?? []
                     : ClaudeLimits.parse(screen(1200))
-            if !hooked, let r = found.first(where: { $0.percent >= 100 }) {
-                limitSeen = (LimitHit(kind: r.kind, resets: r.resets), Date())
+            if !hooked, let hit = found.first(where: { $0.percent >= 100 }) {
+                limitSeen = (LimitHit(kind: hit.kind, resets: hit.resets), Date())
                 settleLimit()
             }
             guard !found.isEmpty, found != lastLimits else { return [] }
@@ -270,14 +271,15 @@ extension LiveSession {
         }
 
         /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
-        mutating func apply(_ r: ProgramStatus.Report) {
+        mutating func apply(_ report: ProgramStatus.Report) {
             spoke()
-            detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10)
+            detector.program(report.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10)
             lastHookAt = Date()
             // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
-            let fresh = r.state == "idle" || r.state == "clear" || (r.state == "working" && record.tmux != nil)
-            if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
-            record.progress = r.progress
+            let fresh =
+                report.state == "idle" || report.state == "clear" || (report.state == "working" && record.tmux != nil)
+            if let msg = report.msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
+            record.progress = report.progress
         }
 
         /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
@@ -412,9 +414,9 @@ extension LiveSession {
         /// Its turn or its program ended: a command whose end wasn't told (a denied permission, an interrupt) runs no more.
         mutating func endCommands(at now: Date) {
             let open = commands.indices.filter { commands[$0].outcome == nil }
-            for i in open {
-                commands[i].outcome = .stopped
-                commands[i].ended = now
+            for index in open {
+                commands[index].outcome = .stopped
+                commands[index].ended = now
             }
             if !open.isEmpty { _ = newCommands() }
             _ = showRunning()
@@ -473,15 +475,15 @@ extension LiveSession {
         /// arrives after the exit doesn't bring the session back.
         mutating func sync() -> Session? {
             record.subagentsAsk(asking.keys)
-            let s = detector.status
-            guard s != record.status, record.status != .exited else { return nil }
-            trail.add("\(record.status.rawValue) → \(s.rawValue)  \(detector.source)")
-            record.status = s
+            let status = detector.status
+            guard status != record.status, record.status != .exited else { return nil }
+            trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
+            record.status = status
             // Read off the screen: a guess, said as one (`Session.guessed`). Hooks and the program's own reports aren't.
             let src = detector.source
             record.guessed = src.hasPrefix("screen") || src.hasPrefix("no hook") ? true : nil
-            if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
-            if s == .done || s == .error {
+            if status == .done || status == .waiting || status == .exited || status == .error { record.unread = true }
+            if status == .done || status == .error {
                 settleLimit()
             } else {
                 record.limitHit = nil
@@ -502,19 +504,19 @@ extension LiveSession {
         }
 
         /// The user's keys into `typing`; the first line of 8 characters or more they send (once), which names the session.
-        mutating func noteTyping(_ d: Data) -> String? {
-            let s = String(decoding: d, as: UTF8.self)
+        mutating func noteTyping(_ data: Data) -> String? {
+            let text = String(decoding: data, as: UTF8.self)
             // Esc puts nothing in the box: a report waiting for it to be empty would wait on the next Return.
-            if s != "\u{1B}", LiveSession.kittyKey(s)?.key != 27 { boxEmpty = false }
-            if s.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
-                typing += s.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(
+            if text != "\u{1B}", LiveSession.kittyKey(text)?.key != 27 { boxEmpty = false }
+            if text.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
+                typing += text.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(
                     of: "\u{1B}[201~", with: ""
                 )
                 .replacingOccurrences(of: "\r", with: "\n")
                 return nil
             }
-            if let k = LiveSession.kittyKey(s) {
-                switch (k.key, k.mods) {
+            if let kitty = LiveSession.kittyKey(text) {
+                switch (kitty.key, kitty.mods) {
                 case (13, 0): return sendLine()   // Return (⇧Return is a new line in the box)
                 case (99, 4), (117, 4): typing = ""   // ⌃C, ⌃U
                 case (119, 4), (127, 2): dropWord()   // ⌃W, ⌥⌫
@@ -522,13 +524,13 @@ extension LiveSession {
                 }
                 return nil
             }
-            if s == "\u{1B}\u{7F}" {
+            if text == "\u{1B}\u{7F}" {
                 dropWord()
                 return nil
             }   // ⌥⌫
-            if s.hasPrefix("\u{1B}") { return nil }   // arrows, function keys
+            if text.hasPrefix("\u{1B}") { return nil }   // arrows, function keys
             var sent: String?
-            for ch in s {
+            for ch in text {
                 switch ch {
                 case "\r", "\n", "\r\n": sent = sendLine() ?? sent
                 case "\u{03}", "\u{15}": typing = ""   // ⌃C, ⌃U: the line is dropped
@@ -559,7 +561,7 @@ extension LiveSession {
 
         private mutating func dropWord() {
             while typing.last == " " { typing.removeLast() }
-            while let c = typing.last, c != " " { typing.removeLast() }
+            while let last = typing.last, last != " " { typing.removeLast() }
         }
     }
 }

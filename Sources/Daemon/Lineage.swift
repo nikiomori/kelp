@@ -7,11 +7,11 @@ extension Store {
     /// It stops at a caller's mark (`Caller.marks`: started by kelpd's program or one Kelp couldn't place) or a session gone.
     func lineage(_ id: String) throws -> [Session] {
         var line: [Session] = [], next: String? = id
-        while let n = next, !Caller.marks.contains(n), line.count < 32, !line.contains(where: { $0.id == n }),
-            let s = try session(n)
+        while let current = next, !Caller.marks.contains(current), line.count < 32,
+            !line.contains(where: { $0.id == current }), let session = try self.session(current)
         {
-            line.append(s)
-            next = s.parent ?? s.startedBy ?? s.origin.flatMap { Caller.session(of: $0) ?? $0 }
+            line.append(session)
+            next = session.parent ?? session.startedBy ?? session.origin.flatMap { Caller.session(of: $0) ?? $0 }
         }
         return line
     }

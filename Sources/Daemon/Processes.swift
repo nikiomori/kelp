@@ -11,7 +11,7 @@ extension Sessions {
     private func owners(worktree only: String? = nil) -> [Int32: String] {
         var owner: [Int32: String] = [:]
         for ls in live.all where only == nil || ls.snapshot.worktreeId == only {
-            for p in ls.pty.tree() { owner[p] = ls.snapshot.id }
+            for pid in ls.pty.tree() { owner[pid] = ls.snapshot.id }
         }
         return owner
     }
@@ -23,18 +23,18 @@ extension Sessions {
         for line in (Self.run(["/bin/ps", "-axo", "pid=,pcpu=,rss="], path: "/bin:/usr/bin", timeout: 3) ?? "").split(
             whereSeparator: \.isNewline)
         {
-            let f = line.split(separator: " ")
-            guard f.count == 3, let pid = Int32(f[0]) else { continue }
-            rows[pid] = (Double(f[1]) ?? 0, (Int(f[2]) ?? 0) * 1024)
+            let fields = line.split(separator: " ")
+            guard fields.count == 3, let pid = Int32(fields[0]) else { continue }
+            rows[pid] = (Double(fields[1]) ?? 0, (Int(fields[2]) ?? 0) * 1024)
         }
         return (owner, rows)
     }
 
     /// Read every 3 s while the window shows, so from the kernel: lsof and ps cost 2 % of a core for as long as Kelp is open.
     func ports(worktree wid: String) -> [Port] {
-        if let (w, remote) = remote(wid) {
+        if let (worktree, remote) = remote(wid) {
             return forwards.ports(
-                w, remote, sessions: live.all.filter { $0.snapshot.worktreeId == wid }.map(\.snapshot.id))
+                worktree, remote, sessions: live.all.filter { $0.snapshot.worktreeId == wid }.map(\.snapshot.id))
         }
         var out: [Int: Port] = [:]
         for (pid, session) in owners(worktree: wid).sorted(by: { $0.key < $1.key }) {
@@ -47,10 +47,10 @@ extension Sessions {
 
     /// The workspace when it's a remote project's.
     func remote(_ wid: String) -> (Worktree, RemoteHost)? {
-        guard let w = Log.store.attempt("reading a workspace", { try store.worktree(wid) }).flatMap({ $0 }),
-            let r = remotes.of(w.path)
+        guard let worktree = Log.store.attempt("reading a workspace", { try store.worktree(wid) }).flatMap({ $0 }),
+            let remote = remotes.of(worktree.path)
         else { return nil }
-        return (w, r)
+        return (worktree, remote)
     }
 
     /// The TCP ports a process listens on. Nothing for one that's gone.
@@ -81,12 +81,12 @@ extension Sessions {
         let (owner, rows) = sessionProcesses()
         var by: [String: Usage] = [:]
         for (pid, sid) in owner {
-            guard let r = rows[pid] else { continue }
-            var u = by[sid] ?? Usage(session: sid, cpu: 0, memory: 0, processes: 0)
-            u.cpu += r.cpu
-            u.memory += r.rss
-            u.processes += 1
-            by[sid] = u
+            guard let row = rows[pid] else { continue }
+            var total = by[sid] ?? Usage(session: sid, cpu: 0, memory: 0, processes: 0)
+            total.cpu += row.cpu
+            total.memory += row.rss
+            total.processes += 1
+            by[sid] = total
         }
         return by.values.filter { $0.memory > 0 }.sorted { ($0.cpu, $0.memory) > ($1.cpu, $1.memory) }   // 0: already gone
     }

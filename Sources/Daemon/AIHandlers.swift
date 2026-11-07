@@ -11,35 +11,35 @@ extension Sessions {
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = path
         env["NO_COLOR"] = "1"
-        guard let r = try? Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout),
-            r.status == 0, !r.timedOut, !r.truncated
+        guard let result = try? Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout),
+            result.status == 0, !result.timedOut, !result.truncated
         else { return nil }
-        return String(decoding: r.stdout + r.stderr, as: UTF8.self)
+        return String(decoding: result.stdout + result.stderr, as: UTF8.self)
     }
 
     /// "claude 2.1.3 (Claude Code)" → "2.1.3".
-    static func semver(_ s: String) -> String? { s.firstMatch(of: /\d+\.\d+\.\d+/).map { String($0.output) } }
+    static func semver(_ output: String) -> String? { output.firstMatch(of: /\d+\.\d+\.\d+/).map { String($0.output) } }
 
     /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. Claude Code's own
     /// conversation (what was asked and answered) when there is one; otherwise the terminal's text.
-    func handoffFile(_ s: Session, full: Bool) throws -> URL {
+    func handoffFile(_ session: Session, full: Bool) throws -> URL {
         let limit = full ? 400_000 : 40_000
         let body: String
-        if let t = existing(s.id).flatMap(agentUsage.transcript(of:)),
-            let talk = AgentUsage.conversation(transcript: t, limit: limit), !talk.isEmpty
+        if let transcript = existing(session.id).flatMap(agentUsage.transcript(of:)),
+            let talk = AgentUsage.conversation(transcript: transcript, limit: limit), !talk.isEmpty
         {
             body = talk
         } else {
-            let d = try liveSessionOrLog(s.id, bytes: limit)
+            let printed = try liveSessionOrLog(session.id, bytes: limit)
             // swiftlint:disable:next optional_data_string_conversion
-            body = "```\n" + StatusDetector.stripANSI(String(decoding: d, as: UTF8.self)) + "\n```"   // lossy on purpose, see session.context
+            body = "```\n" + StatusDetector.stripANSI(String(decoding: printed, as: UTF8.self)) + "\n```"   // lossy on purpose, see session.context
         }
         let dir = root.appendingPathComponent("handoff")
         try Paths.ensure(dir)
-        let u = dir.appendingPathComponent("\(s.id).md")
-        try ("# Previous session (\(s.agent ?? "agent"), \(s.cwd))\n\n" + body + "\n").write(
-            to: u, atomically: true, encoding: .utf8)
-        return u
+        let file = dir.appendingPathComponent("\(session.id).md")
+        try ("# Previous session (\(session.agent ?? "agent"), \(session.cwd))\n\n" + body + "\n").write(
+            to: file, atomically: true, encoding: .utf8)
+        return file
     }
 }
 
@@ -49,12 +49,14 @@ extension SessionMove: Handled {
             throw RPCError.invalidParams("no worktree")
         }
         try sessions.wakeLocks.withLock(id) {
-            guard let s = try sessions.existing(id)?.snapshot ?? sessions.store.sessions().first(where: { $0.id == id })
+            guard
+                let session = try sessions.existing(id)?.snapshot
+                    ?? sessions.store.sessions().first(where: { $0.id == id })
             else {
                 throw RPCError.invalidParams("no session")
             }
             // Its process keeps its folder: a workspace elsewhere is other files, which only a new agent can have.
-            guard let from = try s.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {
+            guard let from = try session.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {
                 throw RPCError.invalidParams("Only a screen of the same folder can take it.")
             }
             if let ls = sessions.existing(id) {
@@ -93,9 +95,9 @@ extension SessionRename: Handled {
 extension Sessions {
     /// argv without `--session-id <id>`: two sessions can't share an id (Claude Code refuses one already used).
     static func withoutSessionId(_ argv: [String], flag: String?) -> [String] {
-        guard let flag, let i = argv.firstIndex(of: flag) else { return argv }
-        var a = argv
-        a.removeSubrange(i...min(i + 1, a.count - 1))
-        return a
+        guard let flag, let index = argv.firstIndex(of: flag) else { return argv }
+        var stripped = argv
+        stripped.removeSubrange(index...min(index + 1, stripped.count - 1))
+        return stripped
     }
 }

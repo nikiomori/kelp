@@ -28,9 +28,11 @@ enum HostPorts {
 
     static func parse(_ out: String) -> [Listener] {
         out.components(separatedBy: "\u{1E}").dropFirst().compactMap { line in
-            let f = line.split(separator: " ", maxSplits: 2).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            guard f.count == 3, let port = Int(f[0]), let pid = Int32(f[1]) else { return nil }
-            return Listener(port: port, pid: pid, command: f[2])
+            let fields = line.split(separator: " ", maxSplits: 2).map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard fields.count == 3, let port = Int(fields[0]), let pid = Int32(fields[1]) else { return nil }
+            return Listener(port: port, pid: pid, command: fields[2])
         }
     }
 }
@@ -72,9 +74,9 @@ final class Forwards: Sendable {
 
     func change(_ edit: @Sendable (inout [Record]) -> Void) {
         saving.withLock {
-            let records = state.withLock { s in
-                edit(&s.records)
-                return s.records
+            let records = state.withLock { current in
+                edit(&current.records)
+                return current.records
             }
             Log.store.attempt("saving the port forwardings") {
                 let text = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
@@ -85,9 +87,10 @@ final class Forwards: Sendable {
 
     /// "8000", "localhost:8000" or "db.internal:5432".
     static func target(_ text: String) throws -> String {
-        let t = text.trimmingCharacters(in: .whitespaces), full = Int(t) != nil ? "localhost:" + t : t
+        let trimmed = text.trimmingCharacters(in: .whitespaces),
+            full = Int(trimmed) != nil ? "localhost:" + trimmed : trimmed
         guard full.wholeMatch(of: /[A-Za-z0-9][A-Za-z0-9._-]*:[0-9]{1,5}/) != nil else {
-            throw RPCError.invalidParams("“\(t)” is no port or host:port.")
+            throw RPCError.invalidParams("“\(trimmed)” is no port or host:port.")
         }
         return full
     }
@@ -101,10 +104,11 @@ final class Forwards: Sendable {
         let first = old?.here ?? (asked < 1024 ? asked + 10000 : asked)   // this Mac binds those only for root: :80 → :10080
         for here in first..<first + 10 {
             do { try remote.control("forward", Self.spec(here, target)) } catch { continue }   // taken here: the next one
-            var r = old ?? Record(host: remote.host, target: target, here: here, worktree: worktree, manual: manual)
-            r.here = here
-            r.manual = r.manual || manual
-            let record = r
+            var updated =
+                old ?? Record(host: remote.host, target: target, here: here, worktree: worktree, manual: manual)
+            updated.here = here
+            updated.manual = updated.manual || manual
+            let record = updated
             change { records in
                 records.removeAll { $0.host == record.host && $0.target == record.target }
                 records.append(record)
@@ -116,18 +120,18 @@ final class Forwards: Sendable {
 
     /// A printed address as this Mac reaches it; as it was when it can't be brought here.
     func forward(url: String, in worktree: String, _ remote: RemoteHost) -> String {
-        guard var u = URLComponents(string: url), let port = u.port else { return url }
-        let target = (u.host == "127.0.0.1" ? "127.0.0.1" : "localhost") + ":\(port)"
+        guard var components = URLComponents(string: url), let port = components.port else { return url }
+        let target = (components.host == "127.0.0.1" ? "127.0.0.1" : "localhost") + ":\(port)"
         guard let here = Log.session.attempt("forwarding \(target)", { try forward(target, in: worktree, remote) })
         else { return url }
-        u.host = "localhost"
-        u.port = here
-        return u.string ?? url
+        components.host = "localhost"
+        components.port = here
+        return components.string ?? url
     }
 
     func drop(port: Int, in worktree: String, _ remote: RemoteHost) {
         let gone = state.withLock { s in s.records.filter { $0.worktree == worktree && $0.port == port } }
-        for r in gone { cancel(r, remote) }
+        for record in gone { cancel(record, remote) }
         change { records in records.removeAll { gone.contains($0) } }
     }
 
@@ -139,10 +143,10 @@ final class Forwards: Sendable {
 
     /// What the workspace's folder serves on the host, and where each is here. Never opens a connection (Kelp must not
     /// redial a host someone closed the lid on): without one, the last answer, marked offline.
-    func ports(_ w: Worktree, _ remote: RemoteHost, sessions: [String]) -> [PortsList.Port] {
+    func ports(_ worktree: Worktree, _ remote: RemoteHost, sessions: [String]) -> [PortsList.Port] {
         let args = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(HostPorts.script(remote.path))]
         guard let connection = remote.connection, let out = Sessions.run(args, path: "/usr/bin:/bin", timeout: 5) else {
-            return state.withLock { $0.seen[w.id] ?? [] }.map {
+            return state.withLock { $0.seen[worktree.id] ?? [] }.map {
                 PortsList.Port(
                     port: $0.port, pid: $0.pid, command: $0.command, session: $0.session, host: $0.host, here: $0.here,
                     offline: true)
@@ -150,8 +154,8 @@ final class Forwards: Sendable {
         }
         restore(on: connection, remote)
         let found = HostPorts.parse(out)
-        prune(w, found, remote)
-        let records = state.withLock { s in s.records.filter { $0.worktree == w.id } }
+        prune(worktree, found, remote)
+        let records = state.withLock { s in s.records.filter { $0.worktree == worktree.id } }
         func here(_ port: Int) -> Int? { records.first { $0.port == port }?.here }
         // Which session started it isn't known on the host: alone in the workspace, it's that one.
         var ports = found.map {
@@ -160,25 +164,28 @@ final class Forwards: Sendable {
                 port: $0.port, pid: $0.pid, command: $0.command, session: session, host: remote.host,
                 here: here($0.port))
         }
-        for r in records where r.manual && !found.contains(where: { $0.port == r.port }) {
+        for record in records where record.manual && !found.contains(where: { $0.port == record.port }) {
             ports.append(
-                PortsList.Port(port: r.port, pid: 0, command: r.target, session: "", host: remote.host, here: r.here))
+                PortsList.Port(
+                    port: record.port, pid: 0, command: record.target, session: "", host: remote.host, here: record.here
+                ))
         }
         let answer = ports
-        state.withLock { $0.seen[w.id] = answer }
+        state.withLock { $0.seen[worktree.id] = answer }
         return answer
     }
 
     /// A new connection has none of the forwardings the last one had. One never seen listening can't be told from a
     /// server long gone, so it stops here.
     private func restore(on connection: String, _ remote: RemoteHost) {
-        let again = state.withLock { s -> [Record] in
-            defer { s.connections[remote.host] = connection }
-            return s.connections[remote.host] == connection ? [] : s.records.filter { $0.host == remote.host }
+        let again = state.withLock { current -> [Record] in
+            defer { current.connections[remote.host] = connection }
+            return current.connections[remote.host] == connection
+                ? [] : current.records.filter { $0.host == remote.host }
         }
-        for r in again where r.seen || r.manual {
-            _ = Log.session.attempt("forwarding \(r.target) again") {
-                try forward(r.target, in: r.worktree, remote, manual: r.manual)
+        for record in again where record.seen || record.manual {
+            _ = Log.session.attempt("forwarding \(record.target) again") {
+                try forward(record.target, in: record.worktree, remote, manual: record.manual)
             }
         }
         let host = remote.host
@@ -186,24 +193,24 @@ final class Forwards: Sendable {
     }
 
     /// A server that stopped takes its forwarding with it, two looks later: one look can fall in a restart.
-    private func prune(_ w: Worktree, _ found: [HostPorts.Listener], _ remote: RemoteHost) {
-        let id = w.id
+    private func prune(_ worktree: Worktree, _ found: [HostPorts.Listener], _ remote: RemoteHost) {
+        let id = worktree.id
         let open = found.map(\.port)
         change { records in
-            for i in records.indices where records[i].worktree == id && !records[i].manual {
-                let there = open.contains(records[i].port)
-                records[i].seen = records[i].seen || there
-                records[i].misses = there || !records[i].seen ? 0 : records[i].misses + 1
+            for index in records.indices where records[index].worktree == id && !records[index].manual {
+                let there = open.contains(records[index].port)
+                records[index].seen = records[index].seen || there
+                records[index].misses = there || !records[index].seen ? 0 : records[index].misses + 1
             }
         }
         let gone = state.withLock { s in s.records.filter { $0.worktree == id && $0.misses >= 2 } }
-        for r in gone { cancel(r, remote) }
+        for record in gone { cancel(record, remote) }
         if !gone.isEmpty { change { $0.removeAll { r in gone.contains(r) } } }
     }
 
-    private func cancel(_ r: Record, _ remote: RemoteHost) {
-        Log.session.attempt("ending the forwarding of \(r.target)") {
-            try remote.control("cancel", Self.spec(r.here, r.target))
+    private func cancel(_ record: Record, _ remote: RemoteHost) {
+        Log.session.attempt("ending the forwarding of \(record.target)") {
+            try remote.control("cancel", Self.spec(record.here, record.target))
         }
     }
 

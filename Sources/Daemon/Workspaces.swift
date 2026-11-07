@@ -26,13 +26,13 @@ final class Workspaces: Sendable {
     private func discardFile(folder: String, name: String?) -> URL {
         discards.appendingPathComponent(Self.digest(folder + "\0" + (name ?? "")) + ".json")
     }
-    /// Keeps `d` under `name` in `folder`, dropping what's past its minute.
+    /// Keeps `discard` under `name` in `folder`, dropping what's past its minute.
     /// Kept for its Undo before the files change (`Git.discard`'s `keep`): one that can't be kept (a full disk) isn't made.
-    func keepDiscard(_ d: Discarded, folder: String, name: String?) throws {
+    func keepDiscard(_ discard: Discarded, folder: String, name: String?) throws {
         sweepDiscards()
         do {
             try FileManager.default.createDirectory(at: discards, withIntermediateDirectories: true)
-            try JSONEncoder().encode(d).write(to: discardFile(folder: folder, name: name), options: .atomic)
+            try JSONEncoder().encode(discard).write(to: discardFile(folder: folder, name: name), options: .atomic)
         } catch {
             throw RPCError.internalError(
                 "Nothing was discarded: its Undo couldn't be kept (\(error.localizedDescription)).")
@@ -46,14 +46,14 @@ final class Workspaces: Sendable {
     func undoDiscard(folder: String, name: String?, _ putBack: (Discarded) throws -> Void) throws -> Bool {
         let file = discardFile(folder: folder, name: name), taken = file.appendingPathExtension(UUID().uuidString)
         guard rename(file.path, taken.path) == 0 else { return false }
-        let d = Log.store.attempt("reading a discard") {
+        let discard = Log.store.attempt("reading a discard") {
             try JSONDecoder().decode(Discarded.self, from: Data(contentsOf: taken))
         }
-        guard let d, d.at.timeIntervalSinceNow > -60 else {
+        guard let discard, discard.at.timeIntervalSinceNow > -60 else {
             unlink(taken.path)
             return false
         }
-        do { try putBack(d) } catch {
+        do { try putBack(discard) } catch {
             if renamex_np(taken.path, file.path, UInt32(RENAME_EXCL)) != 0 { unlink(taken.path) }   // a newer one has its name
             throw error
         }
@@ -84,7 +84,7 @@ final class Workspaces: Sendable {
         sweepDiscards()
     }
 
-    func notify(_ e: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(e, to: only) }
+    func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
     /// Makes the folder, or fails if anything is there already: of two clones racing for one name, exactly one gets it.
     static func claim(_ dest: String) -> Bool { mkdir(dest, 0o755) == 0 }
@@ -96,26 +96,27 @@ final class Workspaces: Sendable {
     /// projects with one name don't share a folder.
     /// `chosen`: the folder set in Settings › Git (`worktrees.folder`, `~` for home): the project's go in a subfolder named
     /// after it there, where an editor or Finder finds them.
-    static func worktreesDir(_ root: URL, _ r: Repo, chosen: String? = nil) -> URL {
-        let name = Git.slug(r.name).replacingOccurrences(of: ".", with: "-")
+    static func worktreesDir(_ root: URL, _ repo: Repo, chosen: String? = nil) -> URL {
+        let name = Git.slug(repo.name).replacingOccurrences(of: ".", with: "-")
         if let chosen = chosen?.trimmingCharacters(in: .whitespaces), !chosen.isEmpty {
             return URL(fileURLWithPath: (chosen as NSString).expandingTildeInPath).appendingPathComponent(name)
         }
-        return root.appendingPathComponent("worktrees").appendingPathComponent(name + "-" + r.id.prefix(8))
+        return root.appendingPathComponent("worktrees").appendingPathComponent(name + "-" + repo.id.prefix(8))
     }
 
     static let placeholderName = #"^Workspace \d+$"#
 
-    func isMain(_ w: Worktree, _ r: Repo) -> Bool { w.path == r.path }
+    func isMain(_ worktree: Worktree, _ repo: Repo) -> Bool { worktree.path == repo.path }
 
     /// A branch group's branch as it is: renamed in its folder (`git branch -m`), what the record says no longer exists, and
     /// closing it would ask about nothing and then fail. A switch to another branch doesn't count: that one isn't the group's to delete.
-    func branchNow(of w: Worktree, in r: Repo) -> String {
-        guard !Git.branchExists(r.path, w.branch, remotes: remotes),
+    func branchNow(of worktree: Worktree, in repo: Repo) -> String {
+        guard !Git.branchExists(repo.path, worktree.branch, remotes: remotes),
             let now = Log.store.attempt(
-                "reading \(w.path)'s branch", { try Git.currentBranch(w.path, remotes: remotes) }), now != "HEAD"
+                "reading \(worktree.path)'s branch", { try Git.currentBranch(worktree.path, remotes: remotes) }),
+            now != "HEAD"
         else {
-            return w.branch
+            return worktree.branch
         }
         return now
     }
@@ -132,19 +133,20 @@ final class Workspaces: Sendable {
     /// The caller holds `workspaceLock`.
     private func syncWorkspaces() throws {
         let all = try store.worktrees(repo: nil)
-        for r in try store.repos() {
-            let workspaces = all.filter { isMain($0, r) }
+        for repo in try store.repos() {
+            let workspaces = all.filter { isMain($0, repo) }
             // A remote project's branch is read over ssh: not on every sync (an unreachable host would stall each one for
             // its connect timeout). Its workspaces keep the branch they have; git.status and the like read it when asked.
-            if remotes.of(r.path) != nil, !workspaces.isEmpty { continue }
+            if remotes.of(repo.path) != nil, !workspaces.isEmpty { continue }
             let branch =
-                remotes.of(r.path) != nil
-                ? r.baseBranch : (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
+                remotes.of(repo.path) != nil
+                ? repo.baseBranch : (try? Git.currentBranch(repo.path, remotes: remotes)) ?? repo.baseBranch
             if workspaces.isEmpty {
-                try store.save(Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace 1", base: branch))
+                try store.save(
+                    Worktree(repoId: repo.id, branch: branch, path: repo.path, note: "Workspace 1", base: branch))
             }
-            for w in workspaces where w.branch != branch || w.note.isEmpty {
-                try store.update(Worktree.self, w.id) {
+            for worktree in workspaces where worktree.branch != branch || worktree.note.isEmpty {
+                try store.update(Worktree.self, worktree.id) {
                     $0.branch = branch
                     if $0.note.isEmpty { $0.note = "Workspace 1" }   // was the project's "main" workspace
                 }
@@ -185,10 +187,10 @@ final class Workspaces: Sendable {
             }
             if let fw { made[id] = HeadWatch(dir: dir, watcher: fw) }
         }
-        let gone = heads.withLock { [made] h -> [HeadWatch] in
-            guard let all = h else { return Array(made.values) }   // stopped meanwhile
+        let gone = heads.withLock { [made] current -> [HeadWatch] in
+            guard let all = current else { return Array(made.values) }   // stopped meanwhile
             let gone = all.filter { want[$0.key] != $0.value.dir }.map(\.value)
-            h = all.filter { want[$0.key] == $0.value.dir }.merging(made) { old, _ in old }
+            current = all.filter { want[$0.key] == $0.value.dir }.merging(made) { old, _ in old }
             return gone
         }
         _ = gone   // their streams stop as they go, out of the lock
@@ -196,36 +198,39 @@ final class Workspaces: Sendable {
 
     /// The daemon stops: the folders aren't followed any more.
     func stopWatching() {
-        let h = heads.withLock { h in
-            defer { h = nil }
-            return h
+        let stopped = heads.withLock { current in
+            defer { current = nil }
+            return current
         }
-        _ = h   // the streams stop here, out of the lock
+        _ = stopped   // the streams stop here, out of the lock
     }
 
     /// A new workspace in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
-    func createWorkspace(in r: Repo) throws -> Worktree {
+    func createWorkspace(in repo: Repo) throws -> Worktree {
         // Read before the lock: a remote project's is read over ssh, and a host that doesn't answer would hold every
         // project's sync for its timeout.
-        let branch = (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
-        let w = try workspaceLock.withLock {   // its "Workspace N" counts the workspaces there now
+        let branch = (try? Git.currentBranch(repo.path, remotes: remotes)) ?? repo.baseBranch
+        let worktree = try workspaceLock.withLock {   // its "Workspace N" counts the workspaces there now
             try syncWorkspaces()   // names the project's first workspace, so the new one doesn't take "Workspace 1"
-            let taken = Set(try store.worktrees(repo: r.id).map(\.note))
-            var n = 1
-            while taken.contains("Workspace \(n)") { n += 1 }
-            let w = Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace \(n)", base: branch)
-            try store.save(w)
-            return w
+            let taken = Set(try store.worktrees(repo: repo.id).map(\.note))
+            var number = 1
+            while taken.contains("Workspace \(number)") { number += 1 }
+            let worktree = Worktree(
+                repoId: repo.id, branch: branch, path: repo.path, note: "Workspace \(number)", base: branch)
+            try store.save(worktree)
+            return worktree
         }
         notify(ChangedEvent.worktree)   // the coarse `event.changed`; its record went out as it was written
-        return w
+        return worktree
     }
 
     /// "Workspace 3" on branch "ws-3": instant, and renamed from the first prompt later (see autoTitle).
-    func nextWorkspace(in r: Repo) throws -> (name: String, branch: String) {
-        let taken = Set(try store.worktrees(repo: r.id).map(\.note))
-        var n = 2
-        while taken.contains("Workspace \(n)") || Git.branchExists(r.path, "ws-\(n)", remotes: remotes) { n += 1 }
-        return ("Workspace \(n)", "ws-\(n)")
+    func nextWorkspace(in repo: Repo) throws -> (name: String, branch: String) {
+        let taken = Set(try store.worktrees(repo: repo.id).map(\.note))
+        var number = 2
+        while taken.contains("Workspace \(number)") || Git.branchExists(repo.path, "ws-\(number)", remotes: remotes) {
+            number += 1
+        }
+        return ("Workspace \(number)", "ws-\(number)")
     }
 }

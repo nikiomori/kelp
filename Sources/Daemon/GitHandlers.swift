@@ -29,29 +29,29 @@ extension GitPush: Handled {
 
 extension GitDiff: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
-        let w = try workspaces.store.worktree(named: id)
-        var dir = w.path
+        let workspace = try workspaces.store.worktree(named: id)
+        var dir = workspace.path
         let src: DiffSource
         switch source ?? "all" {
         case "turn":   // since the agent's last turn started, where it worked then (its own worktree, maybe)
             // A paused agent isn't woken: its turns are kept in the store.
-            guard let s = session, let rec = try workspaces.store.session(s) else {
+            guard let sessionId = session, let rec = try workspaces.store.session(sessionId) else {
                 throw RPCError.invalidParams("No such agent.")
             }
-            let ls = workspaces.sessions.existing(s)
+            let ls = workspaces.sessions.existing(sessionId)
             dir = ls?.turnDir ?? ls?.snapshot.cwd ?? rec.cwd
             if let turn {   // one turn of its history: up to the next one's start, or now for the newest
-                let marks = try workspaces.store.turns(session: s)
-                guard let i = marks.firstIndex(where: { $0.id == turn }) else {
+                let marks = try workspaces.store.turns(session: sessionId)
+                guard let index = marks.firstIndex(where: { $0.id == turn }) else {
                     throw RPCError.invalidParams("No such turn of that agent.")
                 }
-                dir = marks[i].folder
-                src = i > 0 ? .between(marks[i].tree, marks[i - 1].tree) : .since(tree: marks[i].tree)
+                dir = marks[index].folder
+                src = index > 0 ? .between(marks[index].tree, marks[index - 1].tree) : .since(tree: marks[index].tree)
             } else {
                 // The one in memory, else the last kept (gone after the daemon restarted), in the folder it was taken in.
                 if let base = ls?.turnBase {
                     src = .since(tree: base)
-                } else if let last = try workspaces.store.turns(session: s).first {
+                } else if let last = try workspaces.store.turns(session: sessionId).first {
                     dir = last.folder
                     src = .since(tree: last.tree)
                 } else {
@@ -61,7 +61,8 @@ extension GitDiff: Handled {
         case "unstaged": src = .unstaged
         case "staged": src = .staged
         case "branch":
-            src = .branch(base: try clientRef(base) ?? (try workspaces.store.repo(w.repoId)?.baseBranch ?? "main"))
+            src = .branch(
+                base: try clientRef(base) ?? (try workspaces.store.repo(workspace.repoId)?.baseBranch ?? "main"))
         case "commit":
             guard let commit else { throw RPCError.invalidParams("missing commit") }
             src = .commit(try clientRef(commit) ?? "")
@@ -75,9 +76,9 @@ extension GitDiff: Handled {
 
 extension GitLog: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
-        let w = try workspaces.store.worktree(named: id)
-        let base = all == true ? nil : try workspaces.store.repo(w.repoId)?.baseBranch
-        return try Git.log(w.path, base: base, remotes: workspaces.remotes).map {
+        let workspace = try workspaces.store.worktree(named: id)
+        let base = all == true ? nil : try workspaces.store.repo(workspace.repoId)?.baseBranch
+        return try Git.log(workspace.path, base: base, remotes: workspaces.remotes).map {
             Entry(hash: $0.hash, subject: $0.subject)
         }
     }
@@ -104,20 +105,22 @@ extension GitUnstage: Handled {
 
 extension GitHunk: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
-        let w = try workspaces.store.worktree(named: id), rev = reverse == true
-        let diff = try Git.diff(w.path, source: rev ? .staged : .unstaged, file: file, remotes: workspaces.remotes)
-            .first
+        let workspace = try workspaces.store.worktree(named: id), rev = reverse == true
+        let diff = try Git.diff(
+            workspace.path, source: rev ? .staged : .unstaged, file: file, remotes: workspaces.remotes
+        )
+        .first
         // With its fingerprint, the hunk as shown line for line; with its header, that one; else by number.
-        let i =
+        let index =
             fingerprint.map { f in diff?.hunks.firstIndex { $0.fingerprint == f } ?? -1 }
             ?? header.map { h in diff?.hunks.firstIndex { $0.header == h } ?? -1 } ?? hunk ?? -1
-        guard let diff, diff.hunks.indices.contains(i) else {
+        guard let diff, diff.hunks.indices.contains(index) else {
             throw RPCError.invalidParams(
                 rev
                     ? "The file changed since it was shown; nothing was unstaged."
                     : "The file changed since it was shown; nothing was staged.")
         }
-        try Git.applyHunk(w.path, diff: diff, hunk: i, reverse: rev, remotes: workspaces.remotes)
+        try Git.applyHunk(workspace.path, diff: diff, hunk: index, reverse: rev, remotes: workspaces.remotes)
         return Done()
     }
 }
@@ -132,27 +135,27 @@ extension GitCommit: Handled {
 
 extension GitMerge: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
-        let w = try workspaces.store.worktree(named: id)
-        guard let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no repo") }
-        if try Git.isDirty(w.path, remotes: workspaces.remotes) {
+        let workspace = try workspaces.store.worktree(named: id)
+        guard let repo = try workspaces.store.repo(workspace.repoId) else { throw RPCError.invalidParams("no repo") }
+        if try Git.isDirty(workspace.path, remotes: workspaces.remotes) {
             throw RPCError.invalidParams("worktree has uncommitted changes")
         }
         // The main checkout too: a merge (and the abort a conflict brings) must never touch the user's own work there.
-        if Git.isMerging(r.path, remotes: workspaces.remotes) {
+        if Git.isMerging(repo.path, remotes: workspaces.remotes) {
             throw RPCError.invalidParams("The main checkout is in the middle of a merge. Finish or abort it first.")
         }
-        if try Git.isDirty(r.path, remotes: workspaces.remotes) {
+        if try Git.isDirty(repo.path, remotes: workspaces.remotes) {
             throw RPCError.invalidParams("The main checkout has uncommitted changes. Commit or stash them first.")
         }
         // The branch checked out in the workspace now (a switch makes the record stale), into the base and only the base.
-        let branch = (try? Git.currentBranch(w.path, remotes: workspaces.remotes)) ?? w.branch
+        let branch = (try? Git.currentBranch(workspace.path, remotes: workspaces.remotes)) ?? workspace.branch
         // Detached: "HEAD" would merge the main checkout into itself ("Already up to date") and report success.
         guard branch != "HEAD" else {
             throw RPCError.invalidParams(
                 "This workspace isn't on a branch (detached HEAD). Create a branch for its commits, then merge.")
         }
         let res = try Git.merge(
-            branch: branch, into: r.path, onto: r.baseBranch, keepConflicts: keepConflicts == true,
+            branch: branch, into: repo.path, onto: repo.baseBranch, keepConflicts: keepConflicts == true,
             remotes: workspaces.remotes)
         return Result(merged: res.merged, conflicts: res.conflicts)
     }
@@ -169,8 +172,8 @@ extension GitSwitch: Handled {
 
 extension GitGraph: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
-        let g = try Git.graph(workspaces.folder(id), limit: max(1, limit ?? 200), remotes: workspaces.remotes)
-        return Result(commits: g.commits, more: g.more)
+        let graph = try Git.graph(workspaces.folder(id), limit: max(1, limit ?? 200), remotes: workspaces.remotes)
+        return Result(commits: graph.commits, more: graph.more)
     }
 }
 
@@ -196,13 +199,15 @@ extension GitDiscard: Handled {
 extension GitUndoDiscard: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         let path = try workspaces.folder(id)
-        let undone = try workspaces.undoDiscard(folder: path, name: undo) { d in
-            do { try Git.putBack(path, patch: d.patch, hunk: d.hunk, remotes: workspaces.remotes) } catch let p
+        let undone = try workspaces.undoDiscard(folder: path, name: undo) { discard in
+            do {
+                try Git.putBack(path, patch: discard.patch, hunk: discard.hunk, remotes: workspaces.remotes)
+            } catch let partly
                 as Git.PartlyPutBack
             {
                 throw RPCError.invalidParams(
-                    "\(p.back) of \(p.of) files were put back; the others changed since the discard "
-                        + "(\(p.why.trimmingCharacters(in: .whitespacesAndNewlines))).")
+                    "\(partly.back) of \(partly.of) files were put back; the others changed since the discard "
+                        + "(\(partly.why.trimmingCharacters(in: .whitespacesAndNewlines))).")
             } catch {
                 let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
                 throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
@@ -222,8 +227,8 @@ extension GitRemoteOp: Handled {
             : "A \(op) is the user's: an agent fetches; it pulls and pushes with git in its own terminal, which the user sees."
     }
     func handle(_ workspaces: Workspaces) throws -> Done {
-        guard let o = Git.Remote(rawValue: op) else { throw RPCError.invalidParams("op: pull, push or fetch") }
-        try Git.remote(workspaces.folder(id), o, remotes: workspaces.remotes)
+        guard let remote = Git.Remote(rawValue: op) else { throw RPCError.invalidParams("op: pull, push or fetch") }
+        try Git.remote(workspaces.folder(id), remote, remotes: workspaces.remotes)
         return Done()
     }
 }
@@ -280,10 +285,11 @@ extension CommentAdd: Handled {
         guard !file.contains(where: { $0.isNewline || $0.asciiValue.map { $0 < 0x20 } == true }) else {
             throw RPCError.invalidParams("A file's path has no line breaks or control characters.")
         }
-        let w = try workspaces.store.worktree(named: id)
+        let workspace = try workspaces.store.worktree(named: id)
         let on = try clientRef(commit) ?? "HEAD"
         let full = try Git.run(
-            ["rev-parse", "--verify", "-q", on + "^{commit}"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes
+            ["rev-parse", "--verify", "-q", on + "^{commit}"], cwd: workspace.path, ok: [0, 1],
+            remotes: workspaces.remotes
         )
         .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
         if commit != nil, full.isEmpty { throw RPCError.invalidParams("No commit \(on) here.") }
@@ -296,13 +302,13 @@ extension CommentAdd: Handled {
         let author =
             try agent.map { try workspaces.sessions.manifest($0, command: nil).name }
             ?? session.map { _ in String(localized: "A program in a terminal") }
-        let c = DiffComment(
-            worktreeId: w.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "",
+        let comment = DiffComment(
+            worktreeId: workspace.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "",
             text: text,
             side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head, author: author,
             onCommit: commit == nil ? nil : full)
-        try workspaces.store.save(c)
-        return c
+        try workspaces.store.save(comment)
+        return comment
     }
 }
 extension CommentList: Handled {
@@ -310,11 +316,11 @@ extension CommentList: Handled {
 }
 extension CommentSetState: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
-        guard var c = try workspaces.store.db.read({ try DiffComment.fetchOne($0, key: id) }) else {
+        guard var comment = try workspaces.store.db.read({ try DiffComment.fetchOne($0, key: id) }) else {
             throw RPCError.invalidParams("no comment")
         }
-        c.state = DiffComment.State(rawValue: state) ?? .open
-        try workspaces.store.save(c)
+        comment.state = DiffComment.State(rawValue: state) ?? .open
+        try workspaces.store.save(comment)
         return Done()
     }
 }
@@ -323,7 +329,7 @@ extension CommentSend: Handled {
     var actsOn: String? { session }   // it types, with Enter: an agent sends only to itself and the sessions it started
     var typesInto: String? { session }   // a send (`SessionSend`, whose handler it calls past `allow`): not into a question
     func handle(_ workspaces: Workspaces) throws -> Int {
-        let w = try workspaces.store.worktree(named: id)
+        let workspace = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
         // Its record, not only a running one: a paused agent is one too, and the send wakes it.
         guard
@@ -335,17 +341,17 @@ extension CommentSend: Handled {
         // Taken as it's marked sent, in one write: a second send at once (a double click, the CLI beside the window) finds
         // none of these open and types them in no second time. Put back if the send fails.
         let open = try workspaces.store.db.write { db -> [DiffComment] in
-            let open = try DiffComment.filter(Column("worktreeId") == w.id).fetchAll(db)
+            let open = try DiffComment.filter(Column("worktreeId") == workspace.id).fetchAll(db)
                 .filter { $0.state == .open && wanted?.contains($0.id) != false }
-            for var c in open {
-                c.state = .sent
-                try c.update(db)
+            for var comment in open {
+                comment.state = .sent
+                try comment.update(db)
             }
             return open
         }
         guard !open.isEmpty else { return 0 }
         do {
-            _ = try SessionSend(id: session, text: Self.message(branch: w.branch, comments: open)).handle(
+            _ = try SessionSend(id: session, text: Self.message(branch: workspace.branch, comments: open)).handle(
                 workspaces.sessions)
         } catch {
             // Open again, those still sent (not one set otherwise meanwhile, nor one gone with its workspace); the send's
@@ -366,19 +372,25 @@ extension CommentSend: Handled {
 
     /// File, lines, code quote, remark for each.
     private static func message(branch: String, comments: [DiffComment]) -> String {
-        var s = "Review comments on branch \(branch). Please address each one:\n"
-        for (i, c) in comments.enumerated() {
-            let range = c.startLine == c.endLine ? "\(c.startLine)" : "\(c.startLine)-\(c.endLine)"
-            let removed = c.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
-            let past = c.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
-            var entry = "\(c.file):\(range)\(removed)\(past)\n"
-            for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { entry += "   > \(l)\n" }
-            entry += "   " + c.text
+        var body = "Review comments on branch \(branch). Please address each one:\n"
+        for (index, comment) in comments.enumerated() {
+            let range =
+                comment.startLine == comment.endLine
+                ? "\(comment.startLine)" : "\(comment.startLine)-\(comment.endLine)"
+            let removed = comment.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
+            let past = comment.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
+            var entry = "\(comment.file):\(range)\(removed)\(past)\n"
+            for line in comment.quote.split(separator: "\n", omittingEmptySubsequences: false) {
+                entry += "   > \(line)\n"
+            }
+            entry += "   " + comment.text
             // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said. All
             // of it, where and what it quotes too: each is what that agent wrote.
-            s += "\n\(i + 1). " + (c.author.map { Untrusted.frame(entry, what: "\($0)'s finding") } ?? entry) + "\n"
+            body +=
+                "\n\(index + 1). " + (comment.author.map { Untrusted.frame(entry, what: "\($0)'s finding") } ?? entry)
+                + "\n"
         }
-        return s
+        return body
     }
 }
 

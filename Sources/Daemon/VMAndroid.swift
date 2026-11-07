@@ -5,15 +5,15 @@ import Foundation
 /// arm64 system image the user's SDK has (the plain one before Play Store's, which updates Google's services at every
 /// boot). Nothing is downloaded.
 extension VMService {
-    func makeAndroid(_ m: VMMachine) async {
-        await making(m) {
+    func makeAndroid(_ machine: VMMachine) async {
+        await making(machine) {
             guard let avdmanager = AndroidSDK.avdmanager, let image = AndroidSDK.newestImage() else {
                 throw RPCError.invalidParams(
                     "An Android machine runs on your Android SDK (Android Studio): it needs the SDK's "
                         + "command-line tools and an arm64 system image (Android Studio › Settings › Android SDK).")
             }
-            step(m, .device, image.split(separator: ";").dropFirst().prefix(2).joined(separator: " "))
-            let avd = file(m.name, "avd")
+            step(machine, .device, image.split(separator: ";").dropFirst().prefix(2).joined(separator: " "))
+            let avd = file(machine.name, "avd")
             try Paths.ensure(avd)
             var env = ProcessInfo.processInfo.environment
             env["ANDROID_AVD_HOME"] = avd.path
@@ -24,8 +24,8 @@ extension VMService {
             let made = try await blocking { [env] in
                 try Subprocess.run(
                     [
-                        avdmanager, "create", "avd", "-n", m.name, "-k", image, "-d", "pixel_7",
-                        "-p", avd.appendingPathComponent("\(m.name).avd").path, "--force"
+                        avdmanager, "create", "avd", "-n", machine.name, "-k", image, "-d", "pixel_7",
+                        "-p", avd.appendingPathComponent("\(machine.name).avd").path, "--force"
                     ],
                     cwd: "/", env: env, stdin: Data("no\n".utf8), timeLimit: 120)
             }
@@ -33,10 +33,10 @@ extension VMService {
                 throw RPCError.internalError(
                     "avdmanager: " + String(decoding: made.stderr + made.stdout, as: UTF8.self))
             }
-            step(m, .starting)
+            step(machine, .starting)
             try await blocking {
-                try startHelper(m)
-                try check(ask(m.name, .init(op: .start), wait: 620))
+                try startHelper(machine)
+                try check(ask(machine.name, .init(op: .start), wait: 620))
             }
         }
     }

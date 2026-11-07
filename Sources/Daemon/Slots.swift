@@ -24,38 +24,38 @@ final class Slots: Sendable {
 
     /// False once closed (`close`): no slot is given from then on.
     func acquire() async -> Bool {
-        await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
-            let now = state.withLock { s -> Bool? in
-                if s.closed { return false }
-                guard s.held < limit else {
-                    s.waiting.append(c)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let now = state.withLock { current -> Bool? in
+                if current.closed { return false }
+                guard current.held < limit else {
+                    current.waiting.append(continuation)
                     return nil
                 }
-                s.held += 1
+                current.held += 1
                 return true
             }
-            if let now { c.resume(returning: now) }
+            if let now { continuation.resume(returning: now) }
         }
     }
 
     /// The slot passes straight to the longest waiter, if there is one.
     func release() {
-        let next = state.withLock { s -> CheckedContinuation<Bool, Never>? in
-            guard !s.waiting.isEmpty else {
-                s.held -= 1
+        let next = state.withLock { current -> CheckedContinuation<Bool, Never>? in
+            guard !current.waiting.isEmpty else {
+                current.held -= 1
                 return nil
             }
-            return s.waiting.removeFirst()
+            return current.waiting.removeFirst()
         }
         next?.resume(returning: true)
     }
 
     /// An update is on its way: work that has a slot finishes (`waitIdle`), none starts, what waits is refused.
     func close() {
-        let refused = state.withLock { s in
-            defer { s.waiting = [] }
-            s.closed = true
-            return s.waiting
+        let refused = state.withLock { current in
+            defer { current.waiting = [] }
+            current.closed = true
+            return current.waiting
         }
         refused.forEach { $0.resume(returning: false) }
         quickSlots?.close()
@@ -96,14 +96,14 @@ final class Slots: Sendable {
     /// (Swift's concurrency library isn't built for it) and reported the session's fields as a race.
     private static func onThread<T: Sendable>(_ body: @escaping @Sendable () -> Result<T, Error>) async throws -> T {
         let handed = OSAllocatedUnfairLock<Result<T, Error>?>(initialState: nil)
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Thread.detachNewThread {
-                let r = body()
-                handed.withLock { $0 = r }
-                c.resume()
+                let result = body()
+                handed.withLock { $0 = result }
+                continuation.resume()
             }
         }
-        guard let r = handed.withLock({ $0 }) else { throw RPCError.internalError("no result") }
-        return try r.get()
+        guard let result = handed.withLock({ $0 }) else { throw RPCError.internalError("no result") }
+        return try result.get()
     }
 }

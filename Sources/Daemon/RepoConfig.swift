@@ -22,33 +22,37 @@ public struct RepoConfig: Sendable, Equatable {
     public static let scriptNames: Set = ["run", "test", "lint", "build"]
 
     public static func parse(_ text: String) -> RepoConfig {
-        var c = RepoConfig()
+        var config = RepoConfig()
         for line in text.split(whereSeparator: \.isNewline) {   // "\r\n" too (one Character, so not "\n")
-            let t = line.trimmingCharacters(in: .whitespaces)
-            guard !t.hasPrefix("#"), let i = t.firstIndex(of: ":") else { continue }
-            var v = t[t.index(after: i)...].trimmingCharacters(in: .whitespaces)
-            if v.count >= 2, (v.hasPrefix("\"") && v.hasSuffix("\"")) || (v.hasPrefix("'") && v.hasSuffix("'")) {
-                v = String(v.dropFirst().dropLast())
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.hasPrefix("#"), let colon = trimmed.firstIndex(of: ":") else { continue }
+            var value = trimmed[trimmed.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            if value.count >= 2,
+                (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'"))
+            {
+                value = String(value.dropFirst().dropLast())
             }
-            let list = v.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-            let key = String(t[..<i])
+            let list = value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+                !$0.isEmpty
+            }
+            let key = String(trimmed[..<colon])
             switch key {
-            case "setup": c.setup = v
-            case "issueCommand": c.issueCommand = v
-            case "shared": c.shared = list
-            case "clone": c.clone = list
-            case "tabs": c.tabs = list
+            case "setup": config.setup = value
+            case "issueCommand": config.issueCommand = value
+            case "shared": config.shared = list
+            case "clone": config.clone = list
+            case "tabs": config.tabs = list
             default:
                 if key.hasPrefix("recipe.") {
-                    c.recipes[String(key.dropFirst(7))] = v.replacingOccurrences(of: "\\n", with: "\n")
+                    config.recipes[String(key.dropFirst(7))] = value.replacingOccurrences(of: "\\n", with: "\n")
                 }
                 let name = key.hasPrefix("script.") ? String(key.dropFirst(7)) : scriptNames.contains(key) ? key : ""
-                if !name.isEmpty, !v.isEmpty, !c.scripts.contains(where: { $0.name == name }) {
-                    c.scripts.append(Script(name: name, command: v))
+                if !name.isEmpty, !value.isEmpty, !config.scripts.contains(where: { $0.name == name }) {
+                    config.scripts.append(Script(name: name, command: value))
                 }
             }
         }
-        return c
+        return config
     }
     /// One of its commands as the shell gets it.
     public func shell(_ command: String) -> String { prelude + command }

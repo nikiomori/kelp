@@ -51,55 +51,55 @@ extension Sessions {
     /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them, a struct's or an
     /// enum's in turn): what an agent's call may reach is decided by what it names, not by each method remembering to
     /// say. Free-form JSON (`JSONValue`: a setting's value, a command's args) and bytes name none.
-    func named(by m: Any) throws -> [String] {
-        return try ids(m).filter { try store.session($0) != nil }
+    func named(by params: Any) throws -> [String] {
+        return try ids(params).filter { try store.session($0) != nil }
     }
 
     /// The workspaces a call names, in any field, as `named(by:)` finds sessions.
-    func workspaces(namedBy m: Any) throws -> [String] { try ids(m).filter { try store.worktree($0) != nil } }
+    func workspaces(namedBy params: Any) throws -> [String] { try ids(params).filter { try store.worktree($0) != nil } }
 
     /// Every id-shaped string in a call's params, at any depth (`named(by:)`'s walk).
-    private func ids(_ m: Any) throws -> [String] {
-        func strings(_ v: Any, depth: Int) throws -> [String] {
-            if let s = v as? String { return [s] }
-            guard !(v is JSONValue), !(v is Data) else { return [] }
-            let parts = Mirror(reflecting: v).children
+    private func ids(_ params: Any) throws -> [String] {
+        func strings(_ value: Any, depth: Int) throws -> [String] {
+            if let string = value as? String { return [string] }
+            guard !(value is JSONValue), !(value is Data) else { return [] }
+            let parts = Mirror(reflecting: value).children
             // Deeper than any method's params go: refused, not taken for naming nobody.
             guard depth < 6 || parts.isEmpty else {
                 throw RPCError.refused("Kelp can't tell which sessions this call names.")
             }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
-        return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }
+        return try strings(params, depth: 0).filter { UUID(uuidString: $0) != nil }
     }
 
-    /// Whether `w` is the workspace of `own` or of one that started it, one they made, or one a session it started works
-    /// in (which it could start there only for one of those): an agent works there only.
+    /// Whether `workspace` is the workspace of `own` or of one that started it, one they made, or one a session it
+    /// started works in (which it could start there only for one of those): an agent works there only.
     /// `typed`: an agent typed into `own`, the user's terminal: its workspace (it runs there), and the ones it made or
     /// started a session in, not those the user made or worked in from that terminal.
-    func works(_ own: String, in w: String, typed: Bool = false) throws -> Bool {
+    func works(_ own: String, in workspace: String, typed: Bool = false) throws -> Bool {
         let line = try store.lineage(own)
-        if line.contains(where: { $0.worktreeId == w }) { return true }
-        let maker = try store.worktree(w)?.madeBy
+        if line.contains(where: { $0.worktreeId == workspace }) { return true }
+        let maker = try store.worktree(workspace)?.madeBy
         if typed {
             if Caller.started(maker, byAgentTypedInto: own) { return true }
-        } else if let m = Caller.session(of: maker), line.contains(where: { $0.id == m }) {
+        } else if let makerSession = Caller.session(of: maker), line.contains(where: { $0.id == makerSession }) {
             return true
         }
-        return try store.sessions().contains { s in
-            try s.worktreeId == w
-                && store.lineage(s.id).contains {
+        return try store.sessions().contains { session in
+            try session.worktreeId == workspace
+                && store.lineage(session.id).contains {
                     typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
                 }
         }
     }
 
-    /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
-    func ending(_ e: Ending) throws -> [String] {
+    /// The sessions removing `target` ends: those of the workspace, or of every workspace of the project.
+    func ending(_ target: Ending) throws -> [String] {
         let ids: Set<String> =
-            switch e {
-            case .workspace(let w): [w]
-            case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
+            switch target {
+            case .workspace(let workspace): [workspace]
+            case .project(let repo): Set(try store.worktrees(repo: repo).map(\.id))
             }
         return try store.sessions().filter { ids.contains($0.worktreeId ?? "") }.map(\.id)
     }

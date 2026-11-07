@@ -5,8 +5,8 @@ import Integrations
 
 extension Forges {
     /// The branch checked out in the folder now (a workspace's record can be stale after a switch).
-    func checkedOut(_ w: Worktree) -> String {
-        (try? Git.currentBranch(w.path, remotes: remotes)) ?? w.branch
+    func checkedOut(_ workspace: Worktree) -> String {
+        (try? Git.currentBranch(workspace.path, remotes: remotes)) ?? workspace.branch
     }
 
     static let bitbucketNeedsCredentials = RPCError.invalidParams(
@@ -23,18 +23,20 @@ struct ForgeWork {
 
 extension GitHubBranchPR: Handled {
     func handle(_ forges: Forges) throws -> GitHub.PullRequest? {
-        let w = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(w), key = w.path + "@" + branch
+        let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
+            key = workspace.path + "@" + branch
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
         // nil: no PR, or gh couldn't tell (try? flattens to one optional)
-        let v =
-            GitLab.isGitLab(cwd: w.path)
-            ? try? GitLab.mergeRequest(cwd: w.path, branch: branch)
-            : try? GitHub.pullRequest(cwd: w.path, branch: branch)
-        forges.prCache.withLock { c in
-            if c.count >= 500 { c = c.filter { Date().timeIntervalSince($0.value.at) < 120 } }   // what's past its 2 min goes, not kept for the daemon's life
-            c[key] = (Date(), v)
+        let request =
+            GitLab.isGitLab(cwd: workspace.path)
+            ? try? GitLab.mergeRequest(cwd: workspace.path, branch: branch)
+            : try? GitHub.pullRequest(cwd: workspace.path, branch: branch)
+        forges.prCache.withLock { cache in
+            // what's past its 2 min goes, not kept for the daemon's life
+            if cache.count >= 500 { cache = cache.filter { Date().timeIntervalSince($0.value.at) < 120 } }
+            cache[key] = (Date(), request)
         }
-        return v
+        return request
     }
 }
 
@@ -47,10 +49,10 @@ extension GitHubForge: Handled {
 
 extension CIRunsList: Handled {
     func handle(_ forges: Forges) throws -> Result {
-        let w = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(w)
+        let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace)
         return Result(
-            branch: branch, runs: try CIRuns.runs(cwd: w.path, branch: branch),
-            workflows: GitLab.isGitLab(cwd: w.path) ? [] : CIRuns.dispatchable(repo: w.path))
+            branch: branch, runs: try CIRuns.runs(cwd: workspace.path, branch: branch),
+            workflows: GitLab.isGitLab(cwd: workspace.path) ? [] : CIRuns.dispatchable(repo: workspace.path))
     }
 }
 extension CIJobs: Handled {
@@ -110,14 +112,14 @@ extension CIDispatch: Handled {
 
 extension GitHubStatus: Handled {
     func handle(_: NoService) throws -> Result {
-        let a = GitHub.account()
-        return Result(installed: a.installed, user: a.user)
+        let account = GitHub.account()
+        return Result(installed: account.installed, user: account.user)
     }
 }
 extension GitLabStatus: Handled {
     func handle(_: NoService) throws -> Result {
-        let a = GitLab.account()
-        return Result(installed: a.installed, user: a.user)
+        let account = GitLab.account()
+        return Result(installed: account.installed, user: account.user)
     }
 }
 extension GitHubIssues: Handled {
@@ -180,9 +182,9 @@ extension GitAuthorAvatar: AsyncHandled {
             if (resp as? HTTPURLResponse)?.statusCode == 200, !body.isEmpty { data = body }
         }
         let found = data
-        forges.avatars.withLock { a in
-            if a.count >= 2000 { a.removeAll() }   // a picture each, a few KB: past that many authors, asked again as they're shown
-            a[key] = (Date(), found)
+        forges.avatars.withLock { cache in
+            if cache.count >= 2000 { cache.removeAll() }   // a picture each, a few KB: past that many authors, asked again as they're shown
+            cache[key] = (Date(), found)
         }
         return found
     }
@@ -198,24 +200,27 @@ extension GitHubPRs: AsyncHandled {
         let filter = filter
         return try await forges.offloads.run {
             if GitLab.isGitLab(cwd: path) { return try GitLab.mergeRequests(cwd: path, mine: filter == "mine") }
-            let f: GitHub.PRFilter = filter == "mine" ? .mine : filter == "review" ? .reviewRequested : .open
-            return try GitHub.pullRequests(cwd: path, filter: f)
+            let prFilter: GitHub.PRFilter = filter == "mine" ? .mine : filter == "review" ? .reviewRequested : .open
+            return try GitHub.pullRequests(cwd: path, filter: prFilter)
         }
     }
 }
 
 extension GitHubPRCreate: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
-        guard let w = try forges.store.worktree(worktreeId), let r = try forges.store.repo(w.repoId) else {
+        guard let workspace = try forges.store.worktree(worktreeId), let repo = try forges.store.repo(workspace.repoId)
+        else {
             throw RPCError.invalidParams("no worktree")
         }
-        let path = w.path, draft = draft == true
+        let path = workspace.path, draft = draft == true
         try await forges.offloads.run { try Git.remote(path, .push, remotes: forges.remotes) }   // the branch checked out now
-        let branch = try await forges.offloads.run { forges.checkedOut(w) }   // and the PR's source (the record can be stale after a switch)
+        let branch = try await forges.offloads.run { forges.checkedOut(workspace) }   // and the PR's source (the record can be stale after a switch)
         var title = title ?? "", body = body ?? ""
-        let link = w.issue.isEmpty ? nil : (w.issue.hasPrefix("#") ? "Fixes \(w.issue)" : "Refs \(w.issue)")
+        let link =
+            workspace.issue.isEmpty
+            ? nil : (workspace.issue.hasPrefix("#") ? "Fixes \(workspace.issue)" : "Refs \(workspace.issue)")
         if title.isEmpty || body.isEmpty {
-            let cmpBase = w.base.isEmpty ? r.baseBranch : w.base
+            let cmpBase = workspace.base.isEmpty ? repo.baseBranch : workspace.base
             let commits = try await forges.offloads.run {
                 try Git.log(path, base: cmpBase, remotes: forges.remotes).map(\.subject)
             }
@@ -223,12 +228,12 @@ extension GitHubPRCreate: AsyncHandled {
             if body.isEmpty {
                 body = commits.map { "- \($0)" }.joined(separator: "\n") + (link.map { "\n\n\($0)" } ?? "")
             }
-        } else if let link, !body.contains(w.issue) {
+        } else if let link, !body.contains(workspace.issue) {
             body += "\n\n\(link)"
         }
         // Stacked: a worktree cut from another feature branch opens its PR against that branch.
-        let prBase = w.base.isEmpty ? r.baseBranch : w.base
-        if prBase != r.baseBranch, !body.contains("Stacked on") { body = "Stacked on `\(prBase)`.\n\n" + body }
+        let prBase = workspace.base.isEmpty ? repo.baseBranch : workspace.base
+        if prBase != repo.baseBranch, !body.contains("Stacked on") { body = "Stacked on `\(prBase)`.\n\n" + body }
         let url: String
         if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: path) }) {
             guard let bb = await forges.bitbucketClient() else { throw Forges.bitbucketNeedsCredentials }
@@ -244,35 +249,39 @@ extension GitHubPRCreate: AsyncHandled {
                 try GitHub.createPR(cwd: path, title: title, body: body, base: prBase, draft: draft)
             }
         }
-        try forges.store.update(Worktree.self, w.id) {
+        try forges.store.update(Worktree.self, workspace.id) {
             $0.prURL = url
             $0.prNumber = Int(url.split(separator: "/").last ?? "")
         }
         forges.notify(ChangedEvent.worktree)
-        await forges.moveLinear(w, to: .inReview)
-        await forges.moveJira(w, toName: "review", category: "indeterminate")
+        await forges.moveLinear(workspace, to: .inReview)
+        await forges.moveJira(workspace, toName: "review", category: "indeterminate")
         return Result(url: url, title: title)
     }
 }
 
 extension GitHubPRMerge: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Done {
-        guard let w = try forges.store.worktree(worktreeId), let n = pr ?? w.prNumber else {
+        guard let workspace = try forges.store.worktree(worktreeId), let number = pr ?? workspace.prNumber else {
             throw RPCError.invalidParams("no PR linked")
         }
         let how = method ?? "squash"
-        if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: w.path) }) {
+        if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: workspace.path) }) {
             // Bitbucket's API or nothing: gh would look for the number on whatever GitHub repository it found.
             guard let bb = await forges.bitbucketClient() else { throw Forges.bitbucketNeedsCredentials }
-            try await bb.merge(workspace: slug.workspace, repo: slug.repo, id: n)
-        } else if try await forges.offloads.run({ GitLab.isGitLab(cwd: w.path) }) {
-            try await forges.offloads.run { try GitLab.mergeMR(cwd: w.path, number: n, squash: how == "squash") }
+            try await bb.merge(workspace: slug.workspace, repo: slug.repo, id: number)
+        } else if try await forges.offloads.run({ GitLab.isGitLab(cwd: workspace.path) }) {
+            try await forges.offloads.run {
+                try GitLab.mergeMR(cwd: workspace.path, number: number, squash: how == "squash")
+            }
         } else {
-            let m = GitHub.MergeMethod(rawValue: how) ?? .squash
-            try await forges.offloads.run { try GitHub.mergePR(cwd: w.path, number: n, method: m, head: head) }
+            let mergeMethod = GitHub.MergeMethod(rawValue: how) ?? .squash
+            try await forges.offloads.run {
+                try GitHub.mergePR(cwd: workspace.path, number: number, method: mergeMethod, head: head)
+            }
         }
-        await forges.moveLinear(w, to: .done)
-        await forges.moveJira(w, toName: "done", category: "done")
+        await forges.moveLinear(workspace, to: .done)
+        await forges.moveJira(workspace, toName: "done", category: "done")
         forges.notify(ChangedEvent.worktree)
         return Done()
     }
@@ -291,36 +300,36 @@ extension LinearSetKey: AsyncHandled {
 }
 extension LinearStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
-        guard let l = await forges.linearClient() else { return Result(connected: false) }
-        let me = try? await l.viewer()
+        guard let linear = await forges.linearClient() else { return Result(connected: false) }
+        let me = try? await linear.viewer()
         return Result(connected: me != nil, name: me?.name ?? "")
     }
 }
 extension LinearIssues: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearIssue] {
-        guard let l = await forges.linearClient() else {
+        guard let linear = await forges.linearClient() else {
             throw RPCError.invalidParams("Linear is not connected (Settings › Integrations)")
         }
-        if let teamId { return try await l.teamIssues(teamId: teamId) }
-        return try await l.myIssues()
+        if let teamId { return try await linear.teamIssues(teamId: teamId) }
+        return try await linear.myIssues()
     }
 }
 extension LinearTeams: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearTeam] {
-        guard let l = await forges.linearClient() else { return [] }
-        return try await l.teams()
+        guard let linear = await forges.linearClient() else { return [] }
+        return try await linear.teams()
     }
 }
 extension LinearStates: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearState] {
-        guard let l = await forges.linearClient() else { return [] }
-        return try await l.workflowStates(teamId: teamId)
+        guard let linear = await forges.linearClient() else { return [] }
+        return try await linear.workflowStates(teamId: teamId)
     }
 }
 extension LinearSetState: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Done {
-        guard let l = await forges.linearClient() else { throw RPCError.invalidParams("Linear is not connected") }
-        try await l.setState(issueId: issueId, stateId: stateId)
+        guard let linear = await forges.linearClient() else { throw RPCError.invalidParams("Linear is not connected") }
+        try await linear.setState(issueId: issueId, stateId: stateId)
         return Done()
     }
 }
@@ -340,29 +349,29 @@ extension JiraSetCredentials: AsyncHandled {
 }
 extension JiraStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
-        guard let j = await forges.jiraClient() else { return Result(connected: false) }
-        let n = try? await j.myself()
-        return Result(connected: n != nil, name: n ?? "", site: j.site)
+        guard let jira = await forges.jiraClient() else { return Result(connected: false) }
+        let name = try? await jira.myself()
+        return Result(connected: name != nil, name: name ?? "", site: jira.site)
     }
 }
 extension JiraIssues: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [JiraIssue] {
-        guard let j = await forges.jiraClient() else {
+        guard let jira = await forges.jiraClient() else {
             throw RPCError.invalidParams("Jira is not connected (Settings › Integrations)")
         }
-        return try await j.search(jql: jql ?? JiraClient.myOpenJQL)
+        return try await jira.search(jql: jql ?? JiraClient.myOpenJQL)
     }
 }
 extension JiraTransitions: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [JiraTransition] {
-        guard let j = await forges.jiraClient() else { return [] }
-        return try await j.transitions(key: key)
+        guard let jira = await forges.jiraClient() else { return [] }
+        return try await jira.transitions(key: key)
     }
 }
 extension JiraTransitionIssue: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Done {
-        guard let j = await forges.jiraClient() else { throw RPCError.invalidParams("Jira is not connected") }
-        try await j.transition(key: key, id: id)
+        guard let jira = await forges.jiraClient() else { throw RPCError.invalidParams("Jira is not connected") }
+        try await jira.transition(key: key, id: id)
         return Done()
     }
 }

@@ -10,23 +10,23 @@ extension Sessions {
             ?? [LoginPath.resolve("tmux")] + args
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = Self.childPath
-        let r = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeLimit)
-        guard !r.truncated else {
+        let output = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeLimit)
+        guard !output.truncated else {
             throw RPCError.internalError(
                 "tmux printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads.")
         }
-        return r
+        return output
     }
 
     /// The tmux session it runs in: a remote agent's on the host, or the one a terminal attaches to.
-    static func tmuxName(_ s: Session) -> String? { s.tmux ?? Tmux.session(s.argv) }
+    static func tmuxName(_ session: Session) -> String? { session.tmux ?? Tmux.session(session.argv) }
 
     /// Ends the tmux session a session of Kelp's own ran in, in the background (over ssh it can take a while).
-    func endOwnTmux(_ s: Session) {
-        guard let name = Self.tmuxName(s), Tmux.isOwn(name) else { return }
+    func endOwnTmux(_ session: Session) {
+        guard let name = Self.tmuxName(session), Tmux.isOwn(name) else { return }
         DispatchQueue.global(qos: .utility).async { [self] in
             Log.session.attempt("ending tmux session \(name)") {
-                try tmux(["kill-session", "-t", "=" + name], cwd: s.cwd)
+                try tmux(["kill-session", "-t", "=" + name], cwd: session.cwd)
             }
         }
     }
@@ -34,11 +34,12 @@ extension Sessions {
     /// The first program running in the session's panes other than their shells.
     func tmuxBusy(_ name: String, cwd: String) -> String? {
         guard
-            let r = try? tmux(
+            let output = try? tmux(
                 ["list-panes", "-s", "-t", "=" + name, "-F", "#{pane_current_command}"], cwd: cwd, timeLimit: 2),
-            r.status == 0
+            output.status == 0
         else { return nil }
-        return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map(String.init).first {
+        return String(decoding: output.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map(String.init).first
+        {
             !Tmux.shells.contains($0)
         }
     }
@@ -46,14 +47,14 @@ extension Sessions {
 
 extension TmuxList: Handled {
     func handle(_ sessions: Sessions) throws -> Result {
-        let r = try sessions.tmux(
+        let output = try sessions.tmux(
             ["list-sessions", "-F", Tmux.format], cwd: sessions.store.worktree(named: worktreeId).path)
-        let err = String(decoding: r.stderr, as: UTF8.self)
-        if r.status == 0 { return Tmux.parse(String(decoding: r.stdout, as: UTF8.self)) }
+        let err = String(decoding: output.stderr, as: UTF8.self)
+        if output.status == 0 { return Tmux.parse(String(decoding: output.stdout, as: UTF8.self)) }
         if Tmux.noServer(err) { return [] }
         let why = err.trimmingCharacters(in: .whitespacesAndNewlines)
         throw RPCError.invalidParams(
-            r.timedOut
-                ? "tmux didn't answer." : why.isEmpty ? "tmux list-sessions failed (exit code \(r.status))." : why)
+            output.timedOut
+                ? "tmux didn't answer." : why.isEmpty ? "tmux list-sessions failed (exit code \(output.status))." : why)
     }
 }

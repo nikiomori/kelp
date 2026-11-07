@@ -44,8 +44,9 @@ enum HostStatsReader {
             return HostStats(host: host, connected: false, error: why)
         }
         errors.withLock { $0[host] = nil }
-        let owner = Dictionary(sessions.compactMap { s in Sessions.tmuxName(s).map { ($0, s) } }) { a, b in
-            a.status == .exited ? b : a
+        let owner = Dictionary(sessions.compactMap { session in Sessions.tmuxName(session).map { ($0, session) } }) {
+            first, second in
+            first.status == .exited ? second : first
         }.mapValues(\.id)
         return parse(String(decoding: out.stdout, as: UTF8.self), host: host, owner: owner)
     }
@@ -68,36 +69,36 @@ enum HostStatsReader {
             if let name = lines.first { sections[name] = Array(lines.dropFirst()) }
         }
         func first(_ name: String) -> String? { sections[name]?.first?.trimmingCharacters(in: .whitespaces) }
-        var s = HostStats(host: host, connected: true)
-        s.os = first("os")
-        s.cores = first("cores").flatMap { Int($0) }
-        s.uptime = first("uptime").flatMap { Double($0) }
+        var stats = HostStats(host: host, connected: true)
+        stats.os = first("os")
+        stats.cores = first("cores").flatMap { Int($0) }
+        stats.uptime = first("uptime").flatMap { Double($0) }
         // "0.32 0.29 0.32 1/499 1660156" (Linux) or "{ 1.20 1.31 1.40 }" (sysctl)
         let load = (first("load") ?? "").split(separator: " ").compactMap { Double($0) }.prefix(3)
-        s.load = load.count == 3 ? Array(load) : nil
-        s.cpu = cpu(sections["cpu"] ?? [])
-        memory(sections["mem"] ?? [], into: &s)
+        stats.load = load.count == 3 ? Array(load) : nil
+        stats.cpu = cpu(sections["cpu"] ?? [])
+        memory(sections["mem"] ?? [], into: &stats)
         // "/dev/sda2 61806672 27830152 31338988 48% /"
-        if let d = first("disk")?.split(separator: " ", omittingEmptySubsequences: true), d.count >= 4,
-            let total = Int(d[1]), let used = Int(d[2])
+        if let columns = first("disk")?.split(separator: " ", omittingEmptySubsequences: true), columns.count >= 4,
+            let total = Int(columns[1]), let used = Int(columns[2])
         {
-            s.diskTotal = total * 1024
-            s.disk = used * 1024
+            stats.diskTotal = total * 1024
+            stats.disk = used * 1024
         }
-        s.ports = ports(sections["ports"] ?? [])
+        stats.ports = ports(sections["ports"] ?? [])
         let panes = (sections["tmux"] ?? []).compactMap { line -> (String, Int)? in
-            let f = line.split(separator: " ")
-            guard f.count == 2, let pid = Int(f[1]) else { return nil }
-            return (String(f[0]), pid)
+            let fields = line.split(separator: " ")
+            guard fields.count == 2, let pid = Int(fields[1]) else { return nil }
+            return (String(fields[0]), pid)
         }
         var seen = Set<String>()
-        s.tmux = panes.map(\.0).filter { Tmux.isOwn($0) && seen.insert($0).inserted }.map {
+        stats.tmux = panes.map(\.0).filter { Tmux.isOwn($0) && seen.insert($0).inserted }.map {
             HostStats.TmuxSession(name: $0, session: owner[$0])
         }
         let all = (sections["ps"] ?? []).compactMap(process)
-        s.processCount = all.count
-        s.processes = busiest(all, panes: panes, owner: owner)
-        return s
+        stats.processCount = all.count
+        stats.processes = busiest(all, panes: panes, owner: owner)
+        return stats
     }
 
     /// Two `cpu` lines of /proc/stat a moment apart: the share not idle (idle and iowait) in between.
@@ -109,19 +110,19 @@ enum HostStatsReader {
         return total > 0 ? max(0, min(100, (total - idle) / total * 100)) : nil
     }
 
-    private static func memory(_ lines: [String], into s: inout HostStats) {
+    private static func memory(_ lines: [String], into stats: inout HostStats) {
         var kb: [String: Int] = [:]
-        for l in lines {
-            let f = l.split(separator: " ", omittingEmptySubsequences: true)
-            if f.count >= 2, let v = Int(f[1]) { kb[String(f[0].dropLast())] = v * 1024 }
+        for line in lines {
+            let fields = line.split(separator: " ", omittingEmptySubsequences: true)
+            if fields.count >= 2, let kilobytes = Int(fields[1]) { kb[String(fields[0].dropLast())] = kilobytes * 1024 }
         }
         if let total = kb["MemTotal"], let free = kb["MemAvailable"] {
-            s.memoryTotal = total
-            s.memory = total - free
+            stats.memoryTotal = total
+            stats.memory = total - free
         }
         if let total = kb["SwapTotal"], let free = kb["SwapFree"] {
-            s.swapTotal = total
-            s.swap = total - free
+            stats.swapTotal = total
+            stats.swap = total - free
         }
     }
 
@@ -129,11 +130,12 @@ enum HostStatsReader {
     /// address isn't local.
     static func ports(_ lines: [String]) -> [HostStats.Port] {
         var local: [Int: Bool] = [:]
-        for l in lines {
-            let a = l.trimmingCharacters(in: .whitespaces)
-            guard let cut = a.lastIndex(where: { $0 == ":" || $0 == "." }), let port = Int(a[a.index(after: cut)...])
+        for line in lines {
+            let entry = line.trimmingCharacters(in: .whitespaces)
+            guard let cut = entry.lastIndex(where: { $0 == ":" || $0 == "." }),
+                let port = Int(entry[entry.index(after: cut)...])
             else { continue }
-            let addr = a[..<cut]
+            let addr = entry[..<cut]
             let here = addr.hasPrefix("127.") || addr == "[::1]" || addr == "::1" || addr == "localhost"
             local[port] = (local[port] ?? true) && here
         }
@@ -142,19 +144,20 @@ enum HostStatsReader {
 
     /// "  761  1 root  5.6  7388  3-10:57:50 /usr/sbin/charon --foo"
     static func process(_ line: String) -> (HostStats.Process, ppid: Int)? {
-        let f = line.split(separator: " ", maxSplits: 6, omittingEmptySubsequences: true)
-        guard f.count == 7, let pid = Int(f[0]), let ppid = Int(f[1]), let cpu = Double(f[3]), let rss = Int(f[4])
+        let fields = line.split(separator: " ", maxSplits: 6, omittingEmptySubsequences: true)
+        guard fields.count == 7, let pid = Int(fields[0]), let ppid = Int(fields[1]), let cpu = Double(fields[3]),
+            let rss = Int(fields[4])
         else { return nil }
-        let args = String(f[6]).trimmingCharacters(in: .whitespaces)
+        let args = String(fields[6]).trimmingCharacters(in: .whitespaces)
         let command =
             args.hasPrefix("[")
             ? String(args.dropFirst().prefix { $0 != "]" })
             : ((args.split(separator: " ").first.map(String.init) ?? args) as NSString).lastPathComponent
                 .trimmingCharacters(in: [":"])   // "sshd:"
-        let p = HostStats.Process(
-            pid: pid, user: String(f[2]), cpu: cpu, memory: rss * 1024, seconds: seconds(String(f[5])),
+        let parsed = HostStats.Process(
+            pid: pid, user: String(fields[2]), cpu: cpu, memory: rss * 1024, seconds: seconds(String(fields[5])),
             command: command, args: String(args.prefix(300)))
-        return (p, ppid)
+        return (parsed, ppid)
     }
 
     /// ps's elapsed time, "[[dd-]hh:]mm:ss".
@@ -170,7 +173,7 @@ enum HostStatsReader {
         -> [HostStats.Process]
     {
         var kids: [Int: [Int]] = [:]
-        for (p, ppid) in all { kids[ppid, default: []].append(p.pid) }
+        for (entry, ppid) in all { kids[ppid, default: []].append(entry.pid) }
         var whose: [Int: String] = [:]
         for (name, pane) in panes {
             guard let sid = owner[name] else { continue }
@@ -181,10 +184,10 @@ enum HostStatsReader {
                 stack += kids[pid] ?? []
             }
         }
-        let tagged = all.map { p, _ in
-            var p = p
-            p.session = whose[p.pid]
-            return p
+        let tagged = all.map { entry, _ in
+            var entry = entry
+            entry.session = whose[entry.pid]
+            return entry
         }
         let byCPU = tagged.sorted { ($0.cpu, $0.memory) > ($1.cpu, $1.memory) }
         let others = byCPU.filter { $0.session == nil }.prefix(30)

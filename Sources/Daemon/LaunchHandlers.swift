@@ -6,16 +6,16 @@ import GitKit
 import Integrations
 
 extension Sessions.Launch {
-    init(_ o: some LaunchOptions) {
+    init(_ options: some LaunchOptions) {
         self.init()
-        model = o.model
-        effort = o.effort
-        prompt = o.prompt
-        title = o.title
-        profile = o.profile
-        draft = o.draft == true
-        openURLs = o.openURLs == true
-        (cols, rows) = Self.size(cols: o.cols, rows: o.rows)
+        model = options.model
+        effort = options.effort
+        prompt = options.prompt
+        title = options.title
+        profile = options.profile
+        draft = options.draft == true
+        openURLs = options.openURLs == true
+        (cols, rows) = Self.size(cols: options.cols, rows: options.rows)
     }
 }
 
@@ -29,34 +29,35 @@ extension SessionCreate: Handled {
         // cwd wins when both are given (e.g. an agent building an extension, shown in the current workspace).
         var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
         if let worktreeId, dir == nil {
-            let w = try sessions.store.worktree(named: worktreeId)
+            let worktree = try sessions.store.worktree(named: worktreeId)
             // An agent with no project ("No Project"): a folder of its own for its task, not the shared one.
             let agentHere = tmux == nil && command == nil && agent.map { $0 != "shell" } == true
             dir =
-                agentHere && ScratchChats(root: sessions.root).holds(w.path)
-                ? try ScratchChats(root: sessions.root).newChat() : w.path
+                agentHere && ScratchChats(root: sessions.root).holds(worktree.path)
+                ? try ScratchChats(root: sessions.root).newChat() : worktree.path
         }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
-        var o = Sessions.Launch(self)
+        var launch = Sessions.Launch(self)
         // Asked from inside a session, the parent asked for is that one, whatever id was sent (`Callers.caller`).
         let asked = parent.map { Sessions.asker ?? $0 }
-        o.parent = try sessions.parent(asked, of: self)
-        o.startedBy = try sessions.starter(asked, of: self)
+        launch.parent = try sessions.parent(asked, of: self)
+        launch.startedBy = try sessions.starter(asked, of: self)
         // "swift build", not the program's "Custom"; a prompt names the session itself, and its fresh workspace and branch.
-        if o.title == nil, prompt == nil, let command { o.title = CommandName.of(command) }
+        if launch.title == nil, prompt == nil, let command { launch.title = CommandName.of(command) }
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
             let name = Tmux.name(tmux)
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
-            o.argv = Tmux.argv(name)
-            if o.title == nil { o.title = "tmux \(name)" }
+            launch.argv = Tmux.argv(name)
+            if launch.title == nil { launch.title = "tmux \(name)" }
         } else if command == nil, (agent ?? "shell") == "shell", sessions.settings["terminal.tmux"]?.bool == true,
             sessions.remotes.of(dir) != nil || (try? LoginPath.resolve("tmux")) != nil
         {
-            o.argv = Tmux.argv(Tmux.own())   // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn)
+            // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn)
+            launch.argv = Tmux.argv(Tmux.own())
         }
         return try sessions.spawn(
             cwd: dir, manifest: sessions.manifest(tmux == nil ? agent : "shell", command: tmux == nil ? command : nil),
-            worktreeId: worktreeId, o)
+            worktreeId: worktreeId, launch)
     }
 }
 
@@ -78,8 +79,8 @@ extension SessionRestart: Handled {
             } else {
                 try sessions.store.update(Session.self, id) { if $0.status == .paused { $0.status = .exited } }
             }
-            guard let s = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
-            return s
+            guard let session = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
+            return session
         }
         do {
             return try start(after: old, sessions, owed: owed)
@@ -90,23 +91,23 @@ extension SessionRestart: Handled {
     }
 
     private func start(after old: Session, _ sessions: Sessions, owed: [OwedInput]) throws -> Session {
-        let m = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
-        var o = Sessions.Launch(self)
-        o.title = old.titleManual ? old.title : nil
-        o.parent = old.parent
-        o.startedBy = old.startedBy
-        o.origin = old.origin
-        if o.profile == nil { o.profile = old.profile }   // the same account unless told otherwise
+        let manifest = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
+        var launch = Sessions.Launch(self)
+        launch.title = old.titleManual ? old.title : nil
+        launch.parent = old.parent
+        launch.startedBy = old.startedBy
+        launch.origin = old.origin
+        if launch.profile == nil { launch.profile = old.profile }   // the same account unless told otherwise
         // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
-        if resume != false { o.tmux = old.tmux }
+        if resume != false { launch.tmux = old.tmux }
         // The new session pins an id of its own, never the old one's.
-        o.argv = Sessions.withoutSessionId(
-            resume != false ? sessions.resumeArgv(old, m) : old.argv, flag: m.sessionIdFlag)
-        let s = try sessions.spawn(cwd: old.cwd, manifest: m, worktreeId: old.worktreeId, o)
-        try sessions.passChildren(of: old.id, to: s.id, owed: owed)
+        launch.argv = Sessions.withoutSessionId(
+            resume != false ? sessions.resumeArgv(old, manifest) : old.argv, flag: manifest.sessionIdFlag)
+        let session = try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
+        try sessions.passChildren(of: old.id, to: session.id, owed: owed)
         sessions.discard(old, keepTmux: old.tmux == nil || resume != false)   // its exit, still to come, doesn't save it again
-        return s
+        return session
     }
 }
 
@@ -118,28 +119,29 @@ extension SessionHandoff: Handled {
             throw RPCError.invalidParams("Handoff isn't available for remote projects yet.")
         }
         let transcript = try sessions.handoffFile(old, full: full == true)
-        var o = Sessions.Launch(self)
-        o.prompt =
+        var launch = Sessions.Launch(self)
+        launch.prompt =
             "Read \(transcript.path) — the transcript of the previous agent session in this project. "
             + (prompt ?? "Continue the task where the previous agent left off.")
-        o.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
+        launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
         return try sessions.spawn(
-            cwd: old.cwd, manifest: sessions.manifest(agent ?? old.agent, command: nil), worktreeId: old.worktreeId, o)
+            cwd: old.cwd, manifest: sessions.manifest(agent ?? old.agent, command: nil), worktreeId: old.worktreeId,
+            launch)
     }
 }
 
 extension HistoryResume: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
-        guard let s = session else { throw RPCError.invalidParams("session required") }
-        let (cwd, wid) = try sessions.resumePlace(s.cwd, worktreeId: worktreeId)
+        guard let session else { throw RPCError.invalidParams("session required") }
+        let (cwd, wid) = try sessions.resumePlace(session.cwd, worktreeId: worktreeId)
         guard FileManager.default.fileExists(atPath: cwd) else {
             throw RPCError.invalidParams("the session's folder no longer exists: \(cwd)")
         }
-        var o = Sessions.Launch(self)
-        o.title = s.title.isEmpty ? "Resumed \(s.agent.rawValue)" : s.title
-        var m = try sessions.manifest(s.agent.rawValue, command: nil)
-        m.args += Array(History.resumeCommand(for: s).dropFirst())
-        return try sessions.spawn(cwd: cwd, manifest: m, worktreeId: wid, o)
+        var launch = Sessions.Launch(self)
+        launch.title = session.title.isEmpty ? "Resumed \(session.agent.rawValue)" : session.title
+        var manifest = try sessions.manifest(session.agent.rawValue, command: nil)
+        manifest.args += Array(History.resumeCommand(for: session).dropFirst())
+        return try sessions.spawn(cwd: cwd, manifest: manifest, worktreeId: wid, launch)
     }
 }
 
@@ -153,7 +155,7 @@ extension Sessions {
             try FileManager.default.createDirectory(atPath: was, withIntermediateDirectories: true)
             return (was, try store.worktrees().first { scratch.holds($0.path) }?.id)
         }
-        if let w = worktreeId, let wt = try store.worktree(w) { return (wt.path, w) }
+        if let worktreeId, let worktree = try store.worktree(worktreeId) { return (worktree.path, worktreeId) }
         let real = URL(fileURLWithPath: was).resolvingSymlinksInPath().path
         return (
             was,
@@ -291,16 +293,18 @@ extension SessionAnnotate: Handled {
 
 extension RecipeRender: Handled {
     func handle(_ workspaces: Workspaces) throws -> String {
-        let w = try workspaces.store.worktree(named: id)
-        let cfg = workspaces.trustedConfig(try workspaces.store.repo(w.repoId)?.path ?? w.path)   // the repo's own prompts only once trusted
+        let worktree = try workspaces.store.worktree(named: id)
+        // the repo's own prompts only once trusted
+        let cfg = workspaces.trustedConfig(try workspaces.store.repo(worktree.repoId)?.path ?? worktree.path)
         var all: [String: String] = [
-            "branch": w.branch, "base": try workspaces.store.repo(w.repoId)?.baseBranch ?? "main"
+            "branch": worktree.branch, "base": try workspaces.store.repo(worktree.repoId)?.baseBranch ?? "main"
         ]
         all.merge(vars ?? [:]) { $1 }
         if all["stagedPatch"] == nil {
             all["stagedPatch"] = String(
-                ((try? Git.run(["diff", "--cached", "--stat"], cwd: w.path, remotes: workspaces.remotes)) ?? "").prefix(
-                    4000))
+                ((try? Git.run(["diff", "--cached", "--stat"], cwd: worktree.path, remotes: workspaces.remotes)) ?? "")
+                    .prefix(
+                        4000))
         }
         return Recipes.render(name, config: cfg, vars: all)
     }
@@ -373,24 +377,24 @@ struct Upgrade {
 extension AgentsVersions: AsyncHandled {
     func handle(_ sessions: Sessions) async throws -> [Item] {
         let manifests = AgentManifest.load(dir: sessions.root.appendingPathComponent("agents"))
-        return await withTaskGroup(of: Item?.self) { g in
-            for m in manifests {
-                g.addTask {
+        return await withTaskGroup(of: Item?.self) { group in
+            for manifest in manifests {
+                group.addTask {
                     try? await sessions.offloads.run { () -> Item? in
                         let path = Sessions.childPath   // the login shell's PATH: the first read waits for the shell
-                        guard let exe = try? LoginPath.resolve(m.command) else { return nil }
-                        let v = Sessions.run([exe, "--version"], path: path, timeout: 4).flatMap(Sessions.semver)
+                        guard let exe = try? LoginPath.resolve(manifest.command) else { return nil }
+                        let version = Sessions.run([exe, "--version"], path: path, timeout: 4).flatMap(Sessions.semver)
                         let npm = try? LoginPath.resolve("npm")
-                        let latest = m.npm.flatMap { pkg in
+                        let latest = manifest.npm.flatMap { pkg in
                             npm.flatMap { Sessions.run([$0, "view", pkg, "version"], path: path, timeout: 8) }
                         }
                         .flatMap(Sessions.semver)
-                        return Item(id: m.id, version: v, latest: latest)
+                        return Item(id: manifest.id, version: version, latest: latest)
                     }
                 }
             }
             var out: [Item] = []
-            for await r in g { if let r { out.append(r) } }
+            for await item in group { if let item { out.append(item) } }
             return out
         }
     }
@@ -398,7 +402,7 @@ extension AgentsVersions: AsyncHandled {
 
 extension TaskFromIssue: AsyncHandled {
     func handle(_ work: ForgeWork) async throws -> Result {
-        guard let r = try work.workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try work.workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         let body = body ?? "", url = url ?? ""
         var branch =
             branch.flatMap { $0.isEmpty ? nil : $0 }
@@ -406,21 +410,21 @@ extension TaskFromIssue: AsyncHandled {
         let prefix = branchPrefix ?? work.workspaces.sessions.branchPrefix
         if !prefix.isEmpty, !branch.hasPrefix(prefix) { branch = prefix + branch }
         let unique = try await work.forges.offloads.run { [branch] in
-            var unique = branch, n = 2
-            while Git.branchExists(r.path, unique, remotes: work.workspaces.remotes) {
-                unique = "\(branch)-\(n)"
-                n += 1
+            var unique = branch, number = 2
+            while Git.branchExists(repo.path, unique, remotes: work.workspaces.remotes) {
+                unique = "\(branch)-\(number)"
+                number += 1
             }
             return unique
         }
         let created = try await work.forges.offloads.run {
-            try WorktreeCreate(repoId: r.id, branch: unique, note: "\(ref) \(title)", tabs: false).handle(
+            try WorktreeCreate(repoId: repo.id, branch: unique, note: "\(ref) \(title)", tabs: false).handle(
                 work.workspaces)
         }
         // The record, the repo's config and the agent's PTY: disk and a process, through `offload` like the rest.
-        let (w, s) = try await work.forges.offloads.run { () throws -> (Worktree, Session) in
+        let (worktree, session) = try await work.forges.offloads.run { () throws -> (Worktree, Session) in
             guard
-                let w = try work.workspaces.store.update(
+                let updated = try work.workspaces.store.update(
                     Worktree.self, created.worktree.id,
                     {
                         $0.issue = ref
@@ -428,34 +432,35 @@ extension TaskFromIssue: AsyncHandled {
                         $0.linearIssueId = linearId ?? ""
                     })
             else { throw RPCError.internalError("worktree vanished") }
-            let cfg = work.workspaces.trustedConfig(r.path)   // its issueCommand / recipes only once the user trusts the file
+            // its issueCommand / recipes only once the user trusts the file
+            let cfg = work.workspaces.trustedConfig(repo.path)
             let vars = ["title": title, "body": body, "url": url, "ref": ref, "branch": unique]
             var text =
                 cfg.issueCommand.map { Recipes.fill($0, Recipes.framed(vars)) }
                 ?? Recipes.render("issue", config: cfg, vars: vars)
             if let extra = prompt, !extra.isEmpty { text += "\n\n" + extra }
-            var o = Sessions.Launch()
+            var launch = Sessions.Launch()
             // Typed, not sent, unless asked: the issue's text is whoever filed it, not the user (it could tell the agent anything).
-            o.model = model
-            o.effort = effort
-            o.profile = profile
-            o.draft = draft != false
-            o.openURLs = openURLs == true
-            (o.cols, o.rows) = Sessions.Launch.size(cols: cols, rows: rows)
-            o.prompt = text
-            o.title = "\(ref) \(title)".prefix(48).description
+            launch.model = model
+            launch.effort = effort
+            launch.profile = profile
+            launch.draft = draft != false
+            launch.openURLs = openURLs == true
+            (launch.cols, launch.rows) = Sessions.Launch.size(cols: cols, rows: rows)
+            launch.prompt = text
+            launch.title = "\(ref) \(title)".prefix(48).description
             return (
-                w,
+                updated,
                 try work.workspaces.sessions.spawn(
-                    cwd: w.path, manifest: work.workspaces.sessions.manifest(agent ?? "claude", command: nil),
-                    worktreeId: w.id, o)
+                    cwd: updated.path, manifest: work.workspaces.sessions.manifest(agent ?? "claude", command: nil),
+                    worktreeId: updated.id, launch)
             )
         }
-        await work.forges.moveLinear(w, to: .inProgress)
-        await work.forges.moveJira(w, toName: "progress", category: "indeterminate")
+        await work.forges.moveLinear(worktree, to: .inProgress)
+        await work.forges.moveJira(worktree, toName: "progress", category: "indeterminate")
         work.workspaces.notify(ChangedEvent.worktree)
         // An untrusted .kelp.yaml's setup didn't run: said, as worktree.create says it, so the caller can ask.
-        return Result(worktree: w, session: s, setupNeedsTrust: created.setupNeedsTrust == true)
+        return Result(worktree: worktree, session: session, setupNeedsTrust: created.setupNeedsTrust == true)
     }
 }
 
@@ -491,21 +496,21 @@ extension ProcessRun: Handled {
         env["KELP_HOME"] = sessions.root.path
         env["KELP_SOCKET"] = sessions.socketPath
         let dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil } ?? NSHomeDirectory()
-        let r = try Subprocess.run(
+        let result = try Subprocess.run(
             argv, cwd: dir, env: env, stdin: stdin.map { Data($0.utf8) },
             timeLimit: max(0.1, min(timeLimit ?? 60, 86400)),
             limit: Self.outputLimit)
         // Not a part as if it were all of it: a formatter's would replace the file's text.
-        guard !r.truncated else {
+        guard !result.truncated else {
             let name = ((argv.first ?? "") as NSString).lastPathComponent
             throw RPCError.internalError(
                 "\(name) printed more than \(Self.outputLimit >> 20) MB, more than Kelp reads.")
         }
         // Lossy on purpose: a tool's output with a stray byte should still show.
         return Result(
-            code: r.status, stdout: String(decoding: r.stdout, as: UTF8.self),
-            stderr: String(decoding: r.stderr, as: UTF8.self),
-            timedOut: r.timedOut)
+            code: result.status, stdout: String(decoding: result.stdout, as: UTF8.self),
+            stderr: String(decoding: result.stderr, as: UTF8.self),
+            timedOut: result.timedOut)
     }
 
     /// Of each stream: the reply carries both, JSON-escaped (a control byte takes six), under a connection's `backlogLimit`.
@@ -525,16 +530,18 @@ extension Sessions {
             "extension.json")
         guard !id.isEmpty, (id as NSString).lastPathComponent == id, id != "..", id != ".",
             let data = FileManager.default.contents(atPath: file.path),
-            let m = try? JSONDecoder().decode(Manifest.self, from: data)
+            let manifest = try? JSONDecoder().decode(Manifest.self, from: data)
         else { throw RPCError.invalidParams("No extension \"\(id)\".") }
         // Limit: unset means none of the user's extensions is off (the app's default-off list names built-ins only).
         let off = Set(settings["extensions.disabled"]?.array?.compactMap(\.string) ?? [])
-        guard !off.contains(m.id) else {
-            throw RPCError.invalidParams("The extension “\(m.name ?? m.id)” is turned off.")
+        let name = manifest.name ?? manifest.id
+        guard !off.contains(manifest.id) else {
+            throw RPCError.invalidParams("The extension “\(name)” is turned off.")
         }
         guard trustsExtension(id) else {
             throw RPCError.invalidParams(
-                "The extension “\(m.name ?? m.id)” waits to be allowed as it is now: in Settings › Extensions.")
+                "The extension “\(name)” waits to be allowed as it is now: in Settings › Extensions."
+            )
         }
     }
 

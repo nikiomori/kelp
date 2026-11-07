@@ -8,7 +8,7 @@ import os
 final class Connection: Sendable {
     let id: Int
     let fd: Int32
-    private let q = DispatchQueue(label: "kelp.connection")   // writes, in order
+    private let queue = DispatchQueue(label: "kelp.connection")   // writes, in order
     private struct State { var queued = 0, closing = false, closed = false }
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// More than this queued costs too much memory even from a client that still reads: it's hung up on. Far above any
@@ -29,21 +29,21 @@ final class Connection: Sendable {
         self.fd = fd
         peer = Unix.peerExecutable(fd)
         peerPID = Unix.peerPID(fd)
-        var t = Self.stall
-        _ = setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+        var timeout = Self.stall
+        _ = setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
     }
 
-    func send(_ d: Data) {
+    func send(_ data: Data) {
         // Queued under the lock that `close` takes too: a write checked before the close is also queued before it, so
         // it never runs after the fd was closed (and its number given to a new client or a PTY).
-        let behind = state.withLock { s -> Int? in
-            guard !s.closing else { return nil }
-            s.queued += d.count
-            q.async { [self] in
-                if !Unix.writeAll(fd, d) { hangUp() }
-                state.withLock { $0.queued -= d.count }
+        let behind = state.withLock { current -> Int? in
+            guard !current.closing else { return nil }
+            current.queued += data.count
+            queue.async { [self] in
+                if !Unix.writeAll(fd, data) { hangUp() }
+                state.withLock { $0.queued -= data.count }
             }
-            return s.queued
+            return current.queued
         }
         if let behind, behind > Self.backlogLimit { hangUp() }
     }
@@ -51,7 +51,7 @@ final class Connection: Sendable {
     /// Until what's queued so far is written, or `seconds` pass (a client that stopped reading).
     func drain(within seconds: Double) {
         let done = DispatchSemaphore(value: 0)
-        q.async { done.signal() }
+        queue.async { done.signal() }
         _ = done.wait(timeout: .now() + seconds)
     }
 
@@ -60,9 +60,9 @@ final class Connection: Sendable {
 
     /// Nothing more is sent; the fd closes once what's queued is out.
     func close() {
-        state.withLock { s in
-            s.closing = true
-            q.async { [self] in
+        state.withLock { current in
+            current.closing = true
+            queue.async { [self] in
                 state.withLock {
                     $0.closed = true
                     _ = Darwin.close(fd)

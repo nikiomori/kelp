@@ -14,15 +14,16 @@ final class ExtensionEvents: Sendable {
     private let started = Date()
 
     /// The event a saved session is, once per stop. A child's result is its parent's to read, as it is for notifications.
-    func event(of s: Session) -> String? {
+    func event(of session: Session) -> String? {
         told.withLock { told in
-            if s.status == .working || s.status == .exited { told[s.id] = nil }
-            guard s.agent != nil, s.agent != "shell", s.agent != "custom", told[s.id] != s.status,
-                (s.statusAt ?? .distantPast) >= started,
-                let name = [.waiting: "agent.waiting", .done: "agent.done", .error: "agent.failed"][s.status],
-                s.parent == nil || s.status != .done
+            if session.status == .working || session.status == .exited { told[session.id] = nil }
+            guard session.agent != nil, session.agent != "shell", session.agent != "custom",
+                told[session.id] != session.status,
+                (session.statusAt ?? .distantPast) >= started,
+                let name = [.waiting: "agent.waiting", .done: "agent.done", .error: "agent.failed"][session.status],
+                session.parent == nil || session.status != .done
             else { return nil }
-            told[s.id] = s.status
+            told[session.id] = session.status
             return name
         }
     }
@@ -33,28 +34,30 @@ extension Sessions {
     /// at once asked nobody away from the Mac.
     static let eventDelay = 2.5
 
-    func eventsHeard(_ s: Session) {
-        guard let event = events.event(of: s) else { return }
+    func eventsHeard(_ session: Session) {
+        guard let event = events.event(of: session) else { return }
         events.queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
             guard let self else { return }
             // Gone since: a result still stands, and a question has nobody left to answer it.
-            let now = existing(s.id)?.snapshot.status
-            guard now == s.status || (now == nil && s.status != .waiting) else { return }
-            let asks = s.status != .done
+            let now = existing(session.id)?.snapshot.status
+            guard now == session.status || (now == nil && session.status != .waiting) else { return }
+            let asks = session.status != .done
             fire(
-                event, cwd: s.currentDir,
+                event, cwd: session.currentDir,
                 values: [
-                    "KELP_SESSION_ID": s.id, "KELP_AGENT": s.agent ?? "", "KELP_TITLE": s.displayTitle,
-                    "KELP_SUMMARY": asks ? s.summary : "", "KELP_WORKSPACE_ID": s.worktreeId ?? ""
+                    "KELP_SESSION_ID": session.id, "KELP_AGENT": session.agent ?? "",
+                    "KELP_TITLE": session.displayTitle,
+                    "KELP_SUMMARY": asks ? session.summary : "", "KELP_WORKSPACE_ID": session.worktreeId ?? ""
                 ])
-            phoneHeard(s)
+            phoneHeard(session)
         }
     }
 
-    func workspaceAdded(_ w: Worktree) {
+    func workspaceAdded(_ workspace: Worktree) {
         events.queue.async { [weak self] in
             self?.fire(
-                "workspace.created", cwd: w.path, values: ["KELP_TITLE": w.displayName, "KELP_WORKSPACE_ID": w.id])
+                "workspace.created", cwd: workspace.path,
+                values: ["KELP_TITLE": workspace.displayName, "KELP_WORKSPACE_ID": workspace.id])
         }
     }
 
@@ -68,11 +71,11 @@ extension Sessions {
         let folder = FileManager.default.fileExists(atPath: cwd) ? cwd : NSHomeDirectory()
         for (id, run) in handlers(of: event) {
             let argv = ["/bin/zsh", "-lc", run]
-            let r = Log.session.attempt("running \(id)'s \(event)") {
+            let result = Log.session.attempt("running \(id)'s \(event)") {
                 try Subprocess.run(argv, cwd: folder, env: env, timeLimit: 30)
             }
-            if let r, r.status != 0 {
-                Log.session.error("\(id, privacy: .public)'s \(event, privacy: .public) exited \(r.status)")
+            if let result, result.status != 0 {
+                Log.session.error("\(id, privacy: .public)'s \(event, privacy: .public) exited \(result.status)")
             }
         }
     }
@@ -91,20 +94,20 @@ extension Sessions {
         return folders.sorted { $0.path < $1.path }.flatMap { folder -> [(id: String, run: String)] in
             let file = folder.appendingPathComponent("extension.json")
             guard FileManager.default.fileExists(atPath: file.path),
-                let m = Log.session.attempt(
+                let manifest = Log.session.attempt(
                     "reading \(file.path)",
                     {
                         try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: file))
-                    }), !off.contains(m.id)
+                    }), !off.contains(manifest.id)
             else { return [] }
-            let mine = (m.contributes?.events ?? []).filter { $0.on == event }
+            let mine = (manifest.contributes?.events ?? []).filter { $0.on == event }
             guard mine.isEmpty || trustsExtension(folder.lastPathComponent) else {
                 Log.session.info(
-                    "\(m.id, privacy: .public)'s \(event, privacy: .public) waits to be allowed in Settings › Extensions"
+                    "\(manifest.id, privacy: .public)'s \(event, privacy: .public) waits to be allowed in Settings › Extensions"
                 )
                 return []
             }
-            return mine.map { (m.id, $0.run) }
+            return mine.map { (manifest.id, $0.run) }
         }
     }
 }

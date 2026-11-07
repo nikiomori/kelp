@@ -83,10 +83,10 @@ extension Methods {
 
 extension Clients {
     /// To every Kelp window as `event.ui`.
-    fileprivate func relay(_ e: UIEvent) throws -> Delivered {
+    fileprivate func relay(_ event: UIEvent) throws -> Delivered {
         let apps = apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
-        notify(e, to: apps)
+        notify(event, to: apps)
         return Delivered(delivered: apps.count)
     }
 }

@@ -17,8 +17,8 @@ extension Workspaces {
         if let other = ImportedConfig.find(repoPath) { return (repoPath + "/" + other.file, other.text, other.config) }
         return (own, "", RepoConfig())
     }
-    static func digest(_ s: String) -> String {
-        SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
+    static func digest(_ text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     /// The file read once, its parsed config and whether the user trusts exactly that text: checking one read and using
@@ -35,22 +35,23 @@ extension Workspaces {
     }
 
     /// Nothing in it runs, links, or speaks to an agent for the user: a file like that needs no trust.
-    static func asksNothing(_ c: RepoConfig) -> Bool {
-        c.setup == nil && c.scripts.isEmpty && c.tabs.isEmpty && c.shared.isEmpty && c.clone.isEmpty
-            && c.recipes.isEmpty && c.issueCommand == nil
+    static func asksNothing(_ config: RepoConfig) -> Bool {
+        config.setup == nil && config.scripts.isEmpty && config.tabs.isEmpty && config.shared.isEmpty
+            && config.clone.isEmpty
+            && config.recipes.isEmpty && config.issueCommand == nil
     }
 
     /// The project's .kelp.yaml if the user trusts it as it is now, else nothing of it: a cloned repository's prompts
     /// (recipe.*, issueCommand) reach an agent as the user's own words, so they wait for trust like its commands.
     func trustedConfig(_ repoPath: String) -> RepoConfig {
-        let c = configAndTrust(repoPath)
-        return c.trusted ? c.config : RepoConfig()
+        let checked = configAndTrust(repoPath)
+        return checked.trusted ? checked.config : RepoConfig()
     }
 
     /// The project folder whose .kelp.yaml a workspace uses.
     func configRepo(_ worktreeId: String) throws -> (Worktree, String) {
-        let w = try store.worktree(named: worktreeId)
-        return (w, try store.repo(w.repoId)?.path ?? w.path)
+        let worktree = try store.worktree(named: worktreeId)
+        return (worktree, try store.repo(worktree.repoId)?.path ?? worktree.path)
     }
 }
 
@@ -96,19 +97,20 @@ extension ScriptsTrust: Handled {
 
 extension ScriptsRun: Handled {
     func handle(_ workspaces: Workspaces) throws -> Session {
-        let (w, repo) = try workspaces.configRepo(worktreeId)
+        let (worktree, repo) = try workspaces.configRepo(worktreeId)
         let read = workspaces.configAndTrust(repo)   // the command run is from the text that was checked
         guard read.trusted else { throw RPCError.invalidParams("This project's commands aren't trusted yet.") }
         let cfg = read.config
         guard
-            let s = cfg.scripts.first(where: { $0.name == name })
+            let script = cfg.scripts.first(where: { $0.name == name })
                 ?? cfg.setup.flatMap({ name == "setup" ? .init(name: name, command: $0) : nil })
         else {
             throw RPCError.invalidParams("No “\(name)” command in \((read.path as NSString).lastPathComponent).")
         }
-        var o = Sessions.Launch()
-        o.title = name
-        return try workspaces.sessions.spawn(cwd: w.path, manifest: .custom(cfg.shell(s.command)), worktreeId: w.id, o)
+        var options = Sessions.Launch()
+        options.title = name
+        return try workspaces.sessions.spawn(
+            cwd: worktree.path, manifest: .custom(cfg.shell(script.command)), worktreeId: worktree.id, options)
     }
 }
 

@@ -6,29 +6,29 @@ import Foundation
 /// told it goes on by itself. Here in the daemon, on the ticker: Kelp's window can be closed by then.
 extension LiveSession {
     /// A hook said so; the Stop that ended the turn comes right after.
-    func hitLimit(_ r: ClaudeLimits.Reading) {
-        state.withLock { s in
-            s.record.limitHit = LimitHit(kind: r.kind, resets: r.resets)
-            emit(s.record)
+    func hitLimit(_ reading: ClaudeLimits.Reading) {
+        state.withLock { state in
+            state.record.limitHit = LimitHit(kind: reading.kind, resets: reading.resets)
+            emit(state.record)
         }
     }
 
     func continueAt(_ at: Date?) {
-        state.withLock { s in
-            guard at == nil || s.record.limitHit != nil else { return }
-            s.record.continueAt = at
-            emit(s.record)
+        state.withLock { state in
+            guard at == nil || state.record.limitHit != nil else { return }
+            state.record.continueAt = at
+            emit(state.record)
         }
     }
 
     /// Once it's time and nothing's in the way (a half-typed line waits for its author), inside `state.withLock`. One that
     /// went on by itself (Claude Code can) has lost its `continueAt` by then, so it isn't told twice.
-    func continueIfDue(_ s: inout State) {
-        guard let at = s.record.continueAt, Date() >= at, !s.letGo, s.pendingPrompts.isEmpty,
-            s.readyForText(submits: true)
+    func continueIfDue(_ state: inout State) {
+        guard let at = state.record.continueAt, Date() >= at, !state.letGo, state.pendingPrompts.isEmpty,
+            state.readyForText(submits: true)
         else { return }
-        s.record.continueAt = nil
-        type("continue", enter: true, paste: false, &s)
-        emit(s.record)
+        state.record.continueAt = nil
+        type("continue", enter: true, paste: false, &state)
+        emit(state.record)
     }
 }

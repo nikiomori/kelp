@@ -24,17 +24,19 @@ final class IgnoredFolders: Sendable {
         let rel = paths.map { p in prefixes.first(where: p.hasPrefix).map { String(p.dropFirst($0.count)) } }
         if rel.contains(where: { $0.map(Self.rulesChange) ?? false }) { known.withLock { $0 = [:] } }
         let folders = rel.map { $0.map(Self.folders) ?? [] }
-        var k = known.withLock { $0 }
-        let unknown = Set(folders.filter { !$0.contains { k[$0] == true } }.joined()).filter { k[$0] == nil }
+        var answers = known.withLock { $0 }
+        let unknown = Set(folders.filter { !$0.contains { answers[$0] == true } }.joined()).filter {
+            answers[$0] == nil
+        }
         if !unknown.isEmpty {
             // A git that fails here counts every change, as before.
             let hits = (try? Git.ignored(Array(unknown), cwd: root, remotes: remotes)) ?? []
-            k = known.withLock { k in
-                for f in unknown { k[f] = hits.contains(f) }
-                return k
+            answers = known.withLock { cached in
+                for folder in unknown { cached[folder] = hits.contains(folder) }
+                return cached
             }
         }
-        return zip(paths, folders).filter { _, fs in !fs.contains { k[$0] == true } }.map(\.0)
+        return zip(paths, folders).filter { _, fs in !fs.contains { answers[$0] == true } }.map(\.0)
     }
 
     /// The folders `rel` is in, outermost first: "a/b/c.txt" is in "a/" and "a/b/". git's own folder is left to `Git.touches…`.

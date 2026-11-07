@@ -54,30 +54,36 @@ final class LSPHost: Sendable {
         self.idleDelay = idleDelay
     }
 
-    func open(conn: Int, _ o: LSPOpen) {
-        let key = Key(root: o.root, argv: [o.command] + (o.args ?? [])), id = o.root + "|" + o.path
-        let launch = state.withLock { s -> Bool in
-            guard !s.closed else { return false }
-            s.docs[id, default: Doc(key: key, path: o.path, languageId: o.languageId, count: 0, text: o.text)].count +=
+    func open(conn: Int, _ request: LSPOpen) {
+        let key = Key(root: request.root, argv: [request.command] + (request.args ?? [])),
+            id = request.root + "|" + request.path
+        let launch = state.withLock { state -> Bool in
+            guard !state.closed else { return false }
+            state.docs[
+                id,
+                default: Doc(key: key, path: request.path, languageId: request.languageId, count: 0, text: request.text)
+            ].count +=
                 1
-            s.docs[id]?.text = o.text
-            s.owners[conn, default: [:]][id, default: 0] += 1
-            let op = DocOp.open(path: o.path, text: o.text, languageId: o.languageId)
-            switch s.servers[key] {
-            case .running(let c)? where c.isRunning:
-                Self.apply(op, to: c)
+            state.docs[id]?.text = request.text
+            state.owners[conn, default: [:]][id, default: 0] += 1
+            let op = DocOp.open(path: request.path, text: request.text, languageId: request.languageId)
+            switch state.servers[key] {
+            case .running(let client)? where client.isRunning:
+                Self.apply(op, to: client)
                 return false
             case .starting(let pending, let ready)?:
-                s.servers[key] = .starting(pending: pending + [op], ready: ready)
+                state.servers[key] = .starting(pending: pending + [op], ready: ready)
                 return false
             default:   // none yet, or it died: a new one gets every file open for it, as last sent
-                if let at = s.started[key], Date().timeIntervalSince(at) < retryDelay { return false }
-                s.started[key] = Date()
-                let others = s.docs.filter { $0.key != id && $0.value.key == key }.values.flatMap { d in
-                    Array(repeating: DocOp.open(path: d.path, text: d.text, languageId: d.languageId), count: d.count)
+                if let at = state.started[key], Date().timeIntervalSince(at) < retryDelay { return false }
+                state.started[key] = Date()
+                let others = state.docs.filter { $0.key != id && $0.value.key == key }.values.flatMap { doc in
+                    Array(
+                        repeating: DocOp.open(path: doc.path, text: doc.text, languageId: doc.languageId),
+                        count: doc.count)
                 }
-                s.servers[key] = .starting(
-                    pending: others + Array(repeating: op, count: s.docs[id]?.count ?? 1), ready: nil)
+                state.servers[key] = .starting(
+                    pending: others + Array(repeating: op, count: state.docs[id]?.count ?? 1), ready: nil)
                 return true
             }
         }
@@ -86,10 +92,10 @@ final class LSPHost: Sendable {
 
     func change(_ root: String, _ path: String, text: String) {
         let id = root + "|" + path
-        state.withLock { s in
-            guard let d = s.docs[id] else { return }
-            s.docs[id]?.text = text
-            Self.send(.change(path: path, text: text), to: d.key, in: &s)
+        state.withLock { state in
+            guard let doc = state.docs[id] else { return }
+            state.docs[id]?.text = text
+            Self.send(.change(path: path, text: text), to: doc.key, in: &state)
         }
     }
 
@@ -104,61 +110,62 @@ final class LSPHost: Sendable {
     /// a tab (a server may report on the whole project, and the next open is told again); the paths are resolved outside
     /// the lock, which opens and changes take on a connection's reader thread.
     private func heard(_ reported: String, _ found: [CodeProblem]) {
-        func real(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().path }
+        func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let open = state.withLock { s in Set(s.docs.values.map(\.path)) }
         let target = real(reported)
         guard let path = open.contains(reported) ? reported : open.first(where: { real($0) == target }) else { return }
-        let changed = state.withLock { s -> (@Sendable (String) -> Void)? in
-            guard s.docs.values.contains(where: { $0.path == path }) else { return nil }   // closed meanwhile
-            s.problems[path] = found.isEmpty ? nil : found
-            return s.problemsChanged
+        let changed = state.withLock { state -> (@Sendable (String) -> Void)? in
+            guard state.docs.values.contains(where: { $0.path == path }) else { return nil }   // closed meanwhile
+            state.problems[path] = found.isEmpty ? nil : found
+            return state.problemsChanged
         }
         changed?(path)
     }
 
     func close(conn: Int, _ root: String, _ path: String) {
         let id = root + "|" + path
-        let idle = state.withLock { s -> Key? in
-            guard let n = s.owners[conn]?[id], n > 0, var d = s.docs[id] else { return nil }   // not opened by this connection
-            s.owners[conn]?[id] = n > 1 ? n - 1 : nil
-            if s.owners[conn]?.isEmpty == true { s.owners[conn] = nil }
-            d.count -= 1
-            s.docs[id] = d.count > 0 ? d : nil
-            if d.count == 0 { s.problems[path] = nil }   // the last tab on it, of any connection
-            Self.send(.close(path: path), to: d.key, in: &s)
-            return s.docs.values.contains { $0.key == d.key } ? nil : d.key
+        let idle = state.withLock { state -> Key? in
+            // not opened by this connection
+            guard let opens = state.owners[conn]?[id], opens > 0, var doc = state.docs[id] else { return nil }
+            state.owners[conn]?[id] = opens > 1 ? opens - 1 : nil
+            if state.owners[conn]?.isEmpty == true { state.owners[conn] = nil }
+            doc.count -= 1
+            state.docs[id] = doc.count > 0 ? doc : nil
+            if doc.count == 0 { state.problems[path] = nil }   // the last tab on it, of any connection
+            Self.send(.close(path: path), to: doc.key, in: &state)
+            return state.docs.values.contains { $0.key == doc.key } ? nil : doc.key
         }
         if let idle { stopLater(idle) }
     }
 
     /// A connection that went: what it opened is closed.
     func closeAll(conn: Int) {
-        let opened = state.withLock { s in
-            (s.owners[conn] ?? [:]).compactMap { id, n in s.docs[id].map { ($0.key.root, $0.path, n) } }
+        let opened = state.withLock { state in
+            (state.owners[conn] ?? [:]).compactMap { id, opens in state.docs[id].map { ($0.key.root, $0.path, opens) } }
         }
-        for (root, path, n) in opened { for _ in 0..<n { close(conn: conn, root, path) } }
+        for (root, path, opens) in opened { for _ in 0..<opens { close(conn: conn, root, path) } }
     }
 
     /// The running server of an open file, waiting for one that's starting; nil when there's none.
     func client(_ root: String, _ path: String) async -> LSPClient? {
-        let (c, ready) = state.withLock { s -> (LSPClient?, Task<LSPClient?, Never>?) in
-            guard let d = s.docs[root + "|" + path] else { return (nil, nil) }
-            switch s.servers[d.key] {
-            case .running(let c)?: return (c.isRunning ? c : nil, nil)
+        let (running, ready) = state.withLock { state -> (LSPClient?, Task<LSPClient?, Never>?) in
+            guard let doc = state.docs[root + "|" + path] else { return (nil, nil) }
+            switch state.servers[doc.key] {
+            case .running(let client)?: return (client.isRunning ? client : nil, nil)
             case .starting(_, let ready)?: return (nil, ready)
             default: return (nil, nil)
             }
         }
-        if let c { return c }
+        if let running { return running }
         return await ready?.value
     }
 
     /// The daemon is stopping: so do its servers.
     func stopAll() {
-        let all = state.withLock { s in
-            s.closed = true
-            defer { s.servers = [:] }
-            return s.servers.values.compactMap { if case .running(let c) = $0 { c } else { nil } }
+        let all = state.withLock { state in
+            state.closed = true
+            defer { state.servers = [:] }
+            return state.servers.values.compactMap { if case .running(let client) = $0 { client } else { nil } }
         }
         // Gone before this returns: the daemon stops or execs next, and a SIGKILL left for later would never come.
         DispatchQueue.concurrentPerform(iterations: all.count) { all[$0].terminateNow() }
@@ -170,13 +177,13 @@ final class LSPHost: Sendable {
             // Handed over under a lock: the Thread Sanitizer doesn't see a continuation resumed from that thread order
             // the client's init before its use here, and reported its fields as raced.
             let made = OSAllocatedUnfairLock<LSPClient?>(initialState: nil)
-            await withCheckedContinuation { c in
+            await withCheckedContinuation { continuation in
                 Thread.detachNewThread {
                     let client = LSPClient(argv: key.argv, root: key.root) { [weak self] path, found in
                         self?.heard(path, found)
                     }
                     made.withLock { $0 = client }
-                    c.resume()
+                    continuation.resume()
                 }
             }
             var up = made.withLock { $0 }
@@ -188,55 +195,57 @@ final class LSPHost: Sendable {
                     up = nil
                 }
             }
-            let c = up
-            let live = state.withLock { s -> LSPClient? in
-                guard case .starting(let pending, _)? = s.servers[key] else { return nil }   // stopped meanwhile
-                guard let c else {
-                    s.servers[key] = .failed
+            let client = up
+            let live = state.withLock { state -> LSPClient? in
+                guard case .starting(let pending, _)? = state.servers[key] else { return nil }   // stopped meanwhile
+                guard let client else {
+                    state.servers[key] = .failed
                     return nil
                 }
-                pending.forEach { Self.apply($0, to: c) }
-                s.servers[key] = .running(c)
-                return c
+                pending.forEach { Self.apply($0, to: client) }
+                state.servers[key] = .running(client)
+                return client
             }
-            if live == nil { c?.terminate() }
+            if live == nil { client?.terminate() }
             stopLater(key)   // started only to close a file, say
             return live
         }
-        state.withLock { s in
-            if case .starting(let pending, nil)? = s.servers[key] {
-                s.servers[key] = .starting(pending: pending, ready: ready)
+        state.withLock { state in
+            if case .starting(let pending, nil)? = state.servers[key] {
+                state.servers[key] = .starting(pending: pending, ready: ready)
             }
         }
     }
 
-    private static func send(_ op: DocOp, to key: Key, in s: inout State) {
-        switch s.servers[key] {
-        case .running(let c)?: apply(op, to: c)
-        case .starting(let pending, let ready)?: s.servers[key] = .starting(pending: pending + [op], ready: ready)
+    private static func send(_ op: DocOp, to key: Key, in state: inout State) {
+        switch state.servers[key] {
+        case .running(let client)?: apply(op, to: client)
+        case .starting(let pending, let ready)?: state.servers[key] = .starting(pending: pending + [op], ready: ready)
         default: break
         }
     }
 
     /// Under the host's lock: the client's own lock is taken inside it, never the other way round.
-    private static func apply(_ op: DocOp, to c: LSPClient) {
+    private static func apply(_ op: DocOp, to client: LSPClient) {
         switch op {
-        case .open(let p, let text, let lang): c.open(p, text: text, languageId: lang)
-        case .change(let p, let text): c.change(p, text: text)
-        case .close(let p): c.close(p)
+        case .open(let path, let text, let lang): client.open(path, text: text, languageId: lang)
+        case .change(let path, let text): client.change(path, text: text)
+        case .close(let path): client.close(path)
         }
     }
 
     /// Stops `key`'s server `idleDelay` from now if no file is open for it then.
     private func stopLater(_ key: Key) {
         DispatchQueue.global().asyncAfter(deadline: .now() + idleDelay) { [self] in
-            let idle = state.withLock { s -> LSPClient? in
-                guard !s.docs.values.contains(where: { $0.key == key }), case .running(let c)? = s.servers[key] else {
+            let idle = state.withLock { state -> LSPClient? in
+                guard !state.docs.values.contains(where: { $0.key == key }),
+                    case .running(let client)? = state.servers[key]
+                else {
                     return nil
                 }
-                s.servers[key] = nil
-                s.started[key] = nil
-                return c
+                state.servers[key] = nil
+                state.started[key] = nil
+                return client
             }
             idle?.shutdown()
         }
@@ -302,64 +311,66 @@ extension LSPProblems: Handled {
 
 extension LSPDefinition: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> CodeLocation? {
-        guard let c = await lsp.client(root, path) else { return nil }
-        return try await c.definition(path, line: line, column: column)
+        guard let client = await lsp.client(root, path) else { return nil }
+        return try await client.definition(path, line: line, column: column)
     }
 }
 
 extension LSPCompletion: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeCompletion] {
-        guard let c = await lsp.client(root, path) else { return [] }
-        return try await c.completion(path, line: line, column: column)
+        guard let client = await lsp.client(root, path) else { return [] }
+        return try await client.completion(path, line: line, column: column)
     }
 }
 
 extension LSPSymbol: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        guard let c = await lsp.client(root, path) else { return nil }
-        return try await c.symbol(path, line: line)
+        guard let client = await lsp.client(root, path) else { return nil }
+        return try await client.symbol(path, line: line)
     }
 }
 
 extension LSPSymbols: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
-        guard let c = await lsp.client(root, path) else { return [] }
-        return try await c.symbols(path)
+        guard let client = await lsp.client(root, path) else { return [] }
+        return try await client.symbols(path)
     }
 }
 
 extension LSPWorkspaceSymbols: AsyncHandled {
     /// The project's own: a toolchain's or a dependency's names aren't what's looked for.
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
-        guard let c = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path) else { return [] }
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
-        return try await c.workspaceSymbols(query).compactMap { s in
-            guard let p = s.path, case let real = URL(fileURLWithPath: p).resolvingSymlinksInPath().path,
+        return try await client.workspaceSymbols(query).compactMap { symbol in
+            guard let symbolPath = symbol.path,
+                case let real = URL(fileURLWithPath: symbolPath).resolvingSymlinksInPath().path,
                 real.hasPrefix(base)
             else { return nil }
-            return CodeSymbol(name: s.name, kind: s.kind, line: s.line, path: root + "/" + real.dropFirst(base.count))
+            return CodeSymbol(
+                name: symbol.name, kind: symbol.kind, line: symbol.line, path: root + "/" + real.dropFirst(base.count))
         }
     }
 }
 
 extension LSPHover: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        guard let c = await lsp.client(root, path) else { return nil }
-        return try await c.hover(path, line: line, column: column)
+        guard let client = await lsp.client(root, path) else { return nil }
+        return try await client.hover(path, line: line, column: column)
     }
 }
 
 extension LSPSignature: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> CodeSignature? {
-        guard let c = await lsp.client(root, path) else { return nil }
-        return try await c.signature(path, line: line, column: column)
+        guard let client = await lsp.client(root, path) else { return nil }
+        return try await client.signature(path, line: line, column: column)
     }
 }
 
 extension LSPReferences: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [SearchMatch] {
-        guard let c = await lsp.client(root, path) else { return [] }
-        let found = try await c.references(path, line: line, column: column), root = root
+        guard let client = await lsp.client(root, path) else { return [] }
+        let found = try await client.references(path, line: line, column: column), root = root
         return try await lsp.offloads.run { Self.lines(of: found, in: root) }
     }
 
@@ -367,30 +378,33 @@ extension LSPReferences: AsyncHandled {
     private static func lines(of found: [CodeLocation], in root: String) -> [SearchMatch] {
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
         var texts: [String: [Substring]] = [:]
-        return found.compactMap { l in
-            let real = URL(fileURLWithPath: l.path).resolvingSymlinksInPath().path
+        return found.compactMap { location in
+            let real = URL(fileURLWithPath: location.path).resolvingSymlinksInPath().path
             guard real.hasPrefix(base) else { return nil }   // the toolchain's own files: the panel lists the project's
             if texts[real] == nil {
                 let text = Log.session.attempt("reading \(real)") { try String(contentsOfFile: real, encoding: .utf8) }
                 texts[real] = text?.split(separator: "\n", omittingEmptySubsequences: false) ?? []
             }
-            let text = texts[real].flatMap { $0.indices.contains(l.line - 1) ? String($0[l.line - 1]) : nil } ?? ""
+            let text =
+                texts[real].flatMap { $0.indices.contains(location.line - 1) ? String($0[location.line - 1]) : nil }
+                ?? ""
             return SearchMatch(
-                path: String(real.dropFirst(base.count)), line: l.line, text: text.trimmingCharacters(in: .whitespaces))
+                path: String(real.dropFirst(base.count)), line: location.line,
+                text: text.trimmingCharacters(in: .whitespaces))
         }
     }
 }
 
 extension LSPRename: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeFileEdit] {
-        guard let c = await lsp.client(root, path) else { return [] }
-        return try await c.rename(path, line: line, column: column, to: name)
+        guard let client = await lsp.client(root, path) else { return [] }
+        return try await client.rename(path, line: line, column: column, to: name)
     }
 }
 
 extension LSPActions: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeAction] {
-        guard let c = await lsp.client(root, path) else { return [] }
-        return try await c.actions(path, line: line, column: column)
+        guard let client = await lsp.client(root, path) else { return [] }
+        return try await client.actions(path, line: line, column: column)
     }
 }

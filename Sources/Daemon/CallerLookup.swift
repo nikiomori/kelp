@@ -45,29 +45,29 @@ final class Callers: Sendable {
         let mine = Dictionary(all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
         let agents = Set(all.filter { $0.snapshot.isAgent }.map(\.snapshot.id))
         let strict = self.strict.withLock { $0 }
-        var p = pid, chain: [pid_t] = [], underAgent = false
+        var current = pid, chain: [pid_t] = [], underAgent = false
         // Under an agent the user ran by hand (`claude` typed in a shell, a tmux pane, Terminal): that agent's, not theirs.
         // Not in a session Kelp started an agent in, which is that agent's already (its own programs, a wrapper's child).
         func of(_ id: String) -> Caller {
             underAgent && !agents.contains(id) ? .typedAgent(id) : .session(id)
         }
         for _ in 0..<64 {
-            if let id = mine[p] { return of(id) }
-            if Subprocess.isRunning(p) { return .kelpd }
+            if let id = mine[current] { return of(id) }
+            if Subprocess.isRunning(current) { return .kelpd }
             // Under kelpd but in none of its sessions: its own; what kelpd came from isn't looked at (a test's in-process
             // daemon is the test, whose programs are the user's, whatever ran the test).
-            if p == getpid() { return strict ? .kelpd : underAgent ? .detached : .user }
-            chain.append(p)
-            if !underAgent, Self.runsAnAgent(p) { underAgent = true }
-            guard let up = Subprocess.parent(p), up > 1, up != p else { break }
-            p = up
+            if current == getpid() { return strict ? .kelpd : underAgent ? .detached : .user }
+            chain.append(current)
+            if !underAgent, Self.runsAnAgent(current) { underAgent = true }
+            guard let up = Subprocess.parent(current), up > 1, up != current else { break }
+            current = up
         }
         let ttys = Set(chain.compactMap(Subprocess.terminal))
-        if let s = all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) {
+        if let terminalSession = all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) {
             // Left its line (`&`, `nohup`: launchd its parent now) with the terminal still its own: who left it there, the
             // user or an agent typed in (gone by now, perhaps), can't be told, so it's held to an agent's rules.
             if !underAgent, chain.last.flatMap(Subprocess.parent) == 1 { underAgent = true }
-            return of(s.snapshot.id)
+            return of(terminalSession.snapshot.id)
         }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
@@ -80,7 +80,7 @@ final class Callers: Sendable {
             }) {
             case .session(let id): return of(id)
             case .user: return underAgent ? .detached : .user
-            case let c?: return c
+            case let caller?: return caller
             case nil: return .detached
             }
         }
@@ -100,7 +100,9 @@ final class Callers: Sendable {
     /// script an interpreter runs (`node …/codex`, `python3 …/aider`).
     static func runsAnAgent(_ pid: pid_t) -> Bool {
         let agents = agentPrograms
-        func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
+        func interpreter(_ name: String) -> Bool {
+            ["node", "bun", "deno", "ruby"].contains(name) || name.hasPrefix("python")
+        }
         guard let argv = Subprocess.arguments(pid),
             let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent })
         else { return false }
@@ -108,11 +110,13 @@ final class Callers: Sendable {
         // Its script: the first word that isn't an option, a path to one anywhere (`node --require x …/codex`), or the
         // module after `-m` (`python -m aider`); not any word (`python3 bench.py --agent claude` is the user's).
         let words = Array(argv.dropFirst())
-        func names(_ w: String) -> Bool {
-            agents.contains(URL(fileURLWithPath: w).deletingPathExtension().lastPathComponent)
+        func names(_ word: String) -> Bool {
+            agents.contains(URL(fileURLWithPath: word).deletingPathExtension().lastPathComponent)
         }
         if let first = words.first(where: { !$0.hasPrefix("-") }), names(first) { return true }
-        if let m = words.firstIndex(of: "-m"), m + 1 < words.count, names(words[m + 1]) { return true }
+        if let moduleFlag = words.firstIndex(of: "-m"), moduleFlag + 1 < words.count, names(words[moduleFlag + 1]) {
+            return true
+        }
         return words.contains { $0.contains("/") && !$0.hasPrefix("-") && names($0) }
     }
 
@@ -127,8 +131,8 @@ final class Callers: Sendable {
             return true
         }
         if let uid = Subprocess.owner(pid), uid != getuid(), let path, !Self.isSetuid(path) { return true }
-        guard let path, let r = path.range(of: ".app/Contents/MacOS/") else { return false }
-        let folder = String(path[..<r.upperBound])
+        guard let path, let range = path.range(of: ".app/Contents/MacOS/") else { return false }
+        let folder = String(path[..<range.upperBound])
         return !path.hasPrefix(kelpsOwn) && !FileManager.default.fileExists(atPath: folder + "kelpd")
     }
 
@@ -142,7 +146,7 @@ final class Callers: Sendable {
     /// Where Kelp's own programs are (kelp, kelpd, Kelp Machine): its bundle, else (a build folder) kelpd's folder.
     private static let kelpsOwn: String = {
         let me = Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? CommandLine.arguments[0]
-        if let r = me.range(of: ".app/Contents/") { return String(me[..<r.lowerBound]) + ".app/" }
+        if let range = me.range(of: ".app/Contents/") { return String(me[..<range.lowerBound]) + ".app/" }
         return URL(fileURLWithPath: me).deletingLastPathComponent().path + "/"
     }()
 
@@ -166,11 +170,11 @@ final class Callers: Sendable {
             var env = ["PATH": Sessions.childPath]
             env["TMUX_TMPDIR"] = ProcessInfo.processInfo.environment["TMUX_TMPDIR"]
             do {
-                let r = try Subprocess.run(
+                let result = try Subprocess.run(
                     [try LoginPath.resolve("tmux")] + socket + args, cwd: NSHomeDirectory(), env: env, timeLimit: 2)
-                guard r.status == 0 else { return [] }
+                guard result.status == 0 else { return [] }
                 // The session's name last, whole: it may hold spaces.
-                return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map {
+                return String(decoding: result.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map {
                     $0.split(separator: " ", maxSplits: 3)
                 }
             } catch {
@@ -219,16 +223,16 @@ final class Callers: Sendable {
     /// its command (`tmux new ssh -L 8080:h:80 host` names no socket), apart (`-L work`) or joined (`-Lwork`).
     static func tmuxSocket(_ argv: [String]) -> [String] {
         let valued: Set<Character> = ["c", "f", "L", "S", "T"]   // tmux's options that take a value
-        var i = 1
-        while i < argv.count, argv[i].hasPrefix("-"), argv[i] != "-" {
-            let flags = Array(argv[i].dropFirst())
+        var index = 1
+        while index < argv.count, argv[index].hasPrefix("-"), argv[index] != "-" {
+            let flags = Array(argv[index].dropFirst())
             if let at = flags.firstIndex(where: valued.contains) {
                 let rest = String(flags[(at + 1)...]),
-                    value = rest.isEmpty ? (i + 1 < argv.count ? argv[i + 1] : "") : rest
+                    value = rest.isEmpty ? (index + 1 < argv.count ? argv[index + 1] : "") : rest
                 if flags[at] == "L" || flags[at] == "S" { return ["-" + String(flags[at]), value] }
-                i += rest.isEmpty ? 2 : 1
+                index += rest.isEmpty ? 2 : 1
             } else {
-                i += 1
+                index += 1
             }
         }
         return []
@@ -238,11 +242,11 @@ final class Callers: Sendable {
     /// (Daemon.serve), while it's surely there. The daemon's own calls (`conn` -1) are the user's, and Kelp's window,
     /// which launchd starts with no terminal; a connection gone already is `kelpd`'s, one whose program can't be read `unknown`.
     func caller(_ conn: Int) -> Caller {
-        guard let c = clients.connection(conn) else { return conn < 0 ? .user : .kelpd }
-        if let known = c.owner.withLock({ $0 }) { return known }
-        let seen = c.peerPID.map { session(running: $0) } ?? .unknown   // not under the connection's lock: this takes the sessions'
-        let found: Caller = seen == .detached && c.peer == Clients.appExecutable ? .user : seen
-        c.owner.withLock { $0 = found }
+        guard let connection = clients.connection(conn) else { return conn < 0 ? .user : .kelpd }
+        if let known = connection.owner.withLock({ $0 }) { return known }
+        let seen = connection.peerPID.map { session(running: $0) } ?? .unknown   // not under the connection's lock: this takes the sessions'
+        let found: Caller = seen == .detached && connection.peer == Clients.appExecutable ? .user : seen
+        connection.owner.withLock { $0 = found }
         return found
     }
 }

@@ -8,9 +8,9 @@ import ServiceManagement
 import os
 
 extension JSONValue {
-    func req(_ k: String) throws -> String {
-        guard let s = self[k]?.string else { throw RPCError.invalidParams("missing \(k)") }
-        return s
+    func req(_ key: String) throws -> String {
+        guard let value = self[key]?.string else { throw RPCError.invalidParams("missing \(key)") }
+        return value
     }
 }
 
@@ -21,7 +21,7 @@ protocol Answered: RPCMethod {
     /// order sent, and quick (`Handled` only). Everything else runs on a task of its own, its reply whenever it's ready.
     static var inOrder: Bool { get }
     /// The result as the reply's JSON.
-    static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data
+    static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data
     /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
     /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
     var onlyFromKelp: String? { get }
@@ -69,46 +69,46 @@ extension Answered {
     var makesInProject: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
-    static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
-        let m = try decoded(p)
-        try d.allow(m, conn: conn)
-        return m
+    static func checked(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Self {
+        let method = try decoded(params)
+        try daemon.allow(method, conn: conn)
+        return method
     }
 }
 
 /// What a method's handler is given (`Handled.Service`): one of the daemon's services, never the daemon itself, so it
 /// reaches only what that service holds. A handler names the type it takes (`handle(_ sessions: Sessions)`); which of
 /// the daemon's that is, each service says once, here.
-protocol DaemonService { static func of(_ d: Daemon) -> Self }
+protocol DaemonService { static func of(_ daemon: Daemon) -> Self }
 
 /// For a method that needs nothing of the daemon's.
-struct NoService: DaemonService { static func of(_ d: Daemon) -> NoService { NoService() } }
+struct NoService: DaemonService { static func of(_ daemon: Daemon) -> NoService { NoService() } }
 
-extension FileService: DaemonService { static func of(_ d: Daemon) -> FileService { d.files } }
-extension Watches: DaemonService { static func of(_ d: Daemon) -> Watches { d.watches } }
-extension AgentUsage: DaemonService { static func of(_ d: Daemon) -> AgentUsage { d.agentUsage } }
-extension SettingsStore: DaemonService { static func of(_ d: Daemon) -> SettingsStore { d.settings } }
-extension Remotes: DaemonService { static func of(_ d: Daemon) -> Remotes { d.remotes } }
-extension Sessions: DaemonService { static func of(_ d: Daemon) -> Sessions { d.sessions } }
-extension Workspaces: DaemonService { static func of(_ d: Daemon) -> Workspaces { d.workspaces } }
-extension Forges: DaemonService { static func of(_ d: Daemon) -> Forges { d.forges } }
-extension VMService: DaemonService { static func of(_ d: Daemon) -> VMService { d.vms } }
-extension Clients: DaemonService { static func of(_ d: Daemon) -> Clients { d.clients } }
-extension LSPHost: DaemonService { static func of(_ d: Daemon) -> LSPHost { d.lsp } }
-extension SettingsEvents: DaemonService { static func of(_ d: Daemon) -> SettingsEvents { d.settingsEvents } }
+extension FileService: DaemonService { static func of(_ daemon: Daemon) -> FileService { daemon.files } }
+extension Watches: DaemonService { static func of(_ daemon: Daemon) -> Watches { daemon.watches } }
+extension AgentUsage: DaemonService { static func of(_ daemon: Daemon) -> AgentUsage { daemon.agentUsage } }
+extension SettingsStore: DaemonService { static func of(_ daemon: Daemon) -> SettingsStore { daemon.settings } }
+extension Remotes: DaemonService { static func of(_ daemon: Daemon) -> Remotes { daemon.remotes } }
+extension Sessions: DaemonService { static func of(_ daemon: Daemon) -> Sessions { daemon.sessions } }
+extension Workspaces: DaemonService { static func of(_ daemon: Daemon) -> Workspaces { daemon.workspaces } }
+extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
+extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
+extension Clients: DaemonService { static func of(_ daemon: Daemon) -> Clients { daemon.clients } }
+extension LSPHost: DaemonService { static func of(_ daemon: Daemon) -> LSPHost { daemon.lsp } }
+extension SettingsEvents: DaemonService { static func of(_ daemon: Daemon) -> SettingsEvents { daemon.settingsEvents } }
 extension UIStore: DaemonService {
-    static func of(_ d: Daemon) -> UIStore { UIStore(store: d.store, clients: d.clients) }
+    static func of(_ daemon: Daemon) -> UIStore { UIStore(store: daemon.store, clients: daemon.clients) }
 }
 extension ForgeWork: DaemonService {
-    static func of(_ d: Daemon) -> ForgeWork { ForgeWork(forges: d.forges, workspaces: d.workspaces) }
+    static func of(_ daemon: Daemon) -> ForgeWork { ForgeWork(forges: daemon.forges, workspaces: daemon.workspaces) }
 }
 extension Upgrade: DaemonService {
-    static func of(_ d: Daemon) -> Upgrade {
-        let root = d.root, offloads = d.offloads
+    static func of(_ daemon: Daemon) -> Upgrade {
+        let root = daemon.root, offloads = daemon.offloads
         return Upgrade(
             executable: Daemon.executable, root: root, adoptable: { Handover.adoptable(Daemon.executable, home: root) },
             waitIdle: { offloads.waitIdle(seconds: 5) }
-        ) { [weak d] in d?.upgrade(checked: true) }
+        ) { [weak daemon] in daemon?.upgrade(checked: true) }
     }
 }
 
@@ -120,23 +120,23 @@ protocol Handled: Answered {
     /// in `offload` behind slow git, gh or ssh (an agent's `kelp hook` waits for its reply). `Subprocess.quickOnly`
     /// holds it to that: one that starts a program fails instead of quietly becoming slow.
     static var quick: Bool { get }
-    func handle(_ s: Service) throws -> Result
-    func handle(_ s: Service, conn: Int) throws -> Result
+    func handle(_ service: Service) throws -> Result
+    func handle(_ service: Service, conn: Int) throws -> Result
 }
 
 extension Handled {
     static var inOrder: Bool { false }
     static var quick: Bool { false }
-    func handle(_ s: Service, conn: Int) throws -> Result { try handle(s) }
+    func handle(_ service: Service, conn: Int) throws -> Result { try handle(service) }
 
     /// On the calling thread: an in-order method's, on the reader thread.
-    static func answerNow(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Data {
-        try Sessions.$asker.withValue(d.sessions.callers.caller(conn).origin) {
-            try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+    static func answerNow(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Data {
+        try Sessions.$asker.withValue(daemon.sessions.callers.caller(conn).origin) {
+            try JSONEncoder().encode(checked(params, daemon, conn: conn).handle(Service.of(daemon), conn: conn))
         }
     }
-    static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
-        try await d.offload(quick: quick) { try answerNow(p, d, conn: conn) }
+    static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data {
+        try await daemon.offload(quick: quick) { try answerNow(params, daemon, conn: conn) }
     }
 }
 
@@ -144,26 +144,28 @@ extension Handled {
 /// `handle(_:conn:)` for one that reports progress to the asking connection (repo.clone).
 protocol AsyncHandled: Answered {
     associatedtype Service: DaemonService
-    func handle(_ s: Service) async throws -> Result
-    func handle(_ s: Service, conn: Int) async throws -> Result
+    func handle(_ service: Service) async throws -> Result
+    func handle(_ service: Service, conn: Int) async throws -> Result
 }
 
 extension AsyncHandled {
     static var inOrder: Bool { false }
-    func handle(_ s: Service, conn: Int) async throws -> Result { try await handle(s) }
+    func handle(_ service: Service, conn: Int) async throws -> Result { try await handle(service) }
 
-    static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
-        try await Sessions.$asker.withValue(d.sessions.callers.caller(conn).origin) {
-            try JSONEncoder().encode(await checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
+    static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data {
+        try await Sessions.$asker.withValue(daemon.sessions.callers.caller(conn).origin) {
+            try JSONEncoder().encode(await checked(params, daemon, conn: conn).handle(Service.of(daemon), conn: conn))
         }
     }
 }
 
 extension RPCMethod {
     /// The method's params as its type; a bad or missing field is the caller's error.
-    static func decoded(_ p: JSONValue) throws -> Self {
-        do { return try (p == .null ? .object([:]) : p).decode(Self.self) } catch DecodingError.keyNotFound(let k, _) {
-            throw RPCError.invalidParams("missing \(k.stringValue)")
+    static func decoded(_ params: JSONValue) throws -> Self {
+        do { return try (params == .null ? .object([:]) : params).decode(Self.self) } catch DecodingError.keyNotFound(
+            let key, _)
+        {
+            throw RPCError.invalidParams("missing \(key.stringValue)")
         } catch { throw RPCError.invalidParams("\(name): \(error)") }
     }
 }
@@ -182,33 +184,33 @@ extension Daemon {
     /// agent. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md): a program that
     /// has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run.
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
-    func allow(_ m: any Answered, conn: Int, caller known: Caller? = nil) throws {
-        if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
+    func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
+        if let refusal = method.onlyFromKelp { try clients.requireApp(conn, refusal) }
         let caller = known ?? sessions.callers.caller(conn)
         switch caller {
         case .user: return
         case .session(let own):
-            if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
+            if let id = method.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
             guard try sessions.store.forAnAgent(own) else { return }
-            try allowAgent(m, own: own)
+            try allowAgent(method, own: own)
         case .typedAgent(let own):
-            if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
-            try allowAgent(m, own: own, typed: true)
+            if let id = method.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
+            try allowAgent(method, own: own, typed: true)
         case .unknown:
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
             // connection on, which is how a program would speak for a session not its own.
             try allowAgent(
-                m, own: Sessions.unknown,
+                method, own: Sessions.unknown,
                 or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
         case .kelpd:
             try allowAgent(
-                m, own: Sessions.ownProgram,
+                method, own: Sessions.ownProgram,
                 or:
                     "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for."
             )
         case .detached:
             try allowAgent(
-                m, own: Sessions.detached,
+                method, own: Sessions.detached,
                 or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
                     + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours."
             )
@@ -217,18 +219,18 @@ extension Daemon {
 
     /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules. Refused in `why`'s
     /// words, then the rule's own (`SessionCreate`'s tmux…); anything else (the store) as it is.
-    private func allowAgent(_ m: any Answered, own: String, or why: String) throws {
-        if m.reportsFor != nil { throw RPCError.refused(why) }
-        do { try allowAgent(m, own: own) } catch let e as RPCError where e.isRefusal {
-            throw RPCError.refused(why + " " + e.message)
+    private func allowAgent(_ method: any Answered, own: String, or why: String) throws {
+        if method.reportsFor != nil { throw RPCError.refused(why) }
+        do { try allowAgent(method, own: own) } catch let error as RPCError where error.isRefusal {
+            throw RPCError.refused(why + " " + error.message)
         }
     }
 
     /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.
     /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
     /// (`typed:` on its line), not everything the user started from that terminal.
-    private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
-        if m.signs, m.reportsFor == nil {
+    private func allowAgent(_ method: any Answered, own: String, typed: Bool = false) throws {
+        if method.signs, method.reportsFor == nil {
             throw RPCError.refused(
                 "What an agent writes for others says it's an agent's: run it from the agent's terminal, which names its session."
             )
@@ -238,24 +240,25 @@ extension Daemon {
                 typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
             }
         }
-        if let refusal = m.notForAgents { throw RPCError.refused(refusal) }
-        if m.answersQuestion {
+        if let refusal = method.notForAgents { throw RPCError.refused(refusal) }
+        if method.answersQuestion {
             throw RPCError.refused(
                 "An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs."
             )
         }
-        let name = type(of: m).name
+        let name = type(of: method).name
         guard AgentRules.methods.contains(name) else {
             throw RPCError.refused(
                 "“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
         }
-        if let id = m.typesInto, sessions.existing(id)?.asksSomething == true {
+        if let id = method.typesInto, sessions.existing(id)?.asksSomething == true {
             throw RPCError.refused("That session asks a question, the user's to answer; send again once it's answered.")
         }
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
-        func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == m.typesInto || id == m.actsOn)) }
-        for id in Set([m.actsOn, m.shows].compactMap { $0 } + (try sessions.named(by: m))) where !itsOwn(id) {
+        func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == method.typesInto || id == method.actsOn)) }
+        for id in Set([method.actsOn, method.shows].compactMap { $0 } + (try sessions.named(by: method)))
+        where !itsOwn(id) {
             guard try reaches(id) else {
                 throw RPCError.refused("An agent acts only on its own session and the sessions it started.")
             }
@@ -263,17 +266,22 @@ extension Daemon {
         // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
         // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
         let workspaces = Set(
-            [m.inWorkspace].compactMap { $0 }
-                + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: m)))
-        for w in workspaces where try !sessions.works(own, in: w, typed: typed) {
+            [method.inWorkspace].compactMap { $0 }
+                + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: method)))
+        for workspace in workspaces where try !sessions.works(own, in: workspace, typed: typed) {
             throw RPCError.refused("An agent works only in its own workspace.")
         }
-        if let r = m.makesInProject,
-            try !sessions.store.worktrees(repo: r).contains(where: { try sessions.works(own, in: $0.id, typed: typed) })
+        if let repo = method.makesInProject,
+            try !sessions.store.worktrees(repo: repo).contains(where: {
+                try sessions.works(own, in: $0.id, typed: typed)
+            })
         {
             throw RPCError.refused("An agent makes workspaces only in the project it works in.")
         }
-        if let e = m.ends, try sessions.ending(e).contains(where: { s in try (typed || s != own) && !reaches(s) }) {
+        if let ending = method.ends,
+            try sessions.ending(ending).contains(where: { session in try (typed || session != own) && !reaches(session)
+            })
+        {
             throw RPCError.refused("An agent ends only its own sessions and the ones it started.")
         }
     }
@@ -291,48 +299,55 @@ extension Daemon {
     }()
 
     /// The reply's result, encoded once.
-    func answer(_ method: String, _ p: JSONValue, conn: Int) async throws -> Data {
-        guard let t = Self.methods[method] else { throw RPCError.methodNotFound }
-        if let quiet = try refuseRemoteForge(t, p) { return quiet }
-        return try await integrationErrors { try await gitErrors { try await t.answer(p, self, conn: conn) } }
+    func answer(_ method: String, _ params: JSONValue, conn: Int) async throws -> Data {
+        guard let methodType = Self.methods[method] else { throw RPCError.methodNotFound }
+        if let quiet = try refuseRemoteForge(methodType, params) { return quiet }
+        return try await integrationErrors {
+            try await gitErrors { try await methodType.answer(params, self, conn: conn) }
+        }
     }
 
     /// An in-order method, here on the connection's reader thread, where everything sent after it waits: it starts no
     /// program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the connection), and
     /// one that still took long says so in the log.
-    func answerNow(_ t: any Handled.Type, _ p: JSONValue, conn: Int) throws -> Data {
-        if let quiet = try refuseRemoteForge(t, p) { return quiet }
+    func answerNow(_ methodType: any Handled.Type, _ params: JSONValue, conn: Int) throws -> Data {
+        if let quiet = try refuseRemoteForge(methodType, params) { return quiet }
         let start = DispatchTime.now()
         defer {
             let ms = (DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
-            if ms >= 100 { Log.rpc.error("in-order \(t.name, privacy: .public) held its connection for \(ms) ms") }
+            if ms >= 100 {
+                Log.rpc.error("in-order \(methodType.name, privacy: .public) held its connection for \(ms) ms")
+            }
         }
-        do { return try Subprocess.quickOnly { try t.answerNow(p, self, conn: conn) } } catch let e as GitError {
-            throw RPCError.internalError(e.message)
+        do { return try Subprocess.quickOnly { try methodType.answerNow(params, self, conn: conn) } } catch let error
+            as GitError
+        {
+            throw RPCError.internalError(error.message)
         }
     }
 
     /// The same as a value, for callers that read it by hand (tests).
-    func handle(_ method: String, _ p: JSONValue, conn: Int) async throws -> JSONValue {
-        try JSONDecoder().decode(JSONValue.self, from: await answer(method, p, conn: conn))
+    func handle(_ method: String, _ params: JSONValue, conn: Int) async throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: await answer(method, params, conn: conn))
     }
 
     private func gitErrors<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() } catch let e as GitError { throw RPCError.internalError(e.message) }
+        do { return try await body() } catch let error as GitError { throw RPCError.internalError(error.message) }
     }
 
     /// The integrations' own errors, as the app shows them.
     private func integrationErrors<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() } catch let e as GitHubError {
-            throw RPCError.internalError(e.description)
-        } catch let e as IntegrationError { throw RPCError.internalError(e.description) }
+        do { return try await body() } catch let error as GitHubError {
+            throw RPCError.internalError(error.description)
+        } catch let error as IntegrationError { throw RPCError.internalError(error.description) }
     }
 
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
     /// whatever repository holds it (a dotfiles home). Until they run on the host, they don't run at all: a `LocalForge`
     /// method is refused for one, or answers null when the sidebar asked by itself.
-    private func refuseRemoteForge(_ t: any Answered.Type, _ p: JSONValue) throws -> Data? {
-        guard let forge = t as? any LocalForge.Type, (try? store.repoPath(p)).map({ remotes.of($0.1) != nil }) == true
+    private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) throws -> Data? {
+        guard let forge = methodType as? any LocalForge.Type,
+            (try? store.repoPath(params)).map({ remotes.of($0.1) != nil }) == true
         else { return nil }
         if forge.quietOnRemote { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")

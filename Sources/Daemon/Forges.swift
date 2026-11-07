@@ -15,11 +15,11 @@ final class Forges: Sendable {
     let clones = Clones()
     final class Clones: Sendable {
         private let running = OSAllocatedUnfairLock<[String: Process]>(initialState: [:])
-        func set(_ id: String, _ p: Process?) { running.withLock { $0[id] = p } }
+        func set(_ id: String, _ process: Process?) { running.withLock { $0[id] = process } }
         /// Not one still starting: `interrupt` raises before `run`, and that would take the daemon down.
         func cancel(_ id: String) { running.withLock { $0[id] }.map(Self.interrupt) }
         func cancelAll() { running.withLock { Array($0.values) }.forEach(Self.interrupt) }
-        private static func interrupt(_ p: Process) { if p.isRunning { p.interrupt() } }
+        private static func interrupt(_ process: Process) { if process.isRunning { process.interrupt() } }
     }
 
     let store: Store, clients: Clients, remotes: Remotes
@@ -31,7 +31,7 @@ final class Forges: Sendable {
         self.remotes = remotes
     }
 
-    func notify(_ e: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(e, to: only) }
+    func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
     static let linearKeyAccount = "linear-api-key"
 
@@ -40,21 +40,22 @@ final class Forges: Sendable {
     /// Jira / Bitbucket credentials: one JSON blob each in the keychain.
     static let jiraAccount = "jira", bitbucketAccount = "bitbucket"
     var jira: JiraClient? {
-        guard let s = Keychain.get(Self.jiraAccount),
-            let v = Log.store.attempt(
-                "reading Jira's keychain item", { try JSONDecoder().decode([String: String].self, from: Data(s.utf8)) }),
-            let site = v["site"], let email = v["email"], let token = v["token"]
+        guard let secret = Keychain.get(Self.jiraAccount),
+            let fields = Log.store.attempt(
+                "reading Jira's keychain item",
+                { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
+            let site = fields["site"], let email = fields["email"], let token = fields["token"]
         else { return nil }
         return JiraClient(site: site, email: email, token: token)
     }
     var bitbucket: BitbucketClient? {
-        guard let s = Keychain.get(Self.bitbucketAccount),
-            let v = Log.store.attempt(
+        guard let secret = Keychain.get(Self.bitbucketAccount),
+            let fields = Log.store.attempt(
                 "reading Bitbucket's keychain item",
-                { try JSONDecoder().decode([String: String].self, from: Data(s.utf8)) }),
-            let u = v["user"], let t = v["token"]
+                { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
+            let user = fields["user"], let token = fields["token"]
         else { return nil }
-        return BitbucketClient(user: u, token: t)
+        return BitbucketClient(user: user, token: token)
     }
     /// The keychain can keep a caller waiting (a locked login keychain): these read it off the cooperative pool.
     func linearClient() async -> LinearClient? { try? await offloads.run { [self] in linear } }
@@ -68,26 +69,27 @@ final class Forges: Sendable {
     }
 
     /// Jira issues linked to a worktree ("ENG-12") move along with the PR, like Linear.
-    func moveJira(_ w: Worktree, toName hint: String, category: String) async {
-        guard let j = await jiraClient(),
-            w.issue.range(of: #"^[A-Z][A-Z0-9]+-\d+$"#, options: .regularExpression) != nil,
-            w.linearIssueId.isEmpty
+    func moveJira(_ worktree: Worktree, toName hint: String, category: String) async {
+        guard let client = await jiraClient(),
+            worktree.issue.range(of: #"^[A-Z][A-Z0-9]+-\d+$"#, options: .regularExpression) != nil,
+            worktree.linearIssueId.isEmpty
         else { return }
-        do { try await j.move(key: w.issue, toName: hint, category: category) } catch {
-            Log.rpc.notice("Jira issue \(w.issue, privacy: .public) didn't move to \(hint, privacy: .public): \(error)")
+        do { try await client.move(key: worktree.issue, toName: hint, category: category) } catch {
+            Log.rpc.notice(
+                "Jira issue \(worktree.issue, privacy: .public) didn't move to \(hint, privacy: .public): \(error)")
         }
     }
 
     /// Move a linked Linear issue to a workflow state kind; quiet no-op without a key or link.
-    func moveLinear(_ w: Worktree, to kind: LinearClient.StateKind) async {
-        guard !w.linearIssueId.isEmpty, let l = await linearClient(),
+    func moveLinear(_ worktree: Worktree, to kind: LinearClient.StateKind) async {
+        guard !worktree.linearIssueId.isEmpty, let client = await linearClient(),
             // Limit: finds the team via my issues; query the issue by id if tasks assigned to others need moving
-            let issue = try? await l.myIssues().first(where: { $0.id == w.linearIssueId }) ?? nil,
-            let states = try? await l.workflowStates(teamId: issue.team.id),
+            let issue = try? await client.myIssues().first(where: { $0.id == worktree.linearIssueId }) ?? nil,
+            let states = try? await client.workflowStates(teamId: issue.team.id),
             let st = LinearClient.stateFor(kind: kind, in: states)
         else { return }
-        do { try await l.setState(issueId: w.linearIssueId, stateId: st.id) } catch {
-            Log.rpc.notice("Linear issue \(w.linearIssueId, privacy: .public) didn't move: \(error)")
+        do { try await client.setState(issueId: worktree.linearIssueId, stateId: st.id) } catch {
+            Log.rpc.notice("Linear issue \(worktree.linearIssueId, privacy: .public) didn't move: \(error)")
         }
     }
 }

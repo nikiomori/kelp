@@ -13,34 +13,40 @@ enum PhonePush {
     static let askAgainAfter: TimeInterval = 600
 
     static func url(_ setting: String?) -> URL? {
-        guard let setting, let u = URL(string: setting.trimmingCharacters(in: .whitespaces)) else { return nil }
-        return ["https", "http"].contains(u.scheme) && u.host != nil ? u : nil
+        guard let setting, let url = URL(string: setting.trimmingCharacters(in: .whitespaces)) else { return nil }
+        return ["https", "http"].contains(url.scheme) && url.host != nil ? url : nil
     }
 
     /// A question, a failure, a plan limit: what stands still until someone looks.
-    static func worthTelling(_ s: Session) -> Bool { s.limitHit != nil || s.status == .waiting || s.status == .error }
+    static func worthTelling(_ session: Session) -> Bool {
+        session.limitHit != nil || session.status == .waiting || session.status == .error
+    }
 
     /// `name`: the agent's. By default it leaves out what the agent said, which goes through someone else's server.
-    static func message(_ s: Session, name: String, place: String, details: Bool) -> (title: String, body: String) {
-        let what = s.limitHit != nil ? "hit its limit" : s.status == .waiting ? "needs you" : "ran into an error"
-        return ("\(name) \(what)", details && !s.summary.isEmpty ? "\(place): \(s.summary)" : place)
+    static func message(_ session: Session, name: String, place: String, details: Bool) -> (title: String, body: String)
+    {
+        let what =
+            session.limitHit != nil ? "hit its limit" : session.status == .waiting ? "needs you" : "ran into an error"
+        return ("\(name) \(what)", details && !session.summary.isEmpty ? "\(place): \(session.summary)" : place)
     }
 
     /// Rows muted past now, as the app keeps them (`Mutes`).
     static func muted(_ mutes: JSONValue?, _ ids: [String?], now: Date = Date()) -> Bool {
-        guard case .object(let o)? = mutes else { return false }
-        return ids.contains { id in id.flatMap { o[$0]?.number }.map { $0 > now.timeIntervalSince1970 } ?? false }
+        guard case .object(let mutedUntil)? = mutes else { return false }
+        return ids.contains { id in
+            id.flatMap { mutedUntil[$0]?.number }.map { $0 > now.timeIntervalSince1970 } ?? false
+        }
     }
 
     /// ntfy takes the title in the query: a header would need its own encoding for anything but ASCII.
     static func request(_ url: URL, title: String, body: String) -> URLRequest? {
-        guard var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        c.queryItems = (c.queryItems ?? []) + [URLQueryItem(name: "title", value: title)]
-        guard let u = c.url else { return nil }
-        var r = URLRequest(url: u, timeoutInterval: 15)
-        r.httpMethod = "POST"
-        r.httpBody = Data(body.utf8)
-        return r
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "title", value: title)]
+        guard let address = components.url else { return nil }
+        var request = URLRequest(url: address, timeoutInterval: 15)
+        request.httpMethod = "POST"
+        request.httpBody = Data(body.utf8)
+        return request
     }
 
     static var inputIdle: TimeInterval {
@@ -53,35 +59,38 @@ extension Sessions {
     private var phoneAway: Bool { clients.uiState == .object([:]) || PhonePush.inputIdle >= PhonePush.awayAfter }
 
     /// Told once per stop by `eventsHeard`.
-    func phoneHeard(_ s: Session) {
-        guard PhonePush.worthTelling(s), PhonePush.url(settings["phone.url"]?.string) != nil else { return }
+    func phoneHeard(_ session: Session) {
+        guard PhonePush.worthTelling(session), PhonePush.url(settings["phone.url"]?.string) != nil else { return }
         if phoneAway {
-            phoneSend(s)
+            phoneSend(session)
             return
         }
         events.queue.asyncAfter(deadline: .now() + PhonePush.askAgainAfter) { [weak self] in
-            guard let self, phoneAway, let now = existing(s.id)?.snapshot, now.status == s.status,
-                now.statusAt == s.statusAt
+            guard let self, phoneAway, let now = existing(session.id)?.snapshot, now.status == session.status,
+                now.statusAt == session.statusAt
             else { return }
             phoneSend(now)
         }
     }
 
-    private func phoneSend(_ s: Session) {
+    private func phoneSend(_ session: Session) {
         guard let url = PhonePush.url(settings["phone.url"]?.string) else { return }
-        let w = s.worktreeId.flatMap { id in
+        let worktree = session.worktreeId.flatMap { id in
             Log.session.attempt("reading a workspace") { try store.worktree(id) } ?? nil
         }
         let mutes =
             Log.session.attempt("reading mutes") {
                 try store.uiState(prefix: "notifications.muted")["notifications.muted"]
             } ?? nil
-        guard !PhonePush.muted(mutes, [s.id, w?.id, w?.repoId]) else { return }
+        guard !PhonePush.muted(mutes, [session.id, worktree?.id, worktree?.repoId]) else { return }
         let name =
-            Log.session.attempt("reading a manifest") { try manifest(s.agent, command: nil, fallbackArgv: s.argv).name }
-            ?? s.agent ?? "Agent"
+            Log.session.attempt("reading a manifest") {
+                try manifest(session.agent, command: nil, fallbackArgv: session.argv).name
+            }
+            ?? session.agent ?? "Agent"
         let (title, body) = PhonePush.message(
-            s, name: name, place: w?.displayName ?? s.displayTitle, details: settings["phone.details"]?.bool == true)
+            session, name: name, place: worktree?.displayName ?? session.displayTitle,
+            details: settings["phone.details"]?.bool == true)
         guard let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
             // Once more a little later: right after a wake the network often isn't back yet, and being away is that.

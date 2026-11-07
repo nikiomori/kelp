@@ -32,8 +32,8 @@ extension RemoteListFolders: Handled {
                     "sh -c " + IDE.shellWord(script)
                 ],
                 cwd: NSHomeDirectory(), executable: remotes.ssh)
-        } catch let e as GitError {
-            let why = e.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch let error as GitError {
+            let why = error.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw RPCError.invalidParams(why.isEmpty ? "Couldn't connect to \(host)." : why)
         }
         let lines = out.split(separator: "\n").map(String.init)
@@ -60,13 +60,15 @@ extension RepoAddRemote: Handled {
         // The marker keeps git's answer for the top folder (symlinks resolved, ~ expanded): match the path as typed, the
         // same path resolved where that's possible here (the "host" can be this Mac), and ~/… by its tail.
         let real = Paths.real(path)
-        func same(_ m: RemoteHost) -> Bool {
-            m.host == host
-                && (m.path == path || m.path == real
-                    || (path.hasPrefix("~/") && m.path.hasSuffix(String(path.dropFirst()))))
+        func same(_ marker: RemoteHost) -> Bool {
+            marker.host == host
+                && (marker.path == path || marker.path == real
+                    || (path.hasPrefix("~/") && marker.path.hasSuffix(String(path.dropFirst()))))
         }
-        if let r = try workspaces.store.repos().first(where: { workspaces.remotes.of($0.path).map(same) ?? false }) {
-            return r
+        if let existing = try workspaces.store.repos().first(where: {
+            workspaces.remotes.of($0.path).map(same) ?? false
+        }) {
+            return existing
         }
         let name = Workspaces.remoteFolderName(path)
         let hostDir = workspaces.root.appendingPathComponent("remote").appendingPathComponent(
@@ -74,45 +76,45 @@ extension RepoAddRemote: Handled {
         try FileManager.default.createDirectory(at: hostDir, withIntermediateDirectories: true)
         // A folder of its own, made here: /a/app and /b/app on one host don't share one, and a failure below removes
         // only this folder, never another project's.
-        var folder = hostDir.appendingPathComponent(name), n = 2
+        var folder = hostDir.appendingPathComponent(name), number = 2
         while !Workspaces.claim(folder.path) {
-            guard n < 100 else { throw RPCError.internalError("No free folder for \(name) in \(hostDir.path)") }
-            folder = hostDir.appendingPathComponent("\(name)-\(n)")
-            n += 1
+            guard number < 100 else { throw RPCError.internalError("No free folder for \(name) in \(hostDir.path)") }
+            folder = hostDir.appendingPathComponent("\(name)-\(number)")
+            number += 1
         }
-        func mark(_ r: RemoteHost) throws {
-            try JSONEncoder().encode(r).write(to: folder.appendingPathComponent(RemoteHost.marker))
+        func mark(_ remote: RemoteHost) throws {
+            try JSONEncoder().encode(remote).write(to: folder.appendingPathComponent(RemoteHost.marker))
         }
         // ~ as the host's shell spells it: ask git there where the repository's top is.
         try mark(RemoteHost(host: host, path: path))
         // init: a folder that isn't a repository yet becomes one (the sheet's Initialize Git and Open).
         if `init` == true {
-            do { _ = try Git.run(["init", "-q"], cwd: folder.path, remotes: workspaces.remotes) } catch let e
+            do { _ = try Git.run(["init", "-q"], cwd: folder.path, remotes: workspaces.remotes) } catch let error
                 as GitError
             {
                 Log.store.attempt("removing a remote project's marker folder") {
                     try FileManager.default.removeItem(at: folder)
                 }
-                throw RPCError.invalidParams("Couldn't run git init in \(path) on \(host): \(e.stderr)")
+                throw RPCError.invalidParams("Couldn't run git init in \(path) on \(host): \(error.stderr)")
             }
         }
         let top: String
-        do { top = try Git.root(of: folder.path, remotes: workspaces.remotes) } catch let e as GitError {
+        do { top = try Git.root(of: folder.path, remotes: workspaces.remotes) } catch let error as GitError {
             Log.store.attempt("removing a remote project's marker folder") {
                 try FileManager.default.removeItem(at: folder)
             }
             throw RPCError.invalidParams(
-                "Couldn't open \(path) on \(host): \(e.stderr.isEmpty ? "ssh failed" : e.stderr)")
+                "Couldn't open \(path) on \(host): \(error.stderr.isEmpty ? "ssh failed" : error.stderr)")
         }
         try mark(RemoteHost(host: host, path: top))
-        let r = Repo(
+        let repo = Repo(
             name: (top as NSString).lastPathComponent.isEmpty ? name : Workspaces.remoteFolderName(top),
             path: folder.path,
             baseBranch: Git.defaultBranch(repo: folder.path, remotes: workspaces.remotes))
-        try workspaces.store.save(r)
+        try workspaces.store.save(repo)
         try workspaces.syncMainWorkspaces()
         workspaces.notify(ChangedEvent.repo)
-        return r
+        return repo
     }
 }
 
@@ -130,15 +132,15 @@ extension FilesWriteRemote: Handled {
         guard let host = files.remotes.containing(path)?.remote.host else {
             throw RPCError.invalidParams("Not in a remote project.")
         }
-        let r = try files.write(path, text, base: base.map { FileService.digest(Data($0.utf8)) })
-        if let c = r.conflict {
+        let result = try files.write(path, text, base: base.map { FileService.digest(Data($0.utf8)) })
+        if let conflict = result.conflict {
             // A version there that isn't UTF-8 text can't be shown, and writing over it unasked could lose it.
-            guard let now = c.text else {
+            guard let now = conflict.text else {
                 throw RPCError.invalidParams("It changed on \(host) and isn't UTF-8 text now: not written.")
             }
             return Changed(changed: now)
         }
-        if r.missing == true { _ = try files.write(path, text, base: nil) }
+        if result.missing == true { _ = try files.write(path, text, base: nil) }
         return nil
     }
 }

@@ -49,29 +49,35 @@ final class AgentUsage: Sendable {
             })
     }
 
-    func recordLimits(_ r: [ClaudeLimits.Reading]) { claudeLimits.withLock { for x in r { $0[x.kind] = (x, Date()) } } }
+    func recordLimits(_ readings: [ClaudeLimits.Reading]) {
+        claudeLimits.withLock { for reading in readings { $0[reading.kind] = (reading, Date()) } }
+    }
 
     /// Default roots plus each account profile's config dir.
     func agentRoots() -> (claude: [URL], codex: [URL]) {
         let homes = agentHomes.withLock { $0 }
-        var c = [homes.claude], x = [homes.codex]
-        for p in settings["accounts.profiles"]?.array ?? [] {
-            guard let d = p["dir"]?.string else { continue }
-            if p["agent"]?.string == "claude" { c.append(URL(fileURLWithPath: d).appendingPathComponent("projects")) }
-            if p["agent"]?.string == "codex" { x.append(URL(fileURLWithPath: d).appendingPathComponent("sessions")) }
+        var claude = [homes.claude], codex = [homes.codex]
+        for profile in settings["accounts.profiles"]?.array ?? [] {
+            guard let dir = profile["dir"]?.string else { continue }
+            if profile["agent"]?.string == "claude" {
+                claude.append(URL(fileURLWithPath: dir).appendingPathComponent("projects"))
+            }
+            if profile["agent"]?.string == "codex" {
+                codex.append(URL(fileURLWithPath: dir).appendingPathComponent("sessions"))
+            }
         }
-        return (c, x)
+        return (claude, codex)
     }
 
     /// Every agent's usage since `since`, by agent id: the logs each keeps on this Mac (all account profiles' for Claude and
     /// Codex). Cursor, Amp and fx keep no token counts there; Droid, Goose, Hermes and Kiro only a session's, not read.
     typealias AgentRow = (agent: String, row: UsageIndex.Row)
     func agentRows(since: Date) -> [AgentRow] {
-        let roots = agentRoots(), exists = { (u: URL) in FileManager.default.fileExists(atPath: u.path) }
+        let roots = agentRoots(), exists = { (url: URL) in FileManager.default.fileExists(atPath: url.path) }
         var out: [AgentRow] = usageIndex.rows(roots: roots.claude.filter(exists), since: since).map { ("claude", $0) }
         for (format, index) in agentIndexes {
-            let r = format == .codex ? roots.codex : [format.defaultRoot].compactMap { $0 }
-            out += index.rows(roots: r.filter(exists), since: since).map { (format.rawValue, $0) }
+            let folders = format == .codex ? roots.codex : [format.defaultRoot].compactMap { $0 }
+            out += index.rows(roots: folders.filter(exists), since: since).map { (format.rawValue, $0) }
         }
         return out + databaseRows(since: since)
     }
@@ -87,8 +93,9 @@ final class AgentUsage: Sendable {
             }
         }
         return AgentDatabases.agents.flatMap { agent -> [AgentRow] in
-            let copies = AgentDatabases.files(agent, changedSince: since).enumerated().compactMap { i, db -> URL? in
-                let copy = dir.appendingPathComponent("\(agent)-\(i).db")
+            let copies = AgentDatabases.files(agent, changedSince: since).enumerated().compactMap {
+                offset, db -> URL? in
+                let copy = dir.appendingPathComponent("\(agent)-\(offset).db")
                 return Log.session.attempt("copying \(agent)'s usage") {
                     try fm.createDirectory(at: dir, withIntermediateDirectories: true)
                     for part in ["", "-wal"] where part.isEmpty || fm.fileExists(atPath: db.path + part) {
@@ -106,24 +113,27 @@ final class AgentUsage: Sendable {
     func transcript(of ls: LiveSession) -> URL? {
         ls.transcriptPath.map { URL(fileURLWithPath: $0) } ?? transcript(of: ls.snapshot)
     }
-    func transcript(of s: Session) -> URL? {
-        let a = s.argv
-        guard s.agent == "claude", let i = a.lastIndex(where: { $0 == "--session-id" || $0 == "--resume" }),
-            i + 1 < a.count
+    func transcript(of session: Session) -> URL? {
+        let argv = session.argv
+        guard session.agent == "claude",
+            let flagIndex = argv.lastIndex(where: { $0 == "--session-id" || $0 == "--resume" }),
+            flagIndex + 1 < argv.count
         else { return nil }
         return agentRoots().claude.map {
-            ClaudeHistory.folder(cwd: s.cwd, root: $0).appendingPathComponent(a[i + 1] + ".jsonl")
+            ClaudeHistory.folder(cwd: session.cwd, root: $0).appendingPathComponent(argv[flagIndex + 1] + ".jsonl")
         }
         .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     /// What its last turn ended with, if the agent keeps that somewhere Kelp can read.
     func lastReply(of ls: LiveSession) -> String? {
-        let s = ls.snapshot
-        guard s.agent == "codex" else { return transcript(of: ls).flatMap(Self.lastReply(transcript:)) }
-        if let open = Self.openRollout(pid: s.pid) { return CodexHistory.lastReply(rollout: open) }
-        return agentRoots().codex.lazy.compactMap { CodexHistory.lastReply(cwd: s.cwd, since: s.createdAt, root: $0) }
-            .first
+        let session = ls.snapshot
+        guard session.agent == "codex" else { return transcript(of: ls).flatMap(Self.lastReply(transcript:)) }
+        if let open = Self.openRollout(pid: session.pid) { return CodexHistory.lastReply(rollout: open) }
+        return agentRoots().codex.lazy.compactMap {
+            CodexHistory.lastReply(cwd: session.cwd, since: session.createdAt, root: $0)
+        }
+        .first
     }
 
     /// The conversation a running Codex has open, the one thing that says whose it is when two work in a folder. The program
@@ -173,46 +183,48 @@ final class AgentUsage: Sendable {
             (FileManager.default.enumerator(at: root, includingPropertiesForKeys: [key])?.allObjects as? [URL]) ?? []
         }
         let files: [(URL, Date)] = all.filter { $0.pathExtension == "jsonl" }
-            .map { u -> (URL, Date) in
-                (u, (try? u.resourceValues(forKeys: [key]).contentModificationDate) ?? .distantPast)
+            .map { url -> (URL, Date) in
+                (url, (try? url.resourceValues(forKeys: [key]).contentModificationDate) ?? .distantPast)
             }
         let newest = files.sorted { $0.1 > $1.1 }.prefix(count).map(\.0)
         return Set(newest.compactMap { contextUsage(transcript: $0) }.filter { $0.peak > 200_000 }.map(\.model))
     }
 
-    static func block(_ b: ClaudeUsage.Block) -> UsageGet.Block {
+    static func block(_ block: ClaudeUsage.Block) -> UsageGet.Block {
         UsageGet.Block(
-            start: b.start.timeIntervalSince1970, end: b.end.timeIntervalSince1970, input: b.tokens.input,
-            output: b.tokens.output,
-            cacheWrite: b.tokens.cacheWrite, cacheRead: b.tokens.cacheRead, cost: b.estimatedCostUSD, models: b.models)
+            start: block.start.timeIntervalSince1970, end: block.end.timeIntervalSince1970, input: block.tokens.input,
+            output: block.tokens.output,
+            cacheWrite: block.tokens.cacheWrite, cacheRead: block.tokens.cacheRead, cost: block.estimatedCostUSD,
+            models: block.models)
     }
 
-    static func codex(_ l: CodexLimits) -> UsageGet.Codex {
+    static func codex(_ limits: CodexLimits) -> UsageGet.Codex {
         UsageGet.Codex(
-            observedAt: l.observedAt.timeIntervalSince1970, primaryUsedPercent: l.primaryUsedPercent,
-            primaryResetsAt: l.primaryResetsAt?.timeIntervalSince1970, secondaryUsedPercent: l.secondaryUsedPercent,
-            secondaryResetsAt: l.secondaryResetsAt?.timeIntervalSince1970,
-            primaryWindowMinutes: l.primaryWindowMinutes, secondaryWindowMinutes: l.secondaryWindowMinutes)
+            observedAt: limits.observedAt.timeIntervalSince1970, primaryUsedPercent: limits.primaryUsedPercent,
+            primaryResetsAt: limits.primaryResetsAt?.timeIntervalSince1970,
+            secondaryUsedPercent: limits.secondaryUsedPercent,
+            secondaryResetsAt: limits.secondaryResetsAt?.timeIntervalSince1970,
+            primaryWindowMinutes: limits.primaryWindowMinutes, secondaryWindowMinutes: limits.secondaryWindowMinutes)
     }
 
     /// Claude's own percentages from the last 12 hours (they reset; older readings mislead).
-    func withLimits(_ v: UsageGet.Result) -> UsageGet.Result {
-        var o = v
+    func withLimits(_ usage: UsageGet.Result) -> UsageGet.Result {
+        var result = usage
         refreshPlansIfStale()
         refreshCodexIfStale()
         let plans = self.plans.withLock { $0 }
-        o.plans = plans.filter { !$0.value.readings.isEmpty }.mapValues { s in
-            s.readings.map { UsageGet.Limit(kind: $0.kind, percent: $0.percent, resets: $0.resets) }
+        result.plans = plans.filter { !$0.value.readings.isEmpty }.mapValues { plan in
+            plan.readings.map { UsageGet.Limit(kind: $0.kind, percent: $0.percent, resets: $0.resets) }
         }
         // When each plan was last read: an old reading is shown as old, not as today's.
-        o.plansReadAt = plans.compactMapValues { s in s.readAt.map(\.timeIntervalSince1970) }
+        result.plansReadAt = plans.compactMapValues { s in s.readAt.map(\.timeIntervalSince1970) }
         let fresh = claudeLimits.withLock { $0 }.values.filter { Date().timeIntervalSince($0.at) < 12 * 3600 }
-        o.claudeLimits = fresh.sorted { $0.reading.kind < $1.reading.kind }.map { x in
+        result.claudeLimits = fresh.sorted { $0.reading.kind < $1.reading.kind }.map { limit in
             UsageGet.Limit(
-                kind: x.reading.kind, percent: x.reading.percent, resets: x.reading.resets,
-                observedAt: x.at.timeIntervalSince1970)
+                kind: limit.reading.kind, percent: limit.reading.percent, resets: limit.reading.resets,
+                observedAt: limit.at.timeIntervalSince1970)
         }
-        return o
+        return result
     }
 
     /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
@@ -221,26 +233,30 @@ final class AgentUsage: Sendable {
         guard let data = Data(tailOf: url, bytes: 1 << 20) else { return nil }   // a turn's tool results can be hundreds of KB
         var compacted: (pre: Int, post: Int)?
         for line in data.split(separator: 0x0A).reversed() {
-            guard let o = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                o["isSidechain"] as? Bool != true
+            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                entry["isSidechain"] as? Bool != true
             else { continue }
-            if compacted == nil, o["subtype"] as? String == "compact_boundary" {
+            if compacted == nil, entry["subtype"] as? String == "compact_boundary" {
                 // Without postTokens (older Claude Code) what's left is unknown until the next reply.
-                guard let m = o["compactMetadata"] as? [String: Any], let post = m["postTokens"] as? Int else {
+                guard let metadata = entry["compactMetadata"] as? [String: Any],
+                    let post = metadata["postTokens"] as? Int
+                else {
                     return nil
                 }
-                compacted = (m["preTokens"] as? Int ?? 0, post)
+                compacted = (metadata["preTokens"] as? Int ?? 0, post)
                 continue
             }
-            guard o["type"] as? String == "assistant", let m = o["message"] as? [String: Any],
-                let u = m["usage"] as? [String: Any]
+            guard entry["type"] as? String == "assistant", let message = entry["message"] as? [String: Any],
+                let usage = message["usage"] as? [String: Any]
             else { continue }
             let used = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].reduce(0) {
-                $0 + ((u[$1] as? Int) ?? 0)
+                $0 + ((usage[$1] as? Int) ?? 0)
             }
             guard used > 0 else { continue }   // API errors and other synthetic replies carry no usage
-            let cacheUntil = compacted == nil ? ClaudeContext.cacheUntil(o, u) : nil
-            return (compacted?.post ?? used, max(used, compacted?.pre ?? 0), m["model"] as? String ?? "", cacheUntil)
+            let cacheUntil = compacted == nil ? ClaudeContext.cacheUntil(entry, usage) : nil
+            return (
+                compacted?.post ?? used, max(used, compacted?.pre ?? 0), message["model"] as? String ?? "", cacheUntil
+            )
         }
         return compacted.map { ($0.post, $0.pre, "", nil) }
     }
@@ -249,9 +265,9 @@ final class AgentUsage: Sendable {
     static func lastReply(transcript url: URL) -> String? {
         guard let data = Data(tailOf: url, bytes: 262_144) else { return nil }
         for line in data.split(separator: 0x0A).reversed() {
-            guard let o = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                o["type"] as? String == "assistant",
-                let content = (o["message"] as? [String: Any])?["content"] as? [[String: Any]]
+            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                entry["type"] as? String == "assistant",
+                let content = (entry["message"] as? [String: Any])?["content"] as? [[String: Any]]
             else { continue }
             let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined(
                 separator: "\n"
@@ -267,22 +283,22 @@ final class AgentUsage: Sendable {
         guard let data = try? Data(contentsOf: url) else { return nil }
         var turns: [String] = []
         for line in data.split(separator: 0x0A) {
-            guard let o = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                let type = o["type"] as? String,
-                type == "user" || type == "assistant", let msg = o["message"] as? [String: Any]
+            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                let type = entry["type"] as? String,
+                type == "user" || type == "assistant", let msg = entry["message"] as? [String: Any]
             else { continue }
             let text: String
-            if let s = msg["content"] as? String {
-                text = s
+            if let plain = msg["content"] as? String {
+                text = plain
             } else {
                 text = ((msg["content"] as? [[String: Any]]) ?? []).compactMap {
                     $0["type"] as? String == "text" ? $0["text"] as? String : nil
                 }
                 .joined(separator: "\n")
             }
-            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !t.isEmpty, !t.hasPrefix("<") else { continue }   // tool results and system notes aren't the conversation
-            turns.append("## \(type == "user" ? "You" : "Agent")\n\n\(t)")
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("<") else { continue }   // tool results and system notes aren't the conversation
+            turns.append("## \(type == "user" ? "You" : "Agent")\n\n\(trimmed)")
         }
         var out = turns.joined(separator: "\n\n")
         if out.count > limit { out = "…\n\n" + String(out.suffix(limit)) }

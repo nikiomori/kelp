@@ -14,11 +14,11 @@ public struct PTYError: Error, LocalizedError, CustomStringConvertible {
 /// A child process on a pseudo-terminal. The daemon owns this, so the process outlives any UI.
 /// Once the program has exited its fd and pid are gone for good: they may already name another session's terminal or
 /// another process, so nothing is written to the one or signalled at the other after that.
-public final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on q) under it too
+public final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on `queue`) under it too
     public let pid: pid_t
     let primaryFD: Int32
     private var source: DispatchSourceRead?
-    private let q = DispatchQueue(label: "kelp.pty")
+    private let queue = DispatchQueue(label: "kelp.pty")
 
     /// The terminal's fd: read here from `start`, until it's handed to the next kelpd or hung up. Once it's neither
     /// waiting nor read, nothing touches it again: the number may be another terminal's.
@@ -81,18 +81,18 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// (being reaped here: the new kelpd would find no such child). One not started yet goes too, and one whose output
     /// already ended while its program runs on.
     func handOver() -> Int32? {
-        q.sync {
-            let given = phase.withLock { p -> Bool in
-                guard p.open, p.program == .running else { return false }
-                p.terminal = .handedOver
-                p.program = .handedOver
+        queue.sync {
+            let given = phase.withLock { current -> Bool in
+                guard current.open, current.program == .running else { return false }
+                current.terminal = .handedOver
+                current.program = .handedOver
                 source?.cancel()
                 source = nil   // `closer` isn't asked: the fd stays open
                 return true
             }
             guard given else { return nil }
-            let w = writeFD
-            writes.async { close(w) }
+            let fd = writeFD
+            writes.async { close(fd) }
             return primaryFD
         }
     }
@@ -102,7 +102,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// milliseconds later works. Any other failure is returned at once.
     static func retrying<T>(attempts: Int = 4, _ body: () throws -> T) throws -> T {
         for attempt in 1..<attempts {
-            do { return try body() } catch let e as PTYError where e.code == EIO || e.code == ENXIO {
+            do { return try body() } catch let error as PTYError where error.code == EIO || error.code == ENXIO {
                 usleep(UInt32(attempt) * 20_000)
             }   // ENXIO: openpty raced the same
         }
@@ -114,11 +114,11 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         argv: [String], cwd: String, env: [String: String], cols: UInt16, rows: UInt16,
         trampoline: String?
     ) throws -> (pid: pid_t, fd: Int32) {
-        var m: Int32 = 0, s: Int32 = 0
+        var primary: Int32 = 0, secondary: Int32 = 0
         var ws = winsize(ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0)
-        guard openpty(&m, &s, nil, nil, &ws) == 0 else { throw PTYError(step: "openpty", code: errno) }
+        guard openpty(&primary, &secondary, nil, nil, &ws) == 0 else { throw PTYError(step: "openpty", code: errno) }
         var nameBuf = [CChar](repeating: 0, count: 128)
-        ptsname_r(m, &nameBuf, nameBuf.count)
+        ptsname_r(primary, &nameBuf, nameBuf.count)
         let secondaryPath = String(cBuffer: nameBuf)
         // Keep our end of the slave open until the child has it: closing the last fd resets the tty (size becomes 0×0).
 
@@ -142,9 +142,9 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
             &attr,
             Int16(POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
 
-        let e = environment(ProcessInfo.processInfo.environment, env)
+        let childEnv = environment(ProcessInfo.processInfo.environment, env)
         let cargv = (argv.map { strdup($0) } + [nil]) as [UnsafeMutablePointer<CChar>?]
-        let cenv = (e.map { strdup("\($0)=\($1)") } + [nil]) as [UnsafeMutablePointer<CChar>?]
+        let cenv = (childEnv.map { strdup("\($0)=\($1)") } + [nil]) as [UnsafeMutablePointer<CChar>?]
         defer {
             cargv.forEach { free($0) }
             cenv.forEach { free($0) }
@@ -161,30 +161,30 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         } else {
             rc = posix_spawnp(&pid, argv[0], &fa, &attr, cargv, cenv)
         }
-        close(s)
+        close(secondary)
         guard rc == 0 else {
-            close(m)
+            close(primary)
             throw PTYError(
                 step: "spawn \(trampoline == nil ? argv[0] : "via trampoline") on \(secondaryPath)", code: rc)
         }
-        return (pid, m)
+        return (pid, primary)
     }
 
     /// Starts reading the output and waiting for the exit. Set `onOutput` / `onExit` first: a program that prints (or
     /// fails) at once would otherwise lose that.
     public func start() {
-        let first = phase.withLock { p -> Bool in
-            guard p.terminal == .waiting else { return false }
-            p.terminal = .reading
+        let first = phase.withLock { current -> Bool in
+            guard current.terminal == .waiting else { return false }
+            current.terminal = .reading
             return true
         }
         guard first else { return }
-        let src = DispatchSource.makeReadSource(fileDescriptor: primaryFD, queue: q)
+        let src = DispatchSource.makeReadSource(fileDescriptor: primaryFD, queue: queue)
         src.setEventHandler { [weak self] in self?.drain() }
         let closer = closer
         src.setCancelHandler { closer.cancelled() }
         closer.watch()
-        q.sync { phase.withLock { _ in source = src } }
+        queue.sync { phase.withLock { _ in source = src } }
         src.resume()
         watchExit()
     }
@@ -205,9 +205,9 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
                 })
             else { return }
             exits.cancel()
-            let handedOver = phase.withLock { p -> Bool in
-                if p.program == .handedOver { return true }
-                p.program = .reaped
+            let handedOver = phase.withLock { current -> Bool in
+                if current.program == .handedOver { return true }
+                current.program = .reaped
                 return false
             }
             if handedOver { return }
@@ -215,7 +215,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
             while waitpid(pid, &st, 0) < 0 && errno == EINTR {}
             guard let pty = self else { return }
             let status = st
-            pty.q.async { pty.finish(status) }
+            pty.queue.async { pty.finish(status) }
         }
         exits.setEventHandler(handler: reap)
         exits.resume()
@@ -226,10 +226,10 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
 
     private func drain() {
         var buf = [UInt8](repeating: 0, count: 65536)
-        let n = read(primaryFD, &buf, buf.count)
-        if n > 0 {
-            onOutput?(Data(buf[0..<n]))
-        } else if n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR) {
+        let count = read(primaryFD, &buf, buf.count)
+        if count > 0 {
+            onOutput?(Data(buf[0..<count]))
+        } else if count == 0 || (count < 0 && errno != EAGAIN && errno != EINTR) {
             phase.withLock { _ in
                 source?.cancel()
                 source = nil
@@ -245,9 +245,9 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
             let fl = fcntl(primaryFD, F_GETFL)
             _ = fcntl(primaryFD, F_SETFL, fl | O_NONBLOCK)
             while true {
-                let n = read(primaryFD, &buf, buf.count)
-                if n <= 0 { break }
-                onOutput?(Data(buf[0..<n]))
+                let count = read(primaryFD, &buf, buf.count)
+                if count <= 0 { break }
+                onOutput?(Data(buf[0..<count]))
             }
         }
         hangUp()
@@ -255,11 +255,11 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     }
 
     private func hangUp() {
-        let first = phase.withLock { p -> Bool in
-            guard p.open else { return false }
-            p.terminal = .hungUp
-            if let s = source {
-                s.cancel()
+        let first = phase.withLock { current -> Bool in
+            guard current.open else { return false }
+            current.terminal = .hungUp
+            if let reader = source {
+                reader.cancel()
                 source = nil
             }
             closer.ask()   // closed once no source has it: now, or in the cancel handler (also of one ended by EOF)
@@ -267,8 +267,8 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         }
         // Once only (finish and deinit both get here): a second close would hit whatever reused the number since.
         guard first else { return }
-        let w = writeFD
-        writes.async { close(w) }   // after any write still queued has given up
+        let fd = writeFD
+        writes.async { close(fd) }   // after any write still queued has given up
     }
 
     /// Dropped while its program runs (the limits probe quits that way): hang up the terminal. A controlling process
@@ -278,12 +278,12 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// The `kelp` CLI next to the daemon binary.
     public static let trampoline: String? = {
         let dir = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent()
-        var p = dir.appendingPathComponent("kelp").path
+        var path = dir.appendingPathComponent("kelp").path
         #if DEBUG
             // Tests run inside xctest: the kelp built with them (else a test that dies leaves programs without a terminal running).
-            if let t = ProcessInfo.processInfo.environment["KELP_TRAMPOLINE"] { p = t }
+            if let override = ProcessInfo.processInfo.environment["KELP_TRAMPOLINE"] { path = override }
         #endif
-        return FileManager.default.isExecutableFile(atPath: p) ? p : nil
+        return FileManager.default.isExecutableFile(atPath: path) ? path : nil
     }()
 
     static let scrubbed = [
@@ -294,41 +294,43 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// A session's environment: the daemon's, without what doesn't belong to a new session, under the session's own.
     static func environment(_ daemon: [String: String], _ env: [String: String]) -> [String: String] {
         // Don't leak the environment of whatever started the daemon (e.g. an agent's session markers) into new sessions.
-        var e = daemon.filter { k, _ in !scrubbed.contains { k.hasPrefix($0) } }.merging(env) { $1 }
-        e["TERM"] = "xterm-256color"
-        e["COLORTERM"] = "truecolor"
+        var merged = daemon.filter { k, _ in !scrubbed.contains { k.hasPrefix($0) } }.merging(env) { $1 }
+        merged["TERM"] = "xterm-256color"
+        merged["COLORTERM"] = "truecolor"
         // Ghostty shows OSC 8 links, but programs only print them for terminals they know (TERM_PROGRAM, scrubbed
         // above): without this, Claude Code's artifact chip is plain text. A user's FORCE_HYPERLINK=0 stays.
-        if e["FORCE_HYPERLINK"] == nil { e["FORCE_HYPERLINK"] = "1" }
+        if merged["FORCE_HYPERLINK"] == nil { merged["FORCE_HYPERLINK"] = "1" }
         // A daemon started by launchd has no locale, and without one pbcopy reads UTF-8 as Mac Roman: Grok's copies of
         // Russian text came out as "–ü—è—Ç…". A locale the user set stays.
-        if !e.keys.contains(where: { ["LANG", "LC_ALL", "LC_CTYPE"].contains($0) }) { e["LANG"] = "en_US.UTF-8" }
-        return e
+        if !merged.keys.contains(where: { ["LANG", "LC_ALL", "LC_CTYPE"].contains($0) }) {
+            merged["LANG"] = "en_US.UTF-8"
+        }
+        return merged
     }
 
     /// Typing into the program; dropped once it has exited (the fd may be another terminal's by then).
-    public func write(_ d: Data) {
+    public func write(_ data: Data) {
         guard phase.withLock({ $0.open }) else { return }
         // A program that stops reading doesn't make the daemon keep whatever is pasted at it: past the limit, it's dropped.
-        let room = queued.withLock { q -> Bool in
-            guard q + d.count <= Self.queueLimit else { return false }
-            q += d.count
+        let room = queued.withLock { count -> Bool in
+            guard count + data.count <= Self.queueLimit else { return false }
+            count += data.count
             return true
         }
         guard room else {
-            Log.session.error("dropped \(d.count) bytes of input: \(self.pid) isn't reading what it was sent")
+            Log.session.error("dropped \(data.count) bytes of input: \(self.pid) isn't reading what it was sent")
             return
         }
         writes.async { [self] in
-            defer { queued.withLock { $0 -= d.count } }
-            var rest = d[...]
+            defer { queued.withLock { $0 -= data.count } }
+            var rest = data[...]
             while !rest.isEmpty, phase.withLock({ $0.open }) {
-                let n = rest.withUnsafeBytes { Darwin.write(writeFD, $0.baseAddress, $0.count) }
-                if n > 0 {
-                    rest = rest.dropFirst(n)
+                let sent = rest.withUnsafeBytes { Darwin.write(writeFD, $0.baseAddress, $0.count) }
+                if sent > 0 {
+                    rest = rest.dropFirst(sent)
                     continue
                 }
-                guard n < 0, errno == EAGAIN || errno == EINTR else { return }   // EIO: the program's side is gone
+                guard sent < 0, errno == EAGAIN || errno == EINTR else { return }   // EIO: the program's side is gone
                 var fds = pollfd(fd: writeFD, events: Int16(POLLOUT), revents: 0)
                 _ = poll(&fds, 1, 100)   // wait for room, looking at the phase every 0.1 s
             }
@@ -375,9 +377,9 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     public func terminate(grace: TimeInterval = 2) -> [pid_t] {
         let all = tree()
         kill()
-        for p in all.dropFirst() {
-            Darwin.kill(p, SIGHUP)
-            Darwin.kill(p, SIGTERM)
+        for child in all.dropFirst() {
+            Darwin.kill(child, SIGHUP)
+            Darwin.kill(child, SIGTERM)
         }
         DispatchQueue.global().asyncAfter(deadline: .now() + grace) { [self] in
             signal {
@@ -391,8 +393,10 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         return all
     }
 
-    /// `f(pid)` while the pid is still this program's.
-    private func signal(_ f: @Sendable (pid_t) -> Void) { phase.withLock { if $0.program != .reaped { f(pid) } } }
+    /// `action(pid)` while the pid is still this program's.
+    private func signal(_ action: @Sendable (pid_t) -> Void) {
+        phase.withLock { if $0.program != .reaped { action(pid) } }
+    }
 }
 
 /// Closes an fd when asked, but never while a dispatch source still has it. Not asked (a hand-over), it stays open.
@@ -421,9 +425,9 @@ final class FDCloser: Sendable {
             closeIfDue(&$0)
         }
     }
-    private func closeIfDue(_ s: inout (asked: Bool, watched: Bool, done: Bool)) {
-        if s.asked && !s.watched && !s.done {
-            s.done = true
+    private func closeIfDue(_ flags: inout (asked: Bool, watched: Bool, done: Bool)) {
+        if flags.asked && !flags.watched && !flags.done {
+            flags.done = true
             closeFD(fd)
         }
     }
