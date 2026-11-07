@@ -170,8 +170,9 @@ final class InspectorController: NSViewController {
     private func pin(_ n: CountBadge, on b: NSButton) {
         n.translatesAutoresizingMaskIntoConstraints = false; b.addSubview(n)
         let half = Metrics.segmentPoint / 2
-        NSLayoutConstraint.activate([n.leadingAnchor.constraint(equalTo: b.centerXAnchor, constant: half + 1),
-                                     n.centerYAnchor.constraint(equalTo: b.centerYAnchor, constant: Metrics.iconGap - half)])
+        // 3 pt past the glyph's half: 1 pt left the branch's right node touching the number.
+        NSLayoutConstraint.activate([n.leadingAnchor.constraint(equalTo: b.centerXAnchor, constant: half + 3),
+                                     n.centerYAnchor.constraint(equalTo: b.centerYAnchor, constant: Metrics.iconGap - half - 1)])
     }
 
     /// As many icons as the inspector's width holds, in the row's order; the rest go into the » menu. The shown
