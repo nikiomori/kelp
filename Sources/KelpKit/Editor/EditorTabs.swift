@@ -225,7 +225,7 @@ extension EditorArea {
             if let n = notes[a.id] {
                 item.attributedTitle = ScriptsMenu.title(a.name, note: n.text, column: column, noteColor: n.color)
             }
-            if a.id == def, let k = NewTabChoices.defaultKey { item.keyEquivalent = k.key; item.keyEquivalentModifierMask = k.mods.flags }
+            if a.id == def, let k = NewTabChoices.defaultKey(app) { item.keyEquivalent = k.key; item.keyEquivalentModifierMask = k.mods.flags }
         }
         let column = ScriptsMenu.column(shown.map(\.name))
         for a in shown { agentItem(a, in: m, column: column) }

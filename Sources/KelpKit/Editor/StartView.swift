@@ -126,7 +126,7 @@ final class StartView: NSView {
     private func tiles(_ agents: [AgentManifest]) -> NSView {
         let app = self.app
         var all: [AgentTile] = agents.prefix(NewTabChoices.shown).map { a in
-            let key = a.id == def ? NewTabChoices.defaultKey.map(KeyBindings.display) : nil
+            let key = a.id == def ? NewTabChoices.defaultKey(app).map(KeyBindings.display) : nil
             let t = AgentTile(image: app.catalog.icon(a.id, size: Metrics.iconEmpty), title: a.name, key: key, isDefault: a.id == def) { [weak self] in
                 self?.start(a.id)
             }

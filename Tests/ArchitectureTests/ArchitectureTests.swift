@@ -276,7 +276,7 @@ private func codeOnly(_ s: String) -> String {
         "Builtins/Git/CommitCard.swift": "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
         "KelpKit/Extensions/DeclarativeExtension.swift": "an extension's own refresh interval for its panel's badge command",
-        "KelpKit/UIState.swift": "the daemon's state read once more, 10 s after a read that failed, while that daemon is still there",
+        "KelpKit/UIState.swift": "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there",
         "Builtins/Browser/BrowserAutomation.swift": "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
     ]
     let all = try matches(#"repeats: true|Task\.sleep\("#, in: appDirs)

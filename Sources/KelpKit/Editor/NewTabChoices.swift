@@ -16,7 +16,15 @@ enum NewTabChoices {
 
     /// Agents shown before the rest go behind one item.
     static let shown = 6
-    static let defaultKey = KeySpec("cmd+opt+t")
+
+    /// The key command `id` has in the menus: settings.json's `keys` over it (`""`: none), else its default, so a key
+    /// rebound in Settings › Keyboard reads the same here.
+    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
+        guard let over = KeyBindings.overrides(app.settings)[id] else { return KeySpec(app.extensions.command(id)?.key ?? def) }
+        return over.isEmpty ? nil : KeySpec(over)
+    }
+    /// The default agent's key: New Agent's.
+    static func defaultKey(_ app: AppModel) -> KeySpec? { key("agents.new", app, default: "opt+cmd+t") }
 
     /// The installed agents: the default first, then those in use, then the others by name.
     static func agents(_ app: AppModel) -> [AgentManifest] {
@@ -27,7 +35,8 @@ enum NewTabChoices {
 
     /// A terminal, a tmux session when there is tmux, and what extensions open, in the registry's order.
     static func open(_ app: AppModel, _ w: Worktree?, terminal: @escaping @MainActor () -> Void) -> [Action] {
-        var all = [Action(title: String(localized: "Terminal"), symbol: "terminal", key: KeySpec("cmd+t"), run: terminal)]
+        let new = key("terminal.new", app, default: "cmd+t")
+        var all = [Action(title: String(localized: "Terminal"), symbol: "terminal", key: new, run: terminal)]
         if app.catalog.hasTmux(w) {
             all.append(Action(title: String(localized: "tmux Session…"), symbol: "rectangle.split.3x1", key: nil) { app.quickOpen.showTmux() })
         }
@@ -41,10 +50,11 @@ enum NewTabChoices {
     /// What the run chip runs and its list; none while the project offers nothing to run.
     static func run(_ app: AppModel, workspace wid: String) -> [Action] {
         guard let o = app.scripts.offer(wid) else { return [] }
-        return [Action(title: String(localized: "Run \(o.label)"), symbol: "play", key: o.guess ? nil : KeySpec("cmd+r"), help: o.command) {
+        let choose = key("scripts.choose", app, default: "ctrl+cmd+r"), run = o.guess ? nil : key("scripts.run", app, default: "cmd+r")
+        return [Action(title: String(localized: "Run \(o.label)"), symbol: "play", key: run, help: o.command) {
                     Task { await app.scripts.start(choice: o.choice, in: wid) }
                 },
-                Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: KeySpec("ctrl+cmd+r")) { app.scripts.choose() }]
+                Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) { app.scripts.choose() }]
     }
 }
 
