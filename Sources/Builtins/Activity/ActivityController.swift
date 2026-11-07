@@ -47,22 +47,22 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         total.lineBreakMode = .byTruncatingTail
         total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let header = Bar.panel([total])
-        let v = NSView()
+        let root = NSView()
         for x in [header, scroll] as [NSView] {
             x.translatesAutoresizingMaskIntoConstraints = false
-            v.addSubview(x)
+            root.addSubview(x)
         }
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: v.topAnchor),
-            header.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            header.topAnchor.constraint(equalTo: root.topAnchor),
+            header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
-            scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+            scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         ])
-        empty.place(in: v, under: header)
-        view = v
+        empty.place(in: root, under: header)
+        view = root
     }
 
     /// Watched while the panel shows: the daemon measures every two seconds and says when it changed.
@@ -86,19 +86,19 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         }
     }
 
-    private func show(_ e: ActivityEvent?) {
-        guard let e else { return }
-        let m = app
+    private func show(_ event: ActivityEvent?) {
+        guard let event else { return }
+        let model = app
         // Couldn't measure: say why where "No sessions running." would be, not that nothing runs.
-        rows = (e.usage ?? []).compactMap { u in
-            guard let s = m.session(u.session) else { return nil }
-            return Row(session: s, cpu: u.cpu, memory: u.memory, processes: u.processes)
+        rows = (event.usage ?? []).compactMap { usage in
+            guard let session = model.session(usage.session) else { return nil }
+            return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue =
             rows.isEmpty
             ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(Self.bytes(mem))")
-        if let error = e.error {
+        if let error = event.error {
             empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
         } else {
             empty.show(
@@ -116,17 +116,21 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
 
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
-        let r = rows[row], s = r.session, m = app
+        let entry = rows[row], session = entry.session, model = app
         let icon = NSImageView(
-            image: (s.agent == "shell" ? NSImage.symbol("terminal") : app.catalog.icon(s.agent)) ?? NSImage())
+            image: (session.agent == "shell" ? NSImage.symbol("terminal") : app.catalog.icon(session.agent))
+                ?? NSImage())
         let name = NSTextField(
-            labelWithString: s.agent == "shell"
-                ? (s.title.isEmpty ? String(localized: "Terminal") : s.title) : app.catalog.displayName(s))
+            labelWithString: session.agent == "shell"
+                ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)
+                : app.catalog.displayName(session))
         name.font = .ui(12, weight: .medium)
         name.lineBreakMode = .byTruncatingTail
         let place = NSTextField(
-            labelWithString: [m.worktree(s.worktreeId)?.displayName, String(localized: "\(r.processes) processes")]
-                .compactMap { $0 }.joined(separator: " · "))
+            labelWithString: [
+                model.worktree(session.worktreeId)?.displayName, String(localized: "\(entry.processes) processes")
+            ]
+            .compactMap { $0 }.joined(separator: " · "))
         place.font = .ui(11)
         place.textColor = .secondaryLabelColor
         place.lineBreakMode = .byTruncatingTail
@@ -134,12 +138,12 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = Metrics.lineGap
-        let cost = NSTextField(labelWithString: "\(Self.percent(r.cpu))\n\(Self.bytes(r.memory))")
+        let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(Self.bytes(entry.memory))")
         cost.font = .uiDigits(11)
         cost.alignment = .right
-        cost.textColor = r.cpu > 80 ? .textOrange : .secondaryLabelColor
+        cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
-        let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([s.id]) }
+        let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([session.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         let rowView = NSStackView(views: [icon, text, NSView(), cost, stop])
         rowView.spacing = 8

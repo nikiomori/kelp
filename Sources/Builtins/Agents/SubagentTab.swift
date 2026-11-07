@@ -54,10 +54,10 @@ struct SubagentJournalView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let j = model.journal {
-                header(j)
+            if let journal = model.journal {
+                header(journal)
                 Divider()
-                steps(j)
+                steps(journal)
             } else if let failed = model.failed {
                 message(String(localized: "Can’t read this subagent"), failed)
             } else if model.loaded {
@@ -81,11 +81,13 @@ struct SubagentJournalView: View {
         model.loaded = true
     }
 
-    private func header(_ j: SessionSubagentJournal.Journal) -> some View {
+    private func header(_ journal: SessionSubagentJournal.Journal) -> some View {
         HStack(spacing: Metrics.gap) {
-            Text(j.task ?? (j.kind.isEmpty ? String(localized: "Subagent") : j.kind)).font(.ui(12, weight: .medium))
-                .lineLimit(1)
-            Text(facts(j)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+            Text(journal.task ?? (journal.kind.isEmpty ? String(localized: "Subagent") : journal.kind)).font(
+                .ui(12, weight: .medium)
+            )
+            .lineLimit(1)
+            Text(facts(journal)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
             if working, let run {
                 Text(run.started, style: .timer).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
@@ -98,29 +100,30 @@ struct SubagentJournalView: View {
         .frame(height: TextSize.of(Metrics.contentBar))
     }
 
-    private func facts(_ j: SessionSubagentJournal.Journal) -> String {
-        var parts = [j.model, String(localized: "\(j.steps.count) steps")].compactMap { $0 }
-        if let c = j.context { parts.append(String(localized: "\(c / 1000)k context")) }
+    private func facts(_ journal: SessionSubagentJournal.Journal) -> String {
+        var parts = [journal.model, String(localized: "\(journal.steps.count) steps")].compactMap { $0 }
+        if let context = journal.context { parts.append(String(localized: "\(context / 1000)k context")) }
         return parts.joined(separator: " · ")
     }
 
-    private func steps(_ j: SessionSubagentJournal.Journal) -> some View {
-        let start = run?.started ?? j.steps.first?.at ?? Date()
+    private func steps(_ journal: SessionSubagentJournal.Journal) -> some View {
+        let start = run?.started ?? journal.steps.first?.at ?? Date()
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(j.steps.enumerated()), id: \.offset) { _, s in
+                ForEach(Array(journal.steps.enumerated()), id: \.offset) { _, step in
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
-                        Text(Self.clock(s.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit()).foregroundStyle(
-                            .secondary
-                        )
-                        .frame(width: 48, alignment: .trailing)
-                        Text(s.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
+                        Text(Self.clock(step.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit())
+                            .foregroundStyle(
+                                .secondary
+                            )
+                            .frame(width: 48, alignment: .trailing)
+                        Text(step.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
                             .lineLimit(1)
-                        Text(s.detail).font(.uiMono(11)).lineLimit(1).truncationMode(.middle)
+                        Text(step.detail).font(.uiMono(11)).lineLimit(1).truncationMode(.middle)
                     }
                     .frame(minHeight: Metrics.row, alignment: .leading)
                 }
-                if let report = j.report, !working { Report(text: report).padding(.top, Metrics.inset) }
+                if let report = journal.report, !working { Report(text: report).padding(.top, Metrics.inset) }
             }
             .textSelection(.enabled)
             .padding(Metrics.inset)
@@ -137,9 +140,9 @@ struct SubagentJournalView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    static func clock(_ s: TimeInterval) -> String {
-        let t = Int(max(0, s))
-        return "\(t / 60):" + String(format: "%02d", t % 60)
+    static func clock(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(max(0, seconds))
+        return "\(totalSeconds / 60):" + String(format: "%02d", totalSeconds % 60)
     }
 
     /// What it reported. Limit: Markdown's inline marks and headings; a table or a list stands as written.
@@ -147,11 +150,12 @@ struct SubagentJournalView: View {
         let text: String
         var body: some View {
             VStack(alignment: .leading, spacing: Metrics.gap) {
-                ForEach(Array(text.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, p in
-                    if p.hasPrefix("#") {
-                        Text(p.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)).font(.ui(13, weight: .semibold))
+                ForEach(Array(text.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
+                    if paragraph.hasPrefix("#") {
+                        Text(paragraph.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)).font(
+                            .ui(13, weight: .semibold))
                     } else {
-                        Text(LocalizedStringKey(p)).font(.ui(13)).fixedSize(horizontal: false, vertical: true)
+                        Text(LocalizedStringKey(paragraph)).font(.ui(13)).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

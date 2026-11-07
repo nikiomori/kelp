@@ -36,9 +36,9 @@ final class CommitCard {
         let loading = Task { await detailsOf(c.hash) }
         opening = Task { [weak self] in
             try? await Task.sleep(for: wait)
-            let d = await loading.value
+            let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
-            self.show(c, details: d, pushed: pushed, over: row)
+            self.show(c, details: loaded, pushed: pushed, over: row)
         }
     }
 
@@ -58,27 +58,27 @@ final class CommitCard {
     }
 
     private func detailsOf(_ hash: String) async -> CommitDetails? {
-        if let d = details[hash] { return d }
-        let d = await load?(hash)
-        details[hash] = d
-        return d
+        if let known = details[hash] { return known }
+        let loaded = await load?(hash)
+        details[hash] = loaded
+        return loaded
     }
 
     private func show(_ c: GraphCommit, details d: CommitDetails?, pushed: Bool?, over row: NSView) {
         let email = d?.email.lowercased() ?? ""
-        let v = CommitCardView(c, details: d, pushed: pushed, picture: pictures[email])
-        v.onInside = { [weak self] inside in if inside { self?.closing?.cancel() } else { self?.closeSoon() } }
+        let card = CommitCardView(c, details: d, pushed: pushed, picture: pictures[email])
+        card.onInside = { [weak self] inside in if inside { self?.closing?.cancel() } else { self?.closeSoon() } }
         let vc = NSViewController()
-        vc.view = v
+        vc.view = card
         popover.contentViewController = vc
-        popover.contentSize = v.fittingSize
+        popover.contentSize = card.fittingSize
         shown = c.hash
         popover.show(relativeTo: row.bounds, of: row, preferredEdge: .minX)   // shown already: it moves to this row
         guard !email.isEmpty, pictures[email] == nil else { return }
-        Task { [weak self, weak v] in
+        Task { [weak self, weak card] in
             guard let img = await self?.picture?(email) else { return }
             self?.pictures[email] = img
-            if self?.shown == c.hash { v?.avatar.image = img }
+            if self?.shown == c.hash { card?.avatar.image = img }
         }
     }
 }
@@ -102,19 +102,19 @@ final class CommitCardView: NSView {
         NSLayoutConstraint.activate([
             avatar.widthAnchor.constraint(equalToConstant: size), avatar.heightAnchor.constraint(equalToConstant: size)
         ])
-        let s = CommitSubject(c.subject)
+        let subject = CommitSubject(c.subject)
         var rows: [NSView] = []
-        if let head = Self.header(s, merge: c.parents.count > 1, unpushed: pushed == false) { rows.append(head) }
-        let title = Self.text(s.text, font: .ui(13, weight: .semibold), color: .labelColor, lines: 4)
-        if s.breaking {   // a breaking change: a red "!" before the words, as in the row
-            let t = NSMutableAttributedString(
+        if let head = Self.header(subject, merge: c.parents.count > 1, unpushed: pushed == false) { rows.append(head) }
+        let title = Self.text(subject.text, font: .ui(13, weight: .semibold), color: .labelColor, lines: 4)
+        if subject.breaking {   // a breaking change: a red "!" before the words, as in the row
+            let breakingTitle = NSMutableAttributedString(
                 string: "! ", attributes: [.font: NSFont.ui(13, weight: .bold), .foregroundColor: NSColor.textRed])
-            t.append(
+            breakingTitle.append(
                 NSAttributedString(
-                    string: s.text,
+                    string: subject.text,
                     attributes: [.font: NSFont.ui(13, weight: .semibold), .foregroundColor: NSColor.labelColor]))
-            title.attributedStringValue = t
-            title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + s.text)
+            title.attributedStringValue = breakingTitle
+            title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + subject.text)
         }
         rows.append(title)
         if let body = d?.body, !body.isEmpty {
@@ -125,9 +125,10 @@ final class CommitCardView: NSView {
         rows.append(line)
         let refs = CommitCell.labels(c.refs)
         if !refs.isEmpty {
-            let r = NSStackView(views: refs.prefix(4).map { Badge(text: $0.0, color: $0.1, strong: $0.2) } + [NSView()])
-            r.spacing = 4
-            rows.append(r)
+            let badges = NSStackView(
+                views: refs.prefix(4).map { Badge(text: $0.0, color: $0.1, strong: $0.2) } + [NSView()])
+            badges.spacing = 4
+            rows.append(badges)
         }
         rows.append(Self.meta(c, avatar: avatar))
         rows.append(Self.footer(c, details: d))
@@ -160,14 +161,14 @@ final class CommitCardView: NSView {
     override func mouseExited(with e: NSEvent) { onInside?(false) }
 
     /// The type's mark, "fix · daemon" and "↑ Not pushed yet"; nothing for a plain subject that's on the remote.
-    private static func header(_ s: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
+    private static func header(_ subject: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
         var views: [NSView] = []
-        if let m = CommitCell.mark(s, merge: merge) {
-            let icon = NSImageView(image: .symbol(m.symbol))
+        if let mark = CommitCell.mark(subject, merge: merge) {
+            let icon = NSImageView(image: .symbol(mark.symbol))
             icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-            icon.contentTintColor = m.color
+            icon.contentTintColor = mark.color
             let kind =
-                s.type.map { [$0, s.scope].compactMap { $0 }.joined(separator: " · ") }
+                subject.type.map { [$0, subject.scope].compactMap { $0 }.joined(separator: " · ") }
                 ?? String(localized: "Merge commit")
             views += [icon, label(kind, font: .ui(11, weight: .medium))]
         }
@@ -192,11 +193,11 @@ final class CommitCardView: NSView {
             attributes: [
                 .font: NSFont.systemFont(ofSize: size * 0.5, weight: .semibold), .foregroundColor: NSColor.white
             ])
-        return NSImage(size: NSSize(width: size, height: size), flipped: false) { r in
+        return NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
             color.setFill()
-            NSBezierPath(ovalIn: r).fill()
-            let s = letter.size()
-            letter.draw(at: NSPoint(x: (r.width - s.width) / 2, y: (r.height - s.height) / 2))
+            NSBezierPath(ovalIn: rect).fill()
+            let letterSize = letter.size()
+            letter.draw(at: NSPoint(x: (rect.width - letterSize.width) / 2, y: (rect.height - letterSize.height) / 2))
             return true
         }
     }
@@ -220,13 +221,14 @@ final class CommitCardView: NSView {
     }
 
     /// "4 files +31 −11" and the short hash, which copies the whole one.
-    private static func footer(_ c: GraphCommit, details d: CommitDetails?) -> NSView {
+    private static func footer(_ c: GraphCommit, details: CommitDetails?) -> NSView {
         var views: [NSView] = []
-        if let d, d.files > 0 {
-            views.append(label(String(localized: "\(d.files) files"), font: .uiDigits(11)))
-            if d.added + d.removed > 0 {
+        if let details, details.files > 0 {
+            views.append(label(String(localized: "\(details.files) files"), font: .uiDigits(11)))
+            if details.added + details.removed > 0 {
                 views.append(
-                    NSTextField(labelWithAttributedString: RowBadges.changes(added: d.added, removed: d.removed)))
+                    NSTextField(
+                        labelWithAttributedString: RowBadges.changes(added: details.added, removed: details.removed)))
             }
         }
         let copyTitle = String(localized: "Copy Commit Hash")
@@ -253,22 +255,22 @@ final class CommitCardView: NSView {
         return row
     }
 
-    private static func label(_ s: String, font: NSFont) -> NSTextField {
-        let t = NSTextField(labelWithString: s)
-        t.font = font
-        t.textColor = .secondaryLabelColor
-        t.lineBreakMode = .byTruncatingTail
-        return t
+    private static func label(_ string: String, font: NSFont) -> NSTextField {
+        let field = NSTextField(labelWithString: string)
+        field.font = font
+        field.textColor = .secondaryLabelColor
+        field.lineBreakMode = .byTruncatingTail
+        return field
     }
 
-    private static func text(_ s: String, font: NSFont, color: NSColor, lines: Int) -> NSTextField {
-        let t = NSTextField(wrappingLabelWithString: s)
-        t.font = font
-        t.textColor = color
-        t.isSelectable = false
-        t.maximumNumberOfLines = lines
-        t.cell?.truncatesLastVisibleLine = true
-        t.preferredMaxLayoutWidth = width - 28
-        return t
+    private static func text(_ string: String, font: NSFont, color: NSColor, lines: Int) -> NSTextField {
+        let field = NSTextField(wrappingLabelWithString: string)
+        field.font = font
+        field.textColor = color
+        field.isSelectable = false
+        field.maximumNumberOfLines = lines
+        field.cell?.truncatesLastVisibleLine = true
+        field.preferredMaxLayoutWidth = width - 28
+        return field
     }
 }

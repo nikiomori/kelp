@@ -10,23 +10,24 @@ final class CommandOutput: NSViewController {
     private let command: AgentCommand
     private static let width = Metrics.sheetWidth
 
-    init(_ c: AgentCommand) {
-        command = c
+    init(_ command: AgentCommand) {
+        self.command = command
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let c = command
-        let title = NSTextField(wrappingLabelWithString: c.command)
+        let agentCommand = command
+        let title = NSTextField(wrappingLabelWithString: agentCommand.command)
         title.font = .uiMono(12)
         title.maximumNumberOfLines = 6
         title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at the popover's width, and says how tall that is
         title.isSelectable = true
         let said = NSTextField(
-            labelWithString: [c.description, Self.outcome(c)].compactMap { $0 }.joined(separator: " · "))
+            labelWithString: [agentCommand.description, Self.outcome(agentCommand)].compactMap { $0 }.joined(
+                separator: " · "))
         said.font = .ui(11)
-        said.textColor = c.outcome == .failed ? .textRed : .secondaryLabelColor
+        said.textColor = agentCommand.outcome == .failed ? .textRed : .secondaryLabelColor
         said.lineBreakMode = .byTruncatingTail
         said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let text = NSStackView(views: [title, said])
@@ -38,14 +39,14 @@ final class CommandOutput: NSViewController {
         text.setHuggingPriority(.required, for: .vertical)
         let line = NSBox()
         line.boxType = .separator
-        let v = NSStackView(views: [text, line, output()])
-        v.orientation = .vertical
-        v.alignment = .leading
-        v.spacing = 0
-        for x in v.arrangedSubviews { x.widthAnchor.constraint(equalTo: v.widthAnchor).isActive = true }
-        v.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-        view = v
-        preferredContentSize = v.fittingSize   // the popover's own size otherwise, whatever the text
+        let stack = NSStackView(views: [text, line, output()])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 0
+        for x in stack.arrangedSubviews { x.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
+        stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        view = stack
+        preferredContentSize = stack.fittingSize   // the popover's own size otherwise, whatever the text
     }
 
     /// What it printed, scrolled to its end; or why there's nothing to show.

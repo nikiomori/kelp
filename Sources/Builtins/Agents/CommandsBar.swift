@@ -17,8 +17,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         case run(Session), command(AgentCommand)
         var started: Date {
             switch self {
-            case .run(let s): s.createdAt
-            case .command(let c): c.started
+            case .run(let run): run.createdAt
+            case .command(let command): command.started
             }
         }
     }
@@ -79,19 +79,20 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         consoleBox.clipsToBounds = true
         header.press = { [weak self] in self?.fold(self?.unfolded == true) }
         header.contextMenu = { [weak self] in self?.headerMenu() }
-        header.stop.onClick = { [weak self] in if let s = self?.current { self?.stop(s) } }
-        header.toTab.onClick = { [weak self] in if let s = self?.current { self?.moveToTab(s) } }
+        header.stop.onClick = { [weak self] in if let run = self?.current { self?.stop(run) } }
+        header.toTab.onClick = { [weak self] in if let run = self?.current { self?.moveToTab(run) } }
         grip.isHidden = true
         grip.dragged = { [weak self] in self?.drag(by: $0) }
         for v in [line, header, scroll, consoleBox, grip] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
-        let h = heightAnchor.constraint(equalToConstant: 0), lh = scroll.heightAnchor.constraint(equalToConstant: 0)
+        let barHeight = heightAnchor.constraint(equalToConstant: 0),
+            lh = scroll.heightAnchor.constraint(equalToConstant: 0)
         let ch = consoleBox.heightAnchor.constraint(equalToConstant: 0)
-        (height, listHeight, consoleHeight) = (h, lh, ch)
+        (height, listHeight, consoleHeight) = (barHeight, lh, ch)
         NSLayoutConstraint.activate([
-            h, lh, ch,
+            barHeight, lh, ch,
             line.topAnchor.constraint(equalTo: topAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
             line.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -149,9 +150,9 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     private func show(runs list: [Session]) {
         runs = list.sorted { $0.createdAt < $1.createdAt }
-        if let c = console {
-            if let s = app.session(c.sessionId), list.contains(where: { $0.id == s.id }) {
-                c.update(s)
+        if let console {
+            if let run = app.session(console.sessionId), list.contains(where: { $0.id == run.id }) {
+                console.update(run)
             } else {
                 closeConsole()
             }
@@ -172,7 +173,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     /// The run the folded line speaks of: the newest still running, else the last thing it ran if that's a run.
     private var current: Session? {
-        runs.last { $0.status != .exited } ?? { if case .run(let s)? = items.last { s } else { nil } }()
+        runs.last { $0.status != .exited } ?? { if case .run(let run)? = items.last { run } else { nil } }()
     }
 
     /// Unfolds or folds the list and the console; the terminal over it keeps its size until they stop, or it would redraw
@@ -182,8 +183,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         if fold {
             popover.close()
             closeConsole()
-        } else if let s = current {
-            open(s)
+        } else if let run = current {
+            open(run)
         }
         layOut(animated: true)
         header.chevron.turn(from: .pi)
@@ -194,14 +195,15 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func open(_ s: Session) {
         guard console?.sessionId != s.id else { return }
         console?.removeFromSuperview()
-        let p = PaneView(session: s, app: app, embedded: true)
-        console = p
-        consoleBox.pin(p)
+        let pane = PaneView(session: s, app: app, embedded: true)
+        console = pane
+        consoleBox.pin(pane)
         grip.isHidden = false
         guard escape == nil else { return }
-        escape = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-            guard e.keyCode == 53, let self, let r = window?.firstResponder as? NSView, r.isDescendant(of: consoleBox)
-            else { return e }
+        escape = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53, let self, let responder = window?.firstResponder as? NSView,
+                responder.isDescendant(of: consoleBox)
+            else { return event }
             fold(true)
             onClosed?()
             return nil
@@ -299,20 +301,21 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         let now = Date()
         showHeader(now)
         guard unfolded else { return }
-        for (r, item) in items.enumerated() {
-            guard let row = table.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommandRow else { continue }
+        for (index, item) in items.enumerated() {
+            guard let row = table.view(atColumn: 0, row: index, makeIfNecessary: false) as? CommandRow else { continue }
             switch item {
-            case .run(let s) where s.status != .exited: row.show(run: s, tail: tails[s.id], page: port(of: s), now: now)
-            case .command(let c) where c.outcome == nil: row.show(c, now: now)
+            case .run(let run) where run.status != .exited:
+                row.show(run: run, tail: tails[run.id], page: port(of: run), now: now)
+            case .command(let command) where command.outcome == nil: row.show(command, now: now)
             default: break
             }
         }
     }
 
     /// The page a run serves: the port on this Mac.
-    private func port(of s: Session) -> Int? {
-        s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first {
-            $0.session == s.id && ServedPages.listed($0)
+    private func port(of run: Session) -> Int? {
+        run.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first {
+            $0.session == run.id && ServedPages.listed($0)
         }.map { $0.here ?? $0.port }
     }
 
@@ -322,10 +325,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         guard !reading, !want.isEmpty, window != nil else { return }
         reading = true
         Task {
-            for s in want {
-                guard let text = await app.quiet(SessionRead(id: s.id, bytes: 2048)) else { continue }
-                tails[s.id] = Self.lastLine(text) ?? tails[s.id] ?? ""
-                if s.status == .exited { finalTails.insert(s.id) }
+            for run in want {
+                guard let text = await app.quiet(SessionRead(id: run.id, bytes: 2048)) else { continue }
+                tails[run.id] = Self.lastLine(text) ?? tails[run.id] ?? ""
+                if run.status == .exited { finalTails.insert(run.id) }
             }
             reading = false
             showHeader(Date())
@@ -352,62 +355,66 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func showItem(_ row: Int) {
         guard items.indices.contains(row) else { return }
         switch items[row] {
-        case .run(let s):
-            open(s)
+        case .run(let run):
+            open(run)
             layOut(animated: true)
-        case .command(let c):
-            popover.contentViewController = CommandOutput(c)
+        case .command(let command):
+            popover.contentViewController = CommandOutput(command)
             popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
         }
     }
 
     /// A command's row.
-    func menuNeedsUpdate(_ m: NSMenu) {
-        m.removeAllItems()
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         let row = table.clickedRow
         guard items.indices.contains(row) else { return }
         switch items[row] {
-        case .run(let s): add(run: s, to: m)
-        case .command(let c):
-            m.add(String(localized: "Show Output")) { [weak self] in self?.showItem(row) }
-            addCopy(to: m, c.command)
+        case .run(let run): add(run: run, to: menu)
+        case .command(let command):
+            menu.add(String(localized: "Show Output")) { [weak self] in self?.showItem(row) }
+            addCopy(to: menu, command.command)
         }
     }
-    private func add(run s: Session, to m: NSMenu) {
-        m.add(String(localized: "Open in Tab")) { [weak self] in self?.moveToTab(s) }
-        if s.status != .exited { m.add(String(localized: "Stop")) { [weak self] in self?.stop(s) } }
-        addCopy(to: m, s.argv.last ?? s.command)
+    private func add(run: Session, to menu: NSMenu) {
+        menu.add(String(localized: "Open in Tab")) { [weak self] in self?.moveToTab(run) }
+        if run.status != .exited { menu.add(String(localized: "Stop")) { [weak self] in self?.stop(run) } }
+        addCopy(to: menu, run.argv.last ?? run.command)
     }
-    private func addCopy(to m: NSMenu, _ command: String) {
-        m.add(String(localized: "Copy Command")) {
+    private func addCopy(to menu: NSMenu, _ command: String) {
+        menu.add(String(localized: "Copy Command")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(command, forType: .string)
         }
     }
     /// The bar's own line: its last command, and the way to turn the shell tool's commands off.
     private func headerMenu() -> NSMenu {
-        let m = NSMenu(), app = app
-        if let s = current { add(run: s, to: m) } else if let last = commands.last { addCopy(to: m, last.command) }
-        if m.numberOfItems > 0 { m.addItem(.separator()) }
+        let menu = NSMenu(), app = app
+        if let run = current {
+            add(run: run, to: menu)
+        } else if let last = commands.last {
+            addCopy(to: menu, last.command)
+        }
+        if menu.numberOfItems > 0 { menu.addItem(.separator()) }
         if !commands.isEmpty {
-            m.add(String(localized: "Hide Commands Bar")) {
+            menu.add(String(localized: "Hide Commands Bar")) {
                 app.settings.set("agents.commandsBar", .bool(false))
                 Banner.show(String(localized: "The commands bar is hidden. Settings › Agents brings it back."))
             }
         }
-        m.addSettingsLink(String(localized: "Agents Settings…"), section: "agents", app)
-        return m
+        menu.addSettingsLink(String(localized: "Agents Settings…"), section: "agents", app)
+        return menu
     }
 
     func numberOfRows(in t: NSTableView) -> Int { items.count }
     func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let v = t.makeView(withIdentifier: CommandRow.id, owner: nil) as? CommandRow ?? CommandRow()
+        let cell = t.makeView(withIdentifier: CommandRow.id, owner: nil) as? CommandRow ?? CommandRow()
         switch items[row] {
-        case .run(let s): v.show(run: s, tail: tails[s.id], page: port(of: s), now: Date())
-        case .command(let command): v.show(command, now: Date())
+        case .run(let run): cell.show(run: run, tail: tails[run.id], page: port(of: run), now: Date())
+        case .command(let command): cell.show(command, now: Date())
         }
-        return v
+        return cell
     }
 }
 
@@ -433,10 +440,10 @@ private final class Header: PointerControl {
             b.restFill = .fillHover
             b.isHidden = true
         }
-        let s = NSStackView(views: [row, stop, toTab, chevron])
-        s.spacing = Metrics.gap
-        s.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: Metrics.inset)
-        pin(s)
+        let stack = NSStackView(views: [row, stop, toTab, chevron])
+        stack.spacing = Metrics.gap
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: Metrics.inset)
+        pin(stack)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
     }
@@ -510,27 +517,27 @@ final class CommandRow: NSTableCellView {
             server.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
             server.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
         ])
-        let s = NSStackView(views: [slot, lead, command, time])
-        s.spacing = Metrics.gapWide
-        s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        pin(s)
+        let stack = NSStackView(views: [slot, lead, command, time])
+        stack.spacing = Metrics.gapWide
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        pin(stack)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// A command with a terminal: its name, what it last printed, or how it ended. Green ▶ while it serves a page.
-    func show(run s: Session, tail: String?, page: Int?, now: Date) {
-        let live = s.status != .exited, serving = live && page != nil
-        let status = live ? AgentStatus.working : Self.status(exit: s.exitCode)
+    func show(run: Session, tail: String?, page: Int?, now: Date) {
+        let live = run.status != .exited, serving = live && page != nil
+        let status = live ? AgentStatus.working : Self.status(exit: run.exitCode)
         mark.status = serving ? nil : status
         server.isHidden = !serving
         slot.isHidden = false
         lead.font = .ui(11, weight: .medium)
-        lead.stringValue = s.displayTitle
+        lead.stringValue = run.displayTitle
         command.textColor = status == .error ? .textRed : .secondaryLabelColor
-        command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(s, tail: tail)
+        command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(run, tail: tail)
         time.stringValue = shortSpan(
-            (live ? now : s.statusAt ?? now).timeIntervalSince(s.createdAt), units: 2, smallest: .second)
-        toolTip = s.argv.last ?? s.command
+            (live ? now : run.statusAt ?? now).timeIntervalSince(run.createdAt), units: 2, smallest: .second)
+        toolTip = run.argv.last ?? run.command
     }
 
     /// Exit 0 ✓, a signal it was stopped with (SIGINT, SIGKILL, SIGTERM) a grey ✕, anything else a failure.

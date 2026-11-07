@@ -56,11 +56,11 @@ struct AccountsSettings: View {
                     .roundedBorder
                 ).frame(minWidth: 110)
                 Button("Add") {
-                    let n = newName.trimmingCharacters(in: .whitespaces)
-                    guard !n.isEmpty else { return }
+                    let name = newName.trimmingCharacters(in: .whitespaces)
+                    guard !name.isEmpty else { return }
                     profiles.append(
                         AccountProfile(
-                            name: n, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: n)))
+                            name: name, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: name)))
                     newName = ""
                     Task { await Accounts.save(app, profiles) }
                 }
@@ -79,33 +79,33 @@ struct AccountsSettings: View {
 
     /// Opens the agent in that profile so the user can run its login flow once.
     private func login() {
-        guard let p = profiles.first(where: { $0.id == selection }) else { return }
+        guard let profile = profiles.first(where: { $0.id == selection }) else { return }
         guard let wid = app.workbench.workspaceId else {
-            Banner.show(String(localized: "Open a chat to log in to \(p.name) there."))
+            Banner.show(String(localized: "Open a chat to log in to \(profile.name) there."))
             return
         }
         Task {
             guard
-                let s = await app.call(
+                let session = await app.call(
                     SessionCreate(
-                        worktreeId: wid, agent: p.agent, title: String(localized: "Log in: \(p.name)"),
-                        profile: p.name))
+                        worktreeId: wid, agent: profile.agent, title: String(localized: "Log in: \(profile.name)"),
+                        profile: profile.name))
             else { return }
-            app.upsert(s)
-            app.workbench.open(TabURI.session(s.id))
+            app.upsert(session)
+            app.workbench.open(TabURI.session(session.id))
             app.workbench.bringToFront()
         }
     }
 
     /// Kelp forgets the profile; its folder, with the login in it, stays where it is.
     private func remove() {
-        guard let p = profiles.first(where: { $0.id == selection }) else { return }
+        guard let profile = profiles.first(where: { $0.id == selection }) else { return }
         Task {
             let question = NSAlert(
-                question: String(localized: "Remove the profile “\(p.name)”?"),
-                detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove"))
+                question: String(localized: "Remove the profile “\(profile.name)”?"),
+                detail: String(localized: "Its login stays in \(profile.dir)."), action: String(localized: "Remove"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
-            profiles.removeAll { $0.id == p.id }
+            profiles.removeAll { $0.id == profile.id }
             await Accounts.save(app, profiles)
         }
     }

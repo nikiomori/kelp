@@ -18,8 +18,8 @@ struct YearBoard: View {
             cal.date(
                 byAdding: .weekOfYear, value: 1 - Self.weeks,
                 to: cal.dateInterval(of: .weekOfYear, for: today)?.start ?? today) ?? today
-        let columns = (0..<Self.weeks).map { w in
-            (0..<7).compactMap { cal.date(byAdding: .day, value: w * 7 + $0, to: first) }
+        let columns = (0..<Self.weeks).map { week in
+            (0..<7).compactMap { cal.date(byAdding: .day, value: week * 7 + $0, to: first) }
         }
         let bounds = Self.quarters(values.values.filter { $0 > 0 })
         VStack(alignment: .leading, spacing: 6) {
@@ -33,17 +33,17 @@ struct YearBoard: View {
                     }
                 }
                 .padding(.trailing, 4)
-                ForEach(columns.indices, id: \.self) { w in
+                ForEach(columns.indices, id: \.self) { week in
                     VStack(spacing: Self.gap) {
                         // A month's name over the week it starts in.
                         Text(
-                            w > 0
-                                && cal.component(.month, from: columns[w][0])
-                                    != cal.component(.month, from: columns[w - 1][0])
-                                ? columns[w][0].formatted(.dateTime.month(.abbreviated)) : " "
+                            week > 0
+                                && cal.component(.month, from: columns[week][0])
+                                    != cal.component(.month, from: columns[week - 1][0])
+                                ? columns[week][0].formatted(.dateTime.month(.abbreviated)) : " "
                         )
                         .fixedSize().frame(width: Self.tile, height: Self.tile, alignment: .leading)
-                        ForEach(columns[w], id: \.self) { day in
+                        ForEach(columns[week], id: \.self) { day in
                             if day > today {
                                 Color.clear.frame(width: Self.tile, height: Self.tile)
                             } else {
@@ -72,8 +72,8 @@ struct YearBoard: View {
 
     /// The values at a quarter, half and three quarters of the days that used anything.
     nonisolated static func quarters(_ used: [Double]) -> [Double] {
-        let s = used.sorted()
-        return s.isEmpty ? [] : [0.25, 0.5, 0.75].map { s[Int(Double(s.count - 1) * $0)] }
+        let sorted = used.sorted()
+        return sorted.isEmpty ? [] : [0.25, 0.5, 0.75].map { sorted[Int(Double(sorted.count - 1) * $0)] }
     }
 
     /// 0 for nothing, else 1–4: which quarter of the busy days it falls in.

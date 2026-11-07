@@ -36,14 +36,14 @@ extension DiffViewController {
             guard
                 let prompt = await app.call(
                     RecipeRender(id: wid, name: "reviewWith", vars: ["scope": scope, "command": command])),
-                let s = await app.call(
+                let session = await app.call(
                     SessionCreate(
                         worktreeId: wid, agent: a.id, model: model, prompt: prompt,
                         title: Self.reviewTitle(a.name)))
             else { return }
-            app.upsert(s)
-            reviewer = s.id
-            app.workbench.open(TabURI.session(s.id), split: .right, focus: false)
+            app.upsert(session)
+            reviewer = session.id
+            app.workbench.open(TabURI.session(session.id), split: .right, focus: false)
             status.stringValue = String(localized: "\(a.name) is reviewing; its findings show here as it leaves them")
         }
     }
@@ -53,17 +53,20 @@ extension DiffViewController {
 
     /// What the diff shows, in words and as the command that prints it, for the reviewer.
     func reviewScope(_ wid: String) -> (String, String) {
-        if let s = single {
-            let f = IDE.shellWord(s.file)
-            if let c = s.commit {
+        if let single {
+            let file = IDE.shellWord(single.file)
+            if let commit = single.commit {
                 return (
-                    String(localized: "the changes to \(s.file) in commit \(c)"),
-                    "git show " + IDE.shellWord(c) + " -- " + f
+                    String(localized: "the changes to \(single.file) in commit \(commit)"),
+                    "git show " + IDE.shellWord(commit) + " -- " + file
                 )
             }
             let base = IDE.shellWord((app.worktree(wid)?.base ?? "main") + "...HEAD")
             let how = ["unstaged": "git diff", "staged": "git diff --cached", "branch": "git diff " + base]
-            return (String(localized: "the changes to \(s.file)"), (how[s.source] ?? "git diff HEAD") + " -- " + f)
+            return (
+                String(localized: "the changes to \(single.file)"),
+                (how[single.source] ?? "git diff HEAD") + " -- " + file
+            )
         }
         switch source.indexOfSelectedItem {
         case 1: return (String(localized: "the unstaged changes"), "git diff")

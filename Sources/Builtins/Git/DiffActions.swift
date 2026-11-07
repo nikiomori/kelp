@@ -8,15 +8,15 @@ extension DiffViewController {
     // MARK: actions
     /// The hunk a button stands for, by what identifies it (file and "@@" header), read when it's clicked: indices go
     /// stale as soon as the diff reloads.
-    private func hunk(_ b: NSButton) -> (path: String, index: Int, hunk: Hunk)? {
-        let f = b.tag / 10000, h = b.tag % 10000
-        guard diffs.indices.contains(f), diffs[f].hunks.indices.contains(h) else { return nil }
-        return (diffs[f].path, h, diffs[f].hunks[h])
+    private func hunk(_ button: NSButton) -> (path: String, index: Int, hunk: Hunk)? {
+        let fileIndex = button.tag / 10000, hunkIndex = button.tag % 10000
+        guard diffs.indices.contains(fileIndex), diffs[fileIndex].hunks.indices.contains(hunkIndex) else { return nil }
+        return (diffs[fileIndex].path, hunkIndex, diffs[fileIndex].hunks[hunkIndex])
     }
 
-    @objc func hunkAction(_ b: NSButton) {
-        guard let wid = worktreeId, let (path, i, h) = hunk(b) else { return }
-        let staged = hunksStaged(b.tag / 10000) == true
+    @objc func hunkAction(_ button: NSButton) {
+        guard let wid = worktreeId, let (path, i, h) = hunk(button) else { return }
+        let staged = hunksStaged(button.tag / 10000) == true
         Task {
             await app.call(
                 GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
@@ -25,16 +25,16 @@ extension DiffViewController {
         }
     }
     /// A hunk goes at once: the banner's Undo brings it back.
-    @objc func discardHunk(_ b: NSButton) {
-        guard let wid = worktreeId, let (path, h, shown) = hunk(b) else { return }
+    @objc func discardHunk(_ button: NSButton) {
+        guard let wid = worktreeId, let (path, h, shown) = hunk(button) else { return }
         let file = (path as NSString).lastPathComponent
         Task {
             // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
             let undo = UUID().uuidString
-            let m = GitDiscardHunk(
+            let request = GitDiscardHunk(
                 id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint, undo: undo)
-            if let e = await app.tryCall(m).error {
-                Banner.show(e, style: .error)
+            if let error = await app.tryCall(request).error {
+                Banner.show(error, style: .error)
             } else {
                 app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) {
                     await self.load()
@@ -58,11 +58,11 @@ extension DiffViewController {
         let live = single?.commit == nil && (0...2).contains(source.indexOfSelectedItem)
         guard live, let wid = worktreeId, diffs.indices.contains(row) else { return }
         let path = diffs[row].path
-        guard let c = changes.first(where: { $0.path == path }) else { return }
-        if c.unstaged || !c.staged {
+        guard let change = changes.first(where: { $0.path == path }) else { return }
+        if change.unstaged || !change.staged {
             m.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) }
         }
-        if c.staged {
+        if change.staged {
             m.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) }
         }
         m.addItem(.separator())
@@ -88,10 +88,10 @@ extension DiffViewController {
         m.removeAllItems()
         guard rows.indices.contains(row) else { return }
         if let (path, line) = shownLine(row) { return lineItems(m, row, path, line) }
-        guard case .comment(let c) = rows[row] else { return }
-        func state(_ title: String, _ s: String) { m.add(title) { [weak self] in self?.setComment(c.id, s) } }
-        if c.state != .resolved { state(String(localized: "Mark Resolved"), "resolved") }
-        if c.state != .open { state(String(localized: "Reopen"), "open") }
+        guard case .comment(let comment) = rows[row] else { return }
+        func state(_ title: String, _ s: String) { m.add(title) { [weak self] in self?.setComment(comment.id, s) } }
+        if comment.state != .resolved { state(String(localized: "Mark Resolved"), "resolved") }
+        if comment.state != .open { state(String(localized: "Reopen"), "open") }
     }
 
     /// The selected lines get a comment card under them (`DiffDraft`).
@@ -102,10 +102,10 @@ extension DiffViewController {
 
     /// The file and the line a row of the diff shows, the new side's when it has both.
     func shownLine(_ row: Int) -> (String, DiffLine)? {
-        guard case .diff(let d) = rows[row] else { return nil }
-        switch d {
-        case .line(let f, let l): return (diffs[f].path, l)
-        case .pair(let f, let l, let r): return (r ?? l).map { (diffs[f].path, $0) }
+        guard case .diff(let diffRow) = rows[row] else { return nil }
+        switch diffRow {
+        case .line(let file, let line): return (diffs[file].path, line)
+        case .pair(let file, let removed, let added): return (added ?? removed).map { (diffs[file].path, $0) }
         default: return nil
         }
     }
@@ -115,8 +115,8 @@ extension DiffViewController {
             if !table.selectedRowIndexes.contains(row) { table.selectRowIndexes([row], byExtendingSelection: false) }
             addComment()
         }
-        if let n = line.newLine {
-            m.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, n) }
+        if let number = line.newLine {
+            m.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, number) }
         }
         m.add(String(localized: "Copy Line")) {
             NSPasteboard.general.clearContents()
@@ -146,16 +146,16 @@ extension DiffViewController {
             return nil
         }
         let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26))
-        for s in live {
-            pop.addItem(withTitle: "\(s.agent ?? "shell") [\(s.id.prefix(6))]")
-            pop.lastItem?.representedObject = s.id
+        for session in live {
+            pop.addItem(withTitle: "\(session.agent ?? "shell") [\(session.id.prefix(6))]")
+            pop.lastItem?.representedObject = session.id
         }
-        let a = NSAlert()
-        a.messageText = String(localized: "Send to which agent?")
-        a.accessoryView = pop
-        a.addButton(withTitle: String(localized: "Send"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(a) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Send to which agent?")
+        alert.accessoryView = pop
+        alert.addButton(withTitle: String(localized: "Send"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        return await runSheet(alert) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
     }
 }
 

@@ -35,9 +35,9 @@ final class DiffTab: TabContent {
         self.app = app
         controller = DiffViewController(app: app)
         gitWatch = Watched(.git, in: app)
-        let c = URLComponents(string: uri)
-        worktreeId = c?.path ?? ""
-        func item(_ n: String) -> String? { c?.queryItems?.first { $0.name == n }?.value }
+        let components = URLComponents(string: uri)
+        worktreeId = components?.path ?? ""
+        func item(_ n: String) -> String? { components?.queryItems?.first { $0.name == n }?.value }
         file = item("file")
         source = item("source")
         commit = item("commit")
@@ -82,13 +82,15 @@ extension GitDiff {
         var changes: [FileChange]?, stats: LineStats?, head: String?, branches: BranchInfo?, error: String?
     }
 
-    func basis(_ e: GitEvent?) -> Basis? {
-        guard let e else { return nil }
+    func basis(_ event: GitEvent?) -> Basis? {
+        guard let event else { return nil }
         switch source ?? "all" {
-        case "branch": return Basis(branches: e.branches, error: e.error)   // HEAD against its base's merge base
-        case "commit": return Basis(head: commit == "HEAD" ? e.branches?.head : nil, error: e.error)
-        case "unstaged", "turn": return Basis(changes: e.changes, stats: e.stats, error: e.error)   // the files against the index, or a snapshot
-        default: return Basis(changes: e.changes, stats: e.stats, head: e.branches?.head, error: e.error)   // against HEAD
+        // HEAD against its base's merge base
+        case "branch": return Basis(branches: event.branches, error: event.error)
+        case "commit": return Basis(head: commit == "HEAD" ? event.branches?.head : nil, error: event.error)
+        case "unstaged", "turn": return Basis(changes: event.changes, stats: event.stats, error: event.error)   // the files against the index, or a snapshot
+        default:
+            return Basis(changes: event.changes, stats: event.stats, head: event.branches?.head, error: event.error)   // against HEAD
         }
     }
 }
@@ -109,22 +111,23 @@ final class CommitMessageTab: TabContent {
     init(uri: String, app: AppModel) {
         self.uri = uri
         self.app = app
-        let c = URLComponents(string: uri), q = c?.queryItems ?? []
-        worktreeId = c?.path ?? ""
-        push = q.contains { $0.name == "push" }
-        amend = q.contains { $0.name == "amend" }
+        let components = URLComponents(string: uri), query = components?.queryItems ?? []
+        worktreeId = components?.path ?? ""
+        push = query.contains { $0.name == "push" }
+        amend = query.contains { $0.name == "amend" }
         build()
-        let message = q.first { $0.name == "message" }?.value ?? ""
+        let message = query.first { $0.name == "message" }?.value ?? ""
         Task { await fill(message) }
     }
 
     static func uri(_ worktree: String, push: Bool = false, amend: Bool = false, message: String? = nil) -> String {
-        var c = URLComponents()
-        c.queryItems = [
+        var components = URLComponents()
+        components.queryItems = [
             push ? URLQueryItem(name: "push", value: "1") : nil, amend ? URLQueryItem(name: "amend", value: "1") : nil,
             message.map { URLQueryItem(name: "message", value: $0) }
         ].compactMap { $0 }
-        return "commit:\(worktree)" + (c.queryItems?.isEmpty == false ? "?" + (c.percentEncodedQuery ?? "") : "")
+        return "commit:\(worktree)"
+            + (components.queryItems?.isEmpty == false ? "?" + (components.percentEncodedQuery ?? "") : "")
     }
 
     private func build() {
@@ -211,9 +214,9 @@ final class CommitMessageTab: TabContent {
         }
         commitButton.isEnabled = false
         Task {
-            let r = await GitCommit.run(app, worktreeId, message: message, push: push, amend: amend)
-            if r.pushed { Banner.show(String(localized: "Pushed")) }
-            if r.committed { dismiss() }
+            let result = await GitCommit.run(app, worktreeId, message: message, push: push, amend: amend)
+            if result.pushed { Banner.show(String(localized: "Pushed")) }
+            if result.committed { dismiss() }
             commitButton.isEnabled = true
         }
     }
@@ -237,15 +240,15 @@ enum GitCommit {
     ) {
         // Unread, nothing would look staged and every change would go in: stop with the banner instead.
         guard let changes = await app.call(GitStatus(id: wid)) else { return (false, false) }
-        let r = await app.tryCall(
+        let result = await app.tryCall(
             Core.GitCommit(id: wid, message: message, all: takesEverything(changes), amend: amend))   // this enum's namesake
-        if let e = r.error {
-            GitFix(app).offer(e, recipe: "fixCommit", worktree: wid)
+        if let error = result.error {
+            GitFix(app).offer(error, recipe: "fixCommit", worktree: wid)
             return (false, false)
         }
         guard push else { return (true, false) }
-        let p = await app.tryCall(GitPush(id: wid))
-        if let e = p.error { GitFix(app).offer(e, recipe: "fixPush", worktree: wid) }
-        return (true, p.error == nil)
+        let pushResult = await app.tryCall(GitPush(id: wid))
+        if let error = pushResult.error { GitFix(app).offer(error, recipe: "fixPush", worktree: wid) }
+        return (true, pushResult.error == nil)
     }
 }

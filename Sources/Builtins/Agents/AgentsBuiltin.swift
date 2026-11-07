@@ -11,16 +11,16 @@ extension Builtins {
         "kelp.agents", "Agents & Terminals", "Agent sessions and terminals as tabs.",
         icon: "sparkles", essential: true
     ) { app in
-        var c = Contributions()
-        c.tabs = [
+        var contributions = Contributions()
+        contributions.tabs = [
             TabProvider(
                 schemes: ["session"], make: { SessionTab(uri: $0, app: app) },
                 closeUnbuilt: { await SessionTab.close(app, session: TabURI.body($0)) },
                 menu: { SessionTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) })
         ]
-        c.tabs.append(TabProvider(schemes: ["usage"]) { _ in UsageTab(app: app) })
-        c.tabs.append(TabProvider(schemes: ["subagent"]) { SubagentTab(uri: $0, app: app) })
-        c.settings = [
+        contributions.tabs.append(TabProvider(schemes: ["usage"]) { _ in UsageTab(app: app) })
+        contributions.tabs.append(TabProvider(schemes: ["subagent"]) { SubagentTab(uri: $0, app: app) })
+        contributions.settings = [
             SettingsSection(
                 id: "agents", title: "Agents", icon: "sparkles",
                 specs: [
@@ -199,7 +199,7 @@ extension Builtins {
                     )
                 ], order: 60)
         ]
-        c.commands = [
+        contributions.commands = [
             CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in
                 editor(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)
             },
@@ -219,6 +219,6 @@ extension Builtins {
                     "power.keepAwake", app.settings.string("power.keepAwake") == "always" ? nil : .string("always"))
             }
         ]
-        return c
+        return contributions
     }
 }

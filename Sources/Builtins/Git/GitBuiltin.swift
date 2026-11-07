@@ -11,30 +11,30 @@ extension Builtins {
         "kelp.git", "Source Control", "Changes and staging, commits, branches, the history graph and diffs, with Git.",
         icon: "arrow.triangle.branch"
     ) { app in
-        var c = Contributions()
-        c.tabs = [
+        var contributions = Contributions()
+        contributions.tabs = [
             TabProvider(schemes: ["diff"]) { DiffTab(uri: $0, app: app) },
             TabProvider(schemes: ["commit"]) { CommitMessageTab(uri: $0, app: app) }
         ]
         let changed = ChangedFiles(app: app)
         let panel = LivePanel()
-        c.panels = [
+        contributions.panels = [
             PanelSpec(
                 id: "git.changes", title: "Source Control", icon: "arrow.triangle.branch", extensionId: "kelp.git",
                 role: .changes,
                 badge: { changed.count > 0 ? PanelBadge(count: changed.count) : nil }
             ) {
-                let p = SourceControlController(app: app)
-                panel.controller = p
-                return p
+                let controller = SourceControlController(app: app)
+                panel.controller = controller
+                return controller
             }
         ]
-        c.editors = [
+        contributions.editors = [
             EditorSpec(
                 id: "git.review", title: "Review Changes", icon: "plus.forwardslash.minus",
                 uri: { ctx in ctx.workspace.map { DiffTab.uri($0.id) } })
         ]
-        c.settings = [
+        contributions.settings = [
             SettingsSection(
                 id: "git", title: "Source Control", icon: "arrow.triangle.branch",
                 specs: [
@@ -65,19 +65,19 @@ extension Builtins {
                         "The newest run of each workflow; a click opens CI Runs.", group: "CI")
                 ], order: 80)
         ]
-        c.commands = [
+        contributions.commands = [
             CommandSpec(id: "git.review", title: "Git: Review Changes", key: "shift+cmd+r") { _ in
-                if let w = app.workbench.workspaceId { app.workbench.open(DiffTab.uri(w)) }
+                if let workspace = app.workbench.workspaceId { app.workbench.open(DiffTab.uri(workspace)) }
             },
             CommandSpec(id: "git.pullRequest", title: "Git: Create Pull Request") { _ in
-                if let w = app.workbench.workspaceId { PRActions(app).create(worktree: w) }
+                if let workspace = app.workbench.workspaceId { PRActions(app).create(worktree: workspace) }
             },
             // The panel's quick actions, with their keys: through the panel when it's built (its message, its progress).
             CommandSpec(id: "git.commit", title: "Git: Commit", key: "opt+cmd+c") { _ in
-                if let p = panel.controller, p.worktreeId == app.workbench.workspaceId {
-                    p.commitPressed()
-                } else if let w = app.workbench.workspaceId {
-                    app.workbench.open(CommitMessageTab.uri(w))
+                if let controller = panel.controller, controller.worktreeId == app.workbench.workspaceId {
+                    controller.commitPressed()
+                } else if let workspace = app.workbench.workspaceId {
+                    app.workbench.open(CommitMessageTab.uri(workspace))
                 }
             },
             CommandSpec(id: "git.pull", title: "Git: Pull", key: "opt+cmd+x") { _ in
@@ -90,7 +90,7 @@ extension Builtins {
                 remote(app, panel, "fetch", String(localized: "Fetched")) { $0.fetchPressed() }
             }
         ]
-        return c
+        return contributions
     }
 }
 
@@ -102,10 +102,10 @@ private final class LivePanel { weak var controller: SourceControlController? }
 private func remote(
     _ app: AppModel, _ panel: LivePanel, _ op: String, _ done: String, _ viaPanel: (SourceControlController) -> Void
 ) {
-    guard let w = app.workbench.workspaceId else { return }
-    if let p = panel.controller, p.worktreeId == w {
-        viaPanel(p)
+    guard let workspace = app.workbench.workspaceId else { return }
+    if let controller = panel.controller, controller.worktreeId == workspace {
+        viaPanel(controller)
         return
     }
-    Task { if await app.call(GitRemoteOp(id: w, op: op)) != nil { Banner.show(done) } }
+    Task { if await app.call(GitRemoteOp(id: workspace, op: op)) != nil { Banner.show(done) } }
 }

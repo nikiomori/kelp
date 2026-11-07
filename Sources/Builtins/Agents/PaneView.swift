@@ -78,37 +78,38 @@ final class PaneView: NSView {
     }
 
     private func buildTerminal(_ s: Session) {
-        let id = s.id, g = Self.terminal(s)
-        ghostty = g
-        g.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(g, positioned: .below, relativeTo: nil)
+        let id = s.id, terminal = Self.terminal(s)
+        ghostty = terminal
+        terminal.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(terminal, positioned: .below, relativeTo: nil)
         NSLayoutConstraint.activate([
-            g.topAnchor.constraint(equalTo: topAnchor), g.leadingAnchor.constraint(equalTo: leadingAnchor),
-            g.trailingAnchor.constraint(equalTo: trailingAnchor),
-            g.bottomAnchor.constraint(equalTo: endedSlot.topAnchor)
+            terminal.topAnchor.constraint(equalTo: topAnchor),
+            terminal.leadingAnchor.constraint(equalTo: leadingAnchor),
+            terminal.trailingAnchor.constraint(equalTo: trailingAnchor),
+            terminal.bottomAnchor.constraint(equalTo: endedSlot.topAnchor)
         ])
-        g.onExit = { [weak self] in
+        terminal.onExit = { [weak self] in
             self?.attached = false
             self?.settle()
         }
-        g.onSearch = { [weak self] in self?.searchEvent($0) }
+        terminal.onSearch = { [weak self] in self?.searchEvent($0) }
         // Paths the agent prints are its folder's: its own worktree once it went into one.
         let cwd = { [app] in app.session(id)?.currentDir ?? s.cwd }, wid = s.worktreeId
         let projects = { [app] in app.repos.map(\.path) }, app = app
-        g.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), workspace: wid, in: app) }
-        g.onPasteRefused = {
+        terminal.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), workspace: wid, in: app) }
+        terminal.onPasteRefused = {
             Banner.show(
                 String(
                     localized:
                         "Not pasted: a program put these lines on the clipboard, and this terminal would run them as typed. Copy them yourself to paste here."
                 ))
         }
-        g.onOpenPath = { token, flags in
+        terminal.onOpenPath = { token, flags in
             TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), flags: flags, in: app)
         }
-        g.onHoverWord = { [weak self, weak g] tokens, rect in
-            guard let self, let g else { return }
-            self.preview.show(tokens, rect: rect, in: g, cwd: cwd(), worktree: wid)
+        terminal.onHoverWord = { [weak self, weak terminal] tokens, rect in
+            guard let self, let terminal else { return }
+            self.preview.show(tokens, rect: rect, in: terminal, cwd: cwd(), worktree: wid)
         }
     }
 
@@ -143,20 +144,22 @@ final class PaneView: NSView {
     /// does) or on Resume, never on screen right after its pause. Against the same daemon that's one history replay,
     /// nothing lost. Ended: "Session ended".
     private func settle(shown: Bool = false) {
-        let s = app.session(sessionId), m = app
-        if s?.status == .paused, let was = lastStatus, was != .paused { attached = false }
-        lastStatus = s?.status
-        if let s, s.status != .exited, m.connected, window != nil, m.connections != attachedTo || shown && !attached {
-            reattach(s)
+        let session = app.session(sessionId), model = app
+        if session?.status == .paused, let was = lastStatus, was != .paused { attached = false }
+        lastStatus = session?.status
+        if let session, session.status != .exited, model.connected, window != nil,
+            model.connections != attachedTo || shown && !attached
+        {
+            reattach(session)
         }
-        let paused = !attached && s?.status == .paused
-        let stopped = !embedded && (!attached || s?.status == .exited)
+        let paused = !attached && session?.status == .paused
+        let stopped = !embedded && (!attached || session?.status == .exited)
         if stopped != (endedHeight.constant > 0) {
             endedHeight.constant = stopped ? endedBar.fittingSize.height : 0
             if stopped { endedBar.comeIn() }
         }
         // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
-        let lost = s?.connectionLost == true
+        let lost = session?.connectionLost == true
         endedLabel.stringValue =
             paused
             ? String(localized: "Paused")
@@ -210,11 +213,14 @@ final class PaneView: NSView {
     /// A local link in a terminal of a remote project means the host: `url` with the port it has on this Mac. As it was
     /// on this Mac's own projects, nil when it can't be brought here.
     private static func hostLink(_ url: String, in wid: String?, _ app: AppModel) async -> String? {
-        guard let wid, app.worktree(wid).flatMap({ RemoteHost.of($0.path) }) != nil, var u = URLComponents(string: url)
+        guard let wid, app.worktree(wid).flatMap({ RemoteHost.of($0.path) }) != nil,
+            var components = URLComponents(string: url)
         else { return url }
-        guard let f = await app.call(PortsForward(worktreeId: wid, port: u.port ?? 80)) else { return nil }
-        u.port = f.port
-        return u.string
+        guard let forward = await app.call(PortsForward(worktreeId: wid, port: components.port ?? 80)) else {
+            return nil
+        }
+        components.port = forward.port
+        return components.string
     }
 
     static func openLink(_ url: URL, cwd: String, elsewhere: [String], workspace wid: String? = nil, in app: AppModel) {
@@ -231,21 +237,21 @@ final class PaneView: NSView {
         }
         let option = NSEvent.modifierFlags.contains(.option)
         switch PreviewLinks.target(url) {
-        case .web(let s):
+        case .web(let link):
             let local = url.host == "localhost" || url.host == "127.0.0.1"
             guard local else {
-                if option { app.workbench.open(s, split: .right) } else { PreviewLinks.openOutside(url) }
+                if option { app.workbench.open(link, split: .right) } else { PreviewLinks.openOutside(url) }
                 return
             }
             Task {
-                guard let here = await hostLink(s, in: wid, app) else { return }
+                guard let here = await hostLink(link, in: wid, app) else { return }
                 if option {
                     URL(string: here).map(PreviewLinks.openOutside)
                 } else {
                     app.workbench.open(here, split: .right)
                 }
             }
-        case .file(let p): app.workbench.open(TabURI.file(p), split: .right)
+        case .file(let path): app.workbench.open(TabURI.file(path), split: .right)
         case .mail, .refused: PreviewLinks.openOutside(url)   // which says why another app's scheme doesn't open
         }
     }
@@ -274,9 +280,9 @@ final class PaneView: NSView {
 
     /// Columns × rows now; the last one seen anywhere (`app.workbench.terminalGrid`) sizes the next terminal before it's on screen.
     var gridSize: (cols: Int, rows: Int)? {
-        if let g = ghostty?.gridSize {
-            app.workbench.terminalGrid = g
-            return g
+        if let grid = ghostty?.gridSize {
+            app.workbench.terminalGrid = grid
+            return grid
         }
         return nil
     }
@@ -289,91 +295,92 @@ final class PaneView: NSView {
 
     /// Right-click where the program in the terminal doesn't take the mouse itself, like Terminal's menu.
     override func menu(for event: NSEvent) -> NSMenu? {
-        guard let g = ghostty else { return nil }
-        let m = NSMenu()
-        m.addItem(
+        guard let terminal = ghostty else { return nil }
+        let menu = NSMenu()
+        menu.addItem(
             withTitle: String(localized: "Copy"), action: #selector(GhosttyTerminalView.copy(_:)), keyEquivalent: ""
-        ).target = g
-        m.items.last?.isEnabled = g.hasSelection
-        m.autoenablesItems = false
-        m.addItem(
+        ).target = terminal
+        menu.items.last?.isEnabled = terminal.hasSelection
+        menu.autoenablesItems = false
+        menu.addItem(
             withTitle: String(localized: "Paste"), action: #selector(GhosttyTerminalView.paste(_:)), keyEquivalent: ""
-        ).target = g
-        m.addItem(
+        ).target = terminal
+        menu.addItem(
             withTitle: String(localized: "Select All"), action: #selector(GhosttyTerminalView.selectAll(_:)),
             keyEquivalent: ""
-        ).target = g
-        m.addItem(.separator())
+        ).target = terminal
+        menu.addItem(.separator())
         let shell = app.session(sessionId)?.agent == "shell"
-        if shell, let text = g.selection, !text.isEmpty {   // a build's error, handed over without copying it
-            m.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
+        if shell, let text = terminal.selection, !text.isEmpty {   // a build's error, handed over without copying it
+            menu.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
         }
-        m.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
-        if shell { m.add(String(localized: "Clear")) { _ = g.perform(action: "clear_screen") } }
-        if embedded { return m }
-        m.addItem(.separator())
-        m.add(String(localized: "Split Right")) { [weak self] in
+        menu.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
+        if shell { menu.add(String(localized: "Clear")) { _ = terminal.perform(action: "clear_screen") } }
+        if embedded { return menu }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Split Right")) { [weak self] in
             self?.focus()
             self?.app.workbench.editor?.splitFocused(.right)
         }
-        m.add(String(localized: "Split Down")) { [weak self] in
+        menu.add(String(localized: "Split Down")) { [weak self] in
             self?.focus()
             self?.app.workbench.editor?.splitFocused(.down)
         }
-        return m
+        return menu
     }
 
     // MARK: find (Edit › Find reaches the pane through the responder chain)
     private var findBar: FindCard?
 
     @objc func performFindPanelAction(_ sender: Any?) {
-        guard let g = ghostty else { return }
+        guard let terminal = ghostty else { return }
         switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
-        case .next?: g.perform(action: "navigate_search:next")
-        case .previous?: g.perform(action: "navigate_search:previous")
-        case .setFindString?: g.perform(action: "search_selection")   // Ghostty answers with start_search and the text
+        case .next?: terminal.perform(action: "navigate_search:next")
+        case .previous?: terminal.perform(action: "navigate_search:previous")
+        // Ghostty answers with start_search and the text
+        case .setFindString?: terminal.perform(action: "search_selection")
         default: showFind(nil)
         }
     }
 
     private func showFind(_ needle: String?) {
-        guard let g = ghostty else { return }
+        guard let terminal = ghostty else { return }
         let bar =
             findBar
             ?? {
-                let b = FindCard()
-                b.onSearch = { g.perform(action: "search:" + $0) }
-                b.onStep = { g.perform(action: "navigate_search:" + ($0 ? "next" : "previous")) }
-                b.onClose = { [weak self] in
-                    g.perform(action: "end_search")
+                let card = FindCard()
+                card.onSearch = { terminal.perform(action: "search:" + $0) }
+                card.onStep = { terminal.perform(action: "navigate_search:" + ($0 ? "next" : "previous")) }
+                card.onClose = { [weak self] in
+                    terminal.perform(action: "end_search")
                     self?.focus()
                 }
-                b.translatesAutoresizingMaskIntoConstraints = false
-                addSubview(b)
+                card.translatesAutoresizingMaskIntoConstraints = false
+                addSubview(card)
                 NSLayoutConstraint.activate([
-                    b.topAnchor.constraint(equalTo: g.topAnchor, constant: 8),
-                    b.trailingAnchor.constraint(equalTo: g.trailingAnchor, constant: -14)
+                    card.topAnchor.constraint(equalTo: terminal.topAnchor, constant: 8),
+                    card.trailingAnchor.constraint(equalTo: terminal.trailingAnchor, constant: -14)
                 ])
-                findBar = b
-                return b
+                findBar = card
+                return card
             }()
         bar.begin(needle)
     }
 
-    private func searchEvent(_ e: GhosttyTerminalView.SearchEvent) {
-        switch e {
+    private func searchEvent(_ event: GhosttyTerminalView.SearchEvent) {
+        switch event {
         case .started(let needle): showFind(needle)
         case .ended: findBar?.isHidden = true
-        case .total(let n): findBar?.total = n
-        case .selected(let n): findBar?.selected = n
+        case .total(let count): findBar?.total = count
+        case .selected(let count): findBar?.selected = count
         }
     }
 
     @objc private func closeTapped() { onClose?(self) }
     /// Resume on a paused pane attaches again (and so wakes the agent); otherwise the session starts over.
     @objc private func restartTapped() {
-        if !attached, let s = app.session(sessionId), s.status == .paused {
-            reattach(s)
+        if !attached, let session = app.session(sessionId), session.status == .paused {
+            reattach(session)
             settle()
         } else {
             onRestart?(self)

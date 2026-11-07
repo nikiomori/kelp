@@ -48,9 +48,9 @@ extension SourceControlController {
     func reloadAll() { if let wid = worktreeId { app.watchAgain(.git, wid) } }
 
     /// What the daemon read: the lists, the header, and the graph when the branches moved.
-    func apply(_ e: GitEvent?) {
-        guard let e, e.worktree == worktreeId else { return }
-        if let error = e.error {
+    func apply(_ event: GitEvent?) {
+        guard let event, event.worktree == worktreeId else { return }
+        if let error = event.error {
             changes = []
             info = nil
             commits = []
@@ -60,7 +60,7 @@ extension SourceControlController {
             followWatches()
             return
         }
-        guard let ch = e.changes, let br = e.branches else { return }
+        guard let ch = event.changes, let br = event.branches else { return }
         let graphStale =
             br.head != info?.head || br.local != info?.local || br.remote != info?.remote || br.current != info?.current
             || br.ahead != info?.ahead || br.behind != info?.behind   // a push or fetch moved origin/…
@@ -72,9 +72,9 @@ extension SourceControlController {
         showError(nil)
         updateHeader()
         updateCommitButton()
-        showStats(ch.isEmpty ? nil : e.stats)   // the "+6 −2" on the first section
+        showStats(ch.isEmpty ? nil : event.stats)   // the "+6 −2" on the first section
         followWatches()
-        if pushed { app.watchAgain(.ci, e.worktree) }
+        if pushed { app.watchAgain(.ci, event.worktree) }
         if graphStale || commits.isEmpty { Task { await loadGraph() } } else if changed { rebuildChanges() }
     }
 
@@ -114,9 +114,9 @@ extension SourceControlController {
 
     /// The CI line under Commit, as the daemon pushes it (it looks again while a run goes on, and for a while after a
     /// push). No upstream, no gh / glab, no runs: no line.
-    func applyCI(_ e: CIEvent?) {
-        guard let e, e.worktree == worktreeId else { return }
-        ciRuns = e.result?.runs ?? []
+    func applyCI(_ event: CIEvent?) {
+        guard let event, event.worktree == worktreeId else { return }
+        ciRuns = event.result?.runs ?? []
         let latest = CIRuns.latest(ciRuns)
         ciRow.show(latest, failure: nil)
         guard let failed = latest.first(where: \.failed) else { return }
@@ -124,7 +124,7 @@ extension SourceControlController {
             ciRow.show(latest, failure: known)
             return
         }
-        let wid = e.worktree
+        let wid = event.worktree
         Task {
             ciFailures[failed.id] = await failurePlace(wid, run: failed.id)
             guard wid == worktreeId, CIRuns.latest(ciRuns) == latest else { return }
@@ -134,8 +134,8 @@ extension SourceControlController {
 
     /// "test › Run swift test": the first failed job and its failed step.
     private func failurePlace(_ wid: String, run: Int) async -> String? {
-        let r = await app.tryCall(CIJobs(worktreeId: wid, run: run))
-        guard let job = r.value?.first(where: \.failed) else { return nil }
+        let result = await app.tryCall(CIJobs(worktreeId: wid, run: run))
+        guard let job = result.value?.first(where: \.failed) else { return nil }
         return ([job.name] + (job.steps.first(where: \.failed).map { [$0.name] } ?? [])).joined(separator: " › ")
     }
 
@@ -151,13 +151,13 @@ extension SourceControlController {
     func loadGraph() async {
         guard let wid = worktreeId else { return }
         // Quiet: git failing shows in the panel from the status read before this; a graph that failed alone keeps the last one.
-        let r = await app.quiet(GitGraph(id: wid, limit: limit), timeout: 60)
+        let graph = await app.quiet(GitGraph(id: wid, limit: limit), timeout: 60)
         guard wid == worktreeId else { return }
-        if let r {
-            let list = r.commits, known = Set(commits.map(\.hash))
+        if let graph {
+            let list = graph.commits, known = Set(commits.map(\.hash))
             noteArrivals(list, known: known)
             commits = list
-            more = r.more
+            more = graph.more
             let before = unpushed
             unpushed = Git.unpushed(list, remotes: Set(info?.remote ?? []))
             let landed = list.filter { before.contains($0.hash) && !unpushed.contains($0.hash) }.reversed()
@@ -185,23 +185,23 @@ extension SourceControlController {
     }
 
     /// "+120 −30" for everything not committed yet; hovering splits it into code, tests and generated files.
-    private func showStats(_ s: LineStats?) {
+    private func showStats(_ lineStats: LineStats?) {
         defer { if !roots.isEmpty { outline.reloadData(forRowIndexes: [0], columnIndexes: [0]) } }   // the first section shows them
-        guard let s, s.totalAdded + s.totalRemoved > 0 else {
+        guard let lineStats, lineStats.totalAdded + lineStats.totalRemoved > 0 else {
             stats.isHidden = true
             return
         }
         stats.isHidden = false
-        stats.attributedStringValue = RowBadges.changes(s) ?? NSAttributedString()
+        stats.attributedStringValue = RowBadges.changes(lineStats) ?? NSAttributedString()
         let names: [LineStats.Kind: String] = [
             .code: String(localized: "Code"), .tests: String(localized: "Tests"),
             .generated: String(localized: "Generated")
         ]
         stats.toolTip =
             String(localized: "Not committed yet\n")
-            + LineStats.Kind.allCases.compactMap { k in
-                let a = s.added[k] ?? 0, r = s.removed[k] ?? 0
-                return a + r == 0 ? nil : "\(names[k] ?? ""): +\(a) −\(r)"
+            + LineStats.Kind.allCases.compactMap { kind in
+                let added = lineStats.added[kind] ?? 0, removed = lineStats.removed[kind] ?? 0
+                return added + removed == 0 ? nil : "\(names[kind] ?? ""): +\(added) −\(removed)"
             }.joined(separator: "\n")
     }
 

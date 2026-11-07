@@ -12,14 +12,14 @@ extension DiffViewController {
     }
 
     func viewedBox(_ row: Int) -> NSButton {
-        let b = NSButton(
+        let box = NSButton(
             checkboxWithTitle: String(localized: "Viewed"), target: self, action: #selector(toggleViewed(_:)))
-        b.tag = row
-        b.controlSize = .small
-        b.font = .ui(11)
-        b.setContentHuggingPriority(.required, for: .horizontal)   // the path takes the room, not the box
-        b.state = ViewedFiles.viewed(diffs[row], in: viewed, printed: prints[diffs[row].path]) ? .on : .off
-        return b
+        box.tag = row
+        box.controlSize = .small
+        box.font = .ui(11)
+        box.setContentHuggingPriority(.required, for: .horizontal)   // the path takes the room, not the box
+        box.state = ViewedFiles.viewed(diffs[row], in: viewed, printed: prints[diffs[row].path]) ? .on : .off
+        return box
     }
 
     @objc private func toggleViewed(_ b: NSButton) {

@@ -131,8 +131,8 @@ private final class SplitCell: NSButtonCell {
         super.drawTitle(title, withFrame: frame.offsetBy(dx: -Self.reserve / 2, dy: 0), in: view)
     }
     override var cellSize: NSSize {
-        var s = super.cellSize
-        s.width += Self.reserve
-        return s
+        var size = super.cellSize
+        size.width += Self.reserve
+        return size
     }
 }

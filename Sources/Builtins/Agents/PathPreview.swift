@@ -15,23 +15,25 @@ enum TerminalPaths {
     /// the one folder of `elsewhere` (the other projects) that has it: an agent may name another project's files.
     static func resolve(_ token: String, cwd: String, elsewhere: [String] = []) -> (path: String, line: Int?)? {
         guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // URLs are Ghostty's
-        var t = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
-        while let c = t.last, ".:;!?".contains(c) { t.removeLast() }   // Ghostty's links take the "." that ends a sentence
-        if t.hasPrefix("@") { t.removeFirst() }   // "@src/x.ts" (an agent's mention)
-        let parts = t.split(separator: ":", omittingEmptySubsequences: false)
+        var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
+        while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }   // Ghostty's links take the "." that ends a sentence
+        if text.hasPrefix("@") { text.removeFirst() }   // "@src/x.ts" (an agent's mention)
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
         let line = parts.count > 1 ? Int(parts[1]) : nil
         let raw = (String(parts[0]) as NSString).expandingTildeInPath
         guard raw.contains("/") || raw.contains(".") else { return nil }   // a word, not a path
-        for p in [raw, raw.hasPrefix("a/") || raw.hasPrefix("b/") ? String(raw.dropFirst(2)) : nil].compactMap({ $0 }) {
-            if let f = file(p, in: cwd) { return (f, line) }
+        for candidate in [raw, raw.hasPrefix("a/") || raw.hasPrefix("b/") ? String(raw.dropFirst(2)) : nil].compactMap({
+            $0
+        }) {
+            if let existing = file(candidate, in: cwd) { return (existing, line) }
         }
         let found = raw.hasPrefix("/") ? [] : Set(elsewhere.compactMap { file(raw, in: $0) })
         return found.count == 1 ? found.first.map { ($0, line) } : nil   // in two projects: which one is anyone's guess
     }
 
     /// A file: not a folder, nor a pipe or device (reading one to preview it would block).
-    private static func file(_ p: String, in dir: String) -> String? {
-        let abs = p.hasPrefix("/") ? p : (dir as NSString).appendingPathComponent(p)
+    private static func file(_ path: String, in dir: String) -> String? {
+        let abs = path.hasPrefix("/") ? path : (dir as NSString).appendingPathComponent(path)
         var st = stat()
         return stat(abs, &st) == 0 && st.st_mode & S_IFMT == S_IFREG ? (abs as NSString).standardizingPath : nil
     }
@@ -42,12 +44,12 @@ enum TerminalPaths {
     static func open(
         _ token: String, cwd: String, elsewhere: [String] = [], flags: NSEvent.ModifierFlags, in app: AppModel
     ) -> Bool {
-        guard let f = resolve(token, cwd: cwd, elsewhere: elsewhere) else { return false }
+        guard let found = resolve(token, cwd: cwd, elsewhere: elsewhere) else { return false }
         if flags.contains(.option) {
-            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f.path)])
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: found.path)])
             return true
         }
-        app.workbench.open(TabURI.file(f.path) + (f.line.map { "#L\($0)" } ?? ""))
+        app.workbench.open(TabURI.file(found.path) + (found.line.map { "#L\($0)" } ?? ""))
         return true
     }
 }
@@ -66,11 +68,12 @@ final class PathPreview {
     /// The first of `tokens` (what the word under the pointer may be) that is a file; none closes it.
     func show(_ tokens: [String], rect: NSRect, in view: NSView, cwd: String, worktree: String?) {
         let projects = app.repos.map(\.path)
-        guard let f = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first else {
+        guard let found = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first
+        else {
             popover.close()
             return
         }
-        let model = PreviewModel(path: f.path, line: f.line, cwd: cwd, app: app)
+        let model = PreviewModel(path: found.path, line: found.line, cwd: cwd, app: app)
         let host = NSHostingController(rootView: PathPreviewView(model: model))
         host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
         popover.contentViewController = host
@@ -114,23 +117,24 @@ final class PreviewModel {
         guard let worktree else { return }
         Task {
             // Uncommitted changes in it: show those (the hunk with the line asked about, else the first).
-            let d = await app.quiet(GitDiff(id: worktree, source: "all", file: path))
-            guard let hunks = d?.first?.hunks, !hunks.isEmpty else { return }
-            let h = hunks.first { h in line.map { l in h.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
+            let diff = await app.quiet(GitDiff(id: worktree, source: "all", file: path))
+            guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
+            let hunk =
+                hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
             changed = true
-            lines = h.lines.prefix(16).enumerated().map { i, l in
+            lines = hunk.lines.prefix(16).enumerated().map { index, diffLine in
                 Line(
-                    id: i, number: l.newLine ?? l.oldLine, text: l.text,
-                    mark: l.kind == .add ? "+" : l.kind == .del ? "-" : " ")
+                    id: index, number: diffLine.newLine ?? diffLine.oldLine, text: diffLine.text,
+                    mark: diffLine.kind == .add ? "+" : diffLine.kind == .del ? "-" : " ")
             }
         }
     }
 
     /// Up to 14 lines around the line named (or the file's first), read from at most 256 KB of it.
     private func excerpt() -> [Line] {
-        guard let h = FileHandle(forReadingAtPath: path) else { return [] }
-        defer { try? h.close() }
-        let data = (try? h.read(upToCount: 262_144)) ?? Data()
+        guard let handle = FileHandle(forReadingAtPath: path) else { return [] }
+        defer { try? handle.close() }
+        let data = (try? handle.read(upToCount: 262_144)) ?? Data()
         guard !data.contains(0) else {
             return [Line(id: 0, number: nil, text: String(localized: "Binary file"), mark: " ")]
         }
@@ -156,16 +160,18 @@ struct PathPreviewView: View {
                 Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 360, maxHeight: 240)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(model.lines) { l in
+                    ForEach(model.lines) { line in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(l.number.map(String.init) ?? "").foregroundStyle(.tertiary).frame(
+                            Text(line.number.map(String.init) ?? "").foregroundStyle(.tertiary).frame(
                                 width: 34, alignment: .trailing)
-                            Text(l.mark == " " ? l.text : "\(l.mark) \(l.text)").lineLimit(1).truncationMode(.tail)
+                            Text(line.mark == " " ? line.text : "\(line.mark) \(line.text)").lineLimit(1)
+                                .truncationMode(.tail)
                                 .foregroundStyle(
-                                    l.mark == "+" ? Color.textGreen : l.mark == "-" ? Color.textRed : .primary)
+                                    line.mark == "+" ? Color.textGreen : line.mark == "-" ? Color.textRed : .primary)
                         }
                         .padding(.vertical, 1)
-                        .background(l.number == model.line && l.mark == " " ? Color.accentColor.opacity(0.18) : .clear)
+                        .background(
+                            line.number == model.line && line.mark == " " ? Color.accentColor.opacity(0.18) : .clear)
                     }
                 }
                 .font(.uiMono(11))

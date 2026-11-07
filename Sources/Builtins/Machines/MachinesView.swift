@@ -45,8 +45,9 @@ struct MachinesView: View {
     /// + : a new machine of each kind this Mac can run; what it lacks greys one out and says why.
     private var add: some View {
         Menu {
-            ForEach(choices, id: \.image) { c in
-                Button(c.title) { app.newMachine(c.image) }.disabled(c.missing != nil).help(c.missing ?? "")
+            ForEach(choices, id: \.image) { choice in
+                Button(choice.title) { app.newMachine(choice.image) }.disabled(choice.missing != nil).help(
+                    choice.missing ?? "")
             }
             Divider()
             Button(String(localized: "From a File…")) { app.machineFromFile() }
@@ -109,8 +110,8 @@ struct MachinesView: View {
     @ViewBuilder private func faces(_ v: VMInfo) -> some View {
         let agents = (v.sessions ?? []).compactMap { app.session($0)?.agent }
         HStack(spacing: -Metrics.appIcon / 3) {   // overlapping, as a stack of faces
-            ForEach(Array(Set(agents)).sorted().prefix(3), id: \.self) { a in
-                if let icon = app.catalog.icon(a, size: Metrics.iconLarge) {
+            ForEach(Array(Set(agents)).sorted().prefix(3), id: \.self) { agent in
+                if let icon = app.catalog.icon(agent, size: Metrics.iconLarge) {
                     Image(nsImage: icon).frame(width: Metrics.iconLarge, height: Metrics.iconLarge)
                 }
             }

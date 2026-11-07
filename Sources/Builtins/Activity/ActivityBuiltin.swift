@@ -12,8 +12,8 @@ extension Builtins {
         "kelp.activity", "Activity", "CPU and memory of each agent and terminal, with Stop.",
         icon: "gauge.with.dots.needle.33percent", offByDefault: true
     ) { app in
-        var c = Contributions()
-        c.panels = [
+        var contributions = Contributions()
+        contributions.panels = [
             PanelSpec(
                 id: "activity", title: "Activity", icon: "gauge.with.dots.needle.33percent",
                 extensionId: "kelp.activity"
@@ -21,6 +21,6 @@ extension Builtins {
                 ActivityController(app: app)
             }
         ]
-        return c
+        return contributions
     }
 }

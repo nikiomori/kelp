@@ -145,8 +145,8 @@ struct UsageReportView: View {
     private func color(_ id: String) -> Color { Self.colors[id] ?? .gray }
 
     private func kpis(_ lines: [Line]) -> some View {
-        let s = series, cost = s.reduce(0) { $0 + $1.cost }, tokens = s.reduce(0) { $0 + $1.tokens }
-        let cached = s.reduce(0) { $0 + $1.cacheRead }, ids = Set(s.map(\.id))
+        let shown = series, cost = shown.reduce(0) { $0 + $1.cost }, tokens = shown.reduce(0) { $0 + $1.tokens }
+        let cached = shown.reduce(0) { $0 + $1.cacheRead }, ids = Set(shown.map(\.id))
         let active = Set((usage?.days ?? []).filter { ids.contains($0.agent) && $0.tokens > 0 }.map(\.day)).count
         return HStack(spacing: 32) {
             stat(money(cost, tokens), String(localized: "at API prices"))
@@ -245,11 +245,11 @@ struct UsageReportView: View {
                         separator: " · ")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    GeometryReader { g in
+                    GeometryReader { proxy in
                         ZStack(alignment: .leading) {
                             Capsule().fill(.quaternary)
                             Capsule().fill(tint(top.used, quiet: .secondary)).frame(
-                                width: max(4, g.size.width * min(top.used, 1)))
+                                width: max(4, proxy.size.width * min(top.used, 1)))
                         }
                     }
                     .frame(height: 4)
@@ -261,8 +261,9 @@ struct UsageReportView: View {
             .font(.ui(11))
             .opacity(stale ? 0.55 : 1)
             .help(
-                plan.limits.map { l in
-                    "\(l.label): \(percent(l.used))" + (l.resets.map { String(localized: ", resets \($0)") } ?? "")
+                plan.limits.map { limit in
+                    "\(limit.label): \(percent(limit.used))"
+                        + (limit.resets.map { String(localized: ", resets \($0)") } ?? "")
                 }
                 .joined(separator: "\n"))
         } else {
@@ -271,21 +272,21 @@ struct UsageReportView: View {
     }
 
     /// Its days on its own scale, so a small agent's pattern shows beside a big one's (tokens when it costs nothing).
-    @ViewBuilder private func spanCell(_ l: Line) -> some View {
-        if let usage, let a = l.usage {
-            Chart(usage.days.filter { $0.agent == l.id }, id: \.self) { d in
+    @ViewBuilder private func spanCell(_ line: Line) -> some View {
+        if let usage, let agentUsage = line.usage {
+            Chart(usage.days.filter { $0.agent == line.id }, id: \.self) { record in
                 BarMark(
-                    x: .value("Day", Self.date(d.day), unit: .day),
-                    y: .value("Used", a.cost > 0 ? value(d) : Double(d.tokens))
+                    x: .value("Day", Self.date(record.day), unit: .day),
+                    y: .value("Used", agentUsage.cost > 0 ? value(record) : Double(record.tokens))
                 )
-                .foregroundStyle(color(l.id))
+                .foregroundStyle(color(line.id))
             }
             .chartXScale(domain: span(usage)).chartXAxis(.hidden).chartYAxis(.hidden).chartLegend(.hidden)
             .frame(height: 26)
             .overlay(alignment: .bottom) { Rectangle().fill(.quaternary).frame(height: 1) }
         } else {
             Text(
-                Self.counted.contains(l.id)
+                Self.counted.contains(line.id)
                     ? String(localized: "Not used in this time")
                     : String(localized: "Keeps no token counts on this Mac")
             )
@@ -293,21 +294,22 @@ struct UsageReportView: View {
         }
     }
 
-    private func tokensCell(_ a: UsageAgents.Agent?) -> some View {
+    private func tokensCell(_ agentUsage: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
-            Text(a.map { count($0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cacheRead > 0 {
-                Text("\(percent(a.cacheRead, of: a.tokens)) from cache").font(.ui(11)).foregroundStyle(.secondary)
+            Text(agentUsage.map { count($0.tokens) } ?? "—").monospacedDigit()
+            if let agentUsage, agentUsage.cacheRead > 0 {
+                Text("\(percent(agentUsage.cacheRead, of: agentUsage.tokens)) from cache").font(.ui(11))
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func costCell(_ a: UsageAgents.Agent?) -> some View {
+    private func costCell(_ agentUsage: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
-            Text(a.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cost == 0 {
+            Text(agentUsage.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
+            if let agentUsage, agentUsage.cost == 0 {
                 Text("no list price").font(.ui(11)).foregroundStyle(.secondary)
-            } else if let a, Self.ownPrice.contains(a.id) {
+            } else if let agentUsage, Self.ownPrice.contains(agentUsage.id) {
                 Text("as it reports").font(.ui(11)).foregroundStyle(.secondary)
             }
         }
@@ -337,16 +339,23 @@ struct UsageReportView: View {
                     : String(localized: "Tokens per day · last \(range) days")
             )
             .font(.ui(11)).foregroundStyle(.secondary).padding(.top, 8)
-            Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { d in
-                BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value(byCost ? "Cost" : "Tokens", value(d)))
-                    .foregroundStyle(by: .value("Agent", app.catalog.name(d.agent)))
+            Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { record in
+                BarMark(
+                    x: .value("Day", Self.date(record.day), unit: .day),
+                    y: .value(byCost ? "Cost" : "Tokens", value(record))
+                )
+                .foregroundStyle(by: .value("Agent", app.catalog.name(record.agent)))
             }
             .chartForegroundStyleScale(domain: ids.map { app.catalog.name($0) }, range: ids.map(color))
             .chartXScale(domain: span(usage))
             .chartYAxis {
-                AxisMarks { v in
+                AxisMarks { axisValue in
                     AxisGridLine()
-                    AxisValueLabel { if let x = v.as(Double.self) { Text(byCost ? money(x, 0) : count(Int(x))) } }
+                    AxisValueLabel {
+                        if let amount = axisValue.as(Double.self) {
+                            Text(byCost ? money(amount, 0) : count(Int(amount)))
+                        }
+                    }
                 }
             }
             .frame(height: 180)
@@ -356,9 +365,9 @@ struct UsageReportView: View {
     /// The year's days by how much the agents (the chosen one) used, what it all came to over it, and each day's on hover.
     private var board: some View {
         var days: [Date: (cost: Double, tokens: Int)] = [:]
-        for d in year where sel == nil || d.agent == sel {
-            let t = Self.date(d.day), was = days[t] ?? (0, 0)
-            days[t] = (was.cost + d.cost, was.tokens + d.tokens)
+        for record in year where sel == nil || record.agent == sel {
+            let dayStart = Self.date(record.day), was = days[dayStart] ?? (0, 0)
+            days[dayStart] = (was.cost + record.cost, was.tokens + record.tokens)
         }
         let cost = days.values.reduce(0) { $0 + $1.cost }, tokens = days.values.reduce(0) { $0 + $1.tokens }
         let total = byCost ? money(cost, tokens) : String(localized: "\(count(tokens)) tokens")
@@ -369,8 +378,9 @@ struct UsageReportView: View {
                     values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green
                 ) { day in
                     let when = day.formatted(.dateTime.month(.wide).day())
-                    guard let d = days[day] else { return String(localized: "No usage on \(when)") }
-                    return String(localized: "\(when): \(money(d.cost, d.tokens)) · \(count(d.tokens)) tokens")
+                    guard let spent = days[day] else { return String(localized: "No usage on \(when)") }
+                    return String(
+                        localized: "\(when): \(money(spent.cost, spent.tokens)) · \(count(spent.tokens)) tokens")
                 }
             }
             .defaultScrollAnchor(.trailing)
@@ -389,15 +399,17 @@ struct UsageReportView: View {
     private func groups(_ title: String, _ rows: [UsageReport.Group], model: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.ui(13, weight: .semibold))
-            ForEach(rows.prefix(8), id: \.name) { r in
+            ForEach(rows.prefix(8), id: \.name) { group in
                 HStack(spacing: 8) {
-                    if model, let owner = sel ?? series.first(where: { $0.models.contains { $0.name == r.name } })?.id {
+                    if model,
+                        let owner = sel ?? series.first(where: { $0.models.contains { $0.name == group.name } })?.id
+                    {
                         Circle().fill(color(owner)).frame(width: 6, height: 6)
                     }
-                    Text(model ? Self.model(r.name) : r.name).lineLimit(1).truncationMode(.middle)
+                    Text(model ? Self.model(group.name) : group.name).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 12)
-                    Text(count(r.tokens)).foregroundStyle(.secondary).monospacedDigit()
-                    Text(money(r.cost, r.tokens)).monospacedDigit().frame(width: 72, alignment: .trailing)
+                    Text(count(group.tokens)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(money(group.cost, group.tokens)).monospacedDigit().frame(width: 72, alignment: .trailing)
                 }.font(.ui(12))
                 Divider()
             }
@@ -408,7 +420,7 @@ struct UsageReportView: View {
         loading = true
         let read = await app.tryCall(UsageAgents(days: range))
         failed = read.error
-        if let r = read.value { usage = r }
+        if let fresh = read.value { usage = fresh }
         loading = false
         // The board's year once the span's is in: both wait on the same logs, and the table is what's asked for first.
         if year.isEmpty { year = await app.quiet(UsageAgents(days: 371), timeout: 330)?.days ?? [] }
@@ -434,11 +446,11 @@ struct UsageReportView: View {
     /// A day as the daemon writes it ("2026-10-29", local), at its start.
     static func date(_ day: String) -> Date { dayFormat.date(from: day) ?? Date() }
     private static let dayFormat: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.calendar = Calendar(identifier: .gregorian)
-        f.dateFormat = "yyyy-MM-dd"
-        return f
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
     }()
     /// "—" for tokens with no price (a model without a list price).
     private func money(_ v: Double, _ tokens: Int) -> String {

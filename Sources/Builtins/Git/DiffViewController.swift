@@ -81,8 +81,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
     var font: NSFont { CodeEditor.font }
     static var lineHeight: CGFloat {
-        let f = CodeEditor.font
-        return (f.ascender - f.descender + f.leading).rounded(.up) + 4
+        let editorFont = CodeEditor.font
+        return (editorFont.ascender - editorFont.descender + editorFont.leading).rounded(.up) + 4
     }
     /// Side by side when chosen and there's room for two columns; a narrow pane shows it inline (like VS Code).
     private var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
@@ -91,11 +91,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     static let hatch = NSColor(
         patternImage: NSImage(size: NSSize(width: 7, height: 7), flipped: false) { _ in
             NSColor.secondaryLabelColor.withAlphaComponent(0.14).setStroke()
-            let p = NSBezierPath()
-            p.move(to: .zero)
-            p.line(to: NSPoint(x: 7, y: 7))
-            p.lineWidth = 1
-            p.stroke()
+            let path = NSBezierPath()
+            path.move(to: .zero)
+            path.line(to: NSPoint(x: 7, y: 7))
+            path.lineWidth = 1
+            path.stroke()
             return true
         })
 
@@ -212,16 +212,16 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     override func viewDidLayout() {
         super.viewDidLayout()
         placeFileList()
-        if !positioned, fileList?.isHidden == false, let s = split, s.bounds.width > 400 {
+        if !positioned, fileList?.isHidden == false, let split, split.bounds.width > 400 {
             positioned = true
-            s.setPosition(220, ofDividerAt: 0)
+            split.setPosition(220, ofDividerAt: 0)
         }
-        let n = table.bounds.width > 0 && table.bounds.width < 640
-        if n != narrow {
-            narrow = n
-            layoutToggle.setEnabled(!n, forSegment: 0)
+        let nowNarrow = table.bounds.width > 0 && table.bounds.width < 640
+        if nowNarrow != narrow {
+            narrow = nowNarrow
+            layoutToggle.setEnabled(!nowNarrow, forSegment: 0)
             layoutToggle.setToolTip(
-                n ? String(localized: "Side by Side (needs a wider pane)") : String(localized: "Side by Side"),
+                nowNarrow ? String(localized: "Side by Side (needs a wider pane)") : String(localized: "Side by Side"),
                 forSegment: 0)
             setColumns()
             rebuildRows()
@@ -232,10 +232,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single != nil {
             bar.set([pathLabel, status], [position, steps, spaceToggle, layoutToggle])
         } else {
-            func btn(_ t: String, _ a: Selector) -> NSButton {   // sized by the bar, as its pop-ups
-                let b = NSButton(title: t, target: self, action: a)
-                b.bezelStyle = .push
-                return b
+            func btn(_ title: String, _ action: Selector) -> NSButton {   // sized by the bar, as its pop-ups
+                let button = NSButton(title: title, target: self, action: action)
+                button.bezelStyle = .push
+                return button
             }
             bar.set(
                 [
@@ -253,16 +253,16 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private func setColumns() {
         table.tableColumns.forEach(table.removeTableColumn)
         for id in sideBySide ? ["on", "l", "nn", "r"] : ["on", "nn", "t"] {
-            let c = NSTableColumn(identifier: .init(id))
+            let column = NSTableColumn(identifier: .init(id))
             if id == "on" || id == "nn" {
-                c.width = 44
-                c.resizingMask = []
+                column.width = 44
+                column.resizingMask = []
             } else {
-                c.width = 400
-                c.minWidth = 120
-                c.resizingMask = .autoresizingMask
+                column.width = 400
+                column.minWidth = 120
+                column.resizingMask = .autoresizingMask
             }
-            table.addTableColumn(c)
+            table.addTableColumn(column)
         }
         table.sizeToFit()
     }
@@ -284,15 +284,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         single = (path, source, commit)
         placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
-        let s = NSMutableAttributedString(
+        let pathText = NSMutableAttributedString(
             string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
         if !dir.isEmpty {
-            s.append(
+            pathText.append(
                 NSAttributedString(
                     string: "  " + dir,
                     attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
         }
-        pathLabel.attributedStringValue = s
+        pathLabel.attributedStringValue = pathText
         buildBar()
     }
 
@@ -331,15 +331,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     func diffRequest() -> GitDiff {
-        var r = request()
-        r.ignoreSpace = hidesSpace ? true : nil
-        return r
+        var query = request()
+        query.ignoreSpace = hidesSpace ? true : nil
+        return query
     }
     private func request() -> GitDiff {
         let id = worktreeId ?? ""
-        if let s = single {
-            return s.commit.map { GitDiff(id: id, source: "commit", file: s.file, commit: $0) }
-                ?? GitDiff(id: id, source: s.source, file: s.file)
+        if let single {
+            return single.commit.map { GitDiff(id: id, source: "commit", file: single.file, commit: $0) }
+                ?? GitDiff(id: id, source: single.source, file: single.file)
         }
         switch source.indexOfSelectedItem {
         case 1: return GitDiff(id: id, source: "unstaged")
@@ -371,15 +371,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             await running.value
             return
         }
-        let t = Task {
+        let task = Task {
             repeat {
                 readAgain = false
                 await loadOnce()
             } while readAgain
             reading = nil   // with the last check: no await between, so a later caller starts a new one
         }
-        reading = t
-        await t.value
+        reading = task
+        await task.value
     }
 
     /// Reads so far: tests see a burst of events make one more, not one each.
@@ -399,18 +399,18 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             askCommit = false   // before asking: a load that starts while the question is up doesn't ask again
             let log = await app.call(GitLog(id: wid, all: true)) ?? []   // the user picked "a commit": a banner if git can't list them
             let menu = NSMenu()
-            for c in log.prefix(30) {
-                let m = menu.addItem(withTitle: "\(c.hash)  \(c.subject)", action: nil, keyEquivalent: "")
-                m.representedObject = c.hash
+            for commit in log.prefix(30) {
+                let item = menu.addItem(withTitle: "\(commit.hash)  \(commit.subject)", action: nil, keyEquivalent: "")
+                item.representedObject = commit.hash
             }
             let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
             pop.menu = menu
-            let a = NSAlert()
-            a.messageText = String(localized: "Review which commit?")
-            a.accessoryView = pop
-            a.addButton(withTitle: String(localized: "Show"))
-            a.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(a) == .alertFirstButtonReturn {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Review which commit?")
+            alert.accessoryView = pop
+            alert.addButton(withTitle: String(localized: "Show"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            if await runSheet(alert) == .alertFirstButtonReturn {
                 commitHash = pop.selectedItem?.representedObject as? String
             } else {
                 source.selectItem(at: 0)
@@ -432,10 +432,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
         let asked = asking, request = diffRequest()
         basis = request.basis(app.latest(GitEvent.self, wid))
-        let r = await app.tryCall(request)
-        let d = r.value ?? []
+        let result = await app.tryCall(request)
+        let newDiffs = result.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
-        if single == nil, r.error == nil {   // the files' letters and the comments: the diff above already said what failed
+        if single == nil, result.error == nil {   // the files' letters and the comments: the diff above already said what failed
             // The letters as pushed for this workspace (a review tab watches it), else asked.
             if let pushed = app.latest(GitEvent.self, wid)?.changes {
                 ch = pushed
@@ -444,20 +444,22 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             }
             cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
         }
-        if d != diffs { opened = [:] }   // lines opened between changes may have moved
-        let grammars = d == diffs ? [:] : DiffColors.grammars(d)   // the same diff keeps its colours
-        async let parsed = Task.detached { DiffColors.spans(d, grammars: grammars) }.value
-        let layout = sideBySide, built = await buildRows(d, cm, sideBySide: layout)
-        let printed = await Task.detached { Dictionary(d.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a } }.value
+        if newDiffs != diffs { opened = [:] }   // lines opened between changes may have moved
+        let grammars = newDiffs == diffs ? [:] : DiffColors.grammars(newDiffs)   // the same diff keeps its colours
+        async let parsed = Task.detached { DiffColors.spans(newDiffs, grammars: grammars) }.value
+        let layout = sideBySide, built = await buildRows(newDiffs, cm, sideBySide: layout)
+        let printed = await Task.detached {
+            Dictionary(newDiffs.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a }
+        }.value
         let spans = await parsed
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
         builds += 1   // rows a layout change is still building are the old diff's
-        if d != diffs {
+        if newDiffs != diffs {
             position.stringValue = ""
             syntax = spans
         }   // "Change 3 of 17" counted another diff
-        diffs = d
+        diffs = newDiffs
         prints = printed
         changes = ch
         comments = cm
@@ -468,8 +470,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         reloadKeepingDraft()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
-        if let e = r.error {
-            status.stringValue = e
+        if let error = result.error {
+            status.stringValue = error
             return
         }   // why there's nothing, not "0 files"
         status.stringValue = statusText()
@@ -484,9 +486,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
     func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         if t === files { return ListRowView() }
-        let v = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
-        v.onPlus = shownLine(row) != nil && worktreeId != nil ? { [weak self] in self?.openDraft(at: row) } : nil
-        return v
+        let rowView = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
+        rowView.onPlus = shownLine(row) != nil && worktreeId != nil ? { [weak self] in self?.openDraft(at: row) } : nil
+        return rowView
     }
 
     func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
@@ -496,19 +498,19 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
         switch rows[row] {
         case .draft: return draftCard()
-        case .comment(let c): return commentRow(c)
-        case .diff(let r):
-            switch r {
-            case .file(let p, let a, let d): return fileBand(p, added: a, removed: d)
-            case .binary(let p):
+        case .comment(let comment): return commentRow(comment)
+        case .diff(let diffRow):
+            switch diffRow {
+            case .file(let path, let added, let removed): return fileBand(path, added: added, removed: removed)
+            case .binary(let path):
                 return label(
-                    first ? String(localized: "Binary file \(p) not shown") : "", font: font,
+                    first ? String(localized: "Binary file \(path) not shown") : "", font: font,
                     color: .secondaryLabelColor)
-            case .tooLarge(let p):
+            case .tooLarge(let path):
                 let said = label(
-                    first ? String(localized: "\(p) is too large to show here") : "", font: font,
+                    first ? String(localized: "\(path) is too large to show here") : "", font: font,
                     color: .secondaryLabelColor)
-                guard first, let uri = alone(p) else { return said }
+                guard first, let uri = alone(path) else { return said }
                 said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                 let open = ClosureButton(title: String(localized: "Open Changes")) { app.workbench.open(uri) }
                 open.bezelStyle = .push
@@ -516,21 +518,22 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 let stack = NSStackView(views: [said, open])
                 stack.spacing = 8
                 return stack
-            case .gap(let f, let from, let n, let context):
-                return first ? gapRow(file: f, from: from, lines: n, context: context) : band("")
-            case .hunk(let f, let h, let header): return first ? hunkRow(file: f, hunk: h, header: header) : band("")
-            case .line(let f, let l):
+            case .gap(let file, let from, let count, let context):
+                return first ? gapRow(file: file, from: from, lines: count, context: context) : band("")
+            case .hunk(let file, let hunk, let header):
+                return first ? hunkRow(file: file, hunk: hunk, header: header) : band("")
+            case .line(let file, let line):
                 switch id {
-                case "on": return number(l.oldLine, kind: l.kind)
-                case "nn": return number(l.newLine, kind: l.kind)
-                default: return codeCell(l, file: f, marker: true)
+                case "on": return number(line.oldLine, kind: line.kind)
+                case "nn": return number(line.newLine, kind: line.kind)
+                default: return codeCell(line, file: file, marker: true)
                 }
-            case .pair(let f, let l, let r):
+            case .pair(let file, let left, let right):
                 switch id {
-                case "on": return l.map { number($0.oldLine, kind: $0.kind) } ?? filler()
-                case "nn": return r.map { number($0.newLine, kind: $0.kind) } ?? filler()
-                case "l": return l.map { codeCell($0, file: f, marker: false) } ?? filler()
-                default: return r.map { codeCell($0, file: f, marker: false) } ?? filler()
+                case "on": return left.map { number($0.oldLine, kind: $0.kind) } ?? filler()
+                case "nn": return right.map { number($0.newLine, kind: $0.kind) } ?? filler()
+                case "l": return left.map { codeCell($0, file: file, marker: false) } ?? filler()
+                default: return right.map { codeCell($0, file: file, marker: false) } ?? filler()
                 }
             }
         }
@@ -565,10 +568,10 @@ extension DiffViewController {
 
     func rebuildRows() {
         builds += 1
-        let n = builds, d = diffs, cm = comments, layout = sideBySide
+        let generation = builds, currentDiffs = diffs, cm = comments, layout = sideBySide
         Task {
-            let built = await buildRows(d, cm, sideBySide: layout)
-            guard n == builds else { return }
+            let built = await buildRows(currentDiffs, cm, sideBySide: layout)
+            guard generation == builds else { return }
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
             (rows, words) = built
@@ -582,9 +585,9 @@ extension DiffViewController {
     /// where it was when the inspector closes or shows another panel. One file's tab has none.
     func placeFileList() {
         let hide = single != nil || app.workbench.panelBeside == "git.changes"
-        guard let list = fileList, let s = split, list.isHidden != hide else { return }
+        guard let list = fileList, let split, list.isHidden != hide else { return }
         list.isHidden = hide
-        s.adjustSubviews()
+        split.adjustSubviews()
         if !hide { positioned = false }   // at its width again on the next layout
     }
 
@@ -593,16 +596,17 @@ extension DiffViewController {
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
     func hunksStaged(_ f: Int) -> Bool? {
         if hidesSpace { return nil }
-        if let s = single {
-            return s.commit == nil && (s.source == "unstaged" || s.source == "staged") ? s.source == "staged" : nil
+        if let single {
+            return single.commit == nil && (single.source == "unstaged" || single.source == "staged")
+                ? single.source == "staged" : nil
         }
         switch source.indexOfSelectedItem {
         case 1: return false
         case 2: return true
         case 0:
             guard diffs.indices.contains(f) else { return nil }
-            guard let c = changes.first(where: { $0.path == diffs[f].path }), c.staged else { return false }
-            return c.unstaged ? nil : true
+            guard let change = changes.first(where: { $0.path == diffs[f].path }), change.staged else { return false }
+            return change.unstaged ? nil : true
         default: return nil
         }
     }

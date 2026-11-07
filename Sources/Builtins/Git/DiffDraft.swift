@@ -20,7 +20,7 @@ extension DiffViewController {
     static let codeIndent: CGFloat = 88
     /// The commit on screen when it's a past one's diff: a comment there is on that commit, not the folder's HEAD.
     var shownCommit: String? {
-        if let s = single { return s.source == "commit" ? s.commit : nil }
+        if let single { return single.source == "commit" ? single.commit : nil }
         return source.indexOfSelectedItem == 4 ? commitHash : nil
     }
 
@@ -45,38 +45,39 @@ extension DiffViewController {
             return
         }
         closeDraft()
-        let d = CommentDraft(
+        let newDraft = CommentDraft(
             file: file, start: first, end: last, quote: lines.map(\.text).joined(separator: "\n"),
             side: removed ? "old" : nil)
-        d.field.isEditable = true
-        d.field.isBordered = true
-        d.field.drawsBackground = true
-        d.field.font = .ui(12)
-        d.field.placeholderString = String(
+        newDraft.field.isEditable = true
+        newDraft.field.isBordered = true
+        newDraft.field.drawsBackground = true
+        newDraft.field.font = .ui(12)
+        newDraft.field.placeholderString = String(
             localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
-        draft = d
+        draft = newDraft
         placeDraft()
-        view.window?.makeFirstResponder(d.field)
+        view.window?.makeFirstResponder(newDraft.field)
     }
 
     /// The card's row goes under its line (and the comments already there), wherever a new read of the diff put it.
     func placeDraft() {
         rows.removeAll { $0 == .draft }
-        guard let d = draft else { return }
+        guard let draft else { return }
         guard
-            let at = rows.indices.last(where: { i in
-                guard let (path, l) = shownLine(i) else { return false }
-                return path == d.file && (d.side == "old" ? l.newLine == nil && l.oldLine == d.end : l.newLine == d.end)
+            let at = rows.indices.last(where: { row in
+                guard let (path, l) = shownLine(row) else { return false }
+                return path == draft.file
+                    && (draft.side == "old" ? l.newLine == nil && l.oldLine == draft.end : l.newLine == draft.end)
             })
         else { return }
-        var i = at + 1
-        while i < rows.count, case .comment = rows[i] { i += 1 }
-        rows.insert(.draft, at: i)
+        var index = at + 1
+        while index < rows.count, case .comment = rows[index] { index += 1 }
+        rows.insert(.draft, at: index)
     }
 
     func draftCard() -> NSView {
-        guard let d = draft else { return NSView() }
-        if let c = d.card { return c }
+        guard let draft else { return NSView() }
+        if let existing = draft.card { return existing }
         let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.closeDraft() }
         cancel.keyEquivalent = "\u{1b}"
         let save = ClosureButton(title: String(localized: "Comment")) { [weak self] in self?.saveDraft() }
@@ -88,7 +89,7 @@ extension DiffViewController {
             b.controlSize = .small
         }
         let buttons = NSStackView(views: [NSView(), cancel, save])
-        let card = NSStackView(views: [d.field, buttons])
+        let card = NSStackView(views: [draft.field, buttons])
         card.orientation = .vertical
         card.alignment = .trailing
         card.spacing = Metrics.gap
@@ -97,10 +98,10 @@ extension DiffViewController {
         card.wantsLayer = true
         card.layer?.backgroundColor = NSColor.fillRest.cgColor
         NSLayoutConstraint.activate([
-            d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
-            d.field.heightAnchor.constraint(equalToConstant: Self.draftField)
+            draft.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
+            draft.field.heightAnchor.constraint(equalToConstant: Self.draftField)
         ])
-        draft?.card = card
+        self.draft?.card = card
         return card
     }
 
@@ -108,9 +109,9 @@ extension DiffViewController {
     func reloadKeepingDraft() {
         let typing = draft.map { d in view.window?.firstResponder === d.field.currentEditor() } ?? false
         table.reloadData()
-        guard typing, let f = draft?.field else { return }
-        view.window?.makeFirstResponder(f)
-        f.currentEditor()?.selectedRange = NSRange(location: f.stringValue.utf16.count, length: 0)
+        guard typing, let field = draft?.field else { return }
+        view.window?.makeFirstResponder(field)
+        field.currentEditor()?.selectedRange = NSRange(location: field.stringValue.utf16.count, length: 0)
     }
 
     func closeDraft() {
@@ -122,8 +123,8 @@ extension DiffViewController {
     }
 
     private func saveDraft() {
-        guard let wid = worktreeId, let d = draft else { return }
-        let text = d.field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let wid = worktreeId, let draft else { return }
+        let text = draft.field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             NSSound.beep()
             return
@@ -132,7 +133,8 @@ extension DiffViewController {
             guard
                 await app.call(
                     CommentAdd(
-                        id: wid, file: d.file, start: d.start, end: d.end, quote: d.quote, text: text, side: d.side,
+                        id: wid, file: draft.file, start: draft.start, end: draft.end, quote: draft.quote, text: text,
+                        side: draft.side,
                         commit: shownCommit)) != nil
             else { return }
             closeDraft()
@@ -145,27 +147,27 @@ extension DiffViewController {
 final class DiffLineRowView: NSTableRowView {
     var onPlus: (() -> Void)? { didSet { plus.isHidden = true } }
     private lazy var plus: IconButton = {
-        let b = IconButton(.symbol("plus"), tip: String(localized: "Comment on This Line")) { [weak self] in
+        let button = IconButton(.symbol("plus"), tip: String(localized: "Comment on This Line")) { [weak self] in
             self?.onPlus?()
         }
-        b.isHidden = true
-        addSubview(b)
-        return b
+        button.isHidden = true
+        addSubview(button)
+        return button
     }()
     private var area: NSTrackingArea?
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         area.map(removeTrackingArea)
-        let a = NSTrackingArea(
+        let trackingArea = NSTrackingArea(
             rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a)
-        area = a
+        addTrackingArea(trackingArea)
+        area = trackingArea
     }
     override func mouseEntered(with e: NSEvent) { plus.isHidden = onPlus == nil }
     override func mouseExited(with e: NSEvent) { plus.isHidden = true }
     override func layout() {
         super.layout()
-        let s = Metrics.iconButton
-        plus.frame = NSRect(x: 0, y: (bounds.height - s) / 2, width: s, height: s)
+        let size = Metrics.iconButton
+        plus.frame = NSRect(x: 0, y: (bounds.height - size) / 2, width: size, height: size)
     }
 }

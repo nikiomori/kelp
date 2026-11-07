@@ -16,15 +16,15 @@ struct RowAction {
 
 @MainActor
 private func actionButtons(_ actions: [RowAction]) -> NSStackView {
-    let s = NSStackView(
-        views: actions.map { a in
-            let b = IconButton(.symbol(a.symbol), tip: a.title) { a.run() }   // greys in under the pointer, dips when pressed
-            b.symbolConfiguration = .chrome(Metrics.iconSmall)
-            return b
+    let stack = NSStackView(
+        views: actions.map { action in
+            let button = IconButton(.symbol(action.symbol), tip: action.title) { action.run() }   // greys in under the pointer, dips when pressed
+            button.symbolConfiguration = .chrome(Metrics.iconSmall)
+            return button
         })
-    s.spacing = Metrics.iconGap
-    s.isHidden = true
-    return s
+    stack.spacing = Metrics.iconGap
+    stack.isHidden = true
+    return stack
 }
 
 @MainActor
@@ -70,14 +70,14 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
-        let t = NSTextField(labelWithString: title)
-        t.font = .ui(11, weight: .semibold)
-        t.textColor = .secondaryLabelColor
-        let c = CountCapsule(count.map(String.init) ?? "")
-        c.isHidden = count == nil
-        let d = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
-        d.isHidden = detail == nil
-        pinRow(self, [chevron, t, NSView(), actions, d, c], leading: Metrics.inset)   // the panel's edge, as its header's branch
+        let titleField = NSTextField(labelWithString: title)
+        titleField.font = .ui(11, weight: .semibold)
+        titleField.textColor = .secondaryLabelColor
+        let capsule = CountCapsule(count.map(String.init) ?? "")
+        capsule.isHidden = count == nil
+        let detailField = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
+        detailField.isHidden = detail == nil
+        pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)   // the panel's edge, as its header's branch
         self.expanded = expanded
         showChevron()   // didSet doesn't run in init
     }
@@ -92,15 +92,15 @@ final class SectionCell: NSTableCellView, Hoverable {
 private final class CountCapsule: NSView {
     init(_ text: String) {
         super.init(frame: .zero)
-        let l = NSTextField(labelWithString: text)
-        l.font = .uiDigits(10, weight: .semibold)
-        l.textColor = .secondaryLabelColor
-        l.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(l)
+        let field = NSTextField(labelWithString: text)
+        field.font = .uiDigits(10, weight: .semibold)
+        field.textColor = .secondaryLabelColor
+        field.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(field)
         NSLayoutConstraint.activate([
-            l.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-            l.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
-            l.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: 16),
+            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
+            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+            field.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: 16),
             widthAnchor.constraint(greaterThanOrEqualTo: heightAnchor)
         ])
     }
@@ -133,14 +133,14 @@ final class GraphBar: NSView {
 
     init() {
         super.init(frame: .zero)
-        let c = SectionCell(
+        let sectionCell = SectionCell(
             title: loc(SourceControlController.Section.graph.rawValue), count: nil, expanded: true,
             actions: [RowAction("arrow.clockwise", "Refresh") { [weak self] in self?.onRefresh?() }])
         let sep = NSBox()
         sep.boxType = .separator
         fill.wantsLayer = true
         fill.layer?.cornerRadius = Metrics.radiusSM
-        for v in [sep, fill, c] as [NSView] {
+        for v in [sep, fill, sectionCell] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -152,10 +152,12 @@ final class GraphBar: NSView {
             sep.topAnchor.constraint(equalTo: topAnchor), sep.heightAnchor.constraint(equalToConstant: 1),
             sep.leadingAnchor.constraint(equalTo: leadingAnchor),
             sep.trailingAnchor.constraint(equalTo: trailingAnchor),
-            c.topAnchor.constraint(equalTo: sep.bottomAnchor), c.bottomAnchor.constraint(equalTo: bottomAnchor),
-            c.leadingAnchor.constraint(equalTo: leadingAnchor), c.trailingAnchor.constraint(equalTo: trailingAnchor)
+            sectionCell.topAnchor.constraint(equalTo: sep.bottomAnchor),
+            sectionCell.bottomAnchor.constraint(equalTo: bottomAnchor),
+            sectionCell.leadingAnchor.constraint(equalTo: leadingAnchor),
+            sectionCell.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
-        cell = c
+        cell = sectionCell
         clipsToBounds = true
         addTrackingArea(
             NSTrackingArea(
@@ -237,12 +239,12 @@ final class FileCell: NSTableCellView, Hoverable {
         dir.lineBreakMode = .byTruncatingHead
         dir.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         name.setContentCompressionResistancePriority(.init(400), for: .horizontal)
-        let l = NSTextField(labelWithString: letter.0)
-        l.font = .uiMono(11, weight: .semibold)
-        l.textColor = letter.1
-        l.alignment = .center
-        l.widthAnchor.constraint(equalToConstant: 12).isActive = true
-        pinRow(self, [icon, name, dir, NSView(), actions, l], leading: indent + Metrics.inset)
+        let letterField = NSTextField(labelWithString: letter.0)
+        letterField.font = .uiMono(11, weight: .semibold)
+        letterField.textColor = letter.1
+        letterField.alignment = .center
+        letterField.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        pinRow(self, [icon, name, dir, NSView(), actions, letterField], leading: indent + Metrics.inset)
         toolTip = f.path
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -255,10 +257,10 @@ final class FileCell: NSTableCellView, Hoverable {
 final class NoteCell: NSTableCellView {
     init(_ text: String) {
         super.init(frame: .zero)
-        let t = NSTextField(labelWithString: text)
-        t.font = .ui(12)
-        t.textColor = .secondaryLabelColor
-        pinRow(self, [t], leading: Metrics.inset + SectionCell.indent)
+        let field = NSTextField(labelWithString: text)
+        field.font = .ui(12)
+        field.textColor = .secondaryLabelColor
+        pinRow(self, [field], leading: Metrics.inset + SectionCell.indent)
     }
     required init?(coder: NSCoder) { fatalError() }
 }
@@ -287,8 +289,8 @@ final class CommitCell: NSTableCellView, Hoverable {
         _ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
         arrivesAfter arrival: Double? = nil
     ) {
-        let s = CommitSubject(c.subject)
-        subject = NSTextField(labelWithString: s.text)
+        let parsedSubject = CommitSubject(c.subject)
+        subject = NSTextField(labelWithString: parsedSubject.text)
         commitHash = c.hash
         super.init(frame: .zero)
         if let arrival, !Motion.reduced {
@@ -296,29 +298,30 @@ final class CommitCell: NSTableCellView, Hoverable {
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + arrival) { [weak self] in self?.arrive() }
         }
         let unpushed = pushed == false
-        let g = GraphView()
-        g.commit = c
-        g.isHead = isHead
-        g.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(g)
+        let graph = GraphView()
+        graph.commit = c
+        graph.isHead = isHead
+        graph.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(graph)
         subject.font = .ui(12, weight: isHead ? .semibold : .regular)
         subject.textColor = .labelColor
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         // A breaking change ("feat!:"): a red "!" before the words.
-        let bang = s.breaking ? NSTextField(labelWithString: "!") : nil
+        let bang = parsedSubject.breaking ? NSTextField(labelWithString: "!") : nil
         bang?.font = .ui(12, weight: .bold)
         bang?.textColor = .textRed
         bang?.setAccessibilityLabel(String(localized: "Breaking change"))
-        let mark = Self.mark(s, merge: c.parents.count > 1).map { m in
-            let v = NSImageView(image: .symbol(m.symbol, s.type ?? String(localized: "Merge commit")))
+        let mark = Self.mark(parsedSubject, merge: c.parents.count > 1).map { typeMark in
+            let markView = NSImageView(
+                image: .symbol(typeMark.symbol, parsedSubject.type ?? String(localized: "Merge commit")))
             // One colour in the list, so the subjects lead; the card under the pointer shows the type's own.
-            v.symbolConfiguration = .chrome(Metrics.iconSmall)
-            v.contentTintColor = .secondaryLabelColor
-            v.widthAnchor.constraint(equalToConstant: 13).isActive = true
-            return v
+            markView.symbolConfiguration = .chrome(Metrics.iconSmall)
+            markView.contentTintColor = .secondaryLabelColor
+            markView.widthAnchor.constraint(equalToConstant: 13).isActive = true
+            return markView
         }
-        let scope = NSTextField(labelWithString: s.scope ?? "")
+        let scope = NSTextField(labelWithString: parsedSubject.scope ?? "")
         scope.font = .ui(11)
         scope.textColor = .secondaryLabelColor
         scope.lineBreakMode = .byTruncatingTail
@@ -348,10 +351,11 @@ final class CommitCell: NSTableCellView, Hoverable {
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         NSLayoutConstraint.activate([
-            g.leadingAnchor.constraint(equalTo: leadingAnchor, constant: GraphView.leading),
-            g.topAnchor.constraint(equalTo: topAnchor),
-            g.bottomAnchor.constraint(equalTo: bottomAnchor), g.widthAnchor.constraint(equalToConstant: graphWidth),
-            row.leadingAnchor.constraint(equalTo: g.trailingAnchor, constant: 2),
+            graph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: GraphView.leading),
+            graph.topAnchor.constraint(equalTo: topAnchor),
+            graph.bottomAnchor.constraint(equalTo: bottomAnchor),
+            graph.widthAnchor.constraint(equalToConstant: graphWidth),
+            row.leadingAnchor.constraint(equalTo: graph.trailingAnchor, constant: 2),
             row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
         ])
@@ -421,9 +425,9 @@ final class CommitCell: NSTableCellView, Hoverable {
     static func badges(_ refs: [String]) -> [NSView] {
         let out = labels(refs)
         var views: [NSView] = out.prefix(1).map {
-            let b = Badge(text: $0.0, color: $0.1, strong: $0.2)
-            b.widthAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true   // a long name ends in "…", the subject keeps its room
-            return b
+            let badge = Badge(text: $0.0, color: $0.1, strong: $0.2)
+            badge.widthAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true   // a long name ends in "…", the subject keeps its room
+            return badge
         }
         if out.count > 1 {
             let more = Badge(text: "+\(out.count - 1)", color: .secondaryLabelColor, strong: false)
@@ -461,15 +465,15 @@ final class CommitCell: NSTableCellView, Hoverable {
     }
 
     static func relative(_ t: Double) -> String {
-        let s = Date().timeIntervalSince1970 - t
-        switch s {
+        let age = Date().timeIntervalSince1970 - t
+        switch age {
         case ..<(86400 * 7): return shortAgo(Date(timeIntervalSince1970: t))   // "now", "4m", "2h", "3d" in the user's language
         default:
-            let d = Date(timeIntervalSince1970: t)
-            let sameYear = Calendar.current.isDate(d, equalTo: Date(), toGranularity: .year)
+            let date = Date(timeIntervalSince1970: t)
+            let sameYear = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
             return sameYear
-                ? d.formatted(.dateTime.month(.abbreviated).day())
-                : d.formatted(.dateTime.month(.abbreviated).day().year())
+                ? date.formatted(.dateTime.month(.abbreviated).day())
+                : date.formatted(.dateTime.month(.abbreviated).day().year())
         }
     }
 }
@@ -495,9 +499,9 @@ final class Badge: NSView {
     override func draw(_ r: NSRect) {
         color.withAlphaComponent(0.15).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
-        let w = bounds.width - 10
+        let width = bounds.width - 10
         text.draw(
-            with: NSRect(x: 5, y: (bounds.height - text.size().height) / 2, width: w, height: text.size().height),
+            with: NSRect(x: 5, y: (bounds.height - text.size().height) / 2, width: width, height: text.size().height),
             options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
     }
 }
@@ -523,36 +527,38 @@ final class GraphView: NSView {
 
     override func draw(_ r: NSRect) {
         if let through {
-            for l in through {
-                let p = NSBezierPath()
-                p.move(to: NSPoint(x: Self.x(l), y: 0))
-                p.line(to: NSPoint(x: Self.x(l), y: bounds.height))
-                p.lineWidth = 1.5
-                Self.color(l).setStroke()
-                p.stroke()
+            for lane in through {
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: Self.x(lane), y: 0))
+                path.line(to: NSPoint(x: Self.x(lane), y: bounds.height))
+                path.lineWidth = 1.5
+                Self.color(lane).setStroke()
+                path.stroke()
             }
             return
         }
-        guard let c = commit else { return }
+        guard let commit else { return }
         let mid = bounds.height / 2
         func segment(_ l: [Int], from y0: CGFloat, to y1: CGFloat, color: NSColor) {
             guard l.count == 2 else { return }
-            let x0 = Self.x(l[0]), x1 = Self.x(l[1]), p = NSBezierPath()
-            p.move(to: NSPoint(x: x0, y: y0))
+            let x0 = Self.x(l[0]), x1 = Self.x(l[1]), path = NSBezierPath()
+            path.move(to: NSPoint(x: x0, y: y0))
             if x0 == x1 {
-                p.line(to: NSPoint(x: x1, y: y1))
+                path.line(to: NSPoint(x: x1, y: y1))
             } else {
-                p.curve(
+                path.curve(
                     to: NSPoint(x: x1, y: y1), controlPoint1: NSPoint(x: x0, y: (y0 + y1) / 2),
                     controlPoint2: NSPoint(x: x1, y: (y0 + y1) / 2))
             }
-            p.lineWidth = 1.5
+            path.lineWidth = 1.5
             color.setStroke()
-            p.stroke()
+            path.stroke()
         }
-        for l in c.top { segment(l, from: 0, to: mid, color: Self.color(l[0])) }
-        for l in c.bottom { segment(l, from: mid, to: bounds.height, color: Self.color(l.count == 2 ? l[1] : c.lane)) }
-        let x = Self.x(c.lane), col = Self.color(c.lane)
+        for l in commit.top { segment(l, from: 0, to: mid, color: Self.color(l[0])) }
+        for l in commit.bottom {
+            segment(l, from: mid, to: bounds.height, color: Self.color(l.count == 2 ? l[1] : commit.lane))
+        }
+        let x = Self.x(commit.lane), col = Self.color(commit.lane)
         if isHead {
             let ring = NSBezierPath(ovalIn: NSRect(x: x - 4.5, y: mid - 4.5, width: 9, height: 9))
             NSColor.windowBackgroundColor.setFill()

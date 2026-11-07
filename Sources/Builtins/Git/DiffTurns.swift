@@ -24,16 +24,16 @@ extension DiffViewController {
             turnPop.lastItem?.representedObject = m
             turnPop.lastItem?.toolTip = m.prompt
         }
-        if let picked, let i = marks.firstIndex(where: { $0.id == picked }) { turnPop.selectItem(at: i) }
+        if let picked, let index = marks.firstIndex(where: { $0.id == picked }) { turnPop.selectItem(at: index) }
         turnBar.isHidden = marks.isEmpty
     }
 
     func undoTurnButton() -> NSButton {
-        let b = ClosureButton(title: String(localized: "Undo Turn…")) { [weak self] in self?.undoTurn() }
-        b.bezelStyle = .push
-        b.controlSize = .small
-        b.toolTip = String(localized: "Put the files back as they were before this turn")
-        return b
+        let button = ClosureButton(title: String(localized: "Undo Turn…")) { [weak self] in self?.undoTurn() }
+        button.bezelStyle = .push
+        button.controlSize = .small
+        button.toolTip = String(localized: "Put the files back as they were before this turn")
+        return button
     }
 
     /// What goes back first, in a sheet; then only if the folder is still as it was shown (`SessionTurnUndo`).
@@ -50,18 +50,18 @@ extension DiffViewController {
                 status.stringValue = String(localized: "Nothing changed since that turn began")
                 return
             }
-            let a = NSAlert()
-            a.messageText = String(localized: "Put \(plan.files.count) files back as they were before this turn?")
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Put \(plan.files.count) files back as they were before this turn?")
             let shown = plan.files.prefix(12).joined(separator: "\n"), more = plan.files.count - 12
-            a.informativeText =
+            alert.informativeText =
                 shown + (more > 0 ? "\n" + String(localized: "and \(more) more") : "") + "\n\n"
                 + String(
                     localized:
                         "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes and your own edits in these files go too; Redo brings them back."
                 )
-            a.addButton(withTitle: String(localized: "Put Back")).hasDestructiveAction = true
-            a.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(a) == .alertFirstButtonReturn,
+            alert.addButton(withTitle: String(localized: "Put Back")).hasDestructiveAction = true
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn,
                 let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state))
             else { return }
             status.stringValue = String(localized: "Put \(plan.files.count) files back")

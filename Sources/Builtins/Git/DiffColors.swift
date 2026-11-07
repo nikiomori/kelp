@@ -23,11 +23,11 @@ enum DiffColors {
     /// The grammar of each file that has one, on the main thread (the queries are made there).
     @MainActor static func grammars(_ diffs: [FileDiff]) -> [Int: CodeGrammar] {
         var byExt: [String: CodeGrammar?] = [:], out: [Int: CodeGrammar] = [:]
-        for (i, d) in diffs.enumerated() where !d.binary && !d.hunks.isEmpty {
-            let name = (d.path as NSString).lastPathComponent, ext = (name as NSString).pathExtension
-            let g = byExt[ext] ?? CodeGrammar(fileName: name)
-            if !ext.isEmpty { byExt[ext] = g }   // "Makefile", "Dockerfile": by the name
-            out[i] = g
+        for (index, diff) in diffs.enumerated() where !diff.binary && !diff.hunks.isEmpty {
+            let name = (diff.path as NSString).lastPathComponent, ext = (name as NSString).pathExtension
+            let grammar = byExt[ext] ?? CodeGrammar(fileName: name)
+            if !ext.isEmpty { byExt[ext] = grammar }   // "Makefile", "Dockerfile": by the name
+            out[index] = grammar
         }
         return out
     }
@@ -51,9 +51,9 @@ enum DiffColors {
         -> [String: [Span]]
     {
         var starts: [Int] = [], at = 0
-        for l in lines {
+        for line in lines {
             starts.append(at)
-            at += l.text.utf16.count + 1
+            at += line.text.utf16.count + 1
         }
         guard at <= limit, !lines.isEmpty else { return [:] }
         func kept(_ l: DiffLine) -> Bool { l.kind == side || (side == .add && l.kind == .context) }
@@ -65,19 +65,20 @@ enum DiffColors {
                 let mid = (lo + hi) / 2
                 if starts[mid] <= range.location { lo = mid + 1 } else { hi = mid }
             }
-            var i = max(0, lo - 1)
-            while i < lines.count, starts[i] < NSMaxRange(range) {
-                let l = lines[i], length = l.text.utf16.count
-                let cut = NSIntersectionRange(range, NSRange(location: starts[i], length: length))
-                if cut.length > 0, kept(l), length <= Highlighter.maxColored, let k = key(f, l) {
-                    out[k, default: []].append(
-                        Span(range: NSRange(location: cut.location - starts[i], length: cut.length), name: name))
+            var lineIndex = max(0, lo - 1)
+            while lineIndex < lines.count, starts[lineIndex] < NSMaxRange(range) {
+                let line = lines[lineIndex], length = line.text.utf16.count
+                let cut = NSIntersectionRange(range, NSRange(location: starts[lineIndex], length: length))
+                if cut.length > 0, kept(line), length <= Highlighter.maxColored, let lineKey = key(f, line) {
+                    out[lineKey, default: []].append(
+                        Span(range: NSRange(location: cut.location - starts[lineIndex], length: cut.length), name: name)
+                    )
                 }
-                i += 1
+                lineIndex += 1
             }
         }
         // A line with no captures is still coloured by the grammar (all plain): no regex for it.
-        for l in lines where kept(l) { if let k = key(f, l), out[k] == nil { out[k] = [] } }
+        for line in lines where kept(line) { if let lineKey = key(f, line), out[lineKey] == nil { out[lineKey] = [] } }
         return out
     }
 }

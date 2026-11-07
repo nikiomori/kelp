@@ -7,15 +7,15 @@ import WorkbenchKit
 /// The unchanged lines between two changes: a capsule saying how many and in which function (git's own guess, from the
 /// next hunk's header); a click shows them in place, read from the file as the diff shows it.
 extension DiffViewController {
-    func gapRow(file f: Int, from: Int, lines n: Int, context: String) -> NSView {
-        let title = String(localized: "⋯  \(n) unchanged lines") + (context.isEmpty ? "" : "  ·  " + context)
-        let b = ClosureButton(title: title) { [weak self] in self?.openGap(file: f, from: from, lines: n) }
-        b.bezelStyle = .inline
-        b.controlSize = .small
-        b.lineBreakMode = .byTruncatingTail
-        b.toolTip = String(localized: "Show These Lines")
-        b.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let row = NSStackView(views: [b])
+    func gapRow(file: Int, from: Int, lines count: Int, context: String) -> NSView {
+        let title = String(localized: "⋯  \(count) unchanged lines") + (context.isEmpty ? "" : "  ·  " + context)
+        let button = ClosureButton(title: title) { [weak self] in self?.openGap(file: file, from: from, lines: count) }
+        button.bezelStyle = .inline
+        button.controlSize = .small
+        button.lineBreakMode = .byTruncatingTail
+        button.toolTip = String(localized: "Show These Lines")
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let row = NSStackView(views: [button])
         row.edgeInsets = NSEdgeInsets(top: 0, left: Self.codeIndent, bottom: 0, right: Metrics.gapWide)   // under the code
         return row
     }

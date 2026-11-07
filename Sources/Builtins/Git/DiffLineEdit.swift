@@ -12,10 +12,11 @@ extension DiffViewController: NSTextFieldDelegate {
 
     @objc func rowDoubleClicked() {
         let row = table.clickedRow
-        guard rows.indices.contains(row), let (path, line) = shownLine(row), let n = line.newLine, line.kind != .del
+        guard rows.indices.contains(row), let (path, line) = shownLine(row), let number = line.newLine,
+            line.kind != .del
         else { return }
-        guard showsWorkingTree, !hasUnsavedEdits(path) else { return openLine(path, n) }
-        beginEdit(row, path: path, line: n, text: line.text)
+        guard showsWorkingTree, !hasUnsavedEdits(path) else { return openLine(path, number) }
+        beginEdit(row, path: path, line: number, text: line.text)
     }
 
     private func hasUnsavedEdits(_ path: String) -> Bool {

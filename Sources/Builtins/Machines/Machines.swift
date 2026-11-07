@@ -58,16 +58,16 @@ extension AppModel {
     func newMachine(_ image: String, file: String? = nil) {
         Task {
             if image == "macos", file == nil {
-                let a = NSAlert()
-                a.messageText = String(localized: "Make a macOS machine?")
-                a.informativeText = String(
+                let alert = NSAlert()
+                alert.messageText = String(localized: "Make a macOS machine?")
+                alert.informativeText = String(
                     localized: """
                         Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. \
                         It takes 6 GB of memory while it runs, none while it sleeps.
                         """)
-                a.addButton(withTitle: String(localized: "Make It"))
-                a.addButton(withTitle: String(localized: "Cancel"))
-                guard await runSheet(a) == .alertFirstButtonReturn else { return }
+                alert.addButton(withTitle: String(localized: "Make It"))
+                alert.addButton(withTitle: String(localized: "Cancel"))
+                guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             }
             let base =
                 ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][
@@ -142,29 +142,29 @@ extension AppModel {
     }
 
     /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
-    func machineLine(_ v: VMInfo) -> String {
-        switch v.state {
-        case .creating: return stepText(v)
-        case .error: return v.detail ?? ""
+    func machineLine(_ info: VMInfo) -> String {
+        switch info.state {
+        case .creating: return stepText(info)
+        case .error: return info.detail ?? ""
         case .sleeping, .off:
             let wake =
-                v.state == .off
+                info.state == .off
                 ? String(localized: "Boots in a few seconds")
-                : v.machine.os == "linux"
+                : info.machine.os == "linux"
                     ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
-            guard let d = v.diskMiB else { return wake }
-            return String(localized: "\(String(format: "%.1f GB", Double(d) / 1024)) on disk") + " · " + wake
+            guard let disk = info.diskMiB else { return wake }
+            return String(localized: "\(String(format: "%.1f GB", Double(disk) / 1024)) on disk") + " · " + wake
         default:
             var parts: [String] = []
-            if let c = v.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", c)) CPU")) }
-            if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
-            let n = v.connections ?? 0
-            if n > 0 {
-                parts.append(String(localized: "\(n) running"))
+            if let cpu = info.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", cpu)) CPU")) }
+            if let memory = info.memoryMiB { parts.append(String(format: "%.1f GB", Double(memory) / 1024)) }
+            let connections = info.connections ?? 0
+            if connections > 0 {
+                parts.append(String(localized: "\(connections) running"))
             }
             // Nothing runs, but an agent drives its screen (`VMInfo.sessions` names it then).
-            else if let s = v.sessions?.first {
-                parts.append(String(localized: "\(catalog.name(session(s)?.agent)) is using the screen"))
+            else if let sessionId = info.sessions?.first {
+                parts.append(String(localized: "\(catalog.name(session(sessionId)?.agent)) is using the screen"))
             } else {
                 parts.append(String(localized: "Nothing running"))
             }
@@ -177,9 +177,9 @@ extension VMImage {
     /// The image's mark in the sidebar: its distribution's letter on its colour.
     var mark: (letter: String, color: NSColor) {
         switch id {
-        case let i where i.hasPrefix("debian"): ("D", NSColor(hex: 0xA80030))
-        case let i where i.hasPrefix("ubuntu"): ("U", NSColor(hex: 0xE95420))
-        case let i where i.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
+        case let imageId where imageId.hasPrefix("debian"): ("D", NSColor(hex: 0xA80030))
+        case let imageId where imageId.hasPrefix("ubuntu"): ("U", NSColor(hex: 0xE95420))
+        case let imageId where imageId.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
         case "macos": ("", NSColor(hex: 0x5A6B8C))
         case "android": ("", NSColor(hex: 0x2E9E5B))
         case "ios": ("", NSColor(hex: 0x3478F6))

@@ -36,14 +36,14 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     private func build() {
-        for (id, title, w) in [
+        for (id, title, width) in [
             ("agent", String(localized: "Agent"), 100.0), ("title", String(localized: "Conversation"), 380),
             ("cwd", String(localized: "Folder"), 260), ("updated", String(localized: "Last active"), 130)
         ] {
-            let c = NSTableColumn(identifier: .init(id))
-            c.title = title
-            c.width = w
-            table.addTableColumn(c)
+            let column = NSTableColumn(identifier: .init(id))
+            column.title = title
+            column.width = width
+            table.addTableColumn(column)
         }
         table.dataSource = self
         table.delegate = self
@@ -72,26 +72,26 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         selectionChanged()
         status.textColor = .secondaryLabelColor
         status.font = .uiDigits(11)
-        let w = NSWindow(
+        let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 600),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false)
-        w.title = String(localized: "Session History")
-        w.animationBehavior = .documentWindow   // the system's own open and close
+        window.title = String(localized: "Session History")
+        window.animationBehavior = .documentWindow   // the system's own open and close
         let toolbar = NSToolbar(identifier: "history")
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
-        w.toolbar = toolbar
-        w.toolbarStyle = .unifiedCompact
-        w.titleVisibility = .hidden   // the search needs the room; the title stays in the Window menu
+        window.toolbar = toolbar
+        window.toolbarStyle = .unifiedCompact
+        window.titleVisibility = .hidden   // the search needs the room; the title stays in the Window menu
         let content = stacked(sv)
-        w.contentView = content
+        window.contentView = content
         empty.place(in: content)
         loading.place(in: content)
-        w.isReleasedWhenClosed = false
-        w.setFrameAutosaveName("history")
-        w.center()
-        window = w
+        window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName("history")
+        window.center()
+        self.window = window
     }
 
     // MARK: toolbar: the search and its option on the left, the count and the buttons on the right
@@ -136,17 +136,18 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             rows =
                 await app.call(HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil))
                 ?? []
-            let q = search.stringValue.trimmingCharacters(in: .whitespaces)
+            let query = search.stringValue.trimmingCharacters(in: .whitespaces)
             showCount()
             if !rows.isEmpty {
                 empty.show(nil)
-            } else if q.isEmpty {
+            } else if query.isEmpty {
                 empty.show(
                     String(localized: "No conversations yet"), symbol: "clock.arrow.circlepath",
                     text: String(localized: "Claude Code and Codex conversations on this Mac show here."))
             } else {
                 empty.show(
-                    String(localized: "No conversations match “\(q)”"), symbol: "magnifyingglass", buttons: [showAll])
+                    String(localized: "No conversations match “\(query)”"), symbol: "magnifyingglass",
+                    buttons: [showAll])
             }
             table.usesAlternatingRowBackgroundColors = !rows.isEmpty   // stripes with nothing on them read as a list still to come
             table.reloadData()
@@ -164,18 +165,18 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
 
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let r = rows[row], id = c?.identifier.rawValue
-        let s: String
+        let conversation = rows[row], id = c?.identifier.rawValue
+        let text: String
         switch id {
-        case "agent": return agentCell(r.agent.rawValue)
-        case "title": s = r.title.isEmpty ? String(localized: "Untitled") : r.title
-        case "cwd": s = r.cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-        default: s = shortAgo(r.updated)   // "4m", "2h", "3d", as everywhere else in Kelp
+        case "agent": return agentCell(conversation.agent.rawValue)
+        case "title": text = conversation.title.isEmpty ? String(localized: "Untitled") : conversation.title
+        case "cwd": text = conversation.cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        default: text = shortAgo(conversation.updated)   // "4m", "2h", "3d", as everywhere else in Kelp
         }
-        let l = label(s)
-        l.lineBreakMode = id == "cwd" ? .byTruncatingHead : .byTruncatingTail
-        if id == "updated" { l.textColor = .secondaryLabelColor }
-        return NSStackView(views: [l])   // in the row's middle, on the agent's line
+        let field = label(text)
+        field.lineBreakMode = id == "cwd" ? .byTruncatingHead : .byTruncatingTail
+        if id == "updated" { field.textColor = .secondaryLabelColor }
+        return NSStackView(views: [field])   // in the row's middle, on the agent's line
     }
     /// The agent as the sidebar shows it: its icon and its name from the catalog.
     private func agentCell(_ agent: String) -> NSView {
@@ -185,20 +186,21 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         cell.spacing = Metrics.gap
         return cell
     }
-    private func label(_ s: String) -> NSTextField {
-        let l = NSTextField(labelWithString: s)
-        l.font = .ui(13)
-        l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a narrow column truncates it
-        return l
+    private func label(_ text: String) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = .ui(13)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a narrow column truncates it
+        return field
     }
     /// Drag a conversation onto a terminal pane: drops its resume command there.
     func tableView(_ t: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
         command(rows[row]) as NSString
     }
 
-    private func command(_ r: AgentSessionInfo) -> String {
-        let cwd = IDE.shellWord(r.cwd)
-        return r.agent == .codex ? "cd \(cwd) && codex resume \(r.id)" : "cd \(cwd) && claude --resume \(r.id)"
+    private func command(_ conversation: AgentSessionInfo) -> String {
+        let cwd = IDE.shellWord(conversation.cwd)
+        return conversation.agent == .codex
+            ? "cd \(cwd) && codex resume \(conversation.id)" : "cd \(cwd) && claude --resume \(conversation.id)"
     }
     @objc private func copyCommand() {
         guard table.selectedRow >= 0 else { return }
@@ -208,14 +210,14 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.showCount() }
     }
     @objc private func resume() {
-        let r = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
-        guard rows.indices.contains(r) else { return }
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard rows.indices.contains(row) else { return }
         Task {
-            guard let s = await app.call(HistoryResume(session: rows[r])) else { return }
-            app.upsert(s)
+            guard let session = await app.call(HistoryResume(session: rows[row])) else { return }
+            app.upsert(session)
             // A conversation from a folder that isn't a project opens in the workspace on screen (it keeps its own folder).
-            if let w = s.worktreeId { app.workbench.show(workspace: w) }
-            app.workbench.open(TabURI.session(s.id))
+            if let worktreeId = session.worktreeId { app.workbench.show(workspace: worktreeId) }
+            app.workbench.open(TabURI.session(session.id))
             NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         }
     }

@@ -25,10 +25,10 @@ extension DiffViewController {
                 (String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
                 (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })
             ] as [(String, () -> Void)] {
-                let b = ClosureButton(title: title, action: run)
-                b.bezelStyle = .inline
-                b.controlSize = .small
-                views.append(b)
+                let button = ClosureButton(title: title, action: run)
+                button.bezelStyle = .inline
+                button.controlSize = .small
+                views.append(button)
             }
             views.insert(NSView(), at: 2)   // the room goes between the text and its buttons
             views[2].setContentHuggingPriority(.init(1), for: .horizontal)
@@ -43,16 +43,18 @@ extension DiffViewController {
 
     /// Space on a selected comment: in or out of what Send to Agent sends.
     func flipSelectedComment() -> Bool {
-        guard rows.indices.contains(table.selectedRow), case .comment(let c) = rows[table.selectedRow], c.state == .open
+        guard rows.indices.contains(table.selectedRow), case .comment(let comment) = rows[table.selectedRow],
+            comment.state == .open
         else { return false }
-        flip(c.id)
+        flip(comment.id)
         return true
     }
 
     private func flip(_ id: String) {
         if skipped.contains(id) { skipped.remove(id) } else { skipped.insert(id) }
-        if let i = rows.firstIndex(where: { if case .comment(let c) = $0 { c.id == id } else { false } }) {
-            table.reloadData(forRowIndexes: [i], columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
+        if let index = rows.firstIndex(where: { if case .comment(let comment) = $0 { comment.id == id } else { false } }
+        ) {
+            table.reloadData(forRowIndexes: [index], columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
         }
     }
 
@@ -69,8 +71,8 @@ extension DiffViewController {
         }
         Task {
             guard let sid = await pickAgentSession(wid) else { return }
-            guard let n = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }   // the banner says why
-            status.stringValue = String(localized: "Sent \(n) comments to agent")
+            guard let count = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }   // the banner says why
+            status.stringValue = String(localized: "Sent \(count) comments to agent")
             await load()
         }
     }

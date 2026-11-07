@@ -78,18 +78,18 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var openCommits = Set<String>()
     /// The card of the commit under the pointer, with the daemon's details (quiet: without them it shows the row's).
     lazy var card: CommitCard = {
-        let c = CommitCard()
-        c.load = { [weak self] hash in
+        let commitCard = CommitCard()
+        commitCard.load = { [weak self] hash in
             guard let self, let wid = self.worktreeId else { return nil }
             return await self.app.quiet(GitCommitDetails(id: wid, commit: hash))
         }
-        c.picture = { [weak self] email in
+        commitCard.picture = { [weak self] email in
             guard let self, let wid = self.worktreeId,
                 let data = await self.app.quiet(GitAuthorAvatar(id: wid, email: email)) ?? nil
             else { return nil }
             return NSImage(data: data)
         }
-        return c
+        return commitCard
     }()
     private var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
     /// The section a click just folded or opened: its rebuilt cell's chevron turns.
@@ -125,13 +125,13 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         graphBar.onResize = { [weak self] in self?.resizeGraph(by: $0) }
         graphBar.onRefresh = { [weak self] in Task { await self?.loadGraph() } }
 
-        let v = NSView()
+        let root = NSView()
         let sep = NSBox()
         sep.boxType = .separator
         separator = sep
         for x in [header, box, sep, scroll, graphBar, graphScroll] as [NSView] {
             x.translatesAutoresizingMaskIntoConstraints = false
-            v.addSubview(x)
+            root.addSubview(x)
         }
         // Open, the graph is the height it was dragged to. Under windowSizeStayPut: it never stretches the window.
         let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
@@ -139,7 +139,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         graphHeight = gh
         changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
         changesHug?.priority = .init(495)
-        changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: v.heightAnchor, multiplier: 0.5)
+        changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: root.heightAnchor, multiplier: 0.5)
         changesCap?.priority = .init(750)   // under the 80 pt the changes keep
         graphClosed = graphScroll.heightAnchor.constraint(equalToConstant: 0)
         graphClosed?.priority = .defaultHigh
@@ -149,29 +149,29 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         room.priority = .init(760)   // the graph gives way first
         changesRoom = room
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: v.topAnchor),
-            header.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            header.topAnchor.constraint(equalTo: root.topAnchor),
+            header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             box.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
-            box.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 12),
-            box.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -12),
+            box.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
+            box.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
             sep.topAnchor.constraint(equalTo: box.bottomAnchor, constant: 10),
-            sep.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            sep.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            sep.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sep.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             sep.heightAnchor.constraint(equalToConstant: 1),   // unset, a rebuilt panel's layout can stretch it tall (and vertical)
             scroll.topAnchor.constraint(equalTo: sep.bottomAnchor),
             scroll.bottomAnchor.constraint(equalTo: graphBar.topAnchor), room,
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            graphBar.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            graphBar.trailingAnchor.constraint(equalTo: v.trailingAnchor), bh,
+            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            graphBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            graphBar.trailingAnchor.constraint(equalTo: root.trailingAnchor), bh,
             graphScroll.topAnchor.constraint(equalTo: graphBar.bottomAnchor),
-            graphScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            graphScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            graphScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+            graphScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            graphScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            graphScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         ])
-        empty.place(in: v, under: header)
-        view = v
+        empty.place(in: root, under: header)
+        view = root
         updateHeader()   // NSButton's own "Button" title must not show while the branch loads
         if app.workbench.workspaceId == nil { showNoProject(true) }
         track(owner: self) { [app] in
@@ -218,12 +218,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let menu = NSMenu()
         menu.delegate = self
         o.menu = menu
-        let s = NSScrollView()
-        s.documentView = o
-        s.hasVerticalScroller = true
-        s.drawsBackground = false
-        s.autohidesScrollers = true
-        return s
+        let scrollView = NSScrollView()
+        scrollView.documentView = o
+        scrollView.hasVerticalScroller = true
+        scrollView.drawsBackground = false
+        scrollView.autohidesScrollers = true
+        return scrollView
     }
 
     /// The message field (grows to six lines) and Commit with its split menu.
@@ -239,10 +239,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         message.autoresizingMask = .width
         message.onCommit = { [weak self] in self?.commit(push: false, amend: false) }
         message.onChange = { [weak self] in self?.messageChanged() }
-        let s = NSScrollView()
-        s.documentView = message
-        s.drawsBackground = false
-        s.hasVerticalScroller = false
+        let messageScroll = NSScrollView()
+        messageScroll.documentView = message
+        messageScroll.drawsBackground = false
+        messageScroll.hasVerticalScroller = false
         placeholder.textColor = .placeholderTextColor
         placeholder.font = .ui(13)
         placeholder.lineBreakMode = .byTruncatingTail
@@ -274,23 +274,23 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         stack.orientation = .vertical
         stack.spacing = 6   // a hidden CI line takes no room
         let box = NSView()
-        for x in [field, s, placeholder, stack] as [NSView] {
+        for x in [field, messageScroll, placeholder, stack] as [NSView] {
             x.translatesAutoresizingMaskIntoConstraints = false
             box.addSubview(x)
         }
-        let h = s.heightAnchor.constraint(equalToConstant: 30)
-        messageHeight = h
+        let heightConstraint = messageScroll.heightAnchor.constraint(equalToConstant: 30)
+        messageHeight = heightConstraint
         NSLayoutConstraint.activate([
             field.topAnchor.constraint(equalTo: box.topAnchor),
             field.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             field.trailingAnchor.constraint(equalTo: box.trailingAnchor),
-            s.topAnchor.constraint(equalTo: field.topAnchor, constant: 1),
-            s.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -1),
-            s.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 2),
-            s.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -2), h,
-            placeholder.leadingAnchor.constraint(equalTo: s.leadingAnchor, constant: 9),
-            placeholder.topAnchor.constraint(equalTo: s.topAnchor, constant: 7),
-            placeholder.trailingAnchor.constraint(lessThanOrEqualTo: s.trailingAnchor, constant: -8),
+            messageScroll.topAnchor.constraint(equalTo: field.topAnchor, constant: 1),
+            messageScroll.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -1),
+            messageScroll.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 2),
+            messageScroll.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -2), heightConstraint,
+            placeholder.leadingAnchor.constraint(equalTo: messageScroll.leadingAnchor, constant: 9),
+            placeholder.topAnchor.constraint(equalTo: messageScroll.topAnchor, constant: 7),
+            placeholder.trailingAnchor.constraint(lessThanOrEqualTo: messageScroll.trailingAnchor, constant: -8),
             stack.topAnchor.constraint(equalTo: field.bottomAnchor, constant: 8),
             stack.bottomAnchor.constraint(equalTo: box.bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: box.leadingAnchor),
@@ -374,15 +374,15 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         var out: [Node] = []
         func section(_ s: Section, _ files: [FileChange]) {
             guard !files.isEmpty else { return }
-            let n = Node(.section(s))
-            n.files = files
-            if !collapsed.contains(s.rawValue) { n.children = files.map { Node(.file($0, s)) } }
-            out.append(n)
+            let node = Node(.section(s))
+            node.files = files
+            if !collapsed.contains(s.rawValue) { node.children = files.map { Node(.file($0, s)) } }
+            out.append(node)
         }
-        let g = changes.grouped
-        section(.merge, g.merge)
-        section(.staged, g.staged)
-        section(.changes, g.changes)
+        let grouped = changes.grouped
+        section(.merge, grouped.merge)
+        section(.staged, grouped.staged)
+        section(.changes, grouped.changes)
         if changes.isEmpty, info != nil { out.append(Node(.note(String(localized: "No changes")))) }
         if changes.count >= FileChange.limit {
             out.append(Node(.note(String(localized: "Showing the first \(FileChange.limit) changes"))))
@@ -399,10 +399,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     private func rebuildGraph() {
         card.close()   // its row is about to be rebuilt
-        graphRoots = commits.indices.map { i in
-            let n = Node(.commit(i)), h = commits[i].hash
-            if openCommits.contains(h) { n.children = (commitFiles[h] ?? []).map { Node(.commitFile(h, $0)) } }
-            return n
+        graphRoots = commits.indices.map { index in
+            let node = Node(.commit(index)), hash = commits[index].hash
+            if openCommits.contains(hash) {
+                node.children = (commitFiles[hash] ?? []).map { Node(.commitFile(hash, $0)) }
+            }
+            return node
         }
         graphOutline.reloadData()
         graphOutline.expandItem(nil, expandChildren: true)
@@ -470,48 +472,51 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
 
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
-        guard let n = item as? Node else { return nil }
-        switch n.kind {
-        case .section(let s):
+        guard let node = item as? Node else { return nil }
+        switch node.kind {
+        case .section(let section):
             // The first section carries what isn't committed yet ("+120 −30"), the header's room being the quick actions'.
             let cell = SectionCell(
-                title: loc(s.rawValue), count: n.files.count, expanded: !collapsed.contains(s.rawValue),
-                actions: sectionActions(s, n),
-                detail: n === roots.first && !stats.isHidden ? stats.attributedStringValue : nil)
-            cell.toolTip = n === roots.first && !stats.isHidden ? stats.toolTip : nil
-            cell.turnsIn = turning == s
+                title: loc(section.rawValue), count: node.files.count, expanded: !collapsed.contains(section.rawValue),
+                actions: sectionActions(section, node),
+                detail: node === roots.first && !stats.isHidden ? stats.attributedStringValue : nil)
+            cell.toolTip = node === roots.first && !stats.isHidden ? stats.toolTip : nil
+            cell.turnsIn = turning == section
             return cell
-        case .file(let f, let s):
+        case .file(let file, let section):
             return FileCell(
-                f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, s),
-                indent: SectionCell.indent, actions: fileActions(f, s))
-        case .commit(let i):
-            if more, !loadingMore, i >= commits.count - 30 { loadMore() }
-            let c = commits[i]
-            let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(c.hash)
+                file, icon: app.fileIcons.image((file.path as NSString).lastPathComponent),
+                letter: Self.letter(file, section),
+                indent: SectionCell.indent, actions: fileActions(file, section))
+        case .commit(let index):
+            if more, !loadingMore, index >= commits.count - 30 { loadMore() }
+            let commit = commits[index]
+            let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(commit.hash)
             let cell = CommitCell(
-                c, graphWidth: Self.graphWidth(c), isHead: c.hash.hasPrefix(info?.head ?? "\u{0}"), pushed: pushed,
-                landsAfter: landing[c.hash], arrivesAfter: arriving[c.hash])
+                commit, graphWidth: Self.graphWidth(commit), isHead: commit.hash.hasPrefix(info?.head ?? "\u{0}"),
+                pushed: pushed,
+                landsAfter: landing[commit.hash], arrivesAfter: arriving[commit.hash])
             if syncing?.push == true { cell.pulse(true) }
             cell.onHover = { [weak self, weak cell] on in
-                if let self, let cell { self.card.hover(on, commit: c, pushed: pushed, over: cell) }
+                if let self, let cell { self.card.hover(on, commit: commit, pushed: pushed, over: cell) }
             }
             return cell
-        case .commitFile(let h, let f):
-            let commit = commits.first { $0.hash == h }
+        case .commitFile(let hash, let fileChange):
+            let commit = commits.first { $0.hash == hash }
             let width = commit.map(Self.graphWidth) ?? GraphView.width(lanes: 1)
             let cell = FileCell(
-                f, icon: app.fileIcons.image((f.path as NSString).lastPathComponent), letter: Self.letter(f, .graph),
+                fileChange, icon: app.fileIcons.image((fileChange.path as NSString).lastPathComponent),
+                letter: Self.letter(fileChange, .graph),
                 indent: width + Metrics.gapWide, actions: [])
             // The lanes below the commit run on through its expanded files, as in VS Code.
-            let g = GraphView()
-            g.through = Array(Set(commit?.bottom.compactMap(\.last) ?? []))
-            g.frame = NSRect(x: GraphView.leading, y: 0, width: width, height: 22)
-            g.autoresizingMask = [.height]
-            cell.addSubview(g)
+            let graph = GraphView()
+            graph.through = Array(Set(commit?.bottom.compactMap(\.last) ?? []))
+            graph.frame = NSRect(x: GraphView.leading, y: 0, width: width, height: 22)
+            graph.autoresizingMask = [.height]
+            cell.addSubview(graph)
             return cell
-        case .note(let t):
-            return NoteCell(t)
+        case .note(let text):
+            return NoteCell(text)
         }
     }
 
@@ -532,13 +537,15 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     @objc private func clicked(_ o: NSOutlineView) {
         card.close()
-        guard let n = o.item(atRow: o.clickedRow) as? Node else { return }
-        switch n.kind {
-        case .section(let s): toggle(s)
-        case .file(let f, let s): open(f, s)
-        case .commit(let i): toggle(commit: commits[i].hash)
-        case .commitFile(let h, let f):
-            if let w = worktreeId { app.workbench.open(DiffTab.uri(w, file: f.path, commit: h)) }
+        guard let node = o.item(atRow: o.clickedRow) as? Node else { return }
+        switch node.kind {
+        case .section(let section): toggle(section)
+        case .file(let file, let section): open(file, section)
+        case .commit(let index): toggle(commit: commits[index].hash)
+        case .commitFile(let hash, let fileChange):
+            if let worktree = worktreeId {
+                app.workbench.open(DiffTab.uri(worktree, file: fileChange.path, commit: hash))
+            }
         case .note: break
         }
     }
@@ -571,22 +578,23 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 // MARK: status letters (VS Code's colors)
 
 extension SourceControlController {
-    func open(_ f: FileChange, _ s: Section) {
-        guard let w = worktreeId else { return }
-        if s == .merge {
-            openFile(f)
+    func open(_ file: FileChange, _ section: Section) {
+        guard let worktree = worktreeId else { return }
+        if section == .merge {
+            openFile(file)
             return
         }
-        if DiffViewController.reveal(f.path, worktree: w) { return }   // the review beside it scrolls there instead
-        app.workbench.open(DiffTab.uri(w, file: f.path, source: s == .staged ? "staged" : "unstaged"))
+        // the review beside it scrolls there instead
+        if DiffViewController.reveal(file.path, worktree: worktree) { return }
+        app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? "staged" : "unstaged"))
     }
-    func openFile(_ f: FileChange) {
-        if let w = app.worktree(worktreeId) { app.workbench.open(TabURI.file(w.path + "/" + f.path)) }
+    func openFile(_ file: FileChange) {
+        if let worktree = app.worktree(worktreeId) { app.workbench.open(TabURI.file(worktree.path + "/" + file.path)) }
     }
 
-    static func letter(_ f: FileChange, _ s: Section) -> (String, NSColor) {
-        let l = f.letter(inWorktree: s == .changes, merging: s == .merge)
-        return (l, .gitLetter(l))
+    static func letter(_ file: FileChange, _ section: Section) -> (String, NSColor) {
+        let code = file.letter(inWorktree: section == .changes, merging: section == .merge)
+        return (code, .gitLetter(code))
     }
 }
 

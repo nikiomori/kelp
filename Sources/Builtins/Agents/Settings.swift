@@ -33,9 +33,9 @@ struct AgentsSettings: View {
 
     private var updates: [AgentManifest] { agents.filter { newer(versions[$0.id]) } }
     /// "2.1.310" is newer than "2.1.304" (numbers, not text; a build ahead of npm isn't behind).
-    private func newer(_ v: (version: String?, latest: String?)?) -> Bool {
-        guard let a = v?.version, let b = v?.latest else { return false }
-        return a.compare(b, options: .numeric) == .orderedAscending
+    private func newer(_ versionInfo: (version: String?, latest: String?)?) -> Bool {
+        guard let version = versionInfo?.version, let latest = versionInfo?.latest else { return false }
+        return version.compare(latest, options: .numeric) == .orderedAscending
     }
     /// Found on this Mac: offered in New Agent.
     private func installed(_ m: AgentManifest) -> Bool {
@@ -48,7 +48,7 @@ struct AgentsSettings: View {
         GeometryReader { pane in
             HStack(alignment: .top, spacing: 0) {
                 list.frame(width: min(Self.listWidth, pane.size.width * 0.4))
-                Form { if let m = current { card(m) } }.formStyle(.grouped)
+                Form { if let agent = current { card(agent) } }.formStyle(.grouped)
             }
         }
         .onChange(of: selection) { _, _ in
@@ -126,17 +126,17 @@ struct AgentsSettings: View {
 
     /// The id `by` places from `id` in the list as shown; none past either end, or when `id` isn't shown.
     static func neighbour(of id: String?, by: Int, in ids: [String]) -> String? {
-        guard let i = ids.firstIndex(where: { $0 == id }), ids.indices.contains(i + by) else { return nil }
-        return ids[i + by]
+        guard let index = ids.firstIndex(where: { $0 == id }), ids.indices.contains(index + by) else { return nil }
+        return ids[index + by]
     }
 
     /// Opened from Settings' search on an agent's name: that agent.
     private func reveal() {
         guard let word = UserDefaults.standard.string(forKey: "settings.group"),
-            let m = agents.first(where: { $0.name == word })
+            let agent = agents.first(where: { $0.name == word })
         else { return }
         UserDefaults.standard.set("", forKey: "settings.group")
-        selection = m.id
+        selection = agent.id
     }
 
     private func row(_ a: AgentManifest) -> some View {
@@ -163,8 +163,8 @@ struct AgentsSettings: View {
                     }
                     HStack(spacing: 0) {
                         Text(caption).foregroundStyle(.secondary)
-                        if let n = app.plans[a.id]?.note {
-                            Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color))
+                        if let note = app.plans[a.id]?.note {
+                            Text(" · " + note.text).foregroundStyle(Color(nsColor: note.color))
                         }
                     }.font(.ui(11))
                 }
@@ -273,11 +273,11 @@ struct AgentsSettings: View {
             }
             Spacer()
             Button("Start \(m.name)") {
-                guard let e = app.workbench.editor else {
+                guard let editor = app.workbench.editor else {
                     Banner.show(String(localized: "Open a chat to start \(m.name) there."))
                     return
                 }
-                e.newAgent(m.id)
+                editor.newAgent(m.id)
                 app.workbench.bringToFront()
             }
         }
@@ -307,18 +307,19 @@ struct AgentsSettings: View {
     }
 
     @ViewBuilder private func versionRow(_ m: AgentManifest) -> some View {
-        let v = versions[m.id]
+        let versionInfo = versions[m.id]
         HStack {
-            if let installed = v?.version {
+            if let installed = versionInfo?.version {
                 Text("Version \(installed)")
-                    + Text(newer(v) ? String(localized: " · \(v?.latest ?? "") available") : "").foregroundColor(
+                    + Text(newer(versionInfo) ? String(localized: " · \(versionInfo?.latest ?? "") available") : "")
+                    .foregroundColor(
                         .textOrange)
             } else if versions.isEmpty {
                 Text("Checking…").foregroundStyle(.secondary)
             }
             Spacer()
             if let cmd = m.update {
-                Button(newer(v) ? String(localized: "Update") : String(localized: "Check for Update")) {
+                Button(newer(versionInfo) ? String(localized: "Update") : String(localized: "Check for Update")) {
                     run(cmd, String(localized: "Update \(m.name)"))
                 }.help(cmd).disabled(versions.isEmpty)   // "Checking…" beside it
             }
@@ -379,17 +380,17 @@ struct AgentsSettings: View {
     /// One remote project's folder per host: a command run in it runs on that host, in its login shell.
     private var hosts: [(host: String, folder: String)] {
         var seen = Set<String>()
-        return app.repos.compactMap { r in
-            RemoteHost.of(r.path).flatMap { seen.insert($0.host).inserted ? ($0.host, r.path) : nil }
+        return app.repos.compactMap { repo in
+            RemoteHost.of(repo.path).flatMap { seen.insert($0.host).inserted ? ($0.host, repo.path) : nil }
         }
     }
 
     private func install(_ m: AgentManifest) {
-        guard let e = app.workbench.editor else {
+        guard let editor = app.workbench.editor else {
             run(m.install ?? "", String(localized: "Install \(m.name)"))
             return
         }   // says what to do
-        app.catalog.install(m, in: e)
+        app.catalog.install(m, in: editor)
         app.workbench.bringToFront()
     }
 
@@ -400,23 +401,23 @@ struct AgentsSettings: View {
 
     /// The agent's own command, in a terminal in the workspace on screen, so what it does is in plain sight.
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
-        guard let e = app.workbench.editor else {
+        guard let editor = app.workbench.editor else {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(cmd, forType: .string)
             Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)"))
             return
         }
-        e.run(command: cmd, title: title, cwd: folder)
+        editor.run(command: cmd, title: title, cwd: folder)
         app.workbench.bringToFront()
     }
 
     private func loadVersions() async {
         // Quiet: a version beside each agent (npm offline, say); unknown versions just stay blank.
         let rows = await app.quiet(AgentsVersions(), timeout: 60) ?? []
-        var v: [String: (String?, String?)] = [:]
-        for r in rows { v[r.id] = (r.version, r.latest) }
-        for a in agents where v[a.id] == nil { v[a.id] = (nil, nil) }
-        versions = v
+        var byId: [String: (String?, String?)] = [:]
+        for row in rows { byId[row.id] = (row.version, row.latest) }
+        for a in agents where byId[a.id] == nil { byId[a.id] = (nil, nil) }
+        versions = byId
         // What an installer runs with: without it, Install says what to get first. Not knowing, nothing is held back.
         if let found = await app.quiet(ProcessWhich(commands: ["npm", "brew"])) {
             lacking = Set(["npm", "brew"].filter { found[$0] == nil })
@@ -469,11 +470,11 @@ struct AgentsSettings: View {
         m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n")
     }
     private func load() {
-        guard let m = current else { return }
-        loaded = m.id
-        command = m.command
-        args = m.args.joined(separator: " ")
-        env = Self.envText(m)
+        guard let agent = current else { return }
+        loaded = agent.id
+        command = agent.command
+        args = agent.args.joined(separator: " ")
+        env = Self.envText(agent)
     }
     private func reload() {
         files = AgentManifest.load(dir: Paths.agents)
@@ -495,33 +496,37 @@ struct AgentsSettings: View {
     /// Only what changed: looking at an agent mustn't leave an override behind. The values go along now, since the fields
     /// may hold another agent by the time the keychain answers.
     private func persist() {
-        guard let m = agents.first(where: { $0.id == loaded }) else { return }
-        guard command != m.command || args != m.args.joined(separator: " ") || env != Self.envText(m) else { return }
+        guard let agent = agents.first(where: { $0.id == loaded }) else { return }
+        guard command != agent.command || args != agent.args.joined(separator: " ") || env != Self.envText(agent) else {
+            return
+        }
         let (c, a, e) = (command, args, env)
-        Task { await save(m, command: c, args: a, env: e) }
+        Task { await save(agent, command: c, args: a, env: e) }
     }
 
     /// A secret the keychain refused, or a file that couldn't be written, says why.
     private func save(_ agent: AgentManifest, command: String, args: String, env: String) async {
-        var m = agent
-        m.command = command
-        m.args = args.split(separator: " ").map(String.init)
+        var manifest = agent
+        manifest.command = command
+        manifest.args = args.split(separator: " ").map(String.init)
         var pairs = Dictionary(
-            env.split(separator: "\n").compactMap { l -> (String, String)? in
-                let p = l.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-                return p.count == 2 ? (String(p[0]).trimmingCharacters(in: .whitespaces), String(p[1])) : nil
+            env.split(separator: "\n").compactMap { line -> (String, String)? in
+                let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                return parts.count == 2
+                    ? (String(parts[0]).trimmingCharacters(in: .whitespaces), String(parts[1])) : nil
             }, uniquingKeysWith: { $1 })
         // Secrets: the daemon puts them in the keychain; the file only says where they are.
         for (k, v) in pairs where AgentManifest.isSecret(k) && v != AgentManifest.keychainValue && !v.isEmpty {
-            guard await app.call(AgentSetSecret(agent: m.id, key: k, value: v)) != nil else { return }
+            guard await app.call(AgentSetSecret(agent: manifest.id, key: k, value: v)) != nil else { return }
             pairs[k] = AgentManifest.keychainValue
         }
-        for k in m.env.keys where pairs[k] == nil && m.env[k] == AgentManifest.keychainValue {
-            await app.call(AgentSetSecret(agent: m.id, key: k))   // removed: forget it
+        for k in manifest.env.keys where pairs[k] == nil && manifest.env[k] == AgentManifest.keychainValue {
+            await app.call(AgentSetSecret(agent: manifest.id, key: k))   // removed: forget it
         }
-        m.env = pairs.filter { !$0.value.isEmpty }   // a preset's blank line until it's filled in
-        do { try AgentManifest.saveOverride(m, dir: Paths.agents) } catch {
-            Banner.show(String(localized: "Couldn't save \(m.name): \(error.localizedDescription)"), style: .error)
+        manifest.env = pairs.filter { !$0.value.isEmpty }   // a preset's blank line until it's filled in
+        do { try AgentManifest.saveOverride(manifest, dir: Paths.agents) } catch {
+            Banner.show(
+                String(localized: "Couldn't save \(manifest.name): \(error.localizedDescription)"), style: .error)
             return
         }
         files = AgentManifest.load(dir: Paths.agents)

@@ -22,24 +22,24 @@ extension DiffViewController {
     }
 
     private func findCard() -> FindCard {
-        if let c = find.card { return c }
-        let c = FindCard()
-        c.onSearch = { [weak self] in self?.search($0) }
-        c.onStep = { [weak self] in self?.stepFind(next: $0) }
-        c.onClose = { [weak self] in
+        if let existing = find.card { return existing }
+        let card = FindCard()
+        card.onSearch = { [weak self] in self?.search($0) }
+        card.onStep = { [weak self] in self?.stepFind(next: $0) }
+        card.onClose = { [weak self] in
             guard let self else { return }
             search("")
             view.window?.makeFirstResponder(table)
         }
-        c.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(c)
+        card.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(card)
         let under: NSView = table.enclosingScrollView ?? table
         NSLayoutConstraint.activate([
-            c.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
-            c.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)
+            card.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
+            card.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)
         ])
-        find.card = c
-        return c
+        find.card = card
+        return card
     }
 
     /// The lines holding `needle` (any case), in every file. `step`: go to the first; a diff read again keeps its place.
@@ -48,17 +48,17 @@ extension DiffViewController {
     func search(_ needle: String, step: Bool = true) -> Task<Void, Never> {
         find.needle = needle
         find.searches += 1
-        let n = find.searches, all = rows
+        let generation = find.searches, all = rows
         return Task {
             let found =
                 needle.isEmpty
                 ? []
                 : await Task.detached {
-                    all.indices.filter { i in
-                        Self.texts(all[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
+                    all.indices.filter { index in
+                        Self.texts(all[index]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
                     }
                 }.value
-            guard n == find.searches else { return }
+            guard generation == find.searches else { return }
             show(found, step: step)
         }
     }
@@ -74,23 +74,23 @@ extension DiffViewController {
     }
 
     func stepFind(next: Bool) {
-        let n = find.rows.count
-        guard n > 0 else {
+        let count = find.rows.count
+        guard count > 0 else {
             NSSound.beep()
             return
         }
-        find.at = next ? (find.at + 1) % n : (max(find.at, 0) - 1 + n) % n
-        let r = find.rows[find.at]
-        table.selectRowIndexes([r], byExtendingSelection: false)
-        table.scrollRowToVisible(min(r + 4, rows.count - 1))
-        table.scrollRowToVisible(r)
+        find.at = next ? (find.at + 1) % count : (max(find.at, 0) - 1 + count) % count
+        let row = find.rows[find.at]
+        table.selectRowIndexes([row], byExtendingSelection: false)
+        table.scrollRowToVisible(min(row + 4, rows.count - 1))
+        table.scrollRowToVisible(row)
         find.card?.selected = find.at
     }
 
-    nonisolated private static func texts(_ r: ReviewRow) -> [String] {
-        switch r {
-        case .diff(.line(_, let l)): [l.text]
-        case .diff(.pair(_, let l, let r)): [l?.text, r?.text].compactMap { $0 }
+    nonisolated private static func texts(_ row: ReviewRow) -> [String] {
+        switch row {
+        case .diff(.line(_, let line)): [line.text]
+        case .diff(.pair(_, let removed, let added)): [removed?.text, added?.text].compactMap { $0 }
         default: []
         }
     }
@@ -100,11 +100,13 @@ extension DiffViewController {
         guard !find.needle.isEmpty else { return }
         let text = s.string as NSString
         var rest = NSRange(location: from, length: text.length - from)
-        while case let f = text.range(of: find.needle, options: .caseInsensitive, range: rest), f.location != NSNotFound
+        while case let match = text.range(of: find.needle, options: .caseInsensitive, range: rest),
+            match.location != NSNotFound
         {
             // Dark text on the find colour, as Xcode marks a match: grey comment text on yellow can't be read.
-            s.addAttributes([.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: f)
-            rest = NSRange(location: NSMaxRange(f), length: text.length - NSMaxRange(f))
+            s.addAttributes(
+                [.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: match)
+            rest = NSRange(location: NSMaxRange(match), length: text.length - NSMaxRange(match))
         }
     }
 }

@@ -24,11 +24,11 @@ final class MachineTab: KelpKit.TabContent {   // not SwiftUI's
         list.key = ""
         detail = Watched(.machineDetail, in: app)
         detail.key = name
-        let v = NSHostingView(
+        let hosting = NSHostingView(
             rootView: MachineView(app: app, name: name).frame(
                 maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
-        v.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
-        view = v
+        hosting.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
+        view = hosting
     }
     func focus() {}
 }
@@ -49,10 +49,10 @@ struct MachineView: View {
     private var header: some View {
         HStack(spacing: Metrics.gapWide) {
             Text(name).font(.ui(13, weight: .semibold))
-            if let v = info {
-                let word = app.machineWord(v)
+            if let info {
+                let word = app.machineWord(info)
                 Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
-                Text(summary(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                Text(summary(info)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
                     .truncationMode(.tail)
             }
             Spacer(minLength: 8)
@@ -63,8 +63,8 @@ struct MachineView: View {
             Button(String(localized: "Terminal")) { app.runInMachine(name) }
                 .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             Menu {
-                if let v = info {
-                    switch v.state {
+                if let info {
+                    switch info.state {
                     case .running, .paused, .starting:
                         Button(String(localized: "Sleep")) { app.control(machine: name, .sleep) }
                         Button(String(localized: "Shut Down")) { app.control(machine: name, .stop) }
@@ -89,43 +89,45 @@ struct MachineView: View {
     }
 
     /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · disk 3.1 GB".
-    private func summary(_ v: VMInfo) -> String {
-        let m = v.machine
-        var parts = [VMImage.named(m.image)?.title ?? m.image, String(localized: "\(m.cpus) CPUs")]
-        if let c = v.cpu { parts[1] += String(format: " (%.0f%%)", c) }
-        let total = Double(m.memoryMiB) / 1024
-        if let now = v.memoryMiB {
+    private func summary(_ info: VMInfo) -> String {
+        let machine = info.machine
+        var parts = [VMImage.named(machine.image)?.title ?? machine.image, String(localized: "\(machine.cpus) CPUs")]
+        if let cpu = info.cpu { parts[1] += String(format: " (%.0f%%)", cpu) }
+        let total = Double(machine.memoryMiB) / 1024
+        if let now = info.memoryMiB {
             parts.append(String(format: String(localized: "%.1f GB in use"), Double(now) / 1024))
         } else {
             parts.append(String(format: "%.0f GB", total))
         }
-        if let d = v.diskMiB { parts.append(String(format: String(localized: "disk %.1f GB"), Double(d) / 1024)) }
+        if let disk = info.diskMiB {
+            parts.append(String(format: String(localized: "disk %.1f GB"), Double(disk) / 1024))
+        }
         return parts.joined(separator: " · ")
     }
 
     @ViewBuilder private var content: some View {
-        if let v = info {
-            switch v.state {
+        if let info {
+            switch info.state {
             case .running, .paused, .starting:
-                running(v).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                running(info).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             case .creating:
                 VStack(spacing: Metrics.gapWide) {
-                    LoadingLine(app.stepText(v))
-                    if let p = v.progress { ProgressView(value: p).frame(width: 240) }
+                    LoadingLine(app.stepText(info))
+                    if let progress = info.progress { ProgressView(value: progress).frame(width: 240) }
                 }
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error:
                 ContentUnavailableView {
                     Label(String(localized: "\(name) wasn't made"), systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(v.detail ?? "").font(.ui(11).monospaced()).textSelection(.enabled)
+                    Text(info.detail ?? "").font(.ui(11).monospaced()).textSelection(.enabled)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .sleeping, .off:
                 ScrollView {   // what it is stays in view: its files, and its size to change while it's shut down
                     VStack(spacing: 0) {
-                        asleep(v).frame(maxWidth: .infinity).padding(.vertical, 24)
-                        machine(v)
+                        asleep(info).frame(maxWidth: .infinity).padding(.vertical, 24)
+                        machine(info)
                     }
                 }
             }
@@ -138,22 +140,22 @@ struct MachineView: View {
         }
     }
 
-    private func asleep(_ v: VMInfo) -> some View {
+    private func asleep(_ info: VMInfo) -> some View {
         ContentUnavailableView {
             Label(
-                v.state == .sleeping
+                info.state == .sleeping
                     ? String(localized: "\(name) is asleep") : String(localized: "\(name) is shut down"),
-                systemImage: v.state == .sleeping ? "moon" : "power")
+                systemImage: info.state == .sleeping ? "moon" : "power")
         } description: {
             Text(
-                v.state == .sleeping
+                info.state == .sleeping
                     ? String(
                         localized:
                             "It holds none of this Mac's memory. The next command wakes it in under a second, with all it ran."
                     )
                     : String(localized: "The next command boots it in a few seconds."))
         } actions: {
-            Button(v.state == .sleeping ? String(localized: "Wake") : String(localized: "Start")) {
+            Button(info.state == .sleeping ? String(localized: "Wake") : String(localized: "Start")) {
                 app.control(machine: name, .start)
             }
             .keyboardShortcut(.defaultAction)
@@ -161,33 +163,34 @@ struct MachineView: View {
         }
     }
 
-    private func running(_ v: VMInfo) -> some View {
+    private func running(_ info: VMInfo) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
-                if let g = detail?.guest { screen(g) }
+                if let guest = detail?.guest { screen(guest) }
                 heading("Running")
                 if let runs = detail?.runs, !runs.isEmpty {
                     ForEach(runs, id: \.pid) { runRow($0) }
                 } else {
                     quiet(
-                        v.state == .paused
+                        info.state == .paused
                             ? "Paused: nothing has run for a while. The next command goes on at once."
                             : "Nothing runs in it now. Agents use it with kelp vm run.")
                 }
-                if let d = detail, !d.ports.isEmpty, let address = d.address {
+                if let detail, !detail.ports.isEmpty, let address = detail.address {
                     heading("Listening").padding(.top, 10)
-                    ForEach(d.ports.filter { $0 != 22 }, id: \.self) { portRow($0, address) }
+                    ForEach(detail.ports.filter { $0 != 22 }, id: \.self) { portRow($0, address) }
                 }
                 if let folders = detail?.folders, !folders.isEmpty {
                     heading("Shared Folders").padding(.top, 10)
-                    ForEach(folders, id: \.self) { f in
-                        Text((f as NSString).abbreviatingWithTildeInPath).font(.ui(12)).lineLimit(1).truncationMode(
-                            .middle
-                        )
-                        .padding(.horizontal, 6).padding(.vertical, 3)
+                    ForEach(folders, id: \.self) { folder in
+                        Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(12)).lineLimit(1)
+                            .truncationMode(
+                                .middle
+                            )
+                            .padding(.horizontal, 6).padding(.vertical, 3)
                     }
                 }
-                machine(v)
+                machine(info)
             }
             .padding(.horizontal, Metrics.inset).padding(.bottom, Metrics.inset)
             .frame(maxWidth: 560, alignment: .leading)
@@ -196,10 +199,10 @@ struct MachineView: View {
 
     /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, nothing to allow), and
     /// the password for a dialog inside that asks for it.
-    @ViewBuilder private func screen(_ g: VMDetail.Guest) -> some View {
+    @ViewBuilder private func screen(_ guest: VMDetail.Guest) -> some View {
         heading("Screen")
         VStack(alignment: .leading, spacing: 6) {
-            let holder = g.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? g.screen
+            let holder = guest.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? guest.screen
             Text(
                 holder.map { String(localized: "In use by \($0)") }
                     ?? String(localized: "Free: agents take turns on it")
@@ -225,30 +228,31 @@ struct MachineView: View {
     }
 
     /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, how long it has run.
-    private func runRow(_ r: VMDetail.Run) -> some View {
-        let s = r.session.flatMap(app.session)
+    private func runRow(_ run: VMDetail.Run) -> some View {
+        let session = run.session.flatMap(app.session)
         return Button {
-            if let s { app.workbench.focus(session: s.id) }
+            if let session { app.workbench.focus(session: session.id) }
         } label: {
             HStack(spacing: Metrics.gap) {
-                if let s, s.isChat, let icon = app.catalog.icon(s.agent, size: 14) {
+                if let session, session.isChat, let icon = app.catalog.icon(session.agent, size: 14) {
                     Image(nsImage: icon).frame(width: 14, height: 14)
                 } else {
                     Image(systemName: "terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
                         width: 14)
                 }
-                Text(s.map { app.catalog.displayName($0) } ?? String(localized: "Terminal")).font(.ui(12)).lineLimit(1)
-                Text(r.command.isEmpty ? String(localized: "shell") : r.command).font(.ui(11).monospaced())
+                Text(session.map { app.catalog.displayName($0) } ?? String(localized: "Terminal")).font(.ui(12))
+                    .lineLimit(1)
+                Text(run.command.isEmpty ? String(localized: "shell") : run.command).font(.ui(11).monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
-                Text(Self.elapsed(r.seconds)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                Text(Self.elapsed(run.seconds)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 6).padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(PointerButtonStyle())
-        .disabled(s == nil)
+        .disabled(session == nil)
     }
 
     private func portRow(_ port: Int, _ address: String) -> some View {
@@ -262,12 +266,12 @@ struct MachineView: View {
     }
 
     /// Its files and what it is: the end of the running view, and below the asleep one.
-    private func machine(_ v: VMInfo) -> some View {
+    private func machine(_ info: VMInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let files = v.files { exchange(files) }
+            if let files = info.files { exchange(files) }
             heading("Machine").padding(.top, 10)
-            facts(v)
-            if ["linux", "macos"].contains(v.machine.os), v.state != .off {
+            facts(info)
+            if ["linux", "macos"].contains(info.machine.os), info.state != .off {
                 quiet("Shut it down to change its processors, memory or disk.")
             }
         }
@@ -301,11 +305,11 @@ struct MachineView: View {
     }
 
     /// What it is, a row each; processors, memory and a Linux disk as steppers while it's shut down (a disk only grows).
-    private func facts(_ v: VMInfo) -> some View {
-        let m = v.machine, cores = ProcessInfo.processInfo.activeProcessorCount
-        let gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2), least = m.os == "macos" ? 4 : 1
-        let editable = ["linux", "macos"].contains(m.os) && v.state == .off
-        let phone = m.os == "android"
+    private func facts(_ info: VMInfo) -> some View {
+        let machine = info.machine, cores = ProcessInfo.processInfo.activeProcessorCount
+        let gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2), least = machine.os == "macos" ? 4 : 1
+        let editable = ["linux", "macos"].contains(machine.os) && info.state == .off
+        let phone = machine.os == "android"
         func row(_ label: String, _ value: some View) -> some View {
             GridRow {
                 Text(label).font(.ui(12)).foregroundStyle(.secondary)
@@ -314,42 +318,47 @@ struct MachineView: View {
         }
         func text(_ s: String) -> some View { Text(s).textSelection(.enabled) }
         return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
-            row(String(localized: "Image"), text(VMImage.named(m.image)?.title ?? m.image))
+            row(String(localized: "Image"), text(VMImage.named(machine.image)?.title ?? machine.image))
             if editable {
                 row(
                     String(localized: "Processors"),
-                    Stepper("\(m.cpus)", value: Binding(get: { m.cpus }, set: { resize(cpus: $0) }), in: 1...cores))
+                    Stepper(
+                        "\(machine.cpus)", value: Binding(get: { machine.cpus }, set: { resize(cpus: $0) }),
+                        in: 1...cores))
                 row(
                     String(localized: "Memory"),
                     Stepper(
-                        "\(m.memoryMiB >> 10) GB",
-                        value: Binding(get: { m.memoryMiB >> 10 }, set: { resize(memory: $0) }),
+                        "\(machine.memoryMiB >> 10) GB",
+                        value: Binding(get: { machine.memoryMiB >> 10 }, set: { resize(memory: $0) }),
                         in: least...max(least, gib)))
             } else {
-                row(String(localized: "Processors"), text("\(m.cpus)"))
-                row(String(localized: "Memory"), text(memory(v)))
+                row(String(localized: "Processors"), text("\(machine.cpus)"))
+                row(String(localized: "Memory"), text(memory(info)))
             }
             if !phone {
-                if editable && m.os == "linux" {
+                if editable && machine.os == "linux" {
                     row(
                         String(localized: "Disk"),
                         Stepper(
                             String(
-                                format: String(localized: "%.1f GB of %d GB"), Double(v.diskMiB ?? 0) / 1024, m.diskGiB),
-                            value: Binding(get: { m.diskGiB }, set: { resize(disk: $0) }), in: m.diskGiB...2048, step: 8
+                                format: String(localized: "%.1f GB of %d GB"), Double(info.diskMiB ?? 0) / 1024,
+                                machine.diskGiB),
+                            value: Binding(get: { machine.diskGiB }, set: { resize(disk: $0) }),
+                            in: machine.diskGiB...2048, step: 8
                         ))
                 } else {
                     row(
                         String(localized: "Disk"),
                         text(
                             String(
-                                format: String(localized: "%.1f GB of %d GB"), Double(v.diskMiB ?? 0) / 1024, m.diskGiB)
+                                format: String(localized: "%.1f GB of %d GB"), Double(info.diskMiB ?? 0) / 1024,
+                                machine.diskGiB)
                         ))
                 }
-                row(String(localized: "Account"), text(m.user))
+                row(String(localized: "Account"), text(machine.user))
                 row(
                     String(localized: "Intel programs"),
-                    text(m.rosetta ? String(localized: "Through Rosetta") : String(localized: "Off")))
+                    text(machine.rosetta ? String(localized: "Through Rosetta") : String(localized: "Off")))
                 row(String(localized: "Address"), text(detail?.address ?? "—"))
             }
         }
@@ -357,9 +366,9 @@ struct MachineView: View {
         .padding(.horizontal, 6)
     }
 
-    private func memory(_ v: VMInfo) -> String {
-        let total = Double(v.machine.memoryMiB) / 1024
-        guard let now = v.memoryMiB else { return String(format: "%.0f GB", total) }
+    private func memory(_ info: VMInfo) -> String {
+        let total = Double(info.machine.memoryMiB) / 1024
+        guard let now = info.memoryMiB else { return String(format: "%.0f GB", total) }
         return String(format: String(localized: "%.1f GB of the Mac's (%.0f GB given)"), Double(now) / 1024, total)
     }
 

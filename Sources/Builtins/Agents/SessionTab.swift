@@ -14,22 +14,24 @@ final class SessionTab: TabContent {
 
     init?(uri: String, app: AppModel) {
         let sid = TabURI.body(uri)
-        guard let s = app.session(sid) else { return nil }
+        guard let session = app.session(sid) else { return nil }
         sessionId = sid
         self.app = app
-        pane = PaneView(session: s, app: app)
+        pane = PaneView(session: session, app: app)
         pane.onRestart = { p in AgentActions(app).restart(p.sessionId) }
         pane.onClose = { p in app.workbench.closeTab(uri: TabURI.session(p.sessionId)) }
         // A terminal left with `exit` (code 0) while its tab is open closes, as Terminal's does; an agent, a failed
         // command or a tab opened onto an ended session keeps its output and the Restart / Close bar.
-        var running = s.status != .exited
+        var running = session.status != .exited
         track(owner: self) { [app] in
             app.session(sid)
-        } changed: { [weak self] s in
-            guard let self, let s else { return }
-            pane.update(s)
-            if running, s.status == .exited, s.agent == "shell", s.exitCode == 0 { app.workbench.closeTab(uri: uri) }
-            running = s.status != .exited
+        } changed: { [weak self] session in
+            guard let self, let session else { return }
+            pane.update(session)
+            if running, session.status == .exited, session.agent == "shell", session.exitCode == 0 {
+                app.workbench.closeTab(uri: uri)
+            }
+            running = session.status != .exited
         }
     }
 
@@ -77,26 +79,26 @@ final class SessionTab: TabContent {
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
         let beside = session?.aside ?? [], names = beside.joined(separator: ", ")
-        if let s = session, s.agent != "shell",
-            s.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty
+        if let session, session.agent != "shell",
+            session.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty
         {
-            let a = NSAlert()
-            a.messageText = String(localized: "Stop \(app.catalog.displayName(s))?")
-            a.informativeText =
-                (s.status == .working
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Stop \(app.catalog.displayName(session))?")
+            alert.informativeText =
+                (session.status == .working
                     ? String(localized: "The agent is still working. Closing the tab ends its session.")
                     : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
                 + (beside.isEmpty ? "" : " " + String(localized: "What it runs in the background stops too: \(names)."))
-            a.addButton(withTitle: String(localized: "Stop Agent"))
-            a.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(a) == .alertFirstButtonReturn else { return false }
+            alert.addButton(withTitle: String(localized: "Stop Agent"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
         } else if session?.agent == "shell", let program = await busy(app, sid) {
-            let a = NSAlert()
-            a.messageText = String(localized: "Stop “\(program)”?")
-            a.informativeText = String(localized: "It is still running in this terminal. Closing the tab stops it.")
-            a.addButton(withTitle: String(localized: "Stop and Close"))
-            a.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(a) == .alertFirstButtonReturn else { return false }
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Stop “\(program)”?")
+            alert.informativeText = String(localized: "It is still running in this terminal. Closing the tab stops it.")
+            alert.addButton(withTitle: String(localized: "Stop and Close"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
         }
         Task { await app.call(SessionKill(id: sid)) }
         return true
