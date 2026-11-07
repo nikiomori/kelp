@@ -7,11 +7,11 @@ extension NSSegmentedControl {
     {
         let up = NSImage(systemSymbolName: "chevron.up", accessibilityDescription: previous) ?? NSImage()
         let down = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: next) ?? NSImage()
-        let s = NSSegmentedControl(images: [up, down], trackingMode: .momentary, target: target, action: action)
-        s.controlSize = .small
-        s.segmentStyle = .separated
-        s.setToolTip(previous, forSegment: 0)
-        s.setToolTip(next, forSegment: 1)
-        return s
+        let control = NSSegmentedControl(images: [up, down], trackingMode: .momentary, target: target, action: action)
+        control.controlSize = .small
+        control.segmentStyle = .separated
+        control.setToolTip(previous, forSegment: 0)
+        control.setToolTip(next, forSegment: 1)
+        return control
     }
 }

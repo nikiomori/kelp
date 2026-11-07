@@ -22,7 +22,7 @@ public final class EmptyStateView: NSView {
         fix.font = .uiMono(11)
         fix.textColor = .secondaryLabelColor
         fix.isSelectable = true
-        for l in [title, text, fix] { l.alignment = .center }
+        for label in [title, text, fix] { label.alignment = .center }
         buttons.spacing = Metrics.gapWide
         stack.setViews([icon, title, text, fix, buttons], in: .center)
         stack.orientation = .vertical
@@ -38,8 +38,9 @@ public final class EmptyStateView: NSView {
             stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8),
             stack.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: Metrics.inset)
         ])
-        for l in [title, text, fix] {
-            l.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8).isActive = true
+        for label in [title, text, fix] {
+            label.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8).isActive =
+                true
         }
         isHidden = true
     }
@@ -67,9 +68,9 @@ public final class EmptyStateView: NSView {
         self.text.isHidden = (text ?? "").isEmpty
         self.fix.isHidden = (fix ?? "").isEmpty
         self.buttons.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for b in buttons {
-            b.bezelStyle = .push
-            self.buttons.addArrangedSubview(b)
+        for button in buttons {
+            button.bezelStyle = .push
+            self.buttons.addArrangedSubview(button)
         }
         self.buttons.isHidden = buttons.isEmpty
     }
@@ -85,8 +86,8 @@ public final class EmptyStateView: NSView {
     /// The same block as a web page, for a web view that has nothing to show (a page that didn't load, a notebook that
     /// can't be read): the title and a line under it, centred and lifted as the view is. Plain text; it's escaped here.
     public static func html(_ title: String, text: String) -> String {
-        let esc = { (s: String) in
-            s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+        let esc = { (raw: String) in
+            raw.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
         }
         return
             "<html><head><meta name='color-scheme' content='light dark'></head><body style='margin:0;font:13px -apple-system;"
@@ -97,7 +98,7 @@ public final class EmptyStateView: NSView {
 
     /// Clicks go through where the block has nothing (the list under a hidden or transparent spot).
     override public func hitTest(_ point: NSPoint) -> NSView? {
-        let v = super.hitTest(point)
-        return v === self ? nil : v
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 }

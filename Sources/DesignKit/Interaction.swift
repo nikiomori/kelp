@@ -23,40 +23,41 @@ extension NSView {
         layer.backgroundColor = new
         if held { layer.removeAnimation(forKey: "fade") }
         guard !held, !Motion.reduced, old != new else { return }
-        let a = CABasicAnimation(keyPath: "backgroundColor")
-        a.fromValue = old ?? NSColor.clear.cgColor
-        a.toValue = new ?? NSColor.clear.cgColor
-        a.duration = Motion.fast
-        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(a, forKey: "fade")
+        let animation = CABasicAnimation(keyPath: "backgroundColor")
+        animation.fromValue = old ?? NSColor.clear.cgColor
+        animation.toValue = new ?? NSColor.clear.cgColor
+        animation.duration = Motion.fast
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(animation, forKey: "fade")
     }
 
     /// What the view shows next fades in over what it showed (call it right before swapping its content).
     public func crossfade(_ duration: TimeInterval = Motion.fast) {
         guard !Motion.reduced else { return }
         wantsLayer = true
-        let t = CATransition()
-        t.type = .fade
-        t.duration = duration
-        layer?.add(t, forKey: "crossfade")
+        let transition = CATransition()
+        transition.type = .fade
+        transition.duration = duration
+        layer?.add(transition, forKey: "crossfade")
     }
 
     /// A click: the view dips about its centre by `Motion.pressDip` and springs back, a little past where it was.
     public func pressBounce() {
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
-        func scaled(_ s: CGFloat) -> CATransform3D { aboutCentre(CATransform3DMakeScale(s, s, 1)) }
+        func scaled(_ scale: CGFloat) -> CATransform3D { aboutCentre(CATransform3DMakeScale(scale, scale, 1)) }
         let dip = Motion.pressDip(bounds.size)
-        let a = CAKeyframeAnimation(keyPath: "transform")
-        a.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map {
+        let animation = CAKeyframeAnimation(keyPath: "transform")
+        animation.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map
+        {
             NSValue(caTransform3D: $0)
         }
-        a.keyTimes = [0, 0.3, 0.7, 1]
-        a.duration = Motion.press
-        a.timingFunctions = [
+        animation.keyTimes = [0, 0.3, 0.7, 1]
+        animation.duration = Motion.press
+        animation.timingFunctions = [
             CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),
             CAMediaTimingFunction(name: .easeIn)
         ]
-        layer.add(a, forKey: "press")
+        layer.add(animation, forKey: "press")
     }
 
     /// A turn: the view starts `angle` radians round from how it's drawn (counter-clockwise) and comes back, so a
@@ -64,12 +65,12 @@ extension NSView {
     public func turn(from angle: CGFloat) {
         wantsLayer = true
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
-        let a = CABasicAnimation(keyPath: "transform")
-        a.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
-        a.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-        a.duration = Motion.base
-        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(a, forKey: "turn")
+        let animation = CABasicAnimation(keyPath: "transform")
+        animation.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
+        animation.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+        animation.duration = Motion.base
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(animation, forKey: "turn")
     }
 
     /// Where the view stands in its window: take it before a layout changes, for `slide(from:)` after.
@@ -80,12 +81,12 @@ extension NSView {
         let now = placeInWindow, dx = place.x - now.x, dy = place.y - now.y
         wantsLayer = true
         guard !Motion.reduced, let layer, abs(dx) + abs(dy) > 0.5 else { return }
-        let a = CABasicAnimation(keyPath: "transform.translation")
-        a.fromValue = NSValue(size: NSSize(width: dx, height: superview?.isFlipped == true ? -dy : dy))
-        a.toValue = NSValue(size: .zero)
-        a.duration = duration
-        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(a, forKey: "slide")
+        let animation = CABasicAnimation(keyPath: "transform.translation")
+        animation.fromValue = NSValue(size: NSSize(width: dx, height: superview?.isFlipped == true ? -dy : dy))
+        animation.toValue = NSValue(size: .zero)
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(animation, forKey: "slide")
     }
 
     /// Coming into view (what appears over content, not a row): it fades in, rising a little.
@@ -126,10 +127,10 @@ extension NSView {
     public func shake() {
         wantsLayer = true
         guard !Motion.reduced, let layer else { return }
-        let a = CAKeyframeAnimation(keyPath: "transform.translation.x")
-        a.values = [0, -5, 5, -3, 3, -1, 0]
-        a.duration = Motion.press
-        layer.add(a, forKey: "shake")
+        let animation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        animation.values = [0, -5, 5, -3, 3, -1, 0]
+        animation.duration = Motion.press
+        layer.add(animation, forKey: "shake")
     }
 
     /// Work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again and
@@ -147,27 +148,27 @@ extension NSView {
         // A gradient's y runs up the screen whichever way its view is flipped.
         band.startPoint = CGPoint(x: 0.5, y: up ? 0 : 1)
         band.endPoint = CGPoint(x: 0.5, y: up ? 1 : 0)
-        let a = CABasicAnimation(keyPath: "locations")
-        a.fromValue = [-0.5, -0.25, 0]
-        a.toValue = [1, 1.25, 1.5]
-        a.duration = Motion.pulse
-        a.repeatCount = .infinity
-        a.beginTime = Motion.beat(a.duration)
-        band.add(a, forKey: "flow")
+        let animation = CABasicAnimation(keyPath: "locations")
+        animation.fromValue = [-0.5, -0.25, 0]
+        animation.toValue = [1, 1.25, 1.5]
+        animation.duration = Motion.pulse
+        animation.repeatCount = .infinity
+        animation.beginTime = Motion.beat(animation.duration)
+        band.add(animation, forKey: "flow")
         layer.mask = band
     }
 
-    /// `t` about the view's middle: a layer-backed view's anchor is its corner.
-    private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
+    /// `transform` about the view's middle: a layer-backed view's anchor is its corner.
+    private func aboutCentre(_ transform: CATransform3D) -> CATransform3D {
         CATransform3DConcat(
-            CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),
+            CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), transform),
             CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
     }
 }
 
 /// What `leaveGhost` leaves: only a picture, clicks go through it.
 private final class Ghost: NSImageView {
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 @MainActor
@@ -175,8 +176,8 @@ extension NSTableView {
     /// Where the rows on show stand, by a key that outlives a reload: for `settleRows` after it.
     public func rowPlaces(_ key: (Int) -> String?) -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]
-        enumerateAvailableRowViews { v, row in
-            if let k = key(row) { places[k] = v.placeInWindow }
+        enumerateAvailableRowViews { rowView, row in
+            if let rowKey = key(row) { places[rowKey] = rowView.placeInWindow }
         }
         return places
     }
@@ -187,20 +188,20 @@ extension NSTableView {
         guard !places.isEmpty, !Motion.reduced, window?.isVisible == true else { return }
         layoutSubtreeIfNeeded()
         var rows: [(NSTableRowView, String)] = []
-        enumerateAvailableRowViews { v, row in
-            if let k = key(row) { rows.append((v, k)) }
+        enumerateAvailableRowViews { rowView, row in
+            if let rowKey = key(row) { rows.append((rowView, rowKey)) }
         }
         let came = rows.filter { places[$0.1] == nil }, kept = Set(rows.map(\.1))
         guard came.count + places.keys.filter({ !kept.contains($0) }).count <= 3 else { return }
-        for (row, k) in rows { if let place = places[k] { row.slide(from: place) } }
+        for (row, rowKey) in rows { if let place = places[rowKey] { row.slide(from: place) } }
         for (row, _) in came {
             row.wantsLayer = true
-            let a = CABasicAnimation(keyPath: "opacity")
-            a.fromValue = 0
-            a.toValue = 1
-            a.duration = Motion.appear
-            a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            row.layer?.add(a, forKey: "arrive")
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 0
+            animation.toValue = 1
+            animation.duration = Motion.appear
+            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            row.layer?.add(animation, forKey: "arrive")
         }
     }
 }

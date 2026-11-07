@@ -16,11 +16,11 @@ public final class FloatingCard: NSView {
         material.layer?.cornerRadius = radius
         material.layer?.cornerCurve = .continuous
         material.layer?.masksToBounds = true
-        let s = NSShadow()   // shadow-floating-sm: 0 2 6, black 20 %
-        s.shadowBlurRadius = 6
-        s.shadowOffset = NSSize(width: 0, height: -2)
-        s.shadowColor = NSColor.black.withAlphaComponent(0.2)
-        shadow = s
+        let floatShadow = NSShadow()   // shadow-floating-sm: 0 2 6, black 20 %
+        floatShadow.shadowBlurRadius = 6
+        floatShadow.shadowOffset = NSSize(width: 0, height: -2)
+        floatShadow.shadowColor = NSColor.black.withAlphaComponent(0.2)
+        shadow = floatShadow
         for (outer, inner) in [(self, material), (material, content)] as [(NSView, NSView)] {
             inner.translatesAutoresizingMaskIntoConstraints = false
             outer.addSubview(inner)

@@ -15,14 +15,14 @@ public final class CodeEditor: NSObject {
 
     /// Whether editing `text` keeps the window responsive.
     public static func canEdit(_ text: String) -> Bool {
-        var s = text
-        guard s.utf8.count <= readOnlyLimit else { return false }
-        return s.withUTF8 { b in
-            guard var p = b.baseAddress else { return true }
-            let end = p + b.count
-            while end - p > longestEditableLine {
-                guard let hit = memchr(p, 10, longestEditableLine) else { return false }
-                p = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
+        var contents = text
+        guard contents.utf8.count <= readOnlyLimit else { return false }
+        return contents.withUTF8 { buffer in
+            guard var next = buffer.baseAddress else { return true }
+            let end = next + buffer.count
+            while end - next > longestEditableLine {
+                guard let hit = memchr(next, 10, longestEditableLine) else { return false }
+                next = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
             }
             return true
         }
@@ -159,9 +159,9 @@ public final class CodeEditor: NSObject {
         scroll.documentView = textView
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
-        let g = LineNumbers(self, in: scroll)
-        gutter = g
-        scroll.verticalRulerView = g
+        let lineNumbers = LineNumbers(self, in: scroll)
+        gutter = lineNumbers
+        scroll.verticalRulerView = lineNumbers
         scroll.hasVerticalRuler = true
         scroll.rulersVisible = true
         scroll.contentView.postsBoundsChangedNotifications = true
@@ -206,11 +206,11 @@ public final class CodeEditor: NSObject {
         tv.textStorage?.delegate = self
         tv.layoutManager?.delegate = tv   // folds
         if let old = tv.textContainer {
-            let c = WrappingContainer(size: old.size)
-            c.widthTracksTextView = old.widthTracksTextView
-            c.heightTracksTextView = old.heightTracksTextView
-            c.lineFragmentPadding = old.lineFragmentPadding
-            tv.replaceTextContainer(c)
+            let container = WrappingContainer(size: old.size)
+            container.widthTracksTextView = old.widthTracksTextView
+            container.heightTracksTextView = old.heightTracksTextView
+            container.lineFragmentPadding = old.lineFragmentPadding
+            tv.replaceTextContainer(container)
         }
         tv.delegate = self
         tv.willReplace = { [weak self] in self?.willReplace($0, with: $1) }
@@ -223,29 +223,30 @@ public final class CodeEditor: NSObject {
     }
 
     /// The text, without an undo step or a change event: what was on disk, at first or after it changed there.
-    private func load(_ s: String) {
+    private func load(_ contents: String) {
         _ = textView.folds.removeAll()   // the text is new: its glyphs are made again anyway
-        lineCount = Self.breaks(in: s) + 1
+        lineCount = Self.breaks(in: contents) + 1
         loading = true
-        textView.textStorage?.setAttributedString(NSAttributedString(string: s, attributes: textView.typingAttributes))
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(string: contents, attributes: textView.typingAttributes))
         loading = false
         marked = []
         undo.removeAllActions()
         gutter?.fit(lines: lineCount)
     }
 
-    /// Line breaks in `s`, by memchr over its UTF-8 (a Swift loop over 5 MB took 150 ms in a debug build).
-    static func breaks(in s: String) -> Int {
-        var s = s
-        return s.withUTF8 { b in
-            guard var p = b.baseAddress else { return 0 }
-            let end = p + b.count
-            var n = 0
-            while let hit = memchr(p, 10, end - p) {
-                n += 1
-                p = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
+    /// Line breaks in `contents`, by memchr over its UTF-8 (a Swift loop over 5 MB took 150 ms in a debug build).
+    static func breaks(in contents: String) -> Int {
+        var contents = contents
+        return contents.withUTF8 { buffer in
+            guard var next = buffer.baseAddress else { return 0 }
+            let end = next + buffer.count
+            var count = 0
+            while let hit = memchr(next, 10, end - next) {
+                count += 1
+                next = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
             }
-            return n
+            return count
         }
     }
 
@@ -253,69 +254,76 @@ public final class CodeEditor: NSObject {
     public var isMarkdown: Bool { language.id == .markdown }
 
     /// Replace contents (e.g. the file changed on disk) without echoing a change event.
-    public func setText(_ s: String) {
+    public func setText(_ contents: String) {
         let now = textView.string as NSString
-        guard now.length != s.utf16.count || !now.isEqual(to: s) else { return }   // not `==`: that compares character by character
+        // Not `==`: that compares character by character.
+        guard now.length != contents.utf16.count || !now.isEqual(to: contents) else { return }
         let cursors = textView.cursors
         // Only what changed goes in: an agent writing a file several times a second keeps the tree, the folds and the view.
         guard textView.isEditable else {   // read only: `shouldChangeText` says no
-            load(s)
+            load(contents)
             return textView.setCursors(cursors.map { NSRange(location: min($0.location, textView.length), length: 0) })
         }
-        let (old, fresh) = Self.changed(now, s as NSString)
-        let t = (s as NSString).substring(with: fresh)
+        let (old, fresh) = Self.changed(now, contents as NSString)
+        let inserted = (contents as NSString).substring(with: fresh)
         loading = true
-        if textView.shouldChangeText(in: old, replacementString: t) {
+        if textView.shouldChangeText(in: old, replacementString: inserted) {
             textView.textStorage?.replaceCharacters(
-                in: old, with: NSAttributedString(string: t, attributes: textView.typingAttributes))
+                in: old, with: NSAttributedString(string: inserted, attributes: textView.typingAttributes))
             textView.didChangeText()
         }
         loading = false
         undo.removeAllActions()
         gutter?.fit(lines: lineCount)
         textView.setCursors(
-            cursors.map { c in
+            cursors.map { cursor in
                 NSRange(
-                    location: c.location >= NSMaxRange(old)
-                        ? c.location + fresh.length - old.length : min(c.location, NSMaxRange(fresh)), length: 0)
+                    location: cursor.location >= NSMaxRange(old)
+                        ? cursor.location + fresh.length - old.length : min(cursor.location, NSMaxRange(fresh)),
+                    length: 0)
             })
     }
 
-    /// The middle two texts don't share: what's in `a`, what's in `b`. Never between a surrogate pair's halves.
-    static func changed(_ a: NSString, _ b: NSString) -> (old: NSRange, new: NSRange) {
-        var x = [unichar](repeating: 0, count: a.length), y = [unichar](repeating: 0, count: b.length)
-        a.getCharacters(&x, range: NSRange(location: 0, length: a.length))
-        b.getCharacters(&y, range: NSRange(location: 0, length: b.length))
-        let n = min(x.count, y.count)
+    /// The middle two texts don't share: what's in `before`, what's in `after`. Never between a surrogate pair's halves.
+    static func changed(_ before: NSString, _ after: NSString) -> (old: NSRange, new: NSRange) {
+        var oldChars = [unichar](repeating: 0, count: before.length),
+            newChars = [unichar](repeating: 0, count: after.length)
+        before.getCharacters(&oldChars, range: NSRange(location: 0, length: before.length))
+        after.getCharacters(&newChars, range: NSRange(location: 0, length: after.length))
+        let shorter = min(oldChars.count, newChars.count)
         var head = 0, tail = 0
-        while head < n, x[head] == y[head] { head += 1 }
-        while tail < n - head, x[x.count - 1 - tail] == y[y.count - 1 - tail] { tail += 1 }
-        if head > 0, UTF16.isLeadSurrogate(x[head - 1]) { head -= 1 }
-        if tail > 0, UTF16.isTrailSurrogate(x[x.count - tail]) { tail -= 1 }
+        while head < shorter, oldChars[head] == newChars[head] { head += 1 }
+        while tail < shorter - head, oldChars[oldChars.count - 1 - tail] == newChars[newChars.count - 1 - tail] {
+            tail += 1
+        }
+        if head > 0, UTF16.isLeadSurrogate(oldChars[head - 1]) { head -= 1 }
+        if tail > 0, UTF16.isTrailSurrogate(oldChars[oldChars.count - tail]) { tail -= 1 }
         return (
-            NSRange(location: head, length: x.count - head - tail),
-            NSRange(location: head, length: y.count - head - tail)
+            NSRange(location: head, length: oldChars.count - head - tail),
+            NSRange(location: head, length: newChars.count - head - tail)
         )
     }
 
     public var selectedText: String? {
-        let s = textView.string as NSString
-        let parts = textView.cursors.filter { $0.length > 0 }.map { s.substring(with: $0) }
+        let string = textView.string as NSString
+        let parts = textView.cursors.filter { $0.length > 0 }.map { string.substring(with: $0) }
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
     /// 1-based lines of the first selection; a line selected with its line break (a triple-click) is that line alone.
     public var selectedLines: ClosedRange<Int>? {
-        let r = textView.selectedRange(), s = textView.string as NSString
-        let end = r.length > 0 && s.character(at: NSMaxRange(r) - 1) == 10 ? NSMaxRange(r) - 1 : NSMaxRange(r)
-        return lineIndex.line(at: r.location, in: s) + 1...lineIndex.line(at: end, in: s) + 1
+        let selection = textView.selectedRange(), string = textView.string as NSString
+        let end =
+            selection.length > 0 && string.character(at: NSMaxRange(selection) - 1) == 10
+            ? NSMaxRange(selection) - 1 : NSMaxRange(selection)
+        return lineIndex.line(at: selection.location, in: string) + 1...lineIndex.line(at: end, in: string) + 1
     }
 
     /// 1-based line/column of the primary cursor.
     public var cursor: (line: Int, column: Int)? {
-        let i = textView.selectedRange().location, s = textView.string as NSString
-        let line = lineIndex.line(at: i, in: s)
-        return (line + 1, i - (lineIndex.start(ofLine: line, in: s) ?? 0) + 1)
+        let location = textView.selectedRange().location, string = textView.string as NSString
+        let line = lineIndex.line(at: location, in: string)
+        return (line + 1, location - (lineIndex.start(ofLine: line, in: string) ?? 0) + 1)
     }
 
     /// Primary selection in UTF-16 units.
@@ -324,12 +332,13 @@ public final class CodeEditor: NSObject {
     /// Where the one selection's first line is on screen, in `view`'s coordinates; nil with no selection, several, or
     /// one scrolled out of sight.
     public var selectionRect: NSRect? {
-        let r = textView.selectedRange(), s = textView.string as NSString
-        guard textView.cursors.count == 1, r.length > 0, let lm = textView.layoutManager,
+        let selection = textView.selectedRange(), string = textView.string as NSString
+        guard textView.cursors.count == 1, selection.length > 0, let lm = textView.layoutManager,
             let tc = textView.textContainer
         else { return nil }
-        let line = NSIntersectionRange(r, s.lineRange(for: NSRange(location: r.location, length: 0)))
-        let glyphs = lm.glyphRange(forCharacterRange: line.length > 0 ? line : r, actualCharacterRange: nil)
+        let line = NSIntersectionRange(
+            selection, string.lineRange(for: NSRange(location: selection.location, length: 0)))
+        let glyphs = lm.glyphRange(forCharacterRange: line.length > 0 ? line : selection, actualCharacterRange: nil)
         let box = lm.boundingRect(forGlyphRange: glyphs, in: tc).offsetBy(
             dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
         let shown = textView.visibleRect.intersection(box)
@@ -347,11 +356,13 @@ public final class CodeEditor: NSObject {
 
     /// `column` 1-based, within the line.
     public func goTo(line: Int, column: Int = 1) {
-        let s = textView.string as NSString
-        var i = lineIndex.start(ofLine: max(0, line - 1), in: s) ?? textView.length
-        if column > 1, i < s.length { i = min(i + column - 1, MultiCursor.lineEnd(s, i)) }
-        textView.setSelectedRange(NSRange(location: i, length: 0))
-        textView.scrollRangeToVisible(NSRange(location: i, length: 0))
+        let string = textView.string as NSString
+        var location = lineIndex.start(ofLine: max(0, line - 1), in: string) ?? textView.length
+        if column > 1, location < string.length {
+            location = min(location + column - 1, MultiCursor.lineEnd(string, location))
+        }
+        textView.setSelectedRange(NSRange(location: location, length: 0))
+        textView.scrollRangeToVisible(NSRange(location: location, length: 0))
     }
 
     /// The 1-based line at the top of what's on screen.
@@ -363,9 +374,9 @@ public final class CodeEditor: NSObject {
 
     /// `line` (1-based) at the top of what's on screen; the cursor stays.
     public func scroll(toLine line: Int) {
-        let s = textView.string as NSString
-        guard let lm = textView.layoutManager, s.length > 0,
-            let start = lineIndex.start(ofLine: max(0, line - 1), in: s), start < s.length
+        let string = textView.string as NSString
+        guard let lm = textView.layoutManager, string.length > 0,
+            let start = lineIndex.start(ofLine: max(0, line - 1), in: string), start < string.length
         else { return }
         let y = lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil).minY
         scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: y))
@@ -443,12 +454,14 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
 
     /// Before an edit, while the old text is there: the tree and the line count hear what's replaced by what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
-        let s = textView.string as NSString
-        for (r, t) in zip(ranges, texts).reversed() {   // from the bottom: each edit's offsets still hold for the next
-            highlighter?.willReplace(r, with: t, in: s, lines: &lineIndex)
+        let string = textView.string as NSString
+        // From the bottom: each edit's offsets still hold for the next.
+        for (range, replacement) in zip(ranges, texts).reversed() {
+            highlighter?.willReplace(range, with: replacement, in: string, lines: &lineIndex)
             lineCount +=
-                t.utf16.lazy.filter { $0 == 10 }.count - s.substring(with: r).utf16.lazy.filter { $0 == 10 }.count
-            marked = marked.compactMap { Self.moved($0, by: r, to: (t as NSString).length) }
+                replacement.utf16.lazy.filter { $0 == 10 }.count
+                - string.substring(with: range).utf16.lazy.filter { $0 == 10 }.count
+            marked = marked.compactMap { Self.moved($0, by: range, to: (replacement as NSString).length) }
         }
         described = true
     }

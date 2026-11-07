@@ -17,17 +17,20 @@ extension CodeEditor {
     }
 
     func problemsChanged() {
-        let s = textView.string as NSString
+        let string = textView.string as NSString
         func offset(_ line: Int, _ column: Int) -> Int? {
-            lineIndex.start(ofLine: line, in: s).map { min($0 + column, s.length) }
+            lineIndex.start(ofLine: line, in: string).map { min($0 + column, string.length) }
         }
-        textView.problemMarks = problems.compactMap { p -> EditorTextView.ProblemMark? in
-            guard let from = offset(p.line, p.column) else { return nil }
+        textView.problemMarks = problems.compactMap { problem -> EditorTextView.ProblemMark? in
+            guard let from = offset(problem.line, problem.column) else { return nil }
             // A server may name a point: the mark takes the character there.
-            let to = max(offset(p.endLine, p.endColumn) ?? from, min(from + 1, s.length))
-            return .init(range: NSRange(location: from, length: to - from), isError: p.isError, message: p.message)
+            let to = max(offset(problem.endLine, problem.endColumn) ?? from, min(from + 1, string.length))
+            return .init(
+                range: NSRange(location: from, length: to - from), isError: problem.isError, message: problem.message)
         }.sorted { $0.range.location < $1.range.location }
-        problemLines = problems.reduce(into: [:]) { lines, p in lines[p.line] = (lines[p.line] ?? false) || p.isError }
+        problemLines = problems.reduce(into: [:]) { lines, problem in
+            lines[problem.line] = (lines[problem.line] ?? false) || problem.isError
+        }
         textView.needsDisplay = true
         gutter?.needsDisplay = true
         showProblemTips()
@@ -36,20 +39,24 @@ extension CodeEditor {
 
     /// The problem the cursor is in or touches.
     public var problemAtCursor: Problem? {
-        let i = textView.selectedRange().location
-        guard let m = textView.problemMarks.first(where: { i >= $0.range.location && i <= NSMaxRange($0.range) }) else {
+        let cursor = textView.selectedRange().location
+        guard
+            let mark = textView.problemMarks.first(where: {
+                cursor >= $0.range.location && cursor <= NSMaxRange($0.range)
+            })
+        else {
             return nil
         }
-        return problems.first { $0.message == m.message }
+        return problems.first { $0.message == mark.message }
     }
 
     /// F8: the next one past the cursor, or the last before it, going round the file.
     public func goToProblem(forward: Bool) {
-        let marks = textView.problemMarks, i = textView.selectedRange().location
+        let marks = textView.problemMarks, cursor = textView.selectedRange().location
         guard
             let next = forward
-                ? marks.first(where: { $0.range.location > i }) ?? marks.first
-                : marks.last(where: { $0.range.location < i }) ?? marks.last
+                ? marks.first(where: { $0.range.location > cursor }) ?? marks.first
+                : marks.last(where: { $0.range.location < cursor }) ?? marks.last
         else {
             NSSound.beep()
             return
@@ -66,13 +73,13 @@ extension CodeEditor {
         guard !tv.problemMarks.isEmpty, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
         let shown = lm.characterRange(
             forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
-        for (i, m) in tv.problemMarks.enumerated() where NSIntersectionRange(m.range, shown).length > 0 {
+        for (index, mark) in tv.problemMarks.enumerated() where NSIntersectionRange(mark.range, shown).length > 0 {
             lm.enumerateEnclosingRects(
-                forGlyphRange: lm.glyphRange(forCharacterRange: m.range, actualCharacterRange: nil),
+                forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
                 withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
-            ) { r, _ in
-                let rect = r.offsetBy(dx: tv.textContainerOrigin.x, dy: tv.textContainerOrigin.y)
-                tv.addToolTip(rect, owner: tv, userData: UnsafeMutableRawPointer(bitPattern: i + 1))
+            ) { glyphRect, _ in
+                let rect = glyphRect.offsetBy(dx: tv.textContainerOrigin.x, dy: tv.textContainerOrigin.y)
+                tv.addToolTip(rect, owner: tv, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
             }
         }
     }
@@ -86,8 +93,8 @@ extension EditorTextView: NSViewToolTipOwner {
     public func view(
         _ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?
     ) -> String {
-        let i = Int(bitPattern: data) - 1
-        return problemMarks.indices.contains(i) ? problemMarks[i].message : ""
+        let index = Int(bitPattern: data) - 1
+        return problemMarks.indices.contains(index) ? problemMarks[index].message : ""
     }
 
     /// A wavy line under each mark in what's drawn: a font's underline has no such style.
@@ -96,16 +103,17 @@ extension EditorTextView: NSViewToolTipOwner {
         let shown = lm.characterRange(
             forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
         let origin = textContainerOrigin
-        for m in problemMarks where NSIntersectionRange(m.range, shown).length > 0 && !folds.intersects(m.range) {
-            (m.isError ? NSColor.textRed : NSColor.textOrange).setStroke()
+        for mark in problemMarks
+        where NSIntersectionRange(mark.range, shown).length > 0 && !folds.intersects(mark.range) {
+            (mark.isError ? NSColor.textRed : NSColor.textOrange).setStroke()
             lm.enumerateEnclosingRects(
-                forGlyphRange: lm.glyphRange(forCharacterRange: m.range, actualCharacterRange: nil),
+                forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
                 withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
-            ) { r, _ in
-                let y = r.maxY + origin.y - 1.5, wave = NSBezierPath()
-                var x = r.minX + origin.x, up = true
+            ) { lineRect, _ in
+                let y = lineRect.maxY + origin.y - 1.5, wave = NSBezierPath()
+                var x = lineRect.minX + origin.x, up = true
                 wave.move(to: NSPoint(x: x, y: y))
-                while x < r.maxX + origin.x {
+                while x < lineRect.maxX + origin.x {
                     x += 2
                     wave.line(to: NSPoint(x: x, y: y + (up ? -1 : 1)))
                     up.toggle()

@@ -27,53 +27,55 @@ final class SyntaxHighlighter {
     static let syncLimit = 100_000
 
     init?(_ language: CodeLanguage) {
-        guard let l = language.language, let q = TreeSitterModel.shared.query(for: language.id), worker.setLanguage(l)
+        guard let treeLanguage = language.language, let highlightQuery = TreeSitterModel.shared.query(for: language.id),
+            worker.setLanguage(treeLanguage)
         else { return nil }
-        query = q
-        bracketQuery = Self.bracketQuery(l)
+        query = highlightQuery
+        bracketQuery = Self.bracketQuery(treeLanguage)
     }
 
     /// An edit about to happen: `range` of the current text becomes `text`. Positions come from `lines` (the old text's).
-    func willReplace(_ range: NSRange, with text: String, in s: NSString, lines: inout LineIndex) {
-        func point(_ i: Int) -> Point {
-            let row = lines.line(at: i, in: s)
-            return Point(row: row, column: (i - (lines.start(ofLine: row, in: s) ?? 0)) * 2)
+    func willReplace(_ range: NSRange, with text: String, in string: NSString, lines: inout LineIndex) {
+        func point(_ location: Int) -> Point {
+            let row = lines.line(at: location, in: string)
+            return Point(row: row, column: (location - (lines.start(ofLine: row, in: string) ?? 0)) * 2)
         }
-        let start = point(range.location), t = text as NSString
-        let lastBreak = t.range(of: "\n", options: .backwards)
+        let start = point(range.location), newText = text as NSString
+        let lastBreak = newText.range(of: "\n", options: .backwards)
         let newEnd =
             lastBreak.location == NSNotFound
-            ? Point(row: Int(start.row), column: Int(start.column) + t.length * 2)
+            ? Point(row: Int(start.row), column: Int(start.column) + newText.length * 2)
             : Point(
                 row: Int(start.row) + text.utf16.lazy.filter { $0 == 10 }.count,
-                column: (t.length - NSMaxRange(lastBreak)) * 2)
+                column: (newText.length - NSMaxRange(lastBreak)) * 2)
         pending.append(
             InputEdit(
                 startByte: range.location * 2, oldEndByte: NSMaxRange(range) * 2,
-                newEndByte: (range.location + t.length) * 2,
+                newEndByte: (range.location + newText.length) * 2,
                 startPoint: start, oldEndPoint: point(NSMaxRange(range)), newEndPoint: newEnd))
     }
 
     /// After the text changed: the tree follows (from scratch when the change wasn't described first, as setText's).
-    func parse(_ s: NSString, described: Bool = true) {
+    func parse(_ string: NSString, described: Bool = true) {
         let edits = described ? pending : nil
         pending = []
         asked += 1
-        let n = asked, worker = worker
-        background = background || s.length > Self.syncLimit
+        let generation = asked, worker = worker
+        background = background || string.length > Self.syncLimit
         guard background else {
-            tree = worker.parse(edits, Worker.Text(s), n)
-            applied = n
+            tree = worker.parse(edits, Worker.Text(string), generation)
+            applied = generation
             return
         }
-        worker.latest.withLock { $0 = n }
-        let text = Worker.Text(s.copy() as? NSString ?? "")   // the text view's own string keeps changing
+        worker.latest.withLock { $0 = generation }
+        let text = Worker.Text(string.copy() as? NSString ?? "")   // the text view's own string keeps changing
         worker.queue.async { [weak self] in
-            guard let t = worker.parse(edits, text, n) else { return }   // a newer text is on its way: parsed then
+            // A newer text is on its way: parsed then.
+            guard let newTree = worker.parse(edits, text, generation) else { return }
             DispatchQueue.main.async {
-                guard let self, n > self.applied else { return }
-                self.tree = t
-                self.applied = n
+                guard let self, generation > self.applied else { return }
+                self.tree = newTree
+                self.applied = generation
                 self.parsed?()
             }
         }
@@ -83,9 +85,9 @@ final class SyntaxHighlighter {
     /// inline marks, a fenced block, `<script>` in HTML) from their own.
     func color(_ range: NSRange, in tv: NSTextView) {
         guard let lm = tv.layoutManager, let tree, let root = tree.rootNode else { return }
-        let s = tv.string as NSString
-        let text: SwiftTreeSitter.Predicate.TextProvider = { r, _ in
-            NSMaxRange(r) <= s.length ? s.substring(with: r) : nil
+        let string = tv.string as NSString
+        let text: SwiftTreeSitter.Predicate.TextProvider = { piece, _ in
+            NSMaxRange(piece) <= string.length ? string.substring(with: piece) : nil
         }
         let cursor = query.execute(node: root, in: tree)
         cursor.setRange(range)
@@ -96,7 +98,9 @@ final class SyntaxHighlighter {
         where NSIntersectionRange(inj.range, range).length > 0 {
             // A block is parsed whole, here on the main thread: past this it keeps the outer grammar's colors.
             guard inj.range.length <= Self.injectedLimit else { continue }
-            guard NSMaxRange(inj.range) <= s.length, let found = injected(inj.name, s.substring(with: inj.range)) else {
+            guard NSMaxRange(inj.range) <= string.length,
+                let found = injected(inj.name, string.substring(with: inj.range))
+            else {
                 continue
             }
             // Its own colors only: the outer grammar's go (a fenced block was all one string color); Markdown's inline
@@ -106,15 +110,18 @@ final class SyntaxHighlighter {
             }
             paint(found, at: inj.range.location, within: range, lm)
         }
-        colorBrackets(range, in: s, lm)
+        colorBrackets(range, in: string, lm)
     }
 
     /// The less specific first: a later, narrower one wins.
     private func paint(_ found: [NamedRange], at offset: Int, within range: NSRange, _ lm: NSLayoutManager) {
-        for h in found {
-            guard let c = colors[h.name] ?? colors[h.nameComponents.first ?? ""] else { continue }
-            let r = NSIntersectionRange(NSRange(location: h.range.location + offset, length: h.range.length), range)
-            if r.length > 0 { lm.addTemporaryAttribute(.foregroundColor, value: c, forCharacterRange: r) }
+        for highlight in found {
+            guard let tint = colors[highlight.name] ?? colors[highlight.nameComponents.first ?? ""] else { continue }
+            let overlap = NSIntersectionRange(
+                NSRange(location: highlight.range.location + offset, length: highlight.range.length), range)
+            if overlap.length > 0 {
+                lm.addTemporaryAttribute(.foregroundColor, value: tint, forCharacterRange: overlap)
+            }
         }
     }
 
@@ -132,11 +139,11 @@ final class SyntaxHighlighter {
         guard let language = Self.language(named: name) else { return nil }
         let key = language.tsName + "\u{0}" + text
         if let known = seen[key] { return known }
-        if parsers[language.id] == nil, let l = language.language,
-            let q = TreeSitterModel.shared.query(for: language.id)
+        if parsers[language.id] == nil, let treeLanguage = language.language,
+            let highlightQuery = TreeSitterModel.shared.query(for: language.id)
         {
-            let p = Parser()
-            if (try? p.setLanguage(l)) != nil { parsers[language.id] = (p, q) }
+            let newParser = Parser()
+            if (try? newParser.setLanguage(treeLanguage)) != nil { parsers[language.id] = (newParser, highlightQuery) }
         }
         guard let (parser, query) = parsers[language.id], let tree = parser.parse(text) else { return nil }
         let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
@@ -152,14 +159,14 @@ final class SyntaxHighlighter {
 
     /// A language by the name an injection or a fenced block gives it (`js`, `markdown_inline`, `yml`).
     static func language(named name: String) -> CodeLanguage? {
-        let n = name.lowercased().replacingOccurrences(of: "_", with: "-")
+        let normalized = name.lowercased().replacingOccurrences(of: "_", with: "-")
         let aliases = [
             "js": "javascript", "ts": "typescript", "sh": "bash", "shell": "bash", "zsh": "bash", "console": "bash",
             "yml": "yaml",
             "py": "python", "rb": "ruby", "rs": "rust", "c++": "cpp", "cs": "c-sharp", "csharp": "c-sharp",
             "golang": "go", "md": "markdown"
         ]
-        let id = aliases[n] ?? n
+        let id = aliases[normalized] ?? normalized
         return CodeLanguage.allLanguages.first {
             $0.tsName == id || $0.extensions.contains(id) || $0.additionalIdentifiers.contains(id)
         }
@@ -171,28 +178,28 @@ private final class Worker: @unchecked Sendable {
     /// The newest parse asked for: an older one only applies its edits.
     let latest = OSAllocatedUnfairLock(initialState: 0)
     struct Text: @unchecked Sendable {
-        let s: NSString
-        init(_ s: NSString) { self.s = s }
+        let string: NSString
+        init(_ string: NSString) { self.string = string }
     }   // an immutable copy, or read under sync
     let queue = DispatchQueue(label: "kelp.editor.parse")
     private let parser = Parser()
     private var tree: MutableTree?
 
-    func setLanguage(_ l: Language) -> Bool { (try? parser.setLanguage(l)) != nil }
+    func setLanguage(_ language: Language) -> Bool { (try? parser.setLanguage(language)) != nil }
 
     /// The edits applied to the last tree (none: from scratch) and the text parsed; a copy for the main thread. Nil
     /// without parsing when a newer text waits.
-    func parse(_ edits: [InputEdit]?, _ text: Text, _ n: Int) -> Tree? {
-        let s = text.s
-        if let edits, let tree { for e in edits { tree.edit(e) } } else { tree = nil }
-        guard latest.withLock({ $0 <= n }) else { return nil }
+    func parse(_ edits: [InputEdit]?, _ text: Text, _ generation: Int) -> Tree? {
+        let string = text.string
+        if let edits, let tree { for edit in edits { tree.edit(edit) } } else { tree = nil }
+        guard latest.withLock({ $0 <= generation }) else { return nil }
         tree = parser.parse(
             tree: tree,
             readBlock: { byte, _ in
                 let at = byte / 2
-                guard at < s.length else { return nil }
-                var chars = [unichar](repeating: 0, count: min(16_384, s.length - at))
-                s.getCharacters(&chars, range: NSRange(location: at, length: chars.count))
+                guard at < string.length else { return nil }
+                var chars = [unichar](repeating: 0, count: min(16_384, string.length - at))
+                string.getCharacters(&chars, range: NSRange(location: at, length: chars.count))
                 return chars.withUnsafeBytes { Data($0) }
             })
         return tree?.copy()

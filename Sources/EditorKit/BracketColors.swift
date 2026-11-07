@@ -16,39 +16,42 @@ extension SyntaxHighlighter {
         return try? Query(language: language, data: Data(tokens.joined(separator: "\n").utf8))
     }
 
-    func colorBrackets(_ range: NSRange, in s: NSString, _ lm: NSLayoutManager) {
+    func colorBrackets(_ range: NSRange, in string: NSString, _ lm: NSLayoutManager) {
         guard !bracketColors.isEmpty, let tree, let root = tree.rootNode, let bracketQuery else { return }
         let cursor = bracketQuery.execute(node: root, in: tree)
         cursor.setRange(range)
         var found: [NSRange] = []
-        while let m = cursor.next() { found += m.captures.map(\.range) }
-        var depth = Self.depth(before: range.location, in: s, under: root)
-        for r in found.sorted(by: { $0.location < $1.location }) where NSLocationInRange(r.location, range) {
-            let opens = Self.opens(s.character(at: r.location))
+        while let match = cursor.next() { found += match.captures.map(\.range) }
+        var depth = Self.depth(before: range.location, in: string, under: root)
+        for bracket in found.sorted(by: { $0.location < $1.location }) where NSLocationInRange(bracket.location, range)
+        {
+            let opens = Self.opens(string.character(at: bracket.location))
             if !opens { depth = max(depth - 1, 0) }
             lm.addTemporaryAttribute(
-                .foregroundColor, value: bracketColors[depth % bracketColors.count], forCharacterRange: r)
+                .foregroundColor, value: bracketColors[depth % bracketColors.count], forCharacterRange: bracket)
             if opens { depth += 1 }
         }
     }
 
-    private static func opens(_ c: unichar) -> Bool { c == 40 || c == 91 || c == 123 }
+    private static func opens(_ character: unichar) -> Bool { character == 40 || character == 91 || character == 123 }
 
     /// The brackets still open at `at`: down the tree to it, counting the ones left of the way (those inside a sibling match).
-    private static func depth(before at: Int, in s: NSString, under root: Node) -> Int {
+    private static func depth(before at: Int, in string: NSString, under root: Node) -> Int {
         var node = root, depth = 0
         while node.childCount <= mostSiblings {
             var inside: Node?
-            for i in 0..<node.childCount {
-                guard let c = node.child(at: i) else { continue }
-                let r = c.range
-                if r.location >= at { break }
-                if NSMaxRange(r) > at {
-                    inside = c
+            for index in 0..<node.childCount {
+                guard let child = node.child(at: index) else { continue }
+                let childRange = child.range
+                if childRange.location >= at { break }
+                if NSMaxRange(childRange) > at {
+                    inside = child
                     break
                 }
-                if r.length == 1, [40, 91, 123, 41, 93, 125].contains(s.character(at: r.location)) {
-                    depth += opens(s.character(at: r.location)) ? 1 : -1
+                if childRange.length == 1,
+                    [40, 91, 123, 41, 93, 125].contains(string.character(at: childRange.location))
+                {
+                    depth += opens(string.character(at: childRange.location)) ? 1 : -1
                 }
             }
             guard let inside else { break }

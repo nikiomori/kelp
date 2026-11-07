@@ -41,34 +41,38 @@ extension CodeEditor {
         let dark =
             (NSApp?.effectiveAppearance ?? NSAppearance.currentDrawing()).bestMatch(from: [.darkAqua, .aqua])
             == .darkAqua
-        let c = { (v: Int) in NSColor(hex: v) }
+        let color = { (value: Int) in NSColor(hex: value) }
         let base =
             dark
             ? Look(
-                background: c(0x1F1F24), text: c(0xDFDFE0), lineHighlight: c(0x23252B), selection: c(0x515B70),
-                keyword: c(0xFF7AB2),
-                string: c(0xFF8170), comment: c(0x7F8C98), type: c(0x5DD8FF), number: c(0xD9C97C), function: c(0x67B7A4)
+                background: color(0x1F1F24), text: color(0xDFDFE0), lineHighlight: color(0x23252B),
+                selection: color(0x515B70),
+                keyword: color(0xFF7AB2),
+                string: color(0xFF8170), comment: color(0x7F8C98), type: color(0x5DD8FF), number: color(0xD9C97C),
+                function: color(0x67B7A4)
             )
             : Look(
-                background: c(0xFFFFFF), text: c(0x000000), lineHighlight: c(0xECF5FF), selection: c(0xB3D7FF),
-                keyword: c(0x9B2393),
-                string: c(0xC41A16), comment: c(0x5D6C79), type: c(0x0B4F79), number: c(0x1C00CF), function: c(0x326D74)
+                background: color(0xFFFFFF), text: color(0x000000), lineHighlight: color(0xECF5FF),
+                selection: color(0xB3D7FF),
+                keyword: color(0x9B2393),
+                string: color(0xC41A16), comment: color(0x5D6C79), type: color(0x0B4F79), number: color(0x1C00CF),
+                function: color(0x326D74)
             )
-        guard let p = palette, let bg = hex(p.background), let fg = hex(p.text) else { return base }
+        guard let palette, let bg = hex(palette.background), let fg = hex(palette.text) else { return base }
         return Look(
             background: bg, text: fg,
-            lineHighlight: hex(p.lineHighlight) ?? bg.blended(withFraction: 0.06, of: fg) ?? bg,
-            selection: hex(p.selection) ?? bg.blended(withFraction: 0.25, of: .controlAccentColor) ?? bg,
-            keyword: hex(p.keyword) ?? base.keyword, string: hex(p.string) ?? base.string,
-            comment: hex(p.comment) ?? base.comment,
-            type: hex(p.type) ?? base.type, number: hex(p.number) ?? base.number,
-            function: hex(p.function) ?? base.function)
+            lineHighlight: hex(palette.lineHighlight) ?? bg.blended(withFraction: 0.06, of: fg) ?? bg,
+            selection: hex(palette.selection) ?? bg.blended(withFraction: 0.25, of: .controlAccentColor) ?? bg,
+            keyword: hex(palette.keyword) ?? base.keyword, string: hex(palette.string) ?? base.string,
+            comment: hex(palette.comment) ?? base.comment,
+            type: hex(palette.type) ?? base.type, number: hex(palette.number) ?? base.number,
+            function: hex(palette.function) ?? base.function)
     }
 
     /// The theme's token colors, for code drawn outside the editor (diffs), so both read alike.
     public static var tokenColors: (keyword: NSColor, string: NSColor, number: NSColor, comment: NSColor) {
-        let l = look
-        return (l.keyword, l.string, l.number, l.comment)
+        let look = Self.look
+        return (look.keyword, look.string, look.number, look.comment)
     }
 
     /// The editor's font: code shown outside it (a diff) uses it too.
@@ -80,35 +84,35 @@ extension CodeEditor {
     /// The theme's page: background and text, for code and documents shown outside the editor (a diff, the Markdown
     /// preview), so they sit on the same page as the editor beside them.
     public static var page: (background: NSColor, text: NSColor) {
-        let l = look
-        return (l.background, l.text)
+        let look = Self.look
+        return (look.background, look.text)
     }
 
     /// Re-applies colors, font and wrapping (at first, and after Settings or the appearance change them).
     public func refreshAppearance() {
-        let l = Self.look, f = Self.font, tv = textView
+        let look = Self.look, font = Self.font, tv = textView
         let para = NSMutableParagraphStyle()
-        para.defaultTabInterval = CGFloat(tabWidth) * (" " as NSString).size(withAttributes: [.font: f]).width
+        para.defaultTabInterval = CGFloat(tabWidth) * (" " as NSString).size(withAttributes: [.font: font]).width
         para.tabStops = []
-        tv.typingAttributes = [.font: f, .foregroundColor: l.text, .paragraphStyle: para]
+        tv.typingAttributes = [.font: font, .foregroundColor: look.text, .paragraphStyle: para]
         tv.defaultParagraphStyle = para
         if let ts = tv.textStorage, ts.length > 0 {
             ts.addAttributes(tv.typingAttributes, range: NSRange(location: 0, length: ts.length))
         }
-        tv.font = f
-        tv.backgroundColor = l.background
-        tv.insertionPointColor = l.text
-        tv.selectedTextAttributes = [.backgroundColor: l.selection]
-        tv.lineHighlight = l.lineHighlight
-        bracketColor = l.text.withAlphaComponent(0.2)
-        scroll.backgroundColor = l.background
-        gutter?.color = l.text.withAlphaComponent(0.4)
-        gutter?.current = l.text
-        gutter?.background = l.background
+        tv.font = font
+        tv.backgroundColor = look.background
+        tv.insertionPointColor = look.text
+        tv.selectedTextAttributes = [.backgroundColor: look.selection]
+        tv.lineHighlight = look.lineHighlight
+        bracketColor = look.text.withAlphaComponent(0.2)
+        scroll.backgroundColor = look.background
+        gutter?.color = look.text.withAlphaComponent(0.4)
+        gutter?.current = look.text
+        gutter?.background = look.background
         gutter?.fit(lines: lineCount)   // a bigger font needs a wider one
         gutter?.needsDisplay = true
-        highlighter?.colors = Self.captureColors(l)
-        highlighter?.bracketColors = bracketColors ? [l.number, l.keyword, l.type] : []
+        highlighter?.colors = Self.captureColors(look)
+        highlighter?.bracketColors = bracketColors ? [look.number, look.keyword, look.type] : []
         wrap(wrapsHere ?? Self.wrapLines || alwaysWraps)
         colored = nil
         colorVisible()
@@ -139,32 +143,33 @@ extension CodeEditor {
             width: on ? tv.bounds.width : CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         if on { tv.frame.size.width = scroll.contentSize.width }
         fitWrapColumn()
-        guard let c = tc as? WrappingContainer else { return }
+        guard let wrapping = tc as? WrappingContainer else { return }
         let hanging = on ? Self.wrappingIndent : .none,
             space = (" " as NSString).size(withAttributes: [.font: Self.font]).width
-        guard c.hanging != hanging || c.space != space else { return }
-        c.hanging = hanging
-        c.space = space
+        guard wrapping.hanging != hanging || wrapping.space != space else { return }
+        wrapping.hanging = hanging
+        wrapping.space = space
         tv.layoutManager?.textContainerChangedGeometry(tc)
     }
 
     /// Tree-sitter capture names (their first part, or the whole for the few that differ) to colors.
-    static func captureColors(_ l: Look) -> [String: NSColor] {
+    static func captureColors(_ look: Look) -> [String: NSColor] {
         let keyword = [
             "keyword", "include", "boolean", "repeat", "conditional", "tag", "exception", "label", "variable.builtin",
             "constant.builtin"
         ]
-        var c: [String: NSColor] = [
-            "comment": l.comment, "string": l.string, "character": l.string, "escape": l.string,
-            "number": l.number, "float": l.number, "type": l.type, "constructor": l.type, "attribute": l.type,
-            "function": l.function, "method": l.function,
+        var colors: [String: NSColor] = [
+            "comment": look.comment, "string": look.string, "character": look.string, "escape": look.string,
+            "number": look.number, "float": look.number, "type": look.type, "constructor": look.type,
+            "attribute": look.type,
+            "function": look.function, "method": look.function,
             // Markdown: headings, code, links and list marks
-            "text.title": l.keyword, "text.literal": l.string, "text.uri": l.type, "text.reference": l.type,
-            "punctuation.special": l.comment
+            "text.title": look.keyword, "text.literal": look.string, "text.uri": look.type, "text.reference": look.type,
+            "punctuation.special": look.comment
         ]
-        for k in keyword { c[k] = l.keyword }
-        return c
+        for name in keyword { colors[name] = look.keyword }
+        return colors
     }
 
-    private static func hex(_ s: String?) -> NSColor? { s.flatMap { NSColor(hex: $0) } }
+    private static func hex(_ string: String?) -> NSColor? { string.flatMap { NSColor(hex: $0) } }
 }

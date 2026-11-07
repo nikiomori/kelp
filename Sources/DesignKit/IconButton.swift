@@ -31,7 +31,7 @@ public final class IconButton: PointerButton {
     override public var title: String { didSet { imagePosition = title.isEmpty ? .imageOnly : .imageLeading } }
 
     override public var intrinsicContentSize: NSSize {
-        let s = super.intrinsicContentSize
-        return NSSize(width: max(Metrics.iconButton, s.width + (title.isEmpty ? 0 : 6)), height: Metrics.iconButton)
+        let size = super.intrinsicContentSize
+        return NSSize(width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : 6)), height: Metrics.iconButton)
     }
 }

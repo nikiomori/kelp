@@ -52,32 +52,33 @@ extension CodeEditor {
         completionList?.close()
     }
 
-    private func caretOnScreen(_ i: Int) -> NSRect {
-        let r = textView.convert(textView.caretRect(at: i), to: nil)
-        return textView.window?.convertToScreen(r) ?? r
+    private func caretOnScreen(_ location: Int) -> NSRect {
+        let rect = textView.convert(textView.caretRect(at: location), to: nil)
+        return textView.window?.convertToScreen(rect) ?? rect
     }
 
-    private func offset(_ line: Int, _ column: Int, in s: NSString) -> Int {
-        min((lineIndex.start(ofLine: line, in: s) ?? s.length) + column, s.length)
+    private func offset(_ line: Int, _ column: Int, in string: NSString) -> Int {
+        min((lineIndex.start(ofLine: line, in: string) ?? string.length) + column, string.length)
     }
 
-    private func range(_ e: TextEdit, in s: NSString) -> NSRange {
-        let from = offset(e.line, e.column, in: s)
-        return NSRange(location: from, length: max(offset(e.endLine, e.endColumn, in: s) - from, 0))
+    private func range(_ edit: TextEdit, in string: NSString) -> NSRange {
+        let from = offset(edit.line, edit.column, in: string)
+        return NSRange(location: from, length: max(offset(edit.endLine, edit.endColumn, in: string) - from, 0))
     }
 
     /// The server's edit reached as far as was typed when it was asked; the item takes all that's been typed since too.
-    func accept(_ c: Completion) {
-        let tv = textView, s = tv.string as NSString, at = tv.selectedRange().location
-        let start = c.edit.map { range($0, in: s).location } ?? completing?.start ?? at
+    func accept(_ completion: Completion) {
+        let tv = textView, string = tv.string as NSString, at = tv.selectedRange().location
+        let start = completion.edit.map { range($0, in: string).location } ?? completing?.start ?? at
         let own = NSRange(location: min(start, at), length: at - min(start, at))
         closeCompletions()
-        let line = s.lineRange(for: NSRange(location: own.location, length: 0))
-        let indent = s.substring(with: line).prefix { $0 == " " || $0 == "\t" }
+        let line = string.lineRange(for: NSRange(location: own.location, length: 0))
+        let indent = string.substring(with: line).prefix { $0 == " " || $0 == "\t" }
         let (text, stops) =
-            c.snippet
-            ? Snippet.parse(Snippet.fitted(c.insert, indent: String(indent), unit: tv.indentUnit)) : (c.insert, [])
-        let edits = ([(own, text)] + c.more.map { (range($0, in: s), $0.text) }).sorted {
+            completion.snippet
+            ? Snippet.parse(Snippet.fitted(completion.insert, indent: String(indent), unit: tv.indentUnit))
+            : (completion.insert, [])
+        let edits = ([(own, text)] + completion.more.map { (range($0, in: string), $0.text) }).sorted {
             $0.0.location < $1.0.location
         }
         tv.replace(edits.map(\.0), with: edits.map(\.1))
@@ -94,21 +95,21 @@ extension CodeEditor {
 
     /// A server's edits, one undo, the cursors staying where they are.
     public func perform(_ edits: [TextEdit]) {
-        let s = textView.string as NSString
-        let sorted = edits.map { (range($0, in: s), $0.text) }.sorted { $0.0.location < $1.0.location }
+        let string = textView.string as NSString
+        let sorted = edits.map { (range($0, in: string), $0.text) }.sorted { $0.0.location < $1.0.location }
         textView.replace(sorted.map(\.0), with: sorted.map(\.1), keep: true)
     }
 
     /// The word at the cursor.
     public var wordAtCursor: String {
-        let s = textView.string as NSString
-        return s.substring(with: Self.word(at: textView.selectedRange().location, in: s))
+        let string = textView.string as NSString
+        return string.substring(with: Self.word(at: textView.selectedRange().location, in: string))
     }
 
     /// Under the cursor, as a menu of what can be done there.
     public func popUpAtCursor(_ menu: NSMenu) {
-        let r = textView.caretRect(at: textView.selectedRange().location)
-        menu.popUp(positioning: nil, at: NSPoint(x: r.minX, y: r.maxY), in: textView)
+        let caret = textView.caretRect(at: textView.selectedRange().location)
+        menu.popUp(positioning: nil, at: NSPoint(x: caret.minX, y: caret.maxY), in: textView)
     }
 
     /// ⇥ in a snippet: on to the next stop, moved by what was typed at this one. Past the last the snippet is over.
@@ -122,9 +123,9 @@ extension CodeEditor {
         }
         let moved = zip(now, cursors).map { (end: NSMaxRange($0), by: NSMaxRange($1) - NSMaxRange($0)) }
         snippetStops = snippetStops.dropFirst().map { group in
-            group.map { r in
-                let by = moved.last { $0.end <= r.location }?.by ?? 0
-                return NSRange(location: r.location + by, length: r.length)
+            group.map { stop in
+                let by = moved.last { $0.end <= stop.location }?.by ?? 0
+                return NSRange(location: stop.location + by, length: stop.length)
             }
         }
         guard let next = snippetStops.first else { return true }   // that was the last: the cursor stays
@@ -139,7 +140,7 @@ extension CodeEditor {
             case #selector(NSResponder.moveUp(_:)): list.move(by: -1)
             case #selector(NSResponder.moveDown(_:)): list.move(by: 1)
             case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertTab(_:)):
-                if let c = list.selected { accept(c) }
+                if let selected = list.selected { accept(selected) }
             case #selector(NSResponder.cancelOperation(_:)): closeCompletions()
             default: return false
             }

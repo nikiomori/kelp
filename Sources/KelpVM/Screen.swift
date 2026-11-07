@@ -18,7 +18,7 @@ enum Screen {
     /// `args` as `kelp vm` takes them; `done` with an error or nil once the screen had a moment to follow.
     static func run(_ args: [String], session: String, view: VZVirtualMachineView, done: @escaping (String?) -> Void) {
         let op = args.first ?? ""
-        func num(_ i: Int) -> Double? { args.count > i ? Double(args[i]) : nil }
+        func num(_ index: Int) -> Double? { args.count > index ? Double(args[index]) : nil }
         if op == "screenshot" {
             guard args.count > 1 else { return done("screenshot: a file to write") }
             // A machine just woken or a view just made has no frame for a moment: looked for every 0.2 s, up to 5 s.
@@ -30,9 +30,9 @@ enum Screen {
             return shoot(25)
         }
         if session != "-" {   // "-": the user's (Type Password, a terminal outside Kelp): no turn
-            if let h = holder, h.session != session, h.until > Date() {
+            if let current = holder, current.session != session, current.until > Date() {
                 return done(
-                    "The screen is \(h.session)'s now (until 20 s after its last action); try again in a moment.")
+                    "The screen is \(current.session)'s now (until 20 s after its last action); try again in a moment.")
             }
             holder = (session, Date().addingTimeInterval(20))
         }
@@ -43,10 +43,10 @@ enum Screen {
             let right = args.contains("--right")
             events =
                 [mouse(.mouseMoved, x, y, view)]
-                + (args.contains("--double") ? [1, 2] : [1]).flatMap { n in
+                + (args.contains("--double") ? [1, 2] : [1]).flatMap { clickCount in
                     [
-                        mouse(right ? .rightMouseDown : .leftMouseDown, x, y, view, clicks: n),
-                        mouse(right ? .rightMouseUp : .leftMouseUp, x, y, view, clicks: n)
+                        mouse(right ? .rightMouseDown : .leftMouseDown, x, y, view, clicks: clickCount),
+                        mouse(right ? .rightMouseUp : .leftMouseUp, x, y, view, clicks: clickCount)
                     ]
                 }
         case "move":
@@ -58,8 +58,8 @@ enum Screen {
             }
             events =
                 [mouse(.mouseMoved, x, y, view), mouse(.leftMouseDown, x, y, view)]
-                + (1...10).map { i in
-                    mouse(.leftMouseDragged, x + (x2 - x) * Double(i) / 10, y + (y2 - y) * Double(i) / 10, view)
+                + (1...10).map { step in
+                    mouse(.leftMouseDragged, x + (x2 - x) * Double(step) / 10, y + (y2 - y) * Double(step) / 10, view)
                 }
                 + [mouse(.leftMouseUp, x2, y2, view)]
         case "scroll":
@@ -67,7 +67,7 @@ enum Screen {
             if let x = num(2), let y = num(3) { events.append(mouse(.mouseMoved, x, y, view)) }
             let wheel = CGEvent(
                 scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(dy), wheel2: 0, wheel3: 0)
-            if let e = wheel.flatMap(NSEvent.init(cgEvent:)) { events.append(e) }
+            if let event = wheel.flatMap(NSEvent.init(cgEvent:)) { events.append(event) }
         case "type":
             let text = args.dropFirst().joined(separator: " ")
             guard let bad = text.first(where: { VMs.usKey($0) == nil }) else {
@@ -76,10 +76,10 @@ enum Screen {
             }
             return done("No key for \"\(bad)\" on a US keyboard.")
         case "key":
-            guard let e = combo(args.count > 1 ? args[1] : "", view) else {
+            guard let keys = combo(args.count > 1 ? args[1] : "", view) else {
                 return done("key: e.g. cmd+space, return, shift+tab, cmd+shift+t")
             }
-            events = e
+            events = keys
         default: return done("\(op)? screenshot, click, move, drag, scroll, type, key")
         }
         play(events, on: view) { done(nil) }
@@ -87,16 +87,16 @@ enum Screen {
 
     /// Its screen as a PNG of 1280 × 800 points (what clicks take): nil, or what went wrong.
     static func screenshot(_ view: VZVirtualMachineView, to path: String) -> String? {
-        func surface(_ l: CALayer) -> IOSurface? {
-            if let c = l.contents, CFGetTypeID(c as CFTypeRef) == IOSurfaceGetTypeID() {
-                return unsafeDowncast(c as AnyObject, to: IOSurface.self)
+        func surface(_ layer: CALayer) -> IOSurface? {
+            if let contents = layer.contents, CFGetTypeID(contents as CFTypeRef) == IOSurfaceGetTypeID() {
+                return unsafeDowncast(contents as AnyObject, to: IOSurface.self)
             }
-            return (l.sublayers ?? []).lazy.compactMap(surface).first
+            return (layer.sublayers ?? []).lazy.compactMap(surface).first
         }
-        guard let s = view.layer.flatMap(surface) else {
+        guard let pixels = view.layer.flatMap(surface) else {
             return "The machine's screen has nothing to show yet: try again in a second."
         }
-        let image = CIImage(ioSurface: s)
+        let image = CIImage(ioSurface: pixels)
         let points = image.transformed(
             by: CGAffineTransform(scaleX: 1280 / image.extent.width, y: 800 / image.extent.height))
         guard let cg = CIContext().createCGImage(points, from: points.extent),
@@ -112,11 +112,12 @@ enum Screen {
     private static func mouse(
         _ type: NSEvent.EventType, _ x: Double, _ y: Double, _ view: VZVirtualMachineView, clicks: Int = 1
     ) -> NSEvent {
-        let b = view.bounds
-        let p = view.convert(NSPoint(x: x * b.width / 1280, y: b.height - y * b.height / 800), to: nil)
+        let bounds = view.bounds
+        let point = view.convert(
+            NSPoint(x: x * bounds.width / 1280, y: bounds.height - y * bounds.height / 800), to: nil)
         let down = [.leftMouseDown, .rightMouseDown, .leftMouseDragged].contains(type)
         return NSEvent.mouseEvent(
-            with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: view.window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: clicks,
             pressure: down ? 1 : 0) ?? NSEvent()
     }
@@ -142,22 +143,23 @@ enum Screen {
         _ code: UInt16, _ mods: [(code: UInt16, flags: UInt)], _ chars: String, _ view: VZVirtualMachineView
     ) -> [NSEvent] {
         var flags: UInt = 0, out: [NSEvent] = []
-        for m in mods {
-            flags |= m.flags
-            out += [key(.flagsChanged, m.code, flags: flags, "", view)].compactMap { $0 }
+        for modifier in mods {
+            flags |= modifier.flags
+            out += [key(.flagsChanged, modifier.code, flags: flags, "", view)].compactMap { $0 }
         }
         out += [key(.keyDown, code, flags: flags, chars, view), key(.keyUp, code, flags: flags, chars, view)].compactMap
         { $0 }
-        for m in mods.reversed() {
-            flags &= ~m.flags
-            out += [key(.flagsChanged, m.code, flags: flags, "", view)].compactMap { $0 }
+        for modifier in mods.reversed() {
+            flags &= ~modifier.flags
+            out += [key(.flagsChanged, modifier.code, flags: flags, "", view)].compactMap { $0 }
         }
         return out
     }
 
-    private static func typed(_ c: Character, _ view: VZVirtualMachineView) -> [NSEvent] {
-        guard let k = VMs.usKey(c), let shift = modifiers["shift"] else { return [] }
-        return press(k.code, k.shift ? [shift] : [], c == "\n" ? "\r" : String(c), view)   // a real Return says \r
+    private static func typed(_ character: Character, _ view: VZVirtualMachineView) -> [NSEvent] {
+        guard let usKey = VMs.usKey(character), let shift = modifiers["shift"] else { return [] }
+        // a real Return says \r
+        return press(usKey.code, usKey.shift ? [shift] : [], character == "\n" ? "\r" : String(character), view)
     }
 
     private static func combo(_ text: String, _ view: VZVirtualMachineView) -> [NSEvent]? {
@@ -172,27 +174,30 @@ enum Screen {
     /// One event every 15 ms, to the view itself (a window sends keys only while it's key, and this one may not even be on
     /// screen); after the last, 150 ms for the screen to follow before anyone looks.
     private static func play(_ events: [NSEvent], on view: VZVirtualMachineView, _ done: @escaping () -> Void) {
-        func next(_ i: Int) {
-            guard i < events.count else {
+        func next(_ index: Int) {
+            guard index < events.count else {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { MainActor.assumeIsolated { done() } }   // the main queue
                 return
             }
-            let e = events[i]
-            switch e.type {
-            case .flagsChanged: view.flagsChanged(with: e)
+            let event = events[index]
+            switch event.type {
+            case .flagsChanged: view.flagsChanged(with: event)
             case .keyDown:   // a Command key goes the way AppKit sends it, as a key equivalent first
-                if !(e.modifierFlags.contains(.command) && view.performKeyEquivalent(with: e)) { view.keyDown(with: e) }
-            case .keyUp: view.keyUp(with: e)
-            case .mouseMoved: view.mouseMoved(with: e)
-            case .leftMouseDown: view.mouseDown(with: e)
-            case .leftMouseUp: view.mouseUp(with: e)
-            case .leftMouseDragged: view.mouseDragged(with: e)
-            case .rightMouseDown: view.rightMouseDown(with: e)
-            case .rightMouseUp: view.rightMouseUp(with: e)
-            case .scrollWheel: view.scrollWheel(with: e)
+                if !(event.modifierFlags.contains(.command) && view.performKeyEquivalent(with: event)) {
+                    view.keyDown(with: event)
+                }
+            case .keyUp: view.keyUp(with: event)
+            case .mouseMoved: view.mouseMoved(with: event)
+            case .leftMouseDown: view.mouseDown(with: event)
+            case .leftMouseUp: view.mouseUp(with: event)
+            case .leftMouseDragged: view.mouseDragged(with: event)
+            case .rightMouseDown: view.rightMouseDown(with: event)
+            case .rightMouseUp: view.rightMouseUp(with: event)
+            case .scrollWheel: view.scrollWheel(with: event)
             default: break
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { MainActor.assumeIsolated { next(i + 1) } }   // the main queue
+            // the main queue
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { MainActor.assumeIsolated { next(index + 1) } }
         }
         next(0)
     }

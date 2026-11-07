@@ -14,59 +14,59 @@ struct LineIndex {
         scanned = min(scanned, offset)
     }
 
-    /// The 0-based line `i` is on.
-    mutating func line(at i: Int, in s: NSString) -> Int {
-        scan(s, to: min(i, s.length))
-        return upperBound(i) - 1
+    /// The 0-based line `offset` is on.
+    mutating func line(at offset: Int, in string: NSString) -> Int {
+        scan(string, to: min(offset, string.length))
+        return upperBound(offset) - 1
     }
 
-    /// Where 0-based line `n` starts; nil past the last line.
-    mutating func start(ofLine n: Int, in s: NSString) -> Int? {
-        while starts.count <= n, scanned < s.length { scan(s, to: scanned + 1) }
-        return n < starts.count ? starts[n] : nil
+    /// Where 0-based line `line` starts; nil past the last line.
+    mutating func start(ofLine line: Int, in string: NSString) -> Int? {
+        while starts.count <= line, scanned < string.length { scan(string, to: scanned + 1) }
+        return line < starts.count ? starts[line] : nil
     }
 
-    private mutating func scan(_ s: NSString, to i: Int) {
-        while scanned < i {
-            let end = min(s.length, max(i, scanned + 65_536)), from = scanned
-            Self.eachBreak(in: s, NSRange(location: from, length: end - from)) { starts.append($0 + 1) }
+    private mutating func scan(_ string: NSString, to offset: Int) {
+        while scanned < offset {
+            let end = min(string.length, max(offset, scanned + 65_536)), from = scanned
+            Self.eachBreak(in: string, NSRange(location: from, length: end - from)) { starts.append($0 + 1) }
             scanned = end
         }
     }
 
     /// Calls `found` with the offset of each \n in `range`: memchr over the UTF-16 bytes, a \n being 0A 00 at an even
     /// byte (a Swift loop over 3 MB took 100 ms in a debug build).
-    static func eachBreak(in s: NSString, _ range: NSRange, _ found: (Int) -> Void) {
+    static func eachBreak(in string: NSString, _ range: NSRange, _ found: (Int) -> Void) {
         var chars = [unichar](repeating: 0, count: range.length)
-        s.getCharacters(&chars, range: range)
+        string.getCharacters(&chars, range: range)
         chars.withUnsafeBytes { raw in
             guard let base = raw.baseAddress else { return }
-            var p = base
-            while let hit = memchr(p, 10, raw.count - (p - base)) {
+            var next = base
+            while let hit = memchr(next, 10, raw.count - (next - base)) {
                 let at = UnsafeRawPointer(hit) - base
                 if at % 2 == 0, raw[at + 1] == 0 { found(range.location + at / 2) }
-                p = UnsafeRawPointer(hit) + 1
+                next = UnsafeRawPointer(hit) + 1
             }
         }
     }
 
-    /// How many line breaks `s` has.
-    static func breaks(in s: NSString) -> Int {
-        var n = 0, at = 0
-        while at < s.length {
-            let len = min(1 << 20, s.length - at)
-            eachBreak(in: s, NSRange(location: at, length: len)) { _ in n += 1 }
+    /// How many line breaks `string` has.
+    static func breaks(in string: NSString) -> Int {
+        var count = 0, at = 0
+        while at < string.length {
+            let len = min(1 << 20, string.length - at)
+            eachBreak(in: string, NSRange(location: at, length: len)) { _ in count += 1 }
             at += len
         }
-        return n
+        return count
     }
 
-    /// The first index whose start is past `i`.
-    private func upperBound(_ i: Int) -> Int {
+    /// The first index whose start is past `offset`.
+    private func upperBound(_ offset: Int) -> Int {
         var lo = 0, hi = starts.count
         while lo < hi {
             let mid = (lo + hi) / 2
-            if starts[mid] <= i { lo = mid + 1 } else { hi = mid }
+            if starts[mid] <= offset { lo = mid + 1 } else { hi = mid }
         }
         return lo
     }
@@ -119,27 +119,28 @@ final class LineNumbers: NSRulerView {
         background.setFill()
         rect.fill()
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
-        let tv = editor.textView, s = tv.string as NSString
+        let tv = editor.textView, string = tv.string as NSString
         let visible = lm.characterRange(
             forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
-        let caretLine = editor.lineIndex.line(at: tv.selectedRange().location, in: s)
-        var n = editor.lineIndex.line(at: visible.location, in: s)
+        let caretLine = editor.lineIndex.line(at: tv.selectedRange().location, in: string)
+        var number = editor.lineIndex.line(at: visible.location, in: string)
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y
         let font = self.font
-        func draw(_ n: Int, at frag: NSRect, start: Int) {
-            if let m = editor.changeMark(onLine: n) {
-                drawChange(m, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag))
+        func draw(_ number: Int, at frag: NSRect, start: Int) {
+            if let mark = editor.changeMark(onLine: number) {
+                drawChange(mark, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag))
             }
             let text = NSAttributedString(
-                string: "\(n + 1)", attributes: [.font: font, .foregroundColor: numberColor(n, caret: caretLine)])
+                string: "\(number + 1)",
+                attributes: [.font: font, .foregroundColor: numberColor(number, caret: caretLine)])
             let size = text.size()
             text.draw(
                 at: NSPoint(
                     x: ruleThickness - Self.chevron - size.width - 4,
                     y: y0 + frag.minY + (frag.height - size.height) / 2))
-            let line = s.lineRange(for: NSRange(location: start, length: 0))
-            let folded = tv.folds.fold(at: MultiCursor.lineEnd(s, start)) != nil
-            guard folded || (hovering && editor.foldRegion(line, in: s) != nil) else { return }
+            let line = string.lineRange(for: NSRange(location: start, length: 0))
+            let folded = tv.folds.fold(at: MultiCursor.lineEnd(string, start)) != nil
+            guard folded || (hovering && editor.foldRegion(line, in: string) != nil) else { return }
             let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: Metrics.iconWeight)
                 .applying(.init(paletteColors: [color]))
             guard
@@ -162,24 +163,26 @@ final class LineNumbers: NSRulerView {
             }
             img.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
         }
-        while let start = editor.lineIndex.start(ofLine: n, in: s), start < s.length, start <= NSMaxRange(visible) {
-            if let f = tv.folds.fold(at: start) {   // folded away: on after the fold
-                n = editor.lineIndex.line(at: NSMaxRange(f), in: s) + 1
+        while let start = editor.lineIndex.start(ofLine: number, in: string), start < string.length,
+            start <= NSMaxRange(visible)
+        {
+            if let fold = tv.folds.fold(at: start) {   // folded away: on after the fold
+                number = editor.lineIndex.line(at: NSMaxRange(fold), in: string) + 1
                 continue
             }
             draw(
-                n, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil),
+                number, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil),
                 start: start)
-            n += 1
+            number += 1
         }
-        if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: n, in: s) == s.length {
-            draw(n, at: lm.extraLineFragmentRect, start: s.length)
+        if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: number, in: string) == string.length {
+            draw(number, at: lm.extraLineFragmentRect, start: string.length)
         }
     }
 
-    private func numberColor(_ n: Int, caret: Int) -> NSColor {
-        if let isError = editor?.problemLines[n] { return isError ? .textRed : .textOrange }
-        return n == caret ? current : color
+    private func numberColor(_ line: Int, caret: Int) -> NSColor {
+        if let isError = editor?.problemLines[line] { return isError ? .textRed : .textOrange }
+        return line == caret ? current : color
     }
 
     /// A wrapped line's bar runs along all its rows.
@@ -187,22 +190,22 @@ final class LineNumbers: NSRulerView {
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else {
             return frag.height
         }
-        let s = editor.textView.string as NSString
-        guard start < s.length else { return frag.height }
-        var line = s.lineRange(for: NSRange(location: start, length: 0))
-        if s.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }   // the break would count the row under it, on the last line
+        let string = editor.textView.string as NSString
+        guard start < string.length else { return frag.height }
+        var line = string.lineRange(for: NSRange(location: start, length: 0))
+        if string.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }   // the break would count the row under it, on the last line
         guard line.length > 0 else { return frag.height }
         return lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: line, actualCharacterRange: nil), in: tc)
             .height
     }
 
-    private func drawChange(_ m: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat) {
-        switch m.kind {
+    private func drawChange(_ mark: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat) {
+        switch mark.kind {
         case .added: NSColor.textGreen.setFill()
         case .changed: NSColor.textOrange.setFill()
         case .removed: NSColor.textRed.setFill()
         }
-        guard m.kind == .removed else {
+        guard mark.kind == .removed else {
             NSRect(x: Self.barInset, y: y, width: Self.barWidth, height: height).fill()
             return
         }
@@ -220,10 +223,11 @@ final class LineNumbers: NSRulerView {
     override func mouseDown(with event: NSEvent) {
         guard let editor, let line = lineStart(at: event) else { return }
         let x = convert(event.locationInWindow, from: nil).x
-        let n = editor.lineIndex.line(at: line.location, in: editor.textView.string as NSString)
-        if x <= Self.barHit, let m = editor.changeMark(onLine: n) {
+        let number = editor.lineIndex.line(at: line.location, in: editor.textView.string as NSString)
+        if x <= Self.barHit, let mark = editor.changeMark(onLine: number) {
             let y = convert(event.locationInWindow, from: nil).y
-            editor.onChangeMark?(m, NSRect(x: 0, y: y - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
+            editor.onChangeMark?(
+                mark, NSRect(x: 0, y: y - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
             return
         }
         editor.toggleFold(line: line)
@@ -234,11 +238,12 @@ final class LineNumbers: NSRulerView {
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else {
             return nil
         }
-        let tv = editor.textView, s = tv.string as NSString
-        let p = tv.convert(event.locationInWindow, from: nil)
-        let i = lm.characterIndex(
-            for: NSPoint(x: 0, y: p.y - tv.textContainerOrigin.y), in: tc, fractionOfDistanceBetweenInsertionPoints: nil
+        let tv = editor.textView, string = tv.string as NSString
+        let point = tv.convert(event.locationInWindow, from: nil)
+        let index = lm.characterIndex(
+            for: NSPoint(x: 0, y: point.y - tv.textContainerOrigin.y), in: tc,
+            fractionOfDistanceBetweenInsertionPoints: nil
         )
-        return i < s.length ? s.lineRange(for: NSRange(location: i, length: 0)) : nil
+        return index < string.length ? string.lineRange(for: NSRange(location: index, length: 0)) : nil
     }
 }

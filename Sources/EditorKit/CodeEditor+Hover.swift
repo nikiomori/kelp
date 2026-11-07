@@ -11,8 +11,8 @@ extension CodeEditor {
     func pointerMoved(_ event: NSEvent) {
         hoverWait?.cancel()
         guard hoverProvider != nil else { return }
-        let i = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
-        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: i) } }   // queued on main below
+        let location = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: location) } }   // queued on main below
         hoverWait = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.rest, execute: work)
     }
@@ -20,46 +20,48 @@ extension CodeEditor {
     /// The key's: what's at the cursor.
     public func showHoverAtCursor() { showHover(at: textView.selectedRange().location) }
 
-    private func showHover(at i: Int) {
-        let s = textView.string as NSString
-        guard let hoverProvider, i < s.length, Self.word(at: i, in: s).length > 0, hoverShownAt != i else { return }
-        let (line, column) = position(of: i)
-        hoverShownAt = i
+    private func showHover(at location: Int) {
+        let string = textView.string as NSString
+        guard let hoverProvider, location < string.length, Self.word(at: location, in: string).length > 0,
+            hoverShownAt != location
+        else { return }
+        let (line, column) = position(of: location)
+        hoverShownAt = location
         Task { [weak self] in
             let text = await hoverProvider(line, column)
-            guard let self, hoverShownAt == i, let text else { return }
-            open(HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight), at: i)
+            guard let self, hoverShownAt == location, let text else { return }
+            open(HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight), at: location)
         }
     }
 
-    private func position(of i: Int) -> (line: Int, column: Int) {
-        let s = textView.string as NSString, line = lineIndex.line(at: i, in: s)
-        return (line + 1, i - (lineIndex.start(ofLine: line, in: s) ?? 0) + 1)
+    private func position(of location: Int) -> (line: Int, column: Int) {
+        let string = textView.string as NSString, line = lineIndex.line(at: location, in: string)
+        return (line + 1, location - (lineIndex.start(ofLine: line, in: string) ?? 0) + 1)
     }
 
-    private func open(_ card: NSViewController, at i: Int) {
+    private func open(_ card: NSViewController, at location: Int) {
         hoverCard?.close()
-        let p = NSPopover()
-        p.behavior = .transient
-        p.animates = false
-        p.contentViewController = card
-        p.show(relativeTo: textView.caretRect(at: i), of: textView, preferredEdge: .minY)
-        hoverCard = p
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = false
+        popover.contentViewController = card
+        popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
+        hoverCard = popover
     }
 
     /// A key went in. `(` and `,` ask for the call's signature, `)` ends it; the card goes, its text is out of date.
-    func typed(_ s: String) {
+    func typed(_ key: String) {
         hoverCard?.close()
         hoverShownAt = nil
-        let before = textView.string as NSString, i = textView.selectedRange().location
-        if s == ":" || s == ">", i >= 2,
-            before.substring(with: NSRange(location: i - 2, length: 2)) == (s == ":" ? "::" : "->")
+        let before = textView.string as NSString, cursor = textView.selectedRange().location
+        if key == ":" || key == ">", cursor >= 2,
+            before.substring(with: NSRange(location: cursor - 2, length: 2)) == (key == ":" ? "::" : "->")
         {
             showCompletions()
         }
-        if s == ")" {
+        if key == ")" {
             signatureCard?.close()
-        } else if s == "(" || s == "," || signatureCard?.isShown == true {
+        } else if key == "(" || key == "," || signatureCard?.isShown == true {
             askSignature()
         }
     }
@@ -84,7 +86,7 @@ extension CodeEditor {
         }
     }
 
-    private func showSignature(_ label: String, active: NSRange?, at i: Int) {
+    private func showSignature(_ label: String, active: NSRange?, at location: Int) {
         let text = NSMutableAttributedString(
             string: label, attributes: [.font: NSFont.uiMono(12), .foregroundColor: NSColor.labelColor])
         if let active, NSMaxRange(active) <= text.length {
@@ -97,12 +99,12 @@ extension CodeEditor {
             open.contentSize = card.preferredContentSize
             return
         }
-        let p = NSPopover()
-        p.behavior = .semitransient   // the keys stay in the text
-        p.animates = false
-        p.contentViewController = card
-        p.show(relativeTo: textView.caretRect(at: i), of: textView, preferredEdge: .minY)
-        signatureCard = p
+        let popover = NSPopover()
+        popover.behavior = .semitransient   // the keys stay in the text
+        popover.animates = false
+        popover.contentViewController = card
+        popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
+        signatureCard = popover
     }
 }
 

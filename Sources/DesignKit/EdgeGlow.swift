@@ -45,7 +45,7 @@ public final class EdgeGlow: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override public func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none. `faint`: half
     /// the light, for what's there to notice and not to answer.
@@ -94,22 +94,23 @@ public final class EdgeGlow: NSView {
         guard on != breathingNow else { return }
         let opacity = frameLayer.presentation()?.opacity ?? 1
         frameLayer.removeAnimation(forKey: "breathe")
-        let a = CABasicAnimation(keyPath: "opacity")
-        a.fromValue = opacity
-        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = opacity
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         if on {
-            a.fromValue = 1
-            a.toValue = 0.35
-            a.duration = Motion.breathe
-            a.autoreverses = true
-            a.repeatCount = .infinity
-            a.beginTime = Motion.beat(2 * a.duration)
-            a.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)   // no faster than it shows
-            frameLayer.add(a, forKey: "breathe")
+            animation.fromValue = 1
+            animation.toValue = 0.35
+            animation.duration = Motion.breathe
+            animation.autoreverses = true
+            animation.repeatCount = .infinity
+            animation.beginTime = Motion.beat(2 * animation.duration)
+            // no faster than it shows
+            animation.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
+            frameLayer.add(animation, forKey: "breathe")
         } else {
-            a.toValue = 1   // back to full from wherever the breath was
-            a.duration = Motion.appear
-            frameLayer.add(a, forKey: "settle")
+            animation.toValue = 1   // back to full from wherever the breath was
+            animation.duration = Motion.appear
+            frameLayer.add(animation, forKey: "settle")
         }
     }
 
@@ -135,13 +136,14 @@ public final class EdgeGlow: NSView {
         CATransaction.commit()
     }
 
-    /// A band just outside `b`, its rounded inner edge wound against the outer one (mirrored), so the hole stays a hole
-    /// under the non-zero rule a shadow path is filled with.
-    static func frame(around b: CGRect, radius r: CGFloat) -> CGPath {
+    /// A band just outside `rect`, its rounded inner edge wound against the outer one (mirrored), so the hole stays a
+    /// hole under the non-zero rule a shadow path is filled with.
+    static func frame(around rect: CGRect, radius: CGFloat) -> CGPath {
         let path = CGMutablePath()
-        path.addRect(b.insetBy(dx: -40, dy: -40))
-        let mirror = CGAffineTransform(translationX: 2 * b.midX, y: 0).scaledBy(x: -1, y: 1)
-        path.addPath(CGPath(roundedRect: b, cornerWidth: r, cornerHeight: r, transform: nil), transform: mirror)
+        path.addRect(rect.insetBy(dx: -40, dy: -40))
+        let mirror = CGAffineTransform(translationX: 2 * rect.midX, y: 0).scaledBy(x: -1, y: 1)
+        path.addPath(
+            CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil), transform: mirror)
         return path
     }
 }

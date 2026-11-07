@@ -16,24 +16,27 @@ public struct Segments: NSViewRepresentable {
     }
 
     public func makeNSView(context: Context) -> NSSegmentedControl {
-        let s = NSSegmentedControl(
+        let control = NSSegmentedControl(
             labels: labels, trackingMode: .selectOne, target: context.coordinator,
             action: #selector(Coordinator.changed))
-        s.segmentDistribution = .fillProportionally
-        return s
+        control.segmentDistribution = .fillProportionally
+        return control
     }
-    public func updateNSView(_ s: NSSegmentedControl, context: Context) {
+    public func updateNSView(_ control: NSSegmentedControl, context: Context) {
         context.coordinator.selection = $selection
-        if (0..<s.segmentCount).map({ s.label(forSegment: $0) ?? "" }) != labels {
-            s.segmentCount = labels.count
-            for (i, l) in labels.enumerated() { s.setLabel(l, forSegment: i) }
+        if (0..<control.segmentCount).map({ control.label(forSegment: $0) ?? "" }) != labels {
+            control.segmentCount = labels.count
+            for (index, label) in labels.enumerated() { control.setLabel(label, forSegment: index) }
         }
-        s.controlSize = size == .small || size == .mini ? .small : .regular
-        s.selectedSegment = selection
+        control.controlSize = size == .small || size == .mini ? .small : .regular
+        control.selectedSegment = selection
     }
-    public func sizeThatFits(_ proposal: ProposedViewSize, nsView s: NSSegmentedControl, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView control: NSSegmentedControl, context: Context)
+        -> CGSize?
+    {
         CGSize(
-            width: min(proposal.width ?? .infinity, s.intrinsicContentSize.width), height: s.intrinsicContentSize.height
+            width: min(proposal.width ?? .infinity, control.intrinsicContentSize.width),
+            height: control.intrinsicContentSize.height
         )
     }
     public func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
@@ -41,6 +44,6 @@ public struct Segments: NSViewRepresentable {
     @MainActor public final class Coordinator: NSObject {
         var selection: Binding<Int>
         init(selection: Binding<Int>) { self.selection = selection }
-        @objc func changed(_ s: NSSegmentedControl) { selection.wrappedValue = s.selectedSegment }
+        @objc func changed(_ control: NSSegmentedControl) { selection.wrappedValue = control.selectedSegment }
     }
 }

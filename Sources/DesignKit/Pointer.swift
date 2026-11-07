@@ -53,8 +53,8 @@ open class PointerButton: NSButton {
     override open var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
 
     override open var intrinsicContentSize: NSSize {
-        let s = super.intrinsicContentSize
-        return NSSize(width: s.width + 2 * padding, height: s.height)
+        let size = super.intrinsicContentSize
+        return NSSize(width: size.width + 2 * padding, height: size.height)
     }
 
     override open func layout() {
@@ -188,9 +188,9 @@ open class PointerControl: NSControl {
     override open func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
         pressed = true
-        while let e = window?.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
-            let inside = bounds.contains(convert(e.locationInWindow, from: nil))
-            if e.type == .leftMouseDragged {
+        while let next = window?.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
+            let inside = bounds.contains(convert(next.locationInWindow, from: nil))
+            if next.type == .leftMouseDragged {
                 pressed = inside
                 continue
             }

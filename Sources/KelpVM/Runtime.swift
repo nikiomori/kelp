@@ -3,7 +3,7 @@ import Core
 import Virtualization
 
 /// One line to stdout, which kelpd sends to the machine's helper.log.
-func log(_ s: String) { print("\(Date().formatted(.iso8601)) \(s)") }
+func log(_ message: String) { print("\(Date().formatted(.iso8601)) \(message)") }
 
 /// The machine and its connections. Everything here runs on the main queue: the VM's (VZVirtualMachine's default) and
 /// the sockets' handlers alike.
@@ -37,7 +37,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { folder.appendingPathComponent("state.vzsave") }
-    private func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
+    private func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
 
     init(folder: URL) throws {
         self.folder = folder
@@ -124,9 +124,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             Thread.detachNewThread {
                 var buf = [UInt8](repeating: 0, count: 65536)
                 while true {
-                    let n = read(from, &buf, buf.count)
-                    if n < 0, errno == EINTR { continue }
-                    if n <= 0 || !Unix.writeAll(to, Data(buf[0..<n])) { break }
+                    let count = read(from, &buf, buf.count)
+                    if count < 0, errno == EINTR { continue }
+                    if count <= 0 || !Unix.writeAll(to, Data(buf[0..<count])) { break }
                 }
                 shutdown(to, SHUT_WR)
                 both.leave()
@@ -156,11 +156,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
     }
 
-    private func handle(_ r: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
-        switch r.op {
+    private func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
+        switch request.op {
         case .status: done(nil, nil)
         // `begin` (kelpd's wake, holding its lock): starting is answered at once, the boot goes on.
-        case .start where r.begins:
+        case .start where request.begins:
             lastUse = Date()
             wake { _ in }
             done(nil, nil)
@@ -173,9 +173,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         // then would cut its power.
         // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
         case .sleep:
-            sleep { e in
-                done(e, nil)
-                if Lifecycle.endsAfterSleep(error: e, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
+            sleep { error in
+                done(error, nil)
+                if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
             }
         case .stop:
             stop {
@@ -194,19 +194,19 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             wake { error in
                 guard error == nil else { return done(error, nil) }
                 guard let view = self.screen() else { return done("The machine has no screen yet.", nil) }
-                Screen.run(r.args ?? [], session: r.session ?? "-", view: view) { done($0, nil) }
+                Screen.run(request.args ?? [], session: request.session ?? "-", view: view) { done($0, nil) }
             }
         case .quit:
             // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
             // Starting with no VM for a moment is a boot tried again (`awaitSSH`): in use too.
-            if Lifecycle.refusesQuit(r.args, hasVM: vm != nil, state: state) {
+            if Lifecycle.refusesQuit(request.args, hasVM: vm != nil, state: state) {
                 return done("\(machine.name) is in use again: shut it down, then change its size.", nil)
             }
             done(nil, nil)
             guard let vm else { return leaveSoon() }
             vm.stop { _ in self.leaveSoon() }
         case .share:
-            guard let path = r.path else { return done("share: a path", nil) }
+            guard let path = request.path else { return done("share: a path", nil) }
             let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
             // A folder taken from its slot goes stale under whatever runs in it: only an idle machine gives one up.
             guard free != nil || connections == 0 else {
@@ -237,12 +237,12 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     nonisolated private func leaveSoon() { DispatchQueue.main.async { exit(0) } }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
-        var r = VMHelper.Reply(
+        var answer = VMHelper.Reply(
             state: state, connections: connections, memoryMiB: vm == nil ? nil : usage?.memoryMiB ?? targetMiB,
             error: error, slot: slot)
-        r.screen = Screen.turn
-        r.cpu = vm == nil ? nil : usage?.cpu
-        if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
+        answer.screen = Screen.turn
+        answer.cpu = vm == nil ? nil : usage?.cpu
+        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
         close(fd)
     }
 
@@ -279,13 +279,15 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                         let password = try String(contentsOf: file("password"), encoding: .utf8).trimmingCharacters(
                             in: .whitespacesAndNewlines)
                         let options = try MacGuest.firstStart(machine, password: password)
-                        return vm.start(options: options) { e in
-                            MainActor.assumeIsolated { self.awaitSSH(restored: false, error: e) }
+                        return vm.start(options: options) { error in
+                            MainActor.assumeIsolated { self.awaitSSH(restored: false, error: error) }
                         }
                     } catch { return started(error) }
                 }
             #endif
-            return vm.start { r in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) } }
+            return vm.start { result in
+                MainActor.assumeIsolated { self.awaitSSH(restored: false, error: result.failure) }
+            }
         }
         #if arch(arm64)
             vm.restoreMachineStateFrom(url: saved) { error in
@@ -293,8 +295,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                     try? FileManager.default.removeItem(at: self.saved)   // a saved state restores once
                     if let error {   // from an older macOS, or damaged: boot instead
                         log("restore failed, booting: \(error.localizedDescription)")
-                        return vm.start { r in
-                            MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) }
+                        return vm.start { result in
+                            MainActor.assumeIsolated { self.awaitSSH(restored: false, error: result.failure) }
                         }
                     }
                     // The guest's balloon comes back inflated while the Mac maps all of its memory again: let it go, so that
@@ -414,9 +416,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         if window?.isVisible == true { lastUse = Date() }   // someone watches its screen
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, connections == 0, idle > Self.pauseAfter {
-            vm?.pause { r in
+            vm?.pause { result in
                 MainActor.assumeIsolated {
-                    if r.failure == nil, self.state == .running {
+                    if result.failure == nil, self.state == .running {
                         self.state = .paused
                         log("paused")
                     }
@@ -425,8 +427,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         } else if state == .paused, connections == 0, idle > Self.sleepAfter,
             Date().timeIntervalSince(saveFailed ?? .distantPast) > 600
         {
-            sleep { e in
-                if Lifecycle.endsAfterSleep(error: e, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
+            sleep { error in
+                if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
             }   // as `.sleep` does
         } else if state == .running, ticks % 3 == 0 {
             adjustMemory()
@@ -483,16 +485,16 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             let view = VZVirtualMachineView()
             view.capturesSystemKeys = true
             view.automaticallyReconfiguresDisplay = false
-            let w = NSWindow(
+            let screenWindow = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: MacGuest.display.width / 2, height: MacGuest.display.height / 2),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            w.title = machine.name
-            w.contentView = view
-            w.contentAspectRatio = NSSize(width: MacGuest.display.width, height: MacGuest.display.height)
-            w.isReleasedWhenClosed = false
-            w.delegate = self
-            w.center()
-            window = w
+            screenWindow.title = machine.name
+            screenWindow.contentView = view
+            screenWindow.contentAspectRatio = NSSize(width: MacGuest.display.width, height: MacGuest.display.height)
+            screenWindow.isReleasedWhenClosed = false
+            screenWindow.delegate = self
+            screenWindow.center()
+            window = screenWindow
         }
         let view = window?.contentView as? VZVirtualMachineView
         if view?.virtualMachine !== vm { view?.virtualMachine = vm }
@@ -575,9 +577,9 @@ extension Runtime {
                 }
             }
             if state == .paused { return save() }
-            vm.pause { r in
+            vm.pause { result in
                 MainActor.assumeIsolated {
-                    if let e = r.failure { return end(e.localizedDescription) }
+                    if let error = result.failure { return end(error.localizedDescription) }
                     save()
                 }
             }
@@ -607,13 +609,13 @@ extension Runtime {
 
 struct VMError: LocalizedError {
     let message: String
-    init(_ m: String) { message = m }
+    init(_ message: String) { self.message = message }
     var errorDescription: String? { message }
 }
 
 extension Result {
     var failure: Failure? {
-        if case .failure(let e) = self { return e }
+        if case .failure(let error) = self { return error }
         return nil
     }
 }
@@ -622,10 +624,10 @@ extension Runtime {
     /// The command that sets the guest's clock to now.
     private func setClock() -> String {
         guard machine.os == "macos" else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
-        let f = DateFormatter()
-        f.dateFormat = "MMddHHmmyyyy.ss"
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return "sudo date -u \(f.string(from: Date())) >/dev/null"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMddHHmmyyyy.ss"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return "sudo date -u \(formatter.string(from: Date())) >/dev/null"
     }
 }

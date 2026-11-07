@@ -21,9 +21,9 @@ enum Lifecycle {
     static func hold(_ folder: URL, tries: Int = 10) -> Int32? {
         let fd = open(folder.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { return nil }
-        for n in 0...tries {
+        for attempt in 0...tries {
             if flock(fd, LOCK_EX | LOCK_NB) == 0 { return fd }
-            if n < tries { usleep(50_000) }
+            if attempt < tries { usleep(50_000) }
         }
         close(fd)
         return nil
@@ -38,9 +38,9 @@ enum Control {
         Thread.detachNewThread {
             var line = Data(), buf = [UInt8](repeating: 0, count: 4096)
             while line.count < 65536, !line.contains(0x0A) {
-                let n = Darwin.read(fd, &buf, buf.count)
-                guard n > 0 else { break }
-                line.append(contentsOf: buf[0..<n])
+                let count = Darwin.read(fd, &buf, buf.count)
+                guard count > 0 else { break }
+                line.append(contentsOf: buf[0..<count])
             }
             let request = line.split(separator: 0x0A, omittingEmptySubsequences: false).first
                 .flatMap { try? JSONDecoder().decode(VMHelper.Request.self, from: Data($0)) }
@@ -61,10 +61,10 @@ extension Control {
         }
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
         src.setEventHandler {
-            let c = accept(fd, nil, nil)
-            guard c >= 0 else { return }
-            Unix.noSigPipe(c)
-            MainActor.assumeIsolated { accepted(c) }   // a read source on the main queue
+            let client = accept(fd, nil, nil)
+            guard client >= 0 else { return }
+            Unix.noSigPipe(client)
+            MainActor.assumeIsolated { accepted(client) }   // a read source on the main queue
         }
         src.resume()
         return src
@@ -80,10 +80,10 @@ extension Control {
         RunLoop.main.add(timer, forMode: .common)
         return [SIGTERM, SIGINT].map { sig in
             signal(sig, SIG_IGN)
-            let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-            s.setEventHandler { MainActor.assumeIsolated { leave() } }   // the main queue
-            s.resume()
-            return s
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            source.setEventHandler { MainActor.assumeIsolated { leave() } }   // the main queue
+            source.resume()
+            return source
         }
     }
 }

@@ -15,18 +15,23 @@ extension NSColor {
     /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours, with two more digits for alpha; nil for
     /// anything else.
     public convenience init?(hex: String) {
-        var h = hex.trimmingCharacters(in: .whitespaces)
-        if h.hasPrefix("#") { h.removeFirst() }
-        guard h.count == 6 || h.count == 8, let v = Int(h, radix: 16) else { return nil }
-        if h.count == 8 { self.init(hex: v >> 8, alpha: CGFloat(v & 0xFF) / 255) } else { self.init(hex: v) }
+        var digits = hex.trimmingCharacters(in: .whitespaces)
+        if digits.hasPrefix("#") { digits.removeFirst() }
+        guard digits.count == 6 || digits.count == 8, let value = Int(digits, radix: 16) else { return nil }
+        if digits.count == 8 {
+            self.init(hex: value >> 8, alpha: CGFloat(value & 0xFF) / 255)
+        } else {
+            self.init(hex: value)
+        }
     }
 
     /// "#rrggbb" in sRGB, as CSS and themes write it (the colour as the current appearance has it).
     public var hexString: String {
-        guard let c = usingColorSpace(.sRGB) else { return "#000000" }
+        guard let srgb = usingColorSpace(.sRGB) else { return "#000000" }
         return String(
-            format: "#%02x%02x%02x", Int((c.redComponent * 255).rounded()), Int((c.greenComponent * 255).rounded()),
-            Int((c.blueComponent * 255).rounded()))
+            format: "#%02x%02x%02x", Int((srgb.redComponent * 255).rounded()),
+            Int((srgb.greenComponent * 255).rounded()),
+            Int((srgb.blueComponent * 255).rounded()))
     }
 
     /// One colour in light appearances, another in dark.
@@ -45,8 +50,8 @@ extension NSColor {
 
     /// A git status letter's colour, as Files, Source Control and the diff show it: M amber, U and A green, D and ! red,
     /// R and C the accent.
-    public static func gitLetter(_ l: String) -> NSColor {
-        switch l {
+    public static func gitLetter(_ letter: String) -> NSColor {
+        switch letter {
         case "!", "D": .textRed
         case "U", "A": .textGreen
         case "R", "C": .themeAccent
@@ -83,17 +88,17 @@ extension NSColor {
     public static let diffGap = tint(.quaternaryLabelColor, 0.06)
     /// `color` at `alpha`, read in each appearance (`withAlphaComponent` alone keeps the one it was first read in).
     private static func tint(_ color: NSColor, _ alpha: CGFloat) -> NSColor {
-        NSColor(name: nil) { a in
+        NSColor(name: nil) { appearance in
             var resolved = color
-            a.performAsCurrentDrawingAppearance { resolved = color.usingColorSpace(.sRGB) ?? color }
+            appearance.performAsCurrentDrawingAppearance { resolved = color.usingColorSpace(.sRGB) ?? color }
             return resolved.withAlphaComponent(alpha)
         }
     }
     /// Twice as strong with Increase Contrast (System Settings › Accessibility › Display), as the system's own fills get.
     private static func grey(_ alpha: CGFloat) -> NSColor {
-        NSColor(name: nil) { a in
+        NSColor(name: nil) { appearance in
             let strong = fillAlpha(alpha, highContrast: increaseContrast)
-            return a.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
                 ? NSColor(white: 1, alpha: strong) : NSColor(white: 0, alpha: strong)
         }
     }

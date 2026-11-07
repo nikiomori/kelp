@@ -22,9 +22,9 @@ public struct PartsBar: View {
     }
 
     public var body: some View {
-        GeometryReader { g in
-            let room = g.size.width - CGFloat(parts.count + (end == nil ? 0 : 1))   // a point between parts
-            let width = { (p: Part) in max(1, room * min(1, p.value / max(1, total))) }
+        GeometryReader { geometry in
+            let room = geometry.size.width - CGFloat(parts.count + (end == nil ? 0 : 1))   // a point between parts
+            let width = { (part: Part) in max(1, room * min(1, part.value / max(1, total))) }
             HStack(spacing: 1) {
                 ForEach(parts) { p in Rectangle().fill(p.color).frame(width: width(p)) }
                 Hatch()
@@ -39,14 +39,14 @@ public struct PartsBar: View {
     /// The free rest: thin diagonal lines over the resting fill.
     struct Hatch: View {
         var body: some View {
-            Canvas { c, size in
-                var p = Path(), x = -size.height
+            Canvas { context, size in
+                var path = Path(), x = -size.height
                 while x < size.width {
-                    p.move(to: CGPoint(x: x, y: size.height))
-                    p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                    path.move(to: CGPoint(x: x, y: size.height))
+                    path.addLine(to: CGPoint(x: x + size.height, y: 0))
                     x += 4
                 }
-                c.stroke(p, with: .color(.secondary.opacity(0.35)), lineWidth: 1)
+                context.stroke(path, with: .color(.secondary.opacity(0.35)), lineWidth: 1)
             }
             .background(Color(nsColor: .fillRest))
         }

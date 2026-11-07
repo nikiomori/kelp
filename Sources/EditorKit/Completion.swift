@@ -48,16 +48,16 @@ enum CompletionFilter {
     /// server's order.
     static func ranked(_ items: [CodeEditor.Completion], typed: String) -> [CodeEditor.Completion] {
         guard !typed.isEmpty else { return items }
-        let t = typed.lowercased()
+        let query = typed.lowercased()
         func rank(_ label: String) -> Int? {
-            let l = label.lowercased()
-            if l.hasPrefix(t) { return 0 }
-            if l.contains(t) { return 1 }
-            var rest = Substring(t)
-            for c in l where c == rest.first { rest = rest.dropFirst() }
+            let name = label.lowercased()
+            if name.hasPrefix(query) { return 0 }
+            if name.contains(query) { return 1 }
+            var rest = Substring(query)
+            for letter in name where letter == rest.first { rest = rest.dropFirst() }
             return rest.isEmpty ? 2 : nil
         }
-        return items.enumerated().compactMap { i, c in rank(c.label).map { (c, $0, i) } }.sorted {
+        return items.enumerated().compactMap { index, item in rank(item.label).map { (item, $0, index) } }.sorted {
             ($0.1, $0.2) < ($1.1, $1.2)
         }.map(\.0)
     }
@@ -66,9 +66,9 @@ enum CompletionFilter {
 /// A snippet's text and its tab stops.
 enum Snippet {
     /// `stops`: where each stop is in `text`, those of one number together, in the order Tab goes: 1, 2… and 0 last.
-    static func parse(_ s: String) -> (text: String, stops: [[NSRange]]) {
+    static func parse(_ source: String) -> (text: String, stops: [[NSRange]]) {
         var out = "", found: [Int: [NSRange]] = [:]
-        read(Array(s.unicodeScalars), into: &out, &found)
+        read(Array(source.unicodeScalars), into: &out, &found)
         mirror(&out, &found)
         let order = found.keys.filter { $0 != 0 }.sorted() + (found[0] == nil ? [] : [0])
         return (out, order.compactMap { found[$0] })
@@ -76,63 +76,67 @@ enum Snippet {
 
     /// A stop's empty places show what its placeholder says: `${1:name} = $1` starts as `name = name`.
     private static func mirror(_ text: inout String, _ found: inout [Int: [NSRange]]) {
-        let s = NSMutableString(string: text)
-        for n in found.keys.sorted() {
-            while let places = found[n], let model = places.first(where: { $0.length > 0 }),
-                let k = places.firstIndex(where: { $0.length == 0 })
+        let buffer = NSMutableString(string: text)
+        for stop in found.keys.sorted() {
+            while let places = found[stop], let model = places.first(where: { $0.length > 0 }),
+                let empty = places.firstIndex(where: { $0.length == 0 })
             {
-                let value = s.substring(with: model), at = places[k].location, added = (value as NSString).length
-                s.insert(value, at: at)
+                let value = buffer.substring(with: model), at = places[empty].location,
+                    added = (value as NSString).length
+                buffer.insert(value, at: at)
                 found = found.mapValues { list in
-                    list.map { r in
-                        if r.location >= at { return NSRange(location: r.location + added, length: r.length) }
-                        return NSMaxRange(r) > at ? NSRange(location: r.location, length: r.length + added) : r
+                    list.map { range in
+                        if range.location >= at {
+                            return NSRange(location: range.location + added, length: range.length)
+                        }
+                        return NSMaxRange(range) > at
+                            ? NSRange(location: range.location, length: range.length + added) : range
                     }
                 }
-                found[n]?[k] = NSRange(location: at, length: added)
+                found[stop]?[empty] = NSRange(location: at, length: added)
             }
         }
-        text = s as String
+        text = buffer as String
     }
 
     /// Multi-line text takes the indent of the line it goes in, its tabs the file's indent.
-    static func fitted(_ s: String, indent: String, unit: String) -> String {
-        s.replacingOccurrences(of: "\t", with: unit).replacingOccurrences(of: "\n", with: "\n" + indent)
+    static func fitted(_ text: String, indent: String, unit: String) -> String {
+        text.replacingOccurrences(of: "\t", with: unit).replacingOccurrences(of: "\n", with: "\n" + indent)
     }
 
-    private static func read(_ c: [Unicode.Scalar], into out: inout String, _ found: inout [Int: [NSRange]]) {
-        var i = 0
+    private static func read(_ scalars: [Unicode.Scalar], into out: inout String, _ found: inout [Int: [NSRange]]) {
+        var index = 0
         func number() -> Int? {
-            var n: Int?
-            while i < c.count, let d = Int(String(c[i])) {
-                n = (n ?? 0) * 10 + d
-                i += 1
+            var value: Int?
+            while index < scalars.count, let digit = Int(String(scalars[index])) {
+                value = (value ?? 0) * 10 + digit
+                index += 1
             }
-            return n
+            return value
         }
-        while i < c.count {
-            if c[i] == "\\", i + 1 < c.count {
-                out.unicodeScalars.append(c[i + 1])
-                i += 2
-            } else if c[i] == "$", i + 1 < c.count, c[i + 1] != "{" {
-                i += 1
-                if let n = number() {
-                    found[n, default: []].append(NSRange(location: (out as NSString).length, length: 0))
+        while index < scalars.count {
+            if scalars[index] == "\\", index + 1 < scalars.count {
+                out.unicodeScalars.append(scalars[index + 1])
+                index += 2
+            } else if scalars[index] == "$", index + 1 < scalars.count, scalars[index + 1] != "{" {
+                index += 1
+                if let stop = number() {
+                    found[stop, default: []].append(NSRange(location: (out as NSString).length, length: 0))
                 } else {
                     out.append("$")
                 }
-            } else if c[i] == "$", i + 1 < c.count {
-                i += 2
-                guard let n = number() else { continue }
+            } else if scalars[index] == "$", index + 1 < scalars.count {
+                index += 2
+                guard let stop = number() else { continue }
                 let start = (out as NSString).length
-                if i < c.count, c[i] == ":" || c[i] == "|" {
-                    let choice = c[i] == "|"
-                    i += 1
+                if index < scalars.count, scalars[index] == ":" || scalars[index] == "|" {
+                    let choice = scalars[index] == "|"
+                    index += 1
                     var depth = 0, inner: [Unicode.Scalar] = []
-                    while i < c.count, depth > 0 || c[i] != "}" {
-                        if c[i] == "{" { depth += 1 } else if c[i] == "}" { depth -= 1 }
-                        inner.append(c[i])
-                        i += 1
+                    while index < scalars.count, depth > 0 || scalars[index] != "}" {
+                        if scalars[index] == "{" { depth += 1 } else if scalars[index] == "}" { depth -= 1 }
+                        inner.append(scalars[index])
+                        index += 1
                     }
                     if choice {   // ${1|one,two|}: the first
                         out +=
@@ -141,17 +145,19 @@ enum Snippet {
                     } else {
                         var text = "", nested: [Int: [NSRange]] = [:]
                         read(inner, into: &text, &nested)
-                        for (k, v) in nested {
-                            found[k, default: []] += v.map { NSRange(location: $0.location + start, length: $0.length) }
+                        for (nestedStop, ranges) in nested {
+                            found[nestedStop, default: []] += ranges.map {
+                                NSRange(location: $0.location + start, length: $0.length)
+                            }
                         }
                         out += text
                     }
                 }
-                i += 1   // past the }
-                found[n, default: []].append(NSRange(location: start, length: (out as NSString).length - start))
+                index += 1   // past the }
+                found[stop, default: []].append(NSRange(location: start, length: (out as NSString).length - start))
             } else {
-                out.unicodeScalars.append(c[i])
-                i += 1
+                out.unicodeScalars.append(scalars[index])
+                index += 1
             }
         }
     }

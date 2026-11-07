@@ -106,8 +106,8 @@ public enum Motion {
         let now = CACurrentMediaTime()
         return now - fmod(now, period)
     }
-    /// `d`, or 0 when the person asked for less motion.
-    public static func duration(_ d: TimeInterval) -> TimeInterval { reduced ? 0 : d }
+    /// `seconds`, or 0 when the person asked for less motion.
+    public static func duration(_ seconds: TimeInterval) -> TimeInterval { reduced ? 0 : seconds }
 }
 
 extension NSObject {

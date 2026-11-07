@@ -57,20 +57,21 @@ final class AndroidRuntime {
         let up = [.running, .paused, .starting].contains(state)
         // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
         let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
-        let r = VMHelper.Reply(
+        let answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? serial : nil)
-        if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
+        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
         close(fd)
     }
 
-    func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
-        switch r.op {
+    func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
+        switch request.op {
         case .status: done(nil)
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
-        case .start where r.begins:
+        case .start where request.begins:
             lastUse = Date()
-            if r.beginsShown, emulator == nil || saving { nextBootShown = true }   // for a boot to come, not one up already
+            // for a boot to come, not one up already
+            if request.beginsShown, emulator == nil || saving { nextBootShown = true }
             wake { _ in }
             done(nil)
         case .start:
@@ -140,9 +141,9 @@ final class AndroidRuntime {
         }
         state = .starting
         port = Self.freePort()
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: exe)
-        p.arguments =
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: exe)
+        process.arguments =
             [
                 "-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
                 "-memory", "\(machine.memoryMiB)"
@@ -150,14 +151,14 @@ final class AndroidRuntime {
         var env = ProcessInfo.processInfo.environment
         env["ANDROID_AVD_HOME"] = avd.path
         if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
-        p.environment = env
+        process.environment = env
         let out = folder.appendingPathComponent("emulator.log")
         FileManager.default.createFile(atPath: out.path, contents: nil)
-        if let h = try? FileHandle(forWritingTo: out) {
-            p.standardOutput = h
-            p.standardError = h
+        if let logFile = try? FileHandle(forWritingTo: out) {
+            process.standardOutput = logFile
+            process.standardError = logFile
         }
-        p.terminationHandler = { [weak self] ended in
+        process.terminationHandler = { [weak self] ended in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
@@ -174,11 +175,11 @@ final class AndroidRuntime {
                 }
             }
         }
-        do { try p.run() } catch {
+        do { try process.run() } catch {
             nextBootShown = false
             return started(error)
         }
-        emulator = p
+        emulator = process
         shown = nextBootShown
         nextBootShown = false
         Task { await awaitBoot(since: Date()) }
@@ -217,20 +218,21 @@ final class AndroidRuntime {
 
     /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was.
     private func sleep(_ done: @escaping (String?) -> Void) {
-        guard !saving, let p = emulator, [.running, .paused].contains(state) else { return done(nil) }
+        guard !saving, let process = emulator, [.running, .paused].contains(state) else { return done(nil) }
         saving = true
         Task {
             if state == .paused { _ = try? await adb(["emu", "avd", "start"]) }
             _ = try? await adb(["emu", "kill"])
-            for _ in 0..<120 where p.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
-            if p.isRunning { p.terminate() }
+            for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
+            if process.isRunning { process.terminate() }
             // Asleep once the emulator is gone: a wake before would have started a second one on the same AVD.
             state = .sleeping
             saving = false
             log("asleep")
             let wanted = afterSave
             afterSave = []
-            if !wanted.isEmpty { wake { e in wanted.forEach { $0(e) } } }   // told it's stopping, when it's leaving
+            // told it's stopping, when it's leaving
+            if !wanted.isEmpty { wake { error in wanted.forEach { $0(error) } } }
             let saved = whenSaved
             whenSaved = []
             saved.forEach { $0() }
@@ -245,11 +247,11 @@ final class AndroidRuntime {
             state = .off
             done()
         }
-        guard let p = emulator else { return forget() }
+        guard let process = emulator else { return forget() }
         Task {
             _ = try? await adb(["emu", "kill"])
-            for _ in 0..<120 where p.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
-            if p.isRunning { p.terminate() }
+            for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
+            if process.isRunning { process.terminate() }
             forget()
         }
     }
@@ -291,16 +293,16 @@ final class AndroidRuntime {
         func taken(_ port: Int) -> Bool {
             let fd = socket(AF_INET, SOCK_STREAM, 0)
             defer { close(fd) }
-            var a = sockaddr_in()
-            a.sin_family = sa_family_t(AF_INET)
-            a.sin_port = UInt16(port).bigEndian
-            a.sin_addr.s_addr = inet_addr("127.0.0.1")
-            let r = withUnsafePointer(to: &a) {
+            var address = sockaddr_in()
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = UInt16(port).bigEndian
+            address.sin_addr.s_addr = inet_addr("127.0.0.1")
+            let result = withUnsafePointer(to: &address) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                     connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
                 }
             }
-            return r == 0
+            return result == 0
         }
         return stride(from: start, through: start + 80, by: 2).first { !taken($0) && !taken($0 + 1) } ?? start
     }

@@ -7,11 +7,11 @@ public enum TerminalPaste {
     public static func text(from pb: NSPasteboard) -> String? {
         let files = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
         if !files.isEmpty { return paths(files.map(\.path)) }
-        if let s = pb.string(forType: .string) { return s }
+        if let text = pb.string(forType: .string) { return text }
         return savedImage(pb).map { paths([$0]) }
     }
 
-    public static func paths(_ p: [String]) -> String { p.map(IDE.escapedPath).joined(separator: " ") + " " }
+    public static func paths(_ list: [String]) -> String { list.map(IDE.escapedPath).joined(separator: " ") + " " }
 
     /// The MIME types a program that takes paste events (Kitty's mode 5522: omp) is offered instead of the text, from
     /// the declared types alone: "text/plain" when a paste would type something, and the image when it would be one.
@@ -39,8 +39,9 @@ public enum TerminalPaste {
     /// The pasteboard's image as a PNG in the temporary folder.
     public static func savedImage(_ pb: NSPasteboard) -> String? {
         guard let png = png(pb) else { return nil }
-        let u = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-\(UUID().uuidString.prefix(8)).png")
-        return (try? png.write(to: u)) == nil ? nil : u.path
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "kelp-\(UUID().uuidString.prefix(8)).png")
+        return (try? png.write(to: url)) == nil ? nil : url.path
     }
 }
 
@@ -51,26 +52,26 @@ public enum TerminalCopy {
 
     /// `column`: where the first line starts on screen (a selection that begins past the gutter); `columns`: the row
     /// width, to join rows a program wrapped (none without it).
-    public static func clean(_ s: String, from column: Int = 0, columns: Int? = nil) -> String {
-        var lines = s.components(separatedBy: "\n").map { trimRight(withoutQuoteBar($0)) }
+    public static func clean(_ text: String, from column: Int = 0, columns: Int? = nil) -> String {
+        var lines = text.components(separatedBy: "\n").map { trimRight(withoutQuoteBar($0)) }
         // A frame's sides: "│ text │" → "text", when every non-empty line has one.
         let full = lines.filter { !$0.isEmpty }
         if !full.isEmpty, full.allSatisfy({ borders.contains($0.trimmingCharacters(in: .whitespaces).first ?? " ") }) {
-            lines = lines.map { l in
-                var t = Substring(l.drop { $0 == " " })
-                if let f = t.first, borders.contains(f) { t = t.dropFirst() }
-                if let e = t.last, borders.contains(e) { t = t.dropLast() }
-                return trimRight(String(t))
+            lines = lines.map { line in
+                var trimmed = Substring(line.drop { $0 == " " })
+                if let first = trimmed.first, borders.contains(first) { trimmed = trimmed.dropFirst() }
+                if let last = trimmed.last, borders.contains(last) { trimmed = trimmed.dropLast() }
+                return trimRight(String(trimmed))
             }
             return dedent(lines, by: indent(lines)).joined(separator: "\n")
         }
         // The first line as it sits on screen, so it lines up with the rows under it.
         lines[0] = String(repeating: " ", count: column) + lines[0]
         // The indent all lines share (Claude Code and Codex draw their text in a gutter, and wrap it themselves).
-        let m = indent(lines)
-        if let columns, m > 0 { lines = unwrap(lines, columns: columns) }
-        lines = dedent(lines, by: m)
-        lines[0] = String(lines[0].dropFirst(max(0, column - m)))
+        let gutter = indent(lines)
+        if let columns, gutter > 0 { lines = unwrap(lines, columns: columns) }
+        lines = dedent(lines, by: gutter)
+        lines[0] = String(lines[0].dropFirst(max(0, column - gutter)))
         return lines.joined(separator: "\n")
     }
 
@@ -87,8 +88,8 @@ public enum TerminalCopy {
         lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map { $0.prefix { $0 == " " }.count }.min()
             ?? 0
     }
-    static func dedent(_ lines: [String], by m: Int) -> [String] {
-        m > 0 ? lines.map { String($0.dropFirst(min(m, $0.prefix { $0 == " " }.count))) } : lines
+    static func dedent(_ lines: [String], by count: Int) -> [String] {
+        count > 0 ? lines.map { String($0.dropFirst(min(count, $0.prefix { $0 == " " }.count))) } : lines
     }
 
     /// Rows joined back where a program broke its text at the right edge (Claude Code and Codex wrap before the terminal
@@ -111,23 +112,27 @@ public enum TerminalCopy {
         return out
     }
 
-    static func trimRight(_ s: String) -> String {
-        var t = Substring(s)
-        while let c = t.last, c == " " || c == "\t" || c == "\u{00A0}" { t = t.dropLast() }
-        return String(t)
+    static func trimRight(_ line: String) -> String {
+        var trimmed = Substring(line)
+        while let last = trimmed.last, last == " " || last == "\t" || last == "\u{00A0}" {
+            trimmed = trimmed.dropLast()
+        }
+        return String(trimmed)
     }
 
     static let stops: Set<Character> = [
         " ", "\t", "\"", "'", "`", "(", ")", "[", "]", "{", "}", "<", ">", "|", "│", ","
     ]
-    static func isBlank(_ c: Character) -> Bool { c == " " || c == "\t" || c == "\u{00A0}" }
+    static func isBlank(_ character: Character) -> Bool {
+        character == " " || character == "\t" || character == "\u{00A0}"
+    }
 
     /// The word around column `col` of a screen row: up to blanks, quotes and brackets, without sentence punctuation
     /// at its end. `start` is its first column and `width` the columns it covers (a wide character takes two).
     public static func word(in line: String, at col: Int) -> (text: String, start: Int, width: Int)? {
-        guard let r = run(in: line, at: col) else { return nil }
-        let w = trimPunctuation(r.text)
-        return w.isEmpty ? nil : (w, r.start, width(w))
+        guard let found = run(in: line, at: col) else { return nil }
+        let text = trimPunctuation(found.text)
+        return text.isEmpty ? nil : (text, found.start, width(text))
     }
 
     /// The word around column `col` of row `row`, with its parts on the rows it was wrapped onto — by the terminal, or
@@ -138,23 +143,26 @@ public enum TerminalCopy {
     public static func wrappedWord(rows: (Int) -> String?, row: Int, at col: Int, columns: Int) -> (
         texts: [String], start: Int, width: Int
     )? {
-        guard let line = rows(row), let own = word(in: line, at: col), let r = run(in: line, at: col) else {
+        guard let line = rows(row), let own = word(in: line, at: col), let found = run(in: line, at: col) else {
             return nil
         }
-        func atEdge(_ r: Run) -> Bool { r.last && r.start + width(r.text) >= columns }
-        var text = r.text, cur = r, i = row
-        while atEdge(cur), let next = rows(i + 1), let n = run(in: next, at: width(String(next.prefix(while: isBlank))))
+        func atEdge(_ part: Run) -> Bool { part.last && part.start + width(part.text) >= columns }
+        var text = found.text, cur = found, index = row
+        while atEdge(cur), let next = rows(index + 1),
+            let nextRun = run(in: next, at: width(String(next.prefix(while: isBlank))))
         {
-            text += n.text
-            cur = n
-            i += 1
+            text += nextRun.text
+            cur = nextRun
+            index += 1
         }
-        cur = r
-        i = row
-        while cur.first, let prev = rows(i - 1), let p = run(in: prev, at: width(trimRight(prev)) - 1), atEdge(p) {
-            text = p.text + text
-            cur = p
-            i -= 1
+        cur = found
+        index = row
+        while cur.first, let prev = rows(index - 1), let prevRun = run(in: prev, at: width(trimRight(prev)) - 1),
+            atEdge(prevRun)
+        {
+            text = prevRun.text + text
+            cur = prevRun
+            index -= 1
         }
         let joined = trimPunctuation(text)
         return (joined == own.text ? [joined] : [joined, own.text], own.start, own.width)
@@ -164,34 +172,37 @@ public enum TerminalCopy {
     typealias Run = (text: String, start: Int, first: Bool, last: Bool)
     static func run(in line: String, at col: Int) -> Run? {
         let chars = Array(line)
-        var columns: [Int] = [], c = 0   // the column each character starts at
+        var columns: [Int] = [], column = 0   // the column each character starts at
         for ch in chars {
-            columns.append(c)
-            c += cells(ch)
+            columns.append(column)
+            column += cells(ch)
         }
-        guard let i = columns.lastIndex(where: { $0 <= col }), col < c, !stops.contains(chars[i]) else { return nil }
-        var a = i, b = i
-        while a > 0, !stops.contains(chars[a - 1]) { a -= 1 }
-        while b + 1 < chars.count, !stops.contains(chars[b + 1]) { b += 1 }
+        guard let index = columns.lastIndex(where: { $0 <= col }), col < column, !stops.contains(chars[index]) else {
+            return nil
+        }
+        var lower = index, upper = index
+        while lower > 0, !stops.contains(chars[lower - 1]) { lower -= 1 }
+        while upper + 1 < chars.count, !stops.contains(chars[upper + 1]) { upper += 1 }
         return (
-            String(chars[a...b]), columns[a], chars[..<a].allSatisfy(isBlank), chars[(b + 1)...].allSatisfy(isBlank)
+            String(chars[lower...upper]), columns[lower], chars[..<lower].allSatisfy(isBlank),
+            chars[(upper + 1)...].allSatisfy(isBlank)
         )
     }
 
-    static func trimPunctuation(_ s: String) -> String {
-        var w = s
-        while let last = w.last, ".:;!?".contains(last) { w.removeLast() }
-        return w
+    static func trimPunctuation(_ text: String) -> String {
+        var trimmed = text
+        while let last = trimmed.last, ".:;!?".contains(last) { trimmed.removeLast() }
+        return trimmed
     }
 
-    static func width(_ s: String) -> Int { s.reduce(0) { $0 + cells($1) } }
+    static func width(_ text: String) -> Int { text.reduce(0) { $0 + cells($1) } }
 
     /// Terminal columns a character takes: two for East Asian wide characters and emoji, else one.
     /// Limit: a range table, not full UAX #11; ambiguous-width characters count as one.
-    static func cells(_ c: Character) -> Int {
-        guard let s = c.unicodeScalars.first else { return 1 }
-        if s.properties.isEmojiPresentation || c.unicodeScalars.contains("\u{FE0F}") { return 2 }
-        switch s.value {
+    static func cells(_ character: Character) -> Int {
+        guard let scalar = character.unicodeScalars.first else { return 1 }
+        if scalar.properties.isEmojiPresentation || character.unicodeScalars.contains("\u{FE0F}") { return 2 }
+        switch scalar.value {
         case 0x1100...0x115F, 0x2E80...0x303E, 0x3041...0x33FF, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xA000...0xA4CF,
             0xAC00...0xD7A3,
             0xF900...0xFAFF, 0xFE30...0xFE4F, 0xFF00...0xFF60, 0xFFE0...0xFFE6, 0x20000...0x3FFFD:
@@ -214,7 +225,7 @@ final class ScrollIndicator: NSView {
         layer?.addSublayer(knob)
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
     /// Rows between the view and the bottom: it changes when you scroll, not when output streams in at the bottom.
     private var fromBottom: Double?
 
@@ -226,20 +237,21 @@ final class ScrollIndicator: NSView {
             return
         }
         guard let was = fromBottom, was != now else { return }
-        let h = max(24, bounds.height * length / total)
-        let y = (bounds.height - h) * (1 - offset / max(1, total - length))   // offset 0 = the top of the scrollback
+        let height = max(24, bounds.height * length / total)
+        // offset 0 = the top of the scrollback
+        let originY = (bounds.height - height) * (1 - offset / max(1, total - length))
         effectiveAppearance.performAsCurrentDrawingAppearance {
             knob.backgroundColor = NSColor.secondaryLabelColor.withAlphaComponent(0.55).cgColor
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        knob.frame = NSRect(x: 1, y: y, width: 5, height: h)
+        knob.frame = NSRect(x: 1, y: originY, width: 5, height: height)
         CATransaction.commit()
         alphaValue = 1
         hide?.cancel()
-        let w = DispatchWorkItem { [weak self] in fadeOut(self) }
-        hide = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: w)
+        let item = DispatchWorkItem { [weak self] in fadeOut(self) }
+        hide = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: item)
     }
 }
 
@@ -273,11 +285,11 @@ final class SizeBadge: NSView {
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
-    func show(_ text: String, in b: NSRect) {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    func show(_ text: String, in area: NSRect) {
         label.stringValue = text
-        let w = label.intrinsicContentSize.width + 28
-        frame = NSRect(x: b.midX - w / 2, y: b.midY - 18, width: w, height: 36)
+        let width = label.intrinsicContentSize.width + 28
+        frame = NSRect(x: area.midX - width / 2, y: area.midY - 18, width: width, height: 36)
         effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
         }

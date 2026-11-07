@@ -8,8 +8,8 @@ final class EditorScrollView: NSScrollView {
 
     override func tile() {
         super.tile()
-        for v in [sticky, marks] where v.superview !== self || subviews.last !== v {
-            addSubview(v, positioned: .above, relativeTo: nil)
+        for overlay in [sticky, marks] where overlay.superview !== self || subviews.last !== overlay {
+            addSubview(overlay, positioned: .above, relativeTo: nil)
         }
         let width = ScrollMarks.width
         marks.frame = NSRect(
@@ -39,10 +39,10 @@ final class ScrollMarks: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard lines > 0 else { return }
         var seen = Set<Int>()
-        for t in ticks {
-            let y = Int(CGFloat(t.line) / CGFloat(lines) * bounds.height)
+        for tick in ticks {
+            let y = Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height)
             guard seen.insert(y).inserted else { continue }   // a thousand matches, a pixel each
-            t.color.setFill()
+            tick.color.setFill()
             NSRect(x: 0, y: CGFloat(y), width: bounds.width, height: Self.mark).fill()
         }
     }
@@ -87,13 +87,13 @@ final class StickyLines: NSView {
         self.rowHeight = rowHeight
         layer?.backgroundColor = look.background.cgColor
         stack.setViews(
-            lines.map { l in
-                let row = NSTextField(labelWithString: l.text)
+            lines.map { scope in
+                let row = NSTextField(labelWithString: scope.text)
                 row.font = look.font
                 row.textColor = look.text
                 row.lineBreakMode = .byTruncatingTail
                 let holder = StickyRow(row, indent: indent, height: rowHeight)
-                holder.onClick = { [weak self] in self?.onLine?(l.line) }
+                holder.onClick = { [weak self] in self?.onLine?(scope.line) }
                 return holder
             }, in: .top)
     }
@@ -122,16 +122,16 @@ extension CodeEditor {
 
     /// The ticks beside the scroller, all there is to mark as of now.
     func refreshScrollMarks() {
-        let s = textView.string as NSString
-        var ticks: [(line: Int, color: NSColor)] = changeMarks.map { m in
-            (m.line, m.kind == .added ? .textGreen : m.kind == .changed ? .textOrange : .textRed)
+        let string = textView.string as NSString
+        var ticks: [(line: Int, color: NSColor)] = changeMarks.map { mark in
+            (mark.line, mark.kind == .added ? .textGreen : mark.kind == .changed ? .textOrange : .textRed)
         }
         ticks += textView.findMarks.prefix(2000).map {
-            (lineIndex.line(at: $0.location, in: s), NSColor.findHighlightColor)
+            (lineIndex.line(at: $0.location, in: string), NSColor.findHighlightColor)
         }
         ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange) }   // over what they share a pixel with
         ticks.reverse()
-        ticks.append((lineIndex.line(at: textView.selectedRange().location, in: s), .tertiaryLabelColor))
+        ticks.append((lineIndex.line(at: textView.selectedRange().location, in: string), .tertiaryLabelColor))
         (scroll as? EditorScrollView)?.marks.lines = lineCount
         (scroll as? EditorScrollView)?.marks.ticks = ticks
     }
@@ -144,38 +144,40 @@ extension CodeEditor {
     /// The scopes beside the one opened on `line` (0-based), itself among them: as far in, in the same scope around it (the
     /// file, at the top), or a Markdown heading's of its level. Limit: 5000 lines of it are looked through.
     public func siblingScopes(ofLine line: Int) -> [(line: Int, text: String)] {
-        let s = textView.string as NSString
-        guard let start = lineIndex.start(ofLine: line, in: s) else { return [] }
-        let own = s.lineRange(for: NSRange(location: start, length: 0))
-        let level = Folds.indent(own, in: s), hashes = s.substring(with: own).prefix { $0 == "#" }.count
-        var within = NSRange(location: 0, length: s.length)
-        if let parent = scopeLines(around: line).last, let p = lineIndex.start(ofLine: parent, in: s),
-            let r = foldRegion(s.lineRange(for: NSRange(location: p, length: 0)), in: s)
+        let string = textView.string as NSString
+        guard let start = lineIndex.start(ofLine: line, in: string) else { return [] }
+        let own = string.lineRange(for: NSRange(location: start, length: 0))
+        let level = Folds.indent(own, in: string), hashes = string.substring(with: own).prefix { $0 == "#" }.count
+        var within = NSRange(location: 0, length: string.length)
+        if let parent = scopeLines(around: line).last, let parentStart = lineIndex.start(ofLine: parent, in: string),
+            let region = foldRegion(string.lineRange(for: NSRange(location: parentStart, length: 0)), in: string)
         {
-            within = r
+            within = region
         }
-        var found: [Int] = [], at = within.location, n = lineIndex.line(at: at, in: s)
-        while at < NSMaxRange(within), found.count < 500, n - line < 5000 {
-            let l = s.lineRange(for: NSRange(location: at, length: 0))
-            let text = s.substring(with: l)
+        var found: [Int] = [], at = within.location, lineNumber = lineIndex.line(at: at, in: string)
+        while at < NSMaxRange(within), found.count < 500, lineNumber - line < 5000 {
+            let current = string.lineRange(for: NSRange(location: at, length: 0))
+            let text = string.substring(with: current)
             let same =
                 isMarkdown
                 ? text.prefix { $0 == "#" }.count == hashes && text.dropFirst(hashes).hasPrefix(" ")
-                : Folds.indent(l, in: s) == level && foldRegion(l, in: s) != nil
-            if same, l.location >= within.location { found.append(lineIndex.line(at: l.location, in: s)) }
-            at = NSMaxRange(l)
-            n += 1
+                : Folds.indent(current, in: string) == level && foldRegion(current, in: string) != nil
+            if same, current.location >= within.location {
+                found.append(lineIndex.line(at: current.location, in: string))
+            }
+            at = NSMaxRange(current)
+            lineNumber += 1
         }
         return scopeRows(found)
     }
 
     private func scopeRows(_ lines: [Int]) -> [(line: Int, text: String)] {
-        let s = textView.string as NSString
-        return lines.compactMap { n in
-            guard let start = lineIndex.start(ofLine: n, in: s) else { return nil }
+        let string = textView.string as NSString
+        return lines.compactMap { line in
+            guard let start = lineIndex.start(ofLine: line, in: string) else { return nil }
             return (
-                n,
-                s.substring(with: s.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(
+                line,
+                string.substring(with: string.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(
                     in: .newlines)
             )
         }
@@ -183,19 +185,23 @@ extension CodeEditor {
 
     /// The scopes around `top`, outermost first: lines above it less indented, or headings, whose fold reaches it.
     private func scopeLines(around top: Int) -> [Int] {
-        let s = textView.string as NSString
-        guard top > 0, let at = lineIndex.start(ofLine: top, in: s) else { return [] }
+        let string = textView.string as NSString
+        guard top > 0, let at = lineIndex.start(ofLine: top, in: string) else { return [] }
         var found: [Int] = [],
-            least = Folds.indent(s.lineRange(for: NSRange(location: at, length: 0)), in: s) ?? Int.max, n = top - 1
-        while n >= 0, top - n <= Self.stickyReach, found.count < StickyLines.most, least > 0 || isMarkdown {
-            defer { n -= 1 }
-            guard let start = lineIndex.start(ofLine: n, in: s) else { continue }
-            let line = s.lineRange(for: NSRange(location: start, length: 0))
-            guard let indent = Folds.indent(line, in: s), indent < least || (isMarkdown && s.character(at: start) == 35)
+            least = Folds.indent(string.lineRange(for: NSRange(location: at, length: 0)), in: string) ?? Int.max,
+            candidate = top - 1
+        while candidate >= 0, top - candidate <= Self.stickyReach, found.count < StickyLines.most,
+            least > 0 || isMarkdown
+        {
+            defer { candidate -= 1 }
+            guard let start = lineIndex.start(ofLine: candidate, in: string) else { continue }
+            let line = string.lineRange(for: NSRange(location: start, length: 0))
+            guard let indent = Folds.indent(line, in: string),
+                indent < least || (isMarkdown && string.character(at: start) == 35)
             else { continue }
-            guard let r = foldRegion(line, in: s), NSLocationInRange(at, r) else { continue }
+            guard let region = foldRegion(line, in: string), NSLocationInRange(at, region) else { continue }
             least = min(least, indent)
-            found.append(n)
+            found.append(candidate)
         }
         return found.reversed()
     }

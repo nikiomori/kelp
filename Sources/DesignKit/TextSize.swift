@@ -26,8 +26,10 @@ extension NSFont {
     /// The system font at `size` for normal text, scaled by the text-size setting.
     public static func ui(_ size: CGFloat, weight: Weight = .regular) -> NSFont {
         let font = NSFont.systemFont(ofSize: TextSize.of(size), weight: weight)
-        guard TextSize.design != .default, let d = font.fontDescriptor.withDesign(TextSize.design) else { return font }
-        return NSFont(descriptor: d, size: 0) ?? font
+        guard TextSize.design != .default, let descriptor = font.fontDescriptor.withDesign(TextSize.design) else {
+            return font
+        }
+        return NSFont(descriptor: descriptor, size: 0) ?? font
     }
     public static func uiDigits(_ size: CGFloat, weight: Weight = .regular) -> NSFont {
         TextSize.design == .default

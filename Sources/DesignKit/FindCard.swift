@@ -71,15 +71,16 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     }
 
     // One or two letters match half the scrollback: wait for a pause before searching for them.
-    public func controlTextDidChange(_ n: Notification) {
+    public func controlTextDidChange(_ notification: Notification) {
         pending?.cancel()
         guard field.stringValue.count < 3, !field.stringValue.isEmpty else {
             search()
             return
         }
-        let w = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search() } }   // on the main queue below
-        pending = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: w)
+        // on the main queue below
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search() } }
+        pending = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
     private func search() {
         total = -1
@@ -87,7 +88,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         onSearch?(field.stringValue)
     }
 
-    public func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    public func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         switch sel {
         case #selector(insertNewline(_:)):
             onStep?(!(NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false))
@@ -100,11 +101,11 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     }
 
     /// ⌘G / ⇧⌘G while typing (the field editor would swallow them otherwise).
-    override public func performKeyEquivalent(with e: NSEvent) -> Bool {
-        guard !isHidden, e.modifierFlags.contains(.command), e.charactersIgnoringModifiers?.lowercased() == "g",
+    override public func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard !isHidden, event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "g",
             (window?.firstResponder as? NSText)?.delegate === field
-        else { return super.performKeyEquivalent(with: e) }
-        onStep?(!e.modifierFlags.contains(.shift))
+        else { return super.performKeyEquivalent(with: event) }
+        onStep?(!event.modifierFlags.contains(.shift))
         return true
     }
 

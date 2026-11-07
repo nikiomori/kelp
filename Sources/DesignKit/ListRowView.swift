@@ -19,8 +19,8 @@ public final class ListRowView: NSTableRowView {
         super.updateTrackingAreas()
         area = retracked(area, .activeInKeyWindow)
     }
-    override public func mouseEntered(with e: NSEvent) { setHovering(true) }
-    override public func mouseExited(with e: NSEvent) { setHovering(false) }
+    override public func mouseEntered(with event: NSEvent) { setHovering(true) }
+    override public func mouseExited(with event: NSEvent) { setHovering(false) }
     private func setHovering(_ on: Bool) {
         guard on != hovering else { return }
         hovering = on
@@ -49,8 +49,8 @@ public final class ListRowView: NSTableRowView {
         setHovering(false)
     }
     private func recheckPointer() {
-        guard let w = window else { return }
-        setHovering(w.isKeyWindow && bounds.contains(convert(w.mouseLocationOutsideOfEventStream, from: nil)))
+        guard let window else { return }
+        setHovering(window.isKeyWindow && bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)))
     }
 
     private func showHover() {
@@ -69,12 +69,12 @@ public final class ListRowView: NSTableRowView {
         let old = hoverFill.presentation()?.backgroundColor ?? hoverFill.backgroundColor
         hoverFill.backgroundColor = color
         guard !Motion.reduced, old != color else { return }
-        let a = CABasicAnimation(keyPath: "backgroundColor")
-        a.fromValue = old ?? NSColor.clear.cgColor
-        a.toValue = color ?? NSColor.clear.cgColor
-        a.duration = Motion.fast
-        a.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        hoverFill.add(a, forKey: "fade")
+        let animation = CABasicAnimation(keyPath: "backgroundColor")
+        animation.fromValue = old ?? NSColor.clear.cgColor
+        animation.toValue = color ?? NSColor.clear.cgColor
+        animation.duration = Motion.fast
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        hoverFill.add(animation, forKey: "fade")
     }
     override public func layout() {
         super.layout()
@@ -83,7 +83,7 @@ public final class ListRowView: NSTableRowView {
         hoverFill.frame = bounds.insetBy(dx: 6, dy: 1)
         CATransaction.commit()
     }
-    override public func drawSelection(in r: NSRect) {
+    override public func drawSelection(in rect: NSRect) {
         (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor)
             .setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM)
@@ -102,9 +102,9 @@ open class ListOutlineView: NSOutlineView {
     }
 
     override open func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
-        var r = super.frameOfCell(atColumn: column, row: row)
-        r.origin.x += Self.leading
-        r.size.width -= Self.leading
-        return r
+        var frame = super.frameOfCell(atColumn: column, row: row)
+        frame.origin.x += Self.leading
+        frame.size.width -= Self.leading
+        return frame
     }
 }

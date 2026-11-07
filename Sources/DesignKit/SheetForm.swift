@@ -24,15 +24,15 @@ public enum SheetForm {
         stack.alignment = .leading
         stack.spacing = Metrics.inset
         stack.detachesHiddenViews = true
-        let e = Metrics.sheetInset
-        stack.edgeInsets = NSEdgeInsets(top: e, left: e, bottom: e, right: e)
-        for v in wide {
-            v.widthAnchor.constraint(equalToConstant: inside).isActive = true
-            (v as? NSTextField)?.preferredMaxLayoutWidth = inside   // a note wraps at the sheet's edge, not past it
+        let inset = Metrics.sheetInset
+        stack.edgeInsets = NSEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
+        for view in wide {
+            view.widthAnchor.constraint(equalToConstant: inside).isActive = true
+            (view as? NSTextField)?.preferredMaxLayoutWidth = inside   // a note wraps at the sheet's edge, not past it
         }
         for grid in parts.compactMap({ $0 as? NSGridView }) {
-            for r in 0..<grid.numberOfRows {
-                grid.cell(atColumnIndex: 1, rowIndex: r).contentView?.widthAnchor
+            for row in 0..<grid.numberOfRows {
+                grid.cell(atColumnIndex: 1, rowIndex: row).contentView?.widthAnchor
                     .constraint(equalToConstant: inside - Metrics.formLabel - grid.columnSpacing).isActive = true
             }
         }

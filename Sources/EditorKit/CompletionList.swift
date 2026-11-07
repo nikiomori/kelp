@@ -58,9 +58,9 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         select(0)
         let height = CGFloat(min(items.count, Self.mostRows)) * Metrics.row + 2 * Metrics.lineGap
         let width = Self.width + Metrics.gap + Self.docWidth
-        var y = caret.minY - height - Metrics.lineGap
-        if let floor = parent?.screen?.visibleFrame.minY, y < floor { y = caret.maxY + Metrics.lineGap }
-        panel.setFrame(NSRect(x: caret.minX, y: y, width: width, height: height), display: true)
+        var originY = caret.minY - height - Metrics.lineGap
+        if let floor = parent?.screen?.visibleFrame.minY, originY < floor { originY = caret.maxY + Metrics.lineGap }
+        panel.setFrame(NSRect(x: caret.minX, y: originY, width: width, height: height), display: true)
         if !panel.isVisible {
             parent?.addChildWindow(panel, ordered: .above)
             panel.orderFront(nil)
@@ -74,9 +74,9 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 
     var selected: CodeEditor.Completion? { items.indices.contains(table.selectedRow) ? items[table.selectedRow] : nil }
 
-    func move(by n: Int) {
+    func move(by offset: Int) {
         guard !items.isEmpty else { return }
-        select((table.selectedRow + n + items.count) % items.count)
+        select((table.selectedRow + offset + items.count) % items.count)
     }
 
     private func select(_ row: Int) {
@@ -89,15 +89,15 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 
     @objc private func clicked() { if let selected { onAccept?(selected) } }
 
-    func numberOfRows(in t: NSTableView) -> Int { items.count }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableViewSelectionDidChange(_ n: Notification) {
+    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func tableViewSelectionDidChange(_ notification: Notification) {
         let text = selected?.documentation ?? ""
         doc.stringValue = text
         docCard.isHidden = text.isEmpty
     }
 
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]
         let icon = NSImageView(
             image: NSImage(systemSymbolName: Self.symbol(item.kind), accessibilityDescription: item.kind) ?? NSImage())

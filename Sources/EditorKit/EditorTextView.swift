@@ -21,8 +21,8 @@ public final class EditorTextView: NSTextView {
     var hoveredFold: NSRange? {
         didSet {
             guard hoveredFold != oldValue else { return }
-            for r in [oldValue, hoveredFold].compactMap({ $0 }) {
-                setNeedsDisplay(capsule(for: r).insetBy(dx: -2, dy: -2))
+            for fold in [oldValue, hoveredFold].compactMap({ $0 }) {
+                setNeedsDisplay(capsule(for: fold).insetBy(dx: -2, dy: -2))
             }
         }
     }
@@ -62,11 +62,11 @@ public final class EditorTextView: NSTextView {
 
     /// Sets them all, kept inside the text; overlapping ones merge.
     public func setCursors(_ ranges: [NSRange]) {
-        let n = length
+        let end = length
         let all = Self.merged(
-            ranges.map { r in
-                let a = min(max(0, r.location), n)
-                return NSRange(location: a, length: min(max(0, r.length), n - a))
+            ranges.map { range in
+                let start = min(max(0, range.location), end)
+                return NSRange(location: start, length: min(max(0, range.length), end - start))
             })
         let wide = all.filter { $0.length > 0 }
         anchors = []   // ⇧ moves set them again after this
@@ -90,18 +90,20 @@ public final class EditorTextView: NSTextView {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
         needsDisplay = true   // the current line's mark and the carets move
         // A cursor or a found match inside a fold opens it.
-        for r in ranges.map(\.rangeValue) {
-            for i in [r.location, NSMaxRange(r)] {
-                if let f = folds.fold(at: i), i != f.location { setFolded(f, false) }
+        for range in ranges.map(\.rangeValue) {
+            for edge in [range.location, NSMaxRange(range)] {
+                if let fold = folds.fold(at: edge), edge != fold.location { setFolded(fold, false) }
             }
         }
     }
 
     static func merged(_ ranges: [NSRange]) -> [NSRange] {
-        ranges.sorted { ($0.location, $0.length) < ($1.location, $1.length) }.reduce(into: []) { out, r in
-            guard let p = out.last, r.location < NSMaxRange(p) || r == p || (p.length == 0 && r.location == p.location)
-            else { return out.append(r) }
-            out[out.count - 1] = NSUnionRange(p, r)
+        ranges.sorted { ($0.location, $0.length) < ($1.location, $1.length) }.reduce(into: []) { out, range in
+            guard let previous = out.last,
+                range.location < NSMaxRange(previous) || range == previous
+                    || (previous.length == 0 && range.location == previous.location)
+            else { return out.append(range) }
+            out[out.count - 1] = NSUnionRange(previous, range)
         }
     }
 
@@ -115,37 +117,39 @@ public final class EditorTextView: NSTextView {
         else { return }
         let before = cursors
         textStorage?.beginEditing()
-        for (r, t) in zip(ranges, texts).reversed() {
-            textStorage?.replaceCharacters(in: r, with: NSAttributedString(string: t, attributes: typingAttributes))
+        for (range, text) in zip(ranges, texts).reversed() {
+            textStorage?.replaceCharacters(
+                in: range, with: NSAttributedString(string: text, attributes: typingAttributes))
         }
         textStorage?.endEditing()
         didChangeText()
         let edits = zip(ranges, texts).map { ($0, ($1 as NSString).length) }
         if keep {
             return setCursors(
-                before.map { r in
-                    let a = Self.map(r.location, through: edits), b = Self.map(NSMaxRange(r), through: edits)
-                    return NSRange(location: a, length: max(0, b - a))
+                before.map { cursor in
+                    let start = Self.map(cursor.location, through: edits),
+                        end = Self.map(NSMaxRange(cursor), through: edits)
+                    return NSRange(location: start, length: max(0, end - start))
                 })
         }
         var shift = 0
         setCursors(
-            edits.enumerated().map { i, e in
-                defer { shift += e.1 - e.0.length }
-                return NSRange(location: e.0.location + shift + (caret?[i] ?? e.1), length: 0)
+            edits.enumerated().map { index, edit in
+                defer { shift += edit.1 - edit.0.length }
+                return NSRange(location: edit.0.location + shift + (caret?[index] ?? edit.1), length: 0)
             })
         scrollRangeToVisible(selectedRange())   // a Return on the last line shown brings the new line in
     }
 
-    /// Where offset `p` is after the edits (old range, new length; top to bottom): one in a replaced range goes to its start.
-    static func map(_ p: Int, through edits: [(NSRange, Int)]) -> Int {
+    /// Where `offset` is after the edits (old range, new length; top to bottom): one in a replaced range goes to its start.
+    static func map(_ offset: Int, through edits: [(NSRange, Int)]) -> Int {
         var shift = 0
-        for (r, n) in edits {
-            if p <= r.location { break }
-            if p < NSMaxRange(r) { return r.location + shift }
-            shift += n - r.length
+        for (range, newLength) in edits {
+            if offset <= range.location { break }
+            if offset < NSMaxRange(range) { return range.location + shift }
+            shift += newLength - range.length
         }
-        return p + shift
+        return offset + shift
     }
 
     public override func shouldChangeText(inRanges ranges: [NSValue], replacementStrings strings: [String]?) -> Bool {
@@ -167,16 +171,16 @@ public final class EditorTextView: NSTextView {
     }
 
     public override func insertText(_ string: Any, replacementRange: NSRange) {
-        let s = (string as? NSAttributedString)?.string ?? string as? String ?? ""
+        let text = (string as? NSAttributedString)?.string ?? string as? String ?? ""
         guard cursors.count > 1, replacementRange.location == NSNotFound, !hasMarkedText() else {
-            defer { onTyped?(s) }
-            if replacementRange.location == NSNotFound, !hasMarkedText(), Typing.pairs(self, s) { return }
+            defer { onTyped?(text) }
+            if replacementRange.location == NSNotFound, !hasMarkedText(), Typing.pairs(self, text) { return }
             super.insertText(string, replacementRange: replacementRange)
-            if s == "." { onComplete?() }
+            if text == "." { onComplete?() }
             return
         }
         let cs = cursors
-        replace(cs, with: Array(repeating: s, count: cs.count))
+        replace(cs, with: Array(repeating: text, count: cs.count))
     }
 
     /// Where a paste with several cursors reads from: tests give their own, so they leave the user's clipboard alone.
@@ -215,11 +219,12 @@ public final class EditorTextView: NSTextView {
 
     /// ⌫ ⌦ ⌥⌫ ⌘⌫ at every cursor: its selection, or from the cursor to where `to` says.
     private func deleteAround(to: (Int, NSString) -> Int) {
-        let s = string as NSString
-        let ranges = cursors.compactMap { r -> NSRange? in
-            if r.length > 0 { return r }
-            let j = to(r.location, s)
-            return j == r.location ? nil : NSRange(location: min(j, r.location), length: abs(j - r.location))
+        let text = string as NSString
+        let ranges = cursors.compactMap { cursor -> NSRange? in
+            if cursor.length > 0 { return cursor }
+            let target = to(cursor.location, text)
+            return target == cursor.location
+                ? nil : NSRange(location: min(target, cursor.location), length: abs(target - cursor.location))
         }
         guard !ranges.isEmpty else { return }
         let gone = Self.merged(ranges)
@@ -230,9 +235,9 @@ public final class EditorTextView: NSTextView {
 
     /// The identifier left of the cursor: NSTextView's own word would take `obj.na` whole, and no label starts with that.
     public override var rangeForUserCompletion: NSRange {
-        let i = selectedRange().location
-        let start = CodeEditor.word(at: i, in: string as NSString).location
-        return NSRange(location: min(start, i), length: i - min(start, i))
+        let caret = selectedRange().location
+        let start = CodeEditor.word(at: caret, in: string as NSString).location
+        return NSRange(location: min(start, caret), length: caret - min(start, caret))
     }
 
     /// Esc (NSTextView's key for it) and ⌥Esc ask the app; the list opens when its items come.
@@ -246,50 +251,50 @@ public final class EditorTextView: NSTextView {
     /// A code editor's menu, not a rich-text one: no fonts, writing direction or substitutions, and none of what the
     /// system adds to text views (Writing Tools, Siri, Services).
     public override func menu(for event: NSEvent) -> NSMenu? {
-        let m = NSMenu()
-        m.allowsContextMenuPlugIns = false
+        let menu = NSMenu()
+        menu.allowsContextMenuPlugIns = false
         for (title, action) in [
             (String(localized: "Cut"), #selector(cut(_:))), (String(localized: "Copy"), #selector(copy(_:))),
             (String(localized: "Paste"), #selector(paste(_:)))
         ] {
-            m.addItem(withTitle: title, action: action, keyEquivalent: "")   // the keys are the Edit menu's to show
+            menu.addItem(withTitle: title, action: action, keyEquivalent: "")   // the keys are the Edit menu's to show
         }
         if let contextMenu {
-            m.addItem(.separator())
-            contextMenu(m)
+            menu.addItem(.separator())
+            contextMenu(menu)
         }
-        return m
+        return menu
     }
 
     // MARK: Mouse
 
-    public override func mouseMoved(with e: NSEvent) {
-        onPointer?(e)
-        let at = convert(e.locationInWindow, from: nil)
+    public override func mouseMoved(with event: NSEvent) {
+        onPointer?(event)
+        let at = convert(event.locationInWindow, from: nil)
         hoveredFold = folds.isEmpty ? nil : folds.hidden.first { capsule(for: $0).contains(at) }
-        if hoveredFold != nil { NSCursor.arrow.set() } else { super.mouseMoved(with: e) }
+        if hoveredFold != nil { NSCursor.arrow.set() } else { super.mouseMoved(with: event) }
     }
-    public override func mouseExited(with e: NSEvent) {
+    public override func mouseExited(with event: NSEvent) {
         hoveredFold = nil
-        super.mouseExited(with: e)
+        super.mouseExited(with: event)
     }
 
     /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, NSTextView's own way.
-    public override func mouseDown(with e: NSEvent) {
-        let at = convert(e.locationInWindow, from: nil)
-        if let f = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(f, false) }   // a ⋯ opens
-        let mods = e.modifierFlags.intersection([.command, .option, .shift, .control])
-        guard e.clickCount == 1, isEditable, mods == .option || mods == [.control, .shift] else {
-            return super.mouseDown(with: e)
+    public override func mouseDown(with event: NSEvent) {
+        let at = convert(event.locationInWindow, from: nil)
+        if let fold = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(fold, false) }   // a ⋯ opens
+        let mods = event.modifierFlags.intersection([.command, .option, .shift, .control])
+        guard event.clickCount == 1, isEditable, mods == .option || mods == [.control, .shift] else {
+            return super.mouseDown(with: event)
         }
         let before = cursors
         if mods == .option {
-            super.mouseDown(with: e)   // tracks until the button is up
+            super.mouseDown(with: event)   // tracks until the button is up
             guard selectedRanges.count == 1, selectedRange().length == 0 else { return }   // dragged: the columns stay
         }
         setCursors(
             before + [
-                NSRange(location: characterIndexForInsertion(at: convert(e.locationInWindow, from: nil)), length: 0)
+                NSRange(location: characterIndexForInsertion(at: convert(event.locationInWindow, from: nil)), length: 0)
             ])
     }
 
@@ -327,28 +332,28 @@ public final class EditorTextView: NSTextView {
             forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc),
             actualGlyphRange: nil)
         insertionPointColor.setFill()
-        for i in extraCarets where i >= shown.location && i <= NSMaxRange(shown) {
-            caretRect(at: i).intersection(dirtyRect).fill()
+        for caret in extraCarets where caret >= shown.location && caret <= NSMaxRange(shown) {
+            caretRect(at: caret).intersection(dirtyRect).fill()
         }
     }
 
-    /// Where a caret at `i` stands, in the view: one point wide, a line high.
-    func caretRect(at i: Int) -> NSRect {
+    /// Where a caret at `location` stands, in the view: one point wide, a line high.
+    func caretRect(at location: Int) -> NSRect {
         guard let lm = layoutManager, let tc = textContainer else { return .zero }
-        var r: NSRect
-        if i < length {
-            let g = lm.glyphIndexForCharacter(at: i)
-            r = lm.lineFragmentRect(forGlyphAt: g, effectiveRange: nil)
-            r.origin.x += lm.location(forGlyphAt: g).x
+        var rect: NSRect
+        if location < length {
+            let glyph = lm.glyphIndexForCharacter(at: location)
+            rect = lm.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            rect.origin.x += lm.location(forGlyphAt: glyph).x
         } else if length == 0 || !lm.extraLineFragmentRect.isEmpty {   // after a final newline
-            r = lm.extraLineFragmentRect
+            rect = lm.extraLineFragmentRect
         } else {   // after the last character of a last line without one
-            let g = lm.glyphIndexForCharacter(at: length - 1)
-            r = lm.lineFragmentRect(forGlyphAt: g, effectiveRange: nil)
-            r.origin.x = lm.boundingRect(forGlyphRange: NSRange(location: g, length: 1), in: tc).maxX
+            let glyph = lm.glyphIndexForCharacter(at: length - 1)
+            rect = lm.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            rect.origin.x = lm.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: tc).maxX
         }
-        r = r.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
-        r.size.width = 1
-        return r
+        rect = rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
+        rect.size.width = 1
+        return rect
     }
 }

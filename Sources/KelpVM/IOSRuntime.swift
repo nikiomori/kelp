@@ -42,18 +42,18 @@ final class IOSRuntime {
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .starting].contains(state)
         let using = state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0   // kelpd's budget sleeps an idle one only
-        var r = VMHelper.Reply(
+        var answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? udid : nil)
-        r.port = state == .running ? port : nil
-        if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
+        answer.port = state == .running ? port : nil
+        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
         close(fd)
     }
 
-    private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
-        switch r.op {
+    private func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+        switch request.op {
         case .status: done(nil)
-        case .start where r.begins:
+        case .start where request.begins:
             lastUse = Date()
             wake { _ in }
             done(nil)   // kelpd's wake: answered as it starts
@@ -103,21 +103,21 @@ final class IOSRuntime {
                 ).first(where: { $0.pathExtension == "xctestrun" })
             else { throw VMError("Kelp's runner isn't built in \(machine.name)'s folder: make the machine again.") }
             port = AndroidRuntime.freePort(from: 8700)
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
-            p.arguments = [
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+            process.arguments = [
                 "xcodebuild", "test-without-building", "-xctestrun", xctestrun.path, "-destination", "id=\(udid)"
             ]
             var env = ProcessInfo.processInfo.environment
             env["TEST_RUNNER_KELP_PORT"] = "\(port)"
-            p.environment = env
+            process.environment = env
             let out = folder.appendingPathComponent("runner.log")
             FileManager.default.createFile(atPath: out.path, contents: nil)
-            if let h = try? FileHandle(forWritingTo: out) {
-                p.standardOutput = h
-                p.standardError = h
+            if let logFile = try? FileHandle(forWritingTo: out) {
+                process.standardOutput = logFile
+                process.standardError = logFile
             }
-            p.terminationHandler = { [weak self] ended in
+            process.terminationHandler = { [weak self] ended in
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {   // the main queue
                         guard let self, self.runner === ended else { return }
@@ -129,8 +129,8 @@ final class IOSRuntime {
                     }
                 }
             }
-            try p.run()
-            runner = p
+            try process.run()
+            runner = process
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
                 if await ping() { return started(nil) }

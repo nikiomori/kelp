@@ -17,18 +17,19 @@ public struct TerminalAppearance: Equatable, Sendable {
 
     var configText: String {
         var lines: [String] = []
-        if let v = background { lines.append("background = \(v)") }
-        if let v = foreground { lines.append("foreground = \(v)") }
-        if let v = cursor { lines.append("cursor-color = \(v)") }
-        if let v = selection { lines.append("selection-background = \(v)") }
-        for (i, c) in palette.prefix(16).enumerated() { lines.append("palette = \(i)=\(c)") }
-        if let v = fontFamily, !v.isEmpty { lines.append("font-family = \(v)") }
-        if let v = fontSize { lines.append("font-size = \(v)") }
-        if let v = cursorStyle { lines.append("cursor-style = \(v)") }
+        if let value = background { lines.append("background = \(value)") }
+        if let value = foreground { lines.append("foreground = \(value)") }
+        if let value = cursor { lines.append("cursor-color = \(value)") }
+        if let value = selection { lines.append("selection-background = \(value)") }
+        for (index, color) in palette.prefix(16).enumerated() { lines.append("palette = \(index)=\(color)") }
+        if let value = fontFamily, !value.isEmpty { lines.append("font-family = \(value)") }
+        if let value = fontSize { lines.append("font-size = \(value)") }
+        if let value = cursorStyle { lines.append("cursor-style = \(value)") }
         if optionAsAlt { lines.append("macos-option-as-alt = true") }
-        if let v = opacity, v < 1 { lines.append("background-opacity = \(v)") }
-        if let v = shader.flatMap(TerminalShader.file) {   // still, so a terminal only redraws when it has something new
-            lines += ["custom-shader = \(v)", "custom-shader-animation = false"]
+        if let value = opacity, value < 1 { lines.append("background-opacity = \(value)") }
+        // Still, so a terminal only redraws when it has something new.
+        if let path = shader.flatMap(TerminalShader.file) {
+            lines += ["custom-shader = \(path)", "custom-shader-animation = false"]
         }
         return lines.joined(separator: "\n")
     }
@@ -62,16 +63,18 @@ public final class GhosttyRuntime {
     static var pasteboard = NSPasteboard.general
 
     /// Applies a new appearance to every open terminal.
-    public func configure(_ a: TerminalAppearance) {
-        Self.appearance = a
+    public func configure(_ appearance: TerminalAppearance) {
+        Self.appearance = appearance
         guard let app else { return }
         let cfg = Self.makeConfig()
         ghostty_app_update_config(app, cfg)
-        for v in surfaces.allObjects { if let s = v.surface { ghostty_surface_update_config(s, cfg) } }
+        for view in surfaces.allObjects {
+            if let surface = view.surface { ghostty_surface_update_config(surface, cfg) }
+        }
         ghostty_config_free(cfg)
     }
 
-    func register(_ v: GhosttyTerminalView) { surfaces.add(v) }
+    func register(_ view: GhosttyTerminalView) { surfaces.add(view) }
 
     /// Surfaces whose view is gone and which aren't freed yet.
     private(set) var retiring = 0
@@ -105,13 +108,15 @@ public final class GhosttyRuntime {
 
     private static func makeConfig() -> ghostty_config_t? {
         let cfg = ghostty_config_new()
-        let d = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-ghostty-defaults-\(getpid()).conf")
-        try? defaults.write(to: d, atomically: true, encoding: .utf8)
-        ghostty_config_load_file(cfg, d.path)   // first: the user's Ghostty config may change them
+        let defaultsFile = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "kelp-ghostty-defaults-\(getpid()).conf")
+        try? defaults.write(to: defaultsFile, atomically: true, encoding: .utf8)
+        ghostty_config_load_file(cfg, defaultsFile.path)   // first: the user's Ghostty config may change them
         if appearance.useGhosttyConfig { ghostty_config_load_default_files(cfg) }   // the user's Ghostty theme, font, cursor…
-        let f = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-ghostty-\(getpid()).conf")
-        try? (overrides + "\n" + appearance.configText).write(to: f, atomically: true, encoding: .utf8)
-        ghostty_config_load_file(cfg, f.path)
+        let overridesFile = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "kelp-ghostty-\(getpid()).conf")
+        try? (overrides + "\n" + appearance.configText).write(to: overridesFile, atomically: true, encoding: .utf8)
+        ghostty_config_load_file(cfg, overridesFile.path)
         ghostty_config_finalize(cfg)
         return cfg
     }
@@ -157,7 +162,7 @@ public final class GhosttyRuntime {
         rt.supports_selection_clipboard = false
         rt.wakeup_cb = { _ in
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_tick(a) } }
+                MainActor.assumeIsolated { if let app = GhosttyRuntime.shared.app { ghostty_app_tick(app) } }
             }
         }
         rt.action_cb = { _, target, action in
@@ -178,11 +183,12 @@ public final class GhosttyRuntime {
         rt.write_clipboard_cb = { ud, _, contents, count, fromProgram in
             guard let contents, count > 0 else { return }
             var text: String?
-            for i in 0..<count {
-                let c = contents[i]
-                guard let mime = c.mime.map({ String(cString: $0) }), mime.hasPrefix("text/plain"), let data = c.data
+            for index in 0..<count {
+                let item = contents[index]
+                guard let mime = item.mime.map({ String(cString: $0) }), mime.hasPrefix("text/plain"),
+                    let data = item.data
                 else { continue }
-                text = String(bytes: UnsafeRawBufferPointer(start: data, count: c.len), encoding: .utf8)
+                text = String(bytes: UnsafeRawBufferPointer(start: data, count: item.len), encoding: .utf8)
             }
             if let raw = text {
                 let view = MainActor.assumeIsolated { GhosttyTerminalView.from(ud) }   // Ghostty writes on the main thread
@@ -208,12 +214,12 @@ public final class GhosttyRuntime {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { _ in
-            MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_set_focus(a, true) } }
+            MainActor.assumeIsolated { if let app = GhosttyRuntime.shared.app { ghostty_app_set_focus(app, true) } }
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
         ) { _ in
-            MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_set_focus(a, false) } }
+            MainActor.assumeIsolated { if let app = GhosttyRuntime.shared.app { ghostty_app_set_focus(app, false) } }
         }
     }
 
@@ -223,15 +229,16 @@ public final class GhosttyRuntime {
             ? target.target.surface.flatMap { GhosttyTerminalView.from(ghostty_surface_userdata($0)) } : nil
         switch action.tag {
         case GHOSTTY_ACTION_SET_TITLE:
-            if let t = action.action.set_title.title { view?.onTitle?(String(cString: t)) }
+            if let title = action.action.set_title.title { view?.onTitle?(String(cString: title)) }
             return true
         case GHOSTTY_ACTION_OPEN_URL:
-            let u = action.action.open_url
-            guard let p = u.url else { return false }
-            if let s = String(bytes: UnsafeRawBufferPointer(start: p, count: Int(u.len)), encoding: .utf8),
-                let url = URL(string: s)
+            let openURL = action.action.open_url
+            guard let start = openURL.url else { return false }
+            if let string = String(
+                bytes: UnsafeRawBufferPointer(start: start, count: Int(openURL.len)), encoding: .utf8),
+                let url = URL(string: string)
             {
-                if let h = view?.onOpenURL { h(url) } else { NSWorkspace.shared.open(url) }
+                if let handler = view?.onOpenURL { handler(url) } else { NSWorkspace.shared.open(url) }
             }
             return true
         case GHOSTTY_ACTION_MOUSE_SHAPE:
@@ -259,8 +266,9 @@ public final class GhosttyRuntime {
             view?.onSearch?(.selected(Int(action.action.search_selected.selected)))
             return true
         case GHOSTTY_ACTION_SCROLLBAR:
-            let s = action.action.scrollbar
-            view?.scrollIndicator.show(total: Double(s.total), offset: Double(s.offset), length: Double(s.len))
+            let scrollbar = action.action.scrollbar
+            view?.scrollIndicator.show(
+                total: Double(scrollbar.total), offset: Double(scrollbar.offset), length: Double(scrollbar.len))
             return true
         default:
             return false

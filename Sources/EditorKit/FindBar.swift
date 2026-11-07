@@ -42,13 +42,13 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     init(editor: CodeEditor) {
         self.editor = editor
         super.init(frame: .zero)
-        for f in [field, replaceField] {
-            f.delegate = self
-            f.controlSize = .small
-            f.font = .ui(12)
-            f.sendsSearchStringImmediately = true
-            f.focusRingType = .none
-            f.widthAnchor.constraint(equalToConstant: 170).isActive = true
+        for searchField in [field, replaceField] {
+            searchField.delegate = self
+            searchField.controlSize = .small
+            searchField.font = .ui(12)
+            searchField.sendsSearchStringImmediately = true
+            searchField.focusRingType = .none
+            searchField.widthAnchor.constraint(equalToConstant: 170).isActive = true
         }
         field.placeholderString = String(localized: "Find")
         replaceField.placeholderString = String(localized: "Replace")
@@ -85,13 +85,13 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     private func button(_ title: String, _ action: @escaping () -> Void) -> NSView {
-        let b = PointerButton()
-        b.title = title
-        b.font = .ui(11)
-        b.padding = Metrics.gap
-        b.restFill = .fillRest
-        b.onClick = action
-        return b
+        let button = PointerButton()
+        button.title = title
+        button.font = .ui(11)
+        button.padding = Metrics.gap
+        button.restFill = .fillRest
+        button.onClick = action
+        return button
     }
 
     func begin(with text: String?) {
@@ -132,8 +132,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     private func flipScope() {
-        let r = editor?.textView.selectedRange()
-        scope = scope == nil && r?.length ?? 0 > 0 ? r : nil
+        let selection = editor?.textView.selectedRange()
+        scope = scope == nil && selection?.length ?? 0 > 0 ? selection : nil
         scopeToggle.isOn = scope != nil
         search(moving: true)
     }
@@ -145,7 +145,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 
     func search(moving: Bool) {
         guard let tv = editor?.textView else { return }
-        let s = tv.string as NSString, q = field.stringValue
+        let string = tv.string as NSString, query = field.stringValue
         found = []
         regex = nil
         index = nil
@@ -155,17 +155,17 @@ final class FindBar: NSView, NSSearchFieldDelegate {
             editor?.refreshScrollMarks()
             showCount()
         }
-        guard !q.isEmpty else { return }
-        do { regex = try TextSearch.pattern(q, options) } catch {
+        guard !query.isEmpty else { return }
+        do { regex = try TextSearch.pattern(query, options) } catch {
             count.stringValue = String(localized: "Not a valid pattern")
             return
         }
         guard let regex else { return }
-        let inScope = scope.map { NSIntersectionRange($0, NSRange(location: 0, length: s.length)) }
-        found = TextSearch.matches(regex, in: s, within: inScope)
+        let inScope = scope.map { NSIntersectionRange($0, NSRange(location: 0, length: string.length)) }
+        found = TextSearch.matches(regex, in: string, within: inScope)
         let from = tv.selectedRange().location
         index = found.isEmpty ? nil : found.firstIndex { $0.range.location >= from } ?? 0
-        if moving, let i = index { show(i) }
+        if moving, let index { show(index) }
     }
 
     private func showCount() {
@@ -182,13 +182,13 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     /// Selected and in view. The keys stay in the field.
-    private func show(_ i: Int) {
-        guard let tv = editor?.textView, found.indices.contains(i) else { return }
-        index = i
-        let r = found[i].range
-        tv.setSelectedRange(r)
-        tv.scrollRangeToVisible(r)
-        tv.findCurrent = r
+    private func show(_ position: Int) {
+        guard let tv = editor?.textView, found.indices.contains(position) else { return }
+        index = position
+        let range = found[position].range
+        tv.setSelectedRange(range)
+        tv.scrollRangeToVisible(range)
+        tv.findCurrent = range
         showCount()
     }
 
@@ -211,20 +211,20 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     private func replaceOne() {
-        guard let tv = editor?.textView, let regex, let i = index, found.indices.contains(i) else { return }
-        let m = found[i], s = tv.string as NSString
-        let new = TextSearch.replacement(m, regex, in: s, template: replaceField.stringValue, options)
-        tv.replace([m.range], with: [new])
-        tv.setSelectedRange(NSRange(location: m.range.location + (new as NSString).length, length: 0))
+        guard let tv = editor?.textView, let regex, let index, found.indices.contains(index) else { return }
+        let match = found[index], string = tv.string as NSString
+        let new = TextSearch.replacement(match, regex, in: string, template: replaceField.stringValue, options)
+        tv.replace([match.range], with: [new])
+        tv.setSelectedRange(NSRange(location: match.range.location + (new as NSString).length, length: 0))
         search(moving: true)
     }
 
     private func replaceAll() {
         guard let tv = editor?.textView, let regex, !found.isEmpty else { return }
-        let s = tv.string as NSString, template = replaceField.stringValue
+        let string = tv.string as NSString, template = replaceField.stringValue
         tv.replace(
             found.map(\.range),
-            with: found.map { TextSearch.replacement($0, regex, in: s, template: template, options) }, keep: true)
+            with: found.map { TextSearch.replacement($0, regex, in: string, template: template, options) }, keep: true)
         search(moving: false)
     }
 
@@ -233,11 +233,11 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 
     /// ⌘G and ⇧⌘G with the keys in a field. Before the menu: its item would go to the field's editor, a text view too, whose
     /// find panel is off. By key code, as a Russian layout sends another letter.
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard e.keyCode == 5, mods.subtracting(.shift) == .command, !isHidden,
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard event.keyCode == 5, mods.subtracting(.shift) == .command, !isHidden,
             (window?.firstResponder as? NSView)?.isDescendant(of: self) == true
-        else { return super.performKeyEquivalent(with: e) }
+        else { return super.performKeyEquivalent(with: event) }
         step(forward: !mods.contains(.shift))
         return true
     }
@@ -251,16 +251,18 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
     }
 
-    func controlTextDidChange(_ n: Notification) { if n.object as? NSSearchField === field { search(moving: true) } }
+    func controlTextDidChange(_ notification: Notification) {
+        if notification.object as? NSSearchField === field { search(moving: true) }
+    }
 
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         if sel == #selector(NSResponder.cancelOperation(_:)) {
             close()
             return true
         }
         guard sel == #selector(NSResponder.insertNewline(_:)) else { return false }
         let mods = NSApp.currentEvent?.modifierFlags ?? []
-        if c === replaceField {
+        if control === replaceField {
             replaceOne()
         } else if mods.contains(.option) {
             selectAllMatches()
@@ -293,16 +295,16 @@ extension CodeEditor {
         let bar =
             findBar
             ?? {
-                let b = FindBar(editor: self)
-                b.translatesAutoresizingMaskIntoConstraints = false
+                let created = FindBar(editor: self)
+                created.translatesAutoresizingMaskIntoConstraints = false
                 // Beside the scroll view, not in it: its clip view would draw over the bar.
-                (scroll.superview ?? scroll).addSubview(b, positioned: .above, relativeTo: scroll)
+                (scroll.superview ?? scroll).addSubview(created, positioned: .above, relativeTo: scroll)
                 NSLayoutConstraint.activate([
-                    b.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
-                    b.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.inset)
+                    created.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
+                    created.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.inset)
                 ])
-                findBar = b
-                return b
+                findBar = created
+                return created
             }()
         bar.begin(with: text)
     }
@@ -320,15 +322,15 @@ extension EditorTextView {
             if NSMaxRange(findMarks[mid]) <= shown.location { lo = mid + 1 } else { hi = mid }
         }
         let origin = textContainerOrigin
-        for m in findMarks[lo...] {
-            if m.location > NSMaxRange(shown) { break }
-            if folds.intersects(m) { continue }
-            NSColor.findHighlightColor.withAlphaComponent(m == findCurrent ? 0.7 : 0.3).setFill()
+        for mark in findMarks[lo...] {
+            if mark.location > NSMaxRange(shown) { break }
+            if folds.intersects(mark) { continue }
+            NSColor.findHighlightColor.withAlphaComponent(mark == findCurrent ? 0.7 : 0.3).setFill()
             lm.enumerateEnclosingRects(
-                forGlyphRange: lm.glyphRange(forCharacterRange: m, actualCharacterRange: nil),
+                forGlyphRange: lm.glyphRange(forCharacterRange: mark, actualCharacterRange: nil),
                 withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
-            ) { r, _ in
-                r.offsetBy(dx: origin.x, dy: origin.y).fill()
+            ) { markRect, _ in
+                markRect.offsetBy(dx: origin.x, dy: origin.y).fill()
             }
         }
     }

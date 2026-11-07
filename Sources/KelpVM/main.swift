@@ -27,20 +27,20 @@ func oneShot(_ work: @escaping @MainActor () async throws -> Void) -> Never {
 switch args.first {
 case "--latest":
     oneShot {
-        let l = try await MacGuest.latest()
+        let latest = try await MacGuest.latest()
         let json = try JSONSerialization.data(withJSONObject: [
-            "url": l.url.absoluteString, "build": l.build, "version": l.version
+            "url": latest.url.absoluteString, "build": latest.build, "version": latest.version
         ])
         print(String(decoding: json, as: UTF8.self))
     }
 case "--install" where args.count == 3:
     let folder = URL(fileURLWithPath: args[1]), ipsw = URL(fileURLWithPath: args[2])
     oneShot {
-        let m = try JSONDecoder().decode(
+        let machine = try JSONDecoder().decode(
             VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json")))
-        try await MacGuest.install(m, folder: folder, ipsw: ipsw) { f in
+        try await MacGuest.install(machine, folder: folder, ipsw: ipsw) { fraction in
             let at = VMMaking(
-                step: .installing, progress: f,
+                step: .installing, progress: fraction,
                 detail: (try? Data(contentsOf: folder.appendingPathComponent("creating")))
                     .flatMap { try? JSONDecoder().decode(VMMaking.self, from: $0) }?.detail)
             try? at.data.write(to: folder.appendingPathComponent("creating"), options: .atomic)

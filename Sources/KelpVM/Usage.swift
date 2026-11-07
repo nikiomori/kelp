@@ -20,26 +20,27 @@ enum Usage {
         guard let responsible else { return nil }
         let me = getpid()
         var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
-        let n = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         var cpu: [pid_t: UInt64] = [:], bytes: UInt64 = 0
-        for p in pids.prefix(max(0, n)) where p > 0 && (p == me || responsible(p) == me) {
+        for pid in pids.prefix(max(0, count)) where pid > 0 && (pid == me || responsible(pid) == me) {
             var info = rusage_info_v2()
             let ok =
                 withUnsafeMutablePointer(to: &info) {
                     $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
-                        proc_pid_rusage(p, RUSAGE_INFO_V2, $0)
+                        proc_pid_rusage(pid, RUSAGE_INFO_V2, $0)
                     }
                 } == 0
             guard ok else { continue }
-            cpu[p] = info.ri_user_time + info.ri_system_time
+            cpu[pid] = info.ri_user_time + info.ri_system_time
             bytes += info.ri_phys_footprint
         }
         let now = (cpu: cpu, at: mach_absolute_time())
         defer { last = now }
-        let percent = last.flatMap { l -> Double? in
-            guard now.at > l.at else { return nil }
-            let used = cpu.reduce(UInt64(0)) { sum, e in sum + (e.value - min(e.value, l.cpu[e.key] ?? e.value)) }   // a new one: from now
-            return Double(used) / Double(now.at - l.at) * 100
+        let percent = last.flatMap { previous -> Double? in
+            guard now.at > previous.at else { return nil }
+            let used = cpu.reduce(UInt64(0)) { sum, e in sum + (e.value - min(e.value, previous.cpu[e.key] ?? e.value))
+            }   // a new one: from now
+            return Double(used) / Double(now.at - previous.at) * 100
         }
         return (percent, Int(bytes >> 20))
     }
@@ -49,11 +50,12 @@ enum Usage {
     static func clients(of id: String, programs: Set<String>) -> Int {
         let me = getpid()
         var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
-        let n = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         var name = [CChar](repeating: 0, count: 256)
-        return pids.prefix(max(0, n)).filter { p in
-            guard p > 0, p != me, proc_name(p, &name, UInt32(name.count)) > 0, programs.contains(String(cString: name)),
-                Subprocess.parent(p) != me, let argv = Subprocess.arguments(p)
+        return pids.prefix(max(0, count)).filter { pid in
+            guard pid > 0, pid != me, proc_name(pid, &name, UInt32(name.count)) > 0,
+                programs.contains(String(cString: name)),
+                Subprocess.parent(pid) != me, let argv = Subprocess.arguments(pid)
             else { return false }
             return argv.dropFirst().contains { $0.contains(id) }
         }.count

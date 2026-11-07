@@ -5,44 +5,44 @@ import Virtualization
 extension Runtime {
     /// The machine as Virtualization runs it: a Linux one's EFI boot, cloud-init seed, console, balloon and Rosetta; a macOS
     /// one's (`MacGuest.configure`); and for both the disk, the NAT network, vsock and the share slots.
-    static func configuration(_ m: VMMachine, folder: URL, shares: [Int: String]) throws
+    static func configuration(_ machine: VMMachine, folder: URL, shares: [Int: String]) throws
         -> VZVirtualMachineConfiguration
     {
-        func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
-        let c = VZVirtualMachineConfiguration()
-        c.cpuCount = m.cpus
-        c.memorySize = UInt64(m.memoryMiB) << 20
+        func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
+        let config = VZVirtualMachineConfiguration()
+        config.cpuCount = machine.cpus
+        config.memorySize = UInt64(machine.memoryMiB) << 20
         let disk = VZVirtioBlockDeviceConfiguration(
             attachment: try VZDiskImageStorageDeviceAttachment(
                 url: file("disk.img"), readOnly: false,
                 cachingMode: .automatic, synchronizationMode: .fsync))
-        if m.os == "macos" {
-            try MacGuest.configure(c, folder: folder)
-            c.storageDevices = [disk]
+        if machine.os == "macos" {
+            try MacGuest.configure(config, folder: folder)
+            config.storageDevices = [disk]
         } else {
             let boot = VZEFIBootLoader()
             let vars = file("efi.vars")
             boot.variableStore =
                 FileManager.default.fileExists(atPath: vars.path)
                 ? VZEFIVariableStore(url: vars) : try VZEFIVariableStore(creatingVariableStoreAt: vars)
-            c.bootLoader = boot
+            config.bootLoader = boot
             let platform = VZGenericPlatformConfiguration()
-            if let d = try? Data(contentsOf: file("machine.id")),
-                let id = VZGenericMachineIdentifier(dataRepresentation: d)
+            if let data = try? Data(contentsOf: file("machine.id")),
+                let id = VZGenericMachineIdentifier(dataRepresentation: data)
             {
                 platform.machineIdentifier = id
             } else {
                 try platform.machineIdentifier.dataRepresentation.write(to: file("machine.id"))
             }
-            c.platform = platform
+            config.platform = platform
             let seed = try VZDiskImageStorageDeviceAttachment(url: file("seed.iso"), readOnly: true)
-            c.storageDevices = [disk, VZVirtioBlockDeviceConfiguration(attachment: seed)]
-            c.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
+            config.storageDevices = [disk, VZVirtioBlockDeviceConfiguration(attachment: seed)]
+            config.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
             let console = VZVirtioConsoleDeviceSerialPortConfiguration()
             console.attachment = try VZFileSerialPortAttachment(url: file("console.log"), append: false)
-            c.serialPorts = [console]
+            config.serialPorts = [console]
         }
-        if m.network {
+        if machine.network {
             let net = VZVirtioNetworkDeviceConfiguration()
             net.attachment = VZNATNetworkDeviceAttachment()
             let saved = try? String(contentsOf: file("mac"), encoding: .utf8)
@@ -51,11 +51,11 @@ extension Runtime {
             } else {
                 try net.macAddress.string.write(to: file("mac"), atomically: true, encoding: .utf8)
             }
-            c.networkDevices = [net]
+            config.networkDevices = [net]
         }
-        c.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
-        c.socketDevices = [VZVirtioSocketDeviceConfiguration()]
-        c.directorySharingDevices = (0..<VMs.shareSlots).map { slot in
+        config.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
+        config.socketDevices = [VZVirtioSocketDeviceConfiguration()]
+        config.directorySharingDevices = (0..<VMs.shareSlots).map { slot in
             let fs = VZVirtioFileSystemDeviceConfiguration(tag: "kelp\(slot)")
             fs.share = shares[slot].flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
                 .map {
@@ -68,19 +68,19 @@ extension Runtime {
         try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
         let shared = VZSharedDirectory(url: files, readOnly: false)
         let exchange = VZVirtioFileSystemDeviceConfiguration(
-            tag: m.os == "macos" ? VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag : VMs.filesTag)
+            tag: machine.os == "macos" ? VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag : VMs.filesTag)
         exchange.share =
-            m.os == "macos"
+            machine.os == "macos"
             ? VZMultipleDirectoryShare(directories: ["Kelp": shared]) : VZSingleDirectoryShare(directory: shared)
-        c.directorySharingDevices.append(exchange)
+        config.directorySharingDevices.append(exchange)
         #if arch(arm64)   // Rosetta for Linux is Apple silicon's: an Intel Mac runs x86 guests as they are
-            if m.os == "linux", m.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
-                let r = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
-                r.share = try VZLinuxRosettaDirectoryShare()
-                c.directorySharingDevices.append(r)
+            if machine.os == "linux", machine.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
+                let rosetta = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
+                rosetta.share = try VZLinuxRosettaDirectoryShare()
+                config.directorySharingDevices.append(rosetta)
             }
         #endif
-        try c.validate()
-        return c
+        try config.validate()
+        return config
     }
 }

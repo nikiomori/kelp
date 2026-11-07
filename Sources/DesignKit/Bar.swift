@@ -10,24 +10,24 @@ public final class Bar: NSView {
     public let stack: NSStackView
 
     public static func panel(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) -> Bar {
-        let b = Bar(height: Metrics.panelHeader, gap: Metrics.gap, insets: (Metrics.inset, Metrics.insetTrailing))
-        b.set(leading, trailing, stretching: stretching)
-        return b
+        let bar = Bar(height: Metrics.panelHeader, gap: Metrics.gap, insets: (Metrics.inset, Metrics.insetTrailing))
+        bar.set(leading, trailing, stretching: stretching)
+        return bar
     }
     public static func content(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) -> Bar {
-        let b = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset))
-        b.sizesControls = true
-        b.set(leading, trailing, stretching: stretching)
-        return b
+        let bar = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset))
+        bar.sizesControls = true
+        bar.set(leading, trailing, stretching: stretching)
+        return bar
     }
     /// A tab's toolbar gives its system controls one size: a pop-up kept 13 pt at small size beside 11 pt buttons.
     private var sizesControls = false
 
     public static func foot(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
-        let b = Bar(
+        let bar = Bar(
             height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset), lineOnTop: true)
-        b.set(leading, trailing)
-        return b
+        bar.set(leading, trailing)
+        return bar
     }
 
     private init(height: CGFloat, gap: CGFloat, insets: (CGFloat, CGFloat), lineOnTop: Bool = false) {
@@ -39,9 +39,9 @@ public final class Bar: NSView {
         super.init(frame: .zero)
         let line = NSBox()
         line.boxType = .separator
-        for v in [stack, line] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for view in [stack, line] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
         }
         NSLayoutConstraint.activate([
             stack.heightAnchor.constraint(equalToConstant: TextSize.of(height)),
@@ -64,40 +64,42 @@ public final class Bar: NSView {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let flex = stretching ?? NSView()
         flex.setContentHuggingPriority(.init(1), for: .horizontal)
-        for v in (stretching == nil ? leading + [flex] + trailing : leading + trailing) { stack.addArrangedSubview(v) }
+        for view in (stretching == nil ? leading + [flex] + trailing : leading + trailing) {
+            stack.addArrangedSubview(view)
+        }
         if sizesControls { (leading + trailing).forEach(Self.small) }
         // Icon buttons side by side: their 22 pt squares already hold them apart.
-        for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst())
-        where a is IconButton && b is IconButton {
-            stack.setCustomSpacing(Metrics.iconGap, after: a)
+        for (left, right) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst())
+        where left is IconButton && right is IconButton {
+            stack.setCustomSpacing(Metrics.iconGap, after: left)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// Push buttons, pop-ups and segments as AppKit draws them, and those in a stack among them: small, in the chrome's
     /// 11 pt. Kelp's own (`PointerButton`, `PointerPopUpButton`) size themselves.
-    private static func small(_ v: NSView) {
-        if let s = v as? NSStackView {
-            s.arrangedSubviews.forEach(small)
+    private static func small(_ view: NSView) {
+        if let stack = view as? NSStackView {
+            stack.arrangedSubviews.forEach(small)
             return
         }
         let push =
-            (v as? NSButton).map {
+            (view as? NSButton).map {
                 !($0 is PointerButton) && !($0 is NSPopUpButton) && $0.isBordered && $0.bezelStyle == .push
             } ?? false
         let plain = [ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self)].contains(
-            ObjectIdentifier(type(of: v)))
-        guard push || plain, let c = v as? NSControl else { return }
-        c.controlSize = .small
-        c.font = .ui(11)
+            ObjectIdentifier(type(of: view)))
+        guard push || plain, let control = view as? NSControl else { return }
+        control.controlSize = .small
+        control.font = .ui(11)
     }
 
     /// A bar's title words: semibold row text, the panel's name or what it lists.
-    public static func title(_ s: String) -> NSTextField {
-        let t = NSTextField(labelWithString: s)
-        t.font = .ui(12, weight: .semibold)
-        t.lineBreakMode = .byTruncatingTail
-        t.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return t
+    public static func title(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.font = .ui(12, weight: .semibold)
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
     }
 }

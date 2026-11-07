@@ -24,11 +24,12 @@ final class WrappingContainer: NSTextContainer {
     ) -> NSRect {
         var rect = super.lineFragmentRect(
             forProposedRect: proposed, at: index, writingDirection: writingDirection, remaining: remaining)
-        guard hanging != .none, index > 0, let s = layoutManager?.textStorage?.string as NSString?, index <= s.length,
-            s.character(at: index - 1) != 10
+        guard hanging != .none, index > 0, let string = layoutManager?.textStorage?.string as NSString?,
+            index <= string.length,
+            string.character(at: index - 1) != 10
         else { return rect }
-        let line = lineStart(in: s, at: index - 1)
-        let moved = min(indent(of: s, line: line), rect.width / 2)   // a deep line keeps some room
+        let line = lineStart(in: string, at: index - 1)
+        let moved = min(indent(of: string, line: line), rect.width / 2)   // a deep line keeps some room
         rect.origin.x += moved
         rect.size.width -= moved
         return rect
@@ -39,27 +40,27 @@ final class WrappingContainer: NSTextContainer {
     private var known: (start: Int, through: Int)?
     func edited() { known = nil }
 
-    private func lineStart(in s: NSString, at i: Int) -> Int {
-        if let k = known, k.start <= i {
-            if i <= k.through { return k.start }
-            var j = k.through + 1
-            while j <= i, s.character(at: j) != 10 { j += 1 }
-            if j > i {
-                known = (k.start, i)
-                return k.start
+    private func lineStart(in string: NSString, at index: Int) -> Int {
+        if let cached = known, cached.start <= index {
+            if index <= cached.through { return cached.start }
+            var scan = cached.through + 1
+            while scan <= index, string.character(at: scan) != 10 { scan += 1 }
+            if scan > index {
+                known = (cached.start, index)
+                return cached.start
             }
         }
-        let start = s.lineRange(for: NSRange(location: i, length: 0)).location
-        known = (start, i)
+        let start = string.lineRange(for: NSRange(location: index, length: 0)).location
+        known = (start, index)
         return start
     }
 
-    private func indent(of s: NSString, line start: Int) -> CGFloat {
-        var columns = 0, i = start
-        while i < s.length, i - start < 200 {
-            let c = s.character(at: i)
-            if c == 32 { columns += 1 } else if c == 9 { columns += 4 - columns % 4 } else { break }
-            i += 1
+    private func indent(of string: NSString, line start: Int) -> CGFloat {
+        var columns = 0, index = start
+        while index < string.length, index - start < 200 {
+            let character = string.character(at: index)
+            if character == 32 { columns += 1 } else if character == 9 { columns += 4 - columns % 4 } else { break }
+            index += 1
         }
         return CGFloat(columns + (hanging == .indent ? 4 : 0)) * space
     }

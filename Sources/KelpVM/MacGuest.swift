@@ -13,9 +13,9 @@ enum MacGuest {
     /// Virtualization runs macOS only on Apple silicon: an Intel Mac (a universal build's other half) says so.
     static let needsAppleSilicon = VMError("macOS machines need a Mac with Apple silicon.")
 
-    static func configure(_ c: VZVirtualMachineConfiguration, folder: URL) throws {
+    static func configure(_ config: VZVirtualMachineConfiguration, folder: URL) throws {
         #if arch(arm64)
-            func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
+            func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
             let platform = VZMacPlatformConfiguration()
             guard let model = VZMacHardwareModel(dataRepresentation: try Data(contentsOf: file("hardware.bin"))),
                 model.isSupported,
@@ -26,17 +26,17 @@ enum MacGuest {
             platform.hardwareModel = model
             platform.machineIdentifier = id
             platform.auxiliaryStorage = VZMacAuxiliaryStorage(url: file("aux.bin"))
-            c.platform = platform
-            c.bootLoader = VZMacOSBootLoader()
+            config.platform = platform
+            config.bootLoader = VZMacOSBootLoader()
             let graphics = VZMacGraphicsDeviceConfiguration()
             graphics.displays = [
                 VZMacGraphicsDisplayConfiguration(
                     widthInPixels: display.width, heightInPixels: display.height,
                     pixelsPerInch: display.ppi)
             ]
-            c.graphicsDevices = [graphics]
-            c.keyboards = [VZMacKeyboardConfiguration()]
-            c.pointingDevices = [VZMacTrackpadConfiguration(), VZUSBScreenCoordinatePointingDeviceConfiguration()]
+            config.graphicsDevices = [graphics]
+            config.keyboards = [VZMacKeyboardConfiguration()]
+            config.pointingDevices = [VZMacTrackpadConfiguration(), VZUSBScreenCoordinatePointingDeviceConfiguration()]
         #else
             throw needsAppleSilicon
         #endif
@@ -45,16 +45,16 @@ enum MacGuest {
     /// The restore image's hardware model, a new identity and auxiliary storage, a sparse disk: then macOS installed on it,
     /// `progress` 0…1 as it goes.
     static func install(
-        _ m: VMMachine, folder: URL, ipsw: URL, progress: @escaping @MainActor @Sendable (Double) -> Void
+        _ machine: VMMachine, folder: URL, ipsw: URL, progress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws {
         #if arch(arm64)
-            func file(_ n: String) -> URL { folder.appendingPathComponent(n) }
+            func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
             let image = try await VZMacOSRestoreImage.image(from: ipsw)
             guard let needs = image.mostFeaturefulSupportedConfiguration else {
                 throw VMError("This Mac can't run macOS \(image.buildVersion).")
             }
-            guard m.cpus >= needs.minimumSupportedCPUCount,
-                UInt64(m.memoryMiB) << 20 >= needs.minimumSupportedMemorySize
+            guard machine.cpus >= needs.minimumSupportedCPUCount,
+                UInt64(machine.memoryMiB) << 20 >= needs.minimumSupportedMemorySize
             else {
                 throw VMError(
                     "macOS \(image.buildVersion) needs \(needs.minimumSupportedCPUCount) CPUs and "
@@ -66,15 +66,15 @@ enum MacGuest {
                 creatingStorageAt: file("aux.bin"), hardwareModel: needs.hardwareModel, options: [.allowOverwrite])
             let disk = file("disk.img")
             guard FileManager.default.createFile(atPath: disk.path, contents: nil),
-                truncate(disk.path, off_t(m.diskGiB) << 30) == 0
+                truncate(disk.path, off_t(machine.diskGiB) << 30) == 0
             else {
                 throw VMError("Can't make the disk: \(String(cString: strerror(errno)))")
             }
-            let vm = VZVirtualMachine(configuration: try Runtime.configuration(m, folder: folder, shares: [:]))
+            let vm = VZVirtualMachine(configuration: try Runtime.configuration(machine, folder: folder, shares: [:]))
             let installer = VZMacOSInstaller(virtualMachine: vm, restoringFromImageAt: ipsw)
-            let watching = installer.progress.observe(\.fractionCompleted) { p, _ in
-                let f = p.fractionCompleted
-                DispatchQueue.main.async { MainActor.assumeIsolated { progress(f) } }
+            let watching = installer.progress.observe(\.fractionCompleted) { observed, _ in
+                let fraction = observed.fractionCompleted
+                DispatchQueue.main.async { MainActor.assumeIsolated { progress(fraction) } }
             }
             defer { watching.invalidate() }
             try await installer.install()
@@ -87,10 +87,11 @@ enum MacGuest {
     static func latest() async throws -> (url: URL, build: String, version: String) {
         #if arch(arm64)
             let image = try await VZMacOSRestoreImage.latestSupported
-            let v = image.operatingSystemVersion
+            let version = image.operatingSystemVersion
             return (
                 image.url, image.buildVersion,
-                "\(v.majorVersion).\(v.minorVersion)" + (v.patchVersion > 0 ? ".\(v.patchVersion)" : "")
+                "\(version.majorVersion).\(version.minorVersion)"
+                    + (version.patchVersion > 0 ? ".\(version.patchVersion)" : "")
             )
         #else
             throw needsAppleSilicon
@@ -99,16 +100,16 @@ enum MacGuest {
 
     #if arch(arm64)
         /// The first boot sets the account up by itself, signs in and turns Remote Login on (macOS 27 hosts and guests).
-        static func firstStart(_ m: VMMachine, password: String) throws -> VZMacOSVirtualMachineStartOptions {
+        static func firstStart(_ machine: VMMachine, password: String) throws -> VZMacOSVirtualMachineStartOptions {
             let options = VZMacOSVirtualMachineStartOptions()
             if #available(macOS 27.0, *) {
-                let p = VZMacGuestProvisioningOptions()
-                p.fullName = m.user
-                p.username = m.user
-                p.password = password
-                p.logsInAutomatically = true
-                p.enablesRemoteLogin = true
-                try options.setGuestProvisioning(p)
+                let provisioning = VZMacGuestProvisioningOptions()
+                provisioning.fullName = machine.user
+                provisioning.username = machine.user
+                provisioning.password = password
+                provisioning.logsInAutomatically = true
+                provisioning.enablesRemoteLogin = true
+                try options.setGuestProvisioning(provisioning)
             }
             return options
         }
@@ -139,15 +140,15 @@ enum MacGuest {
     /// Local Network privacy refuses programs of ours an address on the machines' NAT network ("No route to host"), and
     /// lets the system's own through. `ended` comes on the main queue when it's over.
     static func bridge(_ client: Int32, to ip: String, ended: @escaping @MainActor @Sendable () -> Void) -> Bool {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
-        p.arguments = [ip, "22"]
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
+        process.arguments = [ip, "22"]
         let socket = FileHandle(fileDescriptor: client, closeOnDealloc: false)
-        p.standardInput = socket
-        p.standardOutput = socket
-        p.standardError = FileHandle.nullDevice
-        p.terminationHandler = { _ in DispatchQueue.main.async { MainActor.assumeIsolated { ended() } } }
-        do { try p.run() } catch {
+        process.standardInput = socket
+        process.standardOutput = socket
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { _ in DispatchQueue.main.async { MainActor.assumeIsolated { ended() } } }
+        do { try process.run() } catch {
             log("nc: \(error)")
             return false
         }
@@ -156,14 +157,14 @@ enum MacGuest {
 
     /// Whether the guest's sshd answers with its banner (through /usr/bin/nc, as `bridge`).
     nonisolated static func banner(_ ip: String) -> Bool {
-        let p = Process(), out = Pipe()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
-        p.arguments = ["-G", "2", ip, "22"]
-        p.standardInput = Pipe()
-        p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
-        guard (try? p.run()) != nil else { return false }
-        defer { p.terminate() }
+        let process = Process(), out = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
+        process.arguments = ["-G", "2", ip, "22"]
+        process.standardInput = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        defer { process.terminate() }
         var pfd = pollfd(fd: out.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
         guard poll(&pfd, 1, 3000) > 0 else { return false }
         return out.fileHandleForReading.availableData.prefix(4) == Data("SSH-".utf8)
