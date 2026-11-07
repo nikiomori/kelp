@@ -10,12 +10,12 @@ final class AndroidRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState
     private var emulator: Process?
-    /// Whether the emulator running now was started with its window: `windowed` is what the next start asks.
-    private var shown = false
+    /// The window, two facts: whether the emulator running now has one (it was booted with it), and whether the next
+    /// boot gets one (Show asked; whatever ends the emulator before, its own sleep included, leaves that asked).
+    private var shown = false, nextBootShown = false
+    /// The user has the emulator's window: in use, never paused for idling.
+    private var hasWindow: Bool { emulator != nil && shown }
     private var port = 0
-    private var windowed = false
-    /// Show asked for the window: the next boot has it whatever ended the emulator before (Show's own sleep included).
-    private var showAsked = false
     private var pausing = false
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
@@ -51,7 +51,7 @@ final class AndroidRuntime {
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .paused, .starting].contains(state)
         // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
-        let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (windowed ? 1 : 0) : 0
+        let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
         let r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
                                serial: state == .running ? serial : nil)
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
@@ -64,7 +64,7 @@ final class AndroidRuntime {
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
         case .start where r.begins:
             lastUse = Date()
-            if r.beginsShown { windowed = true; showAsked = emulator == nil || saving }   // for a boot to come, not one up already
+            if r.beginsShown, emulator == nil || saving { nextBootShown = true }   // for a boot to come, not one up already
             wake { _ in }; done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
@@ -73,10 +73,9 @@ final class AndroidRuntime {
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
             lastUse = Date()
-            windowed = true
             // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
-            if emulator != nil, shown, !saving { return wake(done) }
-            showAsked = true   // a boot is to come (off, headless, or being slept): it has the window
+            if hasWindow, !saving { return wake(done) }
+            nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
             if emulator == nil { return wake(done) }   // down: it boots with its window
             // Started headless (an agent's run): once it's up, slept and woken again with its window.
             if state == .starting { return ready.append { _ in self.sleep { _ in self.wake(done) } } }
@@ -115,7 +114,7 @@ final class AndroidRuntime {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: exe)
         p.arguments = ["-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
-                       "-memory", "\(machine.memoryMiB)"] + (windowed || showAsked ? [] : ["-no-window"])
+                       "-memory", "\(machine.memoryMiB)"] + (nextBootShown ? [] : ["-no-window"])
         var env = ProcessInfo.processInfo.environment
         env["ANDROID_AVD_HOME"] = avd.path
         if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
@@ -127,8 +126,7 @@ final class AndroidRuntime {
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
-                    self.emulator = nil
-                    self.windowed = false   // its window went with it (closed, slept, quit): the next start is headless, unless Show asks
+                    self.emulator = nil   // its window went with it (closed, slept, quit): the next boot has one only if Show asks
                     if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
                     if self.state != .sleeping { self.state = .off }
                 }
@@ -136,9 +134,8 @@ final class AndroidRuntime {
         }
         do { try p.run() } catch { return started(error) }
         emulator = p
-        windowed = windowed || showAsked
-        showAsked = false
-        shown = windowed
+        shown = nextBootShown
+        nextBootShown = false
         Task { await awaitBoot(since: Date()) }
     }
 
@@ -204,7 +201,7 @@ final class AndroidRuntime {
     private func tick() {
         if state == .running, Usage.clients(of: serial, programs: ["adb"]) > 0 { lastUse = Date() }   // a command through adb (`kelp vm run`) is use
         let idle = Date().timeIntervalSince(lastUse)
-        if state == .running, !windowed, !pausing, idle > Runtime.pauseAfter {
+        if state == .running, !hasWindow, !pausing, idle > Runtime.pauseAfter {
             pausing = true
             Task {
                 defer { pausing = false }
