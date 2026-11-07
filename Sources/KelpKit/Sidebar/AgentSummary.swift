@@ -141,14 +141,17 @@ final class AgentSummary: NSView {
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
-        asking = !shown.isEmpty
+        // The agent on screen still counts while it asks; with only it asking the capsule loses its glass, not its number.
+        let counted = inbox.counted
+        asking = !counted.isEmpty
         capsule.isHidden = !asking
+        glass.isHidden = shown.isEmpty
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
         // Alone in the row the words stand in the icons' column; beside the capsule, a step from it.
         row.edgeInsets.left = asking ? 0 : Metrics.gapWide
-        mark.status = AgentStatus.mostUrgent(shown.map(SidebarCell.shownStatus))
+        mark.status = AgentStatus.mostUrgent(counted.map(SidebarCell.shownStatus))
         mark.unread = true
-        title.stringValue = String(localized: "\(shown.count) need you")
+        title.stringValue = String(localized: "\(counted.count) need you")
         asideMark.status = busy > 0 ? .working : nil
         asideMark.unread = true
         asideMark.isHidden = busy == 0
@@ -161,7 +164,7 @@ final class AgentSummary: NSView {
         let counts = (asking ? [title.stringValue] : []) + [busy > 0 ? asideText.stringValue : "", doneText.stringValue].filter { !$0.isEmpty }
         toolTip = busy + done > 0 ? counts.joined(separator: " · ") : nil
         needsLayout = true
-        capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(shown.count). Show the next one."))
+        capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(counted.count). Show the next one."))
         capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
@@ -182,7 +185,7 @@ final class AgentSummary: NSView {
 }
 
 extension Inbox {
-    /// Who needs you now: the agent on screen isn't counted.
+    /// Who needs you now; `shown` leaves out the agent on screen (the capsule goes to the others), `counted` keeps it.
     @MainActor static func current(_ app: AppModel) -> Inbox {
         // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
         var inbox = Inbox(queue: AttentionQueue(app).sessions.filter { SidebarCell.shownStatus($0) != .done })

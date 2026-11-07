@@ -84,6 +84,9 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
     #expect(inbox.settlesAt == nil)
     inbox.viewing = ["b1"]
     #expect(inbox.shown.map(\.id) == ["a1"])     // you're looking at it already
+    #expect(inbox.counted.map(\.id) == ["b1", "a1"])   // but it still asks: the count keeps it
+    inbox.now = t0 + 2
+    #expect(inbox.counted.map(\.id) == ["b1"])         // a blip waits its turn, on screen or not
 }
 
 /// Projects on hosts come after this Mac's, each host's together under its header where its first project stood; a

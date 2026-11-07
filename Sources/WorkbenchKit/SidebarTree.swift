@@ -82,6 +82,8 @@ public struct Inbox: Sendable {
     public init(queue: [Session]) { self.queue = queue }
 
     public var shown: [Session] { queue.filter { !viewing.contains($0.id) && since($0) + settle <= now } }
+    /// Who the count says needs you: the agent on screen too, as long as it asks (its row still says so).
+    public var counted: [Session] { queue.filter { since($0) + settle <= now } }
     /// When the next one held back by `settle` is due: look again then.
     public var settlesAt: Date? { queue.filter { !viewing.contains($0.id) }.map { since($0) + settle }.filter { $0 > now }.min() }
     private func since(_ s: Session) -> Date { s.statusAt ?? s.createdAt }
