@@ -28,7 +28,7 @@ struct MachinesView: View {
                     add
                 }
                 .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
-                ForEach(app.machineList) { row($0) }
+                ForEach(Machines.machineList(app)) { row($0) }
             }
             // Room under it even without machines: the plan limits' rule right under the heading read as its first row.
             .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
@@ -37,7 +37,7 @@ struct MachinesView: View {
         // Watched while shown: the daemon reads them every 5 s, every second while one starts.
         .onAppear {
             app.watch(.machines)
-            choices = app.machineChoices
+            choices = Machines.machineChoices
         }
         .onDisappear { app.unwatch(.machines) }
     }
@@ -46,11 +46,11 @@ struct MachinesView: View {
     private var add: some View {
         Menu {
             ForEach(choices, id: \.image) { choice in
-                Button(choice.title) { app.newMachine(choice.image) }.disabled(choice.missing != nil).help(
+                Button(choice.title) { Machines.newMachine(app, choice.image) }.disabled(choice.missing != nil).help(
                     choice.missing ?? "")
             }
             Divider()
-            Button(String(localized: "From a File…")) { app.machineFromFile() }
+            Button(String(localized: "From a File…")) { Machines.machineFromFile(app) }
                 .help(String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk"))
         } label: {
             Image(systemName: "plus").font(.symbol(Metrics.iconSmall))
@@ -61,7 +61,7 @@ struct MachinesView: View {
     }
 
     private func row(_ v: VMInfo) -> some View {
-        let word = app.machineWord(v)
+        let word = Machines.machineWord(v)
         let mark = VMImage.named(v.machine.image)?.mark ?? ("?", .systemGray)
         let asleep = [.sleeping, .off, .error].contains(v.state)
         return HStack(spacing: Metrics.gapWide) {
@@ -87,7 +87,8 @@ struct MachinesView: View {
                     Spacer(minLength: Metrics.gap)
                     faces(v)
                 }
-                Text(app.machineLine(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                Text(Machines.machineLine(app, v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                    .lineLimit(1)
                     .truncationMode(.tail)
             }
         }
@@ -98,11 +99,11 @@ struct MachinesView: View {
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
         .contentShape(Rectangle())
         .onHover { hovered = $0 ? v.id : (hovered == v.id ? nil : hovered) }
-        .onTapGesture { app.openMachine(v.machine.name) }
+        .onTapGesture { Machines.openMachine(app, v.machine.name) }
         .contextMenu { menu(v) }
-        .help(v.state == .error ? (v.detail ?? "") : app.machineLine(v))
+        .help(v.state == .error ? (v.detail ?? "") : Machines.machineLine(app, v))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(v.machine.name), \(word.text), \(app.machineLine(v))")
+        .accessibilityLabel("\(v.machine.name), \(word.text), \(Machines.machineLine(app, v))")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -120,17 +121,19 @@ struct MachinesView: View {
 
     @ViewBuilder private func menu(_ v: VMInfo) -> some View {
         let name = v.machine.name
-        Button(String(localized: "Open")) { app.openMachine(name) }
-        Button(String(localized: "Open Terminal")) { app.runInMachine(name) }.disabled(
+        Button(String(localized: "Open")) { Machines.openMachine(app, name) }
+        Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }.disabled(
             v.state == .creating || v.state == .error)
         Divider()
         switch v.state {
         case .running, .paused, .starting:
-            Button(String(localized: "Sleep")) { app.control(machine: name, .sleep) }
-            Button(String(localized: "Shut Down")) { app.control(machine: name, .stop) }
+            Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
+            Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
         case .sleeping, .off:
-            Button(String(localized: "Start")) { app.control(machine: name, .start) }
-            if v.state == .sleeping { Button(String(localized: "Shut Down")) { app.control(machine: name, .stop) } }
+            Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
+            if v.state == .sleeping {
+                Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
+            }
         case .creating, .error: EmptyView()
         }
     }

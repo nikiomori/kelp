@@ -143,7 +143,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let ready = held.filter { session in
             app.session(session.id)?.status == session.status
                 && !(NSApp.isActive && app.workbench.isViewing(session: session.id))
-                && !app.isMuted(session)
+                && !Mutes.isMuted(session, in: app)
         }
         held = []
         if ready.count == 1 { post(ready[0], holding: false) } else if ready.count > 1 { postHeld(ready) }
@@ -175,7 +175,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         NSApp.requestUserAttention(.informationalRequest)
     }
 
-    /// A built-in's notification (`AppModel.notifyUser`): now, or once typing stops; a banner in Kelp when they're off.
+    /// A built-in's notification (`Notifications.notifyUser`): now, or once typing stops; a banner in Kelp when
+    /// they're off.
     func postAlert(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)?
     ) {
@@ -183,12 +184,6 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
             if !allowed, NSApp.isActive { Banner.show(content.body, action: action, title: content.title) }
         }
-    }
-
-    /// "continue" to each that still stands where the limit left it (one the user went on with meanwhile isn't told twice).
-    static func goOn(_ app: AppModel, _ ids: [String]) {
-        let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
-        Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
     }
 
     /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.
@@ -273,7 +268,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private func reminderDue(_ asked: Session) {
         reminders[asked.id] = nil
         guard QuestionReminder.stillStands(asked, now: app.session(asked.id)), let current = app.session(asked.id),
-            !app.isMuted(current)
+            !Mutes.isMuted(current, in: app)
         else { return }
         post(current, holding: false, again: true)
     }
@@ -303,7 +298,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.isChat else { return }
         if Self.leftToItsParent(s) { return }
         // A guess off the screen (the row says so; a banner would claim it), or a parked one, out of the way till it calls.
-        if s.status == .done, s.guessed == true || app.isParked(s.id) { return }
+        if s.status == .done, s.guessed == true || app.arrangement.isParked(s.id) { return }
         let turn = NotifyRule.turn(s, after: old)
         // What the agent itself said with this change (a permission request, an error) beats its last reply.
         if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary {
@@ -334,7 +329,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// A banner comes for this change: the rule for its status and length, and the row isn't muted.
     private func tells(_ s: Session, turn: TimeInterval?) -> Bool {
         // A limit stops the turn with a question in it, what next: it comes as one, however short the turn.
-        rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off && !app.isMuted(s)
+        rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off && !Mutes.isMuted(s, in: app)
     }
 
     /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.
@@ -455,7 +450,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let question = r.notification.request.content.userInfo["question"] as? String
         await MainActor.run {
             if action == "continue" {
-                Self.goOn(app, all)
+                Notifications.goOn(app, all)
                 return
             }
             if action == "reply", let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -504,20 +499,27 @@ extension Session {
     }
 }
 
-extension AppModel {
+/// What the built-ins ask of the shell's notifications (`Notifier`, the running app's).
+@MainActor
+package enum Notifications {
     /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
     /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
-    package func notifyUser(
-        _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)? = nil
+    package static func notifyUser(
+        _ app: AppModel, _ id: String, _ content: UNNotificationContent,
+        action: (title: String, run: @MainActor () -> Void)? = nil
     ) {
-        notifier?.postAlert(id, content, action: action)
+        app.notifier?.postAlert(id, content, action: action)
     }
 
-    /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left it.
-    package func goOn(_ ids: [String]) { Notifier.goOn(self, ids) }
+    /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left
+    /// it (one the user went on with meanwhile isn't told twice).
+    package static func goOn(_ app: AppModel, _ ids: [String]) {
+        let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
+        Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
+    }
 
     /// A permission answered from outside Kelp's window (the agent strip's card), as from its banner.
-    package func answer(_ id: String, _ action: String, question: String?) {
-        notifier?.answer(id, action, question: question)
+    package static func answer(_ app: AppModel, _ id: String, _ action: String, question: String?) {
+        app.notifier?.answer(id, action, question: question)
     }
 }

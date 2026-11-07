@@ -48,7 +48,7 @@ extension FileTab {
     func sendUnsent() {
         guard let text = lspUnsent else { return }
         lspUnsent = nil
-        app.lsp.change(app, root: root, path: path, text: text)
+        LSPManager.of(app).change(app, root: root, path: path, text: text)
     }
 
     /// Before asking the server about a place in the file: what's typed and not sent yet goes first, so the question is
@@ -56,7 +56,7 @@ extension FileTab {
     func lspCaughtUp() async {
         lspTask?.cancel()
         sendUnsent()
-        await app.lsp.sent()
+        await LSPManager.of(app).sent()
     }
 
     /// What the language server answers, once it has the file.
@@ -64,12 +64,13 @@ extension FileTab {
         let app = app
         codeEditor.completionProvider = { [weak self] line, col in
             await self?.lspCaughtUp()
-            return await app.lsp.completion(app, root: projectRoot, path: filePath, line: line, column: col).map {
-                CodeEditor.Completion(
-                    label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind,
-                    documentation: $0.documentation,
-                    snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
-            }
+            return await LSPManager.of(app).completion(app, root: projectRoot, path: filePath, line: line, column: col)
+                .map {
+                    CodeEditor.Completion(
+                        label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind,
+                        documentation: $0.documentation,
+                        snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
+                }
         }
         codeEditor.hoverProvider = { [weak self] line, col in
             guard app.settings.bool("editor.hover") != false else { return nil }

@@ -240,7 +240,7 @@ final class StartView: NSView {
 
     /// Each agent's plan on its tile; under the field, what to know when the default agent is nearly out.
     private func showPlans(in stack: NSStackView, after under: NSView?) {
-        let notes = app.planNotes
+        let notes = PlanNote.notes(app)
         for (id, tile) in tilesById { tile.show(notes[id]) }
         let anyPlan = tilesById.keys.contains { notes[$0] != nil }
         for tile in allTiles { tile.roomForPlan = anyPlan }

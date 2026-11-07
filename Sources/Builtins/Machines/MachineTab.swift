@@ -35,7 +35,7 @@ final class MachineTab: KelpKit.TabContent {   // not SwiftUI's
 
 struct MachineView: View {
     let app: AppModel, name: String
-    private var info: VMInfo? { app.machineList.first { $0.machine.name == name } }
+    private var info: VMInfo? { Machines.machineList(app).first { $0.machine.name == name } }
     private var detail: VMDetail? { app.latest(MachineEvent.self, name)?.detail }
 
     var body: some View {
@@ -50,25 +50,26 @@ struct MachineView: View {
         HStack(spacing: Metrics.gapWide) {
             Text(name).font(.ui(13, weight: .semibold))
             if let info {
-                let word = app.machineWord(info)
+                let word = Machines.machineWord(info)
                 Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
                 Text(summary(info)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
                     .truncationMode(.tail)
             }
             Spacer(minLength: 8)
             if let os = info?.machine.os, os != "linux" {
-                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
+                Button(String(localized: "Show Screen")) { Machines.control(app, machine: name, .show) }
                     .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             }
-            Button(String(localized: "Terminal")) { app.runInMachine(name) }
+            Button(String(localized: "Terminal")) { Machines.runInMachine(app, name) }
                 .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             Menu {
                 if let info {
                     switch info.state {
                     case .running, .paused, .starting:
-                        Button(String(localized: "Sleep")) { app.control(machine: name, .sleep) }
-                        Button(String(localized: "Shut Down")) { app.control(machine: name, .stop) }
-                    case .sleeping, .off: Button(String(localized: "Start")) { app.control(machine: name, .start) }
+                        Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
+                        Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
+                    case .sleeping, .off:
+                        Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
                     case .creating, .error: EmptyView()
                     }
                 }
@@ -112,7 +113,7 @@ struct MachineView: View {
                 running(info).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             case .creating:
                 VStack(spacing: Metrics.gapWide) {
-                    LoadingLine(app.stepText(info))
+                    LoadingLine(Machines.stepText(info))
                     if let progress = info.progress { ProgressView(value: progress).frame(width: 240) }
                 }
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -156,10 +157,10 @@ struct MachineView: View {
                     : String(localized: "The next command boots it in a few seconds."))
         } actions: {
             Button(info.state == .sleeping ? String(localized: "Wake") : String(localized: "Start")) {
-                app.control(machine: name, .start)
+                Machines.control(app, machine: name, .start)
             }
             .keyboardShortcut(.defaultAction)
-            Button(String(localized: "Open Terminal")) { app.runInMachine(name) }
+            Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }
         }
     }
 
@@ -209,7 +210,7 @@ struct MachineView: View {
             )
             .font(.ui(12)).foregroundStyle(.secondary)
             HStack {
-                Button(String(localized: "Show Screen")) { app.control(machine: name, .show) }
+                Button(String(localized: "Show Screen")) { Machines.control(app, machine: name, .show) }
                 Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
                     .help(
                         String(

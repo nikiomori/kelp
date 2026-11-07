@@ -246,11 +246,11 @@ extension OneAtATime {
             #expect(vc.app.arrangement.projectColors["r1"] == .blue)
             vc.placeCards()
             #expect(vc.cards.isEmpty)   // on its icon: the row stays plain
-            #expect(vc.app.iconColor(folder: here.path) == .blue)
+            #expect(vc.app.arrangement.iconColor(folder: here.path) == .blue)
             vc.app.settings.apply(["workbench.sidebar.projectColor": "card"])
             vc.placeCards()
             #expect(vc.cards["p:r1"]?.look.color == .blue)
-            #expect(vc.app.iconColor(folder: here.path) == nil)
+            #expect(vc.app.arrangement.iconColor(folder: here.path) == nil)
             vc.app.arrangement.colorPreview = ("r1", nil)   // the dot under the pointer: shown, not kept
             vc.placeCards()
             #expect(vc.cards.isEmpty)

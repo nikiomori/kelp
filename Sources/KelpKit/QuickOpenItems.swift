@@ -33,7 +33,7 @@ extension QuickOpen {
                 items.append(
                     Item(
                         kind: "Server", icon: "server.rack", title: host, detail: projects.joined(separator: ", "),
-                        action: { app.openServer(host) }))
+                        action: { app.workbench.openServer(host) }))
             }
             for s in app.sessions where s.status != .exited && s.startedBy == nil {
                 let wt = app.worktree(s.worktreeId)

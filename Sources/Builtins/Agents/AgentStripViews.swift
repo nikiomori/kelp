@@ -342,7 +342,7 @@ final class StripCard {
     }
 
     private func answer(_ action: String) {
-        app.answer(session, action, question: question)
+        Notifications.answer(app, session, action, question: question)
         onEnd(.answered)
     }
 

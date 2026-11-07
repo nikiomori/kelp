@@ -309,7 +309,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             sessions: app.workbench.shownSessions)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
         tree.pinnedLast = app.repos.first(where: NoProject.holds)?.id
-        tree.parked = app.parkedIds
+        tree.parked = app.arrangement.parkedIds
         let servers = app.extensions.all.servers
         tree.hosts = Dictionary(
             app.projects.compactMap { project in
@@ -634,7 +634,7 @@ extension SidebarController {
             } else {
                 app.workbench.show(workspace: id)
             }
-        case .host(let host): app.openServer(host)
+        case .host(let host): app.workbench.openServer(host)
         case .parked: break
         }
     }

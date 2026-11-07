@@ -6,7 +6,8 @@ import UniformTypeIdentifiers
 import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
-extension AppModel {
+@MainActor
+enum Machines {
     /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): an app with a developer
     /// folder, not Xcodes.app (which installs them).
     private static var xcodeInstalled: Bool {
@@ -22,7 +23,7 @@ extension AppModel {
 
     /// The kinds of machine the sidebar's Machines + offers; `missing` says what this Mac lacks for one (Apple silicon, an
     /// Android SDK, Xcode).
-    var machineChoices: [(title: String, image: String, missing: String?)] {
+    static var machineChoices: [(title: String, image: String, missing: String?)] {
         #if arch(arm64)
             let silicon: String? = nil
         #else
@@ -42,20 +43,20 @@ extension AppModel {
     }
 
     /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
-    func machineFromFile() {
+    static func machineFromFile(_ app: AppModel) {
         Task {
             let panel = NSOpenPanel()
             panel.message = String(
                 localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
             panel.allowedContentTypes = ["ipsw", "raw", "img"].compactMap { UTType(filenameExtension: $0) }
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
-            newMachine(url.pathExtension.lowercased() == "ipsw" ? "macos" : "linux", file: url.path)
+            newMachine(app, url.pathExtension.lowercased() == "ipsw" ? "macos" : "linux", file: url.path)
         }
     }
 
     /// Makes one with the next free name ("debian", "debian2"…); it shows in the sidebar at once, and how far it got.
     /// macOS asks first, unless it's from a file of the user's: it downloads over 20 GB.
-    func newMachine(_ image: String, file: String? = nil) {
+    static func newMachine(_ app: AppModel, _ image: String, file: String? = nil) {
         Task {
             if image == "macos", file == nil {
                 let alert = NSAlert()
@@ -73,43 +74,43 @@ extension AppModel {
                 ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][
                     image] ?? "vm"
             var name = base, n = 2
-            while machineList.contains(where: { $0.id == name }) {
+            while machineList(app).contains(where: { $0.id == name }) {
                 name = "\(base)\(n)"
                 n += 1
             }
-            if await call(VMCreate(name: name, image: image, file: file)) != nil { watchAgain(.machines) }   // as the daemon has it
+            if await app.call(VMCreate(name: name, image: image, file: file)) != nil { app.watchAgain(.machines) }   // as the daemon has it
         }
     }
 
     /// The machine's tab, on the screen in front.
-    func openMachine(_ name: String) {
-        workbench.open(TabURI.machine(name), workspace: workbench.workspaceId ?? worktrees.first?.id)
+    static func openMachine(_ app: AppModel, _ name: String) {
+        app.workbench.open(TabURI.machine(name), workspace: app.workbench.workspaceId ?? app.worktrees.first?.id)
     }
 
     /// A terminal in the machine (nil `command`: its shell), in this screen's project folder, shared at the same path; in
     /// its home folder when that folder can't be shared.
-    func runInMachine(_ name: String, command: String? = nil) {
-        let folder = workbench.workspaceId.flatMap(worktree)?.path
+    static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
+        let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
         let home = folder.map { !VMs.mayShare($0) } ?? true
         var line = "kelp vm run " + VMs.shellQuoted(name) + (home ? " --home" : "")
         if let command { line += " -- " + command }
-        workbench.editorForNewTab?.run(command: line, title: name)
+        app.workbench.editorForNewTab?.run(command: line, title: name)
     }
 
     /// The machines as the daemon last told (`WatchTopic.machines`).
-    var machineList: [VMInfo] { latest(MachinesEvent.self)?.machines ?? [] }
+    static func machineList(_ app: AppModel) -> [VMInfo] { app.latest(MachinesEvent.self)?.machines ?? [] }
 
     /// Start, sleep or stop it; its row follows as the daemon pushes the list again.
-    func control(machine name: String, _ action: VMControl.Action) {
+    static func control(_ app: AppModel, machine name: String, _ action: VMControl.Action) {
         Task {
-            if await call(VMControl(name: name, action: action)) != nil { watchAgain(.machines) }   // as the daemon has it now
+            if await app.call(VMControl(name: name, action: action)) != nil { app.watchAgain(.machines) }   // as the daemon has it now
         }
     }
 
     /// The machine the session runs a command in now, if any (`kelp vm run`).
 
     /// What a machine's state reads as, and in what colour.
-    func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
+    static func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
         switch v.state {
         case .running: (String(localized: "Running"), .textGreen)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
@@ -122,7 +123,7 @@ extension AppModel {
     }
 
     /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
-    func stepText(_ v: VMInfo) -> String {
+    static func stepText(_ v: VMInfo) -> String {
         let what = v.detail ?? ""
         let text: String =
             switch v.step {
@@ -142,7 +143,7 @@ extension AppModel {
     }
 
     /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
-    func machineLine(_ info: VMInfo) -> String {
+    static func machineLine(_ app: AppModel, _ info: VMInfo) -> String {
         switch info.state {
         case .creating: return stepText(info)
         case .error: return info.detail ?? ""
@@ -164,7 +165,8 @@ extension AppModel {
             }
             // Nothing runs, but an agent drives its screen (`VMInfo.sessions` names it then).
             else if let sessionId = info.sessions?.first {
-                parts.append(String(localized: "\(catalog.name(session(sessionId)?.agent)) is using the screen"))
+                parts.append(
+                    String(localized: "\(app.catalog.name(app.session(sessionId)?.agent)) is using the screen"))
             } else {
                 parts.append(String(localized: "Nothing running"))
             }

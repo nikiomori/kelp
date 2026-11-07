@@ -356,7 +356,7 @@ final class SidebarCell: NSTableCellView {
 
     func update() {
         defer { trailing.isHidden = trailing.stringValue.isEmpty }   // an empty label would still take its spacing
-        muted.isHidden = app.mutedUntil(node.muteIds) == nil
+        muted.isHidden = app.arrangement.mutedUntil(node.muteIds) == nil
         updateBadges()
         func live(_ wid: String) -> [Session] {
             app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat }
@@ -444,8 +444,9 @@ final class SidebarCell: NSTableCellView {
             trailing.stringValue =
                 [.waiting, .error].contains(Self.shownStatus(session))
                 ? shortAgo(session.statusAt ?? session.createdAt)
-                : app.arrangement.parked[sid].flatMap { app.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
-            alphaValue = app.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
+                : app.arrangement.parked[sid].flatMap { app.arrangement.isParked(sid) ? Parking.until($0) : nil }
+                    ?? quiet ?? picked
+            alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
             family.show(
                 app.sessions.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
             showChip(session)

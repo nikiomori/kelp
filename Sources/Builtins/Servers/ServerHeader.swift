@@ -120,7 +120,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         guard let app else { return }
         let stats = app.latest(HostEvent.self, host)?.stats
         title.stringValue = host
-        let said = app.serverWord(host)
+        let said = ServerActions.serverWord(app, host)
         let up = stats?.connected == true
         // Off: the word goes to the right, where the meters would be.
         word.stringValue = up ? said?.text ?? "" : ""
@@ -212,14 +212,14 @@ enum ServerHeaders {
 
     /// The header's; the sidebar adds how the card looks under it.
     static func serverMenu(_ menu: NSMenu, _ host: String, _ app: AppModel) {
-        menu.add(String(localized: "Open Server")) { app.openServer(host) }
+        menu.add(String(localized: "Open Server")) { app.workbench.openServer(host) }
         menu.addItem(.separator())
-        menu.add(String(localized: "New Terminal on \(host)")) { app.runOnServer(host) }
-        menu.add(String(localized: "Open htop")) { app.openHtop(host) }
+        menu.add(String(localized: "New Terminal on \(host)")) { ServerActions.runOnServer(app, host) }
+        menu.add(String(localized: "Open htop")) { ServerActions.openHtop(app, host) }
         menu.addItem(.separator())
-        menu.add(String(localized: "Add Project on \(host)…")) { app.addProject(onServer: host) }
+        menu.add(String(localized: "Add Project on \(host)…")) { app.workbench.addProject(onServer: host) }
         if app.latest(HostEvent.self, host)?.stats.connected == true {
-            menu.add(String(localized: "Disconnect")) { app.disconnectServer(host) }
+            menu.add(String(localized: "Disconnect")) { ServerActions.disconnectServer(app, host) }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Host")) {
@@ -230,8 +230,8 @@ enum ServerHeaders {
 
     /// A remote project's: its server's tab and htop there.
     static func serverItems(_ menu: NSMenu, _ host: String, _ app: AppModel) {
-        menu.add(String(localized: "Open Server \(host)")) { app.openServer(host) }
-        menu.add(String(localized: "Open htop on \(host)")) { app.openHtop(host) }
+        menu.add(String(localized: "Open Server \(host)")) { app.workbench.openServer(host) }
+        menu.add(String(localized: "Open htop on \(host)")) { ServerActions.openHtop(app, host) }
         menu.addItem(.separator())
     }
 }

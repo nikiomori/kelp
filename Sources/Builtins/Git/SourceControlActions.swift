@@ -95,7 +95,7 @@ extension SourceControlController {
                     files.count == 1
                     ? String(localized: "Discarded changes in \(name)")
                     : String(localized: "Discarded \(files.count) changes")
-                app.offerUndoDiscard(done, worktree: wid, undo: undo)
+                UndoDiscard.offer(app, done, worktree: wid, undo: undo)
             }
             reloadAll()
         }

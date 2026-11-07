@@ -343,18 +343,16 @@ struct UsageView: View {
     }
 }
 
-extension AppModel {
+extension UsageView {
     /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
     /// Plan column (kept coming with `watchingPlans`).
-    var plans:
-        [String: (
-            limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
-            note: (text: String, color: NSColor)?
-        )]
-    {
-        let notes = UsageView.notes(self)
+    static func plans(_ app: AppModel) -> [String: (
+        limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
+        note: (text: String, color: NSColor)?
+    )] {
+        let notes = Self.notes(app)
         return Dictionary(
-            UsageView.rows(self).map { row in
+            rows(app).map { row in
                 let limits = row.lines.sorted { $0.used > $1.used }.map {
                     (label: $0.label, used: $0.used, resets: $0.resets)
                 }
@@ -379,7 +377,7 @@ extension UsageView {
 }
 
 extension View {
-    /// Keeps the agents' plan limits coming while this is shown (`AppModel.plans`).
+    /// Keeps the agents' plan limits coming while this is shown (`UsageView.plans`).
     func watchingPlans(_ app: AppModel) -> some View {
         onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) }
     }

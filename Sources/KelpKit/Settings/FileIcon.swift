@@ -57,8 +57,3 @@ package struct FileIcon {
         return Self.loaded?.theme
     }
 }
-
-extension AppModel {
-    /// File icons in the theme it's set to.
-    package var fileIcons: FileIcon { FileIcon(app: self) }
-}

@@ -170,7 +170,7 @@ final class WindowBar: NSView {
             self?.update()
         }
         track(owner: self) {
-            app.projectLook
+            app.arrangement.projectLook
         } changed: { [weak self] _ in
             self?.update()
         }

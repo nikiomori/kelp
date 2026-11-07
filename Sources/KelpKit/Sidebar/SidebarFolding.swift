@@ -109,7 +109,7 @@ extension SidebarController {
     /// header and projects ("s:<host>"), after a gap: where one machine's projects end and another's begin.
     func placeCards() {
         var shown: Set<String> = [], made = false
-        let look = app.projectLook
+        let look = app.arrangement.projectLook
         func put(_ key: String, _ frame: NSRect, _ shows: ProjectCard.Look) {
             shown.insert(key)
             if let card = cards[key] {

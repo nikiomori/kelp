@@ -30,7 +30,7 @@ package enum ProjectIcon {
         let image = image(for: repo, app: app)
         if initial || cache[repo] != nil { view.image = image }
         looking[repo]?.append(Weak(view: view, showing: view.image))
-        if initial { halo(on: view, app.iconColor(folder: repo)) }
+        if initial { halo(on: view, app.arrangement.iconColor(folder: repo)) }
     }
 
     /// The Icon style's mark: the project's colour glows around its icon, whatever colours that has itself.
@@ -51,7 +51,7 @@ package enum ProjectIcon {
     static func image(for repo: String, app: AppModel) -> NSImage {
         if let cached = cache[repo] { return cached }
         if searched.insert(repo).inserted { look(for: repo, app: app) }
-        let color = app.iconColor(folder: repo)
+        let color = app.arrangement.iconColor(folder: repo)
         if let drawn = letters[repo], drawn.color == color { return drawn.image }
         let letter = IconTile.letter((repo as NSString).lastPathComponent, hue: color?.hue)
         letters[repo] = (color, letter)

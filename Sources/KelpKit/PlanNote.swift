@@ -37,9 +37,7 @@ package struct PlanNote: Equatable {
     static func roomiest(_ agents: [String], notes: [String: PlanNote]) -> String? {
         agents.compactMap { a in notes[a].map { (a, $0.used) } }.filter { $0.1 < 0.5 }.min { $0.1 < $1.1 }?.0
     }
-}
 
-extension AppModel {
     /// What's said beside an agent where agents are chosen (`Contributions.planNotes`); none without a built-in to say.
-    var planNotes: [String: PlanNote] { extensions.all.planNotes?() ?? [:] }
+    @MainActor static func notes(_ app: AppModel) -> [String: PlanNote] { app.extensions.all.planNotes?() ?? [:] }
 }

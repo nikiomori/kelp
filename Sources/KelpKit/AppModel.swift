@@ -17,7 +17,7 @@ package final class AppModel {
     /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a parked
     /// agent comes back on its own workspace's failed run, not on every run stored), and the built-ins hear it too.
     func landed(_ e: any Pushed) {
-        if let ci = e as? CIEvent { followParked(ci) }
+        if let ci = e as? CIEvent { arrangement.followParked(ci) }
         for hear in extensions.all.pushed { hear(e) }
     }
 
@@ -30,6 +30,9 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var themes = ThemeManager(app: self)
     @ObservationIgnored private(set) package lazy var availability = AgentAvailability(app: self)
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
+    /// The agents it offers (see `AgentCatalog`), and file icons in the theme it's set to: views over the parts above.
+    package var catalog: AgentCatalog { AgentCatalog(app: self) }
+    package var fileIcons: FileIcon { FileIcon(app: self) }
     @ObservationIgnored private(set) package lazy var quickOpen = QuickOpen(app: self)
     @ObservationIgnored private(set) lazy var noProject = NoProject(app: self)
     @ObservationIgnored private(set) lazy var switcher = WorkspaceSwitcher(app: self)
@@ -497,7 +500,7 @@ package final class AppModel {
             notifier?.statusChanged(session, old)
             if old?.status != session.status {
                 syncContextWatches()
-                followParked(session)
+                arrangement.followParked(session)
             }
         case let devServer as DevServerEvent:
             // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside

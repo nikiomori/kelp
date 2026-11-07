@@ -177,7 +177,7 @@ extension Subagent {
 
 extension SidebarCell {
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
-    /// `back`: why a parked agent came back (`AppModel.parkedBack`), said when nothing more urgent is.
+    /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is.
     static func line(_ session: Session, mode: String, among all: [Session], back: String? = nil) -> (
         prefix: (String, NSColor)?, text: String
     )? {

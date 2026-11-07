@@ -110,7 +110,7 @@ struct ServerSide: View {
             Spacer(minLength: 6)
             if let here = forwarded[port.port] {
                 Button("localhost:\(here)") {
-                    if let wid = app.serverWorkspace(host) {
+                    if let wid = ServerActions.serverWorkspace(app, host) {
                         app.workbench.open("http://localhost:\(here)", workspace: wid)
                     }
                 }
@@ -144,7 +144,7 @@ struct ServerSide: View {
     }
 
     private func forward(_ port: Int) {
-        guard let wid = app.serverWorkspace(host) else { return }
+        guard let wid = ServerActions.serverWorkspace(app, host) else { return }
         Task {
             if let forwarding = await app.call(PortsForward(worktreeId: wid, port: port)) {
                 forwarded[port] = forwarding.port

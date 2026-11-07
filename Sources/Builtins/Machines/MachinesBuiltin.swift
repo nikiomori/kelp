@@ -24,7 +24,7 @@ extension Builtins {
         // An agent running a command in a machine (`kelp vm run`) says so on its row.
         contributions.sessionMarks = [
             { session in
-                app.machineList.first { $0.sessions?.contains(session.id) == true }
+                Machines.machineList(app).first { $0.sessions?.contains(session.id) == true }
                     .map {
                         SessionMark(
                             symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)"))

@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 @Observable
 final class Arrangement {
-    @ObservationIgnored private unowned let app: AppModel
+    @ObservationIgnored unowned let app: AppModel
     init(app: AppModel) { self.app = app }
 
     /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
@@ -17,7 +17,7 @@ final class Arrangement {
     var parked: [String: Date] = [:] {
         didSet {
             app.uiState[Parking.key] = Mutes.value(parked)
-            app.endParksOnTime()
+            endParksOnTime()
         }
     }
     /// Why a parked agent came back, on its row until it's opened.

@@ -20,7 +20,7 @@ extension OneAtATime {
         _ = testHome
         _ = NSApplication.shared   // the question is a banner in the window
         let root = "/tmp/cloned-\(UUID().uuidString.prefix(6))"
-        let app = AppModel(builtins: Builtins.all), lsp = app.lsp
+        let app = AppModel(builtins: Builtins.all), lsp = LSPManager.of(app)
         var started = 0
         #expect(!lsp.whenTrusted(app, root) { started += 1 })   // asks; nothing starts
         #expect(!lsp.whenTrusted(app, root) { started += 1 })   // a second tab of it waits too (asked once)
@@ -47,7 +47,7 @@ extension OneAtATime {
         let me = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"]   // this test runner stands in for the app…
         setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)   // …not now: another copy of Kelp is asking
         defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
-        let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = app.lsp
+        let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = LSPManager.of(app)
         var started = 0
         _ = lsp.whenTrusted(app, root) { started += 1 }
         await lsp.trust(app, root)

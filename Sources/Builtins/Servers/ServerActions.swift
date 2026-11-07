@@ -6,31 +6,34 @@ import WorkbenchKit
 
 /// What can be done on the machines remote projects are on, from the sidebar's headings, the hover card and the server
 /// tab ("host:<name>").
-extension AppModel {
+@MainActor
+enum ServerActions {
     /// The screen the server's terminal and htop open on: its first project's own.
-    func serverWorkspace(_ host: String) -> String? {
-        guard let project = repos.first(where: { RemoteHost.of($0.path)?.host == host }) else { return nil }
-        return mainWorkspace(of: project, among: worktrees)?.id
+    static func serverWorkspace(_ app: AppModel, _ host: String) -> String? {
+        guard let project = app.repos.first(where: { RemoteHost.of($0.path)?.host == host }) else { return nil }
+        return mainWorkspace(of: project, among: app.worktrees)?.id
     }
 
     /// A terminal on the host (nil `command`: its shell), in its project's folder, beside the server's tab.
-    func runOnServer(_ host: String, command: String? = nil, title: String? = nil) {
-        guard let wid = serverWorkspace(host) else { return }
-        workbench.show(workspace: wid)
-        workbench.editor?.run(command: command, title: title)
+    static func runOnServer(_ app: AppModel, _ host: String, command: String? = nil, title: String? = nil) {
+        guard let wid = serverWorkspace(app, host) else { return }
+        app.workbench.show(workspace: wid)
+        app.workbench.editor?.run(command: command, title: title)
     }
 
     /// htop where the host has it, else top.
-    func openHtop(_ host: String) {
-        runOnServer(host, command: "command -v htop >/dev/null 2>&1 && exec htop || exec top", title: "htop")
+    static func openHtop(_ app: AppModel, _ host: String) {
+        runOnServer(app, host, command: "command -v htop >/dev/null 2>&1 && exec htop || exec top", title: "htop")
     }
 
     /// Closes the shared connection; agents in tmux there go on.
-    func disconnectServer(_ host: String) { Task { _ = await call(HostDisconnect(host: host)) } }
+    static func disconnectServer(_ app: AppModel, _ host: String) {
+        Task { _ = await app.call(HostDisconnect(host: host)) }
+    }
 
     /// What a server's heading says, and in what colour: nothing while it's fine, and what's wrong otherwise.
-    func serverWord(_ host: String) -> (text: String, color: NSColor)? {
-        guard let stats = latest(HostEvent.self, host)?.stats else { return nil }
+    static func serverWord(_ app: AppModel, _ host: String) -> (text: String, color: NSColor)? {
+        guard let stats = app.latest(HostEvent.self, host)?.stats else { return nil }
         if !stats.connected {
             return stats.error == nil
                 ? (String(localized: "Not connected"), .secondaryLabelColor)

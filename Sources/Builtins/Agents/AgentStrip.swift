@@ -260,7 +260,7 @@ final class AgentStrip {
                 repo: app.repo(worktree.repoId)?.path
             )
         }
-        let loud = app.sessions.filter { !app.isMuted($0) && !putOff.contains(StripModel.key($0)) }
+        let loud = app.sessions.filter { !Mutes.isMuted($0, in: app) && !putOff.contains(StripModel.key($0)) }
         return State(
             items: StripModel.items(loud, workspaces: shown), mode: app.settings.string("agents.dockStrip"),
             comesFor: app.settings.string("agents.dockStrip.comesFor"),

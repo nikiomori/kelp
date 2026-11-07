@@ -35,22 +35,22 @@ package enum Mutes {
             ? String(localized: "Notifications muted")
             : String(localized: "Notifications muted until \(until.formatted(date: .omitted, time: .shortened))")
     }
+
+    @MainActor package static func isMuted(_ s: Session, in app: AppModel) -> Bool {
+        covers(app.arrangement.mutes, [s.id, s.worktreeId, app.worktree(s.worktreeId)?.repoId])
+    }
 }
 
-extension AppModel {
-    package func isMuted(_ s: Session) -> Bool {
-        Mutes.covers(arrangement.mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId])
-    }
-
+extension Arrangement {
     /// When these rows' own mute ends; nil: they aren't.
-    func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { arrangement.mutes[$0] }.filter { $0 > Date() }.max() }
+    func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { mutes[$0] }.filter { $0 > Date() }.max() }
 
     /// nil unmutes. What ran out, and rows that are gone (a closed workspace, an ended agent), leave with each change.
     func mute(_ ids: [String], until: Date?) {
-        var mutes = arrangement.mutes.filter { id, end in
-            end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil)
+        var kept = mutes.filter { id, end in
+            end > Date() && (app.session(id) != nil || app.worktree(id) != nil || app.repo(id) != nil)
         }
-        for id in ids { mutes[id] = until }
-        arrangement.mutes = mutes
+        for id in ids { kept[id] = until }
+        mutes = kept
     }
 }

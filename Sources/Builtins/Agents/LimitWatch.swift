@@ -5,7 +5,7 @@ import KelpKit
 
 /// The plan limits for as long as Kelp runs, from every reading the daemon pushes (`Contributions.pushed`): each limit's
 /// pace, and the notifications they call for (a level crossed, full before the reset, unused near it, a reset that lets
-/// stopped agents go on), posted through the shell's (`AppModel.notifyUser`).
+/// stopped agents go on), posted through the shell's (`Notifications.notifyUser`).
 @MainActor
 final class LimitWatch {
     private let app: AppModel
@@ -32,7 +32,7 @@ final class LimitWatch {
             content.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
             content.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
             content.sound = a.level >= 95 ? .default : nil
-            app.notifyUser("limit-\(a.agent)-\(a.kind)-\(a.level)", content)
+            Notifications.notifyUser(app, "limit-\(a.agent)-\(a.kind)-\(a.level)", content)
         }
         forecastChanged(usage)
         resetsChanged(usage)
@@ -59,7 +59,7 @@ final class LimitWatch {
         resetWaits[agent] = nil
         guard let full = resets.end(agent) else { return }
         let app = self.app
-        let stopped = LimitResets.stopped(app.sessions, agent: agent, full).filter { !app.isMuted($0) }
+        let stopped = LimitResets.stopped(app.sessions, agent: agent, full).filter { !Mutes.isMuted($0, in: app) }
         guard let first = stopped.first else { return }
         let ids = stopped.map(\.id)
         let content = UNMutableNotificationContent()
@@ -70,7 +70,8 @@ final class LimitWatch {
         content.sound = .default
         content.categoryIdentifier = "limitReset"
         content.userInfo = ["session": first.id, "sessions": ids]
-        app.notifyUser("reset-\(agent)", content, action: (String(localized: "Continue"), { app.goOn(ids) }))
+        Notifications.notifyUser(
+            app, "reset-\(agent)", content, action: (String(localized: "Continue"), { Notifications.goOn(app, ids) }))
     }
 
     private func forecastChanged(_ u: UsageGet.Result) {
@@ -90,7 +91,7 @@ final class LimitWatch {
             let content = UNMutableNotificationContent()
             content.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
             content.body = String(localized: "At this pace it fills before it resets.")
-            app.notifyUser("forecast-\(key)", content)
+            Notifications.notifyUser(app, "forecast-\(key)", content)
         }
         forecastTold.formIntersection(read)
     }
@@ -111,6 +112,6 @@ final class LimitWatch {
         let content = UNMutableNotificationContent()
         content.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
         content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
-        app.notifyUser("unused-\(key)", content)
+        Notifications.notifyUser(app, "unused-\(key)", content)
     }
 }

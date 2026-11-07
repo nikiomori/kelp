@@ -27,6 +27,8 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         self.app = app
         super.init()
     }
+    /// Session History (one window per app).
+    static func of(_ app: AppModel) -> HistoryWindow { app.part { HistoryWindow(app: app) } }
     private let pending = Debounce()
 
     func show() {
@@ -221,9 +223,4 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         }
     }
-}
-
-extension AppModel {
-    /// Session History (one window per app).
-    var historyWindow: HistoryWindow { part { HistoryWindow(app: self) } }
 }

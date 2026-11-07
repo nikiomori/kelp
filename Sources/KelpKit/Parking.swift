@@ -28,33 +28,33 @@ enum Parking {
     }
 }
 
-extension AppModel {
+extension Arrangement {
     /// Parked now: what ran out counts no more.
-    var parkedIds: Set<String> { Set(arrangement.parked.filter { $0.value > Date() }.keys) }
-    func isParked(_ id: String) -> Bool { arrangement.parked[id].map { $0 > Date() } ?? false }
+    var parkedIds: Set<String> { Set(parked.filter { $0.value > Date() }.keys) }
+    func isParked(_ id: String) -> Bool { parked[id].map { $0 > Date() } ?? false }
 
     func park(_ id: String, until: Date) {
-        arrangement.parked = arrangement.parked.filter { $0.value > Date() && session($0.key) != nil }.merging([
+        parked = parked.filter { $0.value > Date() && app.session($0.key) != nil }.merging([
             id: until
         ]) { $1 }
-        arrangement.parkedBack[id] = nil
+        parkedBack[id] = nil
     }
 
     /// A park "for 1 hour" ends on screen when its hour is up, not at the next refresh of something else.
     func endParksOnTime() {
-        guard let next = arrangement.parked.values.filter({ $0 > Date() && $0 != Mutes.forever }).min() else { return }
+        guard let next = parked.values.filter({ $0 > Date() && $0 != Mutes.forever }).min() else { return }
         Task { [weak self] in
             do { try await Task.sleep(for: .seconds(next.timeIntervalSinceNow + 0.5)) } catch { return }
-            guard let self, self.arrangement.parked.values.contains(where: { $0 <= Date() }) else { return }
-            self.arrangement.parked = self.arrangement.parked.filter { $0.value > Date() }
+            guard let self, self.parked.values.contains(where: { $0 <= Date() }) else { return }
+            self.parked = self.parked.filter { $0.value > Date() }
         }
     }
 
     /// Back in its project; `back` says why on its row until it's opened.
     func unpark(_ id: String, back: String? = nil) {
-        guard arrangement.parked[id] != nil else { return }
-        arrangement.parked[id] = nil
-        arrangement.parkedBack[id] = back
+        guard parked[id] != nil else { return }
+        parked[id] = nil
+        parkedBack[id] = back
     }
 
     /// A parked agent that asks or fails comes back by itself.
@@ -67,7 +67,7 @@ extension AppModel {
     /// CI that failed in a folder brings its parked agents back.
     func followParked(_ e: CIEvent) {
         guard e.result?.runs.first?.conclusion == "failure" else { return }
-        for s in sessions where s.worktreeId == e.worktree && isParked(s.id) {
+        for s in app.sessions where s.worktreeId == e.worktree && isParked(s.id) {
             unpark(s.id, back: String(localized: "CI failed"))
         }
     }

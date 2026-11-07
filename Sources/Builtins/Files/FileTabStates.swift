@@ -10,14 +10,14 @@ extension FileTab {
         let app = self.app
         let trust = TrustBar.make(
             project: (root as NSString).lastPathComponent,
-            notNow: { [weak self] in self.map { app.lsp.notNow($0.root) } },
+            notNow: { [weak self] in self.map { LSPManager.of(app).notNow($0.root) } },
             trust: { [weak self] in
                 guard let root = self?.root else { return }
-                Task { await app.lsp.trust(app, root) }
+                Task { await LSPManager.of(app).trust(app, root) }
             })
         trust.isHidden = true
         track(owner: self) { [weak self] in
-            self.map { app.lsp.asks(app, $0.root, $0.language) } ?? false
+            self.map { LSPManager.of(app).asks(app, $0.root, $0.language) } ?? false
         } changed: { [weak trust] in
             trust?.isHidden = !$0
         }

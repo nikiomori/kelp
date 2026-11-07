@@ -10,6 +10,8 @@ import os
 /// a project may run one is the user's say, asked here once per project and checked again by the daemon.
 @MainActor @Observable
 final class LSPManager {
+    /// The app's language servers' side (one per app).
+    static func of(_ app: AppModel) -> LSPManager { app.part { LSPManager() } }
     /// Server commands already reported missing this launch.
     @ObservationIgnored private var reported: Set<String> = []
     func enabled(_ app: AppModel) -> Bool { app.settings.bool("editor.lsp") != false }
@@ -142,9 +144,4 @@ final class LSPManager {
         }
         Banner.show(String(localized: "Language server \(name) isn't installed."), action: install)
     }
-}
-
-extension AppModel {
-    /// Its language servers' side here (one per app).
-    var lsp: LSPManager { part { LSPManager() } }
 }

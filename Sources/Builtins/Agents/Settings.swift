@@ -163,7 +163,7 @@ struct AgentsSettings: View {
                     }
                     HStack(spacing: 0) {
                         Text(caption).foregroundStyle(.secondary)
-                        if let note = app.plans[a.id]?.note {
+                        if let note = UsageView.plans(app)[a.id]?.note {
                             Text(" · " + note.text).foregroundStyle(Color(nsColor: note.color))
                         }
                     }.font(.ui(11))

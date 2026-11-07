@@ -75,7 +75,7 @@ package final class ThemeManager {
     private(set) package var editorRevision = 0
     private(set) var look = WindowLook()
     /// The chrome's text, what panels rebuild for: its size and the theme's face.
-    private(set) package var chromeText = " "
+    private(set) var chromeText = " "
     private(set) package var chromeDesign = Font.Design.default
 
     static let builtin: [Theme] = [

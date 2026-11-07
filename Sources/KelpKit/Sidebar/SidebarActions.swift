@@ -26,7 +26,7 @@ extension SidebarController {
             self?.updateVisibleCells()
         }
         track(owner: self) { [app] in
-            app.projectLook
+            app.arrangement.projectLook
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
@@ -258,12 +258,14 @@ extension SidebarController {
     /// Mute Notifications ▸ for how long, or Unmute once these are. A new mute goes on the first: the row itself.
     private func muteItem(_ menu: NSMenu, _ ids: [String]) {
         let app = self.app
-        if app.mutedUntil(ids) != nil {
-            menu.add(String(localized: "Unmute Notifications")) { app.mute(ids, until: nil) }
+        if app.arrangement.mutedUntil(ids) != nil {
+            menu.add(String(localized: "Unmute Notifications")) { app.arrangement.mute(ids, until: nil) }
             return
         }
         let times = NSMenu()
-        for (title, until) in Mutes.choices() { times.add(title) { app.mute(Array(ids.prefix(1)), until: until) } }
+        for (title, until) in Mutes.choices() {
+            times.add(title) { app.arrangement.mute(Array(ids.prefix(1)), until: until) }
+        }
         menu.setSubmenu(
             times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: "")
         )
@@ -272,12 +274,12 @@ extension SidebarController {
     /// Park ▸ for how long, or Unpark once it is.
     private func parkItem(_ menu: NSMenu, _ sid: String) {
         let app = self.app
-        if app.isParked(sid) {
-            menu.add(String(localized: "Unpark")) { app.unpark(sid) }
+        if app.arrangement.isParked(sid) {
+            menu.add(String(localized: "Unpark")) { app.arrangement.unpark(sid) }
             return
         }
         let times = NSMenu()
-        for (title, until) in Parking.choices() { times.add(title) { app.park(sid, until: until) } }
+        for (title, until) in Parking.choices() { times.add(title) { app.arrangement.park(sid, until: until) } }
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Park"), action: nil, keyEquivalent: ""))
     }
 

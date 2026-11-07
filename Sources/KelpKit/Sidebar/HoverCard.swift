@@ -331,11 +331,11 @@ struct CardView: View {
                     }
                 }
             }
-            if let until = model.app.mutedUntil(model.muteIds) {
+            if let until = model.app.arrangement.mutedUntil(model.muteIds) {
                 HStack(spacing: 8) {
                     Text(Mutes.line(until: until)).font(.ui(11)).foregroundStyle(.secondary)
                     Spacer(minLength: 8)
-                    Button("Unmute") { model.app.mute(model.muteIds, until: nil) }.controlSize(.small)
+                    Button("Unmute") { model.app.arrangement.mute(model.muteIds, until: nil) }.controlSize(.small)
                 }
             }
             if let turn = model.turn { Text(turn).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }

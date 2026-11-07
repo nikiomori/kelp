@@ -221,7 +221,7 @@ extension Builtins {
                 app.workbench.showNextNeedingAttention()
             },
             cmd("agents.usage", "Usage", "opt+cmd+u") { app.workbench.open("usage:") },
-            cmd("agents.history", "Session History", "shift+cmd+h") { app.historyWindow.show() },
+            cmd("agents.history", "Session History", "shift+cmd+h") { HistoryWindow.of(app).show() },
             // Like Caffeine: ticked keeps the Mac awake until unticked, which goes back to the setting's default.
             cmd("power.keepAwake", "Keep Mac Awake") {
                 app.settings.set(

@@ -141,11 +141,6 @@ package struct AgentCatalog {
     ]
 }
 
-extension AppModel {
-    /// The agents it offers (see `AgentCatalog`).
-    package var catalog: AgentCatalog { AgentCatalog(app: self) }
-}
-
 /// Which agent CLIs run on this Mac: found on the login shell's PATH and answering `--version` — a shim whose binary
 /// is gone (a broken npm install) doesn't count. Checked in the background at launch and when Kelp comes back to the
 /// front (at most every few minutes), so newly installed agents show up; the last answer is remembered for the next launch.

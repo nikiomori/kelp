@@ -72,19 +72,19 @@ struct ProjectLook: Equatable {
     var colors: [String: ProjectColor]
 }
 
-extension AppModel {
+extension Arrangement {
     var projectLook: ProjectLook {
-        var colors = arrangement.projectColors
-        if let preview = arrangement.colorPreview { colors[preview.project] = preview.color }
+        var colors = projectColors
+        if let preview = colorPreview { colors[preview.project] = preview.color }
         return ProjectLook(
-            style: ProjectColorStyle(rawValue: settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon,
+            style: ProjectColorStyle(rawValue: app.settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon,
             colors: colors)
     }
 
     /// The colour the icon of the project in this folder takes, wherever it shows: only in the Icon style.
     func iconColor(folder: String) -> ProjectColor? {
         let look = projectLook
-        guard look.style == .icon, let id = repos.first(where: { $0.path == folder })?.id else { return nil }
+        guard look.style == .icon, let id = app.repos.first(where: { $0.path == folder })?.id else { return nil }
         return look.colors[id]
     }
 }

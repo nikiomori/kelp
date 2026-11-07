@@ -62,11 +62,13 @@ struct ServerView: View {
             Text(host).font(.ui(13, weight: .semibold))
             Text(serverLine(stats)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
-            Button(String(localized: "Terminal")) { app.runOnServer(host) }
-            Button("htop") { app.openHtop(host) }
+            Button(String(localized: "Terminal")) { ServerActions.runOnServer(app, host) }
+            Button("htop") { ServerActions.openHtop(app, host) }
             Menu {
-                Button(String(localized: "Add Project on \(host)…")) { app.addProject(onServer: host) }
-                if stats?.connected == true { Button(String(localized: "Disconnect")) { app.disconnectServer(host) } }
+                Button(String(localized: "Add Project on \(host)…")) { app.workbench.addProject(onServer: host) }
+                if stats?.connected == true {
+                    Button(String(localized: "Disconnect")) { ServerActions.disconnectServer(app, host) }
+                }
                 Divider()
                 Button(String(localized: "Copy Host")) {
                     NSPasteboard.general.clearContents()
@@ -103,7 +105,7 @@ struct ServerView: View {
         } actions: {
             Button(error == nil ? String(localized: "Connect") : String(localized: "Try Again")) { dial() }
                 .keyboardShortcut(.defaultAction)
-            Button(String(localized: "Open Terminal")) { app.runOnServer(host) }
+            Button(String(localized: "Open Terminal")) { ServerActions.runOnServer(app, host) }
         }
     }
 

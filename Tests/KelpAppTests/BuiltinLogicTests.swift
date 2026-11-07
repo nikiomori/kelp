@@ -116,13 +116,13 @@ import os
     let m = rig.app
     var s = Session(worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
     m.upsert(s)
-    m.park(s.id, until: Mutes.forever)
-    #expect(m.isParked(s.id) && m.parkedIds == [s.id])
+    m.arrangement.park(s.id, until: Mutes.forever)
+    #expect(m.arrangement.isParked(s.id) && m.arrangement.parkedIds == [s.id])
     s.status = .waiting
-    m.followParked(s)
-    #expect(!m.isParked(s.id) && m.arrangement.parkedBack[s.id] == "it asks you something")
-    m.park(s.id, until: Date().addingTimeInterval(-1))   // a time that passed counts no more
-    #expect(!m.isParked(s.id))
+    m.arrangement.followParked(s)
+    #expect(!m.arrangement.isParked(s.id) && m.arrangement.parkedBack[s.id] == "it asks you something")
+    m.arrangement.park(s.id, until: Date().addingTimeInterval(-1))   // a time that passed counts no more
+    #expect(!m.arrangement.isParked(s.id))
 }
 
 /// A parked agent comes back on its own workspace's run that just failed, as it arrives: not when a run lands for
@@ -140,12 +140,12 @@ import os
     let s = Session(worktreeId: mine, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
     m.upsert(s)
     m.land(run(mine, "failure"))   // its workspace failed before it was parked
-    m.park(s.id, until: Mutes.forever)
+    m.arrangement.park(s.id, until: Mutes.forever)
     m.land(run("elsewhere", "success"))
-    #expect(m.isParked(s.id), "another workspace's run brings it back")
+    #expect(m.arrangement.isParked(s.id), "another workspace's run brings it back")
     m.land(run(mine, "success"))
     m.land(run(mine, "failure"))   // a new failure of its own: back
-    #expect(!m.isParked(s.id) && m.arrangement.parkedBack[s.id] == "CI failed")
+    #expect(!m.arrangement.isParked(s.id) && m.arrangement.parkedBack[s.id] == "CI failed")
 }
 
 /// New Chat on Branch…: each mode asks the daemon for its own kind of folder.
@@ -222,7 +222,7 @@ import os
 /// A park for a while ends on screen when its time is up: the sidebar follows `parked`, which changes then by itself.
 @Test @MainActor func aTimedParkEndsOnTime() async throws {
     let m = AppModel()
-    m.park("s1", until: Date().addingTimeInterval(0.3))
+    m.arrangement.park("s1", until: Date().addingTimeInterval(0.3))
     #expect(m.arrangement.parked["s1"] != nil)
     #expect(try await waitFor(5) { !(m.arrangement.parked["s1"] != nil) })
     #expect(m.arrangement.parked["s1"] == nil)

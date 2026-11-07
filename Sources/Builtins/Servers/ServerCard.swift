@@ -15,7 +15,7 @@ struct ServerSection: View {
             HStack(spacing: 6) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
                 Text(host).font(.ui(12, weight: .semibold)).lineLimit(1)
-                if let word = app.serverWord(host) {
+                if let word = ServerActions.serverWord(app, host) {
                     Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
                 }
             }
@@ -24,11 +24,11 @@ struct ServerSection: View {
             HStack(spacing: Metrics.gapWide) {
                 Button(String(localized: "Open Server")) {
                     close()
-                    app.openServer(host)
+                    app.workbench.openServer(host)
                 }
                 Button("htop") {
                     close()
-                    app.openHtop(host)
+                    ServerActions.openHtop(app, host)
                 }
             }
             .controlSize(.small)

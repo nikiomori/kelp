@@ -36,7 +36,7 @@ extension DiffViewController {
             if let error = await app.tryCall(request).error {
                 Banner.show(error, style: .error)
             } else {
-                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) {
+                UndoDiscard.offer(app, String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) {
                     await self.load()
                 }
             }
@@ -159,19 +159,22 @@ extension DiffViewController {
     }
 }
 
-extension AppModel {
-    /// After a discard: a banner whose Undo puts it back, on screen as long as the daemon keeps it (a minute).
-    func offerUndoDiscard(
-        _ text: String, worktree wid: String, undo: String, then reload: @escaping @MainActor () async -> Void = {}
+/// After a discard (in the diff or in Source Control): a banner whose Undo puts it back, on screen as long as the
+/// daemon keeps it (a minute).
+@MainActor
+enum UndoDiscard {
+    static func offer(
+        _ app: AppModel, _ text: String, worktree wid: String, undo: String,
+        then reload: @escaping @MainActor () async -> Void = {}
     ) {
         Banner.show(
             text,
             action: (
                 String(localized: "Undo"),
-                { [self] in
+                {
                     Task {
-                        if await call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
-                        watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+                        if await app.call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
+                        app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
                     }
                 }
             ), lasts: 60)
