@@ -29,3 +29,22 @@ enum Lifecycle {
         return nil
     }
 }
+
+/// kelp-vm's control socket (`ctl.sock`): kelpd sends one request a line and waits for one reply.
+enum Control {
+    /// The request on `fd`, read on a thread of its own (a slow client never holds the main queue), handed to `answer`
+    /// on the main actor; nil when it couldn't be read.
+    static func read(_ fd: Int32, _ answer: @escaping @MainActor @Sendable (VMHelper.Request?) -> Void) {
+        Thread.detachNewThread {
+            var line = Data(), buf = [UInt8](repeating: 0, count: 4096)
+            while line.count < 65536, !line.contains(0x0A) {
+                let n = Darwin.read(fd, &buf, buf.count)
+                guard n > 0 else { break }
+                line.append(contentsOf: buf[0..<n])
+            }
+            let request = line.split(separator: 0x0A, omittingEmptySubsequences: false).first
+                .flatMap { try? JSONDecoder().decode(VMHelper.Request.self, from: Data($0)) }
+            DispatchQueue.main.async { MainActor.assumeIsolated { answer(request) } }   // the main queue
+        }
+    }
+}

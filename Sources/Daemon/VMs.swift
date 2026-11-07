@@ -116,13 +116,11 @@ struct VMService: Sendable {
             gone.detail = String(localized: "Deleted")
             return gone
         case .start:
-            try admit(m)
-            try startHelper(m)
+            try wake(m)
             try check(ask(name, .init(op: .start), wait: 620))
         case .show:
             guard m.os != "linux" else { throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.") }
-            try admit(m)
-            try startHelper(m)
+            try wake(m)
             try check(ask(name, .init(op: .show), wait: 180))
         // Running by its lock, not by a status within 2 s, which a busy one may not give.
         case .sleep:
@@ -140,16 +138,14 @@ struct VMService: Sendable {
     func connect(_ name: String, cwd: String?) throws -> VMConnection {
         let m = try ready(name)
         if m.os == "ios" {   // simctl for its simulator, and its runner's port: booted first
-            try admit(m)
-            try startHelper(m)
+            try wake(m)
             let r = try ask(name, .init(op: .start), wait: 620)
             try check(r)
             guard let udid = r.serial, let port = r.port else { throw RPCError.internalError("\(name)'s simulator isn't up") }
             return VMConnection(ssh: ["/usr/bin/xcrun", "simctl"], prefix: "", device: udid, port: port)
         }
         if m.os == "android" {   // adb to its emulator, booted or woken first
-            try admit(m)
-            try startHelper(m)
+            try wake(m)
             let r = try ask(name, .init(op: .start), wait: 620)
             try check(r)
             guard let adb = AndroidSDK.adb, let serial = r.serial else { throw RPCError.internalError("\(name)'s emulator has no adb serial") }
@@ -157,8 +153,7 @@ struct VMService: Sendable {
         }
         let ssh = ["/usr/bin/ssh", "-F", file(name, "ssh_config").path, name]
         guard let cwd else {
-            try admit(m)
-            try startHelper(m)
+            try wake(m)
             return VMConnection(ssh: ssh, prefix: "cd || exit 1; ")
         }
         let project = projectFolder(cwd)
@@ -166,8 +161,7 @@ struct VMService: Sendable {
             throw RPCError.invalidParams("\(project) can't be shared with a machine: only folders inside your home folder "
                 + "(not it, ~/.ssh or ~/Library). Pass --cwd <project folder>.")
         }
-        try admit(m)
-        try startHelper(m)
+        try wake(m)
         let shared = try ask(name, .init(op: .share, path: project), wait: 5)
         try check(shared)
         guard let slot = shared.slot else { throw RPCError.internalError("\(name) didn't share \(project)") }
@@ -190,7 +184,20 @@ struct VMService: Sendable {
         return cwd
     }
 
+    /// Room made for `m` (`admit`), then its kelp-vm started, one machine at a time (vms/.waking): two woken at once would
+    /// both find room that's there for one, the other's kelp-vm not up yet to count.
+    func wake(_ m: VMMachine) throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let fd = open(root.appendingPathComponent(".waking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))") }
+        defer { close(fd) }
+        guard flock(fd, LOCK_EX) == 0 else { throw RPCError.internalError("Can't take the machines' wake lock.") }   // seconds, on this offload thread
+        try admit(m)
+        try startHelper(m)
+    }
+
     /// Room in the memory budget (a quarter of the Mac's) for `m` to wake: idle machines are put to sleep for it, else no.
+    /// One alone wakes at any size it may have (up to half the Mac's): the budget is for them together.
     func admit(_ m: VMMachine) throws {
         let up: Set<VMState> = [.running, .paused, .starting]
         if let me = status(m.name), up.contains(me.state) { return }
@@ -204,7 +211,7 @@ struct VMService: Sendable {
             do { guard try asleep(ask(other.machine.name, .init(op: .sleep), wait: 60)) else { continue } } catch { continue }
             awake.removeAll { $0.machine.name == other.machine.name }
         }
-        guard used() <= budget else {
+        guard awake.isEmpty || used() <= budget else {
             let busy = awake.map { $0.machine.name }.joined(separator: ", ")
             throw RPCError.invalidParams("Not enough of the machines' memory budget (\(budget >> 10) GB) to wake \(m.name): "
                 + "\(busy) are in use. Put one to sleep: kelp vm sleep <name>.")

@@ -23,6 +23,13 @@ import Testing
 
     @Test func noFolderNoMachines() { #expect(vms.list().isEmpty) }
 
+    /// One machine alone wakes at any size it may be given (up to half the Mac's): the quarter is for them together.
+    @Test func aMachineAloneWakesWhateverItsSize() throws {
+        let half = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 2
+        let big = VMMachine(name: "big", image: "debian-13", cpus: 2, memoryMiB: half, diskGiB: 32, user: "niko")
+        #expect(throws: Never.self) { try vms.admit(big) }
+    }
+
     /// What made `dev` before a restart is found by its folder, not what runs in `dev2` beside it.
     @Test func leftoversAreFoundByTheWholeFolder() throws {
         let r = try NSRegularExpression(pattern: VMService.inFolder("/k/vms/dev"))

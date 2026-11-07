@@ -65,7 +65,10 @@ extension VMService {
         // with the old size on a disk that grows under it.
         let lock = open(file(m.name, "kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         defer { if lock >= 0 { close(lock) } }
-        guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else {
+        // Tried for half a second: kelpd's own look at it (`alive`, shared) holds it a moment.
+        var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
+        for _ in 0..<10 where lock >= 0 && !held { usleep(50_000); held = flock(lock, LOCK_EX | LOCK_NB) == 0 }
+        guard held else {
             throw RPCError.invalidParams("\(m.name) is in use again: shut it down, then change its size.")
         }
         if disk > m.diskGiB {

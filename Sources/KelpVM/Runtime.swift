@@ -156,16 +156,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     /// kelpd's requests: one JSON line in, one out.
     private func control(_ fd: Int32) {
-        Thread.detachNewThread {
-            var line = Data(), byte: UInt8 = 0
-            while line.count < 65536, read(fd, &byte, 1) == 1, byte != 0x0A { line.append(byte) }
-            let request = try? JSONDecoder().decode(VMHelper.Request.self, from: line)
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    guard let request else { return self.reply(fd, "can't read the request") }
-                    self.handle(request) { error, slot in self.reply(fd, error, slot: slot) }
-                }
-            }
+        Control.read(fd) { request in
+            guard let request else { return self.reply(fd, "can't read the request") }
+            self.handle(request) { error, slot in self.reply(fd, error, slot: slot) }
         }
     }
 

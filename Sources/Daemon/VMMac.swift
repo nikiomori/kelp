@@ -40,8 +40,7 @@ extension VMService {
     func screen(_ name: String, _ args: [String], session: String?) throws {
         let m = try ready(name)
         guard m.os == "macos" else { throw RPCError.invalidParams("\(name) isn't a macOS machine: its screen goes through adb or the simulator.") }
-        try admit(m)
-        try startHelper(m)
+        try wake(m)
         try check(ask(name, .init(op: .screen, args: args, session: session), wait: 110))
     }
 
