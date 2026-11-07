@@ -51,7 +51,7 @@ final class AndroidRuntime {
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .paused, .starting].contains(state)
         // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
-        let using = state == .running ? Usage.adbClients(serial) + (windowed ? 1 : 0) : 0
+        let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (windowed ? 1 : 0) : 0
         let r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
                                serial: state == .running ? serial : nil)
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
@@ -64,7 +64,7 @@ final class AndroidRuntime {
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
         case .start where r.begins:
             lastUse = Date()
-            if r.beginsShown { windowed = true; showAsked = true }
+            if r.beginsShown { windowed = true; showAsked = emulator == nil }   // for a boot to come, not one up already
             wake { _ in }; done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
@@ -74,8 +74,8 @@ final class AndroidRuntime {
         case .show:
             lastUse = Date()
             windowed = true
-            showAsked = true
-            if emulator != nil, shown { return wake(done) }   // has its window: up, or coming up
+            if emulator != nil, shown { return wake(done) }   // has its window: up, or coming up (no boot to ask it of)
+            showAsked = true   // has its window: up, or coming up
             if emulator == nil { return wake(done) }   // down: it boots with its window
             // Started headless (an agent's run): once it's up, slept and woken again with its window.
             if state == .starting { return ready.append { _ in self.sleep { _ in self.wake(done) } } }
@@ -199,7 +199,7 @@ final class AndroidRuntime {
     }
 
     private func tick() {
-        if state == .running, Usage.adbClients(serial) > 0 { lastUse = Date() }   // a command through adb (`kelp vm run`) is use
+        if state == .running, Usage.clients(of: serial, programs: ["adb"]) > 0 { lastUse = Date() }   // a command through adb (`kelp vm run`) is use
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, !windowed, !pausing, idle > Runtime.pauseAfter {
             pausing = true
@@ -208,7 +208,10 @@ final class AndroidRuntime {
                 guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
                 if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter { state = .paused; log("paused") } else {
-                    do { _ = try await adb(["emu", "avd", "start"]) } catch { log("couldn't go on after a start: \(error)") }
+                    do { _ = try await adb(["emu", "avd", "start"]) } catch {
+                        log("couldn't go on after a start: \(error)")
+                        state = .paused   // stopped it is: the next wake tries again, not a start answered running
+                    }
                 }
             }
         } else if state == .paused, idle > Runtime.sleepAfter {

@@ -41,15 +41,17 @@ enum Usage {
         return (percent, Int(bytes >> 20))
     }
 
-    /// The adb clients talking to the emulator `serial` (`adb -s emulator-5600 shell …`), other than kelp-vm's own.
-    static func adbClients(_ serial: String) -> Int {
+    /// The processes of `programs` that name `id` (`adb -s emulator-5600 shell …`, `xcrun simctl … <udid>`), other than
+    /// kelp-vm's own: a machine's commands kelpd and agents run without kelp-vm. By name first: few are read whole.
+    static func clients(of id: String, programs: Set<String>) -> Int {
         let me = getpid()
         var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
         let n = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        var name = [CChar](repeating: 0, count: 256)
         return pids.prefix(max(0, n)).filter { p in
-            guard p > 0, p != me, Subprocess.parent(p) != me, let argv = Subprocess.arguments(p),
-                  argv.first.map({ ($0 as NSString).lastPathComponent }) == "adb" else { return false }
-            return zip(argv, argv.dropFirst()).contains { $0 == "-s" && $1 == serial }
+            guard p > 0, p != me, proc_name(p, &name, UInt32(name.count)) > 0, programs.contains(String(cString: name)),
+                  Subprocess.parent(p) != me, let argv = Subprocess.arguments(p) else { return false }
+            return argv.dropFirst().contains { $0.contains(id) }
         }.count
     }
 }

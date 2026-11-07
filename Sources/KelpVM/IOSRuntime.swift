@@ -36,7 +36,8 @@ final class IOSRuntime {
 
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .starting].contains(state)
-        var r = VMHelper.Reply(state: state, connections: 0, memoryMiB: up ? machine.memoryMiB : nil, error: error,
+        let using = state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0   // kelpd's budget sleeps an idle one only
+        var r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
                                serial: state == .running ? udid : nil)
         r.port = state == .running ? port : nil
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
@@ -135,8 +136,12 @@ final class IOSRuntime {
     }
 
     private func tick() {
+        if state == .running, Usage.clients(of: udid, programs: Self.clients) > 0 { lastUse = Date() }   // a test run is use
         if state == .running, Date().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
     }
+
+    /// What drives a simulator from outside kelp-vm, naming its device: `simctl` (installs, launches), an XCUITest run.
+    private static let clients: Set<String> = ["simctl", "xcodebuild", "xctest"]
 
     private func ping() async -> Bool {
         let port = port
