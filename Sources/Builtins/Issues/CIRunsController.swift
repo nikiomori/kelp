@@ -36,6 +36,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let outline = ListOutlineView()
     private let branch = BranchChip()   // Source Control's, in the same place: switching panels doesn't move it
     private let empty = EmptyStateView()
+    /// Until the first answer for the workspace (gh can take seconds): the panel isn't blank meanwhile.
+    private let loading = LoadingView()
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
         let b = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
         b.bezelStyle = .push
@@ -115,6 +117,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
         let v = stacked(header, history, split)
         empty.place(in: v, under: header)
+        loading.place(in: v, under: header)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
         bottom.isHidden = true
         logPane = (bottom, bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), split)
@@ -124,6 +127,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.follow()
             self?.loadPages()
+            if app.ci[$0 ?? ""] == nil { self?.loading.show(String(localized: "Loading…")) }
         }
         track(owner: self) { [weak self, app] in app.ci[self?.worktree ?? ""] } changed: { [weak self] in self?.apply($0) }
     }
@@ -183,6 +187,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     private func apply(_ e: CIEvent?) {
         guard let e, e.worktree == worktree else { return }
+        loading.show(nil)
         // A newer list replaces the rows the last one's jobs were being opened in: that one stops at its next step.
         applying?.cancel()
         applying = Task {
