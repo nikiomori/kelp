@@ -86,9 +86,9 @@ final class SidebarRowView: NSTableRowView {
 
     override func drawBackground(in r: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        // In a card the pill is 4 pt inside it, its corners following the card's (radiusLG − 4); a row on its own gets a pill
+        // In a card the pill is 2 pt inside it on every side, its corners following the card's (radiusLG − 2); a row on its own gets a pill
         // where its card would be.
-        var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
+        var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(8).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top + gap; pill.size.height -= pad.top + pad.bottom + gap
         let radius = Self.pillRadius(inCard: group != nil)
         let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
@@ -119,8 +119,8 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// A lone row's pill has a card's corners; one in a card follows the card's, 4 pt in.
-    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
+    /// A lone row's pill has a card's corners; one in a card follows the card's, 2 pt in (4 on the sides and 2 above and below looked lopsided).
+    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 2 : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }

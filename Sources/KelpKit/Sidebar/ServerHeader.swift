@@ -12,7 +12,7 @@ enum ServerLook: String {
 }
 
 /// The first row of a server's card, one line as tall as a project's: the machine, a word only when something's wrong,
-/// and at the right CPU, memory and disk, each a symbol and a share (orange from 90 %), the rest in the tooltip. A click
+/// and at the right CPU, memory and disk, each a symbol and its percent (orange from 90), the rest in the tooltip. A click
 /// opens the server's tab; under the pointer its icon turns into the chevron that folds its projects away, as a project's.
 @MainActor
 final class ServerHeader: NSTableCellView {
@@ -54,7 +54,7 @@ final class ServerHeader: NSTableCellView {
         note.lineBreakMode = .byTruncatingTail
         note.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the server's name
         meters.setViews([cpu, ram, disk, note], in: .leading)
-        meters.spacing = Metrics.gapWide
+        meters.spacing = Metrics.gap
         meters.detachesHiddenViews = true
         let slot = NSView()
         for v in [plate, glyph, fold] as [NSView] {
@@ -86,17 +86,21 @@ final class ServerHeader: NSTableCellView {
         super.setFrameSize(s)
         if s.width != old { fitMeters() }
     }
-    /// The meters step aside before the server's name is cut: the disk first, then memory, then the CPU (all are in the
-    /// tooltip and on the server's tab).
+    /// All three meters stay while the server's name keeps its first few letters (`nameFloor`); past that they step
+    /// aside, the disk first, then memory, then the CPU (all are in the tooltip and on the server's tab).
     private func fitMeters() {
-        let taken = [title, word].filter { !$0.isHidden }.reduce(2 + 16 + Metrics.gap) { $0 + $1.intrinsicContentSize.width + Metrics.gap }
-        var room = bounds.width - taken
+        let name = min(title.intrinsicContentSize.width, Self.nameFloor)
+        let said = word.isHidden ? 0 : word.intrinsicContentSize.width + Metrics.gap
+        var room = bounds.width - (2 + 16 + Metrics.gap + name + said + Metrics.gap) + meters.spacing
         for m in [cpu, ram, disk] {
-            let need = m.fittingSize.width + Metrics.gapWide, fits = m.has && room >= need
+            let need = m.fittingSize.width + meters.spacing, fits = m.has && room >= need
             if fits { room -= need }
             m.isHidden = !fits
         }
     }
+
+    /// About seven letters: enough to tell servers apart.
+    static let nameFloor: CGFloat = 52
 
     override func mouseEntered(with e: NSEvent) { showFold(true) }
     override func mouseExited(with e: NSEvent) { showFold(false) }
@@ -153,7 +157,7 @@ final class ServerHeader: NSTableCellView {
     }
 }
 
-/// One meter on the header: a symbol and a share, orange from 90 %.
+/// One meter on the header: a symbol and a percent without its sign (there's no room for three), orange from 90.
 @MainActor
 private final class Meter: NSStackView {
     private let value = NSTextField(labelWithString: "")
@@ -173,7 +177,8 @@ private final class Meter: NSStackView {
     func show(_ percent: Int?) {
         has = percent != nil
         guard let percent else { return }
-        value.stringValue = "\(percent)%"
+        value.stringValue = "\(percent)"
+        value.setAccessibilityLabel("\(percent)%")
         value.textColor = percent >= 90 ? .textOrange : .secondaryLabelColor
     }
 }
