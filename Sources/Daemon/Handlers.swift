@@ -174,7 +174,7 @@ extension Daemon {
         case .user: return
         case .session(let own):
             if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
-            guard try sessions.forAnAgent(own) else { return }
+            guard try sessions.store.forAnAgent(own) else { return }
             try allowAgent(m, own: own)
         case .typedAgent(let own):
             if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
@@ -207,7 +207,7 @@ extension Daemon {
     /// (`typed:` on its line), not everything the user started from that terminal.
     private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
         func reaches(_ id: String) throws -> Bool {
-            try sessions.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
+            try sessions.store.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
         }
         if let refusal = m.notForAgents { throw RPCError.refused(refusal) }
         if m.answersQuestion {

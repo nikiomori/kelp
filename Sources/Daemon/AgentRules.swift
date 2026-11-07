@@ -62,13 +62,13 @@ extension Sessions {
     /// `typed`: an agent typed into `own`, the user's terminal: its workspace (it runs there), and the ones it made or
     /// started a session in, not those the user made or worked in from that terminal.
     func works(_ own: String, in w: String, typed: Bool = false) throws -> Bool {
-        let line = try lineage(own)
+        let line = try store.lineage(own)
         if line.contains(where: { $0.worktreeId == w }) { return true }
         let maker = try store.worktree(w)?.madeBy
         if typed { if Caller.started(maker, byAgentTypedInto: own) { return true } }
         else if let m = Caller.session(of: maker), line.contains(where: { $0.id == m }) { return true }
         return try store.sessions().contains { s in
-            try s.worktreeId == w && lineage(s.id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
+            try s.worktreeId == w && store.lineage(s.id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
         }
     }
 

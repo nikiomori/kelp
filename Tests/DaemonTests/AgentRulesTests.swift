@@ -122,7 +122,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
     let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
     #expect(outlived.parent == nil && outlived.startedBy == nil)   // still not its child, nor on its line
-    #expect(try r.d.sessions.lineage(outlived.id).contains { $0.id == me.id })
+    #expect(try r.d.sessions.store.lineage(outlived.id).contains { $0.id == me.id })
 }
 
 /// What the daemon runs itself (an extension's command or event, a git hook) answers no question, nor does a program an
@@ -198,10 +198,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let a2: Session = try await r.c.call("session.restart", .obj(["id": .string(a.id)]), as: Session.self)
     #expect(try await waitFor { try r.d.sessions.store.session(cmd.id)?.startedBy == a2.id })
     #expect(try await waitFor { try r.d.sessions.store.session(term.id)?.origin == a2.id })
-    #expect(try r.d.sessions.lineage(term.id).map(\.id) == [term.id, a2.id])
-    #expect(try !r.d.sessions.forAnAgent(term.id))
+    #expect(try r.d.sessions.store.lineage(term.id).map(\.id) == [term.id, a2.id])
+    #expect(try !r.d.sessions.store.forAnAgent(term.id))
     try set(term.id) { $0.origin = UUID().uuidString }
-    #expect(try await waitFor { try r.d.sessions.forAnAgent(term.id) })
+    #expect(try await waitFor { try r.d.sessions.store.forAnAgent(term.id) })
 }
 
 /// A program gone before it was looked at (it connected and ended, a child keeping the connection) isn't taken for the
@@ -385,9 +385,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     var started = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
     started.origin = Caller.typedAgent(term.id).origin
     try r.d.sessions.store.save(started)
-    #expect(try !r.d.sessions.forAnAgent(term.id))   // the terminal itself: the user's, but for what runs under the agent
-    #expect(try r.d.sessions.forAnAgent(started.id))
-    #expect(try r.d.sessions.lineage(started.id).contains { $0.id == term.id })
+    #expect(try !r.d.sessions.store.forAnAgent(term.id))   // the terminal itself: the user's, but for what runs under the agent
+    #expect(try r.d.sessions.store.forAnAgent(started.id))
+    #expect(try r.d.sessions.store.lineage(started.id).contains { $0.id == term.id })
     #expect(throws: Never.self) { try r.d.allow(SessionKill(id: started.id), conn: 0, caller: .typedAgent(term.id)) }
     // What the user started from that terminal themselves isn't the agent's.
     var theirs = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
@@ -483,7 +483,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func anAgentsAttachStopsTypingOnceTheSessionAsks() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let attach = #"zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$kid\"}}"; "#
-        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 3 -u $REPLY line; do print -r -- "stream $line"; done; cat"#
+        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 3 -u $REPLY line; do print -r -- "stream $line"; done; "#
+        + #"read more; print -u $REPLY $more; cat"#
     let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; read kid; \(attach)'")
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
@@ -497,4 +498,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("stream kelp: That session asks a question") })
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("second"))
+    _ = child.update { $0.status = .working }   // answered: what it types next goes in again, the attach still open
+    _ = try await r.c.call(SessionWrite(id: me.id, text: "third\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: kid.id)).contains("third") })
 }
