@@ -236,6 +236,10 @@ extension CommentAdd: Handled {
     var signs: Bool { true }
     var inWorkspace: String? { id }   // a review is of an agent's own workspace's code
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
+        // A path is one line: one with a break in it would be drawn under no file, and sent as lines of its own.
+        guard !file.contains(where: { $0.isNewline || $0.asciiValue.map { $0 < 0x20 } == true }) else {
+            throw RPCError.invalidParams("A file's path has no line breaks or control characters.")
+        }
         let w = try workspaces.store.worktree(named: id)
         let on = try clientRef(commit) ?? "HEAD"
         let full = try Git.run(["rev-parse", "--verify", "-q", on + "^{commit}"], cwd: w.path, ok: [0, 1], remotes: workspaces.remotes)
@@ -271,7 +275,8 @@ extension CommentSend: Handled {
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
-        guard workspaces.sessions.existing(session)?.snapshot.isAgent == true else {
+        // Its record, not only a running one: a paused agent is one too, and the send wakes it.
+        guard try (workspaces.sessions.existing(session)?.snapshot ?? workspaces.store.session(session))?.isAgent == true else {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
         let wanted = only.map(Set.init)
@@ -289,10 +294,12 @@ extension CommentSend: Handled {
             let range = c.startLine == c.endLine ? "\(c.startLine)" : "\(c.startLine)-\(c.endLine)"
             let removed = c.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
             let past = c.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
-            s += "\n\(i + 1). \(c.file):\(range)\(removed)\(past)\n"
-            for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { s += "   > \(l)\n" }
-            // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said.
-            s += "   " + (c.author.map { Untrusted.frame(c.text, what: "\($0)'s finding") } ?? c.text) + "\n"
+            var entry = "\(c.file):\(range)\(removed)\(past)\n"
+            for l in c.quote.split(separator: "\n", omittingEmptySubsequences: false) { entry += "   > \(l)\n" }
+            entry += "   " + c.text
+            // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said. All
+            // of it, where and what it quotes too: each is what that agent wrote.
+            s += "\n\(i + 1). " + (c.author.map { Untrusted.frame(entry, what: "\($0)'s finding") } ?? entry) + "\n"
         }
         return s
     }

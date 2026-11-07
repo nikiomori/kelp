@@ -437,6 +437,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     userMade.madeBy = term.id   // one the user made from that terminal
     try r.d.sessions.store.save(made)
     try r.d.sessions.store.save(userMade)
+    let elsewhere = Worktree(repoId: r.repo.id, branch: "o", path: "/tmp/o")   // nobody's of theirs
+    try r.d.sessions.store.save(elsewhere)
     let typed = Caller.typedAgent(term.id)
     // Who counts as an agent's in a tmux pane is who `allow` holds to an agent's rules: the same table.
     #expect(!r.d.sessions.callers.heldAsAgent(term.id) && !r.d.sessions.callers.heldAsAgent(theirs.id))
@@ -461,6 +463,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), false, "a comment of no session would read as the user's"),
         (.detached, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), false, "from nowhere, the same"),
         (.user, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), true, "the window's is the user's"),
+        (.session(mine.id), CommentAdd(id: r.wt.id, file: "a", text: "x", session: mine.id), true, "an agent's own, signed, in its workspace"),
+        (.session(mine.id), CommentAdd(id: elsewhere.id, file: "a", text: "x", session: mine.id), false, "not in another's"),
+        (.session(mine.id), CommentSend(id: r.wt.id, session: term.id), false, "nor sent to a session it didn't start"),
         (typed, SessionRename(id: term.id, title: "x"), false, "nor rename the user's terminal"),
         (typed, font, true, "a look it may set"),
         (typed, WorktreeNote(id: made.id, note: "x"), true, "a typed agent works in a workspace it made"),
