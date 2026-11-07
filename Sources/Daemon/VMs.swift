@@ -196,8 +196,9 @@ struct VMService: Sendable {
         if let me = status(m.name), up.contains(me.state) { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
         var awake = list().filter { $0.machine.name != m.name && up.contains($0.state) }
-        func used() -> Int { awake.reduce(m.memoryMiB) { $0 + ($1.memoryMiB ?? $1.machine.memoryMiB) } }
-        let idle = awake.filter { $0.connections == 0 }.sorted { ($0.memoryMiB ?? 0) > ($1.memoryMiB ?? 0) }
+        // By the size each is given, not what it holds now (`memoryMiB`, its footprint): a guest just booted grows to it.
+        func used() -> Int { awake.reduce(m.memoryMiB) { $0 + $1.machine.memoryMiB } }
+        let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }
         for other in idle where used() > budget {
             // Freed only once it says it's asleep: one still starting, a failed save or an Intel Mac keeps its memory.
             do { guard try asleep(ask(other.machine.name, .init(op: .sleep), wait: 60)) else { continue } } catch { continue }
