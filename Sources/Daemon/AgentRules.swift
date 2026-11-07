@@ -7,9 +7,11 @@ enum AgentRules {
     /// own rules (`actsOn`, `inWorkspace`, …). What agents use (their skills, hooks and `kelp` commands) and what reads.
     /// Everything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, routines, scripts, the
     /// daemon itself): a new method is closed to agents until it's put here. By type, so a renamed one stays named.
-    static let methods: Set<String> = Set(types.map { $0.name })
-    private static let types: [any RPCMethod.Type] = [
-        // reading
+    static let methods: Set<String> = Set((reading + acting).map { $0.name })
+    /// What only reads: a workspace it names may be any (a review of another branch, a status); what acts is held to the
+    /// agent's own workspaces, every one it names, whatever the field (`Sessions.workspaces(namedBy:)`).
+    static let reads: Set<String> = Set(reading.map { $0.name })
+    private static let reading: [any RPCMethod.Type] = [
         AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
         CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
         FilesList.self, FilesRead.self, FilesReadRemote.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
@@ -26,7 +28,9 @@ enum AgentRules {
         SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self, SessionTurns.self,
         SessionUsage.self, SessionWhy.self, SettingsGet.self, SkillsBrowser.self, StateGet.self, TmuxList.self,
         UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self, VMList.self, WorktreeDirty.self,
-        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self,
+        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self
+    ]
+    private static let acting: [any RPCMethod.Type] = [
         // its own sessions and those it started (`actsOn`, named ids), its hooks and reports
         SessionAttach.self, SessionDetach.self, SessionResize.self, SessionCreate.self, SessionSend.self,
         SessionWrite.self, SessionKill.self, SessionRestart.self, SessionRename.self, SessionMarkRead.self,
@@ -46,6 +50,14 @@ extension Sessions {
     /// enum's in turn): what an agent's call may reach is decided by what it names, not by each method remembering to
     /// say. Free-form JSON (`JSONValue`: a setting's value, a command's args) and bytes name none.
     func named(by m: Any) throws -> [String] {
+        return try ids(m).filter { try store.session($0) != nil }
+    }
+
+    /// The workspaces a call names, in any field, as `named(by:)` finds sessions.
+    func workspaces(namedBy m: Any) throws -> [String] { try ids(m).filter { try store.worktree($0) != nil } }
+
+    /// Every id-shaped string in a call's params, at any depth (`named(by:)`'s walk).
+    private func ids(_ m: Any) throws -> [String] {
         func strings(_ v: Any, depth: Int) throws -> [String] {
             if let s = v as? String { return [s] }
             guard !(v is JSONValue), !(v is Data) else { return [] }
@@ -54,7 +66,7 @@ extension Sessions {
             guard depth < 6 || parts.isEmpty else { throw RPCError.refused("Kelp can't tell which sessions this call names.") }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
-        return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }.filter { try store.session($0) != nil }
+        return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }
     }
 
     /// Whether `w` is the workspace of `own` or of one that started it, one they made, or one a session it started works

@@ -440,6 +440,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let elsewhere = Worktree(repoId: r.repo.id, branch: "o", path: "/tmp/o")   // nobody's of theirs
     try r.d.sessions.store.save(elsewhere)
     let typed = Caller.typedAgent(term.id)
+    // The workspaces a call names are found in any field, as its sessions are: no method has to remember to say.
+    #expect(try r.d.sessions.workspaces(namedBy: SessionCreate(worktreeId: elsewhere.id, command: "cat", parent: mine.id)) == [elsewhere.id])
+    #expect(AgentRules.reads.contains(GitStatus.name) && !AgentRules.reads.contains(WorktreeNote.name))
     // Who counts as an agent's in a tmux pane is who `allow` holds to an agent's rules: the same table.
     #expect(!r.d.sessions.callers.heldAsAgent(term.id) && !r.d.sessions.callers.heldAsAgent(theirs.id))
     #expect(r.d.sessions.callers.heldAsAgent(mine.id))
@@ -470,6 +473,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, font, true, "a look it may set"),
         (typed, WorktreeNote(id: made.id, note: "x"), true, "a typed agent works in a workspace it made"),
         (typed, WorktreeNote(id: userMade.id, note: "x"), false, "not in one the user made from its terminal"),
+        (.session(mine.id), WorktreeNote(id: elsewhere.id, note: "x"), false, "what acts is held to its own workspaces"),
+        (.session(mine.id), GitStatus(id: elsewhere.id), true, "what only reads may look at any"),
         (.detached, font, true, "a detached caller is held to an agent's rules: a look it may set"),
         (.detached, phone, false, "the user's settings it may not"),
         (.detached, SessionKill(id: term.id), false, "nor end the user's terminal"),
