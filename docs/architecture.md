@@ -4,8 +4,8 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings — and, until they move into built-ins of their own, a few features
-that still live in the shell (KelpKit): the branch's sync popover, the plan limits and usage, the
-CI marks on rows, the server cards and the agent strip. The review rubric (`docs/review-rubric.md`,
+that still live in the shell (KelpKit): the plan limits and usage, the CI marks on rows, the server
+cards and the agent strip. The review rubric (`docs/review-rubric.md`,
 Architecture 5) counts them.
 
 ```
@@ -77,6 +77,8 @@ Architecture 5) counts them.
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
 | tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on |
+| sessionMarks (built-ins only) | a mark on an agent's row for where it runs something of the built-in's (a machine) |
+| branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync) |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell asks for "the changes" or "the
 checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so

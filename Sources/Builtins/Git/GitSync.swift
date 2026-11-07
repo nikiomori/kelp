@@ -1,24 +1,35 @@
 import Core
 import Foundation
+import KelpKit
 
-/// Pull, push and fetch of a workspace's branch, started from the window bar. `AppModel.syncing` says what runs, so the
-/// branch chip shows it after the popover that started it has closed; the git watch reads again when it ends.
+/// What runs on each workspace's branch now ("Pushing…"), by worktree id: the branch chip shows it after the popover that
+/// started it has closed. The app's one, as a part (`AppModel.part`).
+@MainActor
+@Observable
+final class SyncState {
+    var running: [String: String] = [:]
+}
+
+/// Pull, push and fetch of a workspace's branch, started from the window bar (`BranchActions`): `SyncState` says what
+/// runs, and the git watch reads again when it ends.
 @MainActor
 enum GitSync {
+    static func state(_ app: AppModel) -> SyncState { app.part { SyncState() } }
+
     /// Runs `ops` (pull | push | fetch) one after another and stops at the first failure: its message, else nil. A push
     /// starts CI: the branch chip looks for its run now.
     static func run(_ app: AppModel, _ wid: String, _ ops: [String]) async -> String? {
         defer {
-            app.syncing[wid] = nil
+            state(app).running[wid] = nil
             app.watchAgain(.git, wid)
         }
         for op in ops {
-            app.syncing[wid] =
+            state(app).running[wid] =
                 op == "push"
                 ? String(localized: "Pushing…")
                 : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…")
             if let error = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return error }
-            if op == "push" { app.watchAgain(.ci, app.rowBadges.folder(of: wid)?.id ?? wid) }
+            if op == "push" { app.watchAgain(.ci, app.gitFolder(of: wid)?.id ?? wid) }
         }
         return nil
     }

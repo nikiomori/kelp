@@ -90,6 +90,15 @@ extension Builtins {
                 remote(app, panel, "fetch", String(localized: "Fetched")) { $0.fetchPressed() }
             }
         ]
+        // The window bar's branch chip: what runs, its popover, and a pull a merged PR asks for.
+        contributions.branch = BranchActions(
+            running: { GitSync.state(app).running[$0] },
+            popover: { worktree, popover in
+                let controller = SyncPopover(app: app, worktree: worktree)
+                controller.popover = popover
+                return controller
+            },
+            sync: { await GitSync.run(app, $0, $1) })
         return contributions
     }
 }

@@ -238,3 +238,10 @@ extension RowBadges {
         branches = now
     }
 }
+
+extension AppModel {
+    /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace of a project) the project's.
+    package func gitFolder(of workspace: String?) -> Worktree? { rowBadges.folder(of: workspace) }
+    /// The folder's CI runs: its panel, else the failed run's page.
+    package func openCI(_ folder: String) { rowBadges.openCI(folder) }
+}

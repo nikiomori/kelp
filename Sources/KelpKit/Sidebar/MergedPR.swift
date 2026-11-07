@@ -82,7 +82,9 @@ struct MergedPR {
         }
         Task { [app] in
             guard await app.call(GitSwitch(id: worktree.id, branch: base)) != nil else { return }
-            if let error = await GitSync.run(app, worktree.id, ["pull"]) { Banner.show(error, style: .error) }
+            if let error = await app.extensions.all.branch?.sync(worktree.id, ["pull"]) {
+                Banner.show(error, style: .error)
+            }
         }
     }
 }

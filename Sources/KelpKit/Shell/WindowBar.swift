@@ -27,7 +27,7 @@ final class WindowBar: NSView {
 
     /// Uncommitted changes in the workspace on screen (a dot on the chip), and what a sync running there says.
     private var dirty: Bool { !(app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes ?? []).isEmpty }
-    private var syncing: String? { app.syncing[app.workbench.workspaceId ?? ""] }
+    private var syncing: String? { app.workbench.workspaceId.flatMap { app.extensions.all.branch?.running($0) } }
     private let popover = NSPopover()
     private var closedAt = Date.distantPast
 
@@ -329,8 +329,7 @@ final class WindowBar: NSView {
             return
         }
         guard let wid = worktree?.id, Date().timeIntervalSince(closedAt) > 0.25 else { return }   // else this click closed it
-        let vc = SyncPopover(app: app, worktree: wid)
-        vc.popover = popover
+        guard let vc = app.extensions.all.branch?.popover(wid, popover) else { return }
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = vc

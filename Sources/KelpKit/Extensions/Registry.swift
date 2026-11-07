@@ -235,6 +235,23 @@ package struct TabProvider {
 }
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
+/// What the window bar's branch chip does, from the built-in that knows git (Git): what runs on a workspace's branch now
+/// ("Pushing…"), the popover a click opens, and a pull or push the shell may ask for (a merged PR's "pull the base").
+package struct BranchActions {
+    package let running: @MainActor (_ worktree: String) -> String?
+    package let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
+    package let sync: @MainActor (_ worktree: String, _ ops: [String]) async -> String?
+    package init(
+        running: @escaping @MainActor (String) -> String?,
+        popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
+        sync: @escaping @MainActor (String, [String]) async -> String?
+    ) {
+        self.running = running
+        self.popover = popover
+        self.sync = sync
+    }
+}
+
 /// A mark on a session's row: an SF Symbol and what it says.
 package struct SessionMark: Equatable {
     package let symbol: String, tip: String
@@ -269,6 +286,8 @@ package struct Contributions {
     /// A mark on an agent's sidebar row for where it runs something of the built-in's (a machine): the first that has one
     /// shows, when the row has no goal or command of its own to show. Read under observation: it must not do work.
     package var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
+    /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
+    package var branch: BranchActions?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -351,6 +370,7 @@ package final class ExtensionRegistry {
             merged.languages += c.languages
             merged.sidebarSections += c.sidebarSections
             merged.sessionMarks += c.sessionMarks
+            merged.branch = merged.branch ?? c.branch
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))

@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// What the branch chip opens: one line on where the branch stands against its upstream, the one sync that matters, the
 /// commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays in Source Control.
@@ -21,7 +22,7 @@ final class SyncPopover: NSViewController {
     private let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     private let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView()
     /// The folder whose CI the section shows (a workspace shares its project's): the one the branch chip's mark reads.
-    private var folder: String { app.rowBadges.folder(of: wid)?.id ?? wid }
+    private var folder: String { app.gitFolder(of: wid)?.id ?? wid }
     private let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
         message = NSTextField()
     private let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))
@@ -110,7 +111,7 @@ final class SyncPopover: NSViewController {
 
         // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
         let footer = LinkRow(String(localized: "Open Source Control")) { [weak self] in
-            self?.app.workbench.showPanel(.changes)
+            self?.app.workbench.showPanel("git.changes")
             self?.popover?.performClose(nil)
         }
 
@@ -157,7 +158,7 @@ final class SyncPopover: NSViewController {
             self?.update()
         }
         track(owner: self) { [app, wid] in
-            app.syncing[wid]
+            GitSync.state(app).running[wid]
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -205,7 +206,7 @@ final class SyncPopover: NSViewController {
     // MARK: state
 
     private func update() {
-        let info = app.latest(GitEvent.self, wid)?.branches, running = app.syncing[wid]
+        let info = app.latest(GitEvent.self, wid)?.branches, running = GitSync.state(app).running[wid]
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(
@@ -362,7 +363,7 @@ final class SyncPopover: NSViewController {
                 said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))"
             ) { [weak self] in
                 guard let self else { return }
-                app.rowBadges.openCI(folder)
+                app.openCI(folder)
                 popover?.performClose(nil)
             }
             line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
@@ -421,7 +422,7 @@ final class SyncPopover: NSViewController {
         field.isHidden = changed == 0
         nothing.isHidden = changed > 0
         hint.isHidden = changed == 0 || !hasRemote
-        let blocked = list.contains(where: \.conflicted) || app.syncing[wid] != nil || committing
+        let blocked = list.contains(where: \.conflicted) || GitSync.state(app).running[wid] != nil || committing
         commit.isEnabled = !message.stringValue.trimmingCharacters(in: .whitespaces).isEmpty && !blocked
         message.isEnabled = !committing
     }
@@ -429,7 +430,7 @@ final class SyncPopover: NSViewController {
     // MARK: actions
 
     private func sync(_ ops: [String]) {
-        guard app.syncing[wid] == nil else { return }
+        guard GitSync.state(app).running[wid] == nil else { return }
         let before = app.latest(GitEvent.self, wid)?.branches, ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
         let published = before?.upstream != nil, branch = before?.current ?? "HEAD"
         result = nil
@@ -464,7 +465,7 @@ final class SyncPopover: NSViewController {
         GitFix(app).offer(
             error, recipe: "resolveConflicts", worktree: wid,
             vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
-        app.workbench.showPanel(.changes)
+        app.workbench.showPanel("git.changes")
     }
 
     /// Git's message in a few lines: the pieces of a long push or pull report that say why.
@@ -494,14 +495,8 @@ final class SyncPopover: NSViewController {
                 app.watchAgain(.git, wid)
                 update()
             }
-            // Read now, not from the last push: unread, nothing would look staged and every change would go in.
-            guard let status = await app.call(GitStatus(id: wid)) else { return }
-            let all = !status.contains { $0.staged && !$0.conflicted }
-            let result = await app.tryCall(GitCommit(id: wid, message: text, all: all))
-            if let error = result.error {
-                GitFix(app).offer(error, recipe: "fixCommit", worktree: wid)
-                return
-            }
+            // Source Control's commit, the one way to commit: what's staged, else every change; a failure offers a fix.
+            guard await GitCommit.run(app, wid, message: text, push: false, amend: false).committed else { return }
             message.stringValue = ""
             if thenPush {
                 committing = false

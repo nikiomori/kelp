@@ -59,8 +59,6 @@ package final class AppModel {
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
     /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
     @ObservationIgnored private var sessionAt: [String: Int]?
-    /// A pull, push or fetch running in a workspace, by worktree id: what it says ("Pushing…"). See `GitSync`.
-    var syncing: [String: String] = [:]
     @ObservationIgnored var forecast = LimitForecast()   // the pace of each limit, from the readings pushed so far
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
