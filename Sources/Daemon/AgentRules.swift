@@ -62,7 +62,7 @@ extension Sessions {
     func works(_ own: String, in w: String) throws -> Bool {
         let line = try lineage(own)
         if line.contains(where: { $0.worktreeId == w }) { return true }
-        if let maker = try store.worktree(w)?.madeBy, line.contains(where: { $0.id == maker }) { return true }
+        if let maker = try store.worktree(w)?.madeBy, line.contains(where: { $0.id == maker || Caller.typed + $0.id == maker }) { return true }
         return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
     }
 

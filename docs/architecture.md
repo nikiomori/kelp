@@ -248,13 +248,14 @@ done or asking.
 terminal it or a parent of it has, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd
 itself started (an extension's command or event, a repository's git hook, whatever they left running: kelpd leads its
 own process session, where it can); `unknown` for one gone before it could be read. It's the user's when Kelp can tell:
-Kelp's window and its terminals, a terminal of Kelp's no agent is on the line of nor running in the foreground (an
-agent typed in by hand counts as one while it runs, by the name it was run as), a program that came from a system
+Kelp's window and its terminals, a terminal of Kelp's no agent is on the line of, a program that came from a system
 service (an ancestor of another account that isn't a setuid program: `sshd`, cron; not `login`, which anyone can start),
 or from an app that isn't a Kelp (Terminal, iTerm and its session server, an editor). The rest is `detached`, held to
 an agent's rules: what left its terminal and every such ancestor behind (a double fork with `setsid`, `script` in the
 background, `tmux new -d`, a launchd job), and a terminal Kelp can't trace to the user (`mosh-server`, a `screen`
-reattached, a tmux server on a socket folder of its own). Agents, `kelpd`, `unknown` and
+reattached, a tmux server on a socket folder of its own). Whatever runs under a known agent's program (by the name it
+was run as, or the script an interpreter runs: `node …/codex`) is that agent's, in any terminal: one the user typed in by
+hand is held to an agent's rules as its terminal's session (`Caller.typedAgent`), and so is what it starts (`typed:`). Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,

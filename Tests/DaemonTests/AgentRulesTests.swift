@@ -350,14 +350,39 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(Callers.tmuxSocket(["tmux", "new", "-s", "x", "ssh", "-L", "8080:h:80", "host"]) == [])
 }
 
-/// An agent typed into a plain terminal by hand is an agent's while it runs there: its program (by the name it was run
-/// as) in the terminal's foreground holds what that terminal sends to an agent's rules; once it ends, the shell's the user's.
+/// A program run under an agent the user typed into a plain terminal by hand is that agent's, held to its rules as
+/// that terminal's: by the name the agent was run as, or the script its interpreter runs (`node …/codex`). The shell's
+/// own programs beside it stay the user's.
 @Test func anAgentTypedIntoAPlainTerminalIsHeldToItsRules() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    let term = try await session(r, "exec /bin/zsh -f -i")
-    #expect(try !r.d.sessions.forAnAgent(term.id))
-    _ = try await r.c.call(SessionWrite(id: term.id, text: "(exec -a claude /bin/sleep 30)\n"))
-    #expect(try await waitFor(10) { try r.d.sessions.forAnAgent(term.id) })
-    _ = try await r.c.call(SessionWrite(id: term.id, text: "\u{3}"))   // ^C: the shell has its terminal back
-    #expect(try await waitFor(10) { try !r.d.sessions.forAnAgent(term.id) })
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ta-\(UUID().uuidString.prefix(6))")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let codex = dir.appendingPathComponent("codex"), out = dir.appendingPathComponent("pids")
+    // `claude` and `python3`: a shell by those names (a link's name is the name it runs as), and `codex` a script it runs.
+    for name in ["claude", "python3"] { try FileManager.default.createSymbolicLink(atPath: dir.appendingPathComponent(name).path, withDestinationPath: "/bin/zsh") }
+    try "sleep 30 & echo $! >> \(out.path); wait\n".write(to: codex, atomically: true, encoding: .utf8)
+    let script = "\(dir.path)/claude -c 'sleep 30 & echo \\$! >> \(out.path); wait' & "
+        + "\(dir.path)/python3 \(codex.path) & "
+        + "sleep 30 & echo \\$! >> \(out.path); wait"
+    let term = try await session(r, "exec /bin/zsh -c \"\(script)\"")
+    #expect(try await waitFor(10) { (try? String(contentsOf: out, encoding: .utf8))?.split(separator: "\n").count == 3 })
+    let pids = try String(contentsOf: out, encoding: .utf8).split(separator: "\n").compactMap { pid_t($0) }
+    let seen = pids.map { r.d.sessions.callers.session(running: $0) }
+    #expect(seen.filter { $0 == .typedAgent(term.id) }.count == 2, "\(seen)")
+    #expect(seen.contains(.session(term.id)), "\(seen)")   // the shell's own
+}
+
+/// What an agent typed into a terminal by hand starts is held to its rules too, and stays that agent's to drive: its
+/// line goes on to the terminal it was typed into.
+@Test func whatATypedAgentStartsIsHeldToItsRules() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let term = try await session(r, "cat")
+    var started = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", agent: nil, title: "", titleManual: false, argv: ["cat"])
+    started.origin = Caller.typedAgent(term.id).origin
+    try r.d.sessions.store.save(started)
+    #expect(try !r.d.sessions.forAnAgent(term.id))   // the terminal itself: the user's, but for what runs under the agent
+    #expect(try r.d.sessions.forAnAgent(started.id))
+    #expect(try r.d.sessions.lineage(started.id).contains { $0.id == term.id })
+    #expect(throws: Never.self) { try r.d.allow(SessionKill(id: started.id), conn: 0, caller: .typedAgent(term.id)) }
 }

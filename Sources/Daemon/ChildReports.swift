@@ -78,27 +78,18 @@ extension Sessions {
         var line: [Session] = [], next: String? = id
         while let n = next, !Caller.marks.contains(n), line.count < 32, !line.contains(where: { $0.id == n }), let s = try store.session(n) {
             line.append(s)
-            next = s.parent ?? s.startedBy ?? s.origin
+            next = (s.parent ?? s.startedBy ?? s.origin).map { $0.hasPrefix(Caller.typed) ? String($0.dropFirst(Caller.typed.count)) : $0 }
         }
         return line
-    }
-
-    /// The programs of the agents Kelp knows (its presets'), by name.
-    static var agentPrograms: Set<String> {
-        Set(AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map { URL(fileURLWithPath: $0.command).lastPathComponent })
     }
 
     /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (it stops at a
     /// mark, `Caller.marks`, or at a session that's gone), which can't be told from an agent's.
     func forAnAgent(_ id: String) throws -> Bool {
-        // An agent typed into a plain terminal by hand: its program in the terminal's foreground (until it ends, the shell
-        // gets nothing typed, so nothing of the user's runs there meanwhile).
-        // By the name it was run as (`claude`), not its file's (Claude Code's is its version).
-        if let pg = existing(id)?.pty.foregroundGroup, let run = Subprocess.arguments(pg)?.first,
-           Self.agentPrograms.contains(URL(fileURLWithPath: run).lastPathComponent) { return true }
         let line = try lineage(id)
         let cameFrom = line.last.flatMap { $0.parent ?? $0.startedBy ?? $0.origin }
-        return line.contains(where: \.isAgent) || cameFrom != nil
+        let typed = line.contains { $0.origin?.hasPrefix(Caller.typed) == true }   // started by an agent the user typed in
+        return line.contains(where: \.isAgent) || cameFrom != nil || typed
     }
 
     /// The parent of `create`, if it makes one: an agent's, and of an agent. A shell or a test run has no input to report to:

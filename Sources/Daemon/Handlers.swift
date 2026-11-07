@@ -160,9 +160,9 @@ extension Daemon {
     /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
     /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook), one gone
     /// before it was looked at and one Kelp can't tell for the user's (`Caller.detached`) are held to the same with no
-    /// session of their own. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md):
-    /// a program that has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run;
-    /// an agent typed into a plain terminal by hand counts as that terminal.
+    /// session of their own; one under an agent the user typed into a terminal (`Caller.typedAgent`) as that terminal's
+    /// agent. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md): a program that
+    /// has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run.
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ m: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
@@ -172,6 +172,9 @@ extension Daemon {
         case .session(let own):
             if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
             guard try sessions.forAnAgent(own) else { return }
+            try allowAgent(m, own: own)
+        case .typedAgent(let own):
+            if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
             try allowAgent(m, own: own)
         case .unknown:
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its

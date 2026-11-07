@@ -170,10 +170,16 @@ public enum Subprocess {
 
     /// Its arguments (argv, its program first), of a process of the same user; nil for another's, or none.
     public static func arguments(_ pid: pid_t) -> [String]? {
-        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid], size = 0
-        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return nil }
+        // 16 KB holds a program's arguments (and the environment after them, cut short, unread); the system's most only
+        // when it doesn't: asked of every program on a caller's line, it shouldn't take a megabyte each.
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid], size = 16384
         var buf = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0, size > 4 else { return nil }
+        if sysctl(&mib, 3, &buf, &size, nil, 0) != 0 {
+            guard errno == ENOMEM, sysctl(&mib, 3, nil, &size, nil, 0) == 0 else { return nil }
+            buf = [UInt8](repeating: 0, count: size)
+            guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0 else { return nil }
+        }
+        guard size > 4 else { return nil }
         let argc = Int(buf.withUnsafeBytes { $0.load(as: Int32.self) })
         // argc, then the program's path, NULs, then argv: argc strings, NUL-ended.
         var i = 4

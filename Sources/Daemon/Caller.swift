@@ -6,6 +6,9 @@ enum Caller: Hashable, Sendable {
     case user
     /// A program in that session's process tree, or its terminal: held to an agent's rules when an agent is on its line.
     case session(String)
+    /// A program run under an agent the user started by hand in that session's terminal (`claude` typed into a shell):
+    /// held to an agent's rules as that session's, whatever the session is.
+    case typedAgent(String)
     /// A program this daemon started (an extension's command or event, a repo's git hook, what they leave running), or
     /// one on a connection that hung up: whoever wrote it, it acts on no session and answers no question.
     case kelpd
@@ -17,6 +20,10 @@ enum Caller: Hashable, Sendable {
     /// agent's rules.
     case detached
 
+    /// What a session started under an agent typed in by hand records before the terminal's id (`typed:<id>`): its line
+    /// goes on to that terminal's session (`lineage`), and is held to an agent's rules (`forAnAgent`).
+    static let typed = "typed:"
+
     /// The marks `origin` records for a caller with no session: never a session's id (a UUID), and where a line stops.
     static let marks: Set<String> = [Sessions.ownProgram, Sessions.unknown, Sessions.detached]
 
@@ -26,6 +33,7 @@ enum Caller: Hashable, Sendable {
         switch self {
         case .user: nil
         case .session(let id): id
+        case .typedAgent(let id): Self.typed + id
         case .kelpd: Sessions.ownProgram
         case .unknown: Sessions.unknown
         case .detached: Sessions.detached

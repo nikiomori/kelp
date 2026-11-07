@@ -1,13 +1,15 @@
 import Foundation
 import os
 import Core
+import Agents
 
 /// Who a call comes from (`Caller`), by the process on the connection: what `Daemon.allow` lets it do goes by this.
 /// The user's when Kelp can tell it's theirs: Kelp's window and its terminals, a terminal of Kelp's no agent is on the line
 /// of, or a program that came from a system service (an ancestor of another account that isn't a setuid program: `sshd`,
 /// cron) or from an app that isn't a Kelp (Terminal, iTerm, an editor). Anything else is held to an agent's rules: a
 /// program that left its terminal and every such ancestor behind (a double fork with `setsid`, `script` in the
-/// background, `tmux new -d`, a launchd job). This fences an agent's slips and one steered into such a command; one set on
+/// background, `tmux new -d`, a launchd job), and whatever runs under a known agent's program, one the user typed in by
+/// hand included (`Caller.typedAgent`). This fences an agent's slips and one steered into such a command; one set on
 /// getting around it can (a cron line of its own, a bundle of its own, an app it starts): docs/architecture.md.
 extension Sessions {
     /// What a session started by `Caller.kelpd` records as its origin, and so its line (`lineage`): one that breaks off.
@@ -36,24 +38,50 @@ final class Callers: Sendable {
         guard pid != getpid() else { return .user }
         let mine = Dictionary(live.all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
         let strict = self.strict.withLock { $0 }
-        var p = pid, chain: [pid_t] = []
+        var p = pid, chain: [pid_t] = [], underAgent = false
+        // Under an agent the user ran by hand (`claude` typed in a shell, a tmux pane, Terminal): that agent's, not theirs.
+        func of(_ id: String) -> Caller { underAgent ? .typedAgent(id) : .session(id) }
         for _ in 0..<64 {
-            if let id = mine[p] { return .session(id) }
-            // Under kelpd but in none of its sessions: its own (a test's in-process daemon is the test, whose programs are the user's).
-            if Subprocess.isRunning(p) || strict && p == getpid() { return .kelpd }
+            if let id = mine[p] { return of(id) }
+            if Subprocess.isRunning(p) { return .kelpd }
+            // Under kelpd but in none of its sessions: its own; what kelpd came from isn't looked at (a test's in-process
+            // daemon is the test, whose programs are the user's, whatever ran the test).
+            if p == getpid() { return strict ? .kelpd : underAgent ? .detached : .user }
             chain.append(p)
+            if !underAgent, Self.runsAnAgent(p) { underAgent = true }
             guard let up = Subprocess.parent(p), up > 1, up != p else { break }
             p = up
         }
         let ttys = Set(chain.compactMap(Subprocess.terminal))
-        if let s = live.all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) { return .session(s.snapshot.id) }
+        if let s = live.all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) { return of(s.snapshot.id) }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
         if throughTmux, let server = chain.last, Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
-            return tmuxCaller(pid, server: server, pane: chain.dropLast().last ?? pid) ?? .detached
+            switch tmuxCaller(pid, server: server, pane: chain.dropLast().last ?? pid) {
+            case .session(let id): return of(id)
+            case .user: return underAgent ? .detached : .user
+            case let c?: return c
+            case nil: return .detached
+            }
         }
-        guard strict else { return .user }
-        return chain.dropFirst().contains { Self.cameFromTheUser($0) } ? .user : .detached
+        guard strict else { return underAgent ? .detached : .user }
+        return !underAgent && chain.dropFirst().contains { Self.cameFromTheUser($0) } ? .user : .detached
+    }
+
+    /// The programs of the agents Kelp knows (its presets'), by the name they're run as.
+    static var agentPrograms: Set<String> {
+        Set(AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map { URL(fileURLWithPath: $0.command).lastPathComponent })
+    }
+
+    /// Whether `pid` is one of those: by the name it was run as (`claude`, whose file is named for its version), or the
+    /// script an interpreter runs (`node …/codex`, `python3 …/aider`).
+    static func runsAnAgent(_ pid: pid_t) -> Bool {
+        let agents = agentPrograms
+        func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
+        guard let argv = Subprocess.arguments(pid), let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent }) else { return false }
+        guard interpreter(first) else { return agents.contains(first) }
+        let script = argv.dropFirst().first { !$0.hasPrefix("-") }.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
+        return script.map(agents.contains) == true
     }
 
     /// An ancestor that only the user's own login or an app starts: Kelp's window (its terminals' `kelp attach`), one of
