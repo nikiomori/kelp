@@ -49,6 +49,8 @@ protocol Answered: RPCMethod {
     /// Words it leaves for another to read (a review comment), whose author is `reportsFor`'s: an agent names its session,
     /// or they would read as the user's.
     var signs: Bool { get }
+    /// The project it makes something in (a workspace): one the agent works in, not any of the user's.
+    var makesInProject: String? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -64,6 +66,7 @@ extension Answered {
     var typesInto: String? { nil }
     var shows: String? { nil }
     var signs: Bool { false }
+    var makesInProject: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -235,11 +238,14 @@ extension Daemon {
                 throw RPCError.refused("An agent acts only on its own session and the sessions it started.")
             }
         }
-        // Every workspace a call that acts names, whatever the field: not each method remembering to say (`inWorkspace`
-        // says it for one named some other way, by a path or a name).
+        // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
+        // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
         let workspaces = Set([m.inWorkspace].compactMap { $0 } + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: m)))
         for w in workspaces where try !sessions.works(own, in: w, typed: typed) {
             throw RPCError.refused("An agent works only in its own workspace.")
+        }
+        if let r = m.makesInProject, try !sessions.store.worktrees(repo: r).contains(where: { try sessions.works(own, in: $0.id, typed: typed) }) {
+            throw RPCError.refused("An agent makes workspaces only in the project it works in.")
         }
         if let e = m.ends, try sessions.ending(e).contains(where: { s in try (typed || s != own) && !reaches(s) }) {
             throw RPCError.refused("An agent ends only its own sessions and the ones it started.")

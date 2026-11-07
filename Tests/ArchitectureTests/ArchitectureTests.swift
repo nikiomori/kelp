@@ -398,7 +398,7 @@ private func codeOnly(_ s: String) -> String {
 /// `RPCMethod`): one spelled with another type (`static let timeout: TimeInterval` for `TimeInterval?`) compiles as a
 /// property of its own, and the default answers instead, quietly. Each is spelled as its requirement is.
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
-    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto|shows"
+    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto|shows|makesInProject"
     var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|signs|ends)\b"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bvar (?:answersQuestion|signs)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
@@ -410,7 +410,7 @@ private func codeOnly(_ s: String) -> String {
 /// A gate misspelled (`var inWorkpace`) is a property of its own, and the protocol's default answers in its place: no
 /// property in the daemon is named one or two letters off a gate's name.
 @Test func noPropertyIsNamedNearlyLikeAGate() throws {
-    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto", "shows", "signs",
+    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto", "shows", "signs", "makesInProject",
                  "inOrder", "quick", "timeout"]
     func distance(_ a: String, _ b: String) -> Int {
         let a = Array(a.lowercased()), b = Array(b.lowercased())

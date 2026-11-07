@@ -1,5 +1,6 @@
 import Foundation
 import Core
+import GRDB
 import GitKit
 
 // Source control, files and review comments: everything runs here, off the UI.
@@ -234,7 +235,6 @@ extension FilesSearch: Handled {
 extension CommentAdd: Handled {
     var reportsFor: String? { session }   // a comment names its own session's agent as author, not another's
     var signs: Bool { true }
-    var inWorkspace: String? { id }   // a review is of an agent's own workspace's code
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
         // A path is one line: one with a break in it would be drawn under no file, and sent as lines of its own.
         guard !file.contains(where: { $0.isNewline || $0.asciiValue.map { $0 < 0x20 } == true }) else {
@@ -271,7 +271,6 @@ extension CommentSetState: Handled {
 extension CommentSend: Handled {
     var actsOn: String? { session }   // it types, with Enter: an agent sends only to itself and the sessions it started
     var typesInto: String? { session }   // a send (`SessionSend`, whose handler it calls past `allow`): not into a question
-    var inWorkspace: String? { id }   // its own workspace's comments: sent ones leave the user's open list
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
@@ -280,10 +279,19 @@ extension CommentSend: Handled {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
         let wanted = only.map(Set.init)
-        let open = try workspaces.store.comments(worktree: w.id).filter { $0.state == .open && wanted?.contains($0.id) != false }
+        // Taken as it's marked sent, in one write: a second send at once (a double click, the CLI beside the window) finds
+        // none of these open and types them in no second time. Put back if the send fails.
+        let open = try workspaces.store.db.write { db -> [DiffComment] in
+            let open = try DiffComment.filter(Column("worktreeId") == w.id).fetchAll(db)
+                .filter { $0.state == .open && wanted?.contains($0.id) != false }
+            for var c in open { c.state = .sent; try c.update(db) }
+            return open
+        }
         guard !open.isEmpty else { return 0 }
-        _ = try SessionSend(id: session, text: Self.message(branch: w.branch, comments: open)).handle(workspaces.sessions)
-        for var c in open { c.state = .sent; try workspaces.store.save(c) }
+        do { _ = try SessionSend(id: session, text: Self.message(branch: w.branch, comments: open)).handle(workspaces.sessions) } catch {
+            try workspaces.store.db.write { db in for c in open { try c.update(db) } }   // open, as they were
+            throw error
+        }
         return open.count
     }
 

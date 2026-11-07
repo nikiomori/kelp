@@ -65,9 +65,9 @@ final class Slots: Sendable {
         let end = Date().addingTimeInterval(seconds)
         while busy, Date() < end { usleep(50_000) }
     }
-    /// A slot is held here or by a wake (`runNow`: it starts programs too).
-    private var busy: Bool { state.withLock { $0.held > 0 } || nowSlots?.busy == true
-    }
+    /// A slot is held here, by a wake (`runNow`: it starts programs too) or by a quick handler (a report: its reply would
+    /// be lost to an update's exec).
+    private var busy: Bool { state.withLock { $0.held > 0 } || nowSlots?.busy == true || quickSlots?.busy == true }
 
     /// `work` on a thread of its own once it has a slot (`Daemon.offload`); `quick`, at once, with no slot and no program.
     func run<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {

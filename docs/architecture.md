@@ -268,7 +268,9 @@ app runs calls Kelp as the user. Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
-`Worktree.madeBy`; any workspace id a call that acts names counts, `AgentRules.reads` aside), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
+`Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
+and one named another way, by the window or a path, says so with `inWorkspace`), make workspaces only in the project
+they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
 user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, or "trust this
 folder?" or a numbered menu on screen: `LiveSession.asksSomething`; a question Kelp can't read on screen it can't keep
 an agent's keys from); only a session speaks for itself.

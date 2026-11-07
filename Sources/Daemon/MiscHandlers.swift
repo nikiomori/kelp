@@ -21,7 +21,6 @@ extension GitDiscardHunk: Handled {
 }
 
 extension WorktreeNote: Handled {
-    var inWorkspace: String? { id }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else { throw RPCError.invalidParams("no worktree") }
         workspaces.notify(ChangedEvent.worktree); return Done()

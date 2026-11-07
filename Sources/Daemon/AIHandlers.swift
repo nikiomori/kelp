@@ -39,7 +39,6 @@ extension Sessions {
 }
 
 extension SessionMove: Handled {
-    var inWorkspace: String? { worktreeId }
     func handle(_ sessions: Sessions) throws -> Done {
         guard let to = try sessions.store.worktree(worktreeId), !to.archived else { throw RPCError.invalidParams("no worktree") }
         try sessions.wakeLocks.withLock(id) {

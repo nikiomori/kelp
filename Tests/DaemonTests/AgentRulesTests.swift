@@ -475,6 +475,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, WorktreeNote(id: userMade.id, note: "x"), false, "not in one the user made from its terminal"),
         (.session(mine.id), WorktreeNote(id: elsewhere.id, note: "x"), false, "what acts is held to its own workspaces"),
         (.session(mine.id), GitStatus(id: elsewhere.id), true, "what only reads may look at any"),
+        (.session(mine.id), WorktreeCreate(repoId: r.repo.id, branch: "n"), true, "a workspace in its own project"),
+        (.session(mine.id), WorktreeCreate(repoId: "another", branch: "n"), false, "not in another project"),
         (.detached, font, true, "a detached caller is held to an agent's rules: a look it may set"),
         (.detached, phone, false, "the user's settings it may not"),
         (.detached, SessionKill(id: term.id), false, "nor end the user's terminal"),

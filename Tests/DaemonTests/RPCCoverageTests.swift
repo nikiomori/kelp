@@ -487,4 +487,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor(10) { try w.d.store.session(s.id)?.status == .paused })
     let late: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 3, text: "while paused"))
     #expect(try await c.call(CommentSend(id: wt.id, session: s.id, only: [late.id])) == 1)
+    // Two sends at once (a double click): the comment goes once.
+    let twice: DiffComment = try await c.call(CommentAdd(id: wt.id, file: "a.txt", start: 4, text: "only once"))
+    async let first = c.call(CommentSend(id: wt.id, session: s.id, only: [twice.id]))
+    async let second = c.call(CommentSend(id: wt.id, session: s.id, only: [twice.id]))
+    #expect(try await first + second == 1)
 }

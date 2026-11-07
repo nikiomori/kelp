@@ -89,6 +89,7 @@ extension RepoRemove: Handled {
 }
 
 extension WorkspaceCreate: Handled {
+    var makesInProject: String? { repoId }
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         var w = try workspaces.createWorkspace(in: r)
@@ -99,6 +100,7 @@ extension WorkspaceCreate: Handled {
 }
 
 extension WorktreeCreate: Handled {
+    var makesInProject: String? { repoId }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let r = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         // Its git would run on this Mac, not the host: a remote project's workspaces all share its folder.
@@ -173,7 +175,6 @@ extension WorktreeList: Handled {
 
 extension WorktreeArchive: Handled {
     var ends: Ending? { .workspace(id) }
-    var inWorkspace: String? { id }   // one with no sessions ends none: still not another's to put away
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
         try workspaces.archive(w, r); return Done()
@@ -182,7 +183,6 @@ extension WorktreeArchive: Handled {
 
 extension WorktreeRemove: Handled {
     var ends: Ending? { .workspace(id) }
-    var inWorkspace: String? { id }   // one with no sessions ends none: still not another's to remove
     var notForAgents: String? { force == true || dropCommits == true ? "Only the user removes a workspace with its changes or commits." : nil }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let w = try workspaces.store.worktree(id), let r = try workspaces.store.repo(w.repoId) else { throw RPCError.invalidParams("no worktree") }
