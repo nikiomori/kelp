@@ -25,12 +25,12 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
 @Test func theKernelSaysWhichPortsAProcessListensOn() throws {
     let on = try socket(listening: true), off = try socket(listening: false)
     defer { close(off.fd) }   // `on` is closed below, once: closed twice, the second could take another's fd (a guarded one ends the process)
-    let ports = Sessions.listening(getpid())
+    let ports = SessionProcesses.listening(getpid())
     #expect(ports.contains(on.port))
     #expect(!ports.contains(off.port))   // bound, nobody can connect yet
     close(on.fd)
-    #expect(!Sessions.listening(getpid()).contains(on.port))
-    #expect(Sessions.listening(-1).isEmpty)   // a process that's gone
+    #expect(!SessionProcesses.listening(getpid()).contains(on.port))
+    #expect(SessionProcesses.listening(-1).isEmpty)   // a process that's gone
 }
 
 @Test func aHostsListenersAreReadFromSSAndTheFolderDecides() throws {

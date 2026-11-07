@@ -79,12 +79,12 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 
 @Test func onlyANativeInstallOnAnotherVersionIsOutdated() {
     let versions = "/Users/me/.local/share/claude/versions"
-    #expect(Sessions.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.315"))
-    #expect(!Sessions.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.314"))
+    #expect(AgentUpdates.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.315"))
+    #expect(!AgentUpdates.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.314"))
     #expect(
-        !Sessions.outdated(
+        !AgentUpdates.outdated(
             running: "/opt/homebrew/Caskroom/claude-code/2.1.314/claude",
             installed: "/opt/homebrew/Caskroom/claude-code/2.1.315/claude"))
-    #expect(!Sessions.outdated(running: "/usr/bin/ssh", installed: "\(versions)/2.1.315"))
-    #expect(!Sessions.outdated(running: nil, installed: "\(versions)/2.1.315"))
+    #expect(!AgentUpdates.outdated(running: "/usr/bin/ssh", installed: "\(versions)/2.1.315"))
+    #expect(!AgentUpdates.outdated(running: nil, installed: "\(versions)/2.1.315"))
 }

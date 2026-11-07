@@ -295,9 +295,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(shell.cwd == a.path)
     // Resumed from History once its empty folder was swept: in that folder again, on the No Project row.
     try FileManager.default.removeItem(atPath: one.cwd)
-    let back = try w.d.sessions.resumePlace(one.cwd, worktreeId: nil)
+    let back = try w.d.sessions.setup.resumePlace(one.cwd, worktreeId: nil)
     #expect(back.cwd == one.cwd && back.worktreeId == a.id && FileManager.default.fileExists(atPath: one.cwd))
-    #expect(try w.d.sessions.resumePlace(one.cwd, worktreeId: a.id).cwd == one.cwd)   // not the scratch folder itself
+    #expect(try w.d.sessions.setup.resumePlace(one.cwd, worktreeId: a.id).cwd == one.cwd)   // not the scratch folder itself
     // A folder picked for the chat ("New Chat in Folder…") is used as it is.
     let picked = try makeRepo()
     #expect(try await w.c.call(SessionCreate(cwd: picked, worktreeId: a.id, agent: "sleepy")).cwd == picked)
@@ -393,9 +393,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func agentVersionsAreTheFirstSemver() throws {
-    #expect(Sessions.semver("claude 2.1.3 (Claude Code)") == "2.1.3")
-    #expect(Sessions.semver("codex-cli v0.4.12-beta") == "0.4.12")
-    #expect(Sessions.semver("version 3.1") == nil && Sessions.semver("") == nil)
+    #expect(AgentsVersions.semver("claude 2.1.3 (Claude Code)") == "2.1.3")
+    #expect(AgentsVersions.semver("codex-cli v0.4.12-beta") == "0.4.12")
+    #expect(AgentsVersions.semver("version 3.1") == nil && AgentsVersions.semver("") == nil)
 }
 
 /// A program in one session reports only that session's status: an agent can't mark another one done or asking. From
@@ -494,7 +494,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { d.stop() }
     _ = try await client(w.root).call(GitUndoDiscard(id: wt.id, undo: "u"))
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
-    #expect((try? FileManager.default.contentsOfDirectory(atPath: d.workspaces.discards.path))?.isEmpty != false)
+    #expect((try? FileManager.default.contentsOfDirectory(atPath: d.sourceControl.discards.path))?.isEmpty != false)
 }
 
 @Test func discardHunkOnlyWhatWasShown() async throws {

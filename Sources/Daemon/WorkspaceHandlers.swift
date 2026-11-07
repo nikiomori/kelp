@@ -119,7 +119,7 @@ extension WorkspaceCreate: Handled {
             workspace.madeBy = asker
             try workspaces.store.save(workspace)
         }
-        workspaces.sessions.workspaceAdded(workspace)
+        workspaces.sessions.events.workspaceAdded(workspace)
         return workspace
     }
 }
@@ -192,7 +192,7 @@ extension WorktreeCreate: Handled {
                 for tab in cfg.tabs {
                     do {
                         _ = try workspaces.sessions.spawn(
-                            cwd: path, manifest: workspaces.sessions.manifest(tab, command: nil),
+                            cwd: path, manifest: workspaces.sessions.setup.manifest(tab, command: nil),
                             worktreeId: workspace.id)
                     } catch { Log.session.error(".kelp.yaml tab \(tab, privacy: .public) didn't start: \(error)") }
                 }
@@ -209,7 +209,7 @@ extension WorktreeCreate: Handled {
             result.setupSession = session.id
         }
         workspaces.notify(ChangedEvent.worktree)
-        workspaces.sessions.workspaceAdded(result.worktree)
+        workspaces.sessions.events.workspaceAdded(result.worktree)
         return result
     }
 }
@@ -287,7 +287,7 @@ extension WorktreeRemove: Handled {
         // Its sessions' turn refs live in the project's repository: dropped there, once the folder is gone. Not before:
         // a removal that fails keeps the workspace, and its turns keep their snapshots.
         for session in try workspaces.store.sessions() where session.worktreeId == workspace.id {
-            workspaces.sessions.dropTurnRefs(of: session.id, in: repo.path)
+            workspaces.sessions.turns.dropRefs(of: session.id, in: repo.path)
         }
         workspaces.sessions.discard(try workspaces.store.sessions().filter { $0.worktreeId == workspace.id })
         try workspaces.store.delete(workspace)

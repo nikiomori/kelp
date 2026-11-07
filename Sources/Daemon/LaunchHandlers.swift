@@ -5,20 +5,6 @@ import Foundation
 import GitKit
 import Integrations
 
-extension Sessions.Launch {
-    init(_ options: some LaunchOptions) {
-        self.init()
-        model = options.model
-        effort = options.effort
-        prompt = options.prompt
-        title = options.title
-        profile = options.profile
-        draft = options.draft == true
-        openURLs = options.openURLs == true
-        (cols, rows) = Self.size(cols: options.cols, rows: options.rows)
-    }
-}
-
 extension SessionCreate: Handled {
     var inWorkspace: String? { worktreeId }   // said, not left to the walk: a session made there would let an agent into it
     /// A tmux session by name would attach to one of the user's (`new-session -A`), and type in it as the agent.
@@ -56,7 +42,8 @@ extension SessionCreate: Handled {
             launch.argv = Tmux.argv(Tmux.own())
         }
         return try sessions.spawn(
-            cwd: dir, manifest: sessions.manifest(tmux == nil ? agent : "shell", command: tmux == nil ? command : nil),
+            cwd: dir,
+            manifest: sessions.setup.manifest(tmux == nil ? agent : "shell", command: tmux == nil ? command : nil),
             worktreeId: worktreeId, launch)
     }
 }
@@ -91,7 +78,7 @@ extension SessionRestart: Handled {
     }
 
     private func start(after old: Session, _ sessions: Sessions, owed: [OwedInput]) throws -> Session {
-        let manifest = try sessions.manifest(old.agent, command: nil, fallbackArgv: old.argv)
+        let manifest = try sessions.setup.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var launch = Sessions.Launch(self)
         launch.title = old.titleManual ? old.title : nil
         launch.parent = old.parent
@@ -102,12 +89,20 @@ extension SessionRestart: Handled {
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
         if resume != false { launch.tmux = old.tmux }
         // The new session pins an id of its own, never the old one's.
-        launch.argv = Sessions.withoutSessionId(
-            resume != false ? sessions.resumeArgv(old, manifest) : old.argv, flag: manifest.sessionIdFlag)
+        launch.argv = Self.withoutSessionId(
+            resume != false ? sessions.setup.resumeArgv(old, manifest) : old.argv, flag: manifest.sessionIdFlag)
         let session = try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
         try sessions.passChildren(of: old.id, to: session.id, owed: owed)
         sessions.discard(old, keepTmux: old.tmux == nil || resume != false)   // its exit, still to come, doesn't save it again
         return session
+    }
+
+    /// argv without `--session-id <id>`: two sessions can't share an id (Claude Code refuses one already used).
+    static func withoutSessionId(_ argv: [String], flag: String?) -> [String] {
+        guard let flag, let index = argv.firstIndex(of: flag) else { return argv }
+        var stripped = argv
+        stripped.removeSubrange(index...min(index + 1, stripped.count - 1))
+        return stripped
     }
 }
 
@@ -118,34 +113,58 @@ extension SessionHandoff: Handled {
         if sessions.remotes.of(old.cwd) != nil {
             throw RPCError.invalidParams("Handoff isn't available for remote projects yet.")
         }
-        let transcript = try sessions.handoffFile(old, full: full == true)
+        let transcript = try Self.file(of: old, full: full == true, sessions)
         var launch = Sessions.Launch(self)
         launch.prompt =
             "Read \(transcript.path) — the transcript of the previous agent session in this project. "
             + (prompt ?? "Continue the task where the previous agent left off.")
         launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
         return try sessions.spawn(
-            cwd: old.cwd, manifest: sessions.manifest(agent ?? old.agent, command: nil), worktreeId: old.worktreeId,
+            cwd: old.cwd, manifest: sessions.setup.manifest(agent ?? old.agent, command: nil),
+            worktreeId: old.worktreeId,
             launch)
+    }
+
+    /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. Claude Code's own
+    /// conversation (what was asked and answered) when there is one; otherwise the terminal's text.
+    private static func file(of session: Session, full: Bool, _ sessions: Sessions) throws -> URL {
+        let limit = full ? 400_000 : 40_000
+        let body: String
+        if let transcript = sessions.existing(session.id).flatMap(sessions.agentUsage.transcript(of:)),
+            let talk = AgentUsage.conversation(transcript: transcript, limit: limit), !talk.isEmpty
+        {
+            body = talk
+        } else {
+            let printed = try sessions.liveSessionOrLog(session.id, bytes: limit)
+            // Lossy on purpose, see session.context.
+            // swiftlint:disable:next optional_data_string_conversion
+            body = "```\n" + StatusDetector.stripANSI(String(decoding: printed, as: UTF8.self)) + "\n```"
+        }
+        let dir = sessions.root.appendingPathComponent("handoff")
+        try Paths.ensure(dir)
+        let file = dir.appendingPathComponent("\(session.id).md")
+        try ("# Previous session (\(session.agent ?? "agent"), \(session.cwd))\n\n" + body + "\n").write(
+            to: file, atomically: true, encoding: .utf8)
+        return file
     }
 }
 
 extension HistoryResume: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let session else { throw RPCError.invalidParams("session required") }
-        let (cwd, wid) = try sessions.resumePlace(session.cwd, worktreeId: worktreeId)
+        let (cwd, wid) = try sessions.setup.resumePlace(session.cwd, worktreeId: worktreeId)
         guard FileManager.default.fileExists(atPath: cwd) else {
             throw RPCError.invalidParams("the session's folder no longer exists: \(cwd)")
         }
         var launch = Sessions.Launch(self)
         launch.title = session.title.isEmpty ? "Resumed \(session.agent.rawValue)" : session.title
-        var manifest = try sessions.manifest(session.agent.rawValue, command: nil)
+        var manifest = try sessions.setup.manifest(session.agent.rawValue, command: nil)
         manifest.args += Array(History.resumeCommand(for: session).dropFirst())
         return try sessions.spawn(cwd: cwd, manifest: manifest, worktreeId: wid, launch)
     }
 }
 
-extension Sessions {
+extension SessionSetup {
     /// Where a conversation from History goes on: `worktreeId`'s folder, else the folder it was in, on the workspace there.
     /// A chat with no project stays in its own folder (the agent finds its conversation by it), made again if it was swept
     /// empty, and on the No Project row.
@@ -383,12 +402,13 @@ extension AgentsVersions: AsyncHandled {
                     try? await sessions.offloads.run { () -> Item? in
                         let path = Sessions.childPath   // the login shell's PATH: the first read waits for the shell
                         guard let exe = try? LoginPath.resolve(manifest.command) else { return nil }
-                        let version = Sessions.run([exe, "--version"], path: path, timeout: 4).flatMap(Sessions.semver)
+                        let version = Subprocess.printed([exe, "--version"], path: path, timeout: 4).flatMap(
+                            Self.semver)
                         let npm = try? LoginPath.resolve("npm")
                         let latest = manifest.npm.flatMap { pkg in
-                            npm.flatMap { Sessions.run([$0, "view", pkg, "version"], path: path, timeout: 8) }
+                            npm.flatMap { Subprocess.printed([$0, "view", pkg, "version"], path: path, timeout: 8) }
                         }
-                        .flatMap(Sessions.semver)
+                        .flatMap(Self.semver)
                         return Item(id: manifest.id, version: version, latest: latest)
                     }
                 }
@@ -398,6 +418,9 @@ extension AgentsVersions: AsyncHandled {
             return out
         }
     }
+
+    /// "claude 2.1.3 (Claude Code)" → "2.1.3".
+    static func semver(_ output: String) -> String? { output.firstMatch(of: /\d+\.\d+\.\d+/).map { String($0.output) } }
 }
 
 extension TaskFromIssue: AsyncHandled {
@@ -452,7 +475,8 @@ extension TaskFromIssue: AsyncHandled {
             return (
                 updated,
                 try work.workspaces.sessions.spawn(
-                    cwd: updated.path, manifest: work.workspaces.sessions.manifest(agent ?? "claude", command: nil),
+                    cwd: updated.path,
+                    manifest: work.workspaces.sessions.setup.manifest(agent ?? "claude", command: nil),
                     worktreeId: updated.id, launch)
             )
         }
@@ -487,14 +511,14 @@ extension ProcessWhich: Handled {
 }
 
 extension ProcessRun: Handled {
-    func handle(_ sessions: Sessions) throws -> Result {
+    func handle(_ setup: SessionSetup) throws -> Result {
         guard argv.first?.isEmpty == false else { throw RPCError.invalidParams("Nothing to run.") }
-        if let extensionId { try sessions.requireEnabledExtension(extensionId) }
+        if let extensionId { try setup.requireEnabledExtension(extensionId) }
         // What sessions get (PATH with `kelp` on it, this home), minus the markers of whatever started the daemon.
         var env = ProcessInfo.processInfo.environment.filter { k, _ in !PTY.scrubbed.contains { k.hasPrefix($0) } }
         env["PATH"] = Sessions.childPath
-        env["KELP_HOME"] = sessions.root.path
-        env["KELP_SOCKET"] = sessions.socketPath
+        env["KELP_HOME"] = setup.root.path
+        env["KELP_SOCKET"] = setup.socketPath
         let dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil } ?? NSHomeDirectory()
         let result = try Subprocess.run(
             argv, cwd: dir, env: env, stdin: stdin.map { Data($0.utf8) },
@@ -517,7 +541,7 @@ extension ProcessRun: Handled {
     static let outputLimit = 16 << 20
 }
 
-extension Sessions {
+extension SessionSetup {
     /// An extension's command runs only while that extension is installed and on (Settings › Extensions): a page or a
     /// list left open after turning it off can't run it any more. `id` is its folder's name; the manifest has its id.
     func requireEnabledExtension(_ id: String) throws {

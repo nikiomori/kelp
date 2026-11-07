@@ -11,16 +11,12 @@ import os
 /// background, `tmux new -d`, a launchd job), and whatever runs under a known agent's program, one the user typed in by
 /// hand included (`Caller.typedAgent`). This fences an agent's slips and one steered into such a command; one set on
 /// getting around it can (a cron line of its own, a bundle of its own, an app it starts): docs/architecture.md.
-extension Sessions {
+/// This is the daemon's one place that tells, apart from the sessions it reads from (their programs, their terminals).
+final class Callers: Sendable {
     /// What a session started by `Caller.kelpd` records as its origin, and so its line (`lineage`): one that breaks off.
     static let ownProgram = "kelpd"
     /// The same for `Caller.unknown`, and for `Caller.detached`.
     static let unknown = "unknown", detached = "detached"
-}
-
-/// Who calls (`Caller`), by the process on each connection: the daemon's one place that tells, apart from the sessions
-/// it reads from (their programs, their terminals).
-final class Callers: Sendable {
     private let live: SessionTable, clients: Clients, store: Store
     /// Whether a caller has to be known for the user's to count as theirs: kelpd says so as it starts (`Daemon.strict`).
     /// A test's in-process daemon doesn't, and its test process calls as the user.

@@ -86,7 +86,7 @@ private func folder(_ files: [String: String]) throws -> URL {
         try FileManager.default.createDirectory(
             at: skills.appendingPathComponent(name), withIntermediateDirectories: true)
     }
-    let made = w.d.sessions.skillArgs(
+    let made = w.d.sessions.setup.skillArgs(
         flag: "--plugin-dir", contextFlag: "--append-system-prompt", worktreeId: wt.id, cwd: wt.path)
     #expect(made.browser == "off · no web app found")
     #expect(
@@ -95,24 +95,24 @@ private func folder(_ files: [String: String]) throws -> URL {
         ])
     let context = try #require(made.argv.last)
     #expect(
-        context.hasPrefix(Sessions.kelpIntro) && context.contains("kelp-settings skill")
+        context.hasPrefix(SessionSetup.kelpIntro) && context.contains("kelp-settings skill")
             && context.contains(skills.path + "/kelp-browser/skills/kelp-browser/SKILL.md"))
 
     let old = [
         "claude", "--settings", "/h.json", "--plugin-dir", skills.path, "--append-system-prompt",
-        Sessions.kelpIntro + " old", "--resume", "abc",
+        SessionSetup.kelpIntro + " old", "--resume", "abc",
         "--plugin-dir", "/elsewhere"
     ]
-    #expect(Sessions.hasSkills(old, root: w.root))
+    #expect(SessionSetup.hasSkills(old, root: w.root))
     #expect(
-        Sessions.withoutSkills(old, root: w.root, flag: "--plugin-dir", contextFlag: "--append-system-prompt")
+        SessionSetup.withoutSkills(old, root: w.root, flag: "--plugin-dir", contextFlag: "--append-system-prompt")
             == ["claude", "--settings", "/h.json", "--resume", "abc", "--plugin-dir", "/elsewhere"])
 
     _ = try w.d.settings.set("agents.skills.browser", "on")
     var o = Sessions.Launch()
     o.argv = ["/bin/sh", "-c", "sleep 30", "--plugin-dir", skills.path]
     let s = try w.d.sessions.spawn(
-        cwd: wt.path, manifest: try w.d.sessions.manifest("claude", command: nil), worktreeId: wt.id, o)
+        cwd: wt.path, manifest: try w.d.sessions.setup.manifest("claude", command: nil), worktreeId: wt.id, o)
     #expect(s.browser == "on · Always, in Settings")
     #expect(
         s.argv.filter { $0.hasPrefix(skills.path) }
@@ -127,9 +127,10 @@ private func folder(_ files: [String: String]) throws -> URL {
     let wt = try await firstWorkspace(w), fm = FileManager.default
     try fm.createDirectory(at: w.root.appendingPathComponent("agent-skills/kelp-vm"), withIntermediateDirectories: true)
     func vm() -> Bool {
-        w.d.sessions.skillArgs(flag: "--plugin-dir", contextFlag: nil, worktreeId: wt.id, cwd: wt.path).argv.contains {
-            $0.hasSuffix("/kelp-vm")
-        }
+        w.d.sessions.setup.skillArgs(flag: "--plugin-dir", contextFlag: nil, worktreeId: wt.id, cwd: wt.path).argv
+            .contains {
+                $0.hasSuffix("/kelp-vm")
+            }
     }
     #expect(!vm())
     try fm.createDirectory(at: w.root.appendingPathComponent("vms/.unpack-1/deep"), withIntermediateDirectories: true)

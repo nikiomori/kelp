@@ -5,7 +5,7 @@ import Foundation
 /// (`--plugin-dir`), with a sentence of context. The browser's goes only to a project with a web app, by default:
 /// decided when the chat starts (and again at a restart). Its one line costs every chat ~95 tokens, and an agent with
 /// no page to look at is better off without the tool.
-extension Sessions {
+extension SessionSetup {
     static let kelpIntro =
         "This Claude Code session runs inside Kelp, a macOS IDE; the user sees Kelp's window, not Claude Code's UI."
 
@@ -219,18 +219,18 @@ enum WebApp {
 }
 
 extension SkillsBrowser: Handled {
-    func handle(_ sessions: Sessions) throws -> BrowserSkill {
-        sessions.browserSkill(worktreeId: worktreeId, cwd: try sessions.store.worktree(named: worktreeId).path)
+    func handle(_ setup: SessionSetup) throws -> BrowserSkill {
+        setup.browserSkill(worktreeId: worktreeId, cwd: try setup.store.worktree(named: worktreeId).path)
     }
 }
 
 extension UIStore {
-    /// An agent drove a page from this workspace: its project has pages to look at (`Sessions.browserUsedKey`).
+    /// An agent drove a page from this workspace: its project has pages to look at (`SessionSetup.browserUsedKey`).
     func browserUsed(in worktreeId: String?) {
         guard let worktreeId else { return }
         Log.store.attempt("noting the browser was used") {
             guard let repo = try store.worktree(worktreeId)?.repoId else { return }
-            let key = Sessions.browserUsedKey(repo)
+            let key = SessionSetup.browserUsedKey(repo)
             if try store.uiState(prefix: key)[key] == nil { try store.setUIState(key, .bool(true)) }
         }
     }

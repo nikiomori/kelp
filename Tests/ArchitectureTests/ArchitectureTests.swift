@@ -212,8 +212,8 @@ private func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 479, "lines over 120: \(over120)")
-    #expect(over120 >= 479, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 476, "lines over 120: \(over120)")
+    #expect(over120 >= 476, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -409,18 +409,28 @@ private func codeOnly(_ s: String) -> String {
     #expect(stored <= 14, "Daemon's stored properties: \(stored)")
     #expect(stored >= 14, "fewer now: lower the ceiling")
     // Nor does it go into `Sessions` instead, the service the most comes near: what isn't a session's goes in a type of
-    // its own (`Callers`, `ChildReports`, `SessionLanes`…), which `Sessions` holds as one.
+    // its own (`Callers`, `ChildReports`, `SessionSetup`, `SessionProcesses`, `Turns`…), which `Sessions` holds as one.
     let sessions = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions.swift" })
     let held = try NSRegularExpression(
         pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines]
     )
     .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
-    #expect(held <= 26, "Sessions' stored properties: \(held)")
-    #expect(held >= 26, "fewer now: lower the ceiling")
+    #expect(held <= 25, "Sessions' stored properties: \(held)")
+    #expect(held >= 25, "fewer now: lower the ceiling")
     // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.
     let grown = try matches(#"^extension Sessions\b"#, in: ["Sources/Daemon"])
-    #expect(grown.count <= 22, "extensions of Sessions: \(grown.count)")
-    #expect(grown.count >= 22, "fewer now: lower the ceiling")
+    #expect(grown.count <= 6, "extensions of Sessions: \(grown.count)")
+    #expect(grown.count >= 6, "fewer now: lower the ceiling")
+    // Nor its handlers, nor any one service's: a handler is handed the part it uses (`SourceControl`, `Turns`…), and no
+    // service answers more than 40 methods. Counted by the type each `handle(_:)` takes.
+    let services = sources(["Sources/Daemon"]).flatMap { f in
+        f.text.matches(of: #/func handle\(_ \w+: (\w+)\)/#).map { String($0.1) }
+    }
+    let byService = Dictionary(grouping: services) { $0 }.mapValues(\.count)
+    #expect(byService.values.allSatisfy { $0 <= 40 }, "a service answers more than 40 methods: \(byService)")
+    let most = byService.values.max() ?? 0
+    #expect(most <= 35, "the busiest service's handlers: \(most)")
+    #expect(most >= 35, "fewer now: lower the ceiling")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
     #expect(extensions.count >= 2, "fewer now: lower the ceiling")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")

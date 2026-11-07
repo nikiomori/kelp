@@ -47,7 +47,7 @@ extension SessionRecap: AsyncHandled {
             !$0.key.hasPrefix("KELP_") && $0.key != "CLAUDE_CODE_CHILD_SESSION"
         }
         env["PATH"] = Sessions.childPath
-        if let name = rec.profile, let profile = sessions.profile(name, agent: "claude") {
+        if let name = rec.profile, let profile = sessions.setup.profile(name, agent: "claude") {
             env[profile.key] = profile.dir
         }   // its own account
         let claude = try LoginPath.resolve("claude")

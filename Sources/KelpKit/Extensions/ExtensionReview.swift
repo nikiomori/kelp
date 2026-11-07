@@ -41,7 +41,7 @@ enum ExtensionReview {
 
 /// An extension in ~/.kelp/extensions runs commands (its own, its events, its pages) only once the user allowed it as its
 /// files are now: an agent writes these folders, and what one wrote shouldn't run as the user without their look. The
-/// daemon checks the same before it runs any (`Sessions.trustsExtension`); here it's what's loaded and asked.
+/// daemon checks the same before it runs any (`SessionSetup.trustsExtension`); here it's what's loaded and asked.
 @MainActor
 enum ExtensionTrust {
     static func manifest(_ folder: URL) -> JSONValue {

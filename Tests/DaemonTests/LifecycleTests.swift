@@ -220,7 +220,8 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
 /// A short command that prints more than a pipe holds still comes back whole.
 @Test func runReadsLongOutput() {
     #expect(
-        Sessions.run(["/bin/sh", "-c", "head -c 200000 /dev/zero | tr '\\0' y"], path: "/bin:/usr/bin", timeout: 5)?
+        Subprocess.printed(
+            ["/bin/sh", "-c", "head -c 200000 /dev/zero | tr '\\0' y"], path: "/bin:/usr/bin", timeout: 5)?
             .count == 200_000)
 }
 

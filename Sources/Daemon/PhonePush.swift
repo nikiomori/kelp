@@ -55,18 +55,18 @@ enum PhonePush {
     }
 }
 
-extension Sessions {
+extension ExtensionEvents {
     private var phoneAway: Bool { clients.uiState == .object([:]) || PhonePush.inputIdle >= PhonePush.awayAfter }
 
-    /// Told once per stop by `eventsHeard`.
+    /// Told once per stop by `heard`.
     func phoneHeard(_ session: Session) {
         guard PhonePush.worthTelling(session), PhonePush.url(settings[SettingKeys.phoneURL]) != nil else { return }
         if phoneAway {
             phoneSend(session)
             return
         }
-        events.queue.asyncAfter(deadline: .now() + PhonePush.askAgainAfter) { [weak self] in
-            guard let self, phoneAway, let now = existing(session.id)?.snapshot, now.status == session.status,
+        queue.asyncAfter(deadline: .now() + PhonePush.askAgainAfter) { [weak self] in
+            guard let self, phoneAway, let now = live[session.id]?.snapshot, now.status == session.status,
                 now.statusAt == session.statusAt
             else { return }
             phoneSend(now)
@@ -85,7 +85,7 @@ extension Sessions {
         guard !PhonePush.muted(mutes, [session.id, worktree?.id, worktree?.repoId]) else { return }
         let name =
             Log.session.attempt("reading a manifest") {
-                try manifest(session.agent, command: nil, fallbackArgv: session.argv).name
+                try setup.manifest(session.agent, command: nil, fallbackArgv: session.argv).name
             }
             ?? session.agent ?? "Agent"
         let (title, body) = PhonePush.message(

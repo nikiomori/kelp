@@ -1,13 +1,22 @@
 import Core
 import Foundation
+import os
 
 /// Claude Code installs its updates itself, and a running one stays the version it started as until its /restart, which
 /// replaces the program in place: the same pid and terminal, the same conversation, flags and permission mode. Kelp types
 /// it for the agent once that loses nothing.
-extension Sessions {
+final class AgentUpdates: Sendable {
+    private let live: SessionTable, settings: SettingsStore
+    private let nextCheck = OSAllocatedUnfairLock(initialState: Date.distantPast)   // `restartOutdated`
+
+    init(live: SessionTable, settings: SettingsStore) {
+        self.live = live
+        self.settings = settings
+    }
+
     /// On the ticker, every 15 s. One session a round: each reads its conversation and starts its servers again.
     func restartOutdated() {
-        let due = nextUpdateCheck.withLock { next -> Bool in
+        let due = nextCheck.withLock { next -> Bool in
             guard Date() >= next else { return false }
             next = Date().addingTimeInterval(15)
             return true

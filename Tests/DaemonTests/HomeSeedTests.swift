@@ -117,13 +117,13 @@ private func write(_ text: String, _ url: URL) throws {
     let cwd = tmp().path, sessions = w.d.sessions
     let fork = Session(
         cwd: cwd, command: "claude", agent: "claude", argv: ["claude", "--resume", "abc", "--fork-session"])
-    let new = sessions.resumeArgv(fork, claude)
+    let new = sessions.setup.resumeArgv(fork, claude)
     #expect(new.count == 3 && new[1] == "--session-id" && new[2] != "abc")
 
-    let transcript = ClaudeHistory.folder(cwd: cwd, root: sessions.claudeProjects(fork)).appendingPathComponent(
+    let transcript = ClaudeHistory.folder(cwd: cwd, root: sessions.setup.claudeProjects(fork)).appendingPathComponent(
         "abc.jsonl")
     try write(
         #"{"type":"user","message":{"role":"user","content":"hi"},"cwd":"\#(cwd)","sessionId":"abc","timestamp":"2026-10-30T10:00:00Z"}"#
             + "\n", transcript)
-    #expect(sessions.resumeArgv(fork, claude) == fork.argv)
+    #expect(sessions.setup.resumeArgv(fork, claude) == fork.argv)
 }

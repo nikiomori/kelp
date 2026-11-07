@@ -72,7 +72,7 @@ private func temporary() -> URL {
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     _ = try await w.c.call(SessionReport(id: kid.id, state: "done"))
     // Time: the delay is what's tested, the stop judged before it stands again.
-    try await Task.sleep(for: .seconds(Sessions.eventDelay + 1))
+    try await Task.sleep(for: .seconds(ExtensionEvents.eventDelay + 1))
     #expect(lines(out).isEmpty)
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
     #expect(try await waitFor(10) { lines(out) == ["agent.done|parent|"] })

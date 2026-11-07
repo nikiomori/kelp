@@ -7,21 +7,6 @@ import Integrations
 import ServiceManagement
 import os
 
-extension GitDiscardHunk: Handled {
-    func handle(_ workspaces: Workspaces) throws -> Done {
-        let worktree = try workspaces.store.worktree(named: id)
-        guard let diff = try Git.diff(worktree.path, source: .unstaged, file: file, remotes: workspaces.remotes).first,
-            diff.hunks.indices.contains(hunk),
-            diff.hunks[hunk].header == header, fingerprint.map({ $0 == diff.hunks[hunk].fingerprint }) ?? true
-        else {
-            throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
-        }
-        try workspaces.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: worktree.path, name: undo)   // first: see Git.discard
-        try Git.discardHunk(worktree.path, diff: diff, hunk: hunk, remotes: workspaces.remotes)
-        return Done()
-    }
-}
-
 extension WorktreeNote: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else {
@@ -179,7 +164,7 @@ extension SessionContextParts: Handled {
             var parts = ClaudeContext.parts(
                 try Data(contentsOf: transcript, options: .mappedIfSafe), used: context.used)
         else { return nil }
-        parts.setup = sessions.claudeSetup(ls.snapshot).map { ClaudeContext.fit($0, to: parts.base) }
+        parts.setup = sessions.setup.claudeSetup(ls.snapshot).map { ClaudeContext.fit($0, to: parts.base) }
         return parts
     }
 }
@@ -231,7 +216,6 @@ extension Methods {
         SessionRename.self, SessionMove.self, SessionContextWindow.self, SessionContextParts.self,
         SessionSubagentSteps.self,
         SessionSubagentJournal.self, WorktreeNote.self, RepoWorktreeSizes.self, RepoRemoveWorktrees.self,
-        GitDiscardHunk.self,
         RemoteListFolders.self, SessionReport.self, PaneReportAgent.self, ClientEvents.self, WatchStart.self,
         WatchStop.self,
         RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self

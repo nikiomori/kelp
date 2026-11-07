@@ -116,7 +116,7 @@ import Testing
             (try await c.call("session.read", .obj(["id": .string(s.id)])).string ?? "").contains(real)
         })
     // A command line runs in sh on the host, not in this Mac's zsh; cwd (the project's folder) picks the host for another workspace's tab.
-    let ssh = try d.sessions.launchArgv(
+    let ssh = try d.sessions.setup.launchArgv(
         ["/bin/zsh", "-lc", "claude update"], cwd: repo.path, manifest: .custom("claude update"))
     #expect(ssh.last?.hasSuffix(IDE.shellWord("'sh' '-c' 'claude update'")) == true)
     let other: Session = try await c.call(

@@ -5,13 +5,24 @@ import os
 /// `contributes.events` (docs/extensions.md): a command an extension runs when an agent asks, finishes or fails, or a
 /// workspace is added. kelpd runs them, so they work with the window closed: a push to a phone needs nothing more.
 /// What they're about comes in environment variables, never into the command's text: it's what agents print, and a
-/// shell would run it.
+/// shell would run it. Kelp's own push to a phone goes out from here too (PhonePush.swift).
 final class ExtensionEvents: Sendable {
+    let root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients
+    let setup: SessionSetup   // which extensions the user allowed, and an agent's name
     private let told = OSAllocatedUnfairLock(initialState: [String: AgentStatus]())
     /// One thread however many fire. Limit: a command that hangs holds the next back for its 30 s.
     let queue = DispatchQueue(label: "dev.kelp.extension-events", qos: .utility)
     /// A status from before this daemon was told before it.
     private let started = Date()
+
+    init(root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients, setup: SessionSetup) {
+        self.root = root
+        self.live = live
+        self.store = store
+        self.settings = settings
+        self.clients = clients
+        self.setup = setup
+    }
 
     /// The event a saved session is, once per stop. A child's result is its parent's to read, as it is for notifications.
     func event(of session: Session) -> String? {
@@ -27,19 +38,18 @@ final class ExtensionEvents: Sendable {
             return name
         }
     }
-}
 
-extension Sessions {
     /// A status has to stand this long: a program may say idle for a second as a turn starts (Codex), and a question answered
     /// at once asked nobody away from the Mac.
     static let eventDelay = 2.5
 
-    func eventsHeard(_ session: Session) {
-        guard let event = events.event(of: session) else { return }
-        events.queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
+    /// Every saved change of a session (`Sessions.said`), told once per stop.
+    func heard(_ session: Session) {
+        guard let event = event(of: session) else { return }
+        queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
             guard let self else { return }
             // Gone since: a result still stands, and a question has nobody left to answer it.
-            let now = existing(session.id)?.snapshot.status
+            let now = live[session.id]?.snapshot.status
             guard now == session.status || (now == nil && session.status != .waiting) else { return }
             let asks = session.status != .done
             fire(
@@ -54,7 +64,7 @@ extension Sessions {
     }
 
     func workspaceAdded(_ workspace: Worktree) {
-        events.queue.async { [weak self] in
+        queue.async { [weak self] in
             self?.fire(
                 "workspace.created", cwd: workspace.path,
                 values: ["KELP_TITLE": workspace.displayName, "KELP_WORKSPACE_ID": workspace.id])
@@ -101,7 +111,7 @@ extension Sessions {
                     }), !off.contains(manifest.id)
             else { return [] }
             let mine = (manifest.contributes?.events ?? []).filter { $0.on == event }
-            guard mine.isEmpty || trustsExtension(folder.lastPathComponent) else {
+            guard mine.isEmpty || setup.trustsExtension(folder.lastPathComponent) else {
                 Log.session.info(
                     "\(manifest.id, privacy: .public)'s \(event, privacy: .public) waits to be allowed in Settings › Extensions"
                 )

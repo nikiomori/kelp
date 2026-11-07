@@ -415,7 +415,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     projects[w.repo.path] = ["hasTrustDialogAccepted": true]
     config["projects"] = projects
     try JSONSerialization.data(withJSONObject: config).write(to: URL(fileURLWithPath: file))
-    let answered = w.d.sessions.trustAnswered(claude, cwd: wt.path, worktreeId: wt.id, env: [:])   // no profile: the daemon's config
+    let answered = w.d.sessions.setup.trustAnswered(claude, cwd: wt.path, worktreeId: wt.id, env: [:])   // no profile: the daemon's config
     #expect(answered.autoAnswers.contains(AgentManifest.trust))
 }
 

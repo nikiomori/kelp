@@ -198,7 +198,7 @@ import Testing
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let tree = try Git.snapshotTree(wt.path)
     w.d.sessions.discard(try #require(try w.d.store.session(s.id)))
-    w.d.sessions.keepTurn(SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"))
+    w.d.sessions.turns.keep(SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"))
     #expect(try w.d.store.turns(session: s.id).isEmpty)
     #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
 }
@@ -225,22 +225,22 @@ import Testing
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let c = w.c, id = s.id
     let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
-    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
     #expect(try await c.call(SessionChoose(id: id, answer: "allow")))
     #expect(try await waiting.value == "allow")
     #expect(w.d.sessions.existing(id)?.snapshot.status == .working)
     let again = Task { try await c.call(SessionPermissionWait(id: id)) }
-    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
-    w.d.sessions.answerPermission(id, nil)   // as when it's answered in the terminal and stops waiting
+    #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
+    w.d.sessions.permissions.answerPermission(id, nil)   // as when it's answered in the terminal and stops waiting
     #expect(try await again.value == nil)
     // A banner left from an earlier question doesn't answer the one whose hook waits now.
     let third = Task { try await c.call(SessionPermissionWait(id: id)) }
-    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
     let ls = try #require(w.d.sessions.existing(id))
     ls.hook("waiting", message: "Allow git push --force?", asker: "")
     #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow ls?")) == false)
 
-    #expect(w.d.sessions.permissionWaits.withLock { $0[id] != nil })
+    #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })
     #expect(try await c.call(SessionChoose(id: id, answer: "deny", question: "Allow git push --force?")))
     #expect(try await third.value == "deny")
     #expect(
@@ -257,11 +257,11 @@ import Testing
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let c = w.c, id = s.id
     let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
-    #expect(try await waitFor(5) { w.d.sessions.permissionWaits.withLock { $0[id] != nil } })
+    #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
     try #require(w.d.sessions.existing(id)).hook("waiting", message: "Allow npm test …?", asker: "")
     #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow npm test …?")) == false)
-    #expect(w.d.sessions.permissionWaits.withLock { $0[id] != nil })   // still the dialog's to answer
-    w.d.sessions.answerPermission(id, nil)
+    #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })   // still the dialog's to answer
+    w.d.sessions.permissions.answerPermission(id, nil)
     #expect(try await waiting.value == nil)
 }
 

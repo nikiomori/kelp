@@ -90,7 +90,18 @@ extension AgentUsage: DaemonService { static func of(_ daemon: Daemon) -> AgentU
 extension SettingsStore: DaemonService { static func of(_ daemon: Daemon) -> SettingsStore { daemon.settings } }
 extension Remotes: DaemonService { static func of(_ daemon: Daemon) -> Remotes { daemon.remotes } }
 extension Sessions: DaemonService { static func of(_ daemon: Daemon) -> Sessions { daemon.sessions } }
+extension SessionSetup: DaemonService { static func of(_ daemon: Daemon) -> SessionSetup { daemon.sessions.setup } }
+extension SessionProcesses: DaemonService {
+    static func of(_ daemon: Daemon) -> SessionProcesses { daemon.sessions.processes }
+}
+extension Turns: DaemonService { static func of(_ daemon: Daemon) -> Turns { daemon.sessions.turns } }
+extension PermissionWaits: DaemonService {
+    static func of(_ daemon: Daemon) -> PermissionWaits { daemon.sessions.permissions }
+}
 extension Workspaces: DaemonService { static func of(_ daemon: Daemon) -> Workspaces { daemon.workspaces } }
+extension SourceControl: DaemonService {
+    static func of(_ daemon: Daemon) -> SourceControl { daemon.sourceControl }
+}
 extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
 extension Clients: DaemonService { static func of(_ daemon: Daemon) -> Clients { daemon.clients } }
@@ -200,17 +211,17 @@ extension Daemon {
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
             // connection on, which is how a program would speak for a session not its own.
             try allowAgent(
-                method, own: Sessions.unknown,
+                method, own: Callers.unknown,
                 or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
         case .kelpd:
             try allowAgent(
-                method, own: Sessions.ownProgram,
+                method, own: Callers.ownProgram,
                 or:
                     "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for."
             )
         case .detached:
             try allowAgent(
-                method, own: Sessions.detached,
+                method, own: Callers.detached,
                 or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
                     + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours."
             )
@@ -226,7 +237,7 @@ extension Daemon {
         }
     }
 
-    /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.
+    /// What a program of an agent's (or of the daemon's, `own` = `Callers.ownProgram`) may not do.
     /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
     /// (`typed:` on its line), not everything the user started from that terminal.
     private func allowAgent(_ method: any Answered, own: String, typed: Bool = false) throws {
@@ -257,7 +268,7 @@ extension Daemon {
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
         func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == method.typesInto || id == method.actsOn)) }
-        for id in Set([method.actsOn, method.shows].compactMap { $0 } + (try sessions.named(by: method)))
+        for id in Set([method.actsOn, method.shows].compactMap { $0 } + (try sessions.store.named(by: method)))
         where !itsOwn(id) {
             guard try reaches(id) else {
                 throw RPCError.refused("An agent acts only on its own session and the sessions it started.")
@@ -267,19 +278,20 @@ extension Daemon {
         // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
         let workspaces = Set(
             [method.inWorkspace].compactMap { $0 }
-                + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: method)))
-        for workspace in workspaces where try !sessions.works(own, in: workspace, typed: typed) {
+                + (AgentRules.reads.contains(name) ? [] : try sessions.store.workspaces(namedBy: method)))
+        for workspace in workspaces where try !sessions.store.works(own, in: workspace, typed: typed) {
             throw RPCError.refused("An agent works only in its own workspace.")
         }
         if let repo = method.makesInProject,
             try !sessions.store.worktrees(repo: repo).contains(where: {
-                try sessions.works(own, in: $0.id, typed: typed)
+                try sessions.store.works(own, in: $0.id, typed: typed)
             })
         {
             throw RPCError.refused("An agent makes workspaces only in the project it works in.")
         }
         if let ending = method.ends,
-            try sessions.ending(ending).contains(where: { session in try (typed || session != own) && !reaches(session)
+            try sessions.store.ending(ending).contains(where: { session in
+                try (typed || session != own) && !reaches(session)
             })
         {
             throw RPCError.refused("An agent ends only its own sessions and the ones it started.")

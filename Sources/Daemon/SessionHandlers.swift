@@ -3,6 +3,7 @@ import Agents
 import Core
 import Foundation
 import GitKit
+import os
 
 // Sessions: listing, attaching, typing into, stopping, reading.
 
@@ -113,7 +114,7 @@ extension SessionChoose: Handled {
         if let question, !Hooks.shownWhole(question) { return false }
         // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
         // goes only to the question it showed: the hook waiting now may be a newer one's.
-        if ls.asks(question), sessions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
+        if ls.asks(question), sessions.permissions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
             _ = ls.answeredThroughHook()
             sessions.publish(ls)
             return true
@@ -126,15 +127,20 @@ extension SessionChoose: Handled {
 
 extension SessionPermissionWait: AsyncHandled {
     var reportsFor: String? { id }   // only the session's own hook waits for its answer
-    func handle(_ sessions: Sessions) async throws -> String? { await sessions.waitForPermission(id, within: 600) }
+    func handle(_ permissions: PermissionWaits) async throws -> String? {
+        await permissions.waitForPermission(id, within: 600)
+    }
 }
 
-extension Sessions {
+/// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
+final class PermissionWaits: Sendable {
+    let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
+
     /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.
     func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
         let token = UUID()
         return await withCheckedContinuation { continuation in
-            permissionWaits.withLock { w in w.updateValue((token, continuation), forKey: id) }?.1.resume(returning: nil)
+            waits.withLock { w in w.updateValue((token, continuation), forKey: id) }?.1.resume(returning: nil)
             DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
                 self?.answerPermission(id, nil, only: token)
             }
@@ -144,7 +150,7 @@ extension Sessions {
     /// Hands `answer` to the hook waiting for `id`'s question (nil: none, it went on otherwise); whether one was waiting.
     @discardableResult
     func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil) -> Bool {
-        let waiting = permissionWaits.withLock { waits -> CheckedContinuation<String?, Never>? in
+        let waiting = waits.withLock { waits -> CheckedContinuation<String?, Never>? in
             guard let (waitToken, continuation) = waits[id], token == nil || waitToken == token else { return nil }
             waits[id] = nil
             return continuation
@@ -163,18 +169,20 @@ extension AgentSetSecret: Handled {
 }
 
 extension PortsList: Handled {
-    func handle(_ sessions: Sessions) throws -> [Port] { sessions.ports(worktree: worktreeId) }
+    func handle(_ processes: SessionProcesses) throws -> [Port] { processes.ports(worktree: worktreeId) }
 }
-extension SessionUsage: Handled { func handle(_ sessions: Sessions) throws -> [Usage] { sessions.usage() } }
+extension SessionUsage: Handled {
+    func handle(_ processes: SessionProcesses) throws -> [Usage] { processes.usage() }
+}
 
 extension PortsStop: Handled {
     var inWorkspace: String? { worktreeId }   // said, not left to the walk: it stops a process, and an id of no workspace finds none
-    func handle(_ sessions: Sessions) throws -> Done {
+    func handle(_ processes: SessionProcesses) throws -> Done {
         let pid = Int32(clamping: pid ?? 0)
-        guard pid > 0, sessions.ports(worktree: worktreeId).contains(where: { $0.pid == pid }) else {
+        guard pid > 0, processes.ports(worktree: worktreeId).contains(where: { $0.pid == pid }) else {
             throw RPCError.invalidParams("That process isn't running in this workspace.")
         }
-        if let (_, remote) = sessions.remote(worktreeId) {
+        if let (_, remote) = processes.remote(worktreeId) {
             _ = try Git.run(
                 remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory(), executable: remote.ssh)
         } else {
@@ -185,11 +193,11 @@ extension PortsStop: Handled {
 }
 
 extension PortsForward: Handled {
-    func handle(_ sessions: Sessions) throws -> Forwarded {
-        guard let (worktree, remote) = sessions.remote(worktreeId) else {
+    func handle(_ processes: SessionProcesses) throws -> Forwarded {
+        guard let (worktree, remote) = processes.remote(worktreeId) else {
             throw RPCError.invalidParams("Only a remote project's ports are forwarded.")
         }
-        let forwards = sessions.forwards
+        let forwards = processes.forwards
         let goal = try target.map(Forwards.target) ?? port.map { forwards.target(port: $0, in: worktree.id) }
         guard let goal else { throw RPCError.invalidParams("missing port") }
         return Forwarded(port: try forwards.forward(goal, in: worktree.id, remote, manual: target != nil))
@@ -197,9 +205,9 @@ extension PortsForward: Handled {
 }
 
 extension PortsUnforward: Handled {
-    func handle(_ sessions: Sessions) throws -> Done {
-        if let (worktree, remote) = sessions.remote(worktreeId) {
-            sessions.forwards.drop(port: port, in: worktree.id, remote)
+    func handle(_ processes: SessionProcesses) throws -> Done {
+        if let (worktree, remote) = processes.remote(worktreeId) {
+            processes.forwards.drop(port: port, in: worktree.id, remote)
         }
         return Done()
     }
@@ -216,16 +224,6 @@ extension SessionBusy: Handled {
     }
 }
 
-extension Sessions {
-    static let pausedAsAttached = RPCError.invalidParams("The session was paused as it was opened. Open it again.")
-
-    /// The last `bytes` a session printed as text. Lossy on purpose: a byte window can cut a UTF-8 sequence, and the rest
-    /// of the text still matters.
-    func printed(_ id: String, bytes: Int) throws -> String {
-        // swiftlint:disable:next optional_data_string_conversion
-        StatusDetector.stripANSI(String(decoding: try liveSessionOrLog(id, bytes: bytes), as: UTF8.self))
-    }
-}
 extension SessionCommands: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> [AgentCommand] { sessions.existing(id)?.commands ?? [] }
@@ -273,8 +271,8 @@ extension SessionContinueAt: Handled {
 
 extension SessionTurnUndo: Handled {
     var actsOn: String? { id }   // an agent undoes only its own turns and its children's
-    func handle(_ workspaces: Workspaces) throws -> Result {
-        let (mark, dir) = try workspaces.turnPlace(session: id, turn: turn), remotes = workspaces.remotes
+    func handle(_ turns: Turns) throws -> Result {
+        let (mark, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes
         let plan = try Git.changed(since: mark.tree, cwd: dir, remotes: remotes)
         guard apply == true else { return Plan(files: plan.files, state: plan.now) }
         let before = state ?? ""
@@ -283,7 +281,7 @@ extension SessionTurnUndo: Handled {
         }
         // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
         try Git.run(
-            ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir,
+            ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Turns.undoneRef(id), before], cwd: dir,
             remotes: remotes)
         do { try Git.restore(plan.files, from: mark.tree, now: before, cwd: dir, remotes: remotes) } catch {
             // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
@@ -303,9 +301,8 @@ extension SessionTurnUndo: Handled {
 
 extension SessionTurnRedo: Handled {
     var actsOn: String? { id }
-    func handle(_ workspaces: Workspaces) throws -> Done {
-        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), remotes = workspaces.remotes,
-            ref = Workspaces.undoneRef(id)
+    func handle(_ turns: Turns) throws -> Done {
+        let (_, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes, ref = Turns.undoneRef(id)
         let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: remotes)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
@@ -316,15 +313,19 @@ extension SessionTurnRedo: Handled {
     }
 }
 
-extension Workspaces {
+/// The turns agents take: the snapshot each began with, kept under refs/kelp/turns/ for its diff, and undoing or redoing
+/// one (`session.turnUndo`).
+struct Turns: Sendable {
+    let live: SessionTable, store: Store, remotes: Remotes
+
     /// The folder before the session's last undone turn.
     static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
 
     /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
     /// turn began, no other agent in the checkout, and its snapshot still there.
-    func turnPlace(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
+    func place(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
         guard try store.session(id) != nil else { throw RPCError.invalidParams("No such agent.") }
-        let status = sessions.existing(id)?.snapshot.status   // nil: paused, so not in a turn
+        let status = live[id]?.snapshot.status   // nil: paused, so not in a turn
         guard let mark = try store.turns(session: id).first(where: { $0.id == turn }) else {
             throw RPCError.invalidParams("No such turn.")
         }
@@ -338,7 +339,7 @@ extension Workspaces {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
         let top = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
-        let others = sessions.live.all.filter { other in   // anywhere in the checkout, by any path to it
+        let others = live.all.filter { other in   // anywhere in the checkout, by any path to it
             let snapshot = other.snapshot,
                 at = URL(fileURLWithPath: other.turnDir ?? snapshot.cwd).resolvingSymlinksInPath().path
             return snapshot.id != id && snapshot.status != .exited && snapshot.isAgent
@@ -355,19 +356,17 @@ extension Workspaces {
         }
         return (mark, dir)
     }
-}
 
-extension Sessions {
     /// A turn that began, kept with its snapshot under refs/kelp/turns/ so `git gc` doesn't take it while the turn is listed;
     /// the turns that drop off the list let theirs go.
     /// Its session deleted while the snapshot was taken: no turn, and no ref. Deleted between the two, the delete's own
-    /// `dropTurnRefs` may have run before the ref was made: it's dropped here.
-    func keepTurn(_ mark: SessionTurns.Mark) {
+    /// `dropRefs` may have run before the ref was made: it's dropped here.
+    func keep(_ mark: SessionTurns.Mark) {
         Log.store.attempt("keeping a turn") {
             guard let dropped = try store.addTurn(mark), remotes.of(mark.folder) == nil else { return }   // no snapshots on a host
             let ref = "refs/kelp/turns/" + mark.id
             try Git.run(["update-ref", ref, mark.tree], cwd: mark.folder, remotes: remotes)
-            dropRefs(
+            delete(
                 dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) }
                     + (try store.session(mark.session) == nil ? [(ref, mark.folder)] : []))
         }
@@ -375,20 +374,20 @@ extension Sessions {
 
     /// A session going: its turns' snapshots and its last undone state needn't be kept any more. `repo`: where to drop
     /// them when their folder, a removed worktree, is gone; the refs are in the project's repository, which it shared.
-    func dropTurnRefs(of session: String, in repo: String? = nil) {
+    func dropRefs(of session: String, in repo: String? = nil) {
         Log.store.attempt("dropping \(session)'s turn refs") {
-            dropTurnRefs(try store.turns(session: session), of: session, in: repo)
+            dropRefs(try store.turns(session: session), of: session, in: repo)
         }
     }
-    func dropTurnRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
-        dropRefs(
+    func dropRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
+        delete(
             marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) }
-                + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
+                + marks.prefix(1).map { (Self.undoneRef(session), repo ?? $0.folder) })
     }
 
     /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,
     /// stops none of the others.
-    private func dropRefs(_ refs: [(ref: String, folder: String)]) {
+    private func delete(_ refs: [(ref: String, folder: String)]) {
         for (folder, group) in Dictionary(grouping: refs, by: \.folder)
         where remotes.of(folder) == nil && FileManager.default.fileExists(atPath: folder) {
             Log.store.attempt("dropping turn refs in \(folder)") {
@@ -401,13 +400,13 @@ extension Sessions {
 }
 
 extension SessionTurns: Handled {
-    func handle(_ workspaces: Workspaces) throws -> Result { try workspaces.store.turns(session: id) }
+    func handle(_ turns: Turns) throws -> Result { try turns.store.turns(session: id) }
 }
 
 extension SessionTurn: Handled {
     static var quick: Bool { true }
-    func handle(_ sessions: Sessions) throws -> Info? {
-        guard let ls = sessions.existing(id) else { return nil }
+    func handle(_ turns: Turns) throws -> Info? {
+        guard let ls = turns.live[id] else { return nil }
         let turn = ls.lastTurn.map { last in
             Turn(
                 files: last.files.map { .init(path: $0.path, added: $0.added, removed: $0.removed) },

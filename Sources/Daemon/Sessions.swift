@@ -9,40 +9,37 @@ import os
 final class Sessions: Sendable {
     let live = SessionTable()
     let reports = ChildReports()
-    let events = ExtensionEvents()
+    /// What extensions run and the phone hears when an agent asks, finishes or fails (ExtensionEvents.swift).
+    let events: ExtensionEvents
     let wakeLocks = WakeLocks()   // one wake per session even when several clients open it at once; pausing holds it too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
-    /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
-    let permissionWaits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:]
-    )
+    let permissions = PermissionWaits()   // a permission question's hook, waiting for Allow or Deny
     let pausing = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions an idle pause is stopping: input waits, then wakes them
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
-    let nextUpdateCheck = OSAllocatedUnfairLock(initialState: Date.distantPast)   // `restartOutdated`
+    let updates: AgentUpdates   // Claude Code restarted into the update it installed (AgentUpdates.swift)
     /// The Mac kept awake while agents work (applyKeepAwake): the ticker and a settings change both apply it.
     let sleepAssertion = OSAllocatedUnfairLock<(id: UInt32, type: String?)>(initialState: (0, nil))
     let store: Store
     let settings: SettingsStore
     let root: URL
-    let socketPath: String
     let agentUsage: AgentUsage
     let clients: Clients
     let watches: Watches
 
     let remotes: Remotes
-    let forwards: Forwards
-    /// Remote hosts whose last connection failed, and ssh's reason (`host.stats`).
-    let hostErrors = HostErrors(initialState: [:])
+    /// What a session starts with: its manifest, command line, environment, hooks and account (SessionSetup.swift).
+    let setup: SessionSetup
+    /// What runs under the sessions: ports, CPU and memory, forwarded ports, a host's load (Processes.swift).
+    let processes: SessionProcesses
+    let turns: Turns   // the snapshot each agent's turn began with, kept for its diff and its undo
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
     /// Who calls, by the program on each connection (CallerLookup.swift).
     let callers: Callers
-    /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
-    let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:]
-    )
 
     init(
         root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage,
@@ -50,16 +47,22 @@ final class Sessions: Sendable {
         watches: Watches, offloads: Slots
     ) {
         self.root = root
-        self.socketPath = socketPath
         self.store = store
         self.remotes = remotes
-        forwards = Forwards(store: store)
         self.settings = settings
         self.agentUsage = agentUsage
         self.clients = clients
         callers = Callers(live: live, clients: clients, store: store)
         self.watches = watches
         self.offloads = offloads
+        setup = SessionSetup(
+            root: root, socketPath: socketPath, store: store, settings: settings, remotes: remotes,
+            agentUsage: agentUsage)
+        events = ExtensionEvents(
+            root: root, live: live, store: store, settings: settings, clients: clients, setup: setup)
+        processes = SessionProcesses(live: live, store: store, remotes: remotes)
+        turns = Turns(live: live, store: store, remotes: remotes)
+        updates = AgentUpdates(live: live, settings: settings)
     }
 
     /// `kelp` (hooks, the ctty trampoline) first, then the user's login-shell PATH.
@@ -72,6 +75,8 @@ final class Sessions: Sendable {
 
     /// A running session, without waking a paused one.
     func existing(_ id: String) -> LiveSession? { live[id] }
+
+    static let pausedAsAttached = RPCError.invalidParams("The session was paused as it was opened. Open it again.")
 
     func liveSession(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         if let session = live[id] { return session }
@@ -113,6 +118,13 @@ final class Sessions: Sendable {
         return data
     }
 
+    /// The last `bytes` a session printed as text. Lossy on purpose: a byte window can cut a UTF-8 sequence, and the rest
+    /// of the text still matters.
+    func printed(_ id: String, bytes: Int) throws -> String {
+        // swiftlint:disable:next optional_data_string_conversion
+        StatusDetector.stripANSI(String(decoding: try liveSessionOrLog(id, bytes: bytes), as: UTF8.self))
+    }
+
     /// The trail of a session Kelp has: the id names a file, as in `liveSessionOrLog`.
     func trail(_ id: String) throws -> StatusTrail? {
         if let ls = existing(id) { return ls.trail }
@@ -133,6 +145,19 @@ final class Sessions: Sendable {
         var parent: String?   // the agent that started it
         var startedBy: String?   // the agent whose line shows this command
         var origin: String?   // restart: the old one's; else the caller's (`Sessions.asker`)
+
+        init() {}
+
+        init(_ options: some LaunchOptions) {
+            model = options.model
+            effort = options.effort
+            prompt = options.prompt
+            title = options.title
+            profile = options.profile
+            draft = options.draft == true
+            openURLs = options.openURLs == true
+            (cols, rows) = Self.size(cols: options.cols, rows: options.rows)
+        }
 
         /// A terminal size: anything out of range is clamped, nothing (or 0) is 120 × 32.
         static func size(cols: Int?, rows: Int?) -> (cols: UInt16, rows: UInt16) {
@@ -156,15 +181,16 @@ final class Sessions: Sendable {
         // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
         if local, launch.argv == nil, case .settingsFlag(let flag)? = manifest.hooks {
-            let settingsFile = hooksDir(manifest).appendingPathExtension("json")
+            let settingsFile = setup.hooksDir(manifest).appendingPathExtension("json")
             try Hooks.writeSettings(to: settingsFile)
             argv += [flag, settingsFile.path]
         }
         // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
         // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
-        if local, let flag = manifest.pluginDirFlag, launch.argv == nil || Self.hasSkills(argv, root: root) {
-            argv = Self.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
-            let skills = skillArgs(flag: flag, contextFlag: manifest.contextFlag, worktreeId: worktreeId, cwd: cwd)
+        if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {
+            argv = SessionSetup.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
+            let skills = setup.skillArgs(
+                flag: flag, contextFlag: manifest.contextFlag, worktreeId: worktreeId, cwd: cwd)
             argv += skills.argv
             rec.browser = skills.browser
         }
@@ -181,10 +207,10 @@ final class Sessions: Sendable {
         if !local, launch.onHostInTmux || !["shell", "custom"].contains(manifest.id) {
             rec.tmux = launch.tmux ?? Tmux.own()
         }
-        let env = launchEnv(manifest, rec)
+        let env = setup.launchEnv(manifest, rec)
         let ls = try LiveSession(
-            record: rec, manifest: liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
-            argv: try launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
+            record: rec, manifest: setup.liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
+            argv: try setup.launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
             historyDir: root.appendingPathComponent("history"), cols: launch.cols, rows: launch.rows,
             callbacks: callbacks(for: rec, devServerIn: launch.openURLs ? worktreeId : nil))   // e.g. Jupyter Lab's URL
         if launch.tmux != nil { ls.attachedToRunning() }
@@ -214,25 +240,6 @@ final class Sessions: Sendable {
         return rec
     }
 
-    /// What runs: `argv` itself, or for a remote project ssh running it in the project's folder on the host. Records
-    /// keep the plain argv, so a restart or a wake wraps it once (older records kept the ssh line: that runs as it is).
-    func launchArgv(_ argv: [String], cwd: String, manifest: AgentManifest, tmux: String? = nil) throws -> [String] {
-        var run = argv
-        if let remote = remotes.of(cwd), argv.first != remote.ssh {
-            // A command line (`.custom`: zsh -lc "…") goes to sh there: the host may have no zsh.
-            var onHost = manifest.id == "custom" && argv.count == 3 && argv[1] == "-lc" ? ["sh", "-c", argv[2]] : argv
-            // Here, not in the record: every start gets this kelpd's, and a title or a restart never sees it.
-            if tmux != nil, case .settingsFlag(let flag)? = manifest.hooks, !onHost.contains(flag) {
-                onHost += [flag, try Hooks.hostSettingsJSON()]
-            }
-            let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
-            let command = tmux.map { remote.command(onHost, inTmux: $0) } ?? remote.command(loginShell ? nil : onHost)
-            run = [remote.ssh] + remote.sshArgs(tty: true) + [command]
-        }
-        guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
-        return [try LoginPath.resolve(exe)] + run.dropFirst()
-    }
-
     /// What a session tells the daemon, from its first byte on. An ended session leaves `live`: its fd and pid belong to
     /// nobody now, and its log still shows what it printed. `devServerIn`: the first local URL it prints opens in that
     /// workspace's browser.
@@ -248,7 +255,7 @@ final class Sessions: Sendable {
             ls.noteTurn(snapshot.status, remotes: remotes)
             // Answered in the terminal: its hook goes with no answer. The status now, not the queued one: a change queued
             // before a new question's hook registered its wait mustn't end that wait.
-            if ls.snapshot.status != .waiting { answerPermission(sid, nil) }
+            if ls.snapshot.status != .waiting { permissions.answerPermission(sid, nil) }
             if snapshot.status == .exited { _ = live.remove(ls) }
         }
         if rec.agent == "claude" { callbacks.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }
@@ -258,7 +265,7 @@ final class Sessions: Sendable {
         }
         // Naming follows the session however it started (created, or woken from a pause).
         callbacks.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
-        callbacks.turnStarted = { [weak self] t in self?.keepTurn(t) }
+        callbacks.turnStarted = { [weak self] t in self?.turns.keep(t) }
         if !["shell", "custom"].contains(rec.agent ?? "custom") {
             callbacks.topic = { [weak self] topic in
                 guard let self else { return }
@@ -277,7 +284,8 @@ final class Sessions: Sendable {
                 DispatchQueue.global(qos: .utility).async {
                     self.notify(
                         DevServerEvent(
-                            worktree: worktree, url: self.forwards.forward(url: url, in: worktree, remote), session: sid
+                            worktree: worktree, url: self.processes.forwards.forward(url: url, in: worktree, remote),
+                            session: sid
                         ))
                 }
             }
@@ -317,8 +325,8 @@ final class Sessions: Sendable {
             }
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for session in all {
-                // Its turns as the delete took them: a turn kept meanwhile (`keepTurn`) is either among them or refused.
-                do { dropTurnRefs(try store.deleteSession(session), of: session.id) } catch {
+                // Its turns as the delete took them: a turn kept meanwhile (`Turns.keep`) is either among them or refused.
+                do { turns.dropRefs(try store.deleteSession(session), of: session.id) } catch {
                     Log.store.error("couldn't delete session \(session.id, privacy: .public): \(error)")
                 }
                 for name in ["\(session.id).log", "\(session.id).trail"] {
@@ -371,10 +379,10 @@ final class Sessions: Sendable {
             guard let rec = try store.session(handed.id) else {
                 throw RPCError.invalidParams("no session \(handed.id)")
             }
-            var adoptedManifest = try manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
+            var adoptedManifest = try setup.manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
             // As `liveManifest`; past startup, nothing is answered for it.
-            adoptedManifest = wiredHooks(
-                adoptedManifest, env: hookedEnv(adoptedManifest, rec, secrets: false), argv: rec.argv)
+            adoptedManifest = setup.wiredHooks(
+                adoptedManifest, env: setup.hookedEnv(adoptedManifest, rec, secrets: false), argv: rec.argv)
             let ls = LiveSession(
                 record: rec, manifest: adoptedManifest, pty: pty, historyDir: root.appendingPathComponent("history"),
                 callbacks: callbacks(for: rec))

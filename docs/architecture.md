@@ -190,8 +190,15 @@ else a `NotificationCenter` name.
   each keeping its own state under its own locks and given what it uses at init (none names `Daemon`):
   `AgentUsage` (what agents leave on disk: conversations, token usage, context windows, plan limits), `Forges` (pull
   requests by branch, running clones, the trackers' clients and their keychain secrets), `Workspaces` (their records, the
-  branches they follow, the `.kelp.yaml` files the user trusts), `Watches` (what clients watch, read through a hook the
-  daemon sets), `Sessions` (which run, starting, waking, pausing and deleting them, their tmux, keeping the Mac awake).
+  branches they follow, the `.kelp.yaml` files the user trusts), `SourceControl` (git, the files lists and review
+  comments: the records, the hosts, what a discard threw away for its Undo), `Watches` (what clients watch, read through
+  a hook the daemon sets), `Sessions` (which run, starting, waking, pausing and deleting them, their tmux, keeping the Mac
+  awake). `Sessions` holds its parts, each one a service of its own for the handlers that use only it: `SessionSetup`
+  (what a session starts with: its manifest, command line, environment, hooks, account, Kelp's skills),
+  `SessionProcesses` (what runs under the sessions: ports, CPU and memory, a remote project's forwarded ports, a host's
+  load), `Turns` (the snapshot each agent's turn began with, for its diff, undo and redo), `PermissionWaits` (a
+  permission question's hook waiting for Allow or Deny); and `Callers` (who calls), `ExtensionEvents` (what extensions
+  run and the phone hears when an agent asks, finishes or fails), `AgentUpdates` (Claude Code restarted into its update).
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
   reaches only what that service holds; each service's projection from the daemon is in one place (`DaemonService`).
   Its home (`Daemon(root:)`) is all the daemon takes from outside: its paths, which project folders are remote ones

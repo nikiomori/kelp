@@ -26,16 +26,16 @@ private func fakeClaude(_ root: URL, log: URL) throws -> URL {
     var s = Session(
         worktreeId: wt.id, cwd: wt.path, command: "claude", agent: "claude",
         argv: [fake.path, "--model", "opus", "--plugin-dir", "/x", "--session-id", "abc"])
-    let setup = try #require(w.d.sessions.claudeSetup(s))
+    let setup = try #require(w.d.sessions.setup.claudeSetup(s))
     #expect(setup.parts.map(\.tokens) == [2500, 1000])
-    #expect(w.d.sessions.claudeSetup(s) == setup)
+    #expect(w.d.sessions.setup.claudeSetup(s) == setup)
     let asked = try String(contentsOf: log, encoding: .utf8)
     #expect(
         asked
             == #"-p /context --no-session-persistence --strict-mcp-config --settings {"disableAllHooks":true} --model opus --plugin-dir /x"#
             + "\n")
     s.agent = "codex"
-    #expect(w.d.sessions.claudeSetup(s) == nil)
+    #expect(w.d.sessions.setup.claudeSetup(s) == nil)
 }
 
 /// A branch that brought its own agent config (someone's PR) isn't opened behind the user's back, nor a folder of no project.
@@ -46,10 +46,10 @@ private func fakeClaude(_ root: URL, log: URL) throws -> URL {
         fake = try fakeClaude(w.root, log: log)
     try "{}".write(toFile: wt.path + "/.mcp.json", atomically: true, encoding: .utf8)
     #expect(
-        w.d.sessions.claudeSetup(
+        w.d.sessions.setup.claudeSetup(
             Session(worktreeId: wt.id, cwd: wt.path, command: "claude", agent: "claude", argv: [fake.path])) == nil)
     #expect(
-        w.d.sessions.claudeSetup(
+        w.d.sessions.setup.claudeSetup(
             Session(cwd: w.root.path, command: "claude", agent: "claude", argv: [fake.path, "--model", "x"])) == nil)
     #expect(!FileManager.default.fileExists(atPath: log.path))
 }

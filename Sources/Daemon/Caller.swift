@@ -36,7 +36,7 @@ enum Caller: Hashable, Sendable {
     }
 
     /// The marks `origin` records for a caller with no session: never a session's id (a UUID), and where a line stops.
-    static let marks: Set<String> = [Sessions.ownProgram, Sessions.unknown, Sessions.detached]
+    static let marks: Set<String> = [Callers.ownProgram, Callers.unknown, Callers.detached]
 
     /// What a session it starts records as its origin (`Session.origin`): its session, or a mark (`marks`) where its
     /// line stops, which `Sessions.forAnAgent` holds to an agent's rules.
@@ -45,9 +45,9 @@ enum Caller: Hashable, Sendable {
         case .user: nil
         case .session(let id): id
         case .typedAgent(let id): Self.typed + id
-        case .kelpd: Sessions.ownProgram
-        case .unknown: Sessions.unknown
-        case .detached: Sessions.detached
+        case .kelpd: Callers.ownProgram
+        case .unknown: Callers.unknown
+        case .detached: Callers.detached
         }
     }
 }

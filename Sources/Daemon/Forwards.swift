@@ -145,7 +145,8 @@ final class Forwards: Sendable {
     /// redial a host someone closed the lid on): without one, the last answer, marked offline.
     func ports(_ worktree: Worktree, _ remote: RemoteHost, sessions: [String]) -> [PortsList.Port] {
         let args = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(HostPorts.script(remote.path))]
-        guard let connection = remote.connection, let out = Sessions.run(args, path: "/usr/bin:/bin", timeout: 5) else {
+        guard let connection = remote.connection, let out = Subprocess.printed(args, path: "/usr/bin:/bin", timeout: 5)
+        else {
             return state.withLock { $0.seen[worktree.id] ?? [] }.map {
                 PortsList.Port(
                     port: $0.port, pid: $0.pid, command: $0.command, session: $0.session, host: $0.host, here: $0.here,
@@ -221,13 +222,14 @@ final class Forwards: Sendable {
 extension RemoteHost {
     /// The shared connection as it names itself (its process), nil with none. Changes when the connection does.
     var connection: String? {
-        Sessions.run(
+        Subprocess.printed(
             [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", "check", "--", host], path: "/usr/bin:/bin", timeout: 3)
     }
 
     /// Opens the shared connection and leaves it there.
     func connect() throws {
-        guard Sessions.run([ssh] + sshArgs(tty: false) + ["true"], path: "/usr/bin:/bin", timeout: 20) != nil else {
+        guard Subprocess.printed([ssh] + sshArgs(tty: false) + ["true"], path: "/usr/bin:/bin", timeout: 20) != nil
+        else {
             throw RPCError.invalidParams("Can't reach \(host).")
         }
     }

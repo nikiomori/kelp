@@ -87,8 +87,10 @@ extension AgentUsage {
     ]
 
     /// Settings › Show plan limits.
-    var readsPlans: Bool { SettingKeys.readPlans.read(
-        settings[SettingKeys.readPlans.key] ?? settings[SettingKeys.readClaudePlan.key]) }
+    var readsPlans: Bool {
+        SettingKeys.readPlans.read(
+            settings[SettingKeys.readPlans.key] ?? settings[SettingKeys.readClaudePlan.key])
+    }
 
     /// How long after its last session an agent's limits are still read: a probe is a whole run of the agent (one installed
     /// but unused cost a launch every half hour, up to a GB at once with the others).
@@ -137,7 +139,7 @@ extension AgentUsage {
                 if let path = try? LoginPath.resolve(probe.command) {
                     var screen = ""
                     if !probe.printArgs.isEmpty {
-                        screen = Sessions.run([path] + probe.printArgs, path: LoginPath.value, timeout: 30) ?? ""
+                        screen = Subprocess.printed([path] + probe.printArgs, path: LoginPath.value, timeout: 30) ?? ""
                         readings = probe.parse(screen)
                     } else if let cwd = probeDir {
                         for argv in probeArgv(probe.agent, path) {

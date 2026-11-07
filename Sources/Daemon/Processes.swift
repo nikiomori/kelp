@@ -2,10 +2,22 @@ import Core
 import Foundation
 
 /// What runs under each session's PTY, read when asked (nothing samples in the background): the dev servers a
-/// workspace started (ports, from the kernel) and what each session costs (CPU, memory, with ps).
-extension Sessions {
+/// workspace started (ports, from the kernel) and what each session costs (CPU, memory, with ps). For a remote project,
+/// its ports forwarded to this Mac, and the host's own load (`host.stats`).
+final class SessionProcesses: Sendable {
     typealias Port = PortsList.Port
     typealias Usage = SessionUsage.Usage
+    let live: SessionTable, store: Store, remotes: Remotes
+    let forwards: Forwards
+    /// Remote hosts whose last connection failed, and ssh's reason (`host.stats`).
+    let hostErrors = HostErrors(initialState: [:])
+
+    init(live: SessionTable, store: Store, remotes: Remotes) {
+        self.live = live
+        self.store = store
+        self.remotes = remotes
+        forwards = Forwards(store: store)
+    }
 
     /// Every process under a live session's PTY, by pid → session id; `only` limits it to one workspace.
     private func owners(worktree only: String? = nil) -> [Int32: String] {
@@ -20,9 +32,8 @@ extension Sessions {
         let owner = owners()
         var rows: [Int32: (cpu: Double, rss: Int)] = [:]
         guard !owner.isEmpty else { return ([:], [:]) }
-        for line in (Self.run(["/bin/ps", "-axo", "pid=,pcpu=,rss="], path: "/bin:/usr/bin", timeout: 3) ?? "").split(
-            whereSeparator: \.isNewline)
-        {
+        let ps = Subprocess.printed(["/bin/ps", "-axo", "pid=,pcpu=,rss="], path: "/bin:/usr/bin", timeout: 3) ?? ""
+        for line in ps.split(whereSeparator: \.isNewline) {
             let fields = line.split(separator: " ")
             guard fields.count == 3, let pid = Int32(fields[0]) else { continue }
             rows[pid] = (Double(fields[1]) ?? 0, (Int(fields[2]) ?? 0) * 1024)

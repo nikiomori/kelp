@@ -41,7 +41,7 @@ enum AgentSkills {
                 + "Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says where to make it (your own "
                 + "artifact tools come first) and how.",
             body: artifactsGuide)
-        // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
+        // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`SessionSetup.skillArgs`).
         put(
             "kelp-vm", on: settings[SettingKeys.skillVM],
             description:

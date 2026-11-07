@@ -102,7 +102,7 @@ import Testing
     defer { w.d.stop() }
     let wt = try await workspace(w, "keep")
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
-    try Data().write(to: w.d.workspaces.discards)
+    try Data().write(to: w.d.sourceControl.discards)
     await #expect(throws: RPCError.self) { try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"])) }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
 }

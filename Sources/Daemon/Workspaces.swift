@@ -20,59 +20,6 @@ final class Workspaces: Sendable {
     let headQueue = DispatchQueue(label: "kelp.heads")   // syncs one at a time, off every reader and the pool
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
     let routines: Routines   // agents on a schedule, each in a workspace of its own
-    /// What discards threw away, for a minute (`git.undoDiscard`): a file each, named by its folder and the name the
-    /// caller gave it, so the Undo still works after the daemon was upgraded in place, restarted or crashed.
-    var discards: URL { root.appendingPathComponent("discarded") }
-    private func discardFile(folder: String, name: String?) -> URL {
-        discards.appendingPathComponent(Self.digest(folder + "\0" + (name ?? "")) + ".json")
-    }
-    /// Keeps `discard` under `name` in `folder`, dropping what's past its minute.
-    /// Kept for its Undo before the files change (`Git.discard`'s `keep`): one that can't be kept (a full disk) isn't made.
-    func keepDiscard(_ discard: Discarded, folder: String, name: String?) throws {
-        sweepDiscards()
-        do {
-            try FileManager.default.createDirectory(at: discards, withIntermediateDirectories: true)
-            try JSONEncoder().encode(discard).write(to: discardFile(folder: folder, name: name), options: .atomic)
-        } catch {
-            throw RPCError.internalError(
-                "Nothing was discarded: its Undo couldn't be kept (\(error.localizedDescription)).")
-        }
-        // Gone after its minute even when nothing else is discarded: a patch can be large.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 61) { [weak self] in self?.sweepDiscards() }
-    }
-    /// The discard kept under `name`, if its minute isn't over, handed to `putBack`: taken (an Undo is once: moved aside
-    /// first, so two Undos can't both have it), and kept again if `putBack` throws, for another try within its minute.
-    /// False: there's none.
-    func undoDiscard(folder: String, name: String?, _ putBack: (Discarded) throws -> Void) throws -> Bool {
-        let file = discardFile(folder: folder, name: name), taken = file.appendingPathExtension(UUID().uuidString)
-        guard rename(file.path, taken.path) == 0 else { return false }
-        let discard = Log.store.attempt("reading a discard") {
-            try JSONDecoder().decode(Discarded.self, from: Data(contentsOf: taken))
-        }
-        guard let discard, discard.at.timeIntervalSinceNow > -60 else {
-            unlink(taken.path)
-            return false
-        }
-        do { try putBack(discard) } catch {
-            if renamex_np(taken.path, file.path, UInt32(RENAME_EXCL)) != 0 { unlink(taken.path) }   // a newer one has its name
-            throw error
-        }
-        unlink(taken.path)
-        return true
-    }
-    /// Drops what's past its minute; at start too, for what an earlier daemon kept.
-    func sweepDiscards() {
-        let old = Date().timeIntervalSince1970 - 60
-        for name in FileManager.default.enumerator(atPath: discards.path)?.allObjects as? [String] ?? [] {
-            let path = discards.appendingPathComponent(name).path
-            var st = stat()
-            if stat(path, &st) == 0, Double(st.st_mtimespec.tv_sec) < old { unlink(path) }
-        }
-    }
-    struct Discarded: Codable, Sendable {
-        var at = Date()
-        var patch: Data, hunk: Bool
-    }
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root
@@ -81,7 +28,6 @@ final class Workspaces: Sendable {
         self.sessions = sessions
         self.clients = clients
         self.routines = Routines(store: store, sessions: sessions, clients: clients)
-        sweepDiscards()
     }
 
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }

@@ -53,7 +53,7 @@ enum HostStatsReader {
 
     /// Closes the shared connection; what runs in tmux there goes on.
     static func disconnect(_ remote: RemoteHost, errors: HostErrors) {
-        _ = Sessions.run(
+        _ = Subprocess.printed(
             [remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "exit", "--", remote.host],
             path: "/usr/bin:/bin", timeout: 5)
         errors.withLock { $0[remote.host] = nil }
@@ -196,24 +196,24 @@ enum HostStatsReader {
 }
 
 extension HostStatsRead: Handled {
-    func handle(_ sessions: Sessions) throws -> HostStats {
+    func handle(_ processes: SessionProcesses) throws -> HostStats {
         let host = host.trimmingCharacters(in: .whitespaces)
         guard RemoteHost.isHost(host) else {
             throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.")
         }
-        let all = Log.store.attempt("reading the sessions") { try sessions.store.sessions() } ?? []
+        let all = Log.store.attempt("reading the sessions") { try processes.store.sessions() } ?? []
         return HostStatsReader.read(
-            sessions.remotes.host(host, path: "~"), connect: connect == true, sessions: all, errors: sessions.hostErrors
-        )
+            processes.remotes.host(host, path: "~"), connect: connect == true, sessions: all,
+            errors: processes.hostErrors)
     }
 }
 
 extension HostDisconnect: Handled {
-    func handle(_ sessions: Sessions) throws -> Done {
+    func handle(_ processes: SessionProcesses) throws -> Done {
         guard RemoteHost.isHost(host) else {
             throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.")
         }
-        HostStatsReader.disconnect(sessions.remotes.host(host, path: "~"), errors: sessions.hostErrors)
+        HostStatsReader.disconnect(processes.remotes.host(host, path: "~"), errors: processes.hostErrors)
         return Done()
     }
 }

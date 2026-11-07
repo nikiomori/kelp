@@ -138,11 +138,11 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(out.contains(#/<look> [^\n]*works only in its own workspace/#))
     #expect(out.contains(#/<phone> [^\n]*the user's/#) && !out.contains(#/<font> [^<]*error/#))
     #expect(out.contains(#/<pull> [^\n]*pull is the user's/#) && out.contains(#/<folder> [^\n]*the user's to set/#))
-    #expect(try !r.d.sessions.works(me.id, in: away.id))
+    #expect(try !r.d.sessions.store.works(me.id, in: away.id))
     var made = away
     made.madeBy = me.id   // as `worktree.create` from its terminal does: kept in the store, past a restart
     try r.d.sessions.store.save(made)
-    #expect(try r.d.sessions.works(me.id, in: away.id))
+    #expect(try r.d.sessions.store.works(me.id, in: away.id))
     #expect(try r.d.sessions.store.sessions().filter { $0.parent == other.id } == [])
     let outlived = try #require(try r.d.sessions.store.sessions().first { $0.id != me.id && $0.origin == me.id })
     #expect(outlived.parent == nil && outlived.startedBy == nil)   // still not its child, nor on its line
@@ -199,9 +199,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         var inner: [Inner]
         var args: JSONValue
     }
-    let found = try r.d.sessions.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
+    let found = try r.d.sessions.store.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
     #expect(found == [s.id])
-    #expect(throws: RPCError.self) { try r.d.sessions.named(by: [[[[[[[[s.id]]]]]]]]) }   // too deep to tell: refused
+    #expect(throws: RPCError.self) { try r.d.sessions.store.named(by: [[[[[[[[s.id]]]]]]]]) }   // too deep to tell: refused
 }
 
 /// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.
@@ -551,7 +551,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let typed = Caller.typedAgent(term.id)
     // The workspaces a call names are found in any field, as its sessions are: no method has to remember to say.
     #expect(
-        try r.d.sessions.workspaces(namedBy: SessionCreate(worktreeId: elsewhere.id, command: "cat", parent: mine.id))
+        try r.d.store.workspaces(namedBy: SessionCreate(worktreeId: elsewhere.id, command: "cat", parent: mine.id))
             == [elsewhere.id])
     #expect(AgentRules.reads.contains(GitStatus.name) && !AgentRules.reads.contains(WorktreeNote.name))
     // Who counts as an agent's in a tmux pane is who `allow` holds to an agent's rules: the same table.

@@ -3,11 +3,9 @@ import Core
 import Foundation
 import GitKit
 
-/// RPCs that chain several steps or wait on other processes.
-extension Sessions {
-
+extension Subprocess {
     /// What a short command prints (stdout, then stderr), or nil if it fails or takes longer than `timeout`.
-    static func run(_ argv: [String], path: String, timeout: Double) -> String? {
+    static func printed(_ argv: [String], path: String, timeout: Double) -> String? {
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = path
         env["NO_COLOR"] = "1"
@@ -15,31 +13,6 @@ extension Sessions {
             result.status == 0, !result.timedOut, !result.truncated
         else { return nil }
         return String(decoding: result.stdout + result.stderr, as: UTF8.self)
-    }
-
-    /// "claude 2.1.3 (Claude Code)" → "2.1.3".
-    static func semver(_ output: String) -> String? { output.firstMatch(of: /\d+\.\d+\.\d+/).map { String($0.output) } }
-
-    /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. Claude Code's own
-    /// conversation (what was asked and answered) when there is one; otherwise the terminal's text.
-    func handoffFile(_ session: Session, full: Bool) throws -> URL {
-        let limit = full ? 400_000 : 40_000
-        let body: String
-        if let transcript = existing(session.id).flatMap(agentUsage.transcript(of:)),
-            let talk = AgentUsage.conversation(transcript: transcript, limit: limit), !talk.isEmpty
-        {
-            body = talk
-        } else {
-            let printed = try liveSessionOrLog(session.id, bytes: limit)
-            // swiftlint:disable:next optional_data_string_conversion
-            body = "```\n" + StatusDetector.stripANSI(String(decoding: printed, as: UTF8.self)) + "\n```"   // lossy on purpose, see session.context
-        }
-        let dir = root.appendingPathComponent("handoff")
-        try Paths.ensure(dir)
-        let file = dir.appendingPathComponent("\(session.id).md")
-        try ("# Previous session (\(session.agent ?? "agent"), \(session.cwd))\n\n" + body + "\n").write(
-            to: file, atomically: true, encoding: .utf8)
-        return file
     }
 }
 
@@ -89,15 +62,5 @@ extension SessionRename: Handled {
             }
         }
         return Done()
-    }
-}
-
-extension Sessions {
-    /// argv without `--session-id <id>`: two sessions can't share an id (Claude Code refuses one already used).
-    static func withoutSessionId(_ argv: [String], flag: String?) -> [String] {
-        guard let flag, let index = argv.firstIndex(of: flag) else { return argv }
-        var stripped = argv
-        stripped.removeSubrange(index...min(index + 1, stripped.count - 1))
-        return stripped
     }
 }

@@ -30,6 +30,10 @@ public final class Daemon: Sendable {
     let settingsEvents: SettingsEvents   // event.settings in order: the last one is the settings now
     let workspaces: Workspaces   // workspaces, the branches they follow, the .kelp.yaml files the user trusts
     var files: FileService { FileService(remotes: remotes) }   // files.*: read, written, moved here or on a remote project's host
+    /// git.*, the files lists and review comments: the workspaces' checkouts, here or on a remote project's host.
+    var sourceControl: SourceControl {
+        SourceControl(root: root, store: store, remotes: remotes, sessions: sessions)
+    }
     let remotes: Remotes   // which project folders stand for one on a host (only those in this home's remote/), and how to reach it
     /// The virtual machines agents run commands in (vm.*), each run by its own kelp-vm, the one beside kelpd.
     var vms: VMService {
@@ -69,6 +73,7 @@ public final class Daemon: Sendable {
         self.workspaces = Workspaces(
             root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)
         self.settingsEvents = SettingsEvents(store: settings, clients: clients, sessions: sessions)
+        SourceControl.sweepDiscards(root)   // what an earlier daemon kept for an Undo, past its minute
         // Remote projects' shared SSH connections; without it, they fail.
         do { try Paths.ensure(URL(fileURLWithPath: remotes.controlDir)) } catch {
             Log.start.error("no folder for ssh connections: \(error)")
@@ -183,7 +188,7 @@ public final class Daemon: Sendable {
             sessions.live.all.forEach { $0.tick() }
             sessions.applyKeepAwake()
             sessions.hibernateIdle()
-            sessions.restartOutdated()
+            sessions.updates.restartOutdated()
         }
         let prune = DispatchSource.makeTimerSource(queue: .global(qos: .background))
         prune.schedule(deadline: .now() + 60, repeating: 86400)   // ended sessions past `keepEnded`
