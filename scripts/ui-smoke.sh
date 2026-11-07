@@ -14,7 +14,6 @@ git -C "$repo" init -q -b main
 printf '# Demo\n\nKelp smoke test.\n' > "$repo/README.md"
 git -C "$repo" add README.md
 git -C "$repo" -c user.name=kelp -c user.email=kelp@example.com commit -qm init
-KELP_HOME="$home" .build/debug/kelp repo add "$repo" > /dev/null
 scene() {
     name=$1
     shift
@@ -30,7 +29,8 @@ scene() {
     fi
     echo "$name: ok"
 }
-scene start
+# Added by the app, as Add Project does: CI runs this as a launchd job, which the daemon holds to an agent's rules.
+scene start KELP_SNAPSHOT_SHEET="project=$repo"
 scene settings KELP_SNAPSHOT_WINDOW=settings
 scene file KELP_SNAPSHOT_OPEN="file://$repo/README.md"
 # A terminal running a command: its answer (42) isn't in the command's text, so finding it means the shell ran it.
