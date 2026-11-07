@@ -201,13 +201,9 @@ final class Box: @unchecked Sendable {
     #expect(try await waitFor(10) { box.text.contains("%") })   // its prompt is drawn
     #expect(p.foregroundProgram == nil)   // at the prompt
     p.write(Data("sleep 30\n".utf8))
-    var seen: String?
-    // Until it is sleep: just after the fork the foreground is briefly a copy of the shell, not yet the program.
-    for _ in 0..<200 where seen != "sleep" {
-        try await Task.sleep(for: .milliseconds(100))
-        seen = p.foregroundProgram
-    }   // up to 20 s on a loaded machine
-    #expect(seen == "sleep")
+    // Until it is sleep: just after the fork the foreground is briefly a copy of the shell, not yet the program. Up to
+    // 20 s on a loaded machine.
+    #expect(try await waitFor(20) { p.foregroundProgram == "sleep" })
 }
 
 @Test func aTerminalThatCantBeOpenedYetIsRetriedButOtherErrorsAreNot() throws {
@@ -282,12 +278,15 @@ final class Box: @unchecked Sendable {
 /// A paste into a program that isn't reading (a build in the foreground) holds up nothing: not the caller (a connection's
 /// reader thread), not the questions the app asks about the terminal.
 @Test func writingToAProgramThatIsntReadingBlocksNothing() throws {
-    let box = Box()
+    let box = Box(), ready = DispatchSemaphore(value: 0)
     let p = try PTY(argv: ["/bin/sh", "-c", "stty raw -echo; echo ready; sleep 30"], cwd: "/tmp", env: [:])   // raw, like a TUI: input queues up
-    p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
+    p.onOutput = {
+        box.add(String(bytes: $0, encoding: .utf8) ?? "")
+        if box.text.contains("ready") { ready.signal() }
+    }
     p.start()
     defer { p.kill() }
-    for _ in 0..<100 where !box.text.contains("ready") { usleep(20_000) }
+    #expect(ready.wait(timeout: .now() + 2) == .success)
     let big = Data(repeating: 0x61, count: 2 << 20)   // far more than the terminal buffers
     let t = Date()
     p.write(big)

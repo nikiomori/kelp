@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -23,7 +24,7 @@ extension OneAtATime {
         try rig.write("big.swift", String(repeating: line, count: 4_700_000 / line.utf8.count))
         let p = rig.repo + "/big.swift"
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
-        while tab.editor == nil { try await Task.sleep(for: .milliseconds(1)) }   // read by the daemon first
+        #expect(try await waitFor(60) { tab.editor != nil })   // read by the daemon first
         let e = try #require(tab.editor), tv = e.textView
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 700), styleMask: [.titled], backing: .buffered,
@@ -69,7 +70,7 @@ extension OneAtATime {
             for i in 0..<5 {
                 let t0 = Date()
                 let tab = FileTab(uri: TabURI.file(rig.repo + "/" + name), app: rig.app)
-                while tab.editor == nil { try await Task.sleep(for: .milliseconds(1)) }
+                while tab.editor == nil { try await Task.sleep(for: .milliseconds(1)) }   // timed, to the ms
                 opens.append(Date().timeIntervalSince(t0) * 1000)
                 let e = try #require(tab.editor)
                 e.setText(e.text + "// \(i)\n")

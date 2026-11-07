@@ -77,7 +77,7 @@ import os
     dd bs=1 count=1 2>/dev/null >/dev/null
     printf '\n\xe2\x9d\xaf 1. Yes\n  2. No\n'
     while :; do
-      case "$(dd bs=1 count=1 2>/dev/null | od -An -c)" in *'\r'*|*'\n'*) echo ANSWERED;; esac
+      case "$(dd bs=1 count=1 2>/dev/null | od -An -c)" in *'\r'*|*'\n'*) echo ANSWERED;; *z*) echo SEEN;; esac
     done
     """#.write(to: script, atomically: true, encoding: .utf8)
     let w = try await world()
@@ -90,7 +90,8 @@ import os
     _ = try await w.c.call(SessionSend(id: s.id, text: "hello"))
     #expect(try await waitFor(5) { try await screen().contains("2. No") })
     #expect(try await waitFor(5) { w.d.sessions.existing(s.id)?.state.withLock(\.draftWaiting) == true })
-    try await Task.sleep(for: .seconds(1))
+    _ = try await w.c.call(SessionWrite(id: s.id, text: "z"))   // read after anything typed before it
+    #expect(try await waitFor(5) { try await screen().contains("SEEN") })
     #expect(!(try await screen()).contains("ANSWERED"))
 }
 
@@ -130,7 +131,7 @@ import os
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow npm test?")) == false)
     ls.hook("waiting", message: "Allow rm -rf build?", asker: "a subagent")
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")) == false)
-    try await Task.sleep(for: .seconds(1))
+    #expect(ls.state.withLock { $0.steering == nil })   // nothing set to press it later either
     #expect(!(try await screen()).contains("ALLOWED"))
     ls.state.withLock { $0.asking["a subagent"] = nil }
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")))

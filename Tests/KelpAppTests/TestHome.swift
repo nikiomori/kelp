@@ -86,3 +86,7 @@ final class AppRig {
         try? FileManager.default.removeItem(at: root)
     }
 }
+
+/// Until what the main actor was given before now has run (a task, and the one that task began): what a check that
+/// nothing happened there reads after.
+@MainActor func mainActorTurns() async { for _ in 0..<2 { await Task {}.value } }

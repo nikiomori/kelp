@@ -104,7 +104,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     d.offloads.close()   // how an update starts
     await #expect(throws: RPCError.updating) { try await c.call(SessionHook(id: s.id, event: "waiting")) }
     let sent = Task { try await SessionHook(id: s.id, event: "waiting").send(socket: d.socketPath) }
-    try await Task.sleep(for: .milliseconds(300))
+    try await Task.sleep(for: .milliseconds(300))   // it tried and was refused, most likely: nothing says so
     #expect(d.sessions.existing(s.id)?.snapshot.status != .waiting)
 
     let next = try Daemon(root: root)
@@ -229,11 +229,12 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     try p.run()
     defer { if p.isRunning { kill(p.processIdentifier, SIGKILL) } }   // only the kelpd this test started; exec'd, it ignores SIGTERM at first
     func connected() async throws -> RPCClient? {
-        for _ in 0..<50 {
-            if let c = try? client(root) { return c }
-            try await Task.sleep(for: .milliseconds(100))
+        var c: RPCClient?
+        _ = try await waitFor(5) {
+            c = try? client(root)
+            return c != nil
         }
-        return nil
+        return c
     }
     let c = try #require(try await connected())
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))

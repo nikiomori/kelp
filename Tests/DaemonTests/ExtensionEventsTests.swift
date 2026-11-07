@@ -49,12 +49,12 @@ private func temporary() -> URL {
     let workspace = try await firstWorkspace(w).id
     let done = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "done"))
     let asks = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "asks"))
-    _ = try await w.c.call(SessionReport(id: done.id, state: "done"))
+    // The question first: events are judged in turn, so once the result is heard, the question's turn has passed.
     _ = try await w.c.call(SessionReport(id: asks.id, state: "blocked"))
+    _ = try await w.c.call(SessionReport(id: done.id, state: "done"))
     _ = try await w.c.call(SessionKill(id: done.id))
     _ = try await w.c.call(SessionKill(id: asks.id))
     #expect(try await waitFor(10) { !lines(out).isEmpty })
-    try await Task.sleep(for: .seconds(1))
     #expect(lines(out) == ["agent.done|done|"])
 }
 
@@ -71,6 +71,7 @@ private func temporary() -> URL {
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     _ = try await w.c.call(SessionReport(id: kid.id, state: "done"))
+    // Time: the delay is what's tested, the stop judged before it stands again.
     try await Task.sleep(for: .seconds(Sessions.eventDelay + 1))
     #expect(lines(out).isEmpty)
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))

@@ -17,7 +17,11 @@ import Testing
     let peer = accept(server, nil, nil)   // and never answers
     defer { close(peer) }
     let call = Task { try await client.call("never", timeout: 20) }   // not forever, so the old way fails instead of hanging
-    try await Task.sleep(for: .milliseconds(100))
+    var t = timeval(tv_sec: 10, tv_usec: 0)   // a call never sent fails the test instead of hanging the run
+    _ = setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+    var byte: UInt8 = 0
+    while read(peer, &byte, 1) == 1, byte != 0x0A {}   // it's out and waiting: its line has come
+    #expect(byte == 0x0A)
     call.cancel()
     let started = Date()
     await #expect(throws: CancellationError.self) { try await call.value }

@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import Testing
+import os
 
 @testable import Daemon
 
@@ -61,8 +62,9 @@ import Testing
     Unix.noSigPipe(sv[0])
     defer { close(sv[1]) }
     let clients = Clients(), app = clients.add(fd: sv[0]).id
-    let asked = Task { try await clients.reply(to: "r1", from: [app], within: 60) {} }
-    try await Task.sleep(for: .milliseconds(100))
+    let sent = OSAllocatedUnfairLock(initialState: false)
+    let asked = Task { try await clients.reply(to: "r1", from: [app], within: 60) { sent.withLock { $0 = true } } }
+    #expect(try await waitFor(5) { sent.withLock { $0 } })   // asked: its answer is waited for
     clients.remove(app)
     await #expect(throws: RPCError.internalError("Kelp's window closed before it answered")) { try await asked.value }
 }

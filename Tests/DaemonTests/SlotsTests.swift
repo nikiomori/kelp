@@ -17,7 +17,7 @@ import os
                         $0.now += 1
                         $0.most = max($0.most, $0.now)
                     }
-                    usleep(100_000)
+                    usleep(100_000)   // the work: the others come while it holds its slot
                     running.withLock { $0.now -= 1 }
                 }
             }
@@ -29,9 +29,14 @@ import os
 
 /// What the user is waiting on (a paused tab waking) runs at once, not after every held slot.
 @Test func workRunNowDoesntWaitForASlot() async throws {
-    let slots = Slots(1), held = DispatchSemaphore(value: 0)
-    let slow = Task { try await slots.run { held.wait() } }
-    try await Task.sleep(for: .milliseconds(100))   // the one slot is taken
+    let slots = Slots(1), held = DispatchSemaphore(value: 0), took = OSAllocatedUnfairLock(initialState: false)
+    let slow = Task {
+        try await slots.run {
+            took.withLock { $0 = true }
+            held.wait()
+        }
+    }
+    #expect(try await waitFor(5) { took.withLock { $0 } })   // the one slot is taken
     #expect(try await slots.runNow { 42 } == 42)
     held.signal()
     try await slow.value
@@ -86,7 +91,7 @@ import os
                         $0.now += 1
                         $0.most = max($0.most, $0.now)
                     }
-                    usleep(100_000)
+                    usleep(100_000)   // the work: the others come while it holds its slot
                     running.withLock { $0.now -= 1 }
                 }
             }
@@ -98,16 +103,18 @@ import os
 
 /// Closed for an update: what has a slot finishes, what waits for one and what comes later is refused, not started.
 @Test func closedSlotsFinishWhatRunsAndStartNothing() async throws {
-    let slots = Slots(1), held = DispatchSemaphore(value: 0)
+    let slots = Slots(1), held = DispatchSemaphore(value: 0), took = OSAllocatedUnfairLock(initialState: false)
     let running = Task {
         try await slots.run {
+            took.withLock { $0 = true }
             held.wait()
             return 1
         }
     }
-    try await Task.sleep(for: .milliseconds(50))   // the one slot is taken
+    #expect(try await waitFor(5) { took.withLock { $0 } })   // the one slot is taken
     let waiting = Task { try await slots.run { 2 } }
-    try await Task.sleep(for: .milliseconds(50))   // queued behind the one running (refused either way)
+    // Queued behind the one running, most likely: nothing says it waits (refused either way).
+    try await Task.sleep(for: .milliseconds(50))
     slots.close()
     held.signal()
     #expect(try await running.value == 1)

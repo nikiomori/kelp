@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyKit
+import TestSupport
 import Testing
 
 @testable import TerminalKit
@@ -8,7 +9,7 @@ import Testing
 /// the requested command" over what the program shows (it did on CI).
 @MainActor private var terminalTaken = false
 @MainActor private func takeTerminal() async throws {
-    while terminalTaken { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(120) { !terminalTaken })
     terminalTaken = true
 }
 
@@ -40,17 +41,13 @@ import Testing
     var titles = 0
     closing?.onTitle = { _ in titles += 1 }
     stays.onTitle = { _ in titles += 1 }
-    let started = Date() + 15
-    while titles < 500, Date() < started { try await Task.sleep(for: .milliseconds(20)) }
-    #expect(titles >= 500)
+    #expect(try await waitFor(15) { titles >= 500 })
     closing?.removeFromSuperview()
     closing = nil
-    let closed = Date() + 15   // a program that went on printing would never let it go
-    repeat { try await Task.sleep(for: .milliseconds(20)) } while GhosttyRuntime.shared.retiring > 0 && Date() < closed
-    #expect(GhosttyRuntime.shared.retiring == 0)
+    // A program that went on printing would never let it go.
+    #expect(try await waitFor(15) { GhosttyRuntime.shared.retiring == 0 })
     let before = titles
-    try await Task.sleep(for: .milliseconds(200))
-    #expect(titles > before)   // the one left goes on
+    #expect(try await waitFor(5) { titles > before })   // the one left goes on
 }
 
 @Test func copyLeavesTheTUIBehind() {
@@ -147,10 +144,7 @@ let wrappedRows = [
         return t == path
     }
     v.onOpenURL = { opened = $0 }
-    let deadline = Date() + 15
-    while !(v.visibleText.contains("DONE") && ghostty_surface_mouse_captured(surface)), Date() < deadline {
-        try await Task.sleep(for: .milliseconds(50))
-    }
+    #expect(try await waitFor(15) { v.visibleText.contains("DONE") && ghostty_surface_mouse_captured(surface) })
     let rows = v.visibleText.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
     let cw = Double(s.cell_width_px) / scale, ch = Double(s.cell_height_px) / scale
@@ -191,7 +185,7 @@ let wrappedRows = [
     w.orderFront(nil)
     defer { w.orderOut(nil) }
     let deadline = Date() + 15   // a loaded CI runner can take seconds to start the shell
-    while !v.visibleText.contains("DONE"), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(deadline.timeIntervalSinceNow) { v.visibleText.contains("DONE") })
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
     try #require(s.columns == 32)
     let cw = Double(s.cell_width_px) / scale, ch = Double(s.cell_height_px) / scale
@@ -218,7 +212,7 @@ let wrappedRows = [
     }
     let before = pb.changeCount
     v.copy(nil)
-    while pb.changeCount == before, Date() < deadline + 2 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(try await waitFor(deadline.timeIntervalSinceNow + 2) { pb.changeCount != before })
     #expect(pb.string(forType: .string) == wrappedCommand)
 }
 
@@ -329,10 +323,7 @@ let wrappedRows = [
     defer { w.orderOut(nil) }
     var opened: URL?
     v.onOpenURL = { opened = $0 }
-    let deadline = Date() + 15
-    while !(v.visibleText.contains("LINKTEXT") && ghostty_surface_mouse_captured(surface)), Date() < deadline {
-        try await Task.sleep(for: .milliseconds(50))
-    }
+    #expect(try await waitFor(15) { v.visibleText.contains("LINKTEXT") && ghostty_surface_mouse_captured(surface) })
     let rows = v.visibleText.components(separatedBy: "\n")
     let row = try #require(rows.firstIndex { $0.contains("LINKTEXT") })
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
@@ -369,10 +360,7 @@ let wrappedRows = [
     w.contentView = v
     w.orderFront(nil)
     defer { w.orderOut(nil) }
-    let deadline = Date() + 15
-    while !(v.visibleText.contains("fix") && v.screen().cursor?.row == 2), Date() < deadline {
-        try await Task.sleep(for: .milliseconds(50))
-    }
+    #expect(try await waitFor(15) { v.visibleText.contains("fix") && v.screen().cursor?.row == 2 })
     #expect(
         v.isAccessibilityElement() && v.accessibilityRole() == .textArea && v.accessibilityIdentifier() == "terminal")
     let text = try #require(v.accessibilityValue() as? String) as NSString

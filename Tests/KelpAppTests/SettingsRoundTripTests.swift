@@ -125,6 +125,6 @@ extension OneAtATime {
     #expect(try await waitFor(5) { !(m.repos.isEmpty) })
     m.stopHearing(c)
     c.onEvent?(Repo(id: "r2", name: "two", path: "/two"))
-    try await Task.sleep(for: .milliseconds(100))
+    await mainActorTurns()   // heard, it would be handled by now
     #expect(m.repos.map(\.id) == ["r1"])
 }

@@ -51,7 +51,7 @@ import Testing
             Control.read(theirs) { c.resume(returning: $0) }
             for part in chunks {
                 _ = part.withCString { Darwin.write(mine, $0, strlen($0)) }
-                usleep(20_000)
+                usleep(20_000)   // apart: the request arrives in pieces, which is what's tested
             }
             shutdown(mine, SHUT_WR)
         }

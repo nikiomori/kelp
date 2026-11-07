@@ -455,8 +455,10 @@ func trustQuestionStandIn() -> String {
     #expect(!readsUntilEnd(1.5))   // attached: it streams
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     #expect(readsUntilEnd(5))
-    try await Task.sleep(for: .seconds(0.5))
-    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
+    #expect(
+        try await waitFor(5) {
+            try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused
+        })
 }
 
 /// A plain program (no conversation to resume) ends with its workspace, as the record says, even one that ignores the

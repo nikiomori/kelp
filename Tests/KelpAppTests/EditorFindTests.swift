@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import TestSupport
 import Testing
 
 @testable import EditorKit
@@ -68,8 +69,7 @@ extension OneAtATime {
         e.textView.setSelectedRange(NSRange(location: 8, length: 0))
         e.textView.insertText("foo foo", replacementRange: e.textView.selectedRange())
         #expect(e.textView.findMarks.count == 1)   // not yet
-        try await Task.sleep(for: .milliseconds(400))
-        #expect(e.textView.findMarks.count == 3)
+        #expect(try await waitFor(5) { e.textView.findMarks.count == 3 })
     }
 }
 

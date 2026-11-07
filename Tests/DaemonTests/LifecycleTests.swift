@@ -315,7 +315,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
 
 /// A daemon that can't start (here another one serves this home) leaves its reason where the app's banner reads it, and
 /// the next daemon that starts takes it away.
-@Test func aDaemonThatCantStartSaysWhyWhereTheAppLooks() throws {
+@Test func aDaemonThatCantStartSaysWhyWhereTheAppLooks() async throws {
     let root = tmp(), err = Paths.daemonError(in: root)
     let first = try Daemon(root: root)
     try first.start()
@@ -330,12 +330,13 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     // Up to 2 s for the lock: in a heavily loaded full run it was once still held for a moment after stop() returned
     // (cause not found; stop() closes it last, and it's O_CLOEXEC). What's tested here is the reason file, not that timing.
     var third: Daemon?
-    for _ in 0..<20 where third == nil {
+    _ = try await waitFor(2) {
         let d = try Daemon(root: root)
         do {
             try d.start()
             third = d
-        } catch { Thread.sleep(forTimeInterval: 0.1) }
+        } catch {}
+        return third != nil
     }
     let started = try #require(third)
     #expect(!FileManager.default.fileExists(atPath: err.path))

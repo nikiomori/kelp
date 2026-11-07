@@ -15,6 +15,40 @@ private struct Family {
     func status(_ id: String) async throws -> AgentStatus? {
         try await w.c.call(SessionList()).first { $0.id == id }?.status
     }
+    /// What `id`'s changes so far make of reports is made: its status changes were heard in order, and the reports they
+    /// began (a reply looked for for seconds included) are done.
+    func heard(_ id: String) async {
+        if let ls = w.d.sessions.existing(id) { await withCheckedContinuation { c in ls.inOrder { c.resume() } } }
+        let reports = w.d.sessions.reports
+        await withCheckedContinuation { c in
+            DispatchQueue.global().async {
+                reports.settle(within: 10)
+                c.resume()
+            }
+        }
+    }
+    /// The reports `id` holds, and what was typed into it.
+    func held(_ id: String) -> (reports: Int, typed: Int)? {
+        w.d.sessions.existing(id)?.state.withLock { ($0.reports.count, $0.inputs) }
+    }
+    /// Whether a tick, once `id` holds a report and rests as long as one needs to type it (started up, 1.5 s quiet),
+    /// still holds it.
+    func tickKeeps(_ id: String) async throws -> Bool {
+        let ls = try #require(w.d.sessions.existing(id))
+        #expect(
+            try await waitFor(10) {
+                ls.state.withLock {
+                    !$0.reports.isEmpty && $0.startedUp && Date().timeIntervalSince($0.lastOutputAt ?? $0.started) > 1.6
+                }
+            })
+        ls.tick()
+        return ls.state.withLock { !$0.reports.isEmpty }
+    }
+    /// It still runs: what's typed into it is echoed.
+    func answers(_ id: String) async throws -> Bool {
+        _ = try await w.c.call(SessionWrite(id: id, text: "still here\n"))
+        return try await waitFor(10) { try await read(id).contains("still here") }
+    }
 }
 
 private func family(parentAgent: String? = "fake", manifest: AgentManifest = fake) async throws -> Family {
@@ -40,11 +74,13 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
         try await waitFor(10) {
             try await f.read(f.parent.id).contains("<kelp from=\"reviewer \(f.child.id.prefix(8))\" status=\"done\"> ")
         })
-    try await Task.sleep(for: .seconds(1))   // what the terminal echoes has come
-    let once = try await f.read(f.parent.id)
+    // What the terminal echoes has come, then what cat prints.
+    #expect(try await waitFor(10) { try await f.read(f.parent.id).components(separatedBy: "<kelp from=").count == 3 })
+    let once = try await f.read(f.parent.id), typed = f.held(f.parent.id)?.typed
     _ = try await f.w.c.call(SessionRename(id: f.child.id, title: "reviewer two"))   // saved again, nothing new
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
-    try await Task.sleep(for: .seconds(1))
+    await f.heard(f.child.id)
+    #expect(f.held(f.parent.id)?.reports == 0 && f.held(f.parent.id)?.typed == typed)
     #expect(try await f.read(f.parent.id) == once)
 }
 
@@ -82,7 +118,9 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     defer { f.w.d.stop() }
     f.w.d.sessions.reports.restarting(f.parent.id, true)
     _ = try await f.w.c.call(SessionKill(id: f.parent.id))
-    try await Task.sleep(for: .seconds(1))
+    #expect(try await waitFor(10) { [.exited, nil].contains(try await f.status(f.parent.id)) })   // its end was heard
+    await f.heard(f.parent.id)
+    #expect(try await f.answers(f.child.id))
     #expect(try await f.status(f.child.id) != .exited)
     f.w.d.sessions.restartFailed(f.parent.id)
     #expect(try await waitFor(10) { try await f.status(f.child.id) == .exited })
@@ -114,7 +152,9 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let f = try await family()
     defer { f.w.d.stop() }
     let again = try await f.w.c.call(SessionRestart(id: f.parent.id, resume: false))
-    try await Task.sleep(for: .seconds(1))
+    #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id) == nil })   // the old one's end was heard
+    await f.heard(f.parent.id)
+    #expect(try await f.answers(f.child.id))
     #expect(try await f.status(f.child.id) != .exited)
     #expect(try await f.w.c.call(SessionList()).first { $0.id == f.child.id }?.parent == again.id)
     _ = try await f.w.c.call(SessionKill(id: again.id))
@@ -138,7 +178,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     defer { f.w.d.stop() }
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
-    try await Task.sleep(for: .seconds(3))
+    #expect(try await f.tickKeeps(f.parent.id))
     #expect(try await !f.read(f.parent.id).contains("<kelp from"))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "done"))
     #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from") })
@@ -148,11 +188,15 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test func aReportWaitsForAnEmptyBox() async throws {
     let f = try await family()
     defer { f.w.d.stop() }
-    _ = try await f.w.c.call(SessionWrite(id: f.parent.id, text: "\u{1B}[A"))
+    // Keys the user pressed (`text` goes to the program as it is, which isn't typing in its box).
+    func press(_ keys: String) async throws {
+        _ = try await f.w.c.call(SessionWrite(id: f.parent.id, base64: Data(keys.utf8).base64EncodedString()))
+    }
+    try await press("\u{1B}[A")
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
-    try await Task.sleep(for: .seconds(3))
+    #expect(try await f.tickKeeps(f.parent.id))
     #expect(try await !f.read(f.parent.id).contains("<kelp from"))
-    _ = try await f.w.c.call(SessionWrite(id: f.parent.id, text: "\r"))
+    try await press("\r")
     #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from") })
 }
 
@@ -160,9 +204,11 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test func aStopThatDidntLastReportsNothing() async throws {
     let f = try await family()
     defer { f.w.d.stop() }
+    let typed = f.held(f.parent.id)?.typed
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "working"))
-    try await Task.sleep(for: .seconds(6))
+    await f.heard(f.child.id)   // the report the stop began, which looks for its reply for seconds, is made
+    #expect(f.held(f.parent.id)?.reports == 0 && f.held(f.parent.id)?.typed == typed)
     #expect(try await !f.read(f.parent.id).contains("<kelp from"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from") })
@@ -311,7 +357,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test func childReportsGoInOrderAndAHandOverWaitsForThem() {
     let r = ChildReports(), order = OSAllocatedUnfairLock(initialState: [Int]())
     r.make {
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: 0.3)   // the first takes a while: the second must still come after it
         order.withLock { $0.append(1) }
     }
     r.make { order.withLock { $0.append(2) } }

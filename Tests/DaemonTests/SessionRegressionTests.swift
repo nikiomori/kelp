@@ -251,8 +251,8 @@ private func submitted(_ screen: String) -> String {
     func screen() async throws -> String {
         (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
     }
-    let end = Date().addingTimeInterval(10)   // the user comes well within the 5 s the answer waits (not a race with a busy machine)
-    while Date() < end, !(try await screen()).contains("Press Enter") { try await Task.sleep(for: .milliseconds(5)) }
+    // The user comes well within the 5 s the answer waits (not a race with a busy machine).
+    #expect(try await waitFor(10) { try await screen().contains("Press Enter") })
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("x".utf8).base64EncodedString())]))   // the user, at once
     #expect(try await waitFor(15) { try await screen().contains("QUIET") })
     let shown = try await screen()
@@ -337,7 +337,8 @@ private func submitted(_ screen: String) -> String {
     defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
     var ids: [String: String] = [:]
-    for agent in ["own", "wired"] {
+    // The wired one first: its screen has said as much as the other's by the time that one works.
+    for agent in ["wired", "own"] {
         let s: Session = try await w.c.call(
             "session.create", .obj(["worktreeId": .string(wt.id), "agent": .string(agent)]), as: Session.self)
         #expect(
@@ -349,6 +350,5 @@ private func submitted(_ screen: String) -> String {
         ids[agent] = s.id
     }
     #expect(try await waitFor(10) { w.d.sessions.existing(ids["own"] ?? "")?.snapshot.status == .working })
-    try await Task.sleep(for: .seconds(1))
     #expect(w.d.sessions.existing(ids["wired"] ?? "")?.snapshot.status == .idle)
 }

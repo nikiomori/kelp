@@ -53,10 +53,7 @@ import WebKit
     func js(_ s: String) async -> String? {
         (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String
     }
-    for _ in 0..<200 where await js("document.querySelector('.mermaid svg') ? 'drawn' : 'no'") != "drawn" {
-        try await Task.sleep(for: .milliseconds(50))
-    }
-    #expect(await js("document.querySelector('.mermaid svg') ? 'drawn' : 'no'") == "drawn")
+    #expect(try await waitFor(10) { await js("document.querySelector('.mermaid svg') ? 'drawn' : 'no'") == "drawn" })
 }
 
 /// What PreviewLinks decides, as it decides it: what it refused.

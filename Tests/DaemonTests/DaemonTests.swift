@@ -65,6 +65,12 @@ func daemon(agents: [AgentManifest] = [], lspDelays: (retry: TimeInterval, idle:
 }
 
 typealias World = (d: Daemon, c: RPCClient, root: URL, repo: Repo)
+
+/// Every status change `id` made so far has been saved and sent: what a check that nothing changed reads after.
+func saved(_ w: World, _ id: String) async {
+    guard let ls = w.d.sessions.existing(id) else { return }
+    await withCheckedContinuation { c in ls.inOrder { c.resume() } }
+}
 /// `daemon(agents:)` with one project (`makeRepo`) added.
 func world(agents: [AgentManifest] = []) async throws -> World {
     let (d, c, root) = try daemon(agents: agents)
@@ -102,7 +108,8 @@ func workspace(_ w: World, _ branch: String) async throws -> Worktree {
     try Git.run(["push", "-q", "origin", "main:refs/pull/5/head"], cwd: repo.path)
     let pr = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "pr": 5]))
     #expect(pr["setupNeedsTrust"]?.bool == true && pr["setupSession"] == nil && pr["branch"]?.string == "pr-5")
-    try await Task.sleep(for: .seconds(1))
+    // A setup runs as a session of its workspace: none was started, so none is on its way to SETUP_RAN.
+    #expect(try await c.call("session.list", as: [Session].self).allSatisfy { $0.worktreeId != pr["id"]?.string })
     #expect(!FileManager.default.fileExists(atPath: (pr["path"]?.string ?? "") + "/SETUP_RAN"))
 }
 

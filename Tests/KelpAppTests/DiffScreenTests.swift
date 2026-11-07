@@ -238,18 +238,19 @@ extension AppOfItsOwn {
         func stageButtons() -> [NSButton] {
             cells(in: vc.view).flatMap(buttons).filter { $0.action.map(NSStringFromSelector) == "hunkAction:" }
         }
-        for _ in 0..<50 where stageButtons().count < 2 {
-            try await Task.sleep(for: .milliseconds(50))
+        _ = try await waitFor(2.5) {
             vc.view.layoutSubtreeIfNeeded()
+            return stageButtons().count >= 2
         }
         let stage = stageButtons()
         try #require(stage.count == 2, "\(stage.count) stage buttons")
         stage[1].performClick(nil)   // the second hunk: "bottom change"
         var cached = ""
-        for _ in 0..<100 where cached.isEmpty {
-            try await Task.sleep(for: .milliseconds(50))
-            cached = try Git.run(["diff", "--cached"], cwd: repo)
-        }
+        #expect(
+            try await waitFor(5) {
+                cached = try Git.run(["diff", "--cached"], cwd: repo)
+                return !cached.isEmpty
+            })
         #expect(cached.contains("+bottom change") && !cached.contains("+top change"))
     }
 }
@@ -301,7 +302,7 @@ extension AppOfItsOwn {
         fetched.branches?.behind = 3
         rig.app.land(fetched)
         vc.gitChanged(fetched)
-        try await Task.sleep(for: .milliseconds(300))
+        await mainActorTurns()   // a read the event began (reload's task, then load's) would have counted by now
         #expect(vc.reads == reads)
         var edited = fetched
         edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])

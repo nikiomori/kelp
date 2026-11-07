@@ -42,7 +42,7 @@ import WorkbenchKit
     #expect(try await waitFor(5) { !(card.shownKey == nil) })
     #expect(card.shownKey != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())   // another window's: not its
-    try await Task.sleep(for: .milliseconds(20))
+    await mainActorTurns()
     #expect(card.shownKey != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
     #expect(try await waitFor(5) { !(card.shownKey != nil) })

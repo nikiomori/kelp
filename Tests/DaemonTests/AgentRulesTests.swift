@@ -666,7 +666,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     _ = child.update { $0.status = .working }
     _ = try await r.c.call(SessionWrite(id: me.id, text: "third\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("sent") })   // it tried
-    try await Task.sleep(nanoseconds: 300_000_000)
+    try await Task.sleep(nanoseconds: 300_000_000)   // typed, it would be echoed by now: nothing says it won't be
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("third"))
 }
 

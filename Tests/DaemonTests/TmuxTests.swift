@@ -113,7 +113,12 @@ private func end(_ session: String) {
 
     let r: Session = try await w.c.call("session.restart", .obj(["id": .string(s.id)]), as: Session.self)
     #expect(Tmux.session(r.argv) == name)
-    try await Task.sleep(for: .seconds(1))
+    // The old tab's end was heard, and the new one is in the session, its sleep still running.
+    #expect(
+        try await waitFor(10) {
+            guard w.d.sessions.existing(s.id) == nil else { return false }
+            return try await w.c.call("session.busy", .obj(["id": .string(r.id)])).string == "sleep"
+        })
     #expect(try await tmuxSessions(w.c, wt).contains(name))   // kept for the new tab
 
     _ = try await w.c.call("session.kill", .obj(["id": .string(r.id)]))
@@ -170,6 +175,7 @@ private func end(_ session: String) {
     #expect(try await tmuxSessions(c, wt).contains(name))   // still working on the host
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     #expect(try await waitFor(15) { try await screen(c, s.id).contains("did the work") })
+    // Time: output that goes on is work to the screen reader, so the redraw's has to have had that long.
     try await Task.sleep(for: .seconds(4))
     #expect(try await status(c, s.id) == .idle)   // the redraw was no turn
 

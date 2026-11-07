@@ -115,10 +115,10 @@ final class Counter: @unchecked Sendable {
     c.open("/x.swift", text: "", languageId: "swift")
     let big = String(repeating: "x", count: 100_000)   // more than the pipe holds: later writes wait
     for i in 0..<50 { c.change("/x.swift", text: big + "\(i)") }
-    try await Task.sleep(for: .seconds(2))
+    func sent() -> String { (try? String(contentsOfFile: out, encoding: .utf8)) ?? "" }
+    #expect(try await waitFor(10) { sent().contains("x49\"") })   // the last edit: nothing comes after it
     c.terminate()
-    try await Task.sleep(for: .milliseconds(300))
-    let sent = (try? String(contentsOfFile: out, encoding: .utf8)) ?? ""
+    let sent = sent()
     #expect(sent.components(separatedBy: "didChange").count - 1 < 5)
     #expect(sent.contains("x49\""))   // the newest text (a short needle: contains on a 100 kB one crawls)
 }
@@ -135,10 +135,11 @@ final class Counter: @unchecked Sendable {
     c.close("/x.swift")
     c.open("/x.swift", text: "B", languageId: "swift")
     c.change("/x.swift", text: "NEWEST")
-    try await Task.sleep(for: .seconds(2))
+    c.notify("kelpTestEnd", .null)   // after all of it: once the server has it, it has everything
+    func sent() -> String { (try? String(contentsOfFile: out, encoding: .utf8)) ?? "" }
+    #expect(try await waitFor(10) { sent().contains("kelpTestEnd") })
     c.terminate()
-    try await Task.sleep(for: .milliseconds(300))
-    let sent = (try? String(contentsOfFile: out, encoding: .utf8)) ?? ""
+    let sent = sent()
     let lastOpen = try #require(sent.range(of: "didOpen", options: .backwards))
     let newest = try #require(sent.range(of: "NEWEST"))
     #expect(newest.lowerBound > lastOpen.lowerBound)
@@ -146,13 +147,17 @@ final class Counter: @unchecked Sendable {
 
 /// A server that ignores SIGTERM is gone once `terminateNow` returns: the daemon execs or exits right after, and the
 /// SIGKILL `terminate` leaves for later would never come.
-@Test func aServerThatIgnoresSIGTERMIsGoneBeforeTheDaemonMovesOn() throws {
+@Test func aServerThatIgnoresSIGTERMIsGoneBeforeTheDaemonMovesOn() async throws {
+    let set = NSTemporaryDirectory() + "lsp-trap-\(UUID().uuidString)"
+    defer { try? FileManager.default.removeItem(atPath: set) }
     let c = try #require(
         LSPClient(
-            argv: ["/bin/sh", "-c", "trap '' TERM; i=0; while [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done"],
+            argv: [
+                "/bin/sh", "-c", "trap '' TERM; : > '\(set)'; i=0; while [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done"
+            ],
             root: NSTemporaryDirectory()))
     let pid = try #require(c.pid)
-    Thread.sleep(forTimeInterval: 0.2)   // the trap is set
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: set) })   // the trap is set
     c.terminateNow()
     #expect(kill(pid, 0) != 0 || Subprocess.isZombie(pid))   // gone, or ended and waiting for its parent to reap it
 }

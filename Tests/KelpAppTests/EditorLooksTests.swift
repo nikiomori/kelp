@@ -81,7 +81,7 @@ import Testing
     e.setText("a.")
     e.textView.setSelectedRange(NSRange(location: 2, length: 0))
     e.showCompletions()
-    try await Task.sleep(for: .milliseconds(50))
+    await mainActorTurns()   // what it looked up is in
     #expect(e.completing == nil)
 }
 

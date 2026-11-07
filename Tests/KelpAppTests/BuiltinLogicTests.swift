@@ -11,6 +11,8 @@ import os
 @testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinIssues
+@testable import BuiltinMachines
+@testable import BuiltinServers
 @testable import KelpKit
 
 /// The built-ins' small decisions, without a window: how they word and sort what they show.
@@ -269,10 +271,7 @@ import os
     panel.filter.selectItem(at: 1)
     panel.reload()   // then Mine
     // Both replies in (the late one too, which the old guard let land last), however slow the machine is.
-    let deadline = Date().addingTimeInterval(20)
-    while Date() < deadline, !lateSent.withLock({ $0 }) || panel.rows.isEmpty {
-        try await Task.sleep(for: .milliseconds(50))
-    }
+    #expect(try await waitFor(20) { lateSent.withLock { $0 } && !panel.rows.isEmpty })
     // Replies come back in order: once one asked after the late one is in, the panel has had the late one too.
     _ = try? await m.client?.call(DaemonInfo())
     guard case .pr(let shown)? = panel.rows.first else {
@@ -306,4 +305,61 @@ import os
     #expect(rig.app.extensions.key("agents.new") == nil)
     #expect(NewTabChoices.defaultKey(rig.app) == nil)   // the "+" menu and the start page read the same
     #expect(rig.app.extensions.key("no.such", fallback: "cmd+r") == KeySpec("cmd+r"))
+}
+
+/// A machine being made says the step it's at in the user's words, and how far that step got when that's known; its
+/// row's second line says that, a stopped one what it takes on disk and how soon it's back.
+@MainActor @Test func aMachineSaysWhereMakingItGotAndHowSoonItsBack() {
+    let box = VMMachine(name: "box", os: "macos", image: "macos", cpus: 4, memoryMiB: 8192, diskGiB: 64, user: "me")
+    var v = VMInfo(machine: box, state: .creating, detail: "macOS 27.2")
+    v.step = .downloading
+    v.progress = 0.43
+    let far = Machines.stepText(v)   // the percent as the Mac's locale writes it
+    #expect(far.hasPrefix("Downloading macOS 27.2 · ") && far.contains("43"), "\(far)")
+    v.progress = nil
+    #expect(Machines.stepText(v) == "Downloading macOS 27.2")
+    v.step = nil   // no step said yet
+    #expect(Machines.stepText(v) == "Starting for the first time" && Machines.machineWord(v).text == "Being made")
+    let app = AppModel(builtins: [])
+    #expect(Machines.machineLine(app, v) == "Starting for the first time")
+    v.state = .off
+    v.diskMiB = 2048
+    #expect(Machines.machineLine(app, v) == "2.0 GB on disk · Boots in a few seconds")
+    v.state = .sleeping
+    v.machine.os = "linux"
+    v.diskMiB = nil
+    #expect(Machines.machineLine(app, v) == "Wakes in under a second" && Machines.machineWord(v).text == "Asleep")
+    v.state = .error
+    v.detail = "The disk is full"
+    #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Failed")
+}
+
+/// A server's uptime reads in its two largest units, without a second one that's zero, and in seconds under a minute.
+@Test func aServersUptimeReadsInItsTwoLargestUnits() {
+    #expect(serverDuration(3 * 86400 + 10 * 3600 + 59) == "3 d 10 h")
+    #expect(serverDuration(2 * 86400 + 30 * 60) == "2 d")   // minutes don't show beside days
+    #expect(serverDuration(3600) == "1 h" && serverDuration(5400) == "1 h 30 m")
+    #expect(serverDuration(18 * 60 + 5) == "18 m" && serverDuration(40.9) == "40 s" && serverDuration(0) == "0 s")
+}
+
+/// A server's heading says nothing while it's fine, and what's wrong otherwise: not connected, out of reach (in red),
+/// or the first of disk and memory that's nearly full.
+@MainActor @Test func aServersHeadingSaysOnlyWhatsWrong() {
+    let app = AppModel(builtins: [])
+    func word(_ stats: HostStats) -> (text: String, color: NSColor)? {
+        app.land(HostEvent(stats: stats))
+        return ServerActions.serverWord(app, "box")
+    }
+    #expect(ServerActions.serverWord(app, "box") == nil)   // nothing heard yet
+    var s = HostStats(host: "box", connected: true)
+    (s.disk, s.diskTotal, s.memory, s.memoryTotal) = (50, 100, 89, 100)
+    #expect(word(s) == nil)
+    s.memory = 95
+    #expect(word(s)?.text == "Memory 95%")
+    s.disk = 91
+    #expect(word(s)?.text == "Disk 91%")
+    let off = word(HostStats(host: "box", connected: false))
+    #expect(off?.text == "Not connected" && off?.color == .secondaryLabelColor)
+    let lost = word(HostStats(host: "box", connected: false, error: "Connection timed out"))
+    #expect(lost?.text == "Can't reach" && lost?.color != .secondaryLabelColor)
 }

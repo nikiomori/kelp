@@ -65,6 +65,7 @@ extension AppOfItsOwn {
         _ = await panel.trash({ [rig.repo + "/c.txt"] }, undo: "Move to Trash").value
         undo.undo()
         #expect(try await waitFor(4) { there("c.txt") })
+        // A rename undone with it would be back too by now: nothing says it isn't coming.
         try await Task.sleep(for: .milliseconds(200))
         #expect(there("c.txt") && there("b.txt") && !there("a.txt"))
         #expect(undo.undoActionName == "Rename")

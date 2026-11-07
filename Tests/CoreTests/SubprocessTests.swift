@@ -14,18 +14,16 @@ private let env = ProcessInfo.processInfo.environment
 }
 
 /// Past its time limit a program is stopped with what it started, even both ignoring SIGTERM.
-@Test func aSubprocessPastItsLimitStopsWithItsChildren() throws {
+@Test func aSubprocessPastItsLimitStopsWithItsChildren() async throws {
     let pidFile = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
     let script = "trap '' TERM; (trap '' TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); wait"
     let start = Date()
-    let r = try Subprocess.run(["/bin/bash", "-c", script], cwd: "/tmp", env: env, timeLimit: 0.5)
+    let r = try await Subprocess.run(["/bin/bash", "-c", script], cwd: "/tmp", env: env, timeLimit: 0.5)
     #expect(r.timedOut && Date().timeIntervalSince(start) < 20)   // 0.5 s, then TERM, then KILL: far less than 20 even on a busy runner
     let child = try #require(
         pid_t((try String(contentsOfFile: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(child, SIGKILL) }
-    let deadline = Date().addingTimeInterval(20)   // a busy runner takes its time
-    while kill(child, 0) == 0, Date() < deadline { usleep(50_000) }
-    #expect(kill(child, 0) != 0)
+    #expect(try await waitFor(20) { kill(child, 0) != 0 })   // a busy runner takes its time
 }
 
 /// A child left running with the pipes open (a daemon it started) doesn't hold up the result.
@@ -45,24 +43,27 @@ private let env = ProcessInfo.processInfo.environment
 
 /// Once the result is back, the pipes a lingering child holds are let go: no reader thread and pipe stay for the life of
 /// the daemon. The child then can't write to them (it would have printed to nobody anyway).
-@Test func aSubprocessLetsGoOfPipesAChildStillHolds() throws {
-    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
-    defer { try? FileManager.default.removeItem(atPath: mark) }
-    let r = try Subprocess.run(
-        ["/bin/bash", "-c", "echo hi; (sleep 3; echo late && touch \(mark)) &"], cwd: "/tmp", env: env, timeLimit: 30)
+@Test func aSubprocessLetsGoOfPipesAChildStillHolds() async throws {
+    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
+    defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
+    let child = "(trap '' PIPE; trap 'touch \(ended)' EXIT; sleep 3; echo late && touch \(mark)) &"
+    let r = try await Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)
     #expect(String(decoding: r.stdout, as: UTF8.self) == "hi\n")   // back after the pipes' 2 s, before the child writes
-    Thread.sleep(forTimeInterval: 2.5)   // past the child's write at 3 s: it failed (nobody reads), so no mark
-    #expect(!FileManager.default.fileExists(atPath: mark))
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: ended) })   // past the child's write at 3 s
+    #expect(!FileManager.default.fileExists(atPath: mark))   // it failed (nobody reads), so no mark
 }
 
 /// A lingering child that keeps writing is let go of too, not read for as long as it lives.
-@Test func aSubprocessLetsGoOfAChildThatKeepsWriting() throws {
-    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
-    defer { try? FileManager.default.removeItem(atPath: mark) }
-    let child = "(for i in $(seq 40); do echo x || exit; sleep 0.1; done; touch \(mark)) &"
-    _ = try Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)   // back after 2 s
-    Thread.sleep(forTimeInterval: 3)   // past the loop's 4 s: a write after the pipes went failed and it left, so no mark
-    #expect(!FileManager.default.fileExists(atPath: mark))
+@Test func aSubprocessLetsGoOfAChildThatKeepsWriting() async throws {
+    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
+    defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
+    let child =
+        "(trap '' PIPE; trap 'touch \(ended)' EXIT; for i in $(seq 40); do echo x || exit; sleep 0.1; done; "
+        + "touch \(mark)) &"
+    // Back after 2 s.
+    _ = try await Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: ended) })   // the loop left (or ran its 4 s)
+    #expect(!FileManager.default.fileExists(atPath: mark))   // a write after the pipes went failed, and it left
 }
 
 /// Past its limit a stream is still read, so the program runs to its end (its status is its own), but only the first

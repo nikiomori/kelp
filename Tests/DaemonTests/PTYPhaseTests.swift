@@ -57,7 +57,12 @@ import Testing
 /// seen: its exit is reported and it's reaped.
 @Test func aProgramThatEndedBeforeItWasWatchedIsSeen() async throws {
     let p = try PTY(argv: ["/bin/sh", "-c", "exit 7"], cwd: "/tmp", env: [:], trampoline: nil)
-    try await Task.sleep(for: .milliseconds(300))   // long gone by now: a zombie
+    // Gone before anyone watches: ended, and still there to reap (WNOWAIT leaves it so).
+    #expect(
+        try await waitFor(5) {
+            var info = siginfo_t()
+            return waitid(P_PID, id_t(p.pid), &info, WEXITED | WNOHANG | WNOWAIT) == 0 && info.si_pid == p.pid
+        })
     let box = Box()
     p.onExit = { box.exit($0) }
     p.start()

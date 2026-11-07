@@ -83,10 +83,10 @@ let package = Package(
         .testTarget(name: "IntegrationsTests", dependencies: ["Integrations", "TestSupport"]),
         .testTarget(name: "MarkdownTests", dependencies: ["Markdown"]),
         .testTarget(name: "WorkbenchKitTests", dependencies: ["WorkbenchKit", "Core", "TestSupport"]),
-        .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit"]),
+        .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "TestSupport"]),
         .testTarget(name: "ArchitectureTests"),   // reads the sources: the rules in docs/architecture.md
         .testTarget(name: "KelpAppTests", dependencies: ["KelpApp", "KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues",
-                                                  "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
+                                                  "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "BuiltinMachines", "BuiltinServers", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
         .binaryTarget(name: "GhosttyKit", path: "Vendor/GhosttyKit.xcframework"),
     ]
 )

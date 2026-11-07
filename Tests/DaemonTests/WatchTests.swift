@@ -27,8 +27,12 @@ private final class Heard: Sendable {
     try "new\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)
     #expect(try await waitFor(10) { heard.events(GitEvent.self).last?.changes?.map(\.path) == ["added.txt"] })
     let seen = heard.events(GitEvent.self).count
-    try await Task.sleep(for: .milliseconds(1500))   // nothing changes: nothing is pushed
-    #expect(heard.events(GitEvent.self).count == seen)
+    let key = Watches.Key(topic: .git, key: wt.id), reads = { w.d.watches.reads.withLock { $0?[key] ?? 0 } }
+    let before = reads()
+    try "new\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)   // as it was: the same status
+    #expect(try await waitFor(10) { reads() > before })
+    _ = try await w.c.call(Ping())   // what that read pushed would have come before this answer
+    #expect(heard.events(GitEvent.self).count == seen)   // nothing changes: nothing is pushed
 }
 
 /// A build writing into a folder git ignores (dist/) doesn't read git again; once .gitignore stops ignoring it, it does.
@@ -44,12 +48,10 @@ private final class Heard: Sendable {
     try FileManager.default.createDirectory(atPath: wt.path + "/dist/js", withIntermediateDirectories: true)
     w.c.notify(WatchStart(.git, wt.id))
     #expect(try await waitFor(10) { heard.events(GitEvent.self).first?.changes?.map(\.path) == [".gitignore"] })
+    // Time, both: what the setup's own events read is let in first, and no event says a dropped one was seen.
     try await Task.sleep(for: .milliseconds(800))
     let before = reads()
-    for i in 0..<5 {
-        try "\(i)\n".write(toFile: wt.path + "/dist/js/a.js", atomically: true, encoding: .utf8)
-        try await Task.sleep(for: .milliseconds(150))
-    }
+    for i in 0..<5 { try "\(i)\n".write(toFile: wt.path + "/dist/js/a.js", atomically: true, encoding: .utf8) }
     try await Task.sleep(for: .milliseconds(1200))
     #expect(reads() == before)
     try "\n".write(toFile: wt.path + "/.gitignore", atomically: true, encoding: .utf8)
@@ -100,7 +102,11 @@ private final class Heard: Sendable {
     #expect(try await waitFor(5) { w.d.watches.running == 0 })
     let key = Watches.Key(topic: .ports, key: wt.id)
     let reads = w.d.watches.reads.withLock { $0?[key] ?? 0 }
-    try await Task.sleep(for: .seconds(4))   // a ports reader reads every 3 s while anyone watches
+    // A ports reader reads every 3 s while anyone watches: once one started after the stop has been read twice, the
+    // stopped one's next read was due.
+    let probe = Watches.Key(topic: .ports, key: "probe")
+    w.c.notify(WatchStart(.ports, probe.key))
+    #expect(try await waitFor(10) { w.d.watches.reads.withLock { $0?[probe] ?? 0 } >= 2 })
     #expect(w.d.watches.reads.withLock { $0?[key] ?? 0 } == reads)
 }
 
@@ -155,7 +161,7 @@ private final class Heard: Sendable {
                     return $0
                 }) == 1
             else { return (line(2), nil) }
-            while !release.withLock({ $0 }) { try? await Task.sleep(for: .milliseconds(10)) }
+            _ = try? await waitFor(10) { release.withLock { $0 } }
             return (line(1), nil)   // the first read, from before the stop
         }
     }
@@ -165,7 +171,8 @@ private final class Heard: Sendable {
     w.c.notify(WatchStart(.context, "s"))
     #expect(try await waitFor(5) { heard.events(ContextEvent.self).last?.usage?.used == 2 })
     release.withLock { $0 = true }
-    try await Task.sleep(for: .milliseconds(500))
+    #expect(try await waitFor(5) { w.d.watches.reads.withLock { $0?[.init(topic: .context, key: "s")] } == 2 })
+    _ = try await w.c.call(Ping())   // what the old read pushed would have come before this answer
     #expect(heard.events(ContextEvent.self).map { $0.usage?.used } == [2])
 }
 
@@ -193,10 +200,9 @@ private final class Heard: Sendable {
     try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: path)
     #expect(try await waitFor(10) { stamps().count == 3 && stamps().last != second })
     try "b".write(toFile: dir + "/b.txt", atomically: true, encoding: .utf8)   // its neighbour
-    try await Task.sleep(for: .milliseconds(1200))
-    #expect(stamps().count == 3)
     try FileManager.default.removeItem(atPath: path)
-    #expect(try await waitFor(10) { stamps().count == 4 && stamps().last == .some(nil) })
+    #expect(try await waitFor(10) { stamps().last == .some(nil) })
+    #expect(stamps().count == 4)   // nothing came for the neighbour before it
 }
 
 /// A workspace's files are pushed when the list changes, once; a file's text changing leaves the list as it was.
@@ -211,13 +217,11 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { heard.events(FilesEvent.self).map(\.paths) == [listed] })
     try "new\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)
     #expect(try await waitFor(10) { heard.events(FilesEvent.self).last?.paths?.contains("added.txt") == true })
-    try await Task.sleep(for: .milliseconds(1200))
-    #expect(heard.events(FilesEvent.self).count == 2)   // once
     try "changed\n".write(toFile: wt.path + "/added.txt", atomically: true, encoding: .utf8)
     #expect(
         try await waitFor(10) { w.d.watches.reads.withLock { $0?[Watches.Key(topic: .files, key: wt.id)] ?? 0 } >= 3 })   // read again…
-    try await Task.sleep(for: .milliseconds(300))   // (counted before it's compared and pushed)
-    #expect(heard.events(FilesEvent.self).count == 2)   // …not pushed
+    _ = try await w.c.call(Ping())   // (counted before it's compared and pushed: a push would come before this answer)
+    #expect(heard.events(FilesEvent.self).count == 2)   // …not pushed, and the new file's list once
 }
 
 @Test func whatChangesAFileList() {
@@ -322,6 +326,7 @@ private final class Heard: Sendable {
     _ = try Artifacts.create(.doc, title: "Plan", root: wt.path, session: nil)
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
     let reads = { w.d.watches.reads.withLock { $0?[Watches.Key(topic: .artifacts, key: wt.id)] ?? 0 } }
+    // Time, both: what the artifact's own events read is let in first, and no event says a dropped one was seen.
     try await Task.sleep(for: .milliseconds(1200))
     let before = reads()
     try "x\n".write(toFile: wt.path + "/other.txt", atomically: true, encoding: .utf8)

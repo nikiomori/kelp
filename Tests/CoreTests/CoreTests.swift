@@ -59,7 +59,7 @@ private extension Data {
 }
 
 /// A socket someone still answers on isn't taken over; a stale one (its owner gone) is.
-@Test func listenLeavesALiveSocketAlone() throws {
+@Test func listenLeavesALiveSocketAlone() async throws {
     let path = NSTemporaryDirectory() + "kelp-live-\(getpid()).sock"
     let first = try Unix.listen(path)
     #expect(throws: (any Error).self) { try Unix.listen(path) }
@@ -67,11 +67,11 @@ private extension Data {
     // The file is still there, nobody behind it: taken over. (A process being started elsewhere in the test run holds a
     // copy of every fd for a moment, so not necessarily on the first try.)
     var again: Int32 = -1
-    for _ in 0..<100 where again < 0 {
-        again = (try? Unix.listen(path)) ?? -1
-        if again < 0 { usleep(20_000) }
-    }
-    #expect(again >= 0)
+    #expect(
+        try await waitFor(2) {
+            again = (try? Unix.listen(path)) ?? -1
+            return again >= 0
+        })
     close(again)
     unlink(path)
 }
@@ -362,11 +362,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     Thread.detachNewThread { _ = once.value }
     #expect(once.ifRead == nil)   // still reading: asked now, there's no answer rather than a wait
     gate.signal()
-    var waited = 0
-    while once.ifRead == nil, waited < 250 {
-        try await Task.sleep(for: .milliseconds(20))
-        waited += 1
-    }
+    #expect(try await waitFor(5) { once.ifRead != nil })
     #expect(once.ifRead == "/read" && once.value == "/read")
 
     let dir = NSTemporaryDirectory() + "kelp-shell-\(UUID().uuidString.prefix(6))", shell = dir + "/sh",
@@ -415,7 +411,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let ended = DispatchSemaphore(value: 0)
     c.onClose = { ended.signal() }
     c.notify("x", .string(String(repeating: "x", count: 4 << 20)))   // more than the socket holds: the write blocks
-    Thread.sleep(forTimeInterval: 0.3)
+    Thread.sleep(forTimeInterval: 0.3)   // the write under way and stuck: nothing says it has begun
     c.close()
     #expect(ended.wait(timeout: .now() + 3) == .success)
 }

@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import TestSupport
 import Testing
 
 @testable import BuiltinAgents
@@ -121,16 +122,16 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     /// machine runs them late). Gives up after 5 s, and the checks that follow say what's wrong.
     private func settled(_ strip: AgentStrip, after first: () -> Bool = { true }) async throws {
         let end = Date().addingTimeInterval(5)
-        while !first(), Date() < end { try await Task.sleep(for: .milliseconds(20)) }
-        var last = strip.frame, still = 0
-        while still < 3, Date() < end {
-            try await Task.sleep(for: .milliseconds(50))
+        _ = try await waitFor(5) { first() }
+        var last = strip.frame, still = 0   // the same frame at four looks in a row, 150 ms
+        _ = try await waitFor(max(0, end.timeIntervalSinceNow)) {
             if strip.frame == last {
                 still += 1
             } else {
                 still = 0
                 last = strip.frame
             }
+            return still >= 4
         }
     }
 }

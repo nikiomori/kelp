@@ -161,9 +161,9 @@ import Testing
                 .trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(theirs, SIGTERM) }
     var seen = 0   // once it has started
-    for _ in 0..<40 where seen == 0 {
+    _ = try await waitFor(2) {
         seen = Usage.clients(of: serial, programs: ["bash"])
-        if seen == 0 { try await Task.sleep(nanoseconds: 50_000_000) }
+        return seen != 0
     }
     #expect(seen == 1)
     #expect(

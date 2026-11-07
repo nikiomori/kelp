@@ -278,7 +278,7 @@ private func onHost() -> LiveSession.State {
     for type in ["agent_completed", "push_notification", "computer_use_exit", "quota_auto_resume_fired"] {
         try await notify(type)
     }
-    try await Task.sleep(for: .milliseconds(300))
+    await saved(w, s.id)
     #expect(try await status() == .done)
     try await notify("permission_prompt")
     #expect(try await waitFor { try await status() == .waiting })
@@ -316,7 +316,7 @@ private func onHost() -> LiveSession.State {
                 "notification_type": "permission_prompt", "message": "Claude needs your permission to use Bash"
             ])
         ]))
-    try await Task.sleep(for: .milliseconds(200))
+    await saved(w, s.id)
     #expect(try await row()?.summary == "Allow npm test?")
     _ = try await w.c.call("session.kill", .obj(["id": .string(s.id)]))
 }

@@ -54,10 +54,7 @@ import WorkbenchKit
     _ = try await tab.browse("info", .object([:]))
     _ = try await tab.browse(
         "eval", .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
-    let end = Date().addingTimeInterval(5)
-    while !tab.logs.contains(where: { $0.contains("boom") }), Date() < end {
-        try await Task.sleep(for: .milliseconds(100))
-    }
+    #expect(try await waitFor(5) { tab.logs.contains { $0.contains("boom") } })
 
     let log = try #require(try await tab.browse("console", .object(["clear": .bool(true)])).string)
     #expect(
@@ -161,7 +158,11 @@ import WorkbenchKit
     _ = page.view
     let web = try #require(page.web)
     #expect(try await waitFor(5) { !(try await web.evaluateJavaScript("window.own === 1") as? Bool != true) })
-    try await Task.sleep(for: .milliseconds(300))
+    // The image has failed to load: its error handler would have run.
+    #expect(
+        try await waitFor(5) {
+            try await web.evaluateJavaScript("document.querySelector('#d img').complete") as? Bool == true
+        })
     #expect(
         try await web.evaluateJavaScript("window.own === 1 && window.fromFile === 1 && !!window.kelp") as? Bool == true)
     #expect(try await web.evaluateJavaScript("window.pwned === undefined") as? Bool == true)

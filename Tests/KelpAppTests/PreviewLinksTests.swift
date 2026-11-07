@@ -147,7 +147,7 @@ import Testing
     let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
     area.open("terminal:?cmd=echo%20hi")
     area.open("agent:?prompt=hi")
-    try await Task.sleep(for: .seconds(1))
+    await mainActorTurns()   // a session they began would be asked for by now
     #expect(try await rig.app.get(SessionList()).isEmpty)
     area.runURI("terminal:?cmd=echo%20hi")
     #expect(try await waitFor(5) { !(try await rig.app.get(SessionList()).isEmpty) })

@@ -52,8 +52,7 @@ extension AppOfItsOwn {
     let a = rig.repo + "/a.txt", b = rig.repo + "/b.txt"
     let ra = try #require(await rig.app.call(FilesRead(path: a))),
         rb = try #require(await rig.app.call(FilesRead(path: b)))
-    try await Task.sleep(for: .milliseconds(20))
-    try rig.write("b.txt", "agent\n")
+    try rig.write("b.txt", "agent\n")   // another size: another stamp
     let r = await FileBatch.writeAll([(a, ra.text, "A\n", ra.stamp), (b, rb.text, "B\n", rb.stamp)], app: rig.app)
     guard case .failure(let refused) = r else {
         Issue.record("a refused write counted as written")
@@ -69,7 +68,6 @@ extension AppOfItsOwn {
         Issue.record("not written")
         return
     }
-    try await Task.sleep(for: .milliseconds(20))
     try rig.write("b.txt", "agent again\n")
     #expect(await FileBatch.undo(done, app: rig.app) == [b])
     #expect(try String(contentsOfFile: b, encoding: .utf8) == "agent again\n")

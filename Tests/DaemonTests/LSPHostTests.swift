@@ -112,7 +112,7 @@ private func lines(_ log: String) -> [String] {
                 command: "no-such-server-\(UUID().uuidString.prefix(4))", text: ""))
         Issue.record("opened with a server that isn't there")
     } catch { #expect(LSPRefusal(error).map { if case .notInstalled = $0 { true } else { false } } == true) }
-    try await Task.sleep(for: .milliseconds(300))
+    try await Task.sleep(for: .milliseconds(300))   // one started anyway logs a moment later: nothing says none was
     #expect(lines(server.log).isEmpty)
 }
 
