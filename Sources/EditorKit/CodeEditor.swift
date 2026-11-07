@@ -310,8 +310,11 @@ public final class CodeEditor: NSObject {
     }
 
     /// Replace everything as one undoable edit and set the selection (formatting toolbar).
+    /// Only what differs is replaced, as by `setText` (one undo step all the same): the whole text going in again dropped
+    /// the folds, the change marks' places and the syntax tree, and parsed a 5 MB file anew for a trimmed space.
     public func apply(text: String, selection: NSRange) {
-        textView.replace([NSRange(location: 0, length: textView.length)], with: [text])
+        let (old, fresh) = Self.changed(textView.string as NSString, text as NSString)
+        textView.replace([old], with: [(text as NSString).substring(with: fresh)])
         textView.setSelectedRange(selection)
     }
 

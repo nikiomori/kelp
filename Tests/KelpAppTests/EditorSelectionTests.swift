@@ -166,3 +166,16 @@ extension OneAtATime {
     #expect(marks.ticks.map(\.line).sorted() == [0, 10, 50])
     #expect(marks.lines == 101)
 }
+
+/// A whole text applied (⌘S's tidying, a format) replaces only what differs: a fold elsewhere stays, and one undo
+/// gives the text back.
+@MainActor @Test func applyingATextKeepsWhatItDidntChange() throws {
+    let e = foldEditor("func a() {\n    x\n}\nfunc b() {\n    y   \n}\n", "keep.swift")
+    let fold = NSRange(location: 10, length: 6)
+    e.textView.setFolded(fold, true)
+    e.apply(text: "func a() {\n    x\n}\nfunc b() {\n    y\n}\n", selection: NSRange(location: 0, length: 0))
+    #expect(e.text == "func a() {\n    x\n}\nfunc b() {\n    y\n}\n")
+    #expect(e.textView.folds.fold(at: fold.location) != nil)
+    e.undoManager(for: e.textView)?.undo()
+    #expect(e.text == "func a() {\n    x\n}\nfunc b() {\n    y   \n}\n")
+}
