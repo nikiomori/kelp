@@ -104,6 +104,7 @@ final class StripGlint: NSView {
         breathe.duration = Motion.wait / 2
         breathe.autoreverses = true
         breathe.repeatCount = .infinity
+        breathe.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)   // as the spinners
         mark.add(breathe, forKey: "breathe")
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }

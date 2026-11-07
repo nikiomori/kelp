@@ -180,6 +180,8 @@ package final class StatusMark: NSView {
             a.duration = dotted ? Motion.wait : Motion.spin
             a.repeatCount = .infinity
             a.beginTime = Motion.beat(a.duration)
+            // As EdgeGlow: one per working agent in its row, tab and summary kept the window drawing at 120 Hz for hours.
+            a.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
             ring.add(a, forKey: "spin")
             return
         }
