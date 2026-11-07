@@ -153,9 +153,9 @@ file's version (its stamp only: `event.file`) and a workspace's file list (`even
 daemon reads a topic once for all its watchers, only while someone watches, and pushes it (`event.git`, `event.ports`…)
 only when it changed; the app counts its watchers (`AppModel.watch`, `Watched`) and keeps the latest of each kind in a
 store of its own (`app.latest(CIEvent.self, workspace)`, by the event's `Pushed` conformance in KelpKit: its key, the
-topic that forgets it), so a reader re-renders for its kind only and a new kind touches no file of the shell; what an
-owner does with a new one beside showing it hangs on its store (`Latest.landed`). Watching what's watched again
-(`watchAgain`) reads it now: after a commit, a push, a machine made or started — the one source, not a copy patched.
+topic that forgets it), so a reader re-renders for its kind only and a new kind touches no file of the shell; what the
+shell does with each new one beside showing it (the limits forecast, a parked agent's failed run) is `AppModel.landed`,
+for that one reading. Watching what's watched again (`watchAgain`) reads it now: after a commit, a push, a machine made or started — the one source, not a copy patched.
 Clocks left in the app are its own (relative times, "still loading" hints, reconnecting) — ArchitectureTests lists them.
 A project's files are the daemon's too: the Files panel's tree is the pushed list, and its moves, trashes, copies and
 new files are `files.*` calls (a remote project's refused there, with why). What the app still reads or checks itself

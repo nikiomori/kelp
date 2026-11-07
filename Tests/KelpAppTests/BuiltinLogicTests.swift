@@ -122,6 +122,26 @@ import WorkbenchKit
     #expect(!m.isParked(s.id))
 }
 
+/// A parked agent comes back on its own workspace's run that just failed, as it arrives: not when a run lands for
+/// another workspace while an old failure of its own is still the last one kept.
+@Test @MainActor func aParkedAgentComesBackOnAFailedRunOfItsOwnAsItArrives() async throws {
+    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let m = rig.app, mine = rig.workspace.id
+    func run(_ wid: String, _ conclusion: String) -> CIEvent {
+        let r = CIRuns.Run(id: 1, title: "", workflow: "CI", status: "completed", conclusion: conclusion, event: "push", url: "", createdAt: "")
+        return CIEvent(worktree: wid, result: CIRunsList.Result(branch: "main", runs: [r], workflows: []))
+    }
+    let s = Session(worktreeId: mine, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
+    m.upsert(s)
+    m.land(run(mine, "failure"))   // its workspace failed before it was parked
+    m.park(s.id, until: Mutes.forever)
+    m.land(run("elsewhere", "success"))
+    #expect(m.isParked(s.id), "another workspace's run brings it back")
+    m.land(run(mine, "success"))
+    m.land(run(mine, "failure"))   // a new failure of its own: back
+    #expect(!m.isParked(s.id) && m.arrangement.parkedBack[s.id] == "CI failed")
+}
+
 /// New Chat on Branch…: each mode asks the daemon for its own kind of folder.
 @Test @MainActor func theNewChatSheetAsksForWhatWasPicked() {
     var c = NewChatSheet.Choice(mode: .new, name: "Fix login", from: "dev", branch: nil, pr: nil, agent: "codex")

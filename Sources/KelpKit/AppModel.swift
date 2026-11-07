@@ -12,15 +12,13 @@ package final class AppModel {
     /// window, the built-ins' contributions and their views.
     /// The built-in extensions the app was made with (the app's target lists them: KelpKit names none).
     @ObservationIgnored let builtins: [Builtin]
-    init(builtins: [Builtin] = []) {
-        self.builtins = builtins
-        // What the shell does with a new reading of these beside showing it, followed as any view follows them.
-        track(owner: self) { [weak self] in self?.latest(LimitsEvent.self)?.usage } changed: { [weak self] in
-            if let u = $0 { self?.forecast.record(u) }
-        }
-        track(owner: self) { [weak self] in self?.latest(CIEvent.self).byKey } changed: { [weak self] in
-            $0?.values.forEach { self?.followParked($0) }
-        }
+    init(builtins: [Builtin] = []) { self.builtins = builtins }
+
+    /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a forecast
+    /// takes every one; a parked agent comes back on its own workspace's failed run, not on every run stored).
+    func landed(_ e: any Pushed) {
+        if let l = e as? LimitsEvent { forecast.record(l.usage) }
+        if let c = e as? CIEvent { followParked(c) }
     }
 
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
@@ -230,7 +228,7 @@ package final class AppModel {
         return noService + " " + why + (FixRecipes.fix(for: why).map { " " + String(localized: "Fix it in Terminal: \($0.command)") } ?? "")
     }
 
-    private var restartAttempted = false
+    @ObservationIgnored private var restartAttempted = false
     /// Where kelpd and kelp sit next to the app binary.
     private var binDir: URL { (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).deletingLastPathComponent() }
     private var bundledDaemon: URL { binDir.appendingPathComponent("kelpd") }

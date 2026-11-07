@@ -43,6 +43,7 @@ extension AppModel {
         let box = latest(E.self)
         guard e.replaces(box.byKey[e.key]) else { return false }
         box.byKey[e.key] = e
+        landed(e)
         return true
     }
 
@@ -89,7 +90,8 @@ extension AppModel {
 @MainActor
 @Observable
 package final class Latest<E: Pushed> {
-    package var byKey: [String: E] = [:]
+    /// Written only where it lands (`AppModel.land`): a built-in reads it.
+    package internal(set) var byKey: [String: E] = [:]
 }
 
 /// One key of a topic watched at a time (the workspace a panel shows): set `key`, nil lets go; so does the owner going.

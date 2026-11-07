@@ -88,9 +88,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         let code = codeOnly(f.text)
         return token.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    // Counted whole since 2026-11-08 (335; the line-start count said 286). Raised only with a reason beside it.
-    #expect(declared <= 335, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 335, "fewer now (\(declared)): lower the ceiling")
+    // Counted whole since 2026-11-08 (334; the line-start count said 286). Raised only with a reason beside it.
+    #expect(declared <= 334, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 334, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -568,8 +568,8 @@ private func codeOnly(_ s: String) -> String {
         guard let brace = l.firstIndex(of: "{") else { return true }   // `{ didSet` keeps it stored; any other brace: computed
         return l[brace...].contains("didSet") || l[brace...].contains("willSet")
     }
-    #expect(observed.count <= 7, "AppModel's observed stored properties: \(observed.count)")
-    #expect(observed.count >= 7, "fewer now: lower the ceiling to \(observed.count)")
+    #expect(observed.count <= 6, "AppModel's observed stored properties: \(observed.count)")
+    #expect(observed.count >= 6, "fewer now: lower the ceiling to \(observed.count)")
 }
 
 /// The shell doesn't know its built-ins: no id of one, nor of a panel or command one contributes, written in KelpKit as
