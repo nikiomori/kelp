@@ -12,7 +12,7 @@ extension Workbench {
     package var editor: EditorArea? { page == nil ? window?.editors.current : nil }
     /// The editor area for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the
     /// workspace, as for `open`.
-    var editorForNewTab: EditorArea? { area(nil) }
+    package var editorForNewTab: EditorArea? { area(nil) }
 
     package func show(workspace id: String) { show(workspace: id, remember: true) }
 

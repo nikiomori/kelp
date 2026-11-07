@@ -35,7 +35,7 @@ package final class SettingsStore {
         values = o
         app.themes.apply()
         if skillsChanged { AgentSkills.write(app) }
-        if !app.extensions.extensions.isEmpty, ExtensionRegistry.disabled(o["extensions.disabled"]) != app.extensions.disabledLoaded {
+        if !app.extensions.extensions.isEmpty, app.extensions.disabled(o["extensions.disabled"]) != app.extensions.disabledLoaded {
             app.extensions.reload()
         }
     }

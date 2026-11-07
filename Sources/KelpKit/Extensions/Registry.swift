@@ -203,6 +203,13 @@ package struct TabProvider {
 }
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
+/// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
+package struct SidebarSection {
+    package let id: String
+    package let make: @MainActor () -> NSView
+    package init(id: String, make: @escaping @MainActor () -> NSView) { self.id = id; self.make = make }
+}
+
 package struct Contributions {
     package init() {}
     package var panels: [PanelSpec] = []
@@ -213,6 +220,8 @@ package struct Contributions {
     var iconThemes: [IconThemeSpec] = []
     var agents: [AgentManifest] = []
     package var tabs: [TabProvider] = []
+    /// Blocks of its own in the sidebar, under the projects (Machines), made when the sidebar is and only while it's on.
+    package var sidebarSections: [SidebarSection] = []
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -259,10 +268,12 @@ package final class ExtensionRegistry {
     @ObservationIgnored private var asked: Set<String> = []
     @ObservationIgnored private let trustAsk = Debounce()
 
-    /// Built-ins a clean install starts with switched off; once settings.json has its own list, that list decides.
-    static let offByDefault: Set<String> = ["kelp.activity"]
-    static func disabled(_ v: JSONValue?) -> Set<String> { v?.array.map { Set($0.compactMap(\.string)) } ?? offByDefault }
-    var disabled: Set<String> { Self.disabled(app.settings.value("extensions.disabled")) }
+    /// Built-ins a clean install starts with switched off (`Builtin.offByDefault`); once settings.json has its own list,
+    /// that list decides.
+    func disabled(_ v: JSONValue?) -> Set<String> {
+        v?.array.map { Set($0.compactMap(\.string)) } ?? Set(app.builtins.filter(\.offByDefault).map(\.info.id))
+    }
+    var disabled: Set<String> { disabled(app.settings.value("extensions.disabled")) }
 
     /// Loaded before the daemon's state was read: what was allowed wasn't known, so all that runs commands waited.
     private(set) var loadedWithoutState = false
@@ -287,6 +298,7 @@ package final class ExtensionRegistry {
             merged.agents += c.agents
             merged.tabs += c.tabs
             merged.languages += c.languages
+            merged.sidebarSections += c.sidebarSections
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil)) ?? [] where Self.isFolder(folder) {

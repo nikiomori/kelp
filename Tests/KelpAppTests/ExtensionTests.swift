@@ -48,10 +48,12 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(ExtListView.parse("  \n").isEmpty)
 }
 
+/// Off by default is the built-in's to say (Activity), not a list the shell keeps of them.
 @MainActor @Test func disabledListFallsBackToTheDefaultOnlyWhenUnset() {
-    #expect(ExtensionRegistry.disabled(nil) == ExtensionRegistry.offByDefault)
-    #expect(ExtensionRegistry.disabled(.array([.string("a"), .int(1)])) == ["a"])
-    #expect(ExtensionRegistry.disabled(.array([])).isEmpty)   // an explicit empty list switches everything on
+    let reg = AppModel(builtins: Builtins.all).extensions
+    #expect(reg.disabled(nil) == ["kelp.activity"])
+    #expect(reg.disabled(.array([.string("a"), .int(1)])) == ["a"])
+    #expect(reg.disabled(.array([])).isEmpty)   // an explicit empty list switches everything on
 }
 
 @MainActor @Test func aManifestFolderBecomesContributions() throws {

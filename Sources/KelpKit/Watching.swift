@@ -4,13 +4,13 @@ import Core
 /// What the views watch (`WatchTopic`), counted here so the daemon hears once per topic and key: on the first watcher
 /// and after the last. What it pushes lands in AppModel's observed state (`git`, `ports`…), which views `track`.
 extension AppModel {
-    func watch(_ topic: WatchTopic, _ key: String = "") {
+    package func watch(_ topic: WatchTopic, _ key: String = "") {
         let w = WatchStart(topic, key)
         watching[w, default: 0] += 1
         if watching[w] == 1 { client?.notify(w) }
     }
 
-    func unwatch(_ topic: WatchTopic, _ key: String = "") {
+    package func unwatch(_ topic: WatchTopic, _ key: String = "") {
         let w = WatchStart(topic, key)
         guard let n = watching[w] else { return }
         if n > 1 { watching[w] = n - 1; return }
@@ -74,6 +74,11 @@ extension AppModel {
         }
         if let id = e.worktree { recordEvents[id, default: 0] += 1; worktrees.removeAll { $0.id == id } }
         if let id = e.session { removed(session: id) }
+    }
+
+    /// The machine `session` runs a command in (`kelp vm run`): its row's chip says so.
+    func machine(runningFor session: String) -> String? {
+        latest(MachinesEvent.self)?.machines.first { $0.sessions?.contains(session) == true }?.machine.name
     }
 
     /// The context ring of every agent that hasn't ended: watched while it runs, let go when it ends.

@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Core
 import DesignKit
+import KelpKit
 
 /// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
 /// from a file), there while the Machines extension is on; under it each machine with its state in a word and colour,
@@ -13,12 +14,8 @@ struct MachinesView: View {
     /// What + offers, read once (it looks for an Android SDK and Xcode on disk), not at every redraw.
     @State private var choices: [(title: String, image: String, missing: String?)] = []
 
-    /// Off, nothing of it is drawn or watched (the daemon then asks no machine how it is).
-    private var on: Bool { app.extensions.extensions.contains { $0.id == "kelp.machines" && $0.enabled } }
-
-    var body: some View {
-        if on { block }
-    }
+    /// Made only while Machines is on (`Contributions.sidebarSections`): off, nothing of it is drawn or watched.
+    var body: some View { block }
 
     private var block: some View {
         // The loader hangs off a container that always exists while it's on: on an EmptyView `.task` never runs.

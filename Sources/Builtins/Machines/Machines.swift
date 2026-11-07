@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 import Core
 import DesignKit
 import WorkbenchKit
+import KelpKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
@@ -76,7 +77,7 @@ extension AppModel {
 
     /// A terminal in the machine (nil `command`: its shell), in this screen's project folder, shared at the same path; in
     /// its home folder when that folder can't be shared.
-    package func runInMachine(_ name: String, command: String? = nil) {
+    func runInMachine(_ name: String, command: String? = nil) {
         let folder = workbench.workspaceId.flatMap(worktree)?.path
         let home = folder.map { !VMs.mayShare($0) } ?? true
         var line = "kelp vm run " + VMs.shellQuoted(name) + (home ? " --home" : "")
@@ -85,10 +86,10 @@ extension AppModel {
     }
 
     /// The machines as the daemon last told (`WatchTopic.machines`).
-    package var machineList: [VMInfo] { latest(MachinesEvent.self)?.machines ?? [] }
+    var machineList: [VMInfo] { latest(MachinesEvent.self)?.machines ?? [] }
 
     /// Start, sleep or stop it; its row shows the answer at once, the watch the rest.
-    package func control(machine name: String, _ action: VMControl.Action) {
+    func control(machine name: String, _ action: VMControl.Action) {
         Task {
             guard let v = await call(VMControl(name: name, action: action)), let i = machineList.firstIndex(where: { $0.id == v.id }) else { return }
             var list = machineList
@@ -98,10 +99,9 @@ extension AppModel {
     }
 
     /// The machine the session runs a command in now, if any (`kelp vm run`).
-    func machine(runningFor session: String) -> String? { machineList.first { $0.sessions?.contains(session) == true }?.machine.name }
 
     /// What a machine's state reads as, and in what colour.
-    package func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
+    func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
         switch v.state {
         case .running: (String(localized: "Running"), .textGreen)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
@@ -114,7 +114,7 @@ extension AppModel {
     }
 
     /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
-    package func stepText(_ v: VMInfo) -> String {
+    func stepText(_ v: VMInfo) -> String {
         let what = v.detail ?? ""
         let text: String = switch v.step {
         case .asking: String(localized: "Asking Apple for the latest macOS")

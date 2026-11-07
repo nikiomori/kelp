@@ -76,7 +76,7 @@ package final class ThemeManager {
     private(set) var look = WindowLook()
     /// The chrome's text, what panels rebuild for: its size and the theme's face.
     private(set) package var chromeText = " "
-    private(set) var chromeDesign = Font.Design.default
+    private(set) package var chromeDesign = Font.Design.default
 
     static let builtin: [Theme] = [
         Theme(id: "kelp.light", name: "Kelp Light", appearance: "light",

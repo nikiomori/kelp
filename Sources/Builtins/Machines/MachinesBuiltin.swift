@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Core
 import KelpKit
 
@@ -10,6 +11,11 @@ extension Builtins {
                                           icon: "shippingbox") { app in
         var c = Contributions()
         c.tabs = [TabProvider(schemes: ["vm"]) { MachineTab(uri: $0, app: app) }]
+        c.sidebarSections = [SidebarSection(id: "machines") {
+            let v = NSHostingView(rootView: MachinesView(app: app))   // Kelp's virtual machines, once there's one
+            v.sizingOptions = [.intrinsicContentSize]
+            return v
+        }]
         return c
     }
 }

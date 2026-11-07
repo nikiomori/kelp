@@ -505,7 +505,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
-        "KelpKit/Machines.swift": (2, "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"),
+        "Builtins/Machines/Machines.swift": (2, "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (2, "a local page, shown: it reloads as its folder changes; a page's screenshot"),
         "Builtins/Browser/BrowserDownloads.swift": (2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"),
@@ -554,4 +554,29 @@ private func codeOnly(_ s: String) -> String {
             && !lines[i].contains("@ObservationIgnored") && !(i > 0 && lines[i - 1].contains("@ObservationIgnored"))
     }
     #expect(observed.count <= 10, "AppModel's observed stored properties: \(observed.count)")
+}
+
+/// The shell doesn't know its built-ins: no id of one, nor of a panel or command one contributes, written in KelpKit as
+/// a string (an import of one fails to build already, `builtinsAreModulesTheShellCantName`; a string named one around
+/// that). The menu bar is laid out by command id on purpose (MainMenu.swift, AppDelegate's validation of it): the
+/// shell's own layout, as Zed's app menus are. The rest is a ceiling that only goes down.
+@Test func theShellNamesNoBuiltinByString() throws {
+    var names: Set<String> = []
+    for f in sources(["Sources/Builtins"]) {
+        for p in [#"Builtin\("([\w.]+)""#, #"PanelSpec\(\s*id:\s*"([\w.]+)""#, #"(?:CommandSpec\(id:|cmd\()\s*"([\w.]+)""#] {
+            let re = try NSRegularExpression(pattern: p)
+            for m in re.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)) {
+                if let r = Range(m.range(at: 1), in: f.text) { names.insert(String(f.text[r])) }
+            }
+        }
+    }
+    #expect(names.count > 50, "the built-ins' names weren't found: \(names.count)")
+    let layout: Set<String> = ["Sources/KelpKit/MainMenu.swift", "Sources/KelpKit/AppDelegate.swift"]
+    var named: [String] = []
+    for f in sources(["Sources/KelpKit"]) where !layout.contains(f.path) {
+        // Strings kept (they're what's looked for), comments not.
+        let code = f.text.components(separatedBy: "\n").map { $0.components(separatedBy: "// ").first ?? "" }.joined(separator: "\n")
+        for n in names where code.contains("\"\(n)\"") { named.append("\(f.path): \(n)") }
+    }
+    #expect(named.count <= 11, "the shell names built-ins: \(named.sorted())")
 }

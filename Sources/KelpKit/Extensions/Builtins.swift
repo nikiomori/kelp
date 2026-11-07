@@ -11,9 +11,13 @@ package struct Builtin {
     /// What it adds to `app`: its tabs, panels and commands are made with it.
     let contribute: @MainActor (_ app: AppModel) -> Contributions
 
-    package init(_ id: String, _ name: String, _ description: String, icon: String, essential: Bool = false,
+    /// Off on a clean install: Settings › Extensions turns it on (once settings.json has its own list, that list decides).
+    let offByDefault: Bool
+
+    package init(_ id: String, _ name: String, _ description: String, icon: String, essential: Bool = false, offByDefault: Bool = false,
                  _ contribute: @escaping @MainActor (_ app: AppModel) -> Contributions) {
         info = ExtensionInfo(id: id, name: name, description: description, version: "built-in", icon: icon, builtin: true, essential: essential, enabled: true)
+        self.offByDefault = offByDefault
         self.contribute = contribute
     }
 }

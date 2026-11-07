@@ -38,6 +38,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     let outline = SidebarOutline()
     private let scroll = SidebarScrollView()
     private var addTrailing = NSLayoutConstraint(), footerTrailing = NSLayoutConstraint()
+    /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
+    private weak var sections: NSStackView?
     /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
     /// before the editor card is past the column's edge). The cards, Add Project and the limits stop short of it; the
     /// scroller's knob runs in it, off the cards.
@@ -106,8 +108,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
 
         let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
-        let machines = NSHostingView(rootView: MachinesView(app: app))   // Kelp's virtual machines, once there's one
-        machines.sizingOptions = [.intrinsicContentSize]
+        // The built-ins' own blocks (Machines), under the projects; made again when one is turned on or off.
+        let machines = NSStackView()
+        machines.orientation = .vertical
+        machines.spacing = 0
+        sections = machines
+        track(owner: self) { [app] in app.extensions.all.sidebarSections.map(\.id) } changed: { [weak self] _ in self?.makeSections() }
         let v = NSView()
         // Over the projects it adds to, where people look for it.
         let add = NSButton.titlebar("folder.badge.plus", String(localized: "Add Project"),
@@ -143,7 +149,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.latest(HostEvent.self).byKey } changed: { [weak self] _ in self?.updateHeaders() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
         // Who runs in which machine: their CPU and memory (new every 5 s while one runs) aren't on the rows.
-        track(owner: self) { [app] in app.machineList.map { [$0.machine.name] + ($0.sessions ?? []) } } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in
+            (app.latest(MachinesEvent.self)?.machines ?? []).map { [$0.machine.name] + ($0.sessions ?? []) }
+        } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
         track(owner: self) { [app] in app.themes.chromeText } changed: { [weak self] _ in self?.refresh() }
@@ -296,6 +304,17 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             summary.trailingAnchor.constraint(equalTo: add.leadingAnchor),
             list.topAnchor.constraint(equalTo: add.bottomAnchor)   // the list opens with a little air of its own
         ])
+    }
+
+    /// The built-ins' sidebar blocks as the registry has them now: each made afresh, in their order.
+    private func makeSections() {
+        guard let sections else { return }
+        sections.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for s in app.extensions.all.sidebarSections {
+            let v = s.make()
+            sections.addArrangedSubview(v)
+            v.widthAnchor.constraint(equalTo: sections.widthAnchor).isActive = true
+        }
     }
 
     /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
