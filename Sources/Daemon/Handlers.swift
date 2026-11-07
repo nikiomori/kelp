@@ -218,7 +218,7 @@ extension Daemon {
             throw RPCError.refused("“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
         }
         if let id = m.typesInto, sessions.existing(id)?.asksSomething == true {
-            throw RPCError.refused("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
+            throw RPCError.refused("That session asks a question, the user's to answer; send again once it's answered.")
         }
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).

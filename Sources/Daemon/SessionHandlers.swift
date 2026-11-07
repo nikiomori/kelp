@@ -54,6 +54,9 @@ extension SessionSend: SessionInput {
     /// Two sends in a row reach the session in that order (`submit` only queues: nothing here waits on the agent).
     static var inOrder: Bool { true }
     var actsOn: String? { id }
+    /// An agent's send to a session that asks something (a hookless agent's "(y/n)" read off its screen included) is
+    /// refused, not queued: `submit` holds text only for a question an agent said, and its Enter would answer this one.
+    var typesInto: String? { id }
     func apply(to s: LiveSession) throws -> Done {
         // Still starting (woken just now, by this send or anyone else), a question open, an unread draft in the box, or
         // text still waiting ahead: queued, and typed once the program is ready for it (`LiveSession.submit`). A paused

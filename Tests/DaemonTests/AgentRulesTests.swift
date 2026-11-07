@@ -518,4 +518,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         refusal = e.message
     }
     #expect(refusal.contains("asks a question"))
+    refusal = ""   // nor sent: a send's Enter would answer it too
+    do { try r.d.allow(SessionSend(id: menu.id, text: "go"), conn: 0, caller: .detached) } catch let e as RPCError where e.isRefusal {
+        refusal = e.message
+    }
+    #expect(refusal.contains("asks a question"))
 }

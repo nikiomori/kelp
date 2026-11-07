@@ -263,7 +263,8 @@ the window to another workspace and take its picture (`kelp shot`, which the ext
 built): what another session's terminal shows there, it sees. With tmux, a pane counts for the user's terminal attached
 only while it's the one shown there, so an agent that types into the user's tmux (`tmux send-keys`) runs as the user,
 and a script of the user's in a pane out of sight is held to an agent's rules. An agent another app runs (an editor's
-assistant) is that app's, and so the user's. Agents, `kelpd`, `unknown` and
+assistant) is that app's, and so the user's; so is an app an agent builds and opens (`open build/Foo.app`): what that
+app runs calls Kelp as the user. Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
