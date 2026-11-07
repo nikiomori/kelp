@@ -142,7 +142,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.rowBadges.stats } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.hostStats } changed: { [weak self] _ in self?.updateHeaders() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
-        track(owner: self) { [app] in app.machines } changed: { [weak self] _ in self?.updateVisibleCells() }   // who runs in one
+        // Who runs in which machine: their CPU and memory (new every 5 s while one runs) aren't on the rows.
+        track(owner: self) { [app] in app.machines.map { [$0.machine.name] + ($0.sessions ?? []) } } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
         track(owner: self) { [app] in app.themes.chromeText } changed: { [weak self] _ in self?.refresh() }
