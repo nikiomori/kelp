@@ -15,6 +15,11 @@ import EditorKit
     #expect(ReplaceInText.applying([plan[1]], to: "let a1 = 1\n  use(a2)\n") == "let a1 = 1\n  use(b2)\n")
     #expect(ReplaceInText.applying(plan, to: "let a1 = 1\n  use(a2)\n") == "let b1 = 1\n  use(b2)\n")
     #expect(throws: (any Error).self) { try ReplaceInText.plan("x", query: "(", options: o, template: "") }
+    // In any order, with text around and between in more than one alphabet, a replacement longer or empty.
+    let text = "ä a1 🌊 a22 a3 end", many = try ReplaceInText.plan(text, query: "a(\\d+)", options: o, template: "[$1]")
+    #expect(ReplaceInText.applying(many.reversed(), to: text) == "ä [1] 🌊 [22] [3] end")
+    let gone = try ReplaceInText.plan(text, query: "a\\d+ ?", options: o, template: "")
+    #expect(ReplaceInText.applying(gone, to: text) == "ä 🌊 end")
 }
 
 extension AppOfItsOwn {

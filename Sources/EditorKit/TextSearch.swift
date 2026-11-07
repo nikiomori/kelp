@@ -62,9 +62,16 @@ public enum ReplaceInText {
         }
     }
 
+    /// In one pass from the start: replacing in place moved the rest of the file once per match (10k matches in 3.8 MB, 5.5 s).
     public static func applying(_ matches: [ReplaceMatch], to text: String) -> String {
-        let s = NSMutableString(string: text)
-        for m in matches.sorted(by: { $0.range.location > $1.range.location }) { s.replaceCharacters(in: m.range, with: m.text) }
-        return s as String
+        let s = text as NSString, out = NSMutableString(capacity: s.length)
+        var at = 0
+        for m in matches.sorted(by: { $0.range.location < $1.range.location }) where m.range.location >= at {
+            out.append(s.substring(with: NSRange(location: at, length: m.range.location - at)))
+            out.append(m.text)
+            at = NSMaxRange(m.range)
+        }
+        out.append(s.substring(from: at))
+        return out as String
     }
 }

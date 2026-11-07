@@ -30,7 +30,8 @@ extension FilesPanel {
             for name in names where !edited.contains(real(root + "/" + name)) {
                 guard let r = await app.quiet(FilesRead(path: root + "/" + name)) else { continue }
                 do {
-                    let plan = try ReplaceInText.plan(r.text, query: query, options: options, template: template)
+                    let text = r.text   // the regex over a big file is off the main thread
+                    let plan = try await Task.detached { [options] in try ReplaceInText.plan(text, query: query, options: options, template: template) }.value
                     if plan.isEmpty { continue }
                     files.append(ReplaceFile(path: root + "/" + name, name: name, text: r.text, stamp: r.stamp, matches: plan, chosen: Set(plan.indices)))
                 } catch {
