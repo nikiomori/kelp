@@ -62,6 +62,8 @@ public final class CodeEditor: NSObject {
     var hoverShownAt: Int?
     var hoverCard: NSPopover?
     var signatureCard: NSPopover?
+    /// The signature asked once typing pauses (`askSignature`).
+    var signatureAsk: Task<Void, Never>?
     /// What each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
     /// The selection they led to.

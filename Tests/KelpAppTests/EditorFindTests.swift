@@ -49,6 +49,21 @@ extension OneAtATime {
         e.undoManager(for: e.textView)?.undo()
         #expect(e.text == "foo1 bar foo2 bar foo3\n")
     }
+
+    /// Typing with the bar open: the matches follow once the keys pause, not on every key.
+    @MainActor @Test func theBarsMatchesFollowAnEditOnceTypingPauses() async throws {
+        _ = NSApplication.shared
+        let e = editor("foo bar\n")
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        window.contentView = e.view
+        e.openFind(with: "foo")
+        #expect(e.textView.findMarks.count == 1)
+        e.textView.setSelectedRange(NSRange(location: 8, length: 0))
+        e.textView.insertText("foo foo", replacementRange: e.textView.selectedRange())
+        #expect(e.textView.findMarks.count == 1)   // not yet
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(e.textView.findMarks.count == 3)
+    }
 }
 
 /// The keys stay in the field, whose field editor is a text view too: a ⌘G sent up the chain would stop there, and the menu's

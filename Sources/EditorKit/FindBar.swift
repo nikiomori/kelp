@@ -92,7 +92,15 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     /// The text changed under it: the matches move, the cursor stays where the edit left it.
-    func textChanged() { if !isHidden { search(moving: false) } }
+    /// A moment after the typing stops: a search per key over a 5 MB file was 19 ms of every key while the bar was open.
+    func textChanged() {
+        guard !isHidden else { return }
+        researching?.cancel()
+        let again = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search(moving: false) } }   // main queue
+        researching = again
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: again)
+    }
+    private var researching: DispatchWorkItem?
 
     private func flip(_ option: WritableKeyPath<FindOptions, Bool>) {
         options[keyPath: option].toggle()

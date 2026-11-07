@@ -56,10 +56,14 @@ extension CodeEditor {
         if s == ")" { signatureCard?.close() } else if s == "(" || s == "," || signatureCard?.isShown == true { askSignature() }
     }
 
+    /// Once keys pause: each ask first sends the language server the whole file, and every key asked twice (the key, the
+    /// cursor moving), past the edits' own pause.
     func askSignature() {
         guard let signatureProvider else { return }
-        let at = textView.selectedRange().location, (line, column) = position(of: at)
-        Task { [weak self] in
+        signatureAsk?.cancel()
+        signatureAsk = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+            guard let at = self?.textView.selectedRange().location, let (line, column) = self?.position(of: at) else { return }
             let found = await signatureProvider(line, column)
             guard let self, textView.selectedRange().location == at else { return }
             guard let found else { signatureCard?.close(); return }
