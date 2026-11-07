@@ -33,7 +33,8 @@ struct MachinesView: View {
                 .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
                 ForEach(app.machines) { row($0) }
             }
-            .padding(.horizontal, Metrics.gapWide).padding(.bottom, app.machines.isEmpty ? 0 : Metrics.gap)
+            // Room under it even without machines: the plan limits' rule right under the heading read as its first row.
+            .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
         }
         .fontDesign(app.themes.chromeDesign)
         // Watched while shown: the daemon reads them every 5 s, every second while one starts.
