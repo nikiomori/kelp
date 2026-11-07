@@ -158,6 +158,10 @@ import PDFKit
     try FileManager.default.createSymbolicLink(atPath: rig.repo + "/out", withDestinationPath: "/etc")
     #expect(links.isKnown(rig.repo + "/f.txt"))
     #expect(links.isKnown(Paths.root.path + "/scratch/a.md"))
+    #expect(links.isKnown(rig.repo + "/not/there/yet.md"))   // a path not there yet: by its folder that is
+    // A project kept as it really is (`/private/var/…`) holds a link's path written without `/private`, and the reverse.
+    let real = try #require(Paths.real(rig.repo)), plain = real.replacingOccurrences(of: "/private/", with: "/")
+    #expect(KelpLinks.within(plain + "/f.txt", real) && KelpLinks.within(real + "/f.txt", plain) && KelpLinks.within(plain, real, orIs: true))
     for elsewhere in ["/etc/hosts", rig.repo + "/../../../etc/hosts", rig.repo + "/out/hosts", rig.repo + "x/f.txt"] {
         #expect(!links.isKnown(elsewhere), "\(elsewhere)")
     }

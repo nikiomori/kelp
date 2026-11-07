@@ -305,8 +305,7 @@ struct KelpLinks {
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
                 openFile(path, line: q.first { $0.name == "line" }?.value.flatMap(Int.init))
-            } else if case let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
-                      app.repos.contains(where: { real == $0.path || real.hasPrefix($0.path + "/") }) {   // a link out of a project isn't in it
+            } else if app.repos.contains(where: { Self.within(path, $0.path, orIs: true) }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
                 let a = NSAlert(); a.messageText = String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?")
@@ -332,9 +331,22 @@ struct KelpLinks {
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
     func isKnown(_ path: String) -> Bool {
-        let real = { (p: String) in URL(fileURLWithPath: p).standardizedFileURL.resolvingSymlinksInPath().path }
-        let file = real(path)
-        return (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { file.hasPrefix(real($0) + "/") }
+        (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { Self.within(path, $0) }
+    }
+
+    /// Whether `path` is in `folder` (or is it), both as they really are (`Paths.real`, as projects are kept): `..` and
+    /// links followed.
+    static func within(_ path: String, _ folder: String, orIs: Bool = false) -> Bool {
+        let (p, f) = (real(path), real(folder))
+        return p.hasPrefix(f + "/") || (orIs && p == f)
+    }
+
+    /// A path not there (yet) is its nearest folder that is, as it really is, and the rest as written.
+    private static func real(_ path: String) -> String {
+        let s = (path as NSString).standardizingPath
+        if let r = Paths.real(s) { return r }
+        let up = (s as NSString).deletingLastPathComponent
+        return up == s ? s : (real(up) as NSString).appendingPathComponent((s as NSString).lastPathComponent)
     }
 }
 
