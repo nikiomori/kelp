@@ -14,6 +14,11 @@ final class SidebarCell: NSTableCellView {
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     private let trailing = NSTextField(labelWithString: "")
     private let mark = StatusMark(size: 12)
+    /// A chat's logo with its state in the corner, in the slot where the mark would be (Agent icons: Always): the name
+    /// starts where the project's does, as it would with the mark alone.
+    private let face = AgentFace()
+    /// The mark, kept out of sight while the face says the state.
+    private let markBox = NSView()
     /// The first thing in every row, in one column: at rest it says what the row is (an agent's mark, the column people
     /// scan for who needs them; a project's icon; a group's), under the pointer it's the row's own action (`action`), as a
     /// tab's slot is. Kept when empty, so names line up.
@@ -110,16 +115,14 @@ final class SidebarCell: NSTableCellView {
             layout(row: [slot, title, detail, muted, stack, changes, pr, ci, trailing])
         case .agent:
             title.font = .ui(13)
-            for (v, side) in [(icon, 14.0), (glyph, 12.0)] {
-                v.imageScaling = .scaleProportionallyUpOrDown
-                NSLayoutConstraint.activate([v.widthAnchor.constraint(equalToConstant: side), v.heightAnchor.constraint(equalToConstant: side)])
-            }
+            glyph.imageScaling = .scaleProportionallyUpOrDown
+            NSLayoutConstraint.activate([glyph.widthAnchor.constraint(equalToConstant: 12), glyph.heightAnchor.constraint(equalToConstant: 12)])
             glyph.alphaValue = 0.75
             chip.isHidden = true
-            fillSlot(mark)
+            fillSlot(lead())
             action.image = .symbol("xmark", String(localized: "Close Chat"))
             action.toolTip = String(localized: "Close Chat")
-            layout(row: [slot, icon, title, muted, glyph, chip, family, trailing])
+            layout(row: [slot, title, muted, glyph, chip, family, trailing])
             addAsk()
         case .host, .parked: break   // a ServerHeader, a ParkedHeader
         }
@@ -364,6 +367,7 @@ final class SidebarCell: NSTableCellView {
             mark.waitsForCommand = s.waitsForCommand
             mark.guessed = s.guessed == true
             mark.progress = s.progress.map { Double($0) / 100 }
+            showFace(s)
             // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
             // A chat with no project working in a folder you picked says which (its own folders are just dates).
             let r = m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }
@@ -387,15 +391,47 @@ final class SidebarCell: NSTableCellView {
     /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
     private func showIcon(_ s: Session) {
         let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
-        icon.isHidden = mode != "always"
-        let shown = s.status == .paused ? image.map(app.agentIcons.grey) : image
-        if icon.image !== shown { icon.image = shown }   // setting it draws it again, for every row on every pass
-        icon.alphaValue = s.status == .paused ? 0.7 : 1
+        face.isHidden = mode != "always"
+        markBox.isHidden = !face.isHidden
+        face.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
+        face.alphaValue = s.status == .paused ? 0.7 : 1
         glyph.isHidden = mode != "others" || s.agent == app.catalog.defaultAgent
         let mark = glyph.isHidden ? nil : image.map(app.agentIcons.grey)
         if glyph.image !== mark { glyph.image = mark }
         glyph.toolTip = app.catalog.name(s.agent)
         glyph.setAccessibilityLabel(glyph.toolTip)
+    }
+
+    /// The slot's two looks, one shown (`showIcon`): the mark, or the logo with the mark in its corner.
+    private func lead() -> NSView {
+        let v = NSView()
+        markBox.addSubview(mark)
+        for (child, side) in [(markBox, 16.0), (face, AgentFace.side)] as [(NSView, CGFloat)] {
+            child.translatesAutoresizingMaskIntoConstraints = false
+            v.addSubview(child)
+            NSLayoutConstraint.activate([
+                child.widthAnchor.constraint(equalToConstant: side), child.heightAnchor.constraint(equalToConstant: side),
+                child.centerXAnchor.constraint(equalTo: v.centerXAnchor), child.centerYAnchor.constraint(equalTo: v.centerYAnchor)
+            ])
+        }
+        NSLayoutConstraint.activate([
+            mark.centerXAnchor.constraint(equalTo: markBox.centerXAnchor), mark.centerYAnchor.constraint(equalTo: markBox.centerYAnchor),
+            v.widthAnchor.constraint(equalToConstant: 16), v.heightAnchor.constraint(equalToConstant: 16)
+        ])
+        return v
+    }
+
+    /// The face's corner says what the row's mark would.
+    private func showFace(_ s: Session) {
+        let m = face.mark
+        m.status = mark.status
+        m.unread = mark.unread
+        m.limited = mark.limited
+        m.compacting = mark.compacting
+        m.waitsForCommand = mark.waitsForCommand
+        m.guessed = mark.guessed
+        m.progress = mark.progress
+        face.cut()
     }
 
     /// VoiceOver reads the row as one sentence: "Fix login, needs your input, Asks: may I run npm test?, Atlas, now",

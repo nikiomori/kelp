@@ -7,7 +7,7 @@ import DesignKit
 /// macOS marks a person's status on their picture. Four at most, then "+N"; the tooltip names each and what it does.
 @MainActor
 final class AgentStack: NSView {
-    private static let side: CGFloat = 14, step: CGFloat = 17, most = 4
+    private static let side = AgentFace.side, step: CGFloat = 17, most = 4
     private let more = NSTextField(labelWithString: "")
     private var faces: [NSView] = []
     private var total = 0
@@ -73,30 +73,13 @@ final class AgentStack: NSView {
     }
 
     private func face(_ s: Session, _ app: AppModel) -> NSView {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: Self.side, height: Self.side))
-        let logo = NSImageView(frame: v.bounds)
-        logo.imageScaling = .scaleProportionallyUpOrDown
+        let f = AgentFace()
         let image = app.catalog.icon(s.agent, size: Self.side)
-        logo.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
-        v.addSubview(logo)
-        if let st = Self.badge(s) {
-            let mark = StatusMark(size: 8)
-            mark.status = st
-            mark.unread = true
-            mark.announces = false
-            mark.frame = NSRect(x: Self.side - 6, y: -2, width: 8, height: 8)
-            // The logo gives way around the mark: a clear ring, whatever the sidebar's material shows through.
-            logo.wantsLayer = true
-            let cut = CAShapeLayer(), hole = CGPath(ellipseIn: mark.frame.insetBy(dx: -1.5, dy: -1.5), transform: nil)
-            let path = CGMutablePath()
-            path.addRect(logo.bounds)
-            path.addPath(hole)
-            cut.path = path
-            cut.fillRule = .evenOdd
-            logo.layer?.mask = cut
-            v.addSubview(mark)
-        }
-        return v
+        f.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
+        f.mark.status = Self.badge(s)
+        f.mark.unread = true
+        f.cut()
+        return f
     }
 
     override var intrinsicContentSize: NSSize { NSSize(width: width(showing: cap), height: Self.side) }
