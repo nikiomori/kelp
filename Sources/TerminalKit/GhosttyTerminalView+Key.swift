@@ -3,7 +3,8 @@ import GhosttyKit
 
 extension GhosttyTerminalView {
     /// The window going to the back (another app, another window) unfocuses the terminal typed in, as in Ghostty: an
-    /// unfocused surface draws at most 30 times a second (scripts/ghostty-patches) and shows a hollow cursor.
+    /// unfocused surface draws output at most 30 times a second, a scroll at once (scripts/ghostty-patches), and shows a
+    /// hollow cursor.
     func followKey(of w: NSWindow) -> [NSObjectProtocol] {
         [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
             NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
